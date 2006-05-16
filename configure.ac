@@ -30,6 +30,7 @@ NIH_COMPILER_COVERAGE
 NIH_LINKER_OPTIMISATIONS
 NIH_LINKER_VERSION_SCRIPT
 
-AC_CONFIG_FILES([ Makefile po/Makefile.in intl/Makefile ])
+AC_CONFIG_FILES([ Makefile po/Makefile.in intl/Makefile nih/Makefile
+		  init/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

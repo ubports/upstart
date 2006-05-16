@@ -1,3 +1,11 @@
+2006-05-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c: Add the simplest template main.c
+	* init/Makefile.am: Add template Makefile.am that builds init from
+	main.c and links to libnih statically
+	* configure.ac (AC_CONFIG_FILES): Configure nih and init subdirs.
+	* Makefile.am (SUBDIRS): Recurse into nih and init subdirs.
+
 2006-05-14  Scott James Remnant  <scott@netsplit.com>
 
 	* ChangeLog: Initial project infrastructure created.
