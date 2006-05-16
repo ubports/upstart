@@ -37,3 +37,4 @@ po/*.header
 po/Rules-quot
 po/stamp-po
 po/upstart.pot
+init/init
