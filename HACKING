@@ -2,11 +2,11 @@ The upstart source tree is available using Bazaar-NG with the
 following URL, if you plan to hack on upstart please work off this
 branch.
 
-	http://www.netsplit.com/bzr/upstart/
+	http://bazaar.launchpad.net/~upstart/main
 
-Releases are available from the FTP site:
+Releases are available from:
 
-	ftp://ftp.netsplit.com/pub/upstart/
+	http://people.ubuntu.com/~scott/software/upstart/
 
 upstart uses the Malone bug tracking system:
 

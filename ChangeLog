@@ -1,3 +1,12 @@
+2006-07-13  Scott James Remnant  <scott@netsplit.com>
+
+	* AUTHORS: Change e-mail address to ubuntu.com.
+	* HACKING: Update Bazaar and Release URLS.
+	* configure.ac (AC_COPYRIGHT): Change copyright to Canonical Ltd.
+	(AC_INIT): Change bug submission address to Launchpad.
+	* init/main.c: Update header to use Canonical copyright and
+	credit me as author.
+
 2006-05-16  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c: Add the simplest template main.c

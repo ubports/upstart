@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([upstart], [0.1.0], [upstart-bugs@netsplit.com])
-AC_COPYRIGHT([[Copyright © 2006 Scott James Remnant <scott@netsplit.com>.]])
+AC_INIT([upstart], [0.1.0], [new@bugs.launchpad.net])
+AC_COPYRIGHT([[Copyright © 2006 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
