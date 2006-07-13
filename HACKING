@@ -2,7 +2,7 @@ The upstart source tree is available using Bazaar-NG with the
 following URL, if you plan to hack on upstart please work off this
 branch.
 
-	http://bazaar.launchpad.net/~upstart/main
+	http://bazaar.launchpad.net/~keybuk/upstart/main
 
 Releases are available from:
 
