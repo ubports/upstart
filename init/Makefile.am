@@ -1,8 +1,10 @@
 ## Process this file with automake to produce Makefile.in
 
+DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir)
+
 localedir = $(datadir)/locale
-DEFS = -DLOCALEDIR="\"$(localedir)\""
-INCLUDES = -I$(top_srcdir)/intl -I$(top_srcdir)
+DEFS += -DLOCALEDIR="\"$(localedir)\""
+INCLUDES = -I$(top_srcdir)/intl
 
 
 sbin_PROGRAMS = init
