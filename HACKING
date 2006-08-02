@@ -18,6 +18,25 @@ URL to your own Bazaar-NG branch or use the ‘unified’ diff format
 ChangeLog entry with your patch.
 
 
+Dependencies
+------------
+
+Upstart uses the libnih library to provide a standard set of utility
+functions used throughout the source.  This library has not yet been
+released in a stand-alone fashion and must instead be shipped with the
+source.
+
+If you checked upstart out from Bazaar-NG you will also need to check
+libnih out from the following URL:
+
+	http://www.netsplit.com/bzr/libnih/
+
+and from the upstart working directory run the nihify script found in
+the libnih working directory, usually just:
+
+	../libnih/nihify
+
+
 Maintainer tools
 ----------------
 
@@ -30,7 +49,7 @@ installed.
 	* GNU Libtool 1.5.22
 	* GNU Gettext 0.14.5
 
-After checking our upstart from Bazaar-NG you will need to use these
+After checking out upstart from Bazaar-NG you will need to use these
 tools to generate the build files.  The correct way to do this is to
 simply run ‘autoreconf -i’ from the top-level source directory.
 

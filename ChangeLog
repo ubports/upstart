@@ -1,3 +1,7 @@
+2006-08-02  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Document dependency on libnih.
+
 2006-07-27  Scott James Remnant  <scott@netsplit.com>
 
 	* init/Makefile.am (DEFS): Append to the default DEFS list, rather
