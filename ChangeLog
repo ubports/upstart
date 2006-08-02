@@ -1,5 +1,7 @@
 2006-08-02  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Check for C99
+
 	* HACKING: Document dependency on libnih.
 
 2006-07-27  Scott James Remnant  <scott@netsplit.com>
