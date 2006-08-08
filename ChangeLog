@@ -1,3 +1,28 @@
+2006-08-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.h: Header file to contain the definition of the Job
+	structure and associated typedefs, etc.
+	(JobGoal): In a divergence from the specification, we introduced a
+	"goal" for a job which tells us which way round the state machine
+	we're going (towards start, or towards stop).
+	(JobState): Which means this always holds the current state, even
+	if we're trying to get out of this state (ie. if we've sent the TERM
+	signal to the running process, we're still in the running state until
+	it's actually been reaped).
+	(ProcessState): And in another divergence, we keep the state of the
+	process so we know whether we need to force a state transition or
+	can just expect one because something transient is happening.
+	* init/job.c (job_new): Function to allocate a Job structure, set
+	the pointers to NULL and other important members to sensible
+	defaults.
+	(job_init): Initialise the list of jobs.
+	* init/tests/test_job.c: Test suite.
+	* init/Makefile.am (init_SOURCES): Compile and link job.c using
+	its header file.
+	(TESTS): Run the job test suite.
+	(test_job_SOURCES, test_job_LDFLAGS, test_job_LDADD): Details for the
+	job test suite binary.
+
 2006-08-02  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Check for C99
