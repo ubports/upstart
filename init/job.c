@@ -66,7 +66,7 @@ job_init (void)
  * appends it to the internal list of registered jobs.  It is up to the
  * caller to ensure that @name is unique amongst the job list.
  *
- * The job can be removed using #nih_free.
+ * The job can be removed using #nih_list_free.
  *
  * Returns: newly allocated job structure or %NULL if insufficient memory.
  **/

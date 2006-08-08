@@ -114,6 +114,8 @@ test_new (void)
 		ret = 1;
 	}
 
+	nih_list_free (&job->entry);
+
 	return ret;
 }
 

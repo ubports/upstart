@@ -1,5 +1,8 @@
 2006-08-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_new): nih_list_free is necessary.
+	* init/tests/test_job.c (test_new): Free job when done.
+
 	* init/job.h: Header file to contain the definition of the Job
 	structure and associated typedefs, etc.
 	(JobGoal): In a divergence from the specification, we introduced a
