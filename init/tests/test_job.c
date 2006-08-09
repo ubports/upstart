@@ -121,12 +121,119 @@ test_new (void)
 
 
 int
+test_find_by_name (void)
+{
+	Job *job1, *job2, *job3, *ptr;
+	int  ret = 0;
+
+	printf ("Testing job_find_by_name()\n");
+	job1 = job_new (NULL, "foo");
+	job2 = job_new (NULL, "bar");
+	job3 = job_new (NULL, "baz");
+
+	printf ("...with name we expect to find\n");
+	ptr = job_find_by_name ("bar");
+
+	/* Pointer returned should be to job with that name */
+	if (ptr != job2) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with name we do not expect to find\n");
+	ptr = job_find_by_name ("frodo");
+
+	/* Pointer returned should be NULL */
+	if (ptr != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with empty job list\n");
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+	ptr = job_find_by_name ("bar");
+
+	/* Pointer returned should be NULL */
+	if (ptr != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+int
+test_find_by_pid (void)
+{
+	Job *job1, *job2, *job3, *ptr;
+	int  ret = 0;
+
+	printf ("Testing job_find_by_pid()\n");
+	job1 = job_new (NULL, "foo");
+	job1->pid = 10;
+	job2 = job_new (NULL, "bar");
+	job3 = job_new (NULL, "baz");
+	job3->pid = 20;
+
+	printf ("...with pid we expect to find\n");
+	ptr = job_find_by_pid (20);
+
+	/* Pointer returned should be to job with that pid */
+	if (ptr != job3) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with pid we do not expect to find\n");
+	ptr = job_find_by_pid (30);
+
+	/* Pointer returned should be NULL */
+	if (ptr != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with no pids in job list\n");
+	nih_list_free (&job3->entry);
+	nih_list_free (&job1->entry);
+	ptr = job_find_by_pid (20);
+
+	/* Pointer returned should be NULL */
+	if (ptr != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with empty job list\n");
+	nih_list_free (&job2->entry);
+	ptr = job_find_by_pid (20);
+
+	/* Pointer returned should be NULL */
+	if (ptr != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+
+int
 main (int   argc,
       char *argv[])
 {
 	int ret = 0;
 
 	ret |= test_new ();
+	ret |= test_find_by_name ();
+	ret |= test_find_by_pid ();
 
 	return ret;
 }

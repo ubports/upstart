@@ -28,10 +28,13 @@
 #include <string.h>
 
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/logging.h>
 #include <nih/error.h>
-#include <nih/string.h>
+#include <nih/errors.h>
 
+#include "event.h"
+#include "process.h"
 #include "job.h"
 
 
@@ -133,4 +136,59 @@ job_new (void       *parent,
 	nih_list_add (jobs, &job->entry);
 
 	return job;
+}
+
+
+/**
+ * job_find_by_name:
+ * @name: name of job.
+ *
+ * Finds the job with the given @name in the list of known jobs.
+ *
+ * Returns: job found or %NULL if not known.
+ **/
+Job *
+job_find_by_name (const char *name)
+{
+	Job *job;
+
+	nih_assert (name != NULL);
+
+	job_init ();
+
+	NIH_LIST_FOREACH (jobs, iter) {
+		job = (Job *)iter;
+
+		if (! strcmp (job->name, name))
+			return job;
+	}
+
+	return NULL;
+}
+
+/**
+ * job_find_by_pid:
+ * @pid: process id of job.
+ *
+ * Finds the job with a process of the given @pid in the list of known jobs.
+ *
+ * Returns: job found or %NULL if not known.
+ **/
+Job *
+job_find_by_pid (pid_t pid)
+{
+	Job *job;
+
+	nih_assert (pid > 0);
+
+	job_init ();
+
+	NIH_LIST_FOREACH (jobs, iter) {
+		job = (Job *)iter;
+
+		if (job->pid == pid)
+			return job;
+	}
+
+	return NULL;
 }
