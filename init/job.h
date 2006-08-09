@@ -230,7 +230,8 @@ Job *       job_find_by_name (const char *name);
 Job *       job_find_by_pid  (pid_t pid);
 
 JobState    job_next_state   (Job *job);
-const char *job_state_name   (JobState state);
+const char *job_state_name   (JobState state)
+	__attribute__ ((const));
 
 NIH_END_EXTERN
 
