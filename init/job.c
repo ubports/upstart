@@ -27,8 +27,10 @@
 
 #include <string.h>
 
+#include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/list.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>

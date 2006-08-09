@@ -25,10 +25,10 @@
 #endif /* HAVE_CONFIG_H */
 
 
-#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 
 #include <errno.h>
@@ -38,11 +38,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/signal.h>
 #include <nih/logging.h>
 #include <nih/error.h>
-#include <nih/signal.h>
-#include <nih/file.h>
 
 #include "job.h"
 #include "process.h"

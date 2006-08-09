@@ -35,6 +35,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/list.h>
 
 #include "job.h"
 #include "process.h"

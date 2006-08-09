@@ -25,7 +25,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/list.h>
 
 #include "job.h"
 
