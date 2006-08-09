@@ -1,5 +1,7 @@
 2006-08-09  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Add file to keep track of things.
+
 	* init/job.c: Include nih/macros.h and nih/list.h
 	* init/process.c: Include order fixing, include nih/macros.h
 	* init/tests/test_job.c: Include nih/macros.h and nih/list.h

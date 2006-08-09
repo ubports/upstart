@@ -1,0 +1,47 @@
+split command
+or use shell if contains special characters
+
+execute process
+
+handle scripts properly (needs nih_io and /dev/fd? or shell -c if < 4K)
+chose command or script when executing process
+
+respawn if necessary
+check exit status against normalexit
+
+
+start jobs when events occur
+put jobs in dep-wait if have dependencies, generate dependency events
+take jobs out of dep-wait when events occur
+stop jobs when events occur
+
+control socket for receiving events
+check origin user (important!)
+querying state of event
+querying state of service
+manual stop/start of service
+send events
+send service changes
+
+config file
+
+logging
+
+
+
+handle location of pid/binary for spawned daemons
+
+deal with instances
+
+
+
+per-user services
+
+use pam (and thus read /etc/environment) to set up child process
+environment from event
+file descriptors from event
+
+register services
+
+temporal events
+scheduled times
