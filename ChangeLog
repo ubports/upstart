@@ -1,3 +1,21 @@
+2006-08-09  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): Spawn a process using the job
+	details to set up the environment, etc.
+	(process_setup_console): Set up the console according to the job.
+	(process_setup_limits): Set up the limits according to the job.
+	(process_setup_environment): Set up the environment according to
+	the job.
+	(process_kill): Simple function to send a kill signal or raise an
+	error; mostly just a wrapper without any particular logic.
+	* init/process.h: Prototypes and macros.
+	* init/tests/test_process.c: Test cases.
+	* init/Makefile.am (init_SOURCES): Build and link process.c and
+	its header file.
+	(TESTS): Run the process test suite.
+	(test_process_SOURCES, test_process_LDFLAGS, test_process_LDADD):
+	Details for process test sutie binary.
+
 2006-08-08  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_new): nih_list_free is necessary.
