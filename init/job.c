@@ -194,3 +194,91 @@ job_find_by_pid (pid_t pid)
 
 	return NULL;
 }
+
+
+/**
+ * job_next_state:
+ * @job: job undergoing state change.
+ *
+ * The next state a job needs to change into is not always obvious as it
+ * depends both on the current state and the ultimate goal of the job, ie.
+ * whether we're moving towards stop or start.
+ *
+ * This function contains the logic to decide the next state the job should
+ * be in based on the current state and goal.
+ *
+ * It is up to the caller to ensure the goal is set appropriately before
+ * calling this function, for example setting it to JOB_STOP if something
+ * failed.  It is also up to the caller to actually set the new state as
+ * this simply returns the suggested one.
+ *
+ * Returns: suggested state to change to.
+ **/
+JobState
+job_next_state (Job *job)
+{
+	nih_assert (job != NULL);
+
+	switch (job->state) {
+	case JOB_WAITING:
+		return job->state;
+	case JOB_STARTING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_RUNNING;
+		}
+	case JOB_RUNNING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_RESPAWNING;
+		}
+	case JOB_STOPPING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_WAITING;
+		case JOB_START:
+			return JOB_STARTING;
+		}
+	case JOB_RESPAWNING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_RUNNING;
+		}
+	default:
+		return job->state;
+	}
+}
+
+/**
+ * job_state_name:
+ * @state: state to convert.
+ *
+ * Converts an enumerated job state into the string used for the event
+ * and for logging purposes.
+ *
+ * Returns: static string or %NULL if state not known.
+ **/
+const char *
+job_state_name (JobState state)
+{
+	switch (state) {
+	case JOB_WAITING:
+		return "waiting";
+	case JOB_STARTING:
+		return "starting";
+	case JOB_RUNNING:
+		return "running";
+	case JOB_STOPPING:
+		return "stopping";
+	case JOB_RESPAWNING:
+		return "respawning";
+	default:
+		return NULL;
+	}
+}

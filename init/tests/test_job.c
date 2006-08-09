@@ -228,6 +228,199 @@ test_find_by_pid (void)
 
 
 int
+test_next_state (void)
+{
+	Job      *job;
+	JobState  state;
+	int       ret = 0;
+
+	printf ("Testing job_next_state()\n");
+	job = job_new (NULL, "test");
+
+	printf ("...with waiting job and a goal of stop\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	state = job_next_state (job);
+
+	/* Next state should be waiting */
+	if (state != JOB_WAITING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with waiting job and a goal of start\n");
+	job->goal = JOB_START;
+	job->state = JOB_WAITING;
+	state = job_next_state (job);
+
+	/* Next state should still be waiting (for dependency) */
+	if (state != JOB_WAITING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with starting job and a goal of stop\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_STARTING;
+	state = job_next_state (job);
+
+	/* Next state should be stopping */
+	if (state != JOB_STOPPING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with starting job and a goal of start\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	state = job_next_state (job);
+
+	/* Next state should be running */
+	if (state != JOB_RUNNING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running job and a goal of stop\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	state = job_next_state (job);
+
+	/* Next state should be stopping */
+	if (state != JOB_STOPPING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running job and a goal of start\n");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	state = job_next_state (job);
+
+	/* Next state should be respawning (goal gets changed if not daemon) */
+	if (state != JOB_RESPAWNING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stopping job and a goal of stop\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	state = job_next_state (job);
+
+	/* Next state should be waiting */
+	if (state != JOB_WAITING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stopping job and a goal of start\n");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	state = job_next_state (job);
+
+	/* Next state should be starting again */
+	if (state != JOB_STARTING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawning job and a goal of stop\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_RESPAWNING;
+	state = job_next_state (job);
+
+	/* Next state should be stopping */
+	if (state != JOB_STOPPING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawning job and a goal of start\n");
+	job->goal = JOB_START;
+	job->state = JOB_RESPAWNING;
+	state = job_next_state (job);
+
+	/* Next state should be running */
+	if (state != JOB_RUNNING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+int
+test_state_name (void)
+{
+	const char *name;
+	int         ret = 0;
+
+	printf ("Testing job_state_name()\n");
+
+	printf ("...with waiting state\n");
+	name = job_state_name (JOB_WAITING);
+
+	/* String should be waiting */
+	if (strcmp (name, "waiting")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with starting state\n");
+	name = job_state_name (JOB_STARTING);
+
+	/* String should be starting */
+	if (strcmp (name, "starting")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running state\n");
+	name = job_state_name (JOB_RUNNING);
+
+	/* String should be running */
+	if (strcmp (name, "running")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stopping state\n");
+	name = job_state_name (JOB_STOPPING);
+
+	/* String should be stopping */
+	if (strcmp (name, "stopping")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawning state\n");
+	name = job_state_name (JOB_RESPAWNING);
+
+	/* String should be respawning */
+	if (strcmp (name, "respawning")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+
+int
 main (int   argc,
       char *argv[])
 {
@@ -236,6 +429,8 @@ main (int   argc,
 	ret |= test_new ();
 	ret |= test_find_by_name ();
 	ret |= test_find_by_pid ();
+	ret |= test_next_state ();
+	ret |= test_state_name ();
 
 	return ret;
 }

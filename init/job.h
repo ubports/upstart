@@ -224,10 +224,13 @@ typedef struct job {
 
 NIH_BEGIN_EXTERN
 
-Job *    job_new          (void *parent, const char *name);
+Job *       job_new          (void *parent, const char *name);
 
-Job *    job_find_by_name (const char *name);
-Job *    job_find_by_pid  (pid_t pid);
+Job *       job_find_by_name (const char *name);
+Job *       job_find_by_pid  (pid_t pid);
+
+JobState    job_next_state   (Job *job);
+const char *job_state_name   (JobState state);
 
 NIH_END_EXTERN
 

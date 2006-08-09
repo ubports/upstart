@@ -1,5 +1,13 @@
 2006-08-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_next_state): State transition logic; this uses
+	our departure from the specification (the goal) so that the state
+	can always be currently accurate rather than suggestive.
+	(job_state_name): Cute function to convert enum into a name.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_next_state): Test the transitions.
+	(test_state_name): And the return values.
+
 	* TODO: Add file to keep track of things.
 
 	* init/job.c: Include nih/macros.h and nih/list.h
