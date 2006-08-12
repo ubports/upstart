@@ -105,14 +105,20 @@ job_new (void       *parent,
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
 
+	job->process_state = PROCESS_NONE;
+	job->pid = 0;
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	job->kill_timer = NULL;
 
+	job->spawns_instance = 0;
+	job->is_instance = 0;
+
+	job->respawn = 0;
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
 
+	job->daemon = 0;
 	job->pidfile = NULL;
 	job->binary = NULL;
 	job->pid_timeout = JOB_DEFAULT_PID_TIMEOUT;
@@ -129,11 +135,12 @@ job_new (void       *parent,
 
 	job->umask = JOB_DEFAULT_UMASK;
 	job->nice = 0;
-	job->chroot = NULL;
-	job->chdir = NULL;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		job->limits[i] = NULL;
+
+	job->chroot = NULL;
+	job->chdir = NULL;
 
 	nih_list_add (jobs, &job->entry);
 
