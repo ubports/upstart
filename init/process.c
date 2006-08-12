@@ -77,7 +77,8 @@ static int process_setup_environment (Job *job);
  * Returns: process id of new process on success, -1 on raised error
  **/
 pid_t
-process_spawn (Job *job, char * const argv[])
+process_spawn (Job          *job,
+	       char * const  argv[])
 {
 	NihError *err;
 	sigset_t  child_set, orig_set;

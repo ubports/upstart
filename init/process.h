@@ -29,6 +29,14 @@
 
 
 /**
+ * SHELL:
+ *
+ * This is the shell binary used whenever we need special processing for
+ * a command or when we need to run a script.
+ **/
+#define SHELL "/bin/sh"
+
+/**
  * CONSOLE:
  *
  * This is the console device we give to processes that want one.

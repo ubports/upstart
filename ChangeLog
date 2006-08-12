@@ -1,5 +1,9 @@
 2006-08-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Correct formatting of function.
+	* init/process.h (SHELL): Define the location of the shell, all in
+	the spirit of not hard-coding stuff like this.
+
 	* init/job.c (job_new): Initialise all structure members to zero
 	as this doesn't happen automatically.
 
