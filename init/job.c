@@ -742,3 +742,94 @@ job_handle_child (void  *data,
 
 	job_change_state (job, job_next_state (job));
 }
+
+
+/**
+ * job_start:
+ * @job: job to be started.
+ *
+ * Changes the goal of @job from %JOB_STOP to %JOB_START and begins the
+ * process of actually starting the job by changing the state if
+ * necessary.
+ *
+ * The caller can infer the success of this function by checking the job
+ * state after the call, e.g. if it remains in waiting then there are
+ * dependencies.
+ *
+ * If @job is already active in some way (e.g. currently stopping), this
+ * ensures that the job will be cleanly restarted when possible.
+ *
+ * This function has no effect if the goal is already %JOB_START.
+ **/
+void
+job_start (Job *job)
+{
+	nih_assert (job != NULL);
+
+	job_init ();
+
+	if (job->goal == JOB_START)
+		return;
+
+	/* FIXME
+	 * instance jobs need to be duplicated */
+
+	nih_info (_("%s will be started"), job->name);
+	job->goal = JOB_START;
+
+	/* The only state change we need to induce is one away from the
+	 * waiting state; anything else will be handled as the processes
+	 * naturally terminate -- now that the goal is reversed, we'll
+	 * go the other way.
+	 */
+	if (job->state != JOB_WAITING)
+		return;
+
+	/* FIXME
+	 * if there are dependencies, we stay in waiting
+	 */
+
+	job_change_state (job, JOB_STARTING);
+}
+
+/**
+ * job_stop:
+ * @job: job to be stopped.
+ *
+ *
+ * Changes the goal of @job from %JOB_START to %JOB_STOP and begins the
+ * process of actually stopping the job by killing the active running
+ * process if necessary.
+ *
+ * The caller can infer the success of this function by checking the job
+ * state after the call.
+ *
+ * If @job is in the process of starting, this ensures that the job will
+ * be cleanly stopped when possible.
+ *
+ * This function has no effect if the goal is already %JOB_STOP.
+ **/
+void
+job_stop (Job *job)
+{
+	nih_assert (job != NULL);
+
+	job_init ();
+
+	if (job->goal == JOB_STOP)
+		return;
+
+	nih_info (_("%s will be stopped"), job->name);
+	job->goal = JOB_STOP;
+
+	/* The only state change we need to induce is one away from an
+	 * active running process; anything else will be handled as the
+	 * processes naturally terminate -- now that the goal is reversed,
+	 * we'll go the other way.
+	 */
+	if ((job->state != JOB_RUNNING)
+	    || (job->process_state != PROCESS_ACTIVE))
+		return;
+
+	job_kill_process (job);
+}

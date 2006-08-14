@@ -239,6 +239,9 @@ void        job_kill_process (Job *job);
 
 void        job_handle_child (void *ptr, pid_t pid, int killed, int status);
 
+void        job_start        (Job *job);
+void        job_stop         (Job *job);
+
 NIH_END_EXTERN
 
 #endif /* UPSTART_JOB_H */

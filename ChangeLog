@@ -1,5 +1,11 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start): A very simple, but very necessary, function.
+	Set the goal of the given job to JOB_START and kick it off.
+	(job_stop): And its companion, cause a running job to be stopped.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the functions.
+
 	* init/job.c (job_handle_child): Child handler to kick jobs into
 	the next state when their process dies.
 	* init/job.h: Update.
