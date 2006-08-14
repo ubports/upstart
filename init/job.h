@@ -30,8 +30,6 @@
 #include <nih/list.h>
 #include <nih/timer.h>
 
-#include "event.h"
-
 
 /**
  * JOB_DEFAULT_PID_TIMEOUT:
@@ -232,6 +230,9 @@ Job *       job_find_by_pid  (pid_t pid);
 JobState    job_next_state   (Job *job);
 const char *job_state_name   (JobState state)
 	__attribute__ ((const));
+
+void        job_run_command  (Job *job, const char *command);
+void        job_run_script   (Job *job, const char *script);
 
 NIH_END_EXTERN
 

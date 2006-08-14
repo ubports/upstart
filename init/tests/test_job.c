@@ -22,12 +22,22 @@
 
 #include <config.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/select.h>
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <assert.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/list.h>
+#include <nih/io.h>
 
 #include "job.h"
 
@@ -421,6 +431,292 @@ test_state_name (void)
 
 
 int
+test_run_command (void)
+{
+	Job         *job;
+	FILE        *output;
+	struct stat  statbuf;
+	char         filename[20], text[80];
+	int          ret = 0;
+
+	printf ("Testing job_run_command()\n");
+	sprintf (filename, "/tmp/test_job.%d", getpid ());
+	unlink (filename);
+
+	printf ("...with simple command\n");
+	job = job_new (NULL, "test");
+	job->state = JOB_RUNNING;
+	job->command = nih_sprintf (job, "touch %s", filename);
+	job_run_command (job, job->command);
+
+	/* Job process id must have been set */
+	if (job->pid == 0) {
+		printf ("BAD: pid not updated.\n");
+		ret = 1;
+	}
+
+	/* Job process state should now be active */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state not updated.\n");
+		ret = 1;
+	}
+
+	/* Wait for the job */
+	waitpid (job->pid, NULL, 0);
+
+	/* Filename should exist */
+	if (stat (filename, &statbuf) != 0) {
+		printf ("BAD: expected file not created.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job->entry);
+	unlink (filename);
+
+
+	printf ("...with shell command\n");
+	job = job_new (NULL, "test");
+	job->state = JOB_RUNNING;
+	job->command = nih_sprintf (job, "echo $$ > %s", filename);
+	job_run_command (job, job->command);
+
+	/* Job process id must have been set */
+	if (job->pid == 0) {
+		printf ("BAD: pid not updated.\n");
+		ret = 1;
+	}
+
+	/* Job process state should now be active */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state not updated.\n");
+		ret = 1;
+	}
+
+	/* Wait for the job */
+	waitpid (job->pid, NULL, 0);
+
+	/* Filename should exist */
+	if (stat (filename, &statbuf) != 0) {
+		printf ("BAD: expected file not created.\n");
+		ret = 1;
+	}
+
+	/* Filename should contain the pid */
+	output = fopen (filename, "r");
+	fgets (text, sizeof (text), output);
+	if (atoi (text) != job->pid) {
+		printf ("BAD: command output not what we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job->entry);
+	fclose (output);
+	unlink (filename);
+
+	return ret;
+}
+
+int
+test_run_script (void)
+{
+	Job  *job;
+	FILE *output;
+	char  filename[20], text[80];
+	int   ret = 0, status, first;
+
+	printf ("Testing job_run_script()\n");
+	sprintf (filename, "/tmp/test_job.%d", getpid ());
+	unlink (filename);
+
+	printf ("...with small script\n");
+	job = job_new (NULL, "test");
+	job->state = JOB_RUNNING;
+	job->script = nih_sprintf (job, "exec > %s\necho $0\necho $@",
+				   filename);
+	job_run_script (job, job->script);
+
+	/* Job process id must have been set */
+	if (job->pid == 0) {
+		printf ("BAD: pid not updated.\n");
+		ret = 1;
+	}
+
+	/* Job process state should now be active */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state not updated.\n");
+		ret = 1;
+	}
+
+	/* Wait for the job */
+	waitpid (job->pid, &status, 0);
+
+	/* Job should have terminated normally */
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0)) {
+		printf ("BAD: job terminated badly.\n");
+		ret = 1;
+	}
+
+	/* Filename should exist */
+	output = fopen (filename, "r");
+	if (output == NULL) {
+		printf ("BAD: expected file not created.\n");
+		ret = 1;
+	}
+
+	/* Script should have been run with the shell */
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "/bin/sh\n")) {
+		printf ("BAD: program name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Script should have no arguments */
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "\n")) {
+		printf ("BAD: arguments weren't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job->entry);
+	fclose (output);
+	unlink (filename);
+
+
+	printf ("...with script that will fail\n");
+	job = job_new (NULL, "test");
+	job->state = JOB_RUNNING;
+	job->script = nih_sprintf (job, "exec > %s\ntest -d %s\necho oops",
+				   filename, filename);
+	job_run_script (job, job->script);
+
+	/* Job process id must have been set */
+	if (job->pid == 0) {
+		printf ("BAD: pid not updated.\n");
+		ret = 1;
+	}
+
+	/* Job process state should now be active */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state not updated.\n");
+		ret = 1;
+	}
+
+	/* Wait for the job */
+	waitpid (job->pid, &status, 0);
+
+	/* Job should have terminated badly */
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 1)) {
+		printf ("BAD: job terminated by signal or normally.\n");
+		ret = 1;
+	}
+
+	/* Filename should exist */
+	output = fopen (filename, "r");
+	if (output == NULL) {
+		printf ("BAD: expected file not created.\n");
+		ret = 1;
+	}
+
+	/* But should be empty */
+	if (fgets (text, sizeof (text), output) != NULL) {
+		printf ("BAD: unexpected data in output.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job->entry);
+	fclose (output);
+	unlink (filename);
+
+
+	printf ("...with long script\n");
+	job = job_new (NULL, "test");
+	job->state = JOB_RUNNING;
+	job->script = nih_alloc (job, 4096);
+	sprintf (job->script, "exec > %s\necho $0\necho $@\n", filename);
+	while (strlen (job->script) < 4000)
+		strcat (job->script, "# this just bulks it out a bit");
+	job_run_script (job, job->script);
+
+	/* Job process id must have been set */
+	if (job->pid == 0) {
+		printf ("BAD: pid not updated.\n");
+		ret = 1;
+	}
+
+	/* Job process state should now be active */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state not updated.\n");
+		ret = 1;
+	}
+
+	/* We should have an I/O watch to feed the data ... we need to do
+	 * that by hand
+	 */
+	first = TRUE;
+	for (;;) {
+		fd_set readfds, writefds, exceptfds;
+		int    nfds;
+
+		nfds = 0;
+		FD_ZERO (&readfds);
+		FD_ZERO (&writefds);
+		FD_ZERO (&exceptfds);
+
+		nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+		if (! nfds) {
+			if (first) {
+				printf ("BAD: we expected to feed data.\n");
+				ret = 1;
+			}
+			break;
+		}
+		first = FALSE;
+
+		assert (select (nfds, &readfds, &writefds, &exceptfds,
+				NULL) > 0);
+
+		nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+	}
+
+	/* Wait for the job */
+	waitpid (job->pid, &status, 0);
+
+	/* Job should have terminated normally */
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0)) {
+		printf ("BAD: job terminated badly.\n");
+		ret = 1;
+	}
+
+	/* Filename should exist */
+	output = fopen (filename, "r");
+	if (output == NULL) {
+		printf ("BAD: expected file not created.\n");
+		ret = 1;
+	}
+
+	/* Script should have been run as /dev/fd/N */
+	fgets (text, sizeof (text), output);
+	if (strncmp (text, "/dev/fd/", 8)) {
+		printf ("BAD: program name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Script should have no arguments */
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "\n")) {
+		printf ("BAD: arguments weren't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job->entry);
+	fclose (output);
+	unlink (filename);
+
+	return ret;
+}
+
+
+int
 main (int   argc,
       char *argv[])
 {
@@ -431,6 +727,8 @@ main (int   argc,
 	ret |= test_find_by_pid ();
 	ret |= test_next_state ();
 	ret |= test_state_name ();
+	ret |= test_run_command ();
+	ret |= test_run_script ();
 
 	return ret;
 }

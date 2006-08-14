@@ -26,18 +26,23 @@
 
 
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>
 
-#include "event.h"
 #include "process.h"
 #include "job.h"
+
+
+/* Prototypes for static functions */
+static void job_run_process (Job *job, char * const  argv[]);
 
 
 /**
@@ -287,5 +292,183 @@ job_state_name (JobState state)
 		return "respawning";
 	default:
 		return NULL;
+	}
+}
+
+
+/**
+ * job_run_command:
+ * @job: job to run process for,
+ * @command: command and arguments to be run.
+ *
+ * This function splits @command into whitespace separated program name
+ * and arguments and calls #job_run_process with the result.
+ *
+ * As a bonus, if @command contains any special shell characters such
+ * as variables, redirection, or even just quotes; it arranges for the
+ * command to instead be run by the shell so we don't need any complex
+ * argument parsing of our own.
+ *
+ * No error is returned from this function because it will block until
+ * the #process_spawn calls succeeds, that can only fail for temporary
+ * reasons (such as a lack of process ids) which would cause problems
+ * carrying on anyway.
+ **/
+void
+job_run_command (Job        *job,
+		 const char *command)
+{
+	char **argv;
+
+	nih_assert (job != NULL);
+	nih_assert (command != NULL);
+
+	/* Use the shell for non-simple commands */
+	if (strpbrk (command, "~`!$^&*()=|\\{}[];\"'<>?")) {
+		argv = nih_alloc (NULL, sizeof (char *) * 4);
+		argv[0] = SHELL;
+		argv[1] = "-c";
+		argv[2] = nih_sprintf (argv, "exec %s", command);
+		argv[3] = NULL;
+	} else {
+		argv = nih_str_split (NULL, command, " ", TRUE);
+	}
+
+	job_run_process (job, argv);
+
+	nih_free (argv);
+}
+
+/**
+ * job_run_script:
+ * @job: job to run process for,
+ * @script: shell script to be run.
+ *
+ * This function takes the shell script code stored verbatim in @script
+ * and arranges for it to be run by the system shell.
+ *
+ * If @script is reasonably small (less than 1KB) it is passed to the
+ * shell using the POSIX-specified -c option.  Otherwise the shell is told
+ * to read commands from one of the special /dev/fd/NN devices and #NihIo
+ * used to feed the script into that device.  A pointer to the #NihIo object
+ * is not kept or stored because it will automatically clean itself up should
+ * the script go away as the other end of the pipe will be closed.
+ *
+ * In either case the shell is run with the -e option so that commands will
+ * fail if their exit status is not checked.
+ *
+ * No error is returned from this function because it will block until
+ * the #process_spawn calls succeeds, that can only fail for temporary
+ * reasons (such as a lack of process ids) which would cause problems
+ * carrying on anyway.
+ **/
+void
+job_run_script (Job        *job,
+		const char *script)
+{
+	char *argv[5];
+
+	nih_assert (job != NULL);
+	nih_assert (script != NULL);
+
+	/* Normally we just pass the script to the shell using the -c
+	 * option, however there's a limit to the length of a command line
+	 * (about 4KB) and that just looks bad in ps as well.
+	 *
+	 * So as an alternative we use the magic /dev/fd/NN devices and
+	 * give the shell a script to run by piping it down.  Of course,
+	 * the pipe buffer may not be big enough either, so we use NihIo
+	 * to do it all asynchronously in the background.
+	 */
+	if (strlen (script) > 1024) {
+		NihIo *io;
+		int    fds[2];
+
+		/* Close the writing end when the child is exec'd */
+		NIH_MUST (pipe (fds) == 0);
+		nih_io_set_cloexec (fds[1]);
+
+		argv[0] = SHELL;
+		argv[1] = "-e";
+		argv[2] = nih_sprintf (NULL, "/dev/fd/%d", fds[0]);
+		argv[3] = NULL;
+
+		job_run_process (job, argv);
+
+		/* Clean up and close the reading end (we don't need it) */
+		nih_free (argv[2]);
+		close (fds[0]);
+
+		/* Put the entire script into an NihIo send buffer and
+		 * then mark it for closure so that the shell gets EOF
+		 * and the structure gets cleaned up automatically.
+		 */
+		NIH_MUST (io = nih_io_reopen (job, fds[1], NULL, NULL,
+					      NULL, NULL));
+		NIH_MUST (nih_io_write (io, script, strlen (script)) == 0);
+		nih_io_shutdown (io);
+	} else {
+		/* Pass the script using -c */
+		argv[0] = SHELL;
+		argv[1] = "-e";
+		argv[2] = "-c";
+		argv[3] = (char *)script;
+		argv[4] = NULL;
+
+		job_run_process (job, argv);
+	}
+}
+
+/**
+ * job_run_process:
+ * @job: job to run process for,
+ * @argv: %NULL-terminated list of arguments for the process.
+ *
+ * This function spawns a new process for @job storing the pid and new
+ * process state back in that object.  This can only be called when there
+ * is not already a process, and the state is one that permits a process
+ * (ie. everything except %JOB_WAITING).
+ *
+ * The caller should have already prepared the arguments, the list is
+ * passed directly to #process_spawn.
+ *
+ * No error is returned from this function because it will block until
+ * the #process_spawn calls succeeds, that can only fail for temporary
+ * reasons (such as a lack of process ids) which would cause problems
+ * carrying on anyway.
+ **/
+static void
+job_run_process (Job          *job,
+		 char * const  argv[])
+{
+	pid_t pid;
+	int   error = FALSE;
+
+	nih_assert (job != NULL);
+	nih_assert (job->state != JOB_WAITING);
+	nih_assert (job->process_state == PROCESS_NONE);
+
+	/* Run the process, repeat until fork() works */
+	while ((pid = process_spawn (job, argv)) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (! error)
+			nih_error ("%s: %s", _("Failed to spawn process"),
+				   err->message);
+		nih_free (err);
+	}
+
+	/* Update the job details */
+	job->pid = pid;
+	if (job->daemon && (job->state == JOB_RUNNING)) {
+		/* FIXME should probably set timer or something?
+		 *
+		 * need to cope with daemons not being, after all */
+		nih_info (_("Spawned %s process (%d)"), job->name, job->pid);
+		job->process_state = PROCESS_SPAWNED;
+	} else {
+		nih_info (_("Active %s process (%d)"), job->name, job->pid);
+		job->process_state = PROCESS_ACTIVE;
 	}
 }

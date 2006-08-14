@@ -1,5 +1,16 @@
 2006-08-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Internal function to call
+	process_spawn and update the job structure.
+	(job_run_command): Simple(ish) wrapper for the above to split
+	a command by whitespace, or use a shell if it needs more complex
+	argument processing.
+	(job_run_script): More complex wrapper that uses a shell to execute
+	verbatim script, either using -c or a /dev/fd/NN and feeding the
+	shell down a pipe to it.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the new functions.
+
 	* init/Makefile.am (init_SOURCES, TESTS): Reorder so that process.c,
 	which is arguably lower level, comes first.
 	(test_job_LDADD): Link the process code.
