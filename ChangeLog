@@ -1,3 +1,11 @@
+2006-08-15  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_handle_child): Child handler to kick jobs into
+	the next state when their process dies.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_handle_child): Test the handler
+	directly by just invoking it with various job states.
+
 2006-08-14  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_process.c (test_kill): Use select rather than

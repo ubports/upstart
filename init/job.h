@@ -237,6 +237,8 @@ void        job_run_script   (Job *job, const char *script);
 
 void        job_kill_process (Job *job);
 
+void        job_handle_child (void *ptr, pid_t pid, int killed, int status);
+
 NIH_END_EXTERN
 
 #endif /* UPSTART_JOB_H */

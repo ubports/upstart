@@ -1350,6 +1350,204 @@ test_kill_process (void)
 }
 
 
+static int was_called = 0;
+
+static int
+destructor_called (void *ptr)
+{
+	was_called++;
+	return 0;
+}
+
+int
+test_handle_child (void)
+{
+	Job *job;
+	int  ret = 0;
+
+	printf ("Testing job_handle_child()\n");
+	job = job_new (NULL, "test");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job->command = "echo";
+	job->stop_script = "echo";
+
+
+	printf ("...with unknown pid\n");
+	job_handle_child (NULL, 999, FALSE, 0);
+
+	/* Check the job didn't change */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job changed unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running task\n");
+	job_handle_child (NULL, 1000, FALSE, 0);
+
+	/* Job should no longer have that process */
+	if (job->pid == 1000) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Goal should now be STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should now be STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with kill timer\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job->kill_timer = (void *) nih_strdup (job, "test");
+	nih_alloc_set_destructor (job->kill_timer, destructor_called);
+	was_called = 0;
+	job_handle_child (NULL, 1000, FALSE, 0);
+
+	/* Timer should have been unset */
+	if (job->kill_timer != NULL) {
+		printf ("BAD: kill timer was not unset.\n");
+		ret = 1;
+	}
+
+	/* Timer should have been freed */
+	if (! was_called) {
+		printf ("BAD: kill timer was not destroyed.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with starting task\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job_handle_child (NULL, 1000, FALSE, 0);
+
+	/* Job should no longer have that process */
+	if (job->pid == 1000) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Goal should still be START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should now be RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with starting task failure\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job_handle_child (NULL, 1000, FALSE, 1);
+
+	/* Job should no longer have that process */
+	if (job->pid == 1000) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Goal should now be STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should now be STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with starting task kill\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job_handle_child (NULL, 1000, TRUE, SIGTERM);
+
+	/* Job should no longer have that process */
+	if (job->pid == 1000) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Goal should now be STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should now be STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	nih_list_free (&job->entry);
+
+	return ret;
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -1365,6 +1563,7 @@ main (int   argc,
 	ret |= test_run_command ();
 	ret |= test_run_script ();
 	ret |= test_kill_process ();
+	ret |= test_handle_child ();
 
 	return ret;
 }

@@ -671,3 +671,74 @@ job_kill_timer (Job      *job,
 
 	job_change_state (job, JOB_STOPPING);
 }
+
+
+/**
+ * job_handle_child:
+ * @data: unused,
+ * @pid: process that died,
+ * @killed: whether @pid was killed,
+ * @status: exit status of @pid or signal that killed it.
+ *
+ * This callback should be registered with #nih_child_add_watch so that
+ * when processes associated with jobs die, the structure is updated and
+ * the next appropriate state chosen.
+ *
+ * Normally this is registered so it is called for all processes, and it
+ * safe to do as it only acts if the process is linked to a job.
+ **/
+void
+job_handle_child (void  *data,
+		  pid_t  pid,
+		  int    killed,
+		  int    status)
+{
+	Job *job;
+
+	nih_assert (data == NULL);
+	nih_assert (pid > 0);
+
+	/* Find the job that died; if it's not one of ours, just let it
+	 * be reaped normally
+	 */
+	job = job_find_by_pid (pid);
+	if (! job)
+		return;
+
+	/* Report the death */
+	if (killed) {
+		nih_info (_("%s process (%d) killed by signal %d"),
+			  job->name, pid, status);
+	} else {
+		nih_info (_("%s process (%d) terminated with status %d"),
+			  job->name, pid, status);
+	}
+
+	/* FIXME we may be in SPAWNED here, in which case we don't want
+	 * to do all this!
+	 */
+
+	job->pid = 0;
+	job->process_state = PROCESS_NONE;
+
+	/* Cancel any timer trying to kill the job */
+	if (job->kill_timer) {
+		nih_free (job->kill_timer);
+		job->kill_timer = NULL;
+	}
+
+	switch (job->state) {
+	case JOB_RUNNING:
+		/* FIXME check daemon; if true, check exit status
+		 * and maybe don't change the goal */
+		job->goal = JOB_STOP;
+		break;
+	default:
+		if (killed || status)
+			job->goal = JOB_STOP;
+
+		break;
+	}
+
+	job_change_state (job, job_next_state (job));
+}
