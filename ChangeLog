@@ -1,5 +1,10 @@
 2006-08-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (init_SOURCES, TESTS): Reorder so that process.c,
+	which is arguably lower level, comes first.
+	(test_job_LDADD): Link the process code.
+	(test_process_LDADD): Swap the order.
+
 	* TODO: Update.
 
 	* init/process.c (process_spawn): Correct typo (progress -> process),

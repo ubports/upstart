@@ -9,8 +9,8 @@ sbin_PROGRAMS = init
 
 init_SOURCES = \
 	main.c \
-	job.c job.h \
-	process.c process.h
+	process.c process.h \
+	job.c job.h
 
 init_LDFLAGS = -static
 init_LDADD = \
@@ -18,18 +18,19 @@ init_LDADD = \
 
 
 TESTS = \
-	test_job \
-	test_process
+	test_process \
+	test_job
 
 check_PROGRAMS = $(TESTS)
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDFLAGS = -static
-test_job_LDADD = ../nih/libnih.la job.o
+test_job_LDADD = ../nih/libnih.la process.o job.o
 
 test_process_SOURCES = tests/test_process.c
 test_process_LDFLAGS = -static
-test_process_LDADD = ../nih/libnih.la job.o process.o
+test_process_LDADD = ../nih/libnih.la process.o job.o
+
 
 clean-local:
 	rm -f *.gcno *.gcda
