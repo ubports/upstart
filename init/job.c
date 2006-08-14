@@ -237,7 +237,7 @@ job_change_state (Job      *job,
 	while (job->state != state) {
 		JobState old_state;
 
-		nih_info ("%s: %s: %s to %s", _("State change"), job->name,
+		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
 		old_state = job->state;
 		job->state = state;
@@ -556,8 +556,8 @@ job_run_process (Job          *job,
 
 		err = nih_error_get ();
 		if (! error)
-			nih_error ("%s: %s", _("Failed to spawn process"),
-				   err->message);
+			nih_warn ("%s: %s", _("Failed to spawn process"),
+				  err->message);
 		nih_free (err);
 	}
 
@@ -608,8 +608,8 @@ job_kill_process (Job *job)
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_error (_("Failed to send TERM signal to %s process (%d): %s"),
-				   job->name, job->pid, err->message);
+			nih_warn (_("Failed to send TERM signal to %s process (%d): %s"),
+				  job->name, job->pid, err->message);
 		nih_free (err);
 
 		/* Carry on regardless; probably went away of its own
@@ -655,8 +655,8 @@ job_kill_timer (Job      *job,
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_error (_("Failed to send KILL signal to %s process (%d): %s"),
-				   job->name, job->pid, err->message);
+			nih_warn (_("Failed to send KILL signal to %s process (%d): %s"),
+				  job->name, job->pid, err->message);
 		nih_free (err);
 	}
 

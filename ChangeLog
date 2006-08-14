@@ -1,5 +1,9 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process, job_kill_process, job_kill_timer):
+	Downgrade error messages to warning as they're not fatal.
+	(job_change_state): Change info message to be more regular.
+
 	* init/job.c (job_start): A very simple, but very necessary, function.
 	Set the goal of the given job to JOB_START and kick it off.
 	(job_stop): And its companion, cause a running job to be stopped.
