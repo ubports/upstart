@@ -23,9 +23,9 @@
 #include <config.h>
 
 #include <sys/types.h>
-#include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/select.h>
 
 #include <stdio.h>
 #include <assert.h>
@@ -274,7 +274,7 @@ test_kill (void)
 	printf ("...with TERM signal\n");
 	pid = fork ();
 	if (pid == 0) {
-		poll (NULL, 0, -1);
+		select (0, NULL, NULL, NULL, NULL);
 
 		exit (0);
 	}
@@ -306,7 +306,7 @@ test_kill (void)
 	printf ("...with KILL signal\n");
 	pid = fork ();
 	if (pid == 0) {
-		poll (NULL, 0, -1);
+		select (0, NULL, NULL, NULL, NULL);
 
 		exit (0);
 	}

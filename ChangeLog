@@ -1,5 +1,8 @@
 2006-08-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_process.c (test_kill): Use select rather than
+	poll for consistency with other test cases.
+
 	* init/job.c (job_kill_process): Add function to send the active
 	process of a job the TERM signal, and then set a timer to follow
 	up with the KILL signal if the job doesn't get cleaned up in time.
