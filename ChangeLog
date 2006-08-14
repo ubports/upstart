@@ -1,5 +1,15 @@
 2006-08-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_kill_process): Add function to send the active
+	process of a job the TERM signal, and then set a timer to follow
+	up with the KILL signal if the job doesn't get cleaned up in time.
+	(job_kill_timer): Timer callback to send the KILL signal; this
+	does the same job as the child handler and puts the job into the
+	next state as there's no point waiting around now.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_kill_process): Test both functions
+	in one test case (as one is just the bottom half of the other).
+
 	* init/tests/test_process.c (test_spawn): Use the right thing in
 	the test case filename and unlink it to make sure.
 

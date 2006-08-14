@@ -235,6 +235,8 @@ const char *job_state_name   (JobState state)
 void        job_run_command  (Job *job, const char *command);
 void        job_run_script   (Job *job, const char *script);
 
+void        job_kill_process (Job *job);
+
 NIH_END_EXTERN
 
 #endif /* UPSTART_JOB_H */

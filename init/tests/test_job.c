@@ -28,6 +28,7 @@
 #include <sys/select.h>
 
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -1126,6 +1127,230 @@ test_run_script (void)
 
 
 int
+test_kill_process (void)
+{
+	Job         *job;
+	NihTimer    *timer;
+	pid_t        pid;
+	char         filename[20];
+	struct stat  statbuf;
+	int          ret = 0, status;
+
+	printf ("Testing job_kill_process()\n");
+	job = job_new (NULL, "test");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	job->kill_timeout = 1000;
+
+
+	printf ("...with easily killed process\n");
+	job->pid = pid = fork ();
+	if (pid == 0) {
+		select (0, NULL, NULL, NULL, NULL);
+
+		exit (0);
+	}
+	job_kill_process (job);
+	waitpid (pid, &status, 0);
+
+	/* Job should have been killed by the TERM signal */
+	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGTERM)) {
+		printf ("BAD: process was not terminated by SIGTERM.\n");
+		ret = 1;
+	}
+
+	/* Process id should not have been changed */
+	if (job->pid != pid) {
+		printf ("BAD: process id changed unexpectedly.\n");
+		ret = 1;
+	}
+
+	/* Process state should have been changed to KILLED */
+	if (job->process_state != PROCESS_KILLED) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should have been spawned */
+	if (job->kill_timer == NULL) {
+		printf ("BAD: kill timer was not spawned.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should be scheduled according to timeout */
+	if ((job->kill_timer->due > time (NULL) + 1000)
+	    || (job->kill_timer->due < time (NULL) + 950)) {
+		printf ("BAD: kill timer not due when we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (job->kill_timer);
+	job->kill_timer = NULL;
+
+
+	printf ("...with hard to kill process\n");
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = pid = fork ();
+	if (pid == 0) {
+		struct sigaction act;
+
+		act.sa_handler = SIG_IGN;
+		act.sa_flags = 0;
+		sigemptyset (&act.sa_mask);
+		sigaction (SIGTERM, &act, NULL);
+
+		for (;;)
+			select (0, NULL, NULL, NULL, NULL);
+
+		exit (0);
+	}
+	job_kill_process (job);
+
+	/* Job should still exist */
+	if (kill (pid, 0) != 0) {
+		printf ("BAD: process died unexpectedly.\n");
+		ret = 1;
+	}
+
+	/* Run the kill timer */
+	timer = job->kill_timer;
+	timer->callback (timer->data, timer);
+	nih_free (timer);
+	waitpid (pid, &status, 0);
+
+	/* Job should have been killed by the KILL signal */
+	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGKILL)) {
+		printf ("BAD: process was not terminated by SIGKILL.\n");
+		ret = 1;
+	}
+
+	/* Process id should now be zero (we killed it really hard) */
+	if (job->pid != 0) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should have been changed to NONE */
+	if (job->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should have been ended */
+	if (job->kill_timer != NULL) {
+		printf ("BAD: kill timer was not ended.\n");
+		ret = 1;
+	}
+
+	/* Job state should be WAITING (come via stopping) */
+	if (job->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with hard to kill process and stop script\n");
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	sprintf (filename, "/tmp/test_job.%d", getpid ());
+	unlink (filename);
+	job->stop_script = nih_sprintf (job, "touch %s", filename);
+	job->pid = pid = fork ();
+	if (pid == 0) {
+		struct sigaction act;
+
+		act.sa_handler = SIG_IGN;
+		act.sa_flags = 0;
+		sigemptyset (&act.sa_mask);
+		sigaction (SIGTERM, &act, NULL);
+
+		for (;;)
+			select (0, NULL, NULL, NULL, NULL);
+
+		exit (0);
+	}
+	job_kill_process (job);
+
+	/* Job should still exist */
+	if (kill (pid, 0) != 0) {
+		printf ("BAD: process died unexpectedly.\n");
+		ret = 1;
+	}
+
+	/* Run the kill timer */
+	timer = job->kill_timer;
+	timer->callback (timer->data, timer);
+	nih_free (timer);
+	waitpid (pid, &status, 0);
+	waitpid (job->pid, NULL, 0);
+
+	/* Job state should be stopping */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be active */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Check the job script was run */
+	if (stat (filename, &statbuf) != 0) {
+		printf ("BAD: stop script wasn't run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+	nih_free (job->stop_script);
+	job->stop_script = NULL;
+
+
+	printf ("...with already dead process\n");
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = pid = fork ();
+	if (pid == 0) {
+		exit (0);
+	}
+	waitpid (pid, &status, 0);
+	job_kill_process (job);
+
+	/* Process id should now be zero */
+	if (job->pid != 0) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should have been changed to NONE */
+	if (job->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should be WAITING (come via stopping) */
+	if (job->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* No kill timer should have been set */
+	if (job->kill_timer != NULL) {
+		printf ("BAD: kill timer started unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	nih_list_free (&job->entry);
+
+	return ret;
+}
+
+
+int
 main (int   argc,
       char *argv[])
 {
@@ -1139,6 +1364,7 @@ main (int   argc,
 	ret |= test_state_name ();
 	ret |= test_run_command ();
 	ret |= test_run_script ();
+	ret |= test_kill_process ();
 
 	return ret;
 }

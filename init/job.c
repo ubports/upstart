@@ -32,6 +32,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/timer.h>
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -43,6 +44,7 @@
 
 /* Prototypes for static functions */
 static void job_run_process (Job *job, char * const  argv[]);
+static void job_kill_timer  (Job *job, NihTimer *timer);
 
 
 /**
@@ -571,4 +573,101 @@ job_run_process (Job          *job,
 		nih_info (_("Active %s process (%d)"), job->name, job->pid);
 		job->process_state = PROCESS_ACTIVE;
 	}
+}
+
+
+/**
+ * job_kill_process:
+ * @job: job to kill active process of.
+ *
+ * This function forces a @job to leave its current state by killing
+ * its active process, thus forcing the state to be changed once the
+ * process has terminated.
+ *
+ * The state change is not immediate unless the kill syscall fails.
+ *
+ * The only state that this may be called in is %JOB_RUNNING with an
+ * active process; all other states are transient, and are expected to
+ * change within a relatively short space of time anyway.  For those it
+ * is sufficient to simply change the goal and have the appropriate
+ * state selected once the running script terminates.
+ **/
+void
+job_kill_process (Job *job)
+{
+	nih_assert (job != NULL);
+
+	nih_assert (job->state == JOB_RUNNING);
+	nih_assert (job->process_state == PROCESS_ACTIVE);
+
+	nih_debug ("Sending TERM signal to %s process (%d)",
+		   job->name, job->pid);
+
+	if (process_kill (job, job->pid, FALSE) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number != ESRCH)
+			nih_error (_("Failed to send TERM signal to %s process (%d): %s"),
+				   job->name, job->pid, err->message);
+		nih_free (err);
+
+		/* Carry on regardless; probably went away of its own
+		 * accord while we were dawdling
+		 */
+		job->pid = 0;
+		job->process_state = PROCESS_NONE;
+
+		job_change_state (job, JOB_STOPPING);
+		return;
+	}
+
+	job->process_state = PROCESS_KILLED;
+	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
+			  job, job->kill_timeout,
+			  (NihTimerCb)job_kill_timer, job));
+}
+
+/**
+ * job_kill_timer:
+ * @job: job to kill active process of,
+ * @timer: timer that caused us to be called.
+ *
+ * This callback is called if the process failed to terminate within
+ * a particular time of being sent the TERM signal.  The process is killed
+ * more forcibly by sending the KILL signal and is assumed to have died
+ * whatever happens.
+ **/
+static void
+job_kill_timer (Job      *job,
+		NihTimer *timer)
+{
+	nih_assert (job != NULL);
+
+	nih_assert (job->state == JOB_RUNNING);
+	nih_assert (job->process_state == PROCESS_KILLED);
+
+	nih_debug ("Sending KILL signal to %s process (%d)",
+		   job->name, job->pid);
+
+	if (process_kill (job, job->pid, TRUE) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number != ESRCH)
+			nih_error (_("Failed to send KILL signal to %s process (%d): %s"),
+				   job->name, job->pid, err->message);
+		nih_free (err);
+	}
+
+	/* No point waiting around, if it's ignoring the KILL signal
+	 * then it's wedged in the kernel somewhere; either that or it died
+	 * while we were faffing
+	 */
+
+	job->pid = 0;
+	job->process_state = PROCESS_NONE;
+	job->kill_timer = NULL;
+
+	job_change_state (job, JOB_STOPPING);
 }
