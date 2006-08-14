@@ -1,3 +1,8 @@
+2006-08-14  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): Correct typo (progress -> process),
+	thanks Johan.
+
 2006-08-12  Scott James Remnant  <scott@netsplit.com>
 
 	* init/process.c (process_spawn): Correct formatting of function.

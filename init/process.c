@@ -122,7 +122,7 @@ process_spawn (Job          *job,
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
 	nih_signal_reset ();
 
-	/* Become the leader of a new session and progress group */
+	/* Become the leader of a new session and process group */
 	setsid ();
 
 	/* The job defines what the process's standard input, output and
