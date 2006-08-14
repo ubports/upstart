@@ -209,6 +209,106 @@ job_find_by_pid (pid_t pid)
 
 
 /**
+ * job_change_state:
+ * @job: job to change state of,
+ * @state: state to change to.
+ *
+ * This function changes the current state of a @job to the new @state
+ * given, performing any actions to correctly enter the new state (such
+ * as spawning scripts or processes).
+ *
+ * It does NOT perform any actions to leave the current state, so this
+ * function may only be called when there is no active process.
+ *
+ * Some state transitions are not be permitted and will result in an
+ * assertion failure.  Also some state transitions may result in further
+ * transitions, so the state when this function returns may not be the
+ * state requested.
+ **/
+void
+job_change_state (Job      *job,
+		  JobState  state)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->process_state == PROCESS_NONE);
+
+	while (job->state != state) {
+		JobState old_state;
+
+		nih_info ("%s: %s: %s to %s", _("State change"), job->name,
+			  job_state_name (job->state), job_state_name (state));
+		old_state = job->state;
+		job->state = state;
+
+		/* Check for invalid state changes; if ok, run the
+		 * appropriate script or command, or change the state
+		 * or goal.
+		 */
+		switch (job->state) {
+		case JOB_WAITING:
+			nih_assert (old_state == JOB_STOPPING);
+			nih_assert (job->goal == JOB_STOP);
+
+			/* FIXME
+			 * instances need to be cleaned up */
+
+			break;
+		case JOB_STARTING:
+			nih_assert ((old_state == JOB_WAITING)
+				    || (old_state == JOB_STOPPING));
+
+			if (job->start_script) {
+				job_run_script (job, job->start_script);
+			} else {
+				state = job_next_state (job);
+			}
+
+			break;
+		case JOB_RUNNING:
+			nih_assert ((old_state == JOB_STARTING)
+				    || (old_state == JOB_RESPAWNING));
+
+			/* If we don't have anything to do, we need to
+			 * change the goal to STOP otherwise the next
+			 * state is respawning and we'll just loop
+			 */
+			if (job->script) {
+				job_run_script (job, job->script);
+			} else if (job->command) {
+				job_run_command (job, job->command);
+			} else {
+				job->goal = JOB_STOP;
+				state = job_next_state (job);
+			}
+
+			break;
+		case JOB_STOPPING:
+			nih_assert ((old_state == JOB_STARTING)
+				    || (old_state == JOB_RUNNING)
+				    || (old_state == JOB_RESPAWNING));
+
+			if (job->stop_script) {
+				job_run_script (job, job->stop_script);
+			} else {
+				state = job_next_state (job);
+			}
+
+			break;
+		case JOB_RESPAWNING:
+			nih_assert (old_state == JOB_RUNNING);
+
+			if (job->respawn_script) {
+				job_run_script (job, job->respawn_script);
+			} else {
+				state = job_next_state (job);
+			}
+
+			break;
+		}
+	}
+}
+
+/**
  * job_next_state:
  * @job: job undergoing state change.
  *

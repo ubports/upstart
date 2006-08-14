@@ -227,6 +227,7 @@ Job *       job_new          (void *parent, const char *name);
 Job *       job_find_by_name (const char *name);
 Job *       job_find_by_pid  (pid_t pid);
 
+void        job_change_state (Job *job, JobState state);
 JobState    job_next_state   (Job *job);
 const char *job_state_name   (JobState state)
 	__attribute__ ((const));

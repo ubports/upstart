@@ -238,6 +238,415 @@ test_find_by_pid (void)
 
 
 int
+test_change_state (void)
+{
+	Job         *job;
+	struct stat  statbuf;
+	char         dirname[22], filename[40];
+	int          ret = 0;
+
+	printf ("Testing job_change_state()\n");
+	sprintf (dirname, "/tmp/test_job.XXXXXX");
+	mkdtemp (dirname);
+
+	job = job_new (NULL, "test");
+	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
+	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
+	job->respawn_script = nih_sprintf (job, "touch %s/respawn", dirname);
+	job->command = nih_sprintf (job, "touch %s/run", dirname);
+
+
+	printf ("...waiting to starting with script\n");
+	job->goal = JOB_START;
+	job->state = JOB_WAITING;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_STARTING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STARTING */
+	if (job->state != JOB_STARTING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Start script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/start", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: start script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...waiting to starting with no script\n");
+	job->goal = JOB_START;
+	job->state = JOB_WAITING;
+	job->process_state = PROCESS_NONE;
+	nih_free (job->start_script);
+	job->start_script = NULL;
+	job_change_state (job, JOB_STARTING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Command should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
+
+
+	printf ("...starting to running with command\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_RUNNING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Command should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...starting to running with script\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_NONE;
+	job->script = job->command;
+	job->command = NULL;
+	job_change_state (job, JOB_RUNNING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...starting to running without either\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_NONE;
+	nih_free (job->script);
+	job->script = NULL;
+	job_change_state (job, JOB_RUNNING);
+
+	/* Goal should have become JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Stop script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/stop", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: stop script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+	job->command = nih_sprintf (job, "touch %s/run", dirname);
+
+
+	printf ("...running to respawning with script\n");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_RESPAWNING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RESPAWNING */
+	if (job->state != JOB_RESPAWNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Respawn script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/respawn", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: respawn script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...running to respawning without script\n");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_NONE;
+	nih_free (job->respawn_script);
+	job->respawn_script = NULL;
+	job_change_state (job, JOB_RESPAWNING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Command should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...running to stopping with script\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_STOPPING);
+
+	/* Goal should still be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Stop script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/stop", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: stop script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...running to stopping without script\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_NONE;
+	nih_free (job->stop_script);
+	job->stop_script = NULL;
+	job_change_state (job, JOB_STOPPING);
+
+	/* Goal should still be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_WAITING */
+	if (job->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_NONE */
+	if (job->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
+
+
+	printf ("...stopping to waiting\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_WAITING);
+
+	/* Goal should still be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_WAITING */
+	if (job->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_NONE */
+	if (job->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...stopping to starting\n");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_STARTING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STARTING */
+	if (job->state != JOB_STARTING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Start script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/start", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: start script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	/* Fun way to clean up */
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_NONE;
+	job_run_command (job, nih_sprintf (job, "rm -rf %s", dirname));
+	waitpid (job->pid, NULL, 0);
+
+	nih_list_free (&job->entry);
+
+	return ret;
+}
+
+int
 test_next_state (void)
 {
 	Job      *job;
@@ -725,6 +1134,7 @@ main (int   argc,
 	ret |= test_new ();
 	ret |= test_find_by_name ();
 	ret |= test_find_by_pid ();
+	ret |= test_change_state ();
 	ret |= test_next_state ();
 	ret |= test_state_name ();
 	ret |= test_run_command ();

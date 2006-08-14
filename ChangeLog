@@ -1,5 +1,12 @@
 2006-08-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Write the principal state gate
+	function, called once a state has been left to enter the given new
+	state (which one should determine with job_next_state).  Spawns
+	the necessary processes or moves to the next appropriate state.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the state changes.
+
 	* init/job.c (job_run_process): Internal function to call
 	process_spawn and update the job structure.
 	(job_run_command): Simple(ish) wrapper for the above to split
