@@ -100,7 +100,7 @@ int
 test_spawn (void)
 {
 	FILE  *output;
-	char   function[6], filename[20], text[81], *env[2];
+	char   function[6], filename[24], text[81], *env[2];
 	char  *args[4];
 	Job   *job;
 	pid_t  pid;
@@ -112,7 +112,8 @@ test_spawn (void)
 	args[2] = filename;
 	args[3] = NULL;
 
-	sprintf (filename, "/tmp/test_job.%d", getpid ());
+	sprintf (filename, "/tmp/test_process.%d", getpid ());
+	unlink (filename);
 
 	printf ("...with simple job\n");
 	sprintf (function, "%d", TEST_PIDS);
