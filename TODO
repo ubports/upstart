@@ -1,11 +1,3 @@
-split command
-or use shell if contains special characters
-
-execute process
-
-handle scripts properly (needs nih_io and /dev/fd? or shell -c if < 4K)
-chose command or script when executing process
-
 respawn if necessary
 check exit status against normalexit
 
