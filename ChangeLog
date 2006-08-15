@@ -1,5 +1,8 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_child): Warn when processes are killed
+	or exit with an abnormal status.  Warn when respawning.
+
 	* init/job.c (job_handle_child): Respawn processes that were not
 	supposed to have died.
 	* init/tests/test_job.c (test_handle_child): Test the respawn code.

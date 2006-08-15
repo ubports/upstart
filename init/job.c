@@ -716,11 +716,14 @@ job_handle_child (void  *data,
 
 	/* Report the death */
 	if (killed) {
-		nih_info (_("%s process (%d) killed by signal %d"),
+		nih_warn (_("%s process (%d) killed by signal %d"),
+			  job->name, pid, status);
+	} else if (status) {
+		nih_warn (_("%s process (%d) terminated with status %d"),
 			  job->name, pid, status);
 	} else {
-		nih_info (_("%s process (%d) terminated with status %d"),
-			  job->name, pid, status);
+		nih_info (_("%s process (%d) exited normally"),
+			  job->name, pid);
 	}
 
 	/* FIXME we may be in SPAWNED here, in which case we don't want
@@ -751,8 +754,11 @@ job_handle_child (void  *data,
 				    (job->normalexit[i] == status))
 					break;
 
-			if (i == job->normalexit_len)
+			if (i == job->normalexit_len) {
+				nih_warn (_("%s process ended, respawning"),
+					  job->name);
 				break;
+			}
 		}
 
 		job->goal = JOB_STOP;
