@@ -141,6 +141,8 @@ typedef enum {
  * @version: version of the job; intended for humans,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
+ * @start_events: list of events that can start this job,
+ * @stop_events; list of events that can stop this job.
  * @process_state: what we're waiting for from the process,
  * @pid: current process id,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
@@ -184,6 +186,9 @@ typedef struct job {
 
 	JobGoal        goal;
 	JobState       state;
+
+	NihList        start_events;
+	NihList        stop_events;
 
 	ProcessState   process_state;
 	pid_t          pid;

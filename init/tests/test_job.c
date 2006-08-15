@@ -77,6 +77,18 @@ test_new (void)
 		ret = 1;
 	}
 
+	/* Start events list should be empty */
+	if (! NIH_LIST_EMPTY (&job->start_events)) {
+		printf ("BAD: start events not initialised to empty list.\n");
+		ret = 1;
+	}
+
+	/* Stop events list should be empty */
+	if (! NIH_LIST_EMPTY (&job->stop_events)) {
+		printf ("BAD: stop events not initialised to empty list.\n");
+		ret = 1;
+	}
+
 	/* There should be no process */
 	if (job->process_state != PROCESS_NONE) {
 		printf ("BAD: job process state set incorrectly.\n");

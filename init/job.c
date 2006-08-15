@@ -114,6 +114,9 @@ job_new (void       *parent,
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
+	nih_list_init (&job->start_events);
+	nih_list_init (&job->stop_events);
+
 	job->process_state = PROCESS_NONE;
 	job->pid = 0;
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;

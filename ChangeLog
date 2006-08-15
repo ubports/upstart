@@ -1,5 +1,11 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_new): Initialise start_events and stop_events to
+	an empty list.
+	* init/job.h (Job): Add start_events and stop_events list heads.
+	* init/tests/test_job.c (test_new): Check the lists are initialised
+	correctly to the empty list.
+
 	* init/event.c (event_match): Function to check events for equality.
 	* init/event.h: Update.
 	* init/tests/test_event.c (test_match): Test function.
