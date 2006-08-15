@@ -1,0 +1,48 @@
+## Process this file with automake to produce Makefile.in
+
+DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir)
+
+localedir = $(datadir)/locale
+DEFS += -DLOCALEDIR="\"$(localedir)\""
+INCLUDES = -I$(top_srcdir)/intl
+
+
+lib_LTLIBRARIES = libupstart.la
+
+libupstart_la_SOURCES = \
+	control.c
+
+
+libupstart_la_LDFLAGS = \
+	-version-info 0:0:0
+if HAVE_VERSION_SCRIPT_ARG
+libupstart_la_LDFLAGS += @VERSION_SCRIPT_ARG@=$(srcdir)/libupstart.ver
+endif
+
+EXTRA_DIST = libupstart.ver
+
+
+include_HEADERS = \
+	libupstart.h
+
+upstartincludedir = $(includedir)/upstart
+upstartinclude_HEADERS = \
+	job.h \
+	control.h
+
+
+TESTS = \
+	test_control
+
+check_PROGRAMS = $(TESTS)
+
+test_control_SOURCES = tests/test_control.c
+test_control_LDFLAGS = -static
+test_control_LDADD = libupstart.la
+
+
+clean-local:
+	rm -f *.gcno *.gcda
+
+maintainer-clean-local:
+	rm -f *.gcov

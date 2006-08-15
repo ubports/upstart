@@ -38,5 +38,6 @@ po/Rules-quot
 po/stamp-po
 po/upstart.pot
 nih
+upstart/test_*
 init/init
 init/test_*

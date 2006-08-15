@@ -1,5 +1,11 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* Makefile.am (SUBDIRS): Build the libupstart library
+	* configure.ac (AC_CONFIG_FILES): Generate upstart/Makefile
+	* upstart/Makefile.am: Makefile for sub-directory
+	* upstart/libupstart.ver: Linker version script.
+	* upstart/libupstart.h: "Include everything" header file.
+
 	* TODO: Update.
 
 	* init/job.c (job_handle_child): Warn when processes are killed
