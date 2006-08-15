@@ -30,6 +30,8 @@
 #include <nih/list.h>
 #include <nih/timer.h>
 
+#include "event.h"
+
 
 /**
  * JOB_DEFAULT_PID_TIMEOUT:
@@ -246,6 +248,10 @@ void        job_handle_child (void *ptr, pid_t pid, int killed, int status);
 
 void        job_start        (Job *job);
 void        job_stop         (Job *job);
+
+void        job_start_event  (Job *job, Event *event);
+void        job_stop_event   (Job *job, Event *event);
+void        job_handle_event (Event *event);
 
 NIH_END_EXTERN
 

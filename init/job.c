@@ -842,3 +842,82 @@ job_stop (Job *job)
 
 	job_kill_process (job);
 }
+
+
+/**
+ * job_start_event:
+ * @job: job to be started,
+ * @event: event triggered.
+ *
+ * Iterates the list of events that can cause @job to be started, and if
+ * @event is present, calls #job_start to change the goal.
+ **/
+void
+job_start_event (Job   *job,
+		 Event *event)
+{
+	nih_assert (job != NULL);
+	nih_assert (event != NULL);
+
+	NIH_LIST_FOREACH (&job->start_events, iter) {
+		Event *start_event = (Event *)iter;
+
+		if (event_match (event, start_event))
+			job_start (job);
+	}
+}
+
+/**
+ * job_stop_event:
+ * @job: job to be stopped,
+ * @event: event triggered.
+ *
+ * Iterates the list of events that can cause @job to be stopped, and if
+ * @event is present, calls #job_stop to change the goal.
+ **/
+void
+job_stop_event (Job   *job,
+		Event *event)
+{
+	nih_assert (job != NULL);
+	nih_assert (event != NULL);
+
+	NIH_LIST_FOREACH (&job->stop_events, iter) {
+		Event *stop_event = (Event *)iter;
+
+		if (event_match (event, stop_event))
+			job_stop (job);
+	}
+}
+
+/**
+ * job_handle_event:
+ * @event: event to be handled.
+ *
+ * This function is called whenever an edge event is triggered or the level
+ * of a level event is changed.  It iterates the list of jobs and stops
+ * or starts any necessary.
+ **/
+void
+job_handle_event (Event *event)
+{
+	nih_assert (event != NULL);
+
+	job_init ();
+
+	NIH_LIST_FOREACH_SAFE (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		/* We stop first so that if an event is listed both as a
+		 * stop and start event, it causes an active running process
+		 * to be killed, the stop script then the start script to be
+		 * run.  In any other state, it has no special effect.
+		 *
+		 * (The other way around would be just strange, it'd cause
+		 * a process's start and stop scripts to be run without the
+		 * actual process)
+		 */
+		job_stop_event (job, event);
+		job_start_event (job, event);
+	}
+}
