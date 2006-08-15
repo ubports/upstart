@@ -1,6 +1,3 @@
-respawn if necessary
-check exit status against normalexit
-
 put jobs in dep-wait if have dependencies, generate dependency events
 take jobs out of dep-wait when jobs enter running state
 
