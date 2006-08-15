@@ -35,7 +35,7 @@ test_process_LDADD = ../nih/libnih.la process.o job.o event.o
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDFLAGS = -static
-test_event_LDADD = ../nih/libnih.la event.o
+test_event_LDADD = ../nih/libnih.la process.o job.o event.o
 
 
 clean-local:
