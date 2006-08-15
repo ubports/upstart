@@ -40,6 +40,7 @@
 #include <nih/list.h>
 #include <nih/io.h>
 
+#include "event.h"
 #include "job.h"
 
 
@@ -242,6 +243,7 @@ int
 test_change_state (void)
 {
 	Job         *job;
+	Event       *event;
 	struct stat  statbuf;
 	char         dirname[22], filename[40];
 	int          ret = 0;
@@ -278,6 +280,13 @@ test_change_state (void)
 	/* Process state should be PROCESS_ACTIVE */
 	if (job->process_state != PROCESS_ACTIVE) {
 		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Event should be starting */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "starting")) {
+		printf ("BAD: event level wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -318,6 +327,13 @@ test_change_state (void)
 		ret = 1;
 	}
 
+	/* Event should be running */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "running")) {
+		printf ("BAD: event level wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	/* Command should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/run", dirname);
@@ -351,6 +367,13 @@ test_change_state (void)
 	/* Process state should be PROCESS_ACTIVE */
 	if (job->process_state != PROCESS_ACTIVE) {
 		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Event should be running */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "running")) {
+		printf ("BAD: event level wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -391,6 +414,13 @@ test_change_state (void)
 		ret = 1;
 	}
 
+	/* Event should be running */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "running")) {
+		printf ("BAD: event level wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	/* Script should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/run", dirname);
@@ -428,6 +458,13 @@ test_change_state (void)
 		ret = 1;
 	}
 
+	/* Event should be stopping */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "stopping")) {
+		printf ("BAD: event level wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	/* Stop script should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/stop", dirname);
@@ -461,6 +498,13 @@ test_change_state (void)
 	/* Process state should be PROCESS_ACTIVE */
 	if (job->process_state != PROCESS_ACTIVE) {
 		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Event should be respawning */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "respawning")) {
+		printf ("BAD: event level wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -501,6 +545,13 @@ test_change_state (void)
 		ret = 1;
 	}
 
+	/* Event should be running */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "running")) {
+		printf ("BAD: event level wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	/* Command should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/run", dirname);
@@ -533,6 +584,13 @@ test_change_state (void)
 	/* Process state should be PROCESS_ACTIVE */
 	if (job->process_state != PROCESS_ACTIVE) {
 		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Event should be stopping */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "stopping")) {
+		printf ("BAD: event level wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -573,6 +631,13 @@ test_change_state (void)
 		ret = 1;
 	}
 
+	/* Event should be waiting */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "waiting")) {
+		printf ("BAD: event level wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
 
 
@@ -591,6 +656,13 @@ test_change_state (void)
 	/* State should be JOB_WAITING */
 	if (job->state != JOB_WAITING) {
 		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Event should be waiting */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "waiting")) {
+		printf ("BAD: event level wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -625,6 +697,13 @@ test_change_state (void)
 		ret = 1;
 	}
 
+	/* Event should be starting */
+	event = event_find_by_name (job->name);
+	if (strcmp (event->value, "starting")) {
+		printf ("BAD: event level wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	/* Start script should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/start", dirname);
@@ -643,6 +722,7 @@ test_change_state (void)
 	waitpid (job->pid, NULL, 0);
 
 	nih_list_free (&job->entry);
+	nih_list_free (&event->entry);
 
 	return ret;
 }

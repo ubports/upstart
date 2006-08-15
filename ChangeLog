@@ -1,5 +1,12 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Trigger the level event with the
+	same name as the job, with the value taken from the state.
+	* init/tests/test_job.c (test_change_state): Check the event
+	gets set to the right values as we go.
+	* init/Makefile.am (test_job_LDADD, test_process_LDADD): Link to
+	event.o now that job.c uses code from there.
+
 	* init/event.c (event_change_value): Rename event_set_value to this
 	as we intended in the first place; makes it more consistent with job.
 	Always change the value.

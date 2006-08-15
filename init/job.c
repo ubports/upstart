@@ -38,6 +38,7 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
+#include "event.h"
 #include "process.h"
 #include "job.h"
 
@@ -219,6 +220,8 @@ job_find_by_pid (pid_t pid)
  * given, performing any actions to correctly enter the new state (such
  * as spawning scripts or processes).
  *
+ * The associated level event is also set by this function.
+ *
  * It does NOT perform any actions to leave the current state, so this
  * function may only be called when there is no active process.
  *
@@ -307,6 +310,9 @@ job_change_state (Job      *job,
 
 			break;
 		}
+
+		/* Trigger the level event */
+		event_trigger_level (job->name, job_state_name (job->state));
 	}
 }
 
