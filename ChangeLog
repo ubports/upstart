@@ -1,5 +1,16 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_change_value): Rename event_set_value to this
+	as we intended in the first place; makes it more consistent with job.
+	Always change the value.
+	(event_trigger_edge): Add a high-level function to trigger an edge
+	event.
+	(event_trigger_level): And another to trigger a level event with
+	a given value, this inherits the "don't change it" functionality
+	that was in event_set_value.
+	* init/event.h: Update.
+	* init/tests/test_event.c: Test new behaviours and functions.
+
 	* init/event.c: Add simple code to keep track of events, whether
 	they have been recorded or not and their current value if any.
 	* init/event.h: Structures and prototypes.

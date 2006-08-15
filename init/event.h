@@ -49,12 +49,15 @@ typedef struct event {
 
 NIH_BEGIN_EXTERN
 
-Event *event_new          (void *parent, const char *name);
-Event *event_record       (void *parent, const char *name);
+Event *event_new           (void *parent, const char *name);
+Event *event_record        (void *parent, const char *name);
 
-Event *event_find_by_name (const char *name);
+Event *event_find_by_name  (const char *name);
 
-int    event_set_value    (Event *event, const char *value);
+int    event_change_value  (Event *event, const char *value);
+
+void   event_trigger_edge  (const char *name);
+void   event_trigger_level (const char *name, const char *value);
 
 NIH_END_EXTERN
 

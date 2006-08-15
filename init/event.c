@@ -176,25 +176,72 @@ event_find_by_name (const char *name)
  * Returns: zero on success, negative value on insufficient memory.
  **/
 int
-event_set_value (Event      *event,
-		 const char *value)
+event_change_value (Event      *event,
+		    const char *value)
 {
 	nih_assert (event != NULL);
 	nih_assert (value != NULL);
 	nih_assert (strlen (value) > 0);
 
-	if (event->value) {
-		if (! strcmp (event->value, value)) {
-			nih_debug ("%s event value unchanged (%s)",
-				   event->name, event->value);
-			return 0;
-		}
-
+	if (event->value)
 		nih_free (event->value);
-	}
 
 	event->value = nih_strdup (event, value);
-	nih_debug ("%s event value changed to %s", event->name, event->value);
+	nih_debug ("%s event level changed to %s", event->name, event->value);
 
 	return 0;
+}
+
+
+/**
+ * event_trigger_edge:
+ * @name: name of event to trigger.
+ *
+ * Triggers an edge event called @name, recording it in the history of events
+ * that have previously been triggered.
+ **/
+void
+event_trigger_edge (const char *name)
+{
+	Event *event;
+
+	nih_assert (name != NULL);
+	nih_assert (strlen (name) > 0);
+
+	NIH_MUST (event = event_record (NULL, name));
+
+	nih_info (_("%s event triggered"), event->name);
+}
+
+/**
+ * event_trigger_level:
+ * @name: name of event to trigger,
+ * @level: level to trigger at.
+ *
+ * Changes the level of the event called @name to @level, and if different to
+ * that before triggers the level event and edge event, recording it in the
+ * history of events.
+ **/
+void
+event_trigger_level (const char *name,
+		     const char *level)
+{
+	Event *event;
+
+	nih_assert (name != NULL);
+	nih_assert (strlen (name) > 0);
+	nih_assert (level != NULL);
+	nih_assert (strlen (level) > 0);
+
+	NIH_MUST (event = event_record (NULL, name));
+
+	if (event->value && (! strcmp (event->value, level))) {
+		nih_debug ("%s event level unchanged (%s)",
+			   event->name, event->value);
+		return;
+	}
+
+	NIH_MUST (event_change_value (event, level) == 0);
+
+	nih_info (_("%s %s event triggered"), event->name, event->value);
 }
