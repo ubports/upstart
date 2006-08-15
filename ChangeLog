@@ -1,5 +1,7 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h: Add missing attribute for event_new()
+
 	* init/job.h (JobGoal, JobState, ProcessState, ConsoleType): Move
 	the enums from here
 	* upstart/job.h: into here so that we can use them across the
