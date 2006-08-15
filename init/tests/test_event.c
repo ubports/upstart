@@ -177,6 +177,82 @@ test_find_by_name (void)
 	return ret;
 }
 
+int
+test_match (void)
+{
+	Event *event1, *event2;
+	int    ret = 0;
+
+	printf ("Testing event_match()\n");
+
+	printf ("...with different name events\n");
+	event1 = event_new (NULL, "foo");
+	event2 = event_new (NULL, "bar");
+
+	/* Should not match */
+	if (event_match (event1, event2)) {
+		printf ("BAD: events matched unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with same edge events\n");
+	nih_free (event2);
+	event2 = event_new (NULL, "foo");
+
+	/* Should match */
+	if (! event_match (event1, event2)) {
+		printf ("BAD: events did not match.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with edge event matching against level\n");
+	event1->value = "test";
+
+	/* Should match */
+	if (! event_match (event1, event2)) {
+		printf ("BAD: events did not match.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with same level events\n");
+	event2->value = "test";
+
+	/* Should match */
+	if (! event_match (event1, event2)) {
+		printf ("BAD: events did not match.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with different level events\n");
+	event1->value = "wibble";
+
+	/* Should not match */
+	if (event_match (event1, event2)) {
+		printf ("BAD: events matched unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with level event matching against edge\n");
+	event1->value = NULL;
+
+	/* Should not match */
+	if (event_match (event1, event2)) {
+		printf ("BAD: events matched unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	nih_free (event2);
+	nih_free (event1);
+
+	return ret;
+}
+
 
 static int was_called = 0;
 
@@ -380,6 +456,7 @@ main (int   argc,
 	ret |= test_new ();
 	ret |= test_record ();
 	ret |= test_find_by_name ();
+	ret |= test_match ();
 	ret |= test_change_value ();
 	ret |= test_trigger_edge ();
 	ret |= test_trigger_level ();

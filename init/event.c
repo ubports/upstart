@@ -163,6 +163,42 @@ event_find_by_name (const char *name)
 	return NULL;
 }
 
+/**
+ * event_match:
+ * @event1: first event,
+ * @event2: second event.
+ *
+ * Compares @event1 and @event2 to see whether they are identical in name
+ * and value, or both names match and @event2's value is NULL.
+ *
+ * Returns: TRUE if the events match, FALSE otherwise.
+ **/
+int
+event_match (Event *event1,
+	     Event *event2)
+{
+	nih_assert (event1 != NULL);
+	nih_assert (event2 != NULL);
+
+	/* Names must match */
+	if (strcmp (event1->name, event2->name))
+		return FALSE;
+
+	/* Special case: an edge event matches any level */
+	if (event2->value == NULL)
+		return TRUE;
+
+	/* A level event does not match a level event however */
+	if (event1->value == NULL)
+		return FALSE;
+
+	/* Otherwise values must match */
+	if (strcmp (event1->value, event2->value))
+		return FALSE;
+
+	return TRUE;
+}
+
 
 /**
  * event_change_value:

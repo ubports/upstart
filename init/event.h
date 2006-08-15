@@ -53,6 +53,7 @@ Event *event_new           (void *parent, const char *name);
 Event *event_record        (void *parent, const char *name);
 
 Event *event_find_by_name  (const char *name);
+int    event_match         (Event *event1, Event *event2);
 
 int    event_change_value  (Event *event, const char *value);
 

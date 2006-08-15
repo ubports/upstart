@@ -1,5 +1,9 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_match): Function to check events for equality.
+	* init/event.h: Update.
+	* init/tests/test_event.c (test_match): Test function.
+
 	* init/job.c (job_change_state): Trigger the level event with the
 	same name as the job, with the value taken from the state.
 	* init/tests/test_job.c (test_change_state): Check the event
