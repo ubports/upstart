@@ -738,11 +738,30 @@ job_handle_child (void  *data,
 
 	switch (job->state) {
 	case JOB_RUNNING:
-		/* FIXME check daemon; if true, check exit status
-		 * and maybe don't change the goal */
+		/* Check whether we should respawn the process
+		 *
+		 * If a list of "normal" exit codes is provided, this is
+		 * the list of exit codes that _prevent_ a respawn
+		 */
+		if (job->respawn) {
+			size_t i;
+
+			for (i = 0; i < job->normalexit_len; i++)
+				if ((! killed) &&
+				    (job->normalexit[i] == status))
+					break;
+
+			if (i == job->normalexit_len)
+				break;
+		}
+
 		job->goal = JOB_STOP;
 		break;
 	default:
+		/* If a script is killed or exits with a status other than
+		 * zero, it's considered a failure and prevents the process
+		 * from starting.
+		 */
 		if (killed || status)
 			job->goal = JOB_STOP;
 

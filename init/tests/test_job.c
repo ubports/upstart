@@ -1455,7 +1455,7 @@ int
 test_handle_child (void)
 {
 	Job *job;
-	int  ret = 0;
+	int  ret = 0, exitcodes[1] = { 0 };
 
 	printf ("Testing job_handle_child()\n");
 	job = job_new (NULL, "test");
@@ -1465,6 +1465,7 @@ test_handle_child (void)
 	job->pid = 1000;
 	job->command = "echo";
 	job->stop_script = "echo";
+	job->respawn_script = "echo";
 
 
 	printf ("...with unknown pid\n");
@@ -1606,6 +1607,78 @@ test_handle_child (void)
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 	job_handle_child (NULL, 1000, TRUE, SIGTERM);
+
+	/* Job should no longer have that process */
+	if (job->pid == 1000) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Goal should now be STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should now be STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with running task to respawn\n");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job->respawn = TRUE;
+	job_handle_child (NULL, 1000, FALSE, 0);
+
+	/* Job should no longer have that process */
+	if (job->pid == 1000) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Goal should still be START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should now be RESPAWNING */
+	if (job->state != JOB_RESPAWNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with running task and normal exit\n");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+	job->respawn = TRUE;
+	job->normalexit = exitcodes;
+	job->normalexit_len = 1;
+	job_handle_child (NULL, 1000, FALSE, 0);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
