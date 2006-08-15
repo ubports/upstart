@@ -1,11 +1,8 @@
 respawn if necessary
 check exit status against normalexit
 
-
-start jobs when events occur
 put jobs in dep-wait if have dependencies, generate dependency events
-take jobs out of dep-wait when events occur
-stop jobs when events occur
+take jobs out of dep-wait when jobs enter running state
 
 control socket for receiving events
 check origin user (important!)
@@ -20,11 +17,9 @@ config file
 logging
 
 
-
 handle location of pid/binary for spawned daemons
 
 deal with instances
-
 
 
 per-user services

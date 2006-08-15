@@ -1,5 +1,7 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/event.c (event_trigger_edge, event_trigger_level): Call
 	job_handle_event so that we actually do something useful.
 	* init/Makefile.am (test_event_LDADD): Link to process.o and job.o
