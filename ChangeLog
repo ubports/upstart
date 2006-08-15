@@ -1,5 +1,10 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobGoal, JobState, ProcessState, ConsoleType): Move
+	the enums from here
+	* upstart/job.h: into here so that we can use them across the
+	control socket.
+
 	* Makefile.am (SUBDIRS): Build the libupstart library
 	* configure.ac (AC_CONFIG_FILES): Generate upstart/Makefile
 	* upstart/Makefile.am: Makefile for sub-directory
