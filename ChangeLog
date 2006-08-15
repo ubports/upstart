@@ -1,5 +1,14 @@
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c: Add simple code to keep track of events, whether
+	they have been recorded or not and their current value if any.
+	* init/event.h: Structures and prototypes.
+	* init/tests/test_event.c: Test cases for event code.
+	* init/Makefile.am (init_SOURCES): Build and link event.c using event.h
+	(TESTS): Run the event test suite.
+	(test_event_SOURCES, test_event_LDFLAGS, test_event_LDADD): Details
+	for event test suite binary.
+
 	* init/job.c (job_run_process, job_kill_process, job_kill_timer):
 	Downgrade error messages to warning as they're not fatal.
 	(job_change_state): Change info message to be more regular.

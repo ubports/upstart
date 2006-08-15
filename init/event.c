@@ -1,0 +1,200 @@
+/* upstart
+ *
+ * event.c - event triggering and tracking
+ *
+ * Copyright © 2006 Canonical Ltd.
+ * Author: Scott James Remnant <scott@ubuntu.com>.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ */
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif /* HAVE_CONFIG_H */
+
+
+#include <string.h>
+
+#include <nih/macros.h>
+#include <nih/alloc.h>
+#include <nih/string.h>
+#include <nih/list.h>
+#include <nih/logging.h>
+
+#include "event.h"
+
+
+/**
+ * events:
+ *
+ * This list holds the list the currently known value of all level events
+ * and the history of edge events triggered so far; each entry is of the
+ * Event structure.
+ **/
+static NihList *events = NULL;
+
+
+/**
+ * event_init:
+ *
+ * Initialise the event history list.
+ **/
+static inline void
+event_init (void)
+{
+	if (! events)
+		NIH_MUST (events = nih_list_new ());
+}
+
+
+/**
+ * event_new:
+ * @parent: parent of new event,
+ * @name: name of new event.
+ *
+ * Allocates and returns a new Event structure with the @name given, but
+ * does not record it in the history list.  This is used when a lone
+ * Dvent structure is needed, such as for matching events.
+ *
+ * The value of the event is initialised to %NULL.
+ *
+ * Returns: newly allocated Event structure or %NULL if insufficient memory.
+ **/
+Event *
+event_new (void       *parent,
+	   const char *name)
+{
+	Event *event;
+
+	nih_assert (name != NULL);
+	nih_assert (strlen (name) > 0);
+
+	event = nih_new (parent, Event);
+	if (! event)
+		return NULL;
+
+	nih_list_init (&event->entry);
+
+	event->name = nih_strdup (event, name);
+	if (! event->name) {
+		nih_free (event);
+		return NULL;
+	}
+
+	event->value = NULL;
+
+	return event;
+}
+
+/**
+ * event_record:
+ * @parent: parent of new event,
+ * @name: name of new event.
+ *
+ * Checks whether @name already exists in the history list and either
+ * allocates and returns a new Event structure with the @name given
+ * (which is added to the list) or returns the existing entry.
+  *
+ * The value of the event is initialised to %NULL.
+ *
+ * Returns: newly allocated Event structure or %NULL if insufficient memory.
+ **/
+Event *
+event_record (void       *parent,
+	      const char *name)
+{
+	Event *event;
+
+	nih_assert (name != NULL);
+	nih_assert (strlen (name) > 0);
+
+	event_init ();
+
+	event = event_find_by_name (name);
+	if (! event) {
+		event = event_new (parent, name);
+		if (event)
+			nih_list_add (events, &event->entry);
+	}
+
+	return event;
+}
+
+
+/**
+ * event_find_by_name:
+ * @name: name of event.
+ *
+ * Finds an event with the given @name in the history list; this can be
+ * used both to find out whether a particular event has ever been recorded
+ * (return value is not %NULL) or what the current value of a level event
+ * is (event->value is not %NULL).
+ *
+ * Returns: event record found or %NULL if never recorded.
+ **/
+Event *
+event_find_by_name (const char *name)
+{
+	Event *event;
+
+	nih_assert (name != NULL);
+
+	event_init ();
+
+	NIH_LIST_FOREACH (events, iter) {
+		event = (Event *)iter;
+
+		if (! strcmp (event->name, name))
+			return event;
+	}
+
+	return NULL;
+}
+
+
+/**
+ * event_change_value:
+ * @event: event to change,
+ * @value: new value.
+ *
+ * This function changes the value of the given level @event to the new
+ * @value given.  If no value has been previously recorded, or @value
+ * is different from that currently set, this triggers the event.
+ *
+ * Returns: zero on success, negative value on insufficient memory.
+ **/
+int
+event_set_value (Event      *event,
+		 const char *value)
+{
+	nih_assert (event != NULL);
+	nih_assert (value != NULL);
+	nih_assert (strlen (value) > 0);
+
+	if (event->value) {
+		if (! strcmp (event->value, value)) {
+			nih_debug ("%s event value unchanged (%s)",
+				   event->name, event->value);
+			return 0;
+		}
+
+		nih_free (event->value);
+	}
+
+	event->value = nih_strdup (event, value);
+	nih_debug ("%s event value changed to %s", event->name, event->value);
+
+	return 0;
+}
