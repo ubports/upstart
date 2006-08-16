@@ -1,5 +1,9 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start): Ignore self-dependencies; over-document
+	why the dependency event prodding has a surprise in its tail.
+	(job_change_state): Move the job_release_depends call to here.
+
 	* init/event.c (event_queue_cb): Add event consumer/dispatcher.
 	* init/event.h: Update.
 

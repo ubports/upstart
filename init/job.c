@@ -294,6 +294,15 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
+			/* Release our dependencies.  This will cause some
+			 * amount of stack recursion while dependencies get
+			 * started but it cannot affect this job (it only
+			 * touches those in START/WAITING and we're in
+			 * START/RUNNING)
+			 */
+			if (job->process_state == PROCESS_ACTIVE)
+				job_release_depends (job);
+
 			break;
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
@@ -569,10 +578,6 @@ job_run_process (Job          *job,
 	} else {
 		nih_info (_("Active %s process (%d)"), job->name, job->pid);
 		job->process_state = PROCESS_ACTIVE;
-
-		/* Release our dependencies */
-		if (job->state == JOB_RUNNING)
-			job_release_depends (job);
 	}
 }
 
@@ -851,11 +856,18 @@ job_start (Job *job)
 		nih_info (_("%s waiting for dependency: %s"),
 			  job->name, dep_job->name);
 
-		/* If the job isn't going to be started, try sending it
-		 * a dependency event and see whether that starts it
+		/* If the job is sitting at STOP, try poking it with a
+		 * dependency event to see whether that does anything
+		 * useful.
 		 *
-		 * Note: this can actually change our own state!  so
-		 * do nothing else
+		 * NOTE: if successful and the dependency goes straight
+		 * to RUNNING, this will mean that we'll be released
+		 * _by_the_time_we_return_.
+		 *
+		 * MAKE NO FURTHER ASSUMPTIONS ABOUT THE JOB STATE
+		 * and certainly DO NOT call job_next_state!
+		 *
+		 * Fortunately we're safe from that while held is TRUE.
 		 */
 		if (dep_job->goal == JOB_STOP) {
 			Event *event;
@@ -867,6 +879,9 @@ job_start (Job *job)
 	}
 
 	if (held) {
+		/* Notify subscribers if we're still waiting as we've
+		 * made a goal change but not a state change.
+		 */
 		if (job->state == JOB_WAITING)
 			control_handle_job (job);
 	} else {
@@ -925,6 +940,12 @@ job_stop (Job *job)
  *
  * Release any jobs which depend on @job now that it is running with an
  * active process.
+ *
+ * The only jobs that will be affected are those that have a goal of
+ * JOB_START but a state of JOB_WAITING and which list @job in their
+ * depends list.  #job_change_state is called on these jobs.
+ *
+ * It is not possible for @job to be changed by a call to this function.
  **/
 void
 job_release_depends (Job *job)
