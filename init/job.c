@@ -858,8 +858,11 @@ job_start (Job *job)
 		}
 	}
 
-	if (! held)
+	if (held) {
+		control_handle_job (job);
+	} else {
 		job_change_state (job, job_next_state (job));
+	}
 }
 
 /**
