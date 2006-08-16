@@ -10,8 +10,8 @@ INCLUDES = -I$(top_srcdir)/intl
 lib_LTLIBRARIES = libupstart.la
 
 libupstart_la_SOURCES = \
-	control.c \
-	job.c
+	job.c \
+	control.c
 
 
 libupstart_la_LDFLAGS = \
