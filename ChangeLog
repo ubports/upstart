@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c: Write the code to handle the control socket
+	and communication over it; turns out this was possible to write so
+	that both ends are handled in the same code.
+	* upstart/control.h: Structures and prototypes.
+	* upstart/tests/test_control.c: Test the new code.
+
 	* upstart/Makefile.am (libupstart_la_LIBADD): Link to libnih
 
 	* upstart/errors.h: Header file containing errors raised by
