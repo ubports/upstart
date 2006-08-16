@@ -608,11 +608,13 @@ job_kill_process (Job *job)
 		job->pid = 0;
 		job->process_state = PROCESS_NONE;
 
-		job_change_state (job, JOB_STOPPING);
+		job_change_state (job, job_next_state (job));
 		return;
 	}
 
 	job->process_state = PROCESS_KILLED;
+	control_handle_job (job);
+
 	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
 			  job, job->kill_timeout,
 			  (NihTimerCb)job_kill_timer, job));
@@ -659,7 +661,7 @@ job_kill_timer (Job      *job,
 	job->process_state = PROCESS_NONE;
 	job->kill_timer = NULL;
 
-	job_change_state (job, JOB_STOPPING);
+	job_change_state (job, job_next_state (job));
 }
 
 
@@ -797,8 +799,10 @@ job_start (Job *job)
 	 * naturally terminate -- now that the goal is reversed, we'll
 	 * go the other way.
 	 */
-	if (job->state != JOB_WAITING)
+	if (job->state != JOB_WAITING) {
+		control_handle_job (job);
 		return;
+	}
 
 	/* FIXME
 	 * if there are dependencies, we stay in waiting
@@ -843,8 +847,10 @@ job_stop (Job *job)
 	 * we'll go the other way.
 	 */
 	if ((job->state != JOB_RUNNING)
-	    || (job->process_state != PROCESS_ACTIVE))
+	    || (job->process_state != PROCESS_ACTIVE)) {
+		control_handle_job (job);
 		return;
+	}
 
 	job_kill_process (job);
 }

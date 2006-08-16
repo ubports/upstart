@@ -1,5 +1,12 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_kill_process, job_kill_timer): Don't hardcode
+	JOB_STOPPING here, instead move to the next logical state. 
+	(job_kill_process): Notify subscribed processes that we killed
+	the job.
+	(job_start, job_stop): Notify subscribed processes of a change of
+	goal that doesn't result in an immediate state change.
+
 	* init/event.c (event_trigger_edge, event_trigger_level): Swap
 	order so that events are announced before processed.
 
