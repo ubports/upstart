@@ -394,7 +394,7 @@ upstart_recv_msg (void  *parent,
 	char            cmsg_buf[CMSG_SPACE (sizeof (struct ucred))];
 	struct cmsghdr *cmsg;
 	struct ucred    cred = { 0, 0, 0 };
-	size_t          len;
+	ssize_t         len;
 
 	nih_assert (sock >= 0);
 
