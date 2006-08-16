@@ -450,51 +450,6 @@ test_change_state (void)
 	unlink (filename);
 
 
-	printf ("...starting to running without either\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_NONE;
-	nih_free (job->script);
-	job->script = NULL;
-	job_change_state (job, JOB_RUNNING);
-
-	/* Goal should have become JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be stopping */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "stopping")) {
-		printf ("BAD: event level wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: stop script doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-	job->command = nih_sprintf (job, "touch %s/run", dirname);
-
-
 	printf ("...running to respawning with script\n");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;

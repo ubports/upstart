@@ -280,17 +280,18 @@ job_change_state (Job      *job,
 			nih_assert ((old_state == JOB_STARTING)
 				    || (old_state == JOB_RESPAWNING));
 
-			/* If we don't have anything to do, we need to
-			 * change the goal to STOP otherwise the next
-			 * state is respawning and we'll just loop
+			/* Must have either a script, or a command,
+			 * but not both or neither.
 			 */
+			nih_assert (   ((job->script == NULL)
+				        && (job->command != NULL))
+				    || ((job->script != NULL)
+					&& (job->command == NULL)));
+
 			if (job->script) {
 				job_run_script (job, job->script);
 			} else if (job->command) {
 				job_run_command (job, job->command);
-			} else {
-				job->goal = JOB_STOP;
-				state = job_next_state (job);
 			}
 
 			break;

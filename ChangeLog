@@ -1,5 +1,12 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Make it illegal for a job to exist
+	without either a command or script or both.  This is for sanity
+	reasons, allowing no primary process makes no sense and can lead
+	to event loops if someone is feeling nefarious.
+	* init/tests/test_job.c (test_change_state): Drop test on behaviour
+	we've just outlawed.
+
 	* init/job.c (job_start): Only announce the change if we're still
 	in the waiting state, we could have moved on to running already.
 
