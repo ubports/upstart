@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_release_depends): Function to release any waiting
+	dependencies on the given job.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_release_depends): Test the behaviour
+	of the function on its own.
+
 	* init/job.h (Job): Add depends list field
 	(JobName): New structure to hold the name of a job.
 	* init/job.c (job_new): Initialise the depends list.

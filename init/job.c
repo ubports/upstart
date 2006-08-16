@@ -863,6 +863,45 @@ job_stop (Job *job)
 
 
 /**
+ * job_release_depends:
+ * @job: job now running.
+ *
+ * Release any jobs which depend on @job now that it is running with an
+ * active process.
+ **/
+void
+job_release_depends (Job *job)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->goal == JOB_START);
+	nih_assert (job->state == JOB_RUNNING);
+	nih_assert (job->process_state == PROCESS_ACTIVE);
+
+	/* This is rather too expensive, but at least avoids hard to maintain
+	 * linking tables.  Hopefully we'll never have thousands of jobs.
+	 */
+	NIH_LIST_FOREACH (jobs, job_iter) {
+		Job *dep_job = (Job *)job_iter;
+
+		/* Only release those jobs waiting to be released */
+		if ((dep_job->goal != JOB_START)
+		    || (dep_job->state != JOB_WAITING))
+			continue;
+
+		/* Check whether it's waiting for us */
+		NIH_LIST_FOREACH (&dep_job->depends, dep_iter) {
+			JobName *dep = (JobName *)dep_iter;
+
+			if (strcmp (dep->name, job->name))
+				continue;
+
+			job_change_state (dep_job, job_next_state (dep_job));
+		}
+	}
+}
+
+
+/**
  * job_start_event:
  * @job: job to be started,
  * @event: event triggered.

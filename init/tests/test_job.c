@@ -1882,6 +1882,117 @@ test_stop (void)
 
 
 int
+test_release_depends (void)
+{
+	Job     *job1, *job2, *job3, *job4;
+	JobName *job2dep, *job3dep, *job4dep;
+	int      ret = 0;
+
+	printf ("Testing job_release_depends()\n");
+	job1 = job_new (NULL, "foo");
+	job1->command = "echo";
+	job1->goal = JOB_START;
+	job1->state = JOB_RUNNING;
+	job1->process_state = PROCESS_ACTIVE;
+
+	job2 = job_new (NULL, "bar");
+	job2->command = "echo";
+	job2->goal = JOB_START;
+	job2->state = JOB_WAITING;
+
+	job2dep = nih_new (job2, JobName);
+	job2dep->name = job1->name;
+	nih_list_init (&job2dep->entry);
+	nih_list_add (&job2->depends, &job2dep->entry);
+
+	job3 = job_new (NULL, "baz");
+	job3->command = "echo";
+	job3->goal = JOB_STOP;
+	job3->state = JOB_WAITING;
+
+	job3dep = nih_new (job3, JobName);
+	job3dep->name = job1->name;
+	nih_list_init (&job3dep->entry);
+	nih_list_add (&job3->depends, &job3dep->entry);
+
+	job4 = job_new (NULL, "wibble");
+	job4->command = "echo";
+	job4->goal = JOB_START;
+	job4->state = JOB_WAITING;
+
+	job4dep = nih_new (job4, JobName);
+	job4dep->name = "frodo";
+	nih_list_init (&job4dep->entry);
+	nih_list_add (&job4->depends, &job4dep->entry);
+
+	job_release_depends (job1);
+
+	/* Goal should now be JOB_START */
+	if (job2->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should now be JOB_RUNNING */
+	if (job2->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should now be PROCESS_ACTIVE */
+	if (job2->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job2->pid, NULL, 0);
+
+	/* Third job goal should be unchanged */
+	if (job3->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Third job state should be unchanged */
+	if (job3->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Third process state should be unchanged */
+	if (job3->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Fourth job goal should be unchanged */
+	if (job4->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Fourth job state should be unchanged */
+	if (job4->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Fourth process state should be unchanged */
+	if (job4->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job1->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job3->entry);
+	nih_list_free (&job4->entry);
+
+	return ret;
+}
+
+
+int
 test_start_event (void)
 {
 	Event *event;
@@ -2239,6 +2350,7 @@ main (int   argc,
 	ret |= test_handle_child ();
 	ret |= test_start ();
 	ret |= test_stop ();
+	ret |= test_release_depends ();
 	ret |= test_start_event ();
 	ret |= test_stop_event ();
 	ret |= test_handle_event ();

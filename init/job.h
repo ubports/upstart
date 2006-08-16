@@ -172,27 +172,29 @@ typedef struct job_name {
 
 NIH_BEGIN_EXTERN
 
-Job *       job_new          (void *parent, const char *name);
+Job *       job_new             (void *parent, const char *name);
 
-Job *       job_find_by_name (const char *name);
-Job *       job_find_by_pid  (pid_t pid);
+Job *       job_find_by_name    (const char *name);
+Job *       job_find_by_pid     (pid_t pid);
 
-void        job_change_state (Job *job, JobState state);
-JobState    job_next_state   (Job *job);
+void        job_change_state    (Job *job, JobState state);
+JobState    job_next_state      (Job *job);
 
-void        job_run_command  (Job *job, const char *command);
-void        job_run_script   (Job *job, const char *script);
+void        job_run_command     (Job *job, const char *command);
+void        job_run_script      (Job *job, const char *script);
 
-void        job_kill_process (Job *job);
+void        job_kill_process    (Job *job);
 
-void        job_handle_child (void *ptr, pid_t pid, int killed, int status);
+void        job_handle_child    (void *ptr, pid_t pid, int killed, int status);
 
-void        job_start        (Job *job);
-void        job_stop         (Job *job);
+void        job_start           (Job *job);
+void        job_stop            (Job *job);
 
-void        job_start_event  (Job *job, Event *event);
-void        job_stop_event   (Job *job, Event *event);
-void        job_handle_event (Event *event);
+void        job_release_depends (Job *job);
+
+void        job_start_event     (Job *job, Event *event);
+void        job_stop_event      (Job *job, Event *event);
+void        job_handle_event    (Event *event);
 
 NIH_END_EXTERN
 
