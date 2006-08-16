@@ -136,7 +136,8 @@ typedef struct wire_job_payload {
  * WireJobStatusPayload:
  * @goal: job goal,
  * @state: job state,
- * @process_state: process state.
+ * @process_state: process state,
+ * @pid: current process.
  *
  * This payload follows a job payload for the JOB_STATUS message and contains
  * the status information.
@@ -145,6 +146,7 @@ typedef struct wire_job_status_payload {
 	JobGoal      goal;
 	JobState     state;
 	ProcessState process_state;
+	pid_t        pid;
 } WireJobStatusPayload;
 
 
@@ -356,6 +358,7 @@ upstart_send_msg_to (pid_t       pid,
 		status.goal = message->job_status.goal;
 		status.state = message->job_status.state;
 		status.process_state = message->job_status.process_state;
+		status.pid = message->job_status.pid;
 		IOVEC_ADD (iov[0], &status, sizeof (status), sizeof (buf));
 
 		break;
@@ -523,6 +526,7 @@ upstart_recv_msg (void  *parent,
 		message->job_status.goal = status.goal;
 		message->job_status.state = status.state;
 		message->job_status.process_state = status.process_state;
+		message->job_status.pid = status.pid;
 
 		break;
 	}

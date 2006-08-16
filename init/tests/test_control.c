@@ -334,7 +334,7 @@ test_cb_child (int test)
 		}
 
 		/* Job should be the one we tried */
-		if (strcmp (r_msg->job_status.name, "wibble")) {
+		if (strcmp (r_msg->job_unknown.name, "wibble")) {
 			printf ("BAD: name wasn't what we expected.\n");
 			ret = 1;
 		}

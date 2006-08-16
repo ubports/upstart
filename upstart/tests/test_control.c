@@ -384,6 +384,7 @@ test_messages (void)
 	s_msg->job_status.goal = JOB_START;
 	s_msg->job_status.state = JOB_STARTING;
 	s_msg->job_status.process_state = PROCESS_ACTIVE;
+	s_msg->job_status.pid = 123;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
@@ -421,6 +422,12 @@ test_messages (void)
 	/* Process state should be what we sent */
 	if (r_msg->job_status.process_state != PROCESS_ACTIVE) {
 		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process id should be what we sent */
+	if (r_msg->job_status.pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
 		ret = 1;
 	}
 

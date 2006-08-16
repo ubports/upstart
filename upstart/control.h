@@ -126,7 +126,8 @@ typedef struct upstart_job_query_msg {
  * @name: name of job,
  * @goal: whether job is being started or stopped,
  * @state: actual state of job,
- * @process_state: state of attached process.
+ * @process_state: state of attached process,
+ * @pid: current pid, if any.
  *
  * This message indicates the current state of a job; it is sent in response
  * to an explicit query and for commands that change the job state to
@@ -142,6 +143,8 @@ typedef struct upstart_job_status_msg {
 	JobGoal         goal;
 	JobState        state;
 	ProcessState    process_state;
+
+	pid_t           pid;
 } UpstartJobStatusMsg;
 
 /**
