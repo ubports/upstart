@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Once we've got an active process
+	in the running state, release our dependencies.
+
 	* init/job.c (job_release_depends): Function to release any waiting
 	dependencies on the given job.
 	* init/job.h: Update.

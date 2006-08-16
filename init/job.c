@@ -568,6 +568,10 @@ job_run_process (Job          *job,
 	} else {
 		nih_info (_("Active %s process (%d)"), job->name, job->pid);
 		job->process_state = PROCESS_ACTIVE;
+
+		/* Release our dependencies */
+		if (job->state == JOB_RUNNING)
+			job_release_depends (job);
 	}
 }
 
