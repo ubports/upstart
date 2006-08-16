@@ -449,6 +449,39 @@ control_handle (pid_t       pid,
 
 		break;
 	}
+	case UPSTART_EVENT_TRIGGER_EDGE:
+		nih_info (_("Control request to trigger %s"),
+			  msg->event_trigger_edge.name);
+
+		control_subscribe (pid, NOTIFY_JOBS, TRUE);
+		event_trigger_edge (msg->event_trigger_edge.name);
+		control_subscribe (pid, NOTIFY_JOBS, FALSE);
+
+		reply = nih_new (NULL, UpstartMsg);
+		reply->type = UPSTART_EVENT_TRIGGERED;
+		reply->event_triggered.name = msg->event_trigger_edge.name;
+		reply->event_triggered.level = NULL;
+
+		break;
+	case UPSTART_EVENT_TRIGGER_LEVEL:
+		if (! msg->event_trigger_level.level)
+			break;
+
+		nih_info (_("Control request to trigger %s %s"),
+			  msg->event_trigger_level.name,
+			  msg->event_trigger_level.level);
+
+		control_subscribe (pid, NOTIFY_JOBS, TRUE);
+		event_trigger_level (msg->event_trigger_level.name,
+				     msg->event_trigger_level.level);
+		control_subscribe (pid, NOTIFY_JOBS, FALSE);
+
+		reply = nih_new (NULL, UpstartMsg);
+		reply->type = UPSTART_EVENT_TRIGGERED;
+		reply->event_triggered.name = msg->event_trigger_level.name;
+		reply->event_triggered.level = msg->event_trigger_level.level;
+
+		break;
 	default:
 		/* Unknown message */
 		nih_debug ("Unhandled control message %d", msg->type);

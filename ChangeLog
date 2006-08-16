@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_handle): Handle messages that trigger
+	edge and level events; subscribe the process to receive notification
+	of job changes during the event.
+	* init/tests/test_control.c (test_cb_child): Check that the messages
+	are handled properly (without subscription check).
+
 	* init/control.c (control_cb): Unsubscribe a process if it stops
 	listening.
 
