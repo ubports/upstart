@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Adjust
+	marshal code to match.
+	* upstart/control.h: Update all structures appropriately to the
+	previous changes.
+	* upstart/tests/test_control.c: Update.
+
 	* init/job.c (job_change_state): Change call to event_trigger_level
 	to event_queue_level.
 

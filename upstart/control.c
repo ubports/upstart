@@ -383,25 +383,27 @@ upstart_send_msg_to (pid_t       pid,
 
 		break;
 	}
-	case UPSTART_EVENT_TRIGGER_EDGE:
-	case UPSTART_EVENT_TRIGGER_LEVEL:
-	case UPSTART_EVENT_TRIGGERED: {
+	case UPSTART_EVENT_QUEUE_EDGE:
+	case UPSTART_EVENT_QUEUE_LEVEL:
+	case UPSTART_EVENT: {
 		/* Event name, followed by optional level */
 		WireEventPayload ev;
 
-		ev.namelen = strlen (message->event_triggered.name);
-		if ((message->type != UPSTART_EVENT_TRIGGER_EDGE)
-		    && (message->event_triggered.level != NULL)) {
-			ev.levellen = strlen (message->event_triggered.level);
+		ev.namelen = strlen (message->event.name);
+		if ((message->type == UPSTART_EVENT_QUEUE_LEVEL)
+		    || ((message->type == UPSTART_EVENT)
+			&& (message->event.level != NULL)))
+		{
+			ev.levellen = strlen (message->event.level);
 		} else {
 			ev.levellen = 0;
 		}
 
 		IOVEC_ADD (iov[0], &ev, sizeof (ev), sizeof (buf));
-		IOVEC_ADD (iov[0], message->event_triggered.name, ev.namelen,
+		IOVEC_ADD (iov[0], message->event.name, ev.namelen,
 			   sizeof (buf));
 		if (ev.levellen) {
-			IOVEC_ADD (iov[0], message->event_triggered.level,
+			IOVEC_ADD (iov[0], message->event.level,
 				   ev.levellen, sizeof (buf));
 		}
 
@@ -578,29 +580,30 @@ upstart_recv_msg (void  *parent,
 
 		break;
 	}
-	case UPSTART_EVENT_TRIGGER_EDGE:
-	case UPSTART_EVENT_TRIGGER_LEVEL:
-	case UPSTART_EVENT_TRIGGERED: {
+	case UPSTART_EVENT_QUEUE_EDGE:
+	case UPSTART_EVENT_QUEUE_LEVEL:
+	case UPSTART_EVENT: {
 		/* Event name, followed by optional level */
 		WireEventPayload ev;
 
 		IOVEC_READ (iov[0], &ev, sizeof (ev), len);
-		message->event_triggered.name = nih_alloc (message,
-							   ev.namelen + 1);
-		message->event_triggered.name[ev.namelen] = '\0';
-		IOVEC_READ (iov[0], message->event_triggered.name,
-			    ev.namelen, len);
+		message->event.name = nih_alloc (message, ev.namelen + 1);
+		message->event.name[ev.namelen] = '\0';
+		IOVEC_READ (iov[0], message->event.name, ev.namelen, len);
 
-		if (message->type == UPSTART_EVENT_TRIGGER_EDGE) {
+		if (message->type == UPSTART_EVENT_QUEUE_EDGE) {
 			/* Ignore levellen for edge trigger message */
 		} else if (ev.levellen) {
-			message->event_triggered.level
-				= nih_alloc (message, ev.levellen + 1);
-			message->event_triggered.level[ev.levellen] = '\0';
-			IOVEC_READ (iov[0], message->event_triggered.level,
+			message->event.level = nih_alloc (
+				message, ev.levellen + 1);
+			message->event.level[ev.levellen] = '\0';
+			IOVEC_READ (iov[0], message->event.level,
 				    ev.levellen, len);
+		} else if (message->type == UPSTART_EVENT_QUEUE_LEVEL) {
+			/* Level events must have a level */
+			goto invalid;
 		} else {
-			message->event_triggered.level = NULL;
+			message->event.level = NULL;
 		}
 
 		break;
