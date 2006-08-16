@@ -822,6 +822,10 @@ job_start (Job *job)
 		JobName *dep = (JobName *)iter;
 		Job     *dep_job;
 
+		/* Ignore dependencies on ourselves ... some people */
+		if (! strcmp (dep->name, job->name))
+			continue;
+
 		/* First check the dependency is actually known; if not we
 		 * still hold the job but we warn that there's a potential
 		 * bogon in there.
