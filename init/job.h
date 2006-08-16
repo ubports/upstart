@@ -73,6 +73,7 @@
  * @state: actual state of the job,
  * @start_events: list of events that can start this job,
  * @stop_events; list of events that can stop this job.
+ * @depends: list of dependency jobs,
  * @process_state: what we're waiting for from the process,
  * @pid: current process id,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
@@ -119,6 +120,7 @@ typedef struct job {
 
 	NihList        start_events;
 	NihList        stop_events;
+	NihList        depends;
 
 	ProcessState   process_state;
 	pid_t          pid;
@@ -153,6 +155,19 @@ typedef struct job {
 	char          *chroot;
 	char          *chdir;
 } Job;
+
+/**
+ * JobName:
+ * @entry: list header,
+ * @name: name of job.
+ *
+ * This structure is used to form lists of job names, for example in the
+ * depends list of an ordinary Job.
+ **/
+typedef struct job_name {
+	NihList  entry;
+	char    *name;
+} JobName;
 
 
 NIH_BEGIN_EXTERN

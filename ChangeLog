@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add depends list field
+	(JobName): New structure to hold the name of a job.
+	* init/job.c (job_new): Initialise the depends list.
+	* init/tests/test_job.c (test_new): Make sure the depends list is
+	initialised properly.
+
 	* init/job.c (job_next_state): Return JOB_STARTING if we're in
 	JOB_WAITING and the goal is JOB_START.  This is only called when
 	there's some change, and I don't want to hard-code the goal there.

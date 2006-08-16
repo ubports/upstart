@@ -89,6 +89,12 @@ test_new (void)
 		ret = 1;
 	}
 
+	/* Depends list should be empty */
+	if (! NIH_LIST_EMPTY (&job->depends)) {
+		printf ("BAD: depends not initialised to empty list.\n");
+		ret = 1;
+	}
+
 	/* There should be no process */
 	if (job->process_state != PROCESS_NONE) {
 		printf ("BAD: job process state set incorrectly.\n");
