@@ -1,22 +1,20 @@
-put jobs in dep-wait if have dependencies, generate dependency events
-take jobs out of dep-wait when jobs enter running state
+console reset and handling
 
-control socket for receiving events
-check origin user (important!)
-querying state of event
-querying state of service
-manual stop/start of service
-send events
-send service changes
+error output
+
+logging of processes
+
+inotify handling (nih?)
 
 config file
 
-logging
 
 
 handle location of pid/binary for spawned daemons
 
 deal with instances
+
+query value of event
 
 
 per-user services
