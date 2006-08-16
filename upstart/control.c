@@ -368,17 +368,23 @@ invalid:
 /**
  * upstart_recv_msg:
  * @parent: parent of new structure,
- * @sock: socket to receive from.
+ * @sock: socket to receive from,
+ * @pid: place to store pid of sender.
  *
  * Receives a single message from @sock, which should have been opened with
  * #upstart_open.  Memory is allocated for the message structure and it
- * is returned.
+ * is returned, clients should use #nih_free or #upstart_free to free
+ * the message.
+ *
+ * If you wish to know which process sent the message, usually because
+ * you might want to send a response, pass a pointer for @pid.
  *
  * Returns: newly allocated message or %NULL on raised error.
  **/
 UpstartMsg *
-upstart_recv_msg (void *parent,
-		  int   sock)
+upstart_recv_msg (void  *parent,
+		  int    sock,
+		  pid_t *pid)
 {
 	UpstartMsg     *message = NULL;
 	WireHdr         hdr;
@@ -511,6 +517,10 @@ upstart_recv_msg (void *parent,
 		goto invalid;
 	}
 
+	/* Save the pid */
+	if (pid)
+		*pid = cred.pid;
+
 	return message;
 
 invalid:
@@ -519,4 +529,18 @@ invalid:
 
 	nih_return_error (NULL, UPSTART_INVALID_MESSAGE,
 			  _(UPSTART_INVALID_MESSAGE_STR));
+}
+
+
+/**
+ * upstart_free:
+ * @message: message to be freed.
+ *
+ * Freeds the memory used by @message, this must be used instead of the
+ * ordinary free function.
+ **/
+void
+upstart_free (UpstartMsg *message)
+{
+	nih_free (message);
 }

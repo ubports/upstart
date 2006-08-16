@@ -21,6 +21,8 @@
 #ifndef UPSTART_CONTROL_H
 #define UPSTART_CONTROL_H
 
+#include <sys/types.h>
+
 #include <nih/macros.h>
 
 #include <upstart/job.h>
@@ -189,8 +191,10 @@ int         upstart_open        (void)
 int         upstart_send_msg    (int sock, UpstartMsg *message);
 int         upstart_send_msg_to (pid_t pid, int sock, UpstartMsg *message);
 
-UpstartMsg *upstart_recv_msg    (void *parent, int sock)
+UpstartMsg *upstart_recv_msg    (void *parent, int sock, pid_t *pid)
 	__attribute__ ((warn_unused_result, malloc));
+
+void        upstart_free        (UpstartMsg *message);
 
 NIH_END_EXTERN
 

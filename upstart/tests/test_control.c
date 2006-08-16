@@ -161,6 +161,7 @@ test_recv_msg (void)
 	size_t              addrlen;
 	UpstartMsg         *msg;
 	NihError           *err;
+	pid_t               pid;
 	int                 ret = 0, s_sock, r_sock;
 
 	printf ("Testing upstart_recv_msg()\n");
@@ -177,7 +178,7 @@ test_recv_msg (void)
 	printf ("...without magic marker\n");
 	sendto (s_sock, "wibblefart\0\0\0\0\0\0", 16,
 		0, (struct sockaddr *)&addr, addrlen);
-	msg = upstart_recv_msg (NULL, r_sock);
+	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Return value should be NULL */
 	if (msg != NULL) {
@@ -197,7 +198,7 @@ test_recv_msg (void)
 	printf ("...with unknown message type\n");
 	sendto (s_sock, "upstart0.1\0\0\0\0\0\001", 16,
 		0, (struct sockaddr *)&addr, addrlen);
-	msg = upstart_recv_msg (NULL, r_sock);
+	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Return value should be NULL */
 	if (msg != NULL) {
@@ -217,7 +218,7 @@ test_recv_msg (void)
 	printf ("...with short message\n");
 	sendto (s_sock, "upstart0.1\0\0\001\0\0\0\040\0\0\0\0\0\0\0", 24,
 		0, (struct sockaddr *)&addr, addrlen);
-	msg = upstart_recv_msg (NULL, r_sock);
+	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Return value should be NULL */
 	if (msg != NULL) {
@@ -232,6 +233,26 @@ test_recv_msg (void)
 		ret = 1;
 	}
 	nih_free (err);
+
+
+	printf ("...with valid message\n");
+	sendto (s_sock, "upstart0.1\0\0\0\0\0\0", 16,
+		0, (struct sockaddr *)&addr, addrlen);
+	msg = upstart_recv_msg (NULL, r_sock, &pid);
+
+	/* Message type should be UPSTART_NO_OP */
+	if (msg->type != UPSTART_NO_OP) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process id should be stored in pid */
+	if (pid != getpid ()) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (msg);
 
 
 	close (s_sock);
@@ -262,7 +283,7 @@ test_messages (void)
 	s_msg->type = UPSTART_NO_OP;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Type should be UPSTART_NO_OP */
 	if (r_msg->type != UPSTART_NO_OP) {
@@ -278,7 +299,7 @@ test_messages (void)
 	s_msg->job_start.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Type should be UPSTART_JOB_START */
 	if (r_msg->type != UPSTART_JOB_START) {
@@ -306,7 +327,7 @@ test_messages (void)
 	s_msg->job_stop.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Type should be UPSTART_JOB_STOP */
 	if (r_msg->type != UPSTART_JOB_STOP) {
@@ -334,7 +355,7 @@ test_messages (void)
 	s_msg->job_query.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Type should be UPSTART_JOB_QUERY */
 	if (r_msg->type != UPSTART_JOB_QUERY) {
@@ -365,7 +386,7 @@ test_messages (void)
 	s_msg->job_status.process_state = PROCESS_ACTIVE;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Type should be UPSTART_JOB_STATUS */
 	if (r_msg->type != UPSTART_JOB_STATUS) {
@@ -411,7 +432,7 @@ test_messages (void)
 	s_msg->job_unknown.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Type should be UPSTART_JOB_UNKNOWN */
 	if (r_msg->type != UPSTART_JOB_UNKNOWN) {
@@ -442,6 +463,21 @@ test_messages (void)
 	return ret;
 }
 
+int
+test_free (void)
+{
+	void *ptr;
+	int   ret = 0;
+
+	printf ("Testing upstart_free()\n");
+	ptr = nih_alloc (NULL, 1024);
+	nih_free (ptr);
+
+	/* didn't crash, so it worked */
+
+	return ret;
+}
+
 
 int
 main (int   argc,
@@ -453,6 +489,7 @@ main (int   argc,
 	ret |= test_send_msg_to ();
 	ret |= test_recv_msg ();
 	ret |= test_messages ();
+	ret |= test_free ();
 
 	return ret;
 }

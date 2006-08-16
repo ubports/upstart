@@ -1,5 +1,13 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_free): Add wrapper function around
+	nih_free so we're a proper library and don't expose libnih too much
+	(upstart_recv_msg): Stash the sender pid in an argument.
+	* upstart/control.h: Update.
+	* upstart/tests/test_control.c (test_recv_msg): Test pid is
+	returned properly.
+	(test_free): Test the nih_free wrapper.
+
 	* init/job.c (job_run_script): Document future FIXME.
 
 	* init/exent.h, init/job.h, init/process.h: Fix up headers.
