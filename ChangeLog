@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_trigger_edge, event_trigger_level): Swap
+	order so that events are announced before processed.
+
 	* init/control.c (control_handle): Handle requests to watch and
 	unwatch jobs and events.
 	* init/tests/test_control.c (test_cb_child, test_cb): Check that

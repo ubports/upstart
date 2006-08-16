@@ -249,8 +249,8 @@ event_trigger_edge (const char *name)
 	NIH_MUST (event = event_record (NULL, name));
 
 	nih_info (_("%s event triggered"), event->name);
-	job_handle_event (event);
 	control_handle_event (event);
+	job_handle_event (event);
 }
 
 /**
@@ -284,6 +284,6 @@ event_trigger_level (const char *name,
 	NIH_MUST (event_change_value (event, level) == 0);
 
 	nih_info (_("%s %s event triggered"), event->name, event->value);
-	job_handle_event (event);
 	control_handle_event (event);
+	job_handle_event (event);
 }
