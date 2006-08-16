@@ -369,6 +369,11 @@ static void control_cb (void        *data,
 				    || (err->number == ECONNREFUSED)) {
 					nih_free (err);
 					nih_list_free (&msg->entry);
+
+					control_subscribe
+						(msg->pid,
+						 NOTIFY_JOBS | NOTIFY_EVENTS,
+						 FALSE);
 					continue;
 				} else {
 					nih_free (err);

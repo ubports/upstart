@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_cb): Unsubscribe a process if it stops
+	listening.
+
 	* init/control.c (control_send): Copy the pointers in the new
 	event messages.
 	* init/tests/test_control.c (test_send): Check the pointers are
