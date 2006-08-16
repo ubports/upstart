@@ -871,66 +871,6 @@ test_next_state (void)
 	return ret;
 }
 
-int
-test_state_name (void)
-{
-	const char *name;
-	int         ret = 0;
-
-	printf ("Testing job_state_name()\n");
-
-	printf ("...with waiting state\n");
-	name = job_state_name (JOB_WAITING);
-
-	/* String should be waiting */
-	if (strcmp (name, "waiting")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with starting state\n");
-	name = job_state_name (JOB_STARTING);
-
-	/* String should be starting */
-	if (strcmp (name, "starting")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with running state\n");
-	name = job_state_name (JOB_RUNNING);
-
-	/* String should be running */
-	if (strcmp (name, "running")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with stopping state\n");
-	name = job_state_name (JOB_STOPPING);
-
-	/* String should be stopping */
-	if (strcmp (name, "stopping")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with respawning state\n");
-	name = job_state_name (JOB_RESPAWNING);
-
-	/* String should be respawning */
-	if (strcmp (name, "respawning")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
-}
-
 
 int
 test_run_command (void)
@@ -2287,7 +2227,6 @@ main (int   argc,
 	ret |= test_find_by_pid ();
 	ret |= test_change_state ();
 	ret |= test_next_state ();
-	ret |= test_state_name ();
 	ret |= test_run_command ();
 	ret |= test_run_script ();
 	ret |= test_kill_process ();

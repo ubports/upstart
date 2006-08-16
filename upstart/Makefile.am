@@ -10,7 +10,8 @@ INCLUDES = -I$(top_srcdir)/intl
 lib_LTLIBRARIES = libupstart.la
 
 libupstart_la_SOURCES = \
-	control.c
+	control.c \
+	job.c
 
 
 libupstart_la_LDFLAGS = \
@@ -36,9 +37,14 @@ upstartinclude_HEADERS = \
 
 
 TESTS = \
+	test_job \
 	test_control
 
 check_PROGRAMS = $(TESTS)
+
+test_job_SOURCES = tests/test_job.c
+test_job_LDFLAGS = -static
+test_job_LDADD = libupstart.la
 
 test_control_SOURCES = tests/test_control.c
 test_control_LDFLAGS = -static

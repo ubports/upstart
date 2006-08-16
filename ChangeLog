@@ -1,5 +1,19 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_state_name): Move this utility function from here
+	* upstart/job.c (job_state_name): to here so all clients can use
+	it.
+	* init/job.h: Update.
+	* upstart/job.h: Update.
+	* init/tests/test_job.c (test_state_name): Move the test case from here
+	* upstart/tests/test_job.c: to here as well.
+	* upstart/Makefile.am (libupstart_la_SOURCES): Build and link job.c
+	(TESTS): Run the job test cases
+	(test_job_SOURCES, test_job_LDFLAGS, test_job_LDADD): Details for
+	job test case binary.
+	* init/Makefile.am (test_job_LDADD, test_process_LDADD) 
+	(test_event_LDADD): Link to libupstart.la
+
 	* init/control.c: Code to handle the server end of the control
 	socket, a bit more complex than a client as we want to avoid
 	blocking on malcious clients.

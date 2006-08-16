@@ -21,6 +21,9 @@
 #ifndef UPSTART_JOB_H
 #define UPSTART_JOB_H
 
+#include <nih/macros.h>
+
+
 /**
  * JobGoal:
  *
@@ -95,5 +98,13 @@ typedef enum {
 	CONSOLE_OWNER,
 	CONSOLE_NONE
 } ConsoleType;
+
+
+NIH_BEGIN_EXTERN
+
+const char *job_state_name   (JobState state)
+	__attribute__ ((const));
+
+NIH_END_EXTERN
 
 #endif /* UPSTART_JOB_H */

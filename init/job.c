@@ -38,6 +38,8 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
+#include <upstart/job.h>
+
 #include "event.h"
 #include "process.h"
 #include "job.h"
@@ -375,34 +377,6 @@ job_next_state (Job *job)
 		}
 	default:
 		return job->state;
-	}
-}
-
-/**
- * job_state_name:
- * @state: state to convert.
- *
- * Converts an enumerated job state into the string used for the event
- * and for logging purposes.
- *
- * Returns: static string or %NULL if state not known.
- **/
-const char *
-job_state_name (JobState state)
-{
-	switch (state) {
-	case JOB_WAITING:
-		return "waiting";
-	case JOB_STARTING:
-		return "starting";
-	case JOB_RUNNING:
-		return "running";
-	case JOB_STOPPING:
-		return "stopping";
-	case JOB_RESPAWNING:
-		return "respawning";
-	default:
-		return NULL;
 	}
 }
 
