@@ -741,6 +741,70 @@ test_cb_child (int test)
 		s_msg->type = UPSTART_EVENT_TRIGGER_EDGE;
 		s_msg->event_trigger_edge.name = "snarf";
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive a UPSTART_JOB_STATUS message */
+		if (r_msg->type != UPSTART_JOB_STATUS) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Job should be the one we started */
+		if (strcmp (r_msg->job_status.name, "test")) {
+			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Goal should now be JOB_START */
+		if (r_msg->job_status.goal != JOB_START) {
+			printf ("BAD: goal wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* State should now be JOB_STARTING */
+		if (r_msg->job_status.state != JOB_STARTING) {
+			printf ("BAD: state wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* State should now be PROCESS_NONE */
+		if (r_msg->job_status.process_state != PROCESS_NONE) {
+			printf ("BAD: process wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive a UPSTART_JOB_STATUS message */
+		if (r_msg->type != UPSTART_JOB_STATUS) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Job should be the one we started */
+		if (strcmp (r_msg->job_status.name, "test")) {
+			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Goal should now be JOB_START */
+		if (r_msg->job_status.goal != JOB_START) {
+			printf ("BAD: goal wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* State should now be JOB_RUNNING */
+		if (r_msg->job_status.state != JOB_RUNNING) {
+			printf ("BAD: state wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* State should now be PROCESS_ACTIVE */
+		if (r_msg->job_status.process_state != PROCESS_ACTIVE) {
+			printf ("BAD: process wasn't what we expected.\n");
+			ret = 1;
+		}
+
 		/* fall through into the next test */
 	case TEST_EVENT_TRIGGERED_EDGE:
 		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));

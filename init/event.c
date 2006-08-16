@@ -35,6 +35,7 @@
 
 #include "event.h"
 #include "job.h"
+#include "control.h"
 
 
 /**
@@ -249,6 +250,7 @@ event_trigger_edge (const char *name)
 
 	nih_info (_("%s event triggered"), event->name);
 	job_handle_event (event);
+	control_handle_event (event);
 }
 
 /**
@@ -283,4 +285,5 @@ event_trigger_level (const char *name,
 
 	nih_info (_("%s %s event triggered"), event->name, event->value);
 	job_handle_event (event);
+	control_handle_event (event);
 }

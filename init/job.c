@@ -43,6 +43,7 @@
 #include "event.h"
 #include "process.h"
 #include "job.h"
+#include "control.h"
 
 
 /* Prototypes for static functions */
@@ -316,7 +317,8 @@ job_change_state (Job      *job,
 			break;
 		}
 
-		/* Trigger the level event */
+		/* Notify subscribed processes and trigger the level event */
+		control_handle_job (job);
 		event_trigger_level (job->name, job_state_name (job->state));
 	}
 }
