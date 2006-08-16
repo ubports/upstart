@@ -290,6 +290,10 @@ static void control_cb (void        *data,
 
 			nih_list_free (&msg->entry);
 		}
+
+		/* Don't poll for write if we've nothing to write */
+		if (NIH_LIST_EMPTY (send_queue))
+			watch->events &= ~NIH_IO_WRITE;
 	}
 }
 

@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_cb): Disable the poll for write once the
+	send queue becomes empty.
+
 	* upstart/Makefile.am (libupstart_la_SOURCES): Correct ordering.
 
 	* init/control.c (control_handle): Add missing break.
