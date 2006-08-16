@@ -766,8 +766,8 @@ test_next_state (void)
 	job->state = JOB_WAITING;
 	state = job_next_state (job);
 
-	/* Next state should still be waiting (for dependency) */
-	if (state != JOB_WAITING) {
+	/* Next state should be starting */
+	if (state != JOB_STARTING) {
 		printf ("BAD: return value wasn't what we expected.\n");
 		ret = 1;
 	}

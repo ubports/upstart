@@ -348,7 +348,12 @@ job_next_state (Job *job)
 
 	switch (job->state) {
 	case JOB_WAITING:
-		return job->state;
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_WAITING;
+		case JOB_START:
+			return JOB_STARTING;
+		}
 	case JOB_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
@@ -808,7 +813,7 @@ job_start (Job *job)
 	 * if there are dependencies, we stay in waiting
 	 */
 
-	job_change_state (job, JOB_STARTING);
+	job_change_state (job, job_next_state (job));
 }
 
 /**

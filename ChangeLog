@@ -1,5 +1,12 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_next_state): Return JOB_STARTING if we're in
+	JOB_WAITING and the goal is JOB_START.  This is only called when
+	there's some change, and I don't want to hard-code the goal there.
+	(job_start): Don't hardcode JOB_STARTING, instead just use the next
+	state.
+	* init/tests/test_job.c (test_next_state): Adjust test case.
+
 	* init/control.c (control_subscribe): Allow the current
 	subscription to be found by passing NOTIFY_NONE.
 	(control_handle): Don't remove an existing subscription to jobs,
