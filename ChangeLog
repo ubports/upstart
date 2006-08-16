@@ -1,5 +1,9 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_control.c (test_cb_child): Add a sleep to avoid
+	a race that upsets gdb, have tried this with a STOP/CONT interlock
+	but can't seem to find where the child should reach first.
+
 	* init/job.c (job_change_state): Notify the control handler.
 	* init/event.c (event_trigger_edge, event_trigger_level): Pass
 	event to the control handler.

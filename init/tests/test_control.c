@@ -589,8 +589,11 @@ test_cb_child (int test)
 	int         sock, ret = 0;
 
 	fflush (stdout);
-	if ((pid = fork ()) != 0)
-	    return pid;
+	if ((pid = fork ()) != 0) {
+		usleep (1000); /* Urgh */
+		return pid;
+	}
+
 
 	sock = upstart_open ();
 	s_msg = nih_new (NULL, UpstartMsg);
