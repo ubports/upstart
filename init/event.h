@@ -23,6 +23,7 @@
 
 #include <nih/macros.h>
 #include <nih/list.h>
+#include <nih/main.h>
 
 
 /**
