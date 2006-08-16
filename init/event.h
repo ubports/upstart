@@ -36,7 +36,7 @@
  * of any level event's @value is also considered an edge event.
  *
  * This structure is used within the event code to hold a record of previously
- * triggered edge events and the current value of level events; it is also
+ * seen events and the current value of level events; it is also
  * used within the job code to hold the list of events a job is waiting for.
  **/
 typedef struct event {
@@ -49,17 +49,17 @@ typedef struct event {
 
 NIH_BEGIN_EXTERN
 
-Event *event_new           (void *parent, const char *name)
+Event *event_new          (void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
-Event *event_record        (void *parent, const char *name);
+Event *event_record       (void *parent, const char *name);
 
-Event *event_find_by_name  (const char *name);
-int    event_match         (Event *event1, Event *event2);
+Event *event_find_by_name (const char *name);
+int    event_match        (Event *event1, Event *event2);
 
-int    event_change_value  (Event *event, const char *value);
+int    event_change_value (Event *event, const char *value);
 
-void   event_trigger_edge  (const char *name);
-void   event_trigger_level (const char *name, const char *value);
+Event *event_queue_edge   (const char *name);
+Event *event_queue_level  (const char *name, const char *value);
 
 NIH_END_EXTERN
 

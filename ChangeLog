@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_trigger_edge, event_trigger_level): Place
+	the event on the event_queue rather than directly triggering it.
+	Rename to event_queue_edge and event_queue_level respectively.
+	* init/event.h: Update.
+	* init/tests/test_event.c: Update test cases.
+
 	* init/job.c (job_handle_event): Add another sanity check, jobs
 	should not be able to react to their own events; that's just silly.
 	* init/tests/test_job.c (test_handle_event): Check that the new

@@ -320,20 +320,32 @@ test_change_value (void)
 
 
 int
-test_trigger_edge (void)
+test_queue_edge (void)
 {
-	Event *event;
+	Event *event, *queued;
 	int    ret;
 
-	printf ("Testing event_trigger_edge()\n");
+	printf ("Testing event_queue_edge()\n");
 
 	printf ("...with event not previously recorded.\n");
-	event_trigger_edge ("test");
+	queued = event_queue_edge ("test");
 	event = event_find_by_name ("test");
 
-	/* Return value should not be NULL */
+	/* Queued name should be set */
+	if (strcmp (queued->name, "test")) {
+		printf ("BAD: queued name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Queued value should be NULL */
+	if (queued->value != NULL) {
+		printf ("BAD: queued value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be able to find event in history */
 	if (event == NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
+		printf ("BAD: event not recorded in history.\n");
 		ret = 1;
 	}
 
@@ -345,7 +357,7 @@ test_trigger_edge (void)
 
 	/* Event value should be NULL */
 	if (event->value != NULL) {
-		printf ("BAD: event name wasn't what we expected.\n");
+		printf ("BAD: event value wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -357,9 +369,21 @@ test_trigger_edge (void)
 	event_change_value (event, "bar");
 	nih_alloc_set_destructor (event->value, destructor_called);
 	was_called = 0;
-	event_trigger_edge ("foo");
+	queued = event_queue_edge ("foo");
 
-	/* Value should be the same */
+	/* Queued name should be set */
+	if (strcmp (queued->name, "foo")) {
+		printf ("BAD: queued name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Queued value should be NULL */
+	if (queued->value != NULL) {
+		printf ("BAD: queued value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Event value should be the same */
 	if (strcmp (event->value, "bar")) {
 		printf ("BAD: event value changed unexpectedly.\n");
 		ret = 1;
@@ -377,20 +401,32 @@ test_trigger_edge (void)
 }
 
 int
-test_trigger_level (void)
+test_queue_level (void)
 {
-	Event *event;
+	Event *event, *queued;
 	int    ret;
 
-	printf ("Testing event_trigger_level()\n");
+	printf ("Testing event_queue_level()\n");
 
 	printf ("...with event not previously recorded.\n");
-	event_trigger_level ("test", "down");
+	queued = event_queue_level ("test", "down");
 	event = event_find_by_name ("test");
 
-	/* Return value should not be NULL */
+	/* Queued name should be set */
+	if (strcmp (queued->name, "test")) {
+		printf ("BAD: queued name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Queued value should be set */
+	if (strcmp (queued->value, "down")) {
+		printf ("BAD: queued value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be able to find event in history */
 	if (event == NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
+		printf ("BAD: event not recorded in history.\n");
 		ret = 1;
 	}
 
@@ -402,7 +438,7 @@ test_trigger_level (void)
 
 	/* Event value should be set */
 	if (strcmp (event->value, "down")) {
-		printf ("BAD: event name wasn't what we expected.\n");
+		printf ("BAD: event value wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -410,7 +446,13 @@ test_trigger_level (void)
 	printf ("...with no change to level.\n");
 	nih_alloc_set_destructor (event->value, destructor_called);
 	was_called = 0;
-	event_trigger_level ("test", "down");
+	queued = event_queue_level ("test", "down");
+
+	/* Queued should be NULL */
+	if (queued != NULL) {
+		printf ("BAD: event queued unexpectedly.\n");
+		ret = 1;
+	}
 
 	/* Value should be that previously set */
 	if (strcmp (event->value, "down")) {
@@ -427,7 +469,13 @@ test_trigger_level (void)
 
 	printf ("...with change to level.\n");
 	was_called = 0;
-	event_trigger_level ("test", "up");
+	queued = event_queue_level ("test", "up");
+
+	/* Queued value should be the new one */
+	if (strcmp (queued->value, "up")) {
+		printf ("BAD: queued value changed unexpectedly.\n");
+		ret = 1;
+	}
 
 	/* Value should be the new one */
 	if (strcmp (event->value, "up")) {
@@ -458,8 +506,8 @@ main (int   argc,
 	ret |= test_find_by_name ();
 	ret |= test_match ();
 	ret |= test_change_value ();
-	ret |= test_trigger_edge ();
-	ret |= test_trigger_level ();
+	ret |= test_queue_edge ();
+	ret |= test_queue_level ();
 
 	return ret;
 }
