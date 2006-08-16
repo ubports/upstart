@@ -31,6 +31,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/main.h>
 #include <nih/logging.h>
 
 #include "event.h"
@@ -307,4 +308,33 @@ event_queue_level (const char *name,
 	nih_list_add (event_queue, &queued->entry);
 
 	return queued;
+}
+
+/**
+ * event_queue_cb:
+ * @data: not used,
+ * @func: loop function.
+ *
+ * This callback is called once during each iteration of the main loop.
+ * It consumes all events in the queue and ensures that subscribed processes
+ * are notified of them and jobs listening for them are handled.
+ **/
+void
+event_queue_cb (void            *data,
+		NihMainLoopFunc *func)
+{
+	nih_assert (func != NULL);
+
+	event_init ();
+
+	while (! NIH_LIST_EMPTY (event_queue)) {
+		NIH_LIST_FOREACH_SAFE (event_queue, iter) {
+			Event *event = (Event *)iter;
+
+			control_handle_event (event);
+			job_handle_event (event);
+
+			nih_list_free (&event->entry);
+		}
+	}
 }

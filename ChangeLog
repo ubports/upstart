@@ -1,5 +1,7 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_queue_cb): Add event consumer/dispatcher.
+
 	* init/control.c (control_send): Make the event code clearer.
 	(control_handle): Handle the changed event semantics.
 	(control_handle_event): Issue the new event type.

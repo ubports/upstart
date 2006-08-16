@@ -60,6 +60,7 @@ int    event_change_value (Event *event, const char *value);
 
 Event *event_queue_edge   (const char *name);
 Event *event_queue_level  (const char *name, const char *value);
+void   event_queue_cb     (void *data, NihMainLoopFunc *func);
 
 NIH_END_EXTERN
 
