@@ -67,17 +67,27 @@ static NihIoWatch *io_watch = NULL;
  **/
 static NihList *send_queue = NULL;
 
+/**
+ * subscriptions:
+ *
+ * List of processes that are subscribed to changes in events or job status.
+ **/
+static NihList *subscriptions = NULL;
+
 
 /**
  * control_init:
  *
- * Initialise the send queue.
+ * Initialise the send queue and subscriptions list.
  **/
 static void
 control_init (void)
 {
 	if (! send_queue)
 		NIH_MUST (send_queue = nih_list_new ());
+
+	if (! subscriptions)
+		NIH_MUST (subscriptions = nih_list_new ());
 }
 
 
@@ -148,6 +158,72 @@ control_close (void)
 
 
 /**
+ * control_subscribe:
+ * @pid: process id to send to,
+ * @notify: notify events mask to change,
+ * @set: %TRUE to add events, %FALSE to remove.
+ *
+ * Adjusts the subscription of process @pid by adding the events listed
+ * in @notify if @set is %TRUE or removing if @set is %FALSE.  Removing
+ * all subscribed events removes the subscription.
+ *
+ * Returns: subscription record on success, %NULL on insufficient memory
+ * or removal of subscription.
+ **/
+ControlSub *
+control_subscribe (pid_t        pid,
+		   NotifyEvents notify,
+		   int          set)
+{
+	ControlSub *sub;
+
+	nih_assert (pid > 0);
+	nih_assert (notify != 0);
+
+	control_init ();
+
+	/* Amend existing subscription record */
+	NIH_LIST_FOREACH (subscriptions, iter) {
+		sub = (ControlSub *)iter;
+
+		if (sub->pid != pid)
+			continue;
+
+		if (set) {
+			sub->notify |= notify;
+		} else {
+			sub->notify &= ~notify;
+		}
+
+		if (sub->notify) {
+			return sub;
+		} else {
+			nih_list_free (&sub->entry);
+			return NULL;
+		}
+	}
+
+	/* Not adding anything, and no existing record */
+	if (! set)
+		return NULL;
+
+	/* Create new subscription record */
+	sub = nih_new (NULL, ControlSub);
+	if (! sub)
+		return NULL;
+
+	nih_list_init (&sub->entry);
+
+	sub->pid = pid;
+	sub->notify = notify;
+
+	nih_list_add (subscriptions, &sub->entry);
+
+	return sub;
+}
+
+
+/**
  * control_send:
  * @pid: destination,
  * @message: message to be sent.
@@ -168,6 +244,8 @@ control_send (pid_t       pid,
 
 	nih_assert (pid > 0);
 	nih_assert (message != NULL);
+
+	control_init ();
 
 	msg = nih_new (NULL, ControlMsg);
 	if (! msg)

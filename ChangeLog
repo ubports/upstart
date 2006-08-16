@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_subscribe): Add function to handle
+	processes that want to subscribe to changes.
+	(control_init): Initialise the subscriptions list.
+	* init/control.h: Add structures and prototypes.
+	* init/tests/test_control.c (test_subscribe): Test the function.
+
 	* upstart/control.h (UpstartMsgType): add messages for triggering
 	edge and level events, receiving the trigger for an event and for
 	watching jobs and events.

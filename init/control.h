@@ -30,6 +30,19 @@
 
 
 /**
+ * NotifyEvents:
+ *
+ * Events we notify subscribed processes of, used as a bitmask in the
+ * Subscription structure.
+ **/
+typedef enum {
+	NOTIFY_NONE   = 00,
+	NOTIFY_JOBS   = 01,
+	NOTIFY_EVENTS = 02
+} NotifyEvents;
+
+
+/**
  * ControlMsg:
  * @entry: list header,
  * @pid: destination,
@@ -47,13 +60,32 @@ typedef struct control_msg {
 	UpstartMsg message;
 } ControlMsg;
 
+/**
+ * ControlSub:
+ * @entry: list header,
+ * @pid: subscribed process,
+ * @notify: notify events subscribed to.
+ *
+ * This structure is used to allow processes to subscribe to notification
+ * of changes in event level or job status.  @notify is a bitmask of which
+ * of the two events (or both) to receive, it is never allowed to be zero
+ * as that's an unsubscription.
+ **/
+typedef struct control_sub {
+	NihList      entry;
+	pid_t        pid;
+	NotifyEvents notify;
+} ControlSub;
+
 
 NIH_BEGIN_EXTERN
 
-NihIoWatch *control_open  (void);
-void        control_close (void);
+NihIoWatch *control_open      (void);
+void        control_close     (void);
 
-ControlMsg *control_send  (pid_t pid, UpstartMsg *message);
+ControlSub *control_subscribe (pid_t pid, NotifyEvents notify, int set);
+
+ControlMsg *control_send      (pid_t pid, UpstartMsg *message);
 
 NIH_END_EXTERN
 

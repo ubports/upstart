@@ -189,6 +189,131 @@ test_close (void)
 
 
 int
+test_subscribe (void)
+{
+	ControlSub *sub1, *sub2;
+	int         ret = 0;
+
+	printf ("Testing control_subscribe()\n");
+
+	printf ("...with new subscription\n");
+	sub1 = control_subscribe (123, NOTIFY_JOBS, TRUE);
+
+	/* Process id should be the one we gave */
+	if (sub1->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Notifications should be what we gave */
+	if (sub1->notify != NOTIFY_JOBS) {
+		printf ("BAD: notifications weren't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the subscriptions list */
+	if (NIH_LIST_EMPTY (&sub1->entry)) {
+		printf ("BAD: wasn't added to the subscriptions list.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with nih_alloc */
+	if (nih_alloc_size (sub1) != sizeof (ControlSub)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with addition to existing subscription\n");
+	sub2 = control_subscribe (123, NOTIFY_EVENTS, TRUE);
+
+	/* Should be the same object as before */
+	if (sub2 != sub1) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process id should be unchanged */
+	if (sub1->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Notifications should be both joined */
+	if (sub1->notify != (NOTIFY_JOBS | NOTIFY_EVENTS)) {
+		printf ("BAD: notifications weren't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the subscriptions list */
+	if (NIH_LIST_EMPTY (&sub1->entry)) {
+		printf ("BAD: wasn't added to the subscriptions list.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with nih_alloc */
+	if (nih_alloc_size (sub1) != sizeof (ControlSub)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with removal from existing subscription\n");
+	sub2 = control_subscribe (123, NOTIFY_JOBS, FALSE);
+
+	/* Should be the same object as before */
+	if (sub2 != sub1) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process id should be unchanged */
+	if (sub1->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Notifications should be without jobs */
+	if (sub1->notify != NOTIFY_EVENTS) {
+		printf ("BAD: notifications weren't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the subscriptions list */
+	if (NIH_LIST_EMPTY (&sub1->entry)) {
+		printf ("BAD: wasn't added to the subscriptions list.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with nih_alloc */
+	if (nih_alloc_size (sub1) != sizeof (ControlSub)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with removal\n");
+	was_called = 0;
+	nih_alloc_set_destructor (sub1, my_destructor);
+	sub2 = control_subscribe (123, NOTIFY_EVENTS, FALSE);
+
+	/* Return value should be NULL */
+	if (sub2 != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should have been freed */
+	if (! was_called) {
+		printf ("BAD: subscription was not freed.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+
+int
 test_send (void)
 {
 	ControlMsg *msg;
@@ -566,6 +691,7 @@ main (int   argc,
 
 	ret |= test_open ();
 	ret |= test_close ();
+	ret |= test_subscribe ();
 	ret |= test_send ();
 	ret |= test_cb ();
 
