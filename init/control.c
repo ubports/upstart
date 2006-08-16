@@ -360,13 +360,7 @@ static void control_cb (void        *data,
 				} else if (err->number == EINTR) {
 					nih_free (err);
 					continue;
-				}
-
-				nih_warn (_("Error sending control message: %s"),
-					  err->message);
-
-				if ((err->number == UPSTART_INVALID_MESSAGE)
-				    || (err->number == ECONNREFUSED)) {
+				} else if (err->number == ECONNREFUSED) {
 					nih_free (err);
 					nih_list_free (&msg->entry);
 
@@ -374,6 +368,16 @@ static void control_cb (void        *data,
 						(msg->pid,
 						 NOTIFY_JOBS | NOTIFY_EVENTS,
 						 FALSE);
+
+					continue;
+				}
+
+				nih_warn (_("Error sending control message: %s"),
+					  err->message);
+
+				if (err->number == UPSTART_INVALID_MESSAGE) {
+					nih_free (err);
+					nih_list_free (&msg->entry);
 					continue;
 				} else {
 					nih_free (err);

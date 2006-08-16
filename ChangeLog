@@ -1,5 +1,10 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_cb): Don't display an error for
+	ECONNREFUSED, just remove any subscriptions.
+	* init/tests/test_control.c (test_handle_job, test_handle_error):
+	Clean up our subscriptions properly.
+
 	* init/control.c (control_handle_job): Function to send out an
 	UPSTART_JOB_STATUS message to subscribed processes whenever a
 	job state changes.

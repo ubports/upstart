@@ -927,6 +927,7 @@ int
 test_handle_job (void)
 {
 	NihIoWatch *watch;
+	ControlSub *sub;
 	Job        *job;
 	pid_t       pid;
 	int         ret = 0, status;
@@ -937,7 +938,7 @@ test_handle_job (void)
 
 
 	pid = test_cb_child (TEST_JOB_STATUS);
-	control_subscribe (pid, NOTIFY_JOBS, TRUE);
+	sub = control_subscribe (pid, NOTIFY_JOBS, TRUE);
 
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
@@ -951,6 +952,7 @@ test_handle_job (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
+	nih_list_free (&sub->entry);
 
 	upstart_disable_safeties = FALSE;
 	control_close ();
@@ -962,6 +964,7 @@ int
 test_handle_event (void)
 {
 	NihIoWatch *watch;
+	ControlSub *sub;
 	Event      *event;
 	pid_t       pid;
 	int         ret = 0, status;
@@ -973,7 +976,7 @@ test_handle_event (void)
 
 	printf ("...with edge event\n");
 	pid = test_cb_child (TEST_EVENT_TRIGGERED_EDGE);
-	control_subscribe (pid, NOTIFY_EVENTS, TRUE);
+	sub = control_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	event = event_new (NULL, "snarf");
 	control_handle_event (event);
@@ -984,20 +987,24 @@ test_handle_event (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
+	nih_list_free (&sub->entry);
+
 
 	printf ("...with level event\n");
 	pid = test_cb_child (TEST_EVENT_TRIGGERED_LEVEL);
-	control_subscribe (pid, NOTIFY_EVENTS, TRUE);
+	sub = control_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	event = event_new (NULL, "foo");
 	event->value = "bar";
-	control_handle_event (event);
+	 control_handle_event (event);
 	nih_free (event);
 
 	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
+
+	nih_list_free (&sub->entry);
 
 
 	upstart_disable_safeties = FALSE;
