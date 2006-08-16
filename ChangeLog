@@ -1,5 +1,12 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start): Check for dependencies before starting
+	the process, if we have any that aren't running we stay in waiting
+	until they are.  Any that aren't even starting get poked with a
+	dependency event to see whether that wakes them up.
+	* init/tests/test_job.c (test_start): Test paths through new
+	dependency code.
+
 	* init/job.c (job_run_process): Once we've got an active process
 	in the running state, release our dependencies.
 

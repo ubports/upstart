@@ -893,6 +893,7 @@ test_run_command (void)
 
 	printf ("...with simple command\n");
 	job = job_new (NULL, "test");
+	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->command = nih_sprintf (job, "touch %s", filename);
 	job_run_command (job, job->command);
@@ -924,6 +925,7 @@ test_run_command (void)
 
 	printf ("...with shell command\n");
 	job = job_new (NULL, "test");
+	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->command = nih_sprintf (job, "echo $$ > %s", filename);
 	job_run_command (job, job->command);
@@ -978,6 +980,7 @@ test_run_script (void)
 
 	printf ("...with small script\n");
 	job = job_new (NULL, "test");
+	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->script = nih_sprintf (job, "exec > %s\necho $0\necho $@",
 				   filename);
@@ -1032,6 +1035,7 @@ test_run_script (void)
 
 	printf ("...with script that will fail\n");
 	job = job_new (NULL, "test");
+	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->script = nih_sprintf (job, "exec > %s\ntest -d %s\necho oops",
 				   filename, filename);
@@ -1078,6 +1082,7 @@ test_run_script (void)
 
 	printf ("...with long script\n");
 	job = job_new (NULL, "test");
+	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->script = nih_alloc (job, 4096);
 	sprintf (job->script, "exec > %s\necho $0\necho $@\n", filename);
@@ -1662,8 +1667,10 @@ test_handle_child (void)
 int
 test_start (void)
 {
-	Job *job;
-	int  ret = 0;
+	Job     *job, *dep_job;
+	JobName *dep;
+	Event   *event;
+	int      ret = 0;
 
 	printf ("Testing job_start()\n");
 	job = job_new (NULL, "test");
@@ -1747,6 +1754,165 @@ test_start (void)
 	}
 
 
+	printf ("...with running dependency\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process_state = PROCESS_NONE;
+
+	dep_job = job_new (NULL, "frodo");
+	dep_job->goal = JOB_START;
+	dep_job->state = JOB_RUNNING;
+	dep_job->process_state = PROCESS_ACTIVE;
+
+	dep = nih_new (job, JobName);
+	dep->name = dep_job->name;
+	nih_list_init (&dep->entry);
+	nih_list_add (&job->depends, &dep->entry);
+
+	job_start (job);
+
+	/* Job goal should now be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should now be JOB_STARTING */
+	if (job->state != JOB_STARTING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should now be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (job->pid, NULL, 0);
+
+
+	printf ("...with starting dependency\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process_state = PROCESS_NONE;
+
+	dep_job->goal = JOB_START;
+	dep_job->state = JOB_STARTING;
+	dep_job->process_state = PROCESS_ACTIVE;
+
+	event = event_new (dep_job, "dependency");
+	nih_list_add (&dep_job->stop_events, &event->entry);
+
+	job_start (job);
+
+	/* Job goal should now be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should still be JOB_WAITING */
+	if (job->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should still be PROCESS_NONE */
+	if (job->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Dependency goal should still be JOB_START */
+	if (dep_job->goal != JOB_START) {
+		printf ("BAD: dependency goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stopped dependency\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process_state = PROCESS_NONE;
+
+	dep_job->goal = JOB_STOP;
+	dep_job->state = JOB_WAITING;
+	dep_job->process_state = PROCESS_NONE;
+	dep_job->command = "echo";
+
+	nih_list_add (&dep_job->start_events, &event->entry);
+
+	job_start (job);
+
+	/* Job goal should now be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should now be JOB_STARTING */
+	if (job->state != JOB_STARTING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should now be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Dependency goal should now be JOB_START */
+	if (dep_job->goal != JOB_START) {
+		printf ("BAD: dependency goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Dependency state should now be JOB_RUNNING */
+	if (dep_job->state != JOB_RUNNING) {
+		printf ("BAD: dependency state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Dependency process state should now be PROCESS_ACTIVE */
+	if (dep_job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: dependency process wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	waitpid (dep_job->pid, NULL, 0);
+
+
+	printf ("...with unknown dependency\n");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process_state = PROCESS_NONE;
+
+	dep->name = "wibble";
+
+	job_start (job);
+
+	/* Job goal should now be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should still be JOB_WAITING */
+	if (job->state != JOB_WAITING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should still be PROCESS_NONE */
+	if (job->process_state != PROCESS_NONE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	nih_list_free (&dep_job->entry);
 	nih_list_free (&job->entry);
 
 	return ret;

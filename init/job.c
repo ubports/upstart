@@ -791,6 +791,8 @@ job_handle_child (void  *data,
 void
 job_start (Job *job)
 {
+	int held = FALSE;
+
 	nih_assert (job != NULL);
 
 	job_init ();
@@ -814,11 +816,50 @@ job_start (Job *job)
 		return;
 	}
 
-	/* FIXME
-	 * if there are dependencies, we stay in waiting
-	 */
+	/* Iterate our dependencies */
+	NIH_LIST_FOREACH (&job->depends, iter) {
+		JobName *dep = (JobName *)iter;
+		Job     *dep_job;
 
-	job_change_state (job, job_next_state (job));
+		/* First check the dependency is actually known; if not we
+		 * still hold the job but we warn that there's a potential
+		 * bogon in there.
+		 */
+		dep_job = job_find_by_name (dep->name);
+		if (! dep_job) {
+			nih_warn (_("%s waiting for unknown dependency: %s"),
+				  job->name, dep->name);
+			held = TRUE;
+			continue;
+		}
+
+		/* If the dependency is running with an active process,
+		 * we don't need to hold for it.
+		 */
+		if ((dep_job->goal == JOB_START)
+		    && (dep_job->state == JOB_RUNNING)
+		    && (dep_job->process_state == PROCESS_ACTIVE))
+			continue;
+
+		/* Hold for it */
+		held = TRUE;
+		nih_info (_("%s waiting for dependency: %s"),
+			  job->name, dep_job->name);
+
+		/* If the job isn't going to be started, try sending it
+		 * a dependency event and see whether that starts it
+		 */
+		if (dep_job->goal == JOB_STOP) {
+			Event *event;
+
+			NIH_MUST (event = event_new (NULL, "dependency"));
+			job_start_event (dep_job, event);
+			nih_free (event);
+		}
+	}
+
+	if (! held)
+		job_change_state (job, job_next_state (job));
 }
 
 /**
