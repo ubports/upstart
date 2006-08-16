@@ -1,5 +1,17 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c: Code to handle the server end of the control
+	socket, a bit more complex than a client as we want to avoid
+	blocking on malcious clients.
+	* init/control.h: Prototypes.
+	* init/tests/test_control.c: Test the control code.
+	* init/Makefile.am (init_SOURCES): Build and link control.c
+	using the control.h header
+	(init_LDADD): Link to libupstart as well
+	(TESTS): Build and run the control test suite.
+	(test_control_SOURCES, test_control_LDFLAGS, test_control_LDADD):
+	Details for control test suite binary.
+
 	* upstart/control.c: Add a way to disable the safety checks.
 	* upstart/tests/test_control.c (test_free): Fix bad test case.
 
