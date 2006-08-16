@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/job.c (job_goal_name, process_state_name): For completeness
+	add these two functions as well.
+	* upstart/job.h: Update.
+	* upstart/tests/test_job.c (test_goal_name) 
+	(test_process_state_name): Test the new functions.
+
 	* init/job.c (job_state_name): Move this utility function from here
 	* upstart/job.c (job_state_name): to here so all clients can use
 	it.

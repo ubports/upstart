@@ -31,6 +31,28 @@
 
 
 /**
+ * job_goal_name:
+ * @goal: goal to convert.
+ *
+ * Converts an enumerated job goal into the string used for the event
+ * and for logging purposes.
+ *
+ * Returns: static string or %NULL if state not known.
+ **/
+const char *
+job_goal_name (JobGoal goal)
+{
+	switch (goal) {
+	case JOB_STOP:
+		return N_("stop");
+	case JOB_START:
+		return N_("start");
+	default:
+		return NULL;
+	}
+}
+
+/**
  * job_state_name:
  * @state: state to convert.
  *
@@ -53,6 +75,32 @@ job_state_name (JobState state)
 		return N_("stopping");
 	case JOB_RESPAWNING:
 		return N_("respawning");
+	default:
+		return NULL;
+	}
+}
+
+/**
+ * process_state_name:
+ * @state: state to convert.
+ *
+ * Converts an enumerated process state into the string used for the event
+ * and for logging purposes.
+ *
+ * Returns: static string or %NULL if state not known.
+ **/
+const char *
+process_state_name (ProcessState state)
+{
+	switch (state) {
+	case PROCESS_NONE:
+		return N_("none");
+	case PROCESS_SPAWNED:
+		return N_("spawned");
+	case PROCESS_ACTIVE:
+		return N_("active");
+	case PROCESS_KILLED:
+		return N_("killed");
 	default:
 		return NULL;
 	}

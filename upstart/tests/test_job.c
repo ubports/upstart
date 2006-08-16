@@ -29,6 +29,36 @@
 
 
 int
+test_goal_name (void)
+{
+	const char *name;
+	int         ret = 0;
+
+	printf ("Testing job_goal_name()\n");
+
+	printf ("...with stop goal\n");
+	name = job_goal_name (JOB_STOP);
+
+	/* String should be stop */
+	if (strcmp (name, "stop")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with start goal\n");
+	name = job_goal_name (JOB_START);
+
+	/* String should be start */
+	if (strcmp (name, "start")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+int
 test_state_name (void)
 {
 	const char *name;
@@ -88,6 +118,56 @@ test_state_name (void)
 	return ret;
 }
 
+int
+test_process_state_name (void)
+{
+	const char *name;
+	int         ret = 0;
+
+	printf ("Testing process_state_name()\n");
+
+	printf ("...with none state\n");
+	name = process_state_name (PROCESS_NONE);
+
+	/* String should be none */
+	if (strcmp (name, "none")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with spawned state\n");
+	name = process_state_name (PROCESS_SPAWNED);
+
+	/* String should be spawned */
+	if (strcmp (name, "spawned")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with active state\n");
+	name = process_state_name (PROCESS_ACTIVE);
+
+	/* String should be active */
+	if (strcmp (name, "active")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with killed state\n");
+	name = process_state_name (PROCESS_KILLED);
+
+	/* String should be killed */
+	if (strcmp (name, "killed")) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
 
 int
 main (int   argc,
@@ -95,7 +175,9 @@ main (int   argc,
 {
 	int ret = 0;
 
+	ret |= test_goal_name ();
 	ret |= test_state_name ();
+	ret |= test_process_state_name ();
 
 	return ret;
 }
