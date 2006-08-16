@@ -264,18 +264,25 @@ control_send (pid_t       pid,
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_STATUS:
 	case UPSTART_JOB_UNKNOWN:
-		msg->message.job_query.name = nih_strdup (
-			msg, message->job_query.name);
+		msg->message.job_query.name
+			= nih_strdup (msg, message->job_query.name);
 		break;
-	case UPSTART_EVENT_TRIGGER_LEVEL:
-	case UPSTART_EVENT_TRIGGERED:
-		if (message->event_triggered.level) {
-			msg->message.event_triggered.level = nih_strdup (
-				msg, message->event_triggered.level);
-		}
-	case UPSTART_EVENT_TRIGGER_EDGE:
-		msg->message.event_triggered.name = nih_strdup (
-			msg, message->event_triggered.name);
+	case UPSTART_EVENT_QUEUE_EDGE:
+		msg->message.event.name
+			= nih_strdup (msg, message->event.name);
+		break;
+	case UPSTART_EVENT_QUEUE_LEVEL:
+		msg->message.event.name
+			= nih_strdup (msg, message->event.name);
+		msg->message.event.level
+			= nih_strdup (msg, message->event.level);
+		break;
+	case UPSTART_EVENT:
+		msg->message.event.name
+			= nih_strdup (msg, message->event.name);
+		if (message->event.level)
+			msg->message.event.level
+				= nih_strdup (msg, message->event.level);
 		break;
 	default:
 		break;
@@ -412,7 +419,6 @@ control_handle (pid_t       pid,
 		UpstartMsg *msg)
 {
 	UpstartMsg *reply = NULL;
-	ControlSub *sub = NULL;
 
 	nih_assert (pid > 0);
 	nih_assert (msg != NULL);
@@ -455,44 +461,19 @@ control_handle (pid_t       pid,
 
 		break;
 	}
-	case UPSTART_EVENT_TRIGGER_EDGE:
-		nih_info (_("Control request to trigger %s"),
-			  msg->event_trigger_edge.name);
+	case UPSTART_EVENT_QUEUE_EDGE:
+		nih_info (_("Control request to queue %s"),
+			  msg->event_queue_edge.name);
 
-		sub = control_subscribe (pid, NOTIFY_NONE, FALSE);
-		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
-			control_subscribe (pid, NOTIFY_JOBS, TRUE);
-		event_trigger_edge (msg->event_trigger_edge.name);
-		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
-			control_subscribe (pid, NOTIFY_JOBS, FALSE);
-
-		reply = nih_new (NULL, UpstartMsg);
-		reply->type = UPSTART_EVENT_TRIGGERED;
-		reply->event_triggered.name = msg->event_trigger_edge.name;
-		reply->event_triggered.level = NULL;
-
+		event_queue_edge (msg->event_queue_edge.name);
 		break;
-	case UPSTART_EVENT_TRIGGER_LEVEL:
-		if (! msg->event_trigger_level.level)
-			break;
+	case UPSTART_EVENT_QUEUE_LEVEL:
+		nih_info (_("Control request to queue %s %s"),
+			  msg->event_queue_level.name,
+			  msg->event_queue_level.level);
 
-		nih_info (_("Control request to trigger %s %s"),
-			  msg->event_trigger_level.name,
-			  msg->event_trigger_level.level);
-
-		sub = control_subscribe (pid, NOTIFY_NONE, FALSE);
-		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
-			control_subscribe (pid, NOTIFY_JOBS, TRUE);
-		event_trigger_level (msg->event_trigger_level.name,
-				     msg->event_trigger_level.level);
-		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
-			control_subscribe (pid, NOTIFY_JOBS, FALSE);
-
-		reply = nih_new (NULL, UpstartMsg);
-		reply->type = UPSTART_EVENT_TRIGGERED;
-		reply->event_triggered.name = msg->event_trigger_level.name;
-		reply->event_triggered.level = msg->event_trigger_level.level;
-
+		event_queue_level (msg->event_queue_level.name,
+				   msg->event_queue_level.level);
 		break;
 	case UPSTART_WATCH_JOBS:
 		nih_info (_("Control request to subscribe %d to jobs"), pid);
@@ -558,10 +539,10 @@ control_handle_job (Job *job)
 
 /**
  * control_handle_event:
- * @event: event triggered.
+ * @event: event to handle.
  *
- * Called when an edge event is triggered or the value of a level event
- * is changed.  Notifies subscribed processes with an UPSTART_EVENT_TRIGGERED
+ * Called when an edge event occurrs or the value of a level event
+ * is changed.  Notifies subscribed processes with an UPSTART_EVENT
  * message.
  **/
 void
@@ -573,9 +554,9 @@ control_handle_event (Event *event)
 
 	control_init ();
 
-	msg.type = UPSTART_EVENT_TRIGGERED;
-	msg.event_triggered.name = event->name;
-	msg.event_triggered.level = event->value;
+	msg.type = UPSTART_EVENT;
+	msg.event.name = event->name;
+	msg.event.level = event->value;
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		ControlSub *sub = (ControlSub *)iter;

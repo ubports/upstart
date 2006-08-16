@@ -1,5 +1,10 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_send): Make the event code clearer.
+	(control_handle): Handle the changed event semantics.
+	(control_handle_event): Issue the new event type.
+	* init/tests/test_control.c: Update tests.
+
 	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Adjust
 	marshal code to match.
 	* upstart/control.h: Update all structures appropriately to the
