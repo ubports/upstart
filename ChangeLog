@@ -1,5 +1,11 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_subscribe): Allow the current
+	subscription to be found by passing NOTIFY_NONE.
+	(control_handle): Don't remove an existing subscription to jobs,
+	a GUI will probably want a permanent one to keep the status up to
+	date.
+
 	* init/job.c (job_kill_process, job_kill_timer): Don't hardcode
 	JOB_STOPPING here, instead move to the next logical state. 
 	(job_kill_process): Notify subscribed processes that we killed

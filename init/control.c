@@ -167,6 +167,8 @@ control_close (void)
  * in @notify if @set is %TRUE or removing if @set is %FALSE.  Removing
  * all subscribed events removes the subscription.
  *
+ * The current subscription can be found by passing %NOTIFY_NONE.
+ *
  * Returns: subscription record on success, %NULL on insufficient memory
  * or removal of subscription.
  **/
@@ -178,7 +180,6 @@ control_subscribe (pid_t        pid,
 	ControlSub *sub;
 
 	nih_assert (pid > 0);
-	nih_assert (notify != 0);
 
 	control_init ();
 
@@ -204,7 +205,7 @@ control_subscribe (pid_t        pid,
 	}
 
 	/* Not adding anything, and no existing record */
-	if (! set)
+	if ((! set) || (! notify))
 		return NULL;
 
 	/* Create new subscription record */
@@ -411,6 +412,7 @@ control_handle (pid_t       pid,
 		UpstartMsg *msg)
 {
 	UpstartMsg *reply = NULL;
+	ControlSub *sub = NULL;
 
 	nih_assert (pid > 0);
 	nih_assert (msg != NULL);
@@ -457,9 +459,12 @@ control_handle (pid_t       pid,
 		nih_info (_("Control request to trigger %s"),
 			  msg->event_trigger_edge.name);
 
-		control_subscribe (pid, NOTIFY_JOBS, TRUE);
+		sub = control_subscribe (pid, NOTIFY_NONE, FALSE);
+		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
+			control_subscribe (pid, NOTIFY_JOBS, TRUE);
 		event_trigger_edge (msg->event_trigger_edge.name);
-		control_subscribe (pid, NOTIFY_JOBS, FALSE);
+		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
+			control_subscribe (pid, NOTIFY_JOBS, FALSE);
 
 		reply = nih_new (NULL, UpstartMsg);
 		reply->type = UPSTART_EVENT_TRIGGERED;
@@ -475,10 +480,13 @@ control_handle (pid_t       pid,
 			  msg->event_trigger_level.name,
 			  msg->event_trigger_level.level);
 
-		control_subscribe (pid, NOTIFY_JOBS, TRUE);
+		sub = control_subscribe (pid, NOTIFY_NONE, FALSE);
+		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
+			control_subscribe (pid, NOTIFY_JOBS, TRUE);
 		event_trigger_level (msg->event_trigger_level.name,
 				     msg->event_trigger_level.level);
-		control_subscribe (pid, NOTIFY_JOBS, FALSE);
+		if ((! sub) || (! (sub->notify & NOTIFY_JOBS)))
+			control_subscribe (pid, NOTIFY_JOBS, FALSE);
 
 		reply = nih_new (NULL, UpstartMsg);
 		reply->type = UPSTART_EVENT_TRIGGERED;
