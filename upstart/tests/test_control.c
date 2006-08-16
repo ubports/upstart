@@ -471,7 +471,7 @@ test_free (void)
 
 	printf ("Testing upstart_free()\n");
 	ptr = nih_alloc (NULL, 1024);
-	nih_free (ptr);
+	upstart_free (ptr);
 
 	/* didn't crash, so it worked */
 

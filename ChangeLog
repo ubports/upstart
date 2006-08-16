@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c: Add a way to disable the safety checks.
+	* upstart/tests/test_control.c (test_free): Fix bad test case.
+
 	* upstart/control.c (upstart_recv_msg): fixed bogus return type
 	for recvmsg from size_t to ssize_t so we don't infiniloop on error.
 

@@ -153,6 +153,17 @@ static size_t upstart_addr (struct sockaddr_un *addr, pid_t pid);
 
 
 /**
+ * upstart_disable_safeties:
+ *
+ * If this variable is set to a TRUE value then safety checks on the
+ * control socket are disabled.  This is highly unrecommended (which is
+ * why there is no other prototype for it), but necessary for the test
+ * suite *sigh*
+ **/
+int upstart_disable_safeties = FALSE;
+
+
+/**
  * upstart_addr:
  * @addr: address structure to fill,
  * @pid: process id.
@@ -441,21 +452,23 @@ upstart_recv_msg (void  *parent,
 	}
 
 
-	/* Make sure we received the credentials of the sending process */
-	if (cred.pid == 0)
-		/* No credentials passed */
-		goto invalid;
-
-	/* Can only receive messages from root, or our own uid
-	 * FIXME init may want to receive more in future
-	 */
-	if ((cred.uid != 0) && (cred.uid != getuid ()))
-		goto invalid;
-
-	/* Only the init daemon may accept messages from any process */
-	if ((cred.pid != INIT_DAEMON) && (cred.pid != getpid ())
-	    && (getpid () != INIT_DAEMON))
+	if (! upstart_disable_safeties) {
+		/* Make sure we received the credentials of the
+		 * sending process */
+		if (cred.pid == 0)
 			goto invalid;
+
+		/* Can only receive messages from root, or our own uid
+		 * FIXME init may want to receive more in future
+		 */
+		if ((cred.uid != 0) && (cred.uid != getuid ()))
+			goto invalid;
+
+		/* Only the init daemon may accept messages from any process */
+		if ((cred.pid != INIT_DAEMON) && (cred.pid != getpid ())
+		    && (getpid () != INIT_DAEMON))
+			goto invalid;
+	}
 
 	/* Discard truncated messages */
 	if ((msg.msg_flags & MSG_TRUNC) || (msg.msg_flags & MSG_CTRUNC))
