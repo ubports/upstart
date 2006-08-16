@@ -1,5 +1,7 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_handle): Add missing break.
+
 	* upstart/job.c (job_goal_name, process_state_name): For completeness
 	add these two functions as well.
 	* upstart/job.h: Update.

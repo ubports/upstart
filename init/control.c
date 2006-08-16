@@ -348,6 +348,8 @@ control_handle (pid_t       pid,
 		reply->job_status.goal = job->goal;
 		reply->job_status.state = job->state;
 		reply->job_status.process_state = job->process_state;
+
+		break;
 	}
 	default:
 		/* Unknown message */
