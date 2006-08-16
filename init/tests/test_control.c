@@ -578,7 +578,9 @@ enum {
 	TEST_EVENT_EDGE,
 	TEST_EVENT_LEVEL,
 	TEST_EVENT_TRIGGERED_EDGE,
-	TEST_EVENT_TRIGGERED_LEVEL
+	TEST_EVENT_TRIGGERED_LEVEL,
+	TEST_JOB_WATCH,
+	TEST_EVENT_WATCH
 };
 
 static pid_t
@@ -859,6 +861,70 @@ test_cb_child (int test)
 		}
 
 		break;
+	case TEST_JOB_WATCH:
+		s_msg->type = UPSTART_WATCH_JOBS;
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive a UPSTART_JOB_STATUS message */
+		if (r_msg->type != UPSTART_JOB_STATUS) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Job should be the one we asked for */
+		if (strcmp (r_msg->job_status.name, "test")) {
+			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Goal should be JOB_START */
+		if (r_msg->job_status.goal != JOB_START) {
+			printf ("BAD: goal wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* State should be JOB_STOPPING */
+		if (r_msg->job_status.state != JOB_STOPPING) {
+			printf ("BAD: state wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* State should be PROCESS_ACTIVE */
+		if (r_msg->job_status.process_state != PROCESS_ACTIVE) {
+			printf ("BAD: process wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		s_msg->type = UPSTART_UNWATCH_JOBS;
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		break;
+	case TEST_EVENT_WATCH:
+		s_msg->type = UPSTART_WATCH_EVENTS;
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive an UPSTART_EVENT_TRIGGERED message */
+		if (r_msg->type != UPSTART_EVENT_TRIGGERED) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Event should be the one we triggered */
+		if (strcmp (r_msg->event_triggered.name, "snarf")) {
+			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Level should be NULL */
+		if (r_msg->event_triggered.level != NULL) {
+			printf ("BAD: level wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		s_msg->type = UPSTART_UNWATCH_EVENTS;
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		break;
 	}
 
 	fflush (stdout);
@@ -977,6 +1043,33 @@ test_cb (void)
 
 	printf ("...with trigger level event command\n");
 	pid = test_cb_child (TEST_EVENT_LEVEL);
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	printf ("...with job watch\n");
+	pid = test_cb_child (TEST_JOB_WATCH);
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	control_handle_job (job);
+
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	printf ("...with event watch\n");
+	pid = test_cb_child (TEST_EVENT_WATCH);
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	control_handle_event (event);
+
 	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))

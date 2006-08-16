@@ -486,6 +486,24 @@ control_handle (pid_t       pid,
 		reply->event_triggered.level = msg->event_trigger_level.level;
 
 		break;
+	case UPSTART_WATCH_JOBS:
+		nih_info (_("Control request to subscribe %d to jobs"), pid);
+		control_subscribe (pid, NOTIFY_JOBS, TRUE);
+		break;
+	case UPSTART_UNWATCH_JOBS:
+		nih_info (_("Control request to unsubscribe %d from jobs"),
+			  pid);
+		control_subscribe (pid, NOTIFY_JOBS, FALSE);
+		break;
+	case UPSTART_WATCH_EVENTS:
+		nih_info (_("Control request to subscribe %d to events"), pid);
+		control_subscribe (pid, NOTIFY_EVENTS, TRUE);
+		break;
+	case UPSTART_UNWATCH_EVENTS:
+		nih_info (_("Control request to unsubscribe %d from events"),
+			  pid);
+		control_subscribe (pid, NOTIFY_EVENTS, FALSE);
+		break;
 	default:
 		/* Unknown message */
 		nih_debug ("Unhandled control message %d", msg->type);

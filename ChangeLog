@@ -1,5 +1,10 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_handle): Handle requests to watch and
+	unwatch jobs and events.
+	* init/tests/test_control.c (test_cb_child, test_cb): Check that
+	subscriptions work.
+
 	* init/tests/test_control.c (test_cb_child): Add a sleep to avoid
 	a race that upsets gdb, have tried this with a STOP/CONT interlock
 	but can't seem to find where the child should reach first.
