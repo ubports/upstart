@@ -499,6 +499,11 @@ job_run_script (Job        *job,
 		NIH_MUST (pipe (fds) == 0);
 		nih_io_set_cloexec (fds[1]);
 
+		/* FIXME actually always want it to be /dev/fd/3 and
+		 * dup2() in the child to make it that way ... no way
+		 * of passing that yet
+		 */
+
 		argv[0] = SHELL;
 		argv[1] = "-e";
 		argv[2] = nih_sprintf (NULL, "/dev/fd/%d", fds[0]);
