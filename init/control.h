@@ -28,6 +28,9 @@
 #include <nih/macros.h>
 #include <nih/io.h>
 
+#include "job.h"
+#include "event.h"
+
 
 /**
  * NotifyEvents:
@@ -80,12 +83,15 @@ typedef struct control_sub {
 
 NIH_BEGIN_EXTERN
 
-NihIoWatch *control_open      (void);
-void        control_close     (void);
+NihIoWatch *control_open         (void);
+void        control_close        (void);
 
-ControlSub *control_subscribe (pid_t pid, NotifyEvents notify, int set);
+ControlSub *control_subscribe    (pid_t pid, NotifyEvents notify, int set);
 
-ControlMsg *control_send      (pid_t pid, UpstartMsg *message);
+ControlMsg *control_send         (pid_t pid, UpstartMsg *message);
+
+void        control_handle_job   (Job *job);
+void        control_handle_event (Event *event);
 
 NIH_END_EXTERN
 

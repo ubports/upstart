@@ -493,3 +493,64 @@ control_handle (pid_t       pid,
 		nih_free (reply);
 	}
 }
+
+
+/**
+ * control_handle_job:
+ * @job: job that changed state,
+ *
+ * Called when a job's state changes.  Notifies subscribed processes with
+ * an UPSTART_JOB_STATUS message.
+ **/
+void
+control_handle_job (Job *job)
+{
+	UpstartMsg msg;
+
+	nih_assert (job != NULL);
+
+	control_init ();
+
+	msg.type = UPSTART_JOB_STATUS;
+	msg.job_status.name = job->name;
+	msg.job_status.goal = job->goal;
+	msg.job_status.state = job->state;
+	msg.job_status.process_state = job->process_state;
+	msg.job_status.pid = job->pid;
+
+	NIH_LIST_FOREACH (subscriptions, iter) {
+		ControlSub *sub = (ControlSub *)iter;
+
+		if (sub->notify & NOTIFY_JOBS)
+			NIH_MUST (control_send (sub->pid, &msg));
+	}
+}
+
+/**
+ * control_handle_event:
+ * @event: event triggered.
+ *
+ * Called when an edge event is triggered or the value of a level event
+ * is changed.  Notifies subscribed processes with an UPSTART_EVENT_TRIGGERED
+ * message.
+ **/
+void
+control_handle_event (Event *event)
+{
+	UpstartMsg msg;
+
+	nih_assert (event != NULL);
+
+	control_init ();
+
+	msg.type = UPSTART_EVENT_TRIGGERED;
+	msg.event_triggered.name = event->name;
+	msg.event_triggered.level = event->value;
+
+	NIH_LIST_FOREACH (subscriptions, iter) {
+		ControlSub *sub = (ControlSub *)iter;
+
+		if (sub->notify & NOTIFY_EVENTS)
+			NIH_MUST (control_send (sub->pid, &msg));
+	}
+}

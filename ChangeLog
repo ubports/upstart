@@ -1,5 +1,15 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_handle_job): Function to send out an
+	UPSTART_JOB_STATUS message to subscribed processes whenever a
+	job state changes.
+	(control_handle_event): Function to send out an
+	UPSTART_EVENT_TRIGGERED message to subscribed processes whenever
+	an event is triggered.
+	* init/control.h: Update.
+	* init/tests/test_control.c (test_handle_job, test_handle_event):
+	Check that the functions work properly.
+
 	* init/control.c (control_handle): Handle messages that trigger
 	edge and level events; subscribe the process to receive notification
 	of job changes during the event.

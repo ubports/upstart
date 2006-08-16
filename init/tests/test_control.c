@@ -574,8 +574,11 @@ enum {
 	TEST_JOB_START,
 	TEST_JOB_STOP,
 	TEST_JOB_QUERY,
+	TEST_JOB_STATUS,
 	TEST_EVENT_EDGE,
-	TEST_EVENT_LEVEL
+	TEST_EVENT_LEVEL,
+	TEST_EVENT_TRIGGERED_EDGE,
+	TEST_EVENT_TRIGGERED_LEVEL
 };
 
 static pid_t
@@ -699,6 +702,8 @@ test_cb_child (int test)
 		s_msg->type = UPSTART_JOB_QUERY;
 		s_msg->job_stop.name = "test";
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		/* fall though into the next test */
+	case TEST_JOB_STATUS:
 		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
 
 		/* Should receive a UPSTART_JOB_STATUS message */
@@ -736,6 +741,8 @@ test_cb_child (int test)
 		s_msg->type = UPSTART_EVENT_TRIGGER_EDGE;
 		s_msg->event_trigger_edge.name = "snarf";
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		/* fall through into the next test */
+	case TEST_EVENT_TRIGGERED_EDGE:
 		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
 
 		/* Should receive an UPSTART_EVENT_TRIGGERED message */
@@ -762,6 +769,8 @@ test_cb_child (int test)
 		s_msg->event_trigger_level.name = "foo";
 		s_msg->event_trigger_level.level = "bar";
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		/* fall through into the next test */
+	case TEST_EVENT_TRIGGERED_LEVEL:
 		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
 
 		/* Should receive an UPSTART_EVENT_TRIGGERED message */
@@ -914,6 +923,90 @@ test_cb (void)
 }
 
 
+int
+test_handle_job (void)
+{
+	NihIoWatch *watch;
+	Job        *job;
+	pid_t       pid;
+	int         ret = 0, status;
+
+	printf ("Testing control_handle_job()\n");
+	watch = control_open ();
+	upstart_disable_safeties = TRUE;
+
+
+	pid = test_cb_child (TEST_JOB_STATUS);
+	control_subscribe (pid, NOTIFY_JOBS, TRUE);
+
+	job = job_new (NULL, "test");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	control_handle_job (job);
+	nih_free (job);
+
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	upstart_disable_safeties = FALSE;
+	control_close ();
+
+	return ret;
+}
+
+int
+test_handle_event (void)
+{
+	NihIoWatch *watch;
+	Event      *event;
+	pid_t       pid;
+	int         ret = 0, status;
+
+	printf ("Testing control_handle_event()\n");
+	watch = control_open ();
+	upstart_disable_safeties = TRUE;
+
+
+	printf ("...with edge event\n");
+	pid = test_cb_child (TEST_EVENT_TRIGGERED_EDGE);
+	control_subscribe (pid, NOTIFY_EVENTS, TRUE);
+
+	event = event_new (NULL, "snarf");
+	control_handle_event (event);
+	nih_free (event);
+
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	printf ("...with level event\n");
+	pid = test_cb_child (TEST_EVENT_TRIGGERED_LEVEL);
+	control_subscribe (pid, NOTIFY_EVENTS, TRUE);
+
+	event = event_new (NULL, "foo");
+	event->value = "bar";
+	control_handle_event (event);
+	nih_free (event);
+
+	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	upstart_disable_safeties = FALSE;
+	control_close ();
+
+	return ret;
+}
+
+
 
 int
 main (int   argc,
@@ -926,6 +1019,8 @@ main (int   argc,
 	ret |= test_subscribe ();
 	ret |= test_send ();
 	ret |= test_cb ();
+	ret |= test_handle_job ();
+	ret |= test_handle_event ();
 
 	return ret;
 }
