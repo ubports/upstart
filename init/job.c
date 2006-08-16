@@ -1018,6 +1018,10 @@ job_handle_event (Event *event)
 	NIH_LIST_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
+		/* Jobs can't react to their own events */
+		if (! strcmp (job->name, event->name))
+			continue;
+
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
 		 * to be killed, the stop script then the start script to be

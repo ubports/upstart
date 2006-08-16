@@ -2270,7 +2270,7 @@ int
 test_handle_event (void)
 {
 	Event *event;
-	Job   *job1, *job2, *job3, *job4, *job5;
+	Job   *job1, *job2, *job3, *job4, *job5, *job6;
 	int    ret = 0, status;
 
 	printf ("Testing job_handle_event()\n");
@@ -2322,6 +2322,13 @@ test_handle_event (void)
 
 		exit (0);
 	}
+
+	job6 = job_new (NULL, "poke");
+	job6->goal = JOB_STOP;
+	job6->state = JOB_WAITING;
+	job6->process_state = PROCESS_NONE;
+	job6->command = "echo";
+	nih_list_add (&job6->start_events, &(event_new (job6, "poke")->entry));
 
 	event = event_new (NULL, "poke");
 	job_handle_event (event);
@@ -2441,6 +2448,24 @@ test_handle_event (void)
 	kill (job5->pid, SIGTERM);
 	waitpid (job5->pid, NULL, 0);
 
+	/* Sixth job goal should still be JOB_STOP */
+	if (job6->goal != JOB_STOP) {
+		printf ("BAD: sixth job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Sixth job state should still be JOB_WAITING */
+	if (job6->state != JOB_WAITING) {
+		printf ("BAD: sixth job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Sixth process state should now be PROCESS_NONE */
+	if (job6->process_state != PROCESS_NONE) {
+		printf ("BAD: sixth process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
 
 	nih_free (event);
 
@@ -2449,6 +2474,7 @@ test_handle_event (void)
 	nih_list_free (&job3->entry);
 	nih_list_free (&job4->entry);
 	nih_list_free (&job5->entry);
+	nih_list_free (&job6->entry);
 
 	return ret;
 }

@@ -1,5 +1,10 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_event): Add another sanity check, jobs
+	should not be able to react to their own events; that's just silly.
+	* init/tests/test_job.c (test_handle_event): Check that the new
+	condition does the right thing.
+	
 	* init/job.c (job_change_state): Make it illegal for a job to exist
 	without either a command or script or both.  This is for sanity
 	reasons, allowing no primary process makes no sense and can lead
