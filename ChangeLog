@@ -1,5 +1,7 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/exent.h, init/job.h, init/process.h: Fix up headers.
+
 	* upstart/control.c, upstart/control.h, upstart/errors.h,
 	upstart/job.h, upstart/libupstart.h: Fix up headers.
 

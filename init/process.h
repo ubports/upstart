@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef UPSTART_PROCESS_H
-#define UPSTART_PROCESS_H
+#ifndef INIT_PROCESS_H
+#define INIT_PROCESS_H
 
 #include <sys/types.h>
 
@@ -59,4 +59,4 @@ int   process_kill  (Job *job, pid_t pid, int force);
 
 NIH_END_EXTERN
 
-#endif /* UPSTART_PROCESS_H */
+#endif /* INIT_PROCESS_H */

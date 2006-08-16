@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef UPSTART_EVENT_H
-#define UPSTART_EVENT_H
+#ifndef INIT_EVENT_H
+#define INIT_EVENT_H
 
 #include <nih/macros.h>
 #include <nih/list.h>
@@ -63,4 +63,4 @@ void   event_trigger_level (const char *name, const char *value);
 
 NIH_END_EXTERN
 
-#endif /* UPSTART_EVENT_H */
+#endif /* INIT_EVENT_H */

@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef UPSTART_JOB_H
-#define UPSTART_JOB_H
+#ifndef INIT_JOB_H
+#define INIT_JOB_H
 
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -183,4 +183,4 @@ void        job_handle_event (Event *event);
 
 NIH_END_EXTERN
 
-#endif /* UPSTART_JOB_H */
+#endif /* INIT_JOB_H */
