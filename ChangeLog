@@ -1,3 +1,9 @@
+2006-08-16  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/errors.h: Header file containing errors raised by
+	libupstart.
+	* upstart/libupstart.h: Include errors.h
+
 2006-08-15  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.h: Add missing attribute for event_new()

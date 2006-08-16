@@ -18,11 +18,22 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef LIBUPSTART_LIBUPSTART_H
-#define LIBUPSTART_LIBUPSTART_H
+#ifndef LIBUPSTART_ERRORS_H
+#define LIBUPSTART_ERRORS_H
 
-#include <upstart/job.h>
-#include <upstart/control.h>
-#include <upstart/errors.h>
+#include <nih/macros.h>
+#include <nih/errors.h>
 
-#endif /* LIBUPSTART_LIBUPSTART_H */
+
+/* Allocated error numbers */
+enum {
+	LIBUPSTART_ERROR_START = NIH_ERROR_LIBRARY_START,
+
+	/* Invalid message received */
+	UPSTART_INVALID_MESSAGE,
+};
+
+/* Error strings for defined messages */
+#define UPSTART_INVALID_MESSAGE_STR	N_("Invalid message received")
+
+#endif /* LIBUPSTART_ERRORS_H */
