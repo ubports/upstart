@@ -848,6 +848,9 @@ job_start (Job *job)
 
 		/* If the job isn't going to be started, try sending it
 		 * a dependency event and see whether that starts it
+		 *
+		 * Note: this can actually change our own state!  so
+		 * do nothing else
 		 */
 		if (dep_job->goal == JOB_STOP) {
 			Event *event;
@@ -859,7 +862,8 @@ job_start (Job *job)
 	}
 
 	if (held) {
-		control_handle_job (job);
+		if (job->state == JOB_WAITING)
+			control_handle_job (job);
 	} else {
 		job_change_state (job, job_next_state (job));
 	}

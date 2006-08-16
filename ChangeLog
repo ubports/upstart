@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start): Only announce the change if we're still
+	in the waiting state, we could have moved on to running already.
+
 	* init/job.c (job_start): If holding the job, at least announce
 	the goal change to subscribed clients.
 
