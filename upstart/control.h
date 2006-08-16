@@ -51,7 +51,18 @@ typedef enum {
 	UPSTART_JOB_STOP,
 	UPSTART_JOB_QUERY,
 	UPSTART_JOB_STATUS,
-	UPSTART_JOB_UNKNOWN
+	UPSTART_JOB_UNKNOWN,
+
+	/* Event messages and responses */
+	UPSTART_EVENT_TRIGGER_EDGE,
+	UPSTART_EVENT_TRIGGER_LEVEL,
+	UPSTART_EVENT_TRIGGERED,
+
+	/* Watches */
+	UPSTART_WATCH_JOBS,
+	UPSTART_UNWATCH_JOBS,
+	UPSTART_WATCH_EVENTS,
+	UPSTART_UNWATCH_EVENTS
 } UpstartMsgType;
 
 
@@ -165,6 +176,119 @@ typedef struct upstart_job_unknown_msg {
 	char           *name;
 } UpstartJobUnknownMsg;
 
+/**
+ * UpstartEventTriggerEdgeMsg:
+ * @type: always UPSTART_EVENT_TRIGGER_EDGE,
+ * @name: name of event to trigger.
+ *
+ * This message triggers the edge event called @name, which may cause jobs
+ * to be stopped or started.  Notification of those jobs is given.
+ *
+ * Direction: client to server,
+ * Response: zero or more UPSTART_JOB_STATUS followed by
+ * UPSTART_EVENT_TRIGGERED.
+ **/
+typedef struct upstart_event_trigger_edge_msg {
+	UpstartMsgType  type;
+
+	char           *name;
+} UpstartEventTriggerEdgeMsg;
+
+/**
+ * UpstartEventTriggerLevelMsg:
+ * @type: always UPSTART_EVENT_TRIGGER_LEVEL,
+ * @name: name of event to trigger,
+ * @level: level to trigger at.
+ *
+ * This message triggers the level event called @name at @level, which may
+ * cause jobs to be stopped or started.  Notification of those jobs is given.
+ *
+ * Direction: client to server,
+ * Response: zero or more UPSTART_JOB_STATUS followed by
+ * UPSTART_EVENT_TRIGGERED.
+ **/
+typedef struct upstart_event_trigger_level_msg {
+	UpstartMsgType  type;
+
+	char           *name;
+	char           *level;
+} UpstartEventTriggerLevelMsg;
+
+/**
+ * UpstartEventTriggeredMsg:
+ * @type: always UPSTART_EVENT_TRIGGERED,
+ * @name: name of event triggered,
+ * @level: level triggered at.
+ *
+ * This message indicates that an event named @name has been triggered at
+ * @level, which may be %NULL if it is a pure edge event.
+ *
+ * Direction: server to client,
+ * Response: none.
+ **/
+typedef struct upstart_event_triggered_msg {
+	UpstartMsgType  type;
+
+	char           *name;
+	char           *level;
+} UpstartEventTriggeredMsg;
+
+/**
+ * UpstartWatchJobsMsg:
+ * @type: always UPSTART_WATCH_JOBS.
+ *
+ * This message requests that changes in the state of all jobs be sent to
+ * the client as UPSTART_JOB_STATUS messages until it disconnects or sends
+ * an UPSTART_UNWATCH_JOBS message.
+ *
+ * Direction: client to server,
+ * Response: zero or more UPSTART_JOB_STATUS.
+ **/
+typedef struct upstart_watch_jobs_msg {
+	UpstartMsgType type;
+} UpstartWatchJobsMsg;
+
+/**
+ * UpstartUnwatchJobsMsg:
+ * @type: always UPSTART_UNWATCH_JOBS.
+ *
+ * This message requests that notification of job state changes be ceased.
+ *
+ * Direction: client to server,
+ * Response: none.
+ **/
+typedef struct upstart_unwatch_jobs_msg {
+	UpstartMsgType type;
+} UpstartUnwatchJobsMsg;
+
+/**
+ * UpstartWatchEventsMsg:
+ * @type: always UPSTART_WATCH_EVENTS.
+ *
+ * This message requests that notification of any event triggered be sent
+ * to the client as UPSTART_EVENT_TRIGGERED messages until it
+ * disconnects or sends an UPSTART_UNWATCH_EVENTS message.
+ *
+ * Direction: either direction.
+ * Response: zero or more UPSTART_EVENT_TRIGGERED.
+ **/
+typedef struct upstart_watch_events_msg {
+	UpstartMsgType type;
+} UpstartWatchEventsMsg;
+
+/**
+ * UpstartUnwatchEventsMsg:
+ * @type: always UPSTART_UNWATCH_EVENTS.
+ *
+ * This message requests that notification of events be ceased.
+ *
+ * Direction: client to server,
+ * Response: none.
+ **/
+typedef struct upstart_unwatch_events_msg {
+	UpstartMsgType type;
+} UpstartUnwatchEventsMsg;
+
 
 /**
  * UpstartMsg:
@@ -175,14 +299,24 @@ typedef struct upstart_job_unknown_msg {
  * msg.type and then use the appropriate member.
  **/
 typedef union upstart_msg {
-	UpstartMsgType       type;
+	UpstartMsgType              type;
 
-	UpstartNoOpMsg       no_op;
-	UpstartJobStartMsg   job_start;
-	UpstartJobStopMsg    job_stop;
-	UpstartJobQueryMsg   job_query;
-	UpstartJobStatusMsg  job_status;
-	UpstartJobUnknownMsg job_unknown;
+	UpstartNoOpMsg              no_op;
+
+	UpstartJobStartMsg          job_start;
+	UpstartJobStopMsg           job_stop;
+	UpstartJobQueryMsg          job_query;
+	UpstartJobStatusMsg         job_status;
+	UpstartJobUnknownMsg        job_unknown;
+
+	UpstartEventTriggerEdgeMsg  event_trigger_edge;
+	UpstartEventTriggerLevelMsg event_trigger_level;
+	UpstartEventTriggeredMsg    event_triggered;
+
+	UpstartWatchJobsMsg         watch_jobs;
+	UpstartUnwatchJobsMsg       unwatch_jobs;
+	UpstartWatchEventsMsg       watch_events;
+	UpstartUnwatchEventsMsg     unwatch_events;
 } UpstartMsg;
 
 

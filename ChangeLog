@@ -1,5 +1,21 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.h (UpstartMsgType): add messages for triggering
+	edge and level events, receiving the trigger for an event and for
+	watching jobs and events.
+	(UpstartEventTriggerEdgeMsg, UpstartEventTriggerLevelMsg)
+	(UpstartEventTriggeredMsg, UpstartWatchJobsMsg)
+	(UpstartUnwatchJobsMsg, UpstartWatchEventsMsg):
+	(UpstartUnwatchEventsMsg): Add structures for the new messages.
+	(UpstartMsg): And add them to the union.
+	* upstart/control.c (WireEventPayload): The event messages can all
+	share a wire payload type; the watch messages don't need any special
+	payload.
+	(upstart_send_msg_to): Add the payloads onto the wire.
+	(upstart_recv_msg): And take the payloads back off the wire.
+	* upstart/tests/test_control.c (test_messages): Test the new
+	message types.
+
 	* upstart/control.h (UpstartJobStatusMsg): add a process id.
 	* upstart/control.c (WireJobStatusPayload): and here too.
 	(upstart_send_msg_to): copy the process id onto the wire.
