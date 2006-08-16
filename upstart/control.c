@@ -325,9 +325,9 @@ upstart_send_msg_to (pid_t       pid,
 		/* Job name */
 		WireJobPayload job;
 
-		job.namelen = strlen (message->job_start.name);
+		job.namelen = strlen (message->job_query.name);
 		IOVEC_ADD (iov[0], &job, sizeof (job), sizeof (buf));
-		IOVEC_ADD (iov[0], message->job_start.name, job.namelen,
+		IOVEC_ADD (iov[0], message->job_query.name, job.namelen,
 			   sizeof (buf));
 
 		break;
@@ -488,9 +488,9 @@ upstart_recv_msg (void  *parent,
 		WireJobPayload job;
 
 		IOVEC_READ (iov[0], &job, sizeof (job), len);
-		message->job_start.name = nih_alloc (message, job.namelen + 1);
-		message->job_start.name[job.namelen] = '\0';
-		IOVEC_READ (iov[0], message->job_start.name, job.namelen, len);
+		message->job_query.name = nih_alloc (message, job.namelen + 1);
+		message->job_query.name[job.namelen] = '\0';
+		IOVEC_READ (iov[0], message->job_query.name, job.namelen, len);
 
 		break;
 	}

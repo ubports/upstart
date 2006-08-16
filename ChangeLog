@@ -1,5 +1,9 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Avoid
+	job_start as the short-cut for assigning name, as that might become
+	a more complex message eventually.  Use job_query instead.
+
 	* upstart/control.c (upstart_free): Add wrapper function around
 	nih_free so we're a proper library and don't expose libnih too much
 	(upstart_recv_msg): Stash the sender pid in an argument.
