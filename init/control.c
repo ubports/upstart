@@ -266,6 +266,16 @@ control_send (pid_t       pid,
 		msg->message.job_query.name = nih_strdup (
 			msg, message->job_query.name);
 		break;
+	case UPSTART_EVENT_TRIGGER_LEVEL:
+	case UPSTART_EVENT_TRIGGERED:
+		if (message->event_triggered.level) {
+			msg->message.event_triggered.level = nih_strdup (
+				msg, message->event_triggered.level);
+		}
+	case UPSTART_EVENT_TRIGGER_EDGE:
+		msg->message.event_triggered.name = nih_strdup (
+			msg, message->event_triggered.name);
+		break;
 	default:
 		break;
 	}

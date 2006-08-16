@@ -326,7 +326,7 @@ test_send (void)
 	watch = control_open ();
 
 
-	printf ("...with simple message\n");
+	printf ("...with no-op message\n");
 	message->type = UPSTART_NO_OP;
 	msg = control_send (123, message);
 
@@ -363,7 +363,7 @@ test_send (void)
 	nih_list_free (&msg->entry);
 
 
-	printf ("...with complex message\n");
+	printf ("...with job start message\n");
 	message->type = UPSTART_JOB_START;
 	message->job_start.name = "wibble";
 	msg = control_send (123, message);
@@ -401,6 +401,158 @@ test_send (void)
 	/* Name should be nih_alloc child of msg */
 	if (nih_alloc_parent (msg->message.job_start.name) != msg) {
 		printf ("BAD: job name wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&msg->entry);
+
+
+	printf ("...with edge event message\n");
+	message->type = UPSTART_EVENT_TRIGGER_EDGE;
+	message->event_trigger_edge.name = "wibble";
+	msg = control_send (123, message);
+
+	/* Destination process should be 123 */
+	if (msg->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message type should be what we gave */
+	if (msg->message.type != UPSTART_EVENT_TRIGGER_EDGE) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message name should have been copied */
+	if (strcmp (msg->message.event_trigger_edge.name, "wibble")) {
+		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the send queue */
+	if (NIH_LIST_EMPTY (&msg->entry)) {
+		printf ("BAD: was not placed in the send queue.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with NihAlloc */
+	if (nih_alloc_size (msg) != sizeof (ControlMsg)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.event_trigger_edge.name) != msg) {
+		printf ("BAD: name wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&msg->entry);
+
+
+	printf ("...with level event message\n");
+	message->type = UPSTART_EVENT_TRIGGER_LEVEL;
+	message->event_trigger_level.name = "foo";
+	message->event_trigger_level.level = "bar";
+	msg = control_send (123, message);
+
+	/* Destination process should be 123 */
+	if (msg->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message type should be what we gave */
+	if (msg->message.type != UPSTART_EVENT_TRIGGER_LEVEL) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message name should have been copied */
+	if (strcmp (msg->message.event_trigger_level.name, "foo")) {
+		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Level should have been copied */
+	if (strcmp (msg->message.event_trigger_level.level, "bar")) {
+		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the send queue */
+	if (NIH_LIST_EMPTY (&msg->entry)) {
+		printf ("BAD: was not placed in the send queue.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with NihAlloc */
+	if (nih_alloc_size (msg) != sizeof (ControlMsg)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.event_trigger_level.name) != msg) {
+		printf ("BAD: name wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	/* Level should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.event_trigger_level.level) != msg) {
+		printf ("BAD: level wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&msg->entry);
+
+
+	printf ("...with triggered event message\n");
+	message->type = UPSTART_EVENT_TRIGGERED;
+	message->event_triggered.name = "foo";
+	message->event_triggered.level = NULL;
+	msg = control_send (123, message);
+
+	/* Destination process should be 123 */
+	if (msg->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message type should be what we gave */
+	if (msg->message.type != UPSTART_EVENT_TRIGGERED) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message name should have been copied */
+	if (strcmp (msg->message.event_triggered.name, "foo")) {
+		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Level should have been copied as NULL */
+	if (msg->message.event_triggered.level != NULL) {
+		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the send queue */
+	if (NIH_LIST_EMPTY (&msg->entry)) {
+		printf ("BAD: was not placed in the send queue.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with NihAlloc */
+	if (nih_alloc_size (msg) != sizeof (ControlMsg)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.event_trigger_level.name) != msg) {
+		printf ("BAD: name wasn't nih_alloc child of msg.\n");
 		ret = 1;
 	}
 

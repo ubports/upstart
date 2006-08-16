@@ -1,5 +1,10 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_send): Copy the pointers in the new
+	event messages.
+	* init/tests/test_control.c (test_send): Check the pointers are
+	copied across correctly.
+
 	* init/control.c (control_subscribe): Add function to handle
 	processes that want to subscribe to changes.
 	(control_init): Initialise the subscriptions list.
