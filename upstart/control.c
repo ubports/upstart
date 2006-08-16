@@ -1,4 +1,4 @@
-/* libupstart
+/* upstart
  *
  * control.c - control socket communication
  *

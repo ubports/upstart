@@ -1,4 +1,4 @@
-/* libupstart
+/* upstart
  *
  * Copyright © 2006 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef LIBUPSTART_LIBUPSTART_H
-#define LIBUPSTART_LIBUPSTART_H
+#ifndef UPSTART_LIBUPSTART_H
+#define UPSTART_LIBUPSTART_H
 
 #include <upstart/job.h>
 #include <upstart/control.h>
 #include <upstart/errors.h>
 
-#endif /* LIBUPSTART_LIBUPSTART_H */
+#endif /* UPSTART_LIBUPSTART_H */

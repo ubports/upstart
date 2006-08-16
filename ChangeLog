@@ -1,5 +1,8 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c, upstart/control.h, upstart/errors.h,
+	upstart/job.h, upstart/libupstart.h: Fix up headers.
+
 	* upstart/control.c: Write the code to handle the control socket
 	and communication over it; turns out this was possible to write so
 	that both ends are handled in the same code.

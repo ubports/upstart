@@ -1,4 +1,4 @@
-/* libupstart
+/* upstart
  *
  * Copyright © 2006 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef LIBUPSTART_ERRORS_H
-#define LIBUPSTART_ERRORS_H
+#ifndef UPSTART_ERRORS_H
+#define UPSTART_ERRORS_H
 
 #include <nih/macros.h>
 #include <nih/errors.h>
@@ -36,4 +36,4 @@ enum {
 /* Error strings for defined messages */
 #define UPSTART_INVALID_MESSAGE_STR	N_("Invalid message received")
 
-#endif /* LIBUPSTART_ERRORS_H */
+#endif /* UPSTART_ERRORS_H */

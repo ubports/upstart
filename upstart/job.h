@@ -1,4 +1,4 @@
-/* libupstart
+/* upstart
  *
  * Copyright © 2006 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef LIBUPSTART_JOB_H
-#define LIBUPSTART_JOB_H
+#ifndef UPSTART_JOB_H
+#define UPSTART_JOB_H
 
 /**
  * JobGoal:
@@ -96,4 +96,4 @@ typedef enum {
 	CONSOLE_NONE
 } ConsoleType;
 
-#endif /* LIBUPSTART_JOB_H */
+#endif /* UPSTART_JOB_H */

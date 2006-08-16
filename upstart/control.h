@@ -1,4 +1,4 @@
-/* libupstart
+/* upstart
  *
  * Copyright © 2006 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef LIBUPSTART_CONTROL_H
-#define LIBUPSTART_CONTROL_H
+#ifndef UPSTART_CONTROL_H
+#define UPSTART_CONTROL_H
 
 #include <nih/macros.h>
 
@@ -194,4 +194,4 @@ UpstartMsg *upstart_recv_msg    (void *parent, int sock)
 
 NIH_END_EXTERN
 
-#endif /* LIBUPSTART_CONTROL_H */
+#endif /* UPSTART_CONTROL_H */
