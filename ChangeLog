@@ -1,5 +1,7 @@
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/Makefile.am (libupstart_la_LIBADD): Link to libnih
+
 	* upstart/errors.h: Header file containing errors raised by
 	libupstart.
 	* upstart/libupstart.h: Include errors.h

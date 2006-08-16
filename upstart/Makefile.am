@@ -19,6 +19,10 @@ if HAVE_VERSION_SCRIPT_ARG
 libupstart_la_LDFLAGS += @VERSION_SCRIPT_ARG@=$(srcdir)/libupstart.ver
 endif
 
+libupstart_la_LIBADD = \
+	../nih/libnih.la
+
+
 EXTRA_DIST = libupstart.ver
 
 
