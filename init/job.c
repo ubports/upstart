@@ -319,9 +319,9 @@ job_change_state (Job      *job,
 			break;
 		}
 
-		/* Notify subscribed processes and trigger the level event */
+		/* Notify subscribed processes and queue the level event */
 		control_handle_job (job);
-		event_trigger_level (job->name, job_state_name (job->state));
+		event_queue_level (job->name, job_state_name (job->state));
 	}
 }
 
@@ -957,7 +957,7 @@ job_release_depends (Job *job)
 /**
  * job_start_event:
  * @job: job to be started,
- * @event: event triggered.
+ * @event: event to handle.
  *
  * Iterates the list of events that can cause @job to be started, and if
  * @event is present, calls #job_start to change the goal.
@@ -980,7 +980,7 @@ job_start_event (Job   *job,
 /**
  * job_stop_event:
  * @job: job to be stopped,
- * @event: event triggered.
+ * @event: event to handle.
  *
  * Iterates the list of events that can cause @job to be stopped, and if
  * @event is present, calls #job_stop to change the goal.
@@ -1004,7 +1004,7 @@ job_stop_event (Job   *job,
  * job_handle_event:
  * @event: event to be handled.
  *
- * This function is called whenever an edge event is triggered or the level
+ * This function is called whenever an edge event is set or the level
  * of a level event is changed.  It iterates the list of jobs and stops
  * or starts any necessary.
  **/
