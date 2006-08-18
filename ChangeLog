@@ -1,5 +1,7 @@
 2006-08-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (test_job_LDADD): Remove the duplicate link.
+
 	* TODO: Update.
 
 	* init/job.c (job_handle_child): Rename to job_child_reaper.
