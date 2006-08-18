@@ -1,5 +1,13 @@
 2006-08-18  Scott James Remnant  <scott@netsplit.com>
 
+	* Makefile.am (SUBDIRS): Install the rc.d files.
+	* configure.ac (AC_CONFIG_FILES): Generate the rc.d Makefile.
+	* rc.d/Makefile.am (rcdir): Define rcdir to be /etc/rc.d
+	(dist_rc_DATA): Install the logd file into that directory.
+	* rc.d/logd: Write a simple service definition for the log daemon,
+	this saves us hardcoding any information about it into init; it'll
+	just need to know the name.
+
 	* Makefile.am (SUBDIRS): Build the logd daemon
 	* configure.ac (AC_CONFIG_FILES): Generate the logd Makefile.
 	* logd/Makefile.am (sbin_PROGRAMS): Install the logd binary into

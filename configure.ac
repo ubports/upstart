@@ -32,6 +32,7 @@ NIH_LINKER_OPTIMISATIONS
 NIH_LINKER_VERSION_SCRIPT
 
 AC_CONFIG_FILES([ Makefile po/Makefile.in intl/Makefile nih/Makefile
-		  upstart/Makefile init/Makefile logd/Makefile ])
+		  upstart/Makefile init/Makefile logd/Makefile
+		  rc.d/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
