@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = po intl nih upstart init
+SUBDIRS = po intl nih upstart init logd
 
 EXTRA_DIST = HACKING
 

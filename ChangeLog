@@ -1,3 +1,12 @@
+2006-08-18  Scott James Remnant  <scott@netsplit.com>
+
+	* Makefile.am (SUBDIRS): Build the logd daemon
+	* configure.ac (AC_CONFIG_FILES): Generate the logd Makefile.
+	* logd/Makefile.am (sbin_PROGRAMS): Install the logd binary into
+	the sbin directory by default.
+	(logd_SOURCES): Build and link main.c
+	* logd/main.c (main): Add basic main function for testing purposes.
+
 2006-08-16  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_start): Ignore self-dependencies; over-document

@@ -41,3 +41,5 @@ nih
 upstart/test_*
 init/init
 init/test_*
+logd/logd
+logd/test_*
