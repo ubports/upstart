@@ -185,7 +185,7 @@ void        job_run_script      (Job *job, const char *script);
 
 void        job_kill_process    (Job *job);
 
-void        job_handle_child    (void *ptr, pid_t pid, int killed, int status);
+void        job_child_reaper    (void *ptr, pid_t pid, int killed, int status);
 
 void        job_start           (Job *job);
 void        job_stop            (Job *job);

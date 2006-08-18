@@ -1,5 +1,9 @@
 2006-08-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_child): Rename to job_child_reaper.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Update function names.
+
 	* init/control.c (control_cb): Rename to control_watcher
 	* init/tests/test_control.c: Update function names.
 

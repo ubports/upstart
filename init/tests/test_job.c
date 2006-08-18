@@ -1358,12 +1358,12 @@ destructor_called (void *ptr)
 }
 
 int
-test_handle_child (void)
+test_child_reaper (void)
 {
 	Job *job;
 	int  ret = 0, exitcodes[1] = { 0 };
 
-	printf ("Testing job_handle_child()\n");
+	printf ("Testing job_child_reaper()\n");
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
@@ -1375,7 +1375,7 @@ test_handle_child (void)
 
 
 	printf ("...with unknown pid\n");
-	job_handle_child (NULL, 999, FALSE, 0);
+	job_child_reaper (NULL, 999, FALSE, 0);
 
 	/* Check the job didn't change */
 	if (job->state != JOB_RUNNING) {
@@ -1385,7 +1385,7 @@ test_handle_child (void)
 
 
 	printf ("...with running task\n");
-	job_handle_child (NULL, 1000, FALSE, 0);
+	job_child_reaper (NULL, 1000, FALSE, 0);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
@@ -1422,7 +1422,7 @@ test_handle_child (void)
 	job->kill_timer = (void *) nih_strdup (job, "test");
 	nih_alloc_set_destructor (job->kill_timer, destructor_called);
 	was_called = 0;
-	job_handle_child (NULL, 1000, FALSE, 0);
+	job_child_reaper (NULL, 1000, FALSE, 0);
 
 	/* Timer should have been unset */
 	if (job->kill_timer != NULL) {
@@ -1444,7 +1444,7 @@ test_handle_child (void)
 	job->state = JOB_STARTING;
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
-	job_handle_child (NULL, 1000, FALSE, 0);
+	job_child_reaper (NULL, 1000, FALSE, 0);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
@@ -1478,7 +1478,7 @@ test_handle_child (void)
 	job->state = JOB_STARTING;
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
-	job_handle_child (NULL, 1000, FALSE, 1);
+	job_child_reaper (NULL, 1000, FALSE, 1);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
@@ -1512,7 +1512,7 @@ test_handle_child (void)
 	job->state = JOB_STARTING;
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
-	job_handle_child (NULL, 1000, TRUE, SIGTERM);
+	job_child_reaper (NULL, 1000, TRUE, SIGTERM);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
@@ -1547,7 +1547,7 @@ test_handle_child (void)
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 	job->respawn = TRUE;
-	job_handle_child (NULL, 1000, FALSE, 0);
+	job_child_reaper (NULL, 1000, FALSE, 0);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
@@ -1584,7 +1584,7 @@ test_handle_child (void)
 	job->respawn = TRUE;
 	job->normalexit = exitcodes;
 	job->normalexit_len = 1;
-	job_handle_child (NULL, 1000, FALSE, 0);
+	job_child_reaper (NULL, 1000, FALSE, 0);
 
 	/* Job should no longer have that process */
 	if (job->pid == 1000) {
@@ -2494,7 +2494,7 @@ main (int   argc,
 	ret |= test_run_command ();
 	ret |= test_run_script ();
 	ret |= test_kill_process ();
-	ret |= test_handle_child ();
+	ret |= test_child_reaper ();
 	ret |= test_start ();
 	ret |= test_stop ();
 	ret |= test_release_depends ();

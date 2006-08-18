@@ -682,7 +682,7 @@ job_kill_timer (Job      *job,
 
 
 /**
- * job_handle_child:
+ * job_child_reaper:
  * @data: unused,
  * @pid: process that died,
  * @killed: whether @pid was killed,
@@ -696,7 +696,7 @@ job_kill_timer (Job      *job,
  * safe to do as it only acts if the process is linked to a job.
  **/
 void
-job_handle_child (void  *data,
+job_child_reaper (void  *data,
 		  pid_t  pid,
 		  int    killed,
 		  int    status)
