@@ -2,8 +2,6 @@ console reset and handling
 
 error output syslog or kmsg or console/stdout
 
-gettext integration
-
 logging of processes
 
 inotify handling (nih?)

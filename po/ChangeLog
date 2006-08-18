@@ -1,3 +1,7 @@
+2006-08-18  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add the list of current source files.
+
 2006-07-13  Scott James Remnant  <scott@netsplit.com>
 
 	* Makevars (COPYRIGHT_HOLDER): Change to Canonical Ltd.
