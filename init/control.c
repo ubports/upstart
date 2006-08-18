@@ -47,8 +47,9 @@
 
 
 /* Prototypes for static functions */
-static void control_cb     (void *data, NihIoWatch *watch, NihIoEvents events);
-static void control_handle (pid_t pid, UpstartMsg *msg);
+static void control_watcher (void *data, NihIoWatch *watch,
+			     NihIoEvents events);
+static void control_handle  (pid_t pid, UpstartMsg *msg);
 
 
 /**
@@ -124,7 +125,8 @@ control_open (void)
 	if (! NIH_LIST_EMPTY (send_queue))
 		events |= NIH_IO_WRITE;
 
-	io_watch = nih_io_add_watch (NULL, sock, events, control_cb, NULL);
+	io_watch = nih_io_add_watch (NULL, sock, events,
+				     control_watcher, NULL);
 	if (! io_watch) {
 		close (sock);
 		errno = ENOMEM;
@@ -298,7 +300,7 @@ control_send (pid_t       pid,
 
 
 /**
- * control_cb:
+ * control_watcher:
  * @data: not used,
  * @watch: watch on socket,
  * @events: events that occurred.
@@ -310,9 +312,9 @@ control_send (pid_t       pid,
  * As many messages as possible are read from the socket and handled, and
  * as many queued messages as possible are sent.
  **/
-static void control_cb (void        *data,
-			NihIoWatch  *watch,
-			NihIoEvents  events)
+static void control_watcher (void        *data,
+			     NihIoWatch  *watch,
+			     NihIoEvents  events)
 {
 	nih_assert (watch != NULL);
 

@@ -584,7 +584,7 @@ enum {
 };
 
 static pid_t
-test_cb_child (int test)
+test_watcher_child (int test)
 {
 	UpstartMsg *s_msg, *r_msg;
 	pid_t       pid;
@@ -868,7 +868,7 @@ test_cb_child (int test)
 }
 
 int
-test_cb (void)
+test_watcher (void)
 {
 	NihIoWatch *watch;
 	Job        *job;
@@ -876,30 +876,30 @@ test_cb (void)
 	pid_t       pid;
 	int         ret = 0, status;
 
-	printf ("Testing control_cb()\n");
+	printf ("Testing control_watcher()\n");
 	watch = control_open ();
 	upstart_disable_safeties = TRUE;
 
 
 	printf ("...with inappropriate command\n");
-	pid = test_cb_child (TEST_SILLY);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_SILLY);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
 
 	printf ("...with no-op command\n");
-	pid = test_cb_child (TEST_NO_OP);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_NO_OP);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
 
 	printf ("...with unknown job\n");
-	pid = test_cb_child (TEST_JOB_UNKNOWN);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_JOB_UNKNOWN);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -912,8 +912,8 @@ test_cb (void)
 	job->process_state = PROCESS_NONE;
 	job->command = "echo";
 
-	pid = test_cb_child (TEST_JOB_START);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_JOB_START);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -935,8 +935,8 @@ test_cb (void)
 		exit (0);
 	}
 
-	pid = test_cb_child (TEST_JOB_STOP);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_JOB_STOP);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -955,8 +955,8 @@ test_cb (void)
 	job->state = JOB_STOPPING;
 	job->process_state = PROCESS_ACTIVE;
 
-	pid = test_cb_child (TEST_JOB_QUERY);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_JOB_QUERY);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -970,43 +970,43 @@ test_cb (void)
 	event = event_new (job, "snarf");
 	nih_list_add (&job->start_events, &event->entry);
 
-	pid = test_cb_child (TEST_EVENT_EDGE);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_EVENT_EDGE);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
 
 	printf ("...with queue level event command\n");
-	pid = test_cb_child (TEST_EVENT_LEVEL);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_EVENT_LEVEL);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
 
 	printf ("...with job watch\n");
-	pid = test_cb_child (TEST_JOB_WATCH);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_JOB_WATCH);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	job->goal = JOB_START;
 	job->state = JOB_STOPPING;
 	job->process_state = PROCESS_ACTIVE;
 	control_handle_job (job);
 
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
 
 	printf ("...with event watch\n");
-	pid = test_cb_child (TEST_EVENT_WATCH);
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	pid = test_watcher_child (TEST_EVENT_WATCH);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	control_handle_event (event);
 
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -1033,7 +1033,7 @@ test_handle_job (void)
 	upstart_disable_safeties = TRUE;
 
 
-	pid = test_cb_child (TEST_JOB_STATUS);
+	pid = test_watcher_child (TEST_JOB_STATUS);
 	sub = control_subscribe (pid, NOTIFY_JOBS, TRUE);
 
 	job = job_new (NULL, "test");
@@ -1043,7 +1043,7 @@ test_handle_job (void)
 	control_handle_job (job);
 	nih_free (job);
 
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -1071,14 +1071,14 @@ test_handle_event (void)
 
 
 	printf ("...with edge event\n");
-	pid = test_cb_child (TEST_EVENT_TRIGGERED_EDGE);
+	pid = test_watcher_child (TEST_EVENT_TRIGGERED_EDGE);
 	sub = control_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	event = event_new (NULL, "snarf");
 	control_handle_event (event);
 	nih_free (event);
 
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -1087,7 +1087,7 @@ test_handle_event (void)
 
 
 	printf ("...with level event\n");
-	pid = test_cb_child (TEST_EVENT_TRIGGERED_LEVEL);
+	pid = test_watcher_child (TEST_EVENT_TRIGGERED_LEVEL);
 	sub = control_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	event = event_new (NULL, "foo");
@@ -1095,7 +1095,7 @@ test_handle_event (void)
 	 control_handle_event (event);
 	nih_free (event);
 
-	watch->callback (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
@@ -1121,7 +1121,7 @@ main (int   argc,
 	ret |= test_close ();
 	ret |= test_subscribe ();
 	ret |= test_send ();
-	ret |= test_cb ();
+	ret |= test_watcher ();
 	ret |= test_handle_job ();
 	ret |= test_handle_event ();
 
