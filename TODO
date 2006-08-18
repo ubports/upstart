@@ -1,6 +1,8 @@
 console reset and handling
 
-error output
+error output syslog or kmsg or console/stdout
+
+gettext integration
 
 logging of processes
 
@@ -8,6 +10,14 @@ inotify handling (nih?)
 
 config file
 
+
+shutdown - this is going to be need some special casing, as we're
+going to need to send a further poweroff or halt event after the
+shutdown event has been processed; we'll need to know about system
+harmony to be able to do that.
+
+send the job description in the status event, so logd can just
+subscribe to that ;)
 
 
 handle location of pid/binary for spawned daemons
@@ -27,3 +37,28 @@ register services
 
 temporal events
 scheduled times
+load average checking
+respawning too fast (even if it goes through waiting and not
+  respawning)
+
+
+The current system of using job names for their associated events
+isn't going to be, in the long term, ideal.  While it's the simplest
+design, I think that something more clever is going to be desired.
+
+Another problem, with a related solution, is that dependencies are
+only useful for services as they're triggered when there's a process
+running.  Tasks need them to be triggered when the process has
+stopped.
+
+Perhaps the solution is to replace the level event for a job with an
+edge event, and have that triggered at either running or stopping as
+appropriate.  This would release dependencies.  This would mean you
+couldn't be specific as to the state, or watch for state changes
+though.
+
+
+Would be nice if we could use the "spawned" state for other things
+daemon-related too, like having a script that indicates whether the
+daemon is actually running yet or not -- useful for "not running until
+it listens on port 80"

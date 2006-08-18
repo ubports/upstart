@@ -1,5 +1,7 @@
 2006-08-18  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* Makefile.am (SUBDIRS): Install the rc.d files.
 	* configure.ac (AC_CONFIG_FILES): Generate the rc.d Makefile.
 	* rc.d/Makefile.am (rcdir): Define rcdir to be /etc/rc.d
