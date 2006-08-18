@@ -11,8 +11,12 @@ nih/signal.c
 nih/string.c
 nih/timer.c
 
+nih/errors.h
+
 upstart/control.c
 upstart/job.c
+
+upstart/errors.h
 
 init/control.c
 init/event.c
