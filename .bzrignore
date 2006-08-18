@@ -1,3 +1,4 @@
+*.lo
 *.gcov
 *.gcda
 *.gcno
@@ -38,6 +39,7 @@ po/Rules-quot
 po/stamp-po
 po/upstart.pot
 nih
+upstart/libupstart.la
 upstart/test_*
 init/init
 init/test_*
