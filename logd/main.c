@@ -23,30 +23,48 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <nih/macros.h>
 #include <nih/signal.h>
 #include <nih/main.h>
+#include <nih/option.h>
 #include <nih/logging.h>
+
+
+/**
+ * options:
+ *
+ * Command-line options accepted for all arguments.
+ **/
+static NihOption options[] = {
+	NIH_OPTION_LAST
+};
 
 
 int
 main (int   argc,
       char *argv[])
 {
-	int ret;
+	char **args;
+	int    ret;
 
 	nih_main_init (argv[0]);
 
-	nih_log_set_priority (NIH_LOG_DEBUG);
+	args = nih_option_parser (NULL, argc, argv, options, FALSE);
+	if (! args)
+		exit (1);
+
+	if (args[0] != NULL) {
+		fprintf (stderr, _("%s: unexpected argument\n"), program_name);
+		nih_main_suggest_help ();
+		exit (1);
+	}
+
 
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	nih_signal_add_callback (NULL, SIGTERM, nih_main_term_signal, NULL);
-
-	nih_signal_set_handler (SIGINT, nih_signal_handler);
-	nih_signal_add_callback (NULL, SIGINT, nih_main_term_signal, NULL);
-
-
-	nih_main_version ();
 
 	ret = nih_main_loop ();
 

@@ -1,5 +1,7 @@
 2006-08-19  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c (main): Write the basic main function.
+
 	* util/initctl.c (main): Fill in the details to give us a basic
 	test client.
 
