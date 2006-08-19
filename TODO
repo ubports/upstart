@@ -39,6 +39,8 @@ load average checking
 respawning too fast (even if it goes through waiting and not
   respawning)
 
+ctrl-alt-delete and powerfail, etc.
+
 
 The current system of using job names for their associated events
 isn't going to be, in the long term, ideal.  While it's the simplest
