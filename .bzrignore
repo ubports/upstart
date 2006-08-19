@@ -45,3 +45,5 @@ init/init
 init/test_*
 logd/logd
 logd/test_*
+util/initctl
+util/test_*

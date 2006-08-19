@@ -1,3 +1,10 @@
+2006-08-19  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c (main): Provide the most basic main function.
+	* util/Makefile.am (sbin_PROGRAMS): Build the initctl binary
+	* Makefile.am (SUBDIRS): Build the utilities.
+	* configure.ac (AC_CONFIG_FILES): Generate the util Makefile.
+
 2006-08-18  Scott James Remnant  <scott@netsplit.com>
 
 	* init/Makefile.am (test_job_LDADD): Remove the duplicate link.
