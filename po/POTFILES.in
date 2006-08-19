@@ -25,3 +25,5 @@ init/main.c
 init/process.c
 
 logd/main.c
+
+util/initctl.c
