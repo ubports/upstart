@@ -1,5 +1,8 @@
 2006-08-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_queue_cb): Rename to event_queue_run.
+	* init/event.h: Update.
+
 	* init/process.c (process_setup_console): Become an exported
 	function that includes the code to reset a console.
 

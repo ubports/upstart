@@ -311,7 +311,7 @@ event_queue_level (const char *name,
 }
 
 /**
- * event_queue_cb:
+ * event_queue_run:
  * @data: not used,
  * @func: loop function.
  *
@@ -320,11 +320,9 @@ event_queue_level (const char *name,
  * are notified of them and jobs listening for them are handled.
  **/
 void
-event_queue_cb (void            *data,
-		NihMainLoopFunc *func)
+event_queue_run (void            *data,
+		 NihMainLoopFunc *func)
 {
-	nih_assert (func != NULL);
-
 	event_init ();
 
 	while (! NIH_LIST_EMPTY (event_queue)) {
