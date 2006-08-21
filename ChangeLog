@@ -1,5 +1,7 @@
 2006-08-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Write the main function
+
 	* init/event.c (event_queue_cb): Rename to event_queue_run.
 	* init/event.h: Update.
 
