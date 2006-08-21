@@ -320,8 +320,7 @@ process_setup_console (ConsoleType type)
 		}
 
 		/* Open failed, fall through to CONSOLE_NONE handling */
-		nih_warn (_("Unable to open console for %s: %s"), job->name,
-			  strerror (errno));
+		nih_warn (_("Unable to open console: %s"), strerror (errno));
 
 	case CONSOLE_NONE:
 	case CONSOLE_LOGGED:

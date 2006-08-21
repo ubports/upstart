@@ -23,6 +23,8 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <unistd.h>
+
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>

@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/main.h>
@@ -61,6 +62,11 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	/* Check we're root */
+	if (getuid ()) {
+		nih_error (_("Need to be root"));
+		exit (1);
+	}
 
 	/* Connect to the daemon */
 	sock = upstart_open ();

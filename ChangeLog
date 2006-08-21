@@ -1,5 +1,9 @@
 2006-08-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Add missing include for unistd.h
+	* init/process.c (process_setup_console): Drop use of job.
+	* util/initctl.c (main): Check that we're run as root.
+
 	* init/main.c (main): Write the main function
 
 	* init/event.c (event_queue_cb): Rename to event_queue_run.
