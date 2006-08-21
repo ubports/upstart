@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <termios.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -49,7 +50,6 @@
 
 
 /* Prototypes for static functions */
-static int process_setup_console     (Job *job);
 static int process_setup_limits      (Job *job);
 static int process_setup_environment (Job *job);
 
@@ -128,7 +128,7 @@ process_spawn (Job          *job,
 	/* The job defines what the process's standard input, output and
 	 * error file descriptors should look like; set those up.
 	 */
-	if (process_setup_console (job) < 0)
+	if (process_setup_console (job->console) < 0)
 		goto error;
 
 	/* The job also gives us a consistent world to run all processes
@@ -154,60 +154,6 @@ error:
 	nih_free (err);
 
 	exit (1);
-}
-
-/**
- * process_setup_console:
- * @job: job details.
- *
- * Set up the standard input, output and error file descriptors for the
- * current process based on the console member of the @job given.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-process_setup_console (Job *job)
-{
-	int fd;
-
-	nih_assert (job != NULL);
-
-	switch (job->console) {
-	case CONSOLE_OUTPUT:
-	case CONSOLE_OWNER:
-		/* Open the console itself */
-		/* FIXME need to do this properly */
-		fd = open (CONSOLE, O_RDWR|O_NOCTTY);
-		if (fd >= 0) {
-			/* Take ownership of the console */
-			if (job->console == CONSOLE_OWNER)
-				ioctl (fd, TIOCSCTTY, 1);
-
-			/*
-			reset_console ();
-			*/
-
-			break;
-		}
-
-		/* Open failed, fall through to CONSOLE_NONE handling */
-		nih_warn (_("Unable to open console for %s: %s"), job->name,
-			  strerror (errno));
-
-	case CONSOLE_NONE:
-	case CONSOLE_LOGGED:
-		fd = open (DEV_NULL, O_RDWR);
-		if (fd < 0)
-			nih_return_system_error (-1);
-
-		break;
-	}
-
-	/* Copy to standard output and standard error */
-	dup (fd);
-	dup (fd);
-
-	return 0;
 }
 
 /**
@@ -312,3 +258,84 @@ process_kill (Job   *job,
 
 	return 0;
 }
+
+
+/**
+ * process_setup_console:
+ * @type: console type.
+ *
+ * Set up the standard input, output and error file descriptors for the
+ * current process based on the console @type given.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+process_setup_console (ConsoleType type)
+{
+	int fd;
+
+	switch (type) {
+	case CONSOLE_OUTPUT:
+	case CONSOLE_OWNER:
+		/* Open the console itself */
+		fd = open (CONSOLE, O_RDWR|O_NOCTTY);
+		if (fd >= 0) {
+			struct termios tty;
+
+			/* Take ownership of the console */
+			if (type == CONSOLE_OWNER)
+				ioctl (fd, TIOCSCTTY, 1);
+
+			/* Set up the console flags to something sensible
+			 * (cribbed from sysvinit)
+			 */
+			tcgetattr (fd, &tty);
+
+			tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB
+					| PARENB | PARODD);
+			tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
+
+			/* Set up usual keys */
+			tty.c_cc[VINTR]  = 3;   /* ^C */
+			tty.c_cc[VQUIT]  = 28;  /* ^\ */
+			tty.c_cc[VERASE] = 127;
+			tty.c_cc[VKILL]  = 24;  /* ^X */
+			tty.c_cc[VEOF]   = 4;   /* ^D */
+			tty.c_cc[VTIME]  = 0;
+			tty.c_cc[VMIN]   = 1;
+			tty.c_cc[VSTART] = 17;  /* ^Q */
+			tty.c_cc[VSTOP]  = 19;  /* ^S */
+			tty.c_cc[VSUSP]  = 26;  /* ^Z */
+
+			/* Pre and post processing */
+			tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
+			tty.c_oflag = (OPOST | ONLCR);
+			tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL
+				       | ECHOPRT | ECHOKE);
+
+			/* Set the terminal line */
+			tcsetattr (fd, TCSANOW, &tty);
+			tcflush (fd, TCIOFLUSH);
+			break;
+		}
+
+		/* Open failed, fall through to CONSOLE_NONE handling */
+		nih_warn (_("Unable to open console for %s: %s"), job->name,
+			  strerror (errno));
+
+	case CONSOLE_NONE:
+	case CONSOLE_LOGGED:
+		fd = open (DEV_NULL, O_RDWR);
+		if (fd < 0)
+			nih_return_system_error (-1);
+
+		break;
+	}
+
+	/* Copy to standard output and standard error */
+	dup (fd);
+	dup (fd);
+
+	return 0;
+}
+

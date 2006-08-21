@@ -54,8 +54,10 @@
 
 NIH_BEGIN_EXTERN
 
-pid_t process_spawn (Job *job, char * const argv[]);
-int   process_kill  (Job *job, pid_t pid, int force);
+pid_t process_spawn         (Job *job, char * const argv[]);
+int   process_kill          (Job *job, pid_t pid, int force);
+
+int   process_setup_console (ConsoleType type);
 
 NIH_END_EXTERN
 
