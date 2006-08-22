@@ -1,5 +1,11 @@
 2006-08-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_tokenise): Rename to cfg_next_token.
+	(cfg_skip_token): Code to skip whitespace, token and whitespace.
+	(cfg_parse_args): Function to parse an argument list.
+	(cfg_next_token): Extend to support the removal of quotes and
+	slashes from the token.
+
 	* init/cfgfile.c (cfg_parse_script): Pass filename and lineno and
 	increment the latter as we go.
 	(cfg_script_end): Pass and increment lineno.

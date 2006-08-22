@@ -43,14 +43,33 @@
  **/
 #define WS " \t\r"
 
+/**
+ * CNL:
+ *
+ * Definition of what characters nominally end a line; a comment start
+ * character or a newline.
+ **/
+#define CNL "#\n"
+
+/**
+ * CNLWS:
+ *
+ * Defintion of what characters nominally separate tokens.
+ **/
+#define CNLWS " \t\r#\n"
+
 
 /* Prototypes for static functions */
-static ssize_t cfg_tokenise      (const char *filename, ssize_t *lineno,
-				  const char *file, ssize_t len, ssize_t *pos,
-				  char *dest, const char *delim);
+static char ** cfg_parse_args    (void *parent, const char *filename,
+				  ssize_t *lineno, const char *file,
+				  ssize_t len, ssize_t *pos);
 static char *  cfg_parse_command (void *parent, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
+static void    cfg_skip_token    (const char *file, ssize_t len, ssize_t *pos);
+static ssize_t cfg_next_token    (const char *filename, ssize_t *lineno,
+				  const char *file, ssize_t len, ssize_t *pos,
+				  char *dest, const char *delim, int dequote);
 static char *  cfg_parse_script  (void *parent, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
@@ -59,175 +78,109 @@ static ssize_t cfg_script_end    (ssize_t *lineno, const char *file,
 
 
 /**
- * cfg_tokenise:
+ * cfg_parse_args:
+ * @parent: parent of returned array,
  * @filename: name of file being parsed,
- * @lineno: line number,
- * @file: file or string to parse,
+ * @lineno: current line number,
+ * @file: memory mapped copy of file, or string buffer,
  * @len: length of @file,
- * @pos: offset within @file,
- * @dest: destination to copy to,
- * @delim: characters to stop on.
+ * @pos: position to read from.
  *
- * Extracts a single token from @file which is stopped when any character
- * in @delim is encountered outside of a quoted string and not escaped
- * using a backslash.
+ * Parses a list of arguments at the current location of @file.  @pos
+ * should point at the start of the line, the first token is expected
+ * to contain the stanza name.
  *
- * @file may be a memory mapped file, in which case @pos should be given
- * as the offset within and @len should be the length of the file as a
- * whole.  Usually when @dest is given, @file is instead the pointer to
- * the start of the token and @len is the difference between the start
- * and end of the token (NOT the return value from this function).
+ * @filename and @lineno are used to report warnings, and @lineno is
+ * incremented each time a new line is discovered in the file.
  *
- * If @pos is given then it will be used as the offset within @file to
- * begin (otherwise the start is assumed), and will be updated to point
- * to @delim or past the end of the file.
+ * @pos is updated to point to the next line in the configuration or will be
+ * past the end of the file.
  *
- * If @lineno is given it will be incremented each time a new line is
- * discovered in the file.
- *
- * If you want warnings to be output, pass both @filename and @lineno, which
- * will be used to output the warning message using the usual logging
- * functions.
- *
- * To copy the token into another string, collapsing any newlines and
- * surrounding whitespace to a single space, pass @dest which should be
- * pre-allocated to the right size (obtained by calling this function
- * with %NULL).
- *
- * Returns: the length of the token as it was/would be copied into @dest.
+ * Returns: the list of arguments found.
  **/
-static ssize_t
-cfg_tokenise (const char *filename,
-	      ssize_t    *lineno,
-	      const char *file,
-	      ssize_t     len,
-	      ssize_t    *pos,
-	      char       *dest,
-	      const char *delim)
+static char **
+cfg_parse_args (void       *parent,
+		const char *filename,
+		ssize_t    *lineno,
+		const char *file,
+		ssize_t     len,
+		ssize_t    *pos)
 {
-	ssize_t  ws = 0, nlws = 0, i = 0, p, ret;
-	int      slash = FALSE, quote = 0, nl = FALSE;
+	char   **args;
+	size_t   nargs;
 
-	nih_assert ((filename == NULL) || (lineno != NULL));
+	nih_assert (filename != NULL);
+	nih_assert (lineno != NULL);
 	nih_assert (file != NULL);
 	nih_assert (len > 0);
-	nih_assert (delim != NULL);
+	nih_assert (pos != NULL);
 
-	/* We keep track of the following:
-	 *   slash  whether a \ is in effect
-	 *   quote  whether " or ' is in effect (set to which)
-	 *   ws     number of consecutive whitespace chars so far
-	 *   nlws   number of whitespace/newline chars
-	 *   nl     TRUE if we need to copy ws into nlws at first non-WS
-	 */
+	cfg_skip_token (file, len, pos);
 
-	for (p = (pos ? *pos : 0); p < len; p++) {
-		int extra = 0;
+	/* Begin with an empty array */
+	NIH_MUST (args = nih_alloc (parent, sizeof (char *)));
+	args[0] = NULL;
+	nargs = 0;
 
-		if (slash) {
-			slash = FALSE;
+	/* Loop through the arguments until we hit a comment or newline */
+	while ((*pos < len) && (! strchr (CNL, file[*pos]))) {
+		ssize_t   arg_start, arg_len, arg_end;
+		char    **new_args, *arg;
 
-			/* Escaped newline */
-			if (file[p] == '\n') {
-				nlws++;
-				nl = TRUE;
-				if (lineno)
-					(*lineno)++;
-				continue;
-			} else {
-				extra++;
+		/* Grab the next argument */
+		arg_start = *pos;
+		arg_len = cfg_next_token (filename, lineno, file, len, pos,
+					  NULL, CNLWS, TRUE);
+		arg_end = *pos;
+
+		/* Skip any amount of whitespace between them, we also
+		 * need to detect an escaped newline here.
+		 */
+		while (*pos < len) {
+			if (file[*pos] == '\\') {
+				/* Escape character, only continue scanning
+				 * if the next character is newline
+				 */
+				if ((len - *pos > 0)
+				    && (file[*pos + 1] == '\n')) {
+					(*pos)++;
+				} else {
+					break;
+				}
+			} else if (! strchr (WS, file[*pos])) {
+				break;
 			}
-		} else if (file[p] == '\\') {
-			slash = TRUE;
-			continue;
-		} else if (quote) {
-			if (file[p] == quote) {
-				quote = 0;
-			} else if (file[p] == '\n') {
-				nl = TRUE;
-				if (lineno)
-					(*lineno)++;
-				continue;
-			} else if (strchr (WS, file[p])) {
-				ws++;
-				continue;
-			}
-		} else if ((file[p] == '\"') || (file[p] == '\'')) {
-			quote = file[p];
-		} else if (strchr (delim, file[p])) {
-			break;
-		} else if (strchr (WS, file[p])) {
-			ws++;
-			continue;
+
+			/* Whitespace characer */
+			(*pos)++;
 		}
 
-		if (nl) {
-			/* Newline is recorded as a single space;
-			 * any surrounding whitespace is lost.
-			 */
-			nlws += ws;
-			if (dest)
-				dest[i++] = ' ';
-		} else if (ws && dest) {
-			/* Whitespace that we've encountered to date is
-			 * copied as it is.
-			 */
-			memcpy (dest + i, file + p - ws - extra, ws);
-			i += ws;
-		}
+		/* Extend the array and allocate room for the args */
+		NIH_MUST (new_args = nih_realloc (
+				  args, parent,
+				  sizeof (char *) * (nargs + 2)));
+		NIH_MUST (arg = nih_alloc (new_args, arg_len + 1));
 
-		/* Any extra characters are copied */
-		if (extra && dest) {
-			memcpy (dest + i, file + p - extra, extra);
-			i += extra;
-		}
+		args = new_args;
+		args[nargs++] = arg;
+		args[nargs] = NULL;
 
-		if (dest)
-			dest[i++] = file[p];
-
-		ws = 0;
-		nl = FALSE;
-		extra = 0;
+		/* Copy in the new token */
+		cfg_next_token (NULL, NULL, file + arg_start,
+				arg_end - arg_start, NULL, arg, CNLWS, TRUE);
 	}
 
-	/* Add the NULL byte */
-	if (dest)
-		dest[i++] = '\0';
+	/* Spool forwards until the end of the line */
+	while ((*pos < len) && (file[*pos] != '\n'))
+		(*pos)++;
 
-
-	/* A trailing slash on the end of the file makes no sense, we'll
-	 * assume they intended there to be a newline after it and ignore
-	 * the character by treating it as whitespace.
-	 */
-	if (slash) {
-		if (filename)
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("Ignored trailing slash"));
-
-		ws++;
+	/* Step over it */
+	if (*pos < len) {
+		(*lineno)++;
+		(*pos)++;
 	}
 
-	/* Leaving quotes open is generally bad, close it at the last
-	 * piece of whitespace (ie. do nothing :p)
-	 */
-	if (quote) {
-		if (filename)
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("Unterminated quoted string"));
-	}
-
-
-	/* The return value is the length of the token with any newlines and
-	 * surrounding whitespace converted to a single character and any
-	 * trailing whitespace removed.
-	 *
-	 * The actual end of the text read is returned in *pos.
-	 */
-	ret = p - (pos ? *pos : 0) - ws - nlws;
-	if (pos)
-		*pos = p;
-
-	return ret;
+	return args;
 }
 
 /**
@@ -268,6 +221,58 @@ cfg_parse_command (void       *parent,
 	nih_assert (len > 0);
 	nih_assert (pos != NULL);
 
+	cfg_skip_token (file, len,pos);
+
+	/* Find the length of string up to the first unescaped comment
+	 * or newline.
+	 */
+	cmd_start = *pos;
+	cmd_len = cfg_next_token (filename, lineno, file, len, pos,
+				  NULL, CNL, FALSE);
+	cmd_end = *pos;
+
+	/* Spool forwards until the end of the line */
+	while ((*pos < len) && (file[*pos] != '\n'))
+		(*pos)++;
+
+	/* Step over it */
+	if (*pos < len) {
+		(*lineno)++;
+		(*pos)++;
+	}
+
+	/* If there's nothing to copy, bail out now */
+	if (! cmd_len)
+		return NULL;
+
+
+	/* Now copy the string into the destination. */
+	NIH_MUST (cmd = nih_alloc (parent, cmd_len + 1));
+	cfg_next_token (NULL, NULL, file + cmd_start, cmd_end - cmd_start,
+			NULL, cmd, CNL, FALSE);
+
+	return cmd;
+}
+
+/**
+ * cfg_skip_token:
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ *
+ * Skips over the first pure token from @file and any following whitespace.
+ * @pos is updated to point at the start of the next token on the line,
+ * the end of the line or past the end of @file.
+ **/
+static void
+cfg_skip_token (const char *file,
+		ssize_t     len,
+		ssize_t    *pos)
+{
+	nih_assert (file != NULL);
+	nih_assert (len > 0);
+	nih_assert (pos != NULL);
+
 	/* Skip initial whitespace */
 	while ((*pos < len) && strchr (WS, file[*pos]))
 		(*pos)++;
@@ -279,39 +284,194 @@ cfg_parse_command (void       *parent,
 	/* Skip further whitespace */
 	while ((*pos < len) && strchr (WS, file[*pos]))
 		(*pos)++;
+}
 
-	/* Find the length of string up to the first unescaped comment
-	 * or newline.
+/**
+ * cfg_next_token:
+ * @filename: name of file being parsed,
+ * @lineno: line number,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @dest: destination to copy to,
+ * @delim: characters to stop on,
+ * @dequote: remove quotes and escapes.
+ *
+ * Extracts a single token from @file which is stopped when any character
+ * in @delim is encountered outside of a quoted string and not escaped
+ * using a backslash.
+ *
+ * @file may be a memory mapped file, in which case @pos should be given
+ * as the offset within and @len should be the length of the file as a
+ * whole.  Usually when @dest is given, @file is instead the pointer to
+ * the start of the token and @len is the difference between the start
+ * and end of the token (NOT the return value from this function).
+ *
+ * If @pos is given then it will be used as the offset within @file to
+ * begin (otherwise the start is assumed), and will be updated to point
+ * to @delim or past the end of the file.
+ *
+ * If @lineno is given it will be incremented each time a new line is
+ * discovered in the file.
+ *
+ * If you want warnings to be output, pass both @filename and @lineno, which
+ * will be used to output the warning message using the usual logging
+ * functions.
+ *
+ * To copy the token into another string, collapsing any newlines and
+ * surrounding whitespace to a single space, pass @dest which should be
+ * pre-allocated to the right size (obtained by calling this function
+ * with %NULL).
+ *
+ * If you also want quotes to be removed and escaped characters to be
+ * replaced with the character itself, set @dequote to %TRUE.
+ *
+ * Returns: the length of the token as it was/would be copied into @dest.
+ **/
+static ssize_t
+cfg_next_token (const char *filename,
+		ssize_t    *lineno,
+		const char *file,
+		ssize_t     len,
+		ssize_t    *pos,
+		char       *dest,
+		const char *delim,
+		int         dequote)
+{
+	ssize_t  ws = 0, nlws = 0, qc = 0, i = 0, p, ret;
+	int      slash = FALSE, quote = 0, nl = FALSE;
+
+	nih_assert ((filename == NULL) || (lineno != NULL));
+	nih_assert (file != NULL);
+	nih_assert (len > 0);
+	nih_assert (delim != NULL);
+
+	/* We keep track of the following:
+	 *   slash  whether a \ is in effect
+	 *   quote  whether " or ' is in effect (set to which)
+	 *   ws     number of consecutive whitespace chars so far
+	 *   nlws   number of whitespace/newline chars
+	 *   nl     TRUE if we need to copy ws into nlws at first non-WS
+	 *   qc     number of quote characters that need removing.
 	 */
-	cmd_start = *pos;
-	cmd_len = cfg_tokenise (filename, lineno, file, len, pos, NULL, "#\n");
-	cmd_end = *pos;
 
-	/* If we encountered the comment character, we need to spool
-	 * forwards to the end of the line and step over it
-	 */
-	if ((*pos < len) && (file[*pos] != '\n')) {
-		while ((*pos < len) && (file[*pos] != '\n'))
-			(*pos)++;
+	for (p = (pos ? *pos : 0); p < len; p++) {
+		int extra = 0, isq = FALSE;
 
-		if (*pos < len) {
-			(*lineno)++;
-			(*pos)++;
+		if (slash) {
+			slash = FALSE;
+
+			/* Escaped newline */
+			if (file[p] == '\n') {
+				nlws++;
+				nl = TRUE;
+				if (lineno)
+					(*lineno)++;
+				continue;
+			} else {
+				extra++;
+				isq = TRUE;
+			}
+		} else if (file[p] == '\\') {
+			slash = TRUE;
+			continue;
+		} else if (quote) {
+			if (file[p] == quote) {
+				quote = 0;
+				isq = TRUE;
+			} else if (file[p] == '\n') {
+				nl = TRUE;
+				if (lineno)
+					(*lineno)++;
+				continue;
+			} else if (strchr (WS, file[p])) {
+				ws++;
+				continue;
+			}
+		} else if ((file[p] == '\"') || (file[p] == '\'')) {
+			quote = file[p];
+			isq = TRUE;
+		} else if (strchr (delim, file[p])) {
+			break;
+		} else if (strchr (WS, file[p])) {
+			ws++;
+			continue;
 		}
+
+		if (nl) {
+			/* Newline is recorded as a single space;
+			 * any surrounding whitespace is lost.
+			 */
+			nlws += ws;
+			if (dest)
+				dest[i++] = ' ';
+		} else if (ws && dest) {
+			/* Whitespace that we've encountered to date is
+			 * copied as it is.
+			 */
+			memcpy (dest + i, file + p - ws - extra, ws);
+			i += ws;
+		}
+
+		/* Extra characters (the slash) needs to be copied
+		 * unless we're dequoting the string
+		 */
+		if (extra && dest && (! (isq && dequote))) {
+			memcpy (dest + i, file + p - extra, extra);
+			i += extra;
+		}
+
+		if (dest && (! (isq && dequote)))
+			dest[i++] = file[p];
+
+		if (isq)
+			qc++;
+
+		ws = 0;
+		nl = FALSE;
+		extra = 0;
 	}
 
-	/* If there's nothing to copy, bail out now */
-	if (! cmd_len)
-		return NULL;
+	/* Add the NULL byte */
+	if (dest)
+		dest[i++] = '\0';
 
 
-	/* Now copy the string into the destination. */
-	NIH_MUST (cmd = nih_alloc (parent, cmd_len + 1));
-	cfg_tokenise (NULL, NULL, file + cmd_start, cmd_end - cmd_start,
-		      NULL, cmd, "#\n");
+	/* A trailing slash on the end of the file makes no sense, we'll
+	 * assume they intended there to be a newline after it and ignore
+	 * the character by treating it as whitespace.
+	 */
+	if (slash) {
+		if (filename)
+			nih_warn ("%s:%d: %s", filename, *lineno,
+				  _("Ignored trailing slash"));
 
-	return cmd;
+		ws++;
+	}
+
+	/* Leaving quotes open is generally bad, close it at the last
+	 * piece of whitespace (ie. do nothing :p)
+	 */
+	if (quote) {
+		if (filename)
+			nih_warn ("%s:%d: %s", filename, *lineno,
+				  _("Unterminated quoted string"));
+	}
+
+
+	/* The return value is the length of the token with any newlines and
+	 * surrounding whitespace converted to a single character and any
+	 * trailing whitespace removed.
+	 *
+	 * The actual end of the text read is returned in *pos.
+	 */
+	ret = p - (pos ? *pos : 0) - ws - nlws - qc;
+	if (pos)
+		*pos = p;
+
+	return ret;
 }
+
 
 /**
  * cfg_parse_script:
@@ -368,7 +528,7 @@ cfg_parse_script (void       *parent,
 	/* Ok, we found the start of the script.  We now need to find the end
 	 * of the script which is a line that looks like:
 	 *
-	 * 	WS end WS script (WS COMMENT?)?
+	 * 	WS? end WS script CNLWS?
 	 *
 	 * Just to make things more difficult for ourselves, we work out the
 	 * common whitespace on the start of the script lines and remember
