@@ -62,7 +62,6 @@ main (int   argc,
 	nih_signal_set_handler (SIGHUP,  nih_signal_handler);
 
 	nih_signal_add_callback (NULL, SIGTERM, nih_main_term_signal, NULL);
-	nih_signal_add_callback (NULL, SIGHUP, (NihSignalCb)cfg_read, NULL);
 
 	/* Reap all children that die */
 	nih_child_add_watch (NULL, -1, job_child_reaper, NULL);
@@ -79,7 +78,6 @@ main (int   argc,
 
 	process_setup_console (CONSOLE_OUTPUT);
 
-
 	/* Become session and process group leader (should be already,
 	 * but you never know what initramfs did
 	 */
@@ -87,9 +85,6 @@ main (int   argc,
 
 	/* Open control socket */
 	control_open ();
-
-	/* Read configuration */
-	cfg_read ();
 
 
 	/* Generate and run the startup event */

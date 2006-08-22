@@ -1,3 +1,8 @@
+2006-08-22  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (main): Remove the calls to the unfinished config
+	file code.
+
 2006-08-21  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c: Add missing include for unistd.h
