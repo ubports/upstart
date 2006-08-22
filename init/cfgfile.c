@@ -44,13 +44,13 @@
 
 
 /* Prototypes for static functions */
-static char *  cfg_read_script (void *parent, const char *file,
-				ssize_t len, ssize_t *pos)
+static char *  cfg_parse_script (void *parent, const char *file,
+				 ssize_t len, ssize_t *pos)
 static ssize_t cfg_script_end  (const char *file, ssize_t len, ssize_t *pos);
 
 
 /**
- * cfg_read_script:
+ * cfg_parse_script:
  * @parent: parent of returned string,
  * @file: memory mapped copy of file, or string buffer,
  * @len: length of @file,
@@ -66,10 +66,10 @@ static ssize_t cfg_script_end  (const char *file, ssize_t len, ssize_t *pos);
  * not be found before the end of file.
  **/
 static char *
-cfg_read_script (void       *parent,
-		 const char *file,
-		 ssize_t     len,
-		 ssize_t    *pos)
+cfg_parse_script (void       *parent,
+		  const char *file,
+		  ssize_t     len,
+		  ssize_t    *pos)
 {
 	char    *script;
 	ssize_t  sh_start, sh_end, sh_len, ws, p;

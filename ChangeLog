@@ -1,5 +1,7 @@
 2006-08-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_script): Rename to cfg_parse_script.
+
 	* init/cfgfile.c (cfg_read_script): Function to parse a script
 	fragment ("foo script\n....end script\n") from the job file, which
 	is the most complex form we can find.  Write it assuming the file is
