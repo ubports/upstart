@@ -1,5 +1,14 @@
 2006-08-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c: Correct a missing semi-colon in prototypes.
+	(cfg_parse_command): Function to parse any stanza that requires
+	a command and arguments list, e.g. exec/respawn/daemon.  We don't
+	want to require that the list be quoted, etc. and do want to allow
+	it to be folded over lines.
+	(cfg_tokenise): Function used by the above to tokenise the file,
+	handling things like \, quoted strings and newlines, etc.  Can be
+	used both to determine the length of the token and to copy it.
+
 	* init/cfgfile.c (cfg_read_script): Rename to cfg_parse_script.
 
 	* init/cfgfile.c (cfg_read_script): Function to parse a script
