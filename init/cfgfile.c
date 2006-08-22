@@ -51,9 +51,11 @@ static ssize_t cfg_tokenise      (const char *filename, ssize_t *lineno,
 static char *  cfg_parse_command (void *parent, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
-static char *  cfg_parse_script  (void *parent, const char *file,
+static char *  cfg_parse_script  (void *parent, const char *filename,
+				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
-static ssize_t cfg_script_end    (const char *file, ssize_t len, ssize_t *pos);
+static ssize_t cfg_script_end    (ssize_t *lineno, const char *file,
+				  ssize_t len, ssize_t *pos);
 
 
 /**
@@ -241,6 +243,9 @@ cfg_tokenise (const char *filename,
  * at the start of the line, the first token is expected to contain the
  * stanza name.
  *
+ * @filename and @lineno are used to report warnings, and @lineno is
+ * incremented each time a new line is discovered in the file.
+ *
  * @pos is updated to point to the next line in the configuration or will be
  * past the end of the file.
  *
@@ -311,6 +316,8 @@ cfg_parse_command (void       *parent,
 /**
  * cfg_parse_script:
  * @parent: parent of returned string,
+ * @filename: name of file being parsed,
+ * @lineno: current line number,
  * @file: memory mapped copy of file, or string buffer,
  * @len: length of @file,
  * @pos: position to read from.
@@ -318,6 +325,9 @@ cfg_parse_command (void       *parent,
  * Parses a shell script fragment at the current location of @file.
  * @pos should point to the start of the entire script fragment, including
  * the opening line.
+ *
+ * @filename and @lineno are used to report warnings, and @lineno is
+ * incremented each time a new line is discovered in the file.
  *
  * @pos is updated to point to the next line in the configuration or will be
  * past the end of the file.
@@ -327,6 +337,8 @@ cfg_parse_command (void       *parent,
  **/
 static char *
 cfg_parse_script (void       *parent,
+		  const char *filename,
+		  ssize_t    *lineno,
 		  const char *file,
 		  ssize_t     len,
 		  ssize_t    *pos)
@@ -335,6 +347,8 @@ cfg_parse_script (void       *parent,
 	ssize_t  sh_start, sh_end, sh_len, ws, p;
 	int      lines;
 
+	nih_assert (filename != NULL);
+	nih_assert (lineno != NULL);
 	nih_assert (file != NULL);
 	nih_assert (len > 0);
 	nih_assert (pos != NULL);
@@ -345,6 +359,7 @@ cfg_parse_script (void       *parent,
 
 	/* Step over the newline */
 	if (*pos < len) {
+		(*lineno)++;
 		(*pos)++;
 	} else {
 		return NULL;
@@ -364,7 +379,7 @@ cfg_parse_script (void       *parent,
 	ws = -1;
 	lines = 0;
 
-	while ((sh_end = cfg_script_end (file, len, pos)) < 0) {
+	while ((sh_end = cfg_script_end (lineno, file, len, pos)) < 0) {
 		ssize_t line_start;
 
 		lines++;
@@ -395,8 +410,11 @@ cfg_parse_script (void       *parent,
 
 		/* Step over the newline */
 		if (*pos < len) {
+			(*lineno)++;
 			(*pos)++;
 		} else {
+			nih_warn ("%s:%d: %s", filename, *lineno,
+				  _("end script expected"));
 			return NULL;
 		}
 	}
@@ -429,6 +447,7 @@ cfg_parse_script (void       *parent,
 
 /**
  * cfg_script_end:
+ * @lineno: current line number,
  * @file: memory mapped copy of file, or string buffer,
  * @len: length of @file,
  * @pos: position to read from.
@@ -438,16 +457,20 @@ cfg_parse_script (void       *parent,
  * @pos is updated to point to the next line in configuration or past the
  * end of file.
  *
+ * @lineno is incremented each time a new line is discovered in the file.
+ *
  * Returns: index of script end (always the value of @pos at the time this
  * function was called) or -1 if it is not on this line.
  **/
 static ssize_t
-cfg_script_end (const char *file,
+cfg_script_end (ssize_t    *lineno,
+		const char *file,
 		ssize_t     len,
 		ssize_t    *pos)
 {
 	ssize_t p, end;
 
+	nih_assert (lineno != NULL);
 	nih_assert (file != NULL);
 	nih_assert (len > 0);
 	nih_assert (pos != NULL);
@@ -495,8 +518,10 @@ cfg_script_end (const char *file,
 		return -1;
 
 	/* Point past the new line */
-	if (p < len)
+	if (p < len) {
+		(*lineno)++;
 		p++;
+	}
 
 	/* Return the beginning of the line (which is the end of the script)
 	 * but update pos to point past this line.

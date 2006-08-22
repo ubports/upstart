@@ -1,5 +1,9 @@
 2006-08-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_parse_script): Pass filename and lineno and
+	increment the latter as we go.
+	(cfg_script_end): Pass and increment lineno.
+
 	* init/cfgfile.c: Correct a missing semi-colon in prototypes.
 	(cfg_parse_command): Function to parse any stanza that requires
 	a command and arguments list, e.g. exec/respawn/daemon.  We don't
