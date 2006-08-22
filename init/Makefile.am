@@ -12,7 +12,8 @@ init_SOURCES = \
 	process.c process.h \
 	job.c job.h \
 	event.c event.h \
-	control.c control.h
+	control.c control.h \
+	cfgfile.c cfgfile.h
 
 init_LDFLAGS = -static
 init_LDADD = \
@@ -24,7 +25,8 @@ TESTS = \
 	test_process \
 	test_job \
 	test_event \
-	test_control
+	test_control \
+	test_cfgfile
 
 check_PROGRAMS = $(TESTS)
 
@@ -51,6 +53,12 @@ test_control_LDFLAGS = -static
 test_control_LDADD = \
 	../nih/libnih.la ../upstart/libupstart.la \
 	process.o job.o event.o control.o
+
+test_cfgfile_SOURCES = tests/test_cfgfile.c
+test_cfgfile_LDFLAGS = -static
+test_cfgfile_LDADD = \
+	../nih/libnih.la ../upstart/libupstart.la \
+	process.o job.o event.o control.o cfgfile.o
 
 
 clean-local:

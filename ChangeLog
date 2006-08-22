@@ -1,5 +1,19 @@
 2006-08-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_script): Function to parse a script
+	fragment ("foo script\n....end script\n") from the job file, which
+	is the most complex form we can find.  Write it assuming the file is
+	in a character array which may not be NULL terminated (ie. a mmap'd
+	file).
+	(cfg_script_end): Used by the above to detect the end of the
+	fragment.
+	* init/cfgfile.h: Empty header file.
+	* init/Makefile.am (init_SOURCES): Build and link cfgfile.c
+	using the cfgfile.h header
+	(TESTS): Build and run the config file test cases.
+	(test_cfgfile_SOURCES, test_cfgfile_LDFLAGS, test_cfgfile_LDADD):
+	Details for config file test case binary.
+
 	* init/main.c (main): Remove the calls to the unfinished config
 	file code.
 
