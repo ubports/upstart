@@ -154,7 +154,7 @@ control_close (void)
 
 	close (io_watch->fd);
 
-	nih_free (io_watch);
+	nih_list_free (&io_watch->entry);
 	io_watch = NULL;
 }
 

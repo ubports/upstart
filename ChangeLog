@@ -1,5 +1,10 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_close): Free the io_watch using list_free
+	in case a destructor has been set.
+	* init/tests/test_control.c: Initialise the type of the message, and
+	free job correctly.
+
 	* upstart/tests/test_control.c: Fix overwrite of buffer.
 	* init/tests/test_job.c: Clean up not-freed job.
 

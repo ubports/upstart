@@ -132,6 +132,7 @@ test_open (void)
 
 	printf ("...with non-empty send queue\n");
 	message = nih_new (NULL, UpstartMsg);
+	message->type = UPSTART_NO_OP;
 	msg = control_send (123, message);
 
 	watch = control_open ();
@@ -1041,7 +1042,7 @@ test_handle_job (void)
 	job->state = JOB_STOPPING;
 	job->process_state = PROCESS_ACTIVE;
 	control_handle_job (job);
-	nih_free (job);
+	nih_list_free (&job->entry);
 
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
