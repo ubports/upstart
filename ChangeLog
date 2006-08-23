@@ -1,5 +1,9 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_next_token): Don't count quote characters
+	unless we're actually planning to dequote the file, otherwise we
+	end up allocating short.
+
 	* init/control.c (control_close): Free the io_watch using list_free
 	in case a destructor has been set.
 	* init/tests/test_control.c: Initialise the type of the message, and

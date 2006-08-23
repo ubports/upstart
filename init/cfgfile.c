@@ -1225,7 +1225,8 @@ cfg_next_token (const char *filename,
 				continue;
 			} else {
 				extra++;
-				qc++;
+				if (dequote)
+					qc++;
 			}
 		} else if (file[p] == '\\') {
 			slash = TRUE;
@@ -1279,7 +1280,7 @@ cfg_next_token (const char *filename,
 		if (dest && (! (isq && dequote)))
 			dest[i++] = file[p];
 
-		if (isq)
+		if (isq && dequote)
 			qc++;
 
 		ws = 0;
