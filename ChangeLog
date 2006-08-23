@@ -1,5 +1,13 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Read our configuration.
+	* init/cfgfile.c (cfg_read_job): Get the job name passed in instead
+	of inferring from the filename.
+	(cfg_watch_dir): Write function to read and watch a directory.
+	(cfg_watcher): Watcher function to handle jobs coming and going.
+	* init/cfgfile.h: Update.
+	* init/tests/test_cfgfile.c (test_read_job): Pass the new argument.
+
 	* init/cfgfile.c (cfg_next_token): Don't count quote characters
 	unless we're actually planning to dequote the file, otherwise we
 	end up allocating short.

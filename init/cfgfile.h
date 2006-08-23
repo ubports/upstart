@@ -26,9 +26,19 @@
 #include "job.h"
 
 
+/**
+ * CFG_DIR:
+ *
+ * Directory to find configuration files in.
+ **/
+#define CFG_DIR "/etc/rc.d"
+
+
 NIH_BEGIN_EXTERN
 
-Job *cfg_read_job (void *parent, const char *filename);
+Job *cfg_read_job  (void *parent, const char *filename, const char *jobname);
+
+int  cfg_watch_dir (void *parent, const char *dirname, const char *prefix);
 
 NIH_END_EXTERN
 

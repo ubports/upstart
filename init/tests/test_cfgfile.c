@@ -77,13 +77,7 @@ test_read_job (void)
 	fprintf (jf, "end script\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
-
-	/* Job name should be basename of filename */
-	if (strcmp (job->name, "foo")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Command should be that passed to exec */
 	if (strcmp (job->command, "/sbin/daemon -d")) {
@@ -132,7 +126,7 @@ test_read_job (void)
 	was_called = 0;
 	nih_alloc_set_destructor (job, destructor_called);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Old job should have been freed */
 	if (! was_called) {
@@ -261,7 +255,7 @@ test_read_job (void)
 	fprintf (jf, "normalexit 99 100\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Description should be the unquoted string */
 	if (strcmp (job->description, "an example daemon")) {
@@ -673,7 +667,7 @@ test_read_job (void)
 	fprintf (jf, "respawn\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Job should be respawned */
 	if (! job->respawn) {
@@ -695,7 +689,7 @@ test_read_job (void)
 	fprintf (jf, "respawn /usr/bin/foo arg\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Job should be respawned */
 	if (! job->respawn) {
@@ -718,7 +712,7 @@ test_read_job (void)
 	fprintf (jf, "daemon\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Job should be hunted for */
 	if (! job->daemon) {
@@ -740,7 +734,7 @@ test_read_job (void)
 	fprintf (jf, "daemon /usr/bin/foo arg\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Job should be hunted for */
 	if (! job->daemon) {
@@ -763,7 +757,7 @@ test_read_job (void)
 	fprintf (jf, "instance\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Job should be an instance */
 	if (! job->spawns_instance) {
@@ -788,7 +782,7 @@ test_read_job (void)
 	fprintf (jf, "  argument\"\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Description should be stripped of newline */
 	if (strcmp (job->description, "foo bar")) {
@@ -827,7 +821,7 @@ test_read_job (void)
 	fprintf (jf, "stop when foo is is\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Start events should not be empty */
 	if (NIH_LIST_EMPTY (&job->start_events)) {
@@ -887,7 +881,7 @@ test_read_job (void)
 	fprintf (jf, "  end script");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Start script should hold the first set */
 	if (strcmp (job->start_script,
@@ -949,7 +943,7 @@ test_read_job (void)
 	fprintf (jf, "chdir yay\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Description should be second one given */
 	if (strcmp (job->description, "yay")) {
@@ -1019,7 +1013,7 @@ test_read_job (void)
 	fprintf (jf, "end script\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Script should be second one given */
 	if (strcmp (job->script, "yay\n")) {
@@ -1036,7 +1030,7 @@ test_read_job (void)
 	fprintf (jf, "respawn yay\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Command should be second one given */
 	if (strcmp (job->command, "yay")) {

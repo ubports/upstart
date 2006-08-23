@@ -86,6 +86,9 @@ main (int   argc,
 	/* Open control socket */
 	control_open ();
 
+	/* Read configuration */
+	cfg_watch_dir (NULL, CFG_DIR, NULL);
+
 
 	/* Generate and run the startup event */
 	event_queue_edge ("startup");

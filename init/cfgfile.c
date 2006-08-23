@@ -25,10 +25,15 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <time.h>
+#include <dirent.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -68,6 +73,18 @@
  **/
 #define CNLWS " \t\r#\n"
 
+/**
+ * WatchInfo:
+ * @parent: parent for jobs,
+ * @prefix: prefix for job names.
+ *
+ * Data pointed passed to the config file watcher function.
+ **/
+typedef struct watch_info {
+	void *parent;
+	char *prefix;
+} WatchInfo;
+
 
 /* Prototypes for static functions */
 static void    cfg_job_stanza    (Job *job, const char *filename,
@@ -90,38 +107,35 @@ static char *  cfg_parse_script  (void *parent, const char *filename,
 static ssize_t cfg_script_end    (ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
 
+static void    cfg_watcher       (WatchInfo *info, NihFileWatch *watch,
+				  uint32_t events, const char *name);
+
 
 /**
  * cfg_read_job:
  * @parent: parent of returned job,
- * @filename: name of file to read.
+ * @filename: name of file to read,
+ * @name: name to call job.
  *
  * Reads the @filename given and uses the information within to construct
- * a new job structure which is returned.  The name of the new job is
- * constructed from the filename.
+ * a new job structure named @name which is returned.
  *
  * Returns: newly allocated job structure, or %NULL if the file was invalid.
  **/
 Job *
 cfg_read_job (void       *parent,
-	      const char *filename)
+	      const char *filename,
+	      const char *name)
 {
 	Job        *job, *old_job;
-	const char *jobname, *file;
+	const char *file;
 	ssize_t     len, pos, lineno;
 
 	nih_assert (filename != NULL);
-
-	/* Name the job after the filename */
-	jobname = strrchr (filename, '/');
-	if (jobname) {
-		jobname++;
-	} else {
-		jobname = filename;
-	}
+	nih_assert (name != NULL);
 
 	/* Look for an old job with that name */
-	old_job = job_find_by_name (jobname);
+	old_job = job_find_by_name (name);
 
 	/* Map the file into memory */
 	file = nih_file_map (filename, O_RDONLY | O_NOCTTY, (size_t *)&len);
@@ -137,7 +151,7 @@ cfg_read_job (void       *parent,
 	}
 
 	/* Allocate the job */
-	NIH_MUST (job = job_new (parent, jobname));
+	NIH_MUST (job = job_new (parent, name));
 	nih_debug ("Loading %s from %s", job->name, filename);
 
 	/* Parse the file */
@@ -1534,4 +1548,143 @@ cfg_script_end (ssize_t    *lineno,
 	*pos = p;
 
 	return end;
+}
+
+
+/**
+ * cfg_watch_dir:
+ * @parent: parent of jobs,
+ * @dirname: directory to watch,
+ * @prefix: prefix to append to job names.
+ *
+ * Watch @dirname for creation or modification of configuration files or
+ * sub-directories and parse them whenever they exist.  This also performs
+ * the initial parsing of jobs in the directory.
+ *
+ * Jobs are named by joining @prefix and the name of the file under @dir,
+ * @prefix may be %NULL.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+cfg_watch_dir (void       *parent,
+	       const char *dirname,
+	       const char *prefix)
+{
+	DIR           *dir;
+	struct dirent *ent;
+	WatchInfo     *info;
+	NihFileWatch  *watch;
+
+	nih_assert (dirname != NULL);
+
+	nih_info (_("Reading configuration from %s"), dirname);
+
+	NIH_MUST (info = nih_new (NULL, WatchInfo));
+	info->parent = parent;
+	info->prefix = prefix ? nih_strdup (info, prefix) : NULL;
+
+	/* FIXME we don't handle move yet */
+
+	/* Add a watch so we can keep up to date */
+	watch = nih_file_add_watch (NULL, dirname,
+				    (IN_CREATE | IN_DELETE | IN_MODIFY),
+				    (NihFileWatcher)cfg_watcher, info);
+	if (! watch) {
+		nih_free (info);
+		return -1;
+	}
+
+	/* Read through any files already in the directory */
+	dir = opendir (dirname);
+	if (! dir) {
+		nih_error_raise_system ();
+		nih_free (info);
+		return -1;
+	}
+
+	/* Just call the watcher function */
+	while ((ent = readdir (dir)) != NULL)
+		cfg_watcher (info, watch, IN_CREATE, ent->d_name);
+
+	closedir (dir);
+
+	return 0;
+}
+
+/**
+ * cfg_watcher:
+ * @info: watch information,
+ * @watch: watch that generated the event,
+ * @events: events that occurred,
+ * @name: name of file that changed.
+ *
+ * This function is called whenever a configuration file directory we are
+ * watching changes.  It arranges for the job to be parsed, or the new
+ * directory to be watched.
+ **/
+static void
+cfg_watcher (WatchInfo    *info,
+	     NihFileWatch *watch,
+	     uint32_t      events,
+	     const char   *name)
+{
+	struct stat  statbuf;
+	char        *filename, *jobname;
+
+	nih_assert (watch != NULL);
+
+	/* If this watch is now being ignored, free the info and watch */
+	if (events & IN_IGNORED) {
+		nih_debug ("Ceasing watching %s", watch->path);
+
+		nih_list_free (&watch->entry);
+		nih_free (info);
+		return;
+	}
+
+	/* Otherwise name should be set and shouldn't begin . */
+	if (! name)
+		return;
+
+	if ((name[0] == '\0') || (name[0] == '.')) {
+		nih_debug ("Ignored %s/%s", watch->path, name);
+		return;
+	}
+
+	/* FIXME better name checking required */
+
+	/* FIXME we don't handle DELETE yet ... that should probably mark
+	 * the running job as an instance or delete a stopped one
+	 */
+	if (events & IN_DELETE) {
+		nih_debug ("Delete of %s/%s (ignored)", watch->path, name);
+		return;
+	}
+
+	/* Construct filename and job name (also new prefix) */
+	filename = nih_sprintf (NULL, "%s/%s", watch->path, name);
+	if (info->prefix) {
+		jobname = nih_sprintf (NULL, "%s/%s", info->prefix, name);
+	} else {
+		jobname = nih_strdup (NULL, name);
+	}
+
+	/* Check we can stat it */
+	if (stat (filename, &statbuf) < 0) {
+		/* Bah, ignore the error */
+
+	} else if (S_ISDIR (statbuf.st_mode)) {
+		/* It's a directory, watch it */
+		cfg_watch_dir (info->parent, filename, jobname);
+
+	} else if (S_ISREG (statbuf.st_mode)) {
+		/* It's a file, we parse it */
+		cfg_read_job (info->parent, filename, jobname);
+
+	}
+
+	/* Free up */
+	nih_free (jobname);
+	nih_free (filename);
 }
