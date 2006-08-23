@@ -128,8 +128,8 @@ test_send_msg_to (void)
 	printf ("...with overly long message\n");
 	msg->type = UPSTART_JOB_QUERY;
 	msg->job_query.name = nih_alloc (msg, 8192);
-	memset (msg->job_query.name, 'a', 8192);
-	msg->job_query.name[8192] = '\0';
+	memset (msg->job_query.name, 'a', 8191);
+	msg->job_query.name[8191] = '\0';
 
 	retval = upstart_send_msg_to (getpid (), sock, msg);
 

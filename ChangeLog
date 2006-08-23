@@ -1,3 +1,8 @@
+2006-08-24  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/tests/test_control.c: Fix overwrite of buffer.
+	* init/tests/test_job.c: Clean up not-freed job.
+
 2006-08-23  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_event.c: free the entry allocated and initialise
