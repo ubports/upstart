@@ -1,3 +1,30 @@
+2006-08-23  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_skip_token): Drop this function; we'll
+	make sure *pos is pointing at the start of the thing we want
+	to parse, not the first token.  Update the other functions
+	accordingly.
+	(cfg_read_job): Implement function to look over a job file and
+	parse all of the stanzas that are found.  Also sanity checks the
+	job afterwards and deals with reloading existing jobs.
+	(cfg_job_stanza): Function that parses an individual stanza,
+	calling out to the other parse functions; this is the main config
+	file parser!
+	(cfg_parse_args, cfg_parse_command): Drop requirement that filename
+	and lineno be passed, so we can be called to reparse arguments after
+	we've already done so.
+	(cfg_parse_script): Remove requirement that it be called at the
+	start of the entire stanza, and instead at the start of the script.
+	When hitting EOF, return the script so far, not NULL.
+	(cfg_parse_args): Correct bug where we didn't check sufficient
+	characters while skipping whitespace.
+	(cfg_next_token): Correct bug where we didn't copy the character
+	after a slash into the text, instead of just not copying the slash.
+	Adjust line numbers to match the fact that it's zero based now.
+	* init/cfgfile.h: Define prototype.
+	* init/tests/test_cfgfile.c (test_read_job): Pretty thoroughly
+	test the config file parser code.
+
 2006-08-22  Scott James Remnant  <scott@netsplit.com>
 
 	* init/cfgfile.c (cfg_tokenise): Rename to cfg_next_token.

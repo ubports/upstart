@@ -23,8 +23,12 @@
 
 #include <nih/macros.h>
 
+#include "job.h"
+
 
 NIH_BEGIN_EXTERN
+
+Job *cfg_read_job (void *parent, const char *filename);
 
 NIH_END_EXTERN
 
