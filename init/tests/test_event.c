@@ -71,6 +71,8 @@ test_new (void)
 		ret = 1;
 	}
 
+	nih_list_free (&event->entry);
+
 	return ret;
 }
 
@@ -323,7 +325,7 @@ int
 test_queue_edge (void)
 {
 	Event *event, *queued;
-	int    ret;
+	int    ret = 0;
 
 	printf ("Testing event_queue_edge()\n");
 
@@ -404,7 +406,7 @@ int
 test_queue_level (void)
 {
 	Event *event, *queued;
-	int    ret;
+	int    ret = 0;
 
 	printf ("Testing event_queue_level()\n");
 

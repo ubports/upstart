@@ -1,5 +1,8 @@
 2006-08-23  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event.c: free the entry allocated and initialise
+	the return values.
+
 	* init/cfgfile.c (cfg_skip_token): Drop this function; we'll
 	make sure *pos is pointing at the start of the thing we want
 	to parse, not the first token.  Update the other functions
