@@ -1,5 +1,7 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Open the syslog connection and set the logger.
+
 	* TODO: Update.
 	* init/cfgfile.c (cfg_job_stanza): Add shortcut "on", "when" and
 	"while" event stanzas.

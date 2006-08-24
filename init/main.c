@@ -23,6 +23,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <syslog.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
@@ -49,7 +50,10 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
+	openlog (program_name, LOG_CONS, LOG_DAEMON);
+
 	nih_log_set_priority (NIH_LOG_DEBUG);
+	nih_log_set_logger (nih_logger_syslog);
 
 
 	/* Reset the signal state and install the signal handler for those
