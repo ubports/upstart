@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
 
-rcdir = $(sysconfdir)/rc.d
-dist_rc_DATA = \
+eventdir = $(sysconfdir)/event.d
+dist_event_DATA = \
 	logd

@@ -1,5 +1,13 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.h (CFG_DIR): Change configuration directory to
+	/etc/event.d -- it's not been used by anyone, but is similar to
+	other directories that have which is a good precedent.
+	* event.d/Makefile.am (eventdir, dist_event_DATA): Install files
+	into the new directory name.
+	* Makefile.am (SUBDIRS): Rename sub directory
+	* configure.ac (AC_CONFIG_FILES): Rename generated Makefile
+
 	* init/Makefile.am (DEFAULT_INCLUDES): Set to include the right
 	directories so out of tree builds work.
 	* logd/Makefile.am (DEFAULT_INCLUDES): Set to include the right

@@ -31,7 +31,7 @@
  *
  * Directory to find configuration files in.
  **/
-#define CFG_DIR "/etc/rc.d"
+#define CFG_DIR "/etc/event.d"
 
 
 NIH_BEGIN_EXTERN

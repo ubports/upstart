@@ -33,6 +33,6 @@ NIH_LINKER_VERSION_SCRIPT
 
 AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
 		  nih/Makefile upstart/Makefile init/Makefile logd/Makefile
-		  util/Makefile rc.d/Makefile ])
+		  util/Makefile event.d/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
