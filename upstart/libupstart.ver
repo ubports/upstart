@@ -1,0 +1,6 @@
+LIBUPSTART_0 {
+	global:
+		upstart_*;
+	local:
+		*;
+};

@@ -1,0 +1,668 @@
+2006-08-24  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.h (CFG_DIR): Change configuration directory to
+	/etc/event.d -- it's not been used by anyone, but is similar to
+	other directories that have which is a good precedent.
+	* event.d/Makefile.am (eventdir, dist_event_DATA): Install files
+	into the new directory name.
+	* Makefile.am (SUBDIRS): Rename sub directory
+	* configure.ac (AC_CONFIG_FILES): Rename generated Makefile
+
+	* init/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+	* logd/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+	* upstart/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+	(upstartinclude_HEADERS): Install errors.h
+	* util/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+
+	* Makefile.am (SUBDIRS): Add m4 to the list
+	* configure.ac (AC_CONFIG_FILES): Generate m4/Makefile
+	* upstart/Makefile.am (upstartinclude_HEADERS): Add errors.h
+
+	* upstart/control.c (upstart_open): 
+
+	* init/control.c (control_open): Raise the error before
+	performing other actions so errno is not lost.
+
+	* TODO: Update.o
+	* init/cfgfile.c (cfg_next_token): Don't count quote characters
+	unless we're actually planning to dequote the file, otherwise we
+	end up allocating short.
+
+	* init/control.c (control_close): Free the io_watch using list_free
+	in case a destructor has been set.
+	* init/tests/test_control.c: Initialise the type of the message, and
+	free job correctly.
+
+	* upstart/tests/test_control.c: Fix overwrite of buffer.
+	* init/tests/test_job.c: Clean up not-freed job.
+
+2006-08-23  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_event.c: free the entry allocated and initialise
+	the return values.
+
+	* init/cfgfile.c (cfg_skip_token): Drop this function; we'll
+	make sure *pos is pointing at the start of the thing we want
+	to parse, not the first token.  Update the other functions
+	accordingly.
+	(cfg_read_job): Implement function to look over a job file and
+	parse all of the stanzas that are found.  Also sanity checks the
+	job afterwards and deals with reloading existing jobs.
+	(cfg_job_stanza): Function that parses an individual stanza,
+	calling out to the other parse functions; this is the main config
+	file parser!
+	(cfg_parse_args, cfg_parse_command): Drop requirement that filename
+	and lineno be passed, so we can be called to reparse arguments after
+	we've already done so.
+	(cfg_parse_script): Remove requirement that it be called at the
+	start of the entire stanza, and instead at the start of the script.
+	When hitting EOF, return the script so far, not NULL.
+	(cfg_parse_args): Correct bug where we didn't check sufficient
+	characters while skipping whitespace.
+	(cfg_next_token): Correct bug where we didn't copy the character
+	after a slash into the text, instead of just not copying the slash.
+	Adjust line numbers to match the fact that it's zero based now.
+	* init/cfgfile.h: Define prototype.
+	* init/tests/test_cfgfile.c (test_read_job): Pretty thoroughly
+	test the config file parser code.
+
+2006-08-22  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_tokenise): Rename to cfg_next_token.
+	(cfg_skip_token): Code to skip whitespace, token and whitespace.
+	(cfg_parse_args): Function to parse an argument list.
+	(cfg_next_token): Extend to support the removal of quotes and
+	slashes from the token.
+
+	* init/cfgfile.c (cfg_parse_script): Pass filename and lineno and
+	increment the latter as we go.
+	(cfg_script_end): Pass and increment lineno.
+
+	* init/cfgfile.c: Correct a missing semi-colon in prototypes.
+	(cfg_parse_command): Function to parse any stanza that requires
+	a command and arguments list, e.g. exec/respawn/daemon.  We don't
+	want to require that the list be quoted, etc. and do want to allow
+	it to be folded over lines.
+	(cfg_tokenise): Function used by the above to tokenise the file,
+	handling things like \, quoted strings and newlines, etc.  Can be
+	used both to determine the length of the token and to copy it.
+
+	* init/cfgfile.c (cfg_read_script): Rename to cfg_parse_script.
+
+	* init/cfgfile.c (cfg_read_script): Function to parse a script
+	fragment ("foo script\n....end script\n") from the job file, which
+	is the most complex form we can find.  Write it assuming the file is
+	in a character array which may not be NULL terminated (ie. a mmap'd
+	file).
+	(cfg_script_end): Used by the above to detect the end of the
+	fragment.
+	* init/cfgfile.h: Empty header file.
+	* init/Makefile.am (init_SOURCES): Build and link cfgfile.c
+	using the cfgfile.h header
+	(TESTS): Build and run the config file test cases.
+	(test_cfgfile_SOURCES, test_cfgfile_LDFLAGS, test_cfgfile_LDADD):
+	Details for config file test case binary.
+
+	* init/main.c (main): Remove the calls to the unfinished config
+	file code.
+
+2006-08-21  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c: Add missing include for unistd.h
+	* init/process.c (process_setup_console): Drop use of job.
+	* util/initctl.c (main): Check that we're run as root.
+
+	* init/main.c (main): Write the main function
+
+	* init/event.c (event_queue_cb): Rename to event_queue_run.
+	* init/event.h: Update.
+
+	* init/process.c (process_setup_console): Become an exported
+	function that includes the code to reset a console.
+
+2006-08-19  Scott James Remnant  <scott@netsplit.com>
+
+	* logd/main.c (main): Write the basic main function.
+
+	* util/initctl.c (main): Fill in the details to give us a basic
+	test client.
+
+	* TODO: Update.
+
+	* util/initctl.c (main): Provide the most basic main function.
+	* util/Makefile.am (sbin_PROGRAMS): Build the initctl binary
+	* Makefile.am (SUBDIRS): Build the utilities.
+	* configure.ac (AC_CONFIG_FILES): Generate the util Makefile.
+
+2006-08-18  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am (test_job_LDADD): Remove the duplicate link.
+
+	* TODO: Update.
+
+	* init/job.c (job_handle_child): Rename to job_child_reaper.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Update function names.
+
+	* init/control.c (control_cb): Rename to control_watcher
+	* init/tests/test_control.c: Update function names.
+
+	* TODO: Update.
+
+	* Makefile.am (SUBDIRS): Install the rc.d files.
+	* configure.ac (AC_CONFIG_FILES): Generate the rc.d Makefile.
+	* rc.d/Makefile.am (rcdir): Define rcdir to be /etc/rc.d
+	(dist_rc_DATA): Install the logd file into that directory.
+	* rc.d/logd: Write a simple service definition for the log daemon,
+	this saves us hardcoding any information about it into init; it'll
+	just need to know the name.
+
+	* Makefile.am (SUBDIRS): Build the logd daemon
+	* configure.ac (AC_CONFIG_FILES): Generate the logd Makefile.
+	* logd/Makefile.am (sbin_PROGRAMS): Install the logd binary into
+	the sbin directory by default.
+	(logd_SOURCES): Build and link main.c
+	* logd/main.c (main): Add basic main function for testing purposes.
+
+2006-08-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_start): Ignore self-dependencies; over-document
+	why the dependency event prodding has a surprise in its tail.
+	(job_change_state): Move the job_release_depends call to here.
+
+	* init/event.c (event_queue_cb): Add event consumer/dispatcher.
+	* init/event.h: Update.
+
+	* init/control.c (control_send): Make the event code clearer.
+	(control_handle): Handle the changed event semantics.
+	(control_handle_event): Issue the new event type.
+	* init/tests/test_control.c: Update tests.
+
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Adjust
+	marshal code to match.
+	* upstart/control.h: Update all structures appropriately to the
+	previous changes.
+	* upstart/tests/test_control.c: Update.
+
+	* init/job.c (job_change_state): Change call to event_trigger_level
+	to event_queue_level.
+
+	* init/event.c (event_trigger_edge, event_trigger_level): Place
+	the event on the event_queue rather than directly triggering it.
+	Rename to event_queue_edge and event_queue_level respectively.
+	* init/event.h: Update.
+	* init/tests/test_event.c: Update test cases.
+
+	* init/job.c (job_handle_event): Add another sanity check, jobs
+	should not be able to react to their own events; that's just silly.
+	* init/tests/test_job.c (test_handle_event): Check that the new
+	condition does the right thing.
+	
+	* init/job.c (job_change_state): Make it illegal for a job to exist
+	without either a command or script or both.  This is for sanity
+	reasons, allowing no primary process makes no sense and can lead
+	to event loops if someone is feeling nefarious.
+	* init/tests/test_job.c (test_change_state): Drop test on behaviour
+	we've just outlawed.
+
+	* init/job.c (job_start): Only announce the change if we're still
+	in the waiting state, we could have moved on to running already.
+
+	* init/job.c (job_start): If holding the job, at least announce
+	the goal change to subscribed clients.
+
+	* TODO: Update.
+
+	* init/job.c (job_start): Check for dependencies before starting
+	the process, if we have any that aren't running we stay in waiting
+	until they are.  Any that aren't even starting get poked with a
+	dependency event to see whether that wakes them up.
+	* init/tests/test_job.c (test_start): Test paths through new
+	dependency code.
+
+	* init/job.c (job_run_process): Once we've got an active process
+	in the running state, release our dependencies.
+
+	* init/job.c (job_release_depends): Function to release any waiting
+	dependencies on the given job.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_release_depends): Test the behaviour
+	of the function on its own.
+
+	* init/job.h (Job): Add depends list field
+	(JobName): New structure to hold the name of a job.
+	* init/job.c (job_new): Initialise the depends list.
+	* init/tests/test_job.c (test_new): Make sure the depends list is
+	initialised properly.
+
+	* init/job.c (job_next_state): Return JOB_STARTING if we're in
+	JOB_WAITING and the goal is JOB_START.  This is only called when
+	there's some change, and I don't want to hard-code the goal there.
+	(job_start): Don't hardcode JOB_STARTING, instead just use the next
+	state.
+	* init/tests/test_job.c (test_next_state): Adjust test case.
+
+	* init/control.c (control_subscribe): Allow the current
+	subscription to be found by passing NOTIFY_NONE.
+	(control_handle): Don't remove an existing subscription to jobs,
+	a GUI will probably want a permanent one to keep the status up to
+	date.
+
+	* init/job.c (job_kill_process, job_kill_timer): Don't hardcode
+	JOB_STOPPING here, instead move to the next logical state. 
+	(job_kill_process): Notify subscribed processes that we killed
+	the job.
+	(job_start, job_stop): Notify subscribed processes of a change of
+	goal that doesn't result in an immediate state change.
+
+	* init/event.c (event_trigger_edge, event_trigger_level): Swap
+	order so that events are announced before processed.
+
+	* init/control.c (control_handle): Handle requests to watch and
+	unwatch jobs and events.
+	* init/tests/test_control.c (test_cb_child, test_cb): Check that
+	subscriptions work.
+
+	* init/tests/test_control.c (test_cb_child): Add a sleep to avoid
+	a race that upsets gdb, have tried this with a STOP/CONT interlock
+	but can't seem to find where the child should reach first.
+
+	* init/job.c (job_change_state): Notify the control handler.
+	* init/event.c (event_trigger_edge, event_trigger_level): Pass
+	event to the control handler.
+	* init/tests/test_control.c (test_cb_child): Expect to receive
+	job status events as well.
+	* init/Makefile.am (test_event_LDADD, test_process_LDADD) 
+	(test_job_LDADD): Add control.o to the linkage.
+
+	* init/control.c (control_cb): Don't display an error for
+	ECONNREFUSED, just remove any subscriptions.
+	* init/tests/test_control.c (test_handle_job, test_handle_error):
+	Clean up our subscriptions properly.
+
+	* init/control.c (control_handle_job): Function to send out an
+	UPSTART_JOB_STATUS message to subscribed processes whenever a
+	job state changes.
+	(control_handle_event): Function to send out an
+	UPSTART_EVENT_TRIGGERED message to subscribed processes whenever
+	an event is triggered.
+	* init/control.h: Update.
+	* init/tests/test_control.c (test_handle_job, test_handle_event):
+	Check that the functions work properly.
+
+	* init/control.c (control_handle): Handle messages that trigger
+	edge and level events; subscribe the process to receive notification
+	of job changes during the event.
+	* init/tests/test_control.c (test_cb_child): Check that the messages
+	are handled properly (without subscription check).
+
+	* init/control.c (control_cb): Unsubscribe a process if it stops
+	listening.
+
+	* init/control.c (control_send): Copy the pointers in the new
+	event messages.
+	* init/tests/test_control.c (test_send): Check the pointers are
+	copied across correctly.
+
+	* init/control.c (control_subscribe): Add function to handle
+	processes that want to subscribe to changes.
+	(control_init): Initialise the subscriptions list.
+	* init/control.h: Add structures and prototypes.
+	* init/tests/test_control.c (test_subscribe): Test the function.
+
+	* upstart/control.h (UpstartMsgType): add messages for triggering
+	edge and level events, receiving the trigger for an event and for
+	watching jobs and events.
+	(UpstartEventTriggerEdgeMsg, UpstartEventTriggerLevelMsg)
+	(UpstartEventTriggeredMsg, UpstartWatchJobsMsg)
+	(UpstartUnwatchJobsMsg, UpstartWatchEventsMsg):
+	(UpstartUnwatchEventsMsg): Add structures for the new messages.
+	(UpstartMsg): And add them to the union.
+	* upstart/control.c (WireEventPayload): The event messages can all
+	share a wire payload type; the watch messages don't need any special
+	payload.
+	(upstart_send_msg_to): Add the payloads onto the wire.
+	(upstart_recv_msg): And take the payloads back off the wire.
+	* upstart/tests/test_control.c (test_messages): Test the new
+	message types.
+
+	* upstart/control.h (UpstartJobStatusMsg): add a process id.
+	* upstart/control.c (WireJobStatusPayload): and here too.
+	(upstart_send_msg_to): copy the process id onto the wire.
+	(upstart_recv_msg): copy the process id from the wire.
+	* init/control.c (control_handle): Fill in the pid from the job.
+	* upstart/tests/test_control.c (test_messages): Check the pid gets
+	passed across the wire properly.
+
+	* init/control.c (control_cb): Disable the poll for write once the
+	send queue becomes empty.
+
+	* upstart/Makefile.am (libupstart_la_SOURCES): Correct ordering.
+
+	* init/control.c (control_handle): Add missing break.
+
+	* upstart/job.c (job_goal_name, process_state_name): For completeness
+	add these two functions as well.
+	* upstart/job.h: Update.
+	* upstart/tests/test_job.c (test_goal_name) 
+	(test_process_state_name): Test the new functions.
+
+	* init/job.c (job_state_name): Move this utility function from here
+	* upstart/job.c (job_state_name): to here so all clients can use
+	it.
+	* init/job.h: Update.
+	* upstart/job.h: Update.
+	* init/tests/test_job.c (test_state_name): Move the test case from here
+	* upstart/tests/test_job.c: to here as well.
+	* upstart/Makefile.am (libupstart_la_SOURCES): Build and link job.c
+	(TESTS): Run the job test cases
+	(test_job_SOURCES, test_job_LDFLAGS, test_job_LDADD): Details for
+	job test case binary.
+	* init/Makefile.am (test_job_LDADD, test_process_LDADD) 
+	(test_event_LDADD): Link to libupstart.la
+
+	* init/control.c: Code to handle the server end of the control
+	socket, a bit more complex than a client as we want to avoid
+	blocking on malcious clients.
+	* init/control.h: Prototypes.
+	* init/tests/test_control.c: Test the control code.
+	* init/Makefile.am (init_SOURCES): Build and link control.c
+	using the control.h header
+	(init_LDADD): Link to libupstart as well
+	(TESTS): Build and run the control test suite.
+	(test_control_SOURCES, test_control_LDFLAGS, test_control_LDADD):
+	Details for control test suite binary.
+
+	* upstart/control.c: Add a way to disable the safety checks.
+	* upstart/tests/test_control.c (test_free): Fix bad test case.
+
+	* upstart/control.c (upstart_recv_msg): fixed bogus return type
+	for recvmsg from size_t to ssize_t so we don't infiniloop on error.
+
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Avoid
+	job_start as the short-cut for assigning name, as that might become
+	a more complex message eventually.  Use job_query instead.
+
+	* upstart/control.c (upstart_free): Add wrapper function around
+	nih_free so we're a proper library and don't expose libnih too much
+	(upstart_recv_msg): Stash the sender pid in an argument.
+	* upstart/control.h: Update.
+	* upstart/tests/test_control.c (test_recv_msg): Test pid is
+	returned properly.
+	(test_free): Test the nih_free wrapper.
+
+	* init/job.c (job_run_script): Document future FIXME.
+
+	* init/exent.h, init/job.h, init/process.h: Fix up headers.
+
+	* upstart/control.c, upstart/control.h, upstart/errors.h,
+	upstart/job.h, upstart/libupstart.h: Fix up headers.
+
+	* upstart/control.c: Write the code to handle the control socket
+	and communication over it; turns out this was possible to write so
+	that both ends are handled in the same code.
+	* upstart/control.h: Structures and prototypes.
+	* upstart/tests/test_control.c: Test the new code.
+
+	* upstart/Makefile.am (libupstart_la_LIBADD): Link to libnih
+
+	* upstart/errors.h: Header file containing errors raised by
+	libupstart.
+	* upstart/libupstart.h: Include errors.h
+
+2006-08-15  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.h: Add missing attribute for event_new()
+
+	* init/job.h (JobGoal, JobState, ProcessState, ConsoleType): Move
+	the enums from here
+	* upstart/job.h: into here so that we can use them across the
+	control socket.
+
+	* Makefile.am (SUBDIRS): Build the libupstart library
+	* configure.ac (AC_CONFIG_FILES): Generate upstart/Makefile
+	* upstart/Makefile.am: Makefile for sub-directory
+	* upstart/libupstart.ver: Linker version script.
+	* upstart/libupstart.h: "Include everything" header file.
+
+	* TODO: Update.
+
+	* init/job.c (job_handle_child): Warn when processes are killed
+	or exit with an abnormal status.  Warn when respawning.
+
+	* init/job.c (job_handle_child): Respawn processes that were not
+	supposed to have died.
+	* init/tests/test_job.c (test_handle_child): Test the respawn code.
+
+	* TODO: Update.
+
+	* init/event.c (event_trigger_edge, event_trigger_level): Call
+	job_handle_event so that we actually do something useful.
+	* init/Makefile.am (test_event_LDADD): Link to process.o and job.o
+	now that event.c calls code from job.
+
+	* init/job.c (job_start_event): Function to start a job if an event
+	matches.
+	(job_stop_event): Function to stop a job if an event matches.
+	(job_handle_event): Iterate the job list and dispatch the given event,
+	causing jobs to be stopped or started using the above two functions.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the new functions.
+
+	* init/job.c (job_new): Initialise start_events and stop_events to
+	an empty list.
+	* init/job.h (Job): Add start_events and stop_events list heads.
+	* init/tests/test_job.c (test_new): Check the lists are initialised
+	correctly to the empty list.
+
+	* init/event.c (event_match): Function to check events for equality.
+	* init/event.h: Update.
+	* init/tests/test_event.c (test_match): Test function.
+
+	* init/job.c (job_change_state): Trigger the level event with the
+	same name as the job, with the value taken from the state.
+	* init/tests/test_job.c (test_change_state): Check the event
+	gets set to the right values as we go.
+	* init/Makefile.am (test_job_LDADD, test_process_LDADD): Link to
+	event.o now that job.c uses code from there.
+
+	* init/event.c (event_change_value): Rename event_set_value to this
+	as we intended in the first place; makes it more consistent with job.
+	Always change the value.
+	(event_trigger_edge): Add a high-level function to trigger an edge
+	event.
+	(event_trigger_level): And another to trigger a level event with
+	a given value, this inherits the "don't change it" functionality
+	that was in event_set_value.
+	* init/event.h: Update.
+	* init/tests/test_event.c: Test new behaviours and functions.
+
+	* init/event.c: Add simple code to keep track of events, whether
+	they have been recorded or not and their current value if any.
+	* init/event.h: Structures and prototypes.
+	* init/tests/test_event.c: Test cases for event code.
+	* init/Makefile.am (init_SOURCES): Build and link event.c using event.h
+	(TESTS): Run the event test suite.
+	(test_event_SOURCES, test_event_LDFLAGS, test_event_LDADD): Details
+	for event test suite binary.
+
+	* init/job.c (job_run_process, job_kill_process, job_kill_timer):
+	Downgrade error messages to warning as they're not fatal.
+	(job_change_state): Change info message to be more regular.
+
+	* init/job.c (job_start): A very simple, but very necessary, function.
+	Set the goal of the given job to JOB_START and kick it off.
+	(job_stop): And its companion, cause a running job to be stopped.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the functions.
+
+	* init/job.c (job_handle_child): Child handler to kick jobs into
+	the next state when their process dies.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_handle_child): Test the handler
+	directly by just invoking it with various job states.
+
+2006-08-14  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_process.c (test_kill): Use select rather than
+	poll for consistency with other test cases.
+
+	* init/job.c (job_kill_process): Add function to send the active
+	process of a job the TERM signal, and then set a timer to follow
+	up with the KILL signal if the job doesn't get cleaned up in time.
+	(job_kill_timer): Timer callback to send the KILL signal; this
+	does the same job as the child handler and puts the job into the
+	next state as there's no point waiting around now.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_kill_process): Test both functions
+	in one test case (as one is just the bottom half of the other).
+
+	* init/tests/test_process.c (test_spawn): Use the right thing in
+	the test case filename and unlink it to make sure.
+
+	* init/job.c (job_change_state): Write the principal state gate
+	function, called once a state has been left to enter the given new
+	state (which one should determine with job_next_state).  Spawns
+	the necessary processes or moves to the next appropriate state.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the state changes.
+
+	* init/job.c (job_run_process): Internal function to call
+	process_spawn and update the job structure.
+	(job_run_command): Simple(ish) wrapper for the above to split
+	a command by whitespace, or use a shell if it needs more complex
+	argument processing.
+	(job_run_script): More complex wrapper that uses a shell to execute
+	verbatim script, either using -c or a /dev/fd/NN and feeding the
+	shell down a pipe to it.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the new functions.
+
+	* init/Makefile.am (init_SOURCES, TESTS): Reorder so that process.c,
+	which is arguably lower level, comes first.
+	(test_job_LDADD): Link the process code.
+	(test_process_LDADD): Swap the order.
+
+	* TODO: Update.
+
+	* init/process.c (process_spawn): Correct typo (progress -> process),
+	thanks Johan.
+
+2006-08-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): Correct formatting of function.
+	* init/process.h (SHELL): Define the location of the shell, all in
+	the spirit of not hard-coding stuff like this.
+
+	* init/job.c (job_new): Initialise all structure members to zero
+	as this doesn't happen automatically.
+
+2006-08-10  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.h (job_state_name): Declare as a const function.
+
+2006-08-09  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_next_state): State transition logic; this uses
+	our departure from the specification (the goal) so that the state
+	can always be currently accurate rather than suggestive.
+	(job_state_name): Cute function to convert enum into a name.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_next_state): Test the transitions.
+	(test_state_name): And the return values.
+
+	* TODO: Add file to keep track of things.
+
+	* init/job.c: Include nih/macros.h and nih/list.h
+	* init/process.c: Include order fixing, include nih/macros.h
+	* init/tests/test_job.c: Include nih/macros.h and nih/list.h
+	* init/tests/test_process.c: Include nih/list.h
+
+	* init/job.c: Include order fixing.
+	(job_find_by_name): Function to find a job by its (unique) name.
+	(job_find_by_pid): Function to find a job by the pid of its process.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_find_by_name, test_find_by_pid): Test
+	new functions.
+
+	* init/process.c (process_spawn): Spawn a process using the job
+	details to set up the environment, etc.
+	(process_setup_console): Set up the console according to the job.
+	(process_setup_limits): Set up the limits according to the job.
+	(process_setup_environment): Set up the environment according to
+	the job.
+	(process_kill): Simple function to send a kill signal or raise an
+	error; mostly just a wrapper without any particular logic.
+	* init/process.h: Prototypes and macros.
+	* init/tests/test_process.c: Test cases.
+	* init/Makefile.am (init_SOURCES): Build and link process.c and
+	its header file.
+	(TESTS): Run the process test suite.
+	(test_process_SOURCES, test_process_LDFLAGS, test_process_LDADD):
+	Details for process test sutie binary.
+
+2006-08-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_new): nih_list_free is necessary.
+	* init/tests/test_job.c (test_new): Free job when done.
+
+	* init/job.h: Header file to contain the definition of the Job
+	structure and associated typedefs, etc.
+	(JobGoal): In a divergence from the specification, we introduced a
+	"goal" for a job which tells us which way round the state machine
+	we're going (towards start, or towards stop).
+	(JobState): Which means this always holds the current state, even
+	if we're trying to get out of this state (ie. if we've sent the TERM
+	signal to the running process, we're still in the running state until
+	it's actually been reaped).
+	(ProcessState): And in another divergence, we keep the state of the
+	process so we know whether we need to force a state transition or
+	can just expect one because something transient is happening.
+	* init/job.c (job_new): Function to allocate a Job structure, set
+	the pointers to NULL and other important members to sensible
+	defaults.
+	(job_init): Initialise the list of jobs.
+	* init/tests/test_job.c: Test suite.
+	* init/Makefile.am (init_SOURCES): Compile and link job.c using
+	its header file.
+	(TESTS): Run the job test suite.
+	(test_job_SOURCES, test_job_LDFLAGS, test_job_LDADD): Details for the
+	job test suite binary.
+
+2006-08-02  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Check for C99
+
+	* HACKING: Document dependency on libnih.
+
+2006-07-27  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am (DEFS): Append to the default DEFS list, rather
+	than overriding, otherwise we lose HAVE_CONFIG_H
+
+2006-07-13  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Correct incorrect Bazaar URL.
+
+	* AUTHORS: Change e-mail address to ubuntu.com.
+	* HACKING: Update Bazaar and Release URLS.
+	* configure.ac (AC_COPYRIGHT): Change copyright to Canonical Ltd.
+	(AC_INIT): Change bug submission address to Launchpad.
+	* init/main.c: Update header to use Canonical copyright and
+	credit me as author.
+
+2006-05-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c: Add the simplest template main.c
+	* init/Makefile.am: Add template Makefile.am that builds init from
+	main.c and links to libnih statically
+	* configure.ac (AC_CONFIG_FILES): Configure nih and init subdirs.
+	* Makefile.am (SUBDIRS): Recurse into nih and init subdirs.
+
+2006-05-14  Scott James Remnant  <scott@netsplit.com>
+
+	* ChangeLog: Initial project infrastructure created.

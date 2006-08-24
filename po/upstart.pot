@@ -1,0 +1,483 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Canonical Ltd.
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
+"POT-Creation-Date: 2006-08-24 15:41+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: nih/error.c:231
+msgid "Unhandled Error"
+msgstr ""
+
+#: nih/io.c:471
+msgid "Unable to set descriptor non-blocking"
+msgstr ""
+
+#: nih/io.c:613
+msgid "Error while reading from descriptor"
+msgstr ""
+
+#: nih/main.c:218
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr ""
+
+#: nih/main.c:236
+#, c-format
+msgid ""
+"This is free software; see the source for copying conditions.  There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+
+#: nih/option.c:93
+msgid "reduce output to errors only"
+msgstr ""
+
+#: nih/option.c:96
+msgid "increase output to include informational messages"
+msgstr ""
+
+#: nih/option.c:99
+msgid "display this help and exit"
+msgstr ""
+
+#: nih/option.c:102
+msgid "output version information and exit"
+msgstr ""
+
+#: nih/option.c:271
+#, c-format
+msgid "%s: invalid option: -%c\n"
+msgstr ""
+
+#: nih/option.c:362
+#, c-format
+msgid "%s: invalid option: --%s\n"
+msgstr ""
+
+#: nih/option.c:378
+#, c-format
+msgid "%s: unexpected argument: --%s\n"
+msgstr ""
+
+#: nih/option.c:429
+#, c-format
+msgid "%s: missing argument: %s\n"
+msgstr ""
+
+#: nih/option.c:640
+msgid "Usage"
+msgstr ""
+
+#: nih/option.c:655
+#, c-format
+msgid "Report bugs to <%s>\n"
+msgstr ""
+
+#: nih/option.c:678
+#, c-format
+msgid "%s options:\n"
+msgstr ""
+
+#: nih/option.c:680
+#, c-format
+msgid "Other options:\n"
+msgstr ""
+
+#: upstart/job.c:47
+msgid "stop"
+msgstr ""
+
+#: upstart/job.c:49
+msgid "start"
+msgstr ""
+
+#: upstart/job.c:69
+msgid "waiting"
+msgstr ""
+
+#: upstart/job.c:71
+msgid "starting"
+msgstr ""
+
+#: upstart/job.c:73
+msgid "running"
+msgstr ""
+
+#: upstart/job.c:75
+msgid "stopping"
+msgstr ""
+
+#: upstart/job.c:77
+msgid "respawning"
+msgstr ""
+
+#: upstart/job.c:97
+msgid "none"
+msgstr ""
+
+#: upstart/job.c:99
+msgid "spawned"
+msgstr ""
+
+#: upstart/job.c:101
+msgid "active"
+msgstr ""
+
+#: upstart/job.c:103
+msgid "killed"
+msgstr ""
+
+#: upstart/errors.h:37
+msgid "Invalid message received"
+msgstr ""
+
+#: init/cfgfile.c:146
+#, c-format
+msgid "%s: unable to read: %s"
+msgstr ""
+
+#: init/cfgfile.c:191
+#, c-format
+msgid "%s: 'exec' or 'script' must be specified"
+msgstr ""
+
+#: init/cfgfile.c:199
+#, c-format
+msgid "%s: only one of 'exec' and 'script' may be specified"
+msgstr ""
+
+#: init/cfgfile.c:207
+#, c-format
+msgid "%s: 'respawn script' ignored unless 'respawn' specified"
+msgstr ""
+
+#: init/cfgfile.c:213
+#, c-format
+msgid "%s: 'pid file' ignored unless 'respawn' specified"
+msgstr ""
+
+#: init/cfgfile.c:219
+#, c-format
+msgid "%s: 'pid binary' ignored unless 'respawn' specified"
+msgstr ""
+
+#: init/cfgfile.c:314
+msgid "expected job description"
+msgstr ""
+
+#: init/cfgfile.c:330
+msgid "expected author name"
+msgstr ""
+
+#: init/cfgfile.c:346
+msgid "expected version string"
+msgstr ""
+
+#: init/cfgfile.c:357
+msgid "expected job name"
+msgstr ""
+
+#: init/cfgfile.c:381 init/cfgfile.c:399 init/cfgfile.c:439 init/cfgfile.c:487
+#: init/cfgfile.c:499 init/cfgfile.c:563 init/cfgfile.c:575
+msgid "expected event name"
+msgstr ""
+
+#: init/cfgfile.c:408 init/cfgfile.c:448 init/cfgfile.c:508 init/cfgfile.c:584
+msgid "expected 'is' or event value"
+msgstr ""
+
+#: init/cfgfile.c:532 init/cfgfile.c:608 init/cfgfile.c:687 init/cfgfile.c:720
+#: init/cfgfile.c:736 init/cfgfile.c:1081
+msgid "ignored additional arguments"
+msgstr ""
+
+#: init/cfgfile.c:540 init/cfgfile.c:616
+msgid "expected 'on', 'when' or 'script'"
+msgstr ""
+
+#: init/cfgfile.c:638
+msgid "expected command"
+msgstr ""
+
+#: init/cfgfile.c:762
+msgid "expected pid filename"
+msgstr ""
+
+#: init/cfgfile.c:772
+msgid "expected binary filename"
+msgstr ""
+
+#: init/cfgfile.c:783 init/cfgfile.c:813 init/cfgfile.c:844 init/cfgfile.c:924
+#: init/cfgfile.c:945 init/cfgfile.c:1010 init/cfgfile.c:1024
+msgid "illegal value"
+msgstr ""
+
+#: init/cfgfile.c:789 init/cfgfile.c:819
+msgid "expected timeout"
+msgstr ""
+
+#: init/cfgfile.c:793
+msgid "expected 'file', 'binary' or 'timeout'"
+msgstr ""
+
+#: init/cfgfile.c:823
+msgid "expected 'timeout'"
+msgstr ""
+
+#: init/cfgfile.c:834
+msgid "expected exit status"
+msgstr ""
+
+#: init/cfgfile.c:878 init/cfgfile.c:883
+msgid "expected 'logged', 'output', 'owner' or 'none'"
+msgstr ""
+
+#: init/cfgfile.c:909
+msgid "expected variable setting"
+msgstr ""
+
+#: init/cfgfile.c:930
+msgid "expected file creation mask"
+msgstr ""
+
+#: init/cfgfile.c:951
+msgid "expected nice level"
+msgstr ""
+
+#: init/cfgfile.c:996
+msgid "unknown limit type"
+msgstr ""
+
+#: init/cfgfile.c:1001
+msgid "expected limit name"
+msgstr ""
+
+#: init/cfgfile.c:1015
+msgid "expected soft limit"
+msgstr ""
+
+#: init/cfgfile.c:1029
+msgid "expected hard limit"
+msgstr ""
+
+#: init/cfgfile.c:1054 init/cfgfile.c:1069
+msgid "expected directory name"
+msgstr ""
+
+#: init/cfgfile.c:1075
+msgid "ignored unknown stanza"
+msgstr ""
+
+#: init/cfgfile.c:1415
+msgid "ignored trailing slash"
+msgstr ""
+
+#: init/cfgfile.c:1426
+msgid "unterminated quoted string"
+msgstr ""
+
+#: init/cfgfile.c:1533
+msgid "'end script' expected"
+msgstr ""
+
+#: init/cfgfile.c:1679
+#, c-format
+msgid "Reading configuration from %s"
+msgstr ""
+
+#: init/control.c:341
+#, c-format
+msgid "Error reading control message: %s"
+msgstr ""
+
+#: init/control.c:386
+#, c-format
+msgid "Error sending control message: %s"
+msgstr ""
+
+#: init/control.c:447
+#, c-format
+msgid "Control request to start %s"
+msgstr ""
+
+#: init/control.c:450
+#, c-format
+msgid "Control request to stop %s"
+msgstr ""
+
+#: init/control.c:453
+#, c-format
+msgid "Control request for state of %s"
+msgstr ""
+
+#: init/control.c:468
+#, c-format
+msgid "Control request to queue %s"
+msgstr ""
+
+#: init/control.c:474
+#, c-format
+msgid "Control request to queue %s %s"
+msgstr ""
+
+#: init/control.c:482
+#, c-format
+msgid "Control request to subscribe %d to jobs"
+msgstr ""
+
+#: init/control.c:486
+#, c-format
+msgid "Control request to unsubscribe %d from jobs"
+msgstr ""
+
+#: init/control.c:491
+#, c-format
+msgid "Control request to subscribe %d to events"
+msgstr ""
+
+#: init/control.c:495
+#, c-format
+msgid "Control request to unsubscribe %d from events"
+msgstr ""
+
+#: init/job.c:250
+#, c-format
+msgid "%s state changed from %s to %s"
+msgstr ""
+
+#: init/job.c:565
+msgid "Failed to spawn process"
+msgstr ""
+
+#: init/job.c:576
+#, c-format
+msgid "Spawned %s process (%d)"
+msgstr ""
+
+#: init/job.c:579
+#, c-format
+msgid "Active %s process (%d)"
+msgstr ""
+
+#: init/job.c:617
+#, c-format
+msgid "Failed to send TERM signal to %s process (%d): %s"
+msgstr ""
+
+#: init/job.c:666
+#, c-format
+msgid "Failed to send KILL signal to %s process (%d): %s"
+msgstr ""
+
+#: init/job.c:718
+#, c-format
+msgid "%s process (%d) killed by signal %d"
+msgstr ""
+
+#: init/job.c:721
+#, c-format
+msgid "%s process (%d) terminated with status %d"
+msgstr ""
+
+#: init/job.c:724
+#, c-format
+msgid "%s process (%d) exited normally"
+msgstr ""
+
+#: init/job.c:757
+#, c-format
+msgid "%s process ended, respawning"
+msgstr ""
+
+#: init/job.c:812
+#, c-format
+msgid "%s will be started"
+msgstr ""
+
+#: init/job.c:840
+#, c-format
+msgid "%s waiting for unknown dependency: %s"
+msgstr ""
+
+#: init/job.c:856
+#, c-format
+msgid "%s waiting for dependency: %s"
+msgstr ""
+
+#: init/job.c:919
+#, c-format
+msgid "%s will be stopped"
+msgstr ""
+
+#: init/process.c:152
+#, c-format
+msgid "Unable to execute \"%s\" for %s: %s"
+msgstr ""
+
+#: init/process.c:323
+#, c-format
+msgid "Unable to open console: %s"
+msgstr ""
+
+#: logd/main.c:60 util/initctl.c:94 util/initctl.c:109 util/initctl.c:124
+#: util/initctl.c:150 util/initctl.c:162 util/initctl.c:172
+#, c-format
+msgid "%s: unexpected argument\n"
+msgstr ""
+
+#: util/initctl.c:67
+msgid "Need to be root"
+msgstr ""
+
+#: util/initctl.c:77
+#, c-format
+msgid "Unable to establish control socket: %s"
+msgstr ""
+
+#: util/initctl.c:84
+#, c-format
+msgid "%s: missing command\n"
+msgstr ""
+
+#: util/initctl.c:89 util/initctl.c:104 util/initctl.c:119 util/initctl.c:134
+#: util/initctl.c:145
+#, c-format
+msgid "%s: missing argument\n"
+msgstr ""
+
+#: util/initctl.c:181
+#, c-format
+msgid "%s: unknown command: %s\n"
+msgstr ""
+
+#: util/initctl.c:192
+#, c-format
+msgid "Unable to send message: %s"
+msgstr ""
+
+#: util/initctl.c:205
+#, c-format
+msgid "Error receiving message: %s"
+msgstr ""
+
+#: util/initctl.c:230
+#, c-format
+msgid "%s: Unknown job: %s\n"
+msgstr ""
+
+#: util/initctl.c:242
+#, c-format
+msgid "%s: Unexpected reply (type %d)\n"
+msgstr ""

@@ -1,0 +1,29 @@
+2006-08-24  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add nih/file.c and nih/option.c,
+	add init/cfgfile.c	
+
+2006-08-19  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: add util/initctl.c
+
+2006-08-18  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: nih/errors.h and upstart/errors.h have strings
+	marked for translation.
+
+	* POTFILES.in: Add the list of current source files.
+
+2006-07-13  Scott James Remnant  <scott@netsplit.com>
+
+	* Makevars (COPYRIGHT_HOLDER): Change to Canonical Ltd.
+	(MSGID_BUGS_ADDRESS): Change to Launchpad.
+
+2006-05-14  Scott James Remnant  <scott@netsplit.com>
+
+	* LINGUAS: Created file to hold language list once we have some
+	translations.
+	* POTFILES.in: Created file to hold list of source files which
+	contain translations.
+	* Makevars: Created file from Makevars.template and filled in fields.
+	* ChangeLog: Initial gettext infrastructure from gettext 0.14.5.
