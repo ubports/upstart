@@ -56,6 +56,9 @@ install: build
 
 	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
 
+	# Rename the daemon
+	mv debian/tmp/sbin/init debian/tmp/sbin/upstart
+
 	# Copy across the default jobs
 	@jobs=debian/event.d/*; \
 	set -x; for job in $$jobs; do \

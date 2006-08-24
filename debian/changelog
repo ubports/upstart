@@ -1,3 +1,10 @@
+upstart (0.1.0-2) edgy; urgency=low
+
+  * Oops, rename /sbin/init to /sbin/upstart as documented.  Lost this
+    while battling bzr.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 24 Aug 2006 16:30:54 +0200
+
 upstart (0.1.0-1) edgy; urgency=low
   
   * Initial release.

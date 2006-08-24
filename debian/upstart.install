@@ -1,2 +1,2 @@
-sbin/init
+sbin/upstart
 sbin/initctl
