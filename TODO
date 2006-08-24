@@ -1,12 +1,6 @@
-console reset and handling
-
 error output syslog or kmsg or console/stdout
 
 logging of processes
-
-inotify handling (nih?)
-
-config file
 
 
 shutdown - this is going to be need some special casing, as we're

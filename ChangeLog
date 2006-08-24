@@ -1,5 +1,10 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+	* init/cfgfile.c (cfg_job_stanza): Add shortcut "on", "when" and
+	"while" event stanzas.
+	* init/tests/test_cfgfile.c (test_read_job): Test the new stanzas.
+
 	* init/main.c (main): Read our configuration.
 	* init/cfgfile.c (cfg_read_job): Get the job name passed in instead
 	of inferring from the filename.

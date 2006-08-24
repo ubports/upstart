@@ -227,6 +227,10 @@ test_read_job (void)
 	fprintf (jf, "start when default-route is up\n");
 	fprintf (jf, "stop when default-route is down\n");
 	fprintf (jf, "\n");
+	fprintf (jf, "on explosion\n");
+	fprintf (jf, "when life is over\n");
+	fprintf (jf, "while sanity is gone\n");
+	fprintf (jf, "\n");
 	fprintf (jf, "depends frodo bilbo\n");
 	fprintf (jf, "depends galadriel\n");
 	fprintf (jf, "\n");
@@ -368,6 +372,33 @@ test_read_job (void)
 					"expected.\n");
 				ret = 1;
 			}
+		} else if (! strcmp (event->name, "explosion")) {
+			i |= 4;
+
+			/* Event should have no value */
+			if (event->value != NULL) {
+				printf ("BAD: event value wasn't what we "
+					"expected.\n");
+				ret = 1;
+			}
+		} else if (! strcmp (event->name, "life")) {
+			i |= 8;
+
+			/* Event should have a value */
+			if (strcmp (event->value, "over")) {
+				printf ("BAD: event value wasn't what we "
+					"expected.\n");
+				ret = 1;
+			}
+		} else if (! strcmp (event->name, "sanity")) {
+			i |= 16;
+
+			/* Event should have a value */
+			if (strcmp (event->value, "gone")) {
+				printf ("BAD: event value wasn't what we "
+					"expected.\n");
+				ret = 1;
+			}
 		} else {
 			printf ("BAD: event name wasn't what we expected.\n");
 			ret = 1;
@@ -381,7 +412,7 @@ test_read_job (void)
 	}
 
 	/* Should have had both */
-	if (i != 3) {
+	if (i != 31) {
 		printf ("BAD: start events list wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -416,6 +447,15 @@ test_read_job (void)
 					"expected.\n");
 				ret = 1;
 			}
+		} else if (! strcmp (event->name, "sanity")) {
+			i |= 4;
+
+			/* Event should have no value */
+			if (event->value != NULL) {
+				printf ("BAD: event value wasn't what we "
+					"expected.\n");
+				ret = 1;
+			}
 		} else {
 			printf ("BAD: event name wasn't what we expected.\n");
 			ret = 1;
@@ -429,7 +469,7 @@ test_read_job (void)
 	}
 
 	/* Should have had both */
-	if (i != 3) {
+	if (i != 7) {
 		printf ("BAD: stop events list wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -819,6 +859,10 @@ test_read_job (void)
 	fprintf (jf, "start when foo is is\n");
 	fprintf (jf, "stop when foo is\n");
 	fprintf (jf, "stop when foo is is\n");
+	fprintf (jf, "when foo is\n");
+	fprintf (jf, "when foo is is\n");
+	fprintf (jf, "while foo is\n");
+	fprintf (jf, "while foo is is\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
@@ -859,7 +903,7 @@ test_read_job (void)
 			ret = 1;
 		}
 
-		if (strcmp (event->value, "is")) {
+		if ((event->value != NULL) && strcmp (event->value, "is")) {
 			printf ("BAD: event value wasn't what we expected.\n");
 			ret = 1;
 		}
@@ -1047,7 +1091,7 @@ test_read_job (void)
 	fprintf (jf, "daemon yay\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 
 	/* Command should be second one given */
 	if (strcmp (job->command, "yay")) {
@@ -1067,6 +1111,16 @@ test_read_job (void)
 	fprintf (jf, "version\n");
 	fprintf (jf, "version foo bar\n");
 	fprintf (jf, "depends\n");
+
+	fprintf (jf, "on\n");
+	fprintf (jf, "on foo bar\n");
+	fprintf (jf, "when\n");
+	fprintf (jf, "when foo\n");
+	fprintf (jf, "when foo is bar baz\n");
+	fprintf (jf, "while\n");
+	fprintf (jf, "while foo\n");
+	fprintf (jf, "while foo is bar baz\n");
+
 	fprintf (jf, "start\n");
 	fprintf (jf, "start on\n");
 	fprintf (jf, "start on foo bar\n");
@@ -1140,7 +1194,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1196,140 +1250,140 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:8: expected 'on', 'when' or 'script'\n")) {
+		    "foo:8: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:9: expected event name\n")) {
+		    "foo:9: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:10: ignored additional arguments\n")) {
+		    "foo:10: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:11: expected event name\n")) {
+		    "foo:11: expected 'is' or event value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:12: expected 'is' or event value\n")) {
+		    "foo:12: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:13: ignored additional arguments\n")) {
+		    "foo:13: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:14: expected 'on', 'when' or 'script'\n")) {
+		    "foo:14: expected 'is' or event value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:15: expected 'on', 'when' or 'script'\n")) {
+		    "foo:15: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:16: expected event name\n")) {
+		    "foo:16: expected 'on', 'when' or 'script'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:17: ignored additional arguments\n")) {
+		    "foo:17: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:18: expected event name\n")) {
+		    "foo:18: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:19: expected 'is' or event value\n")) {
+		    "foo:19: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:20: ignored additional arguments\n")) {
+		    "foo:20: expected 'is' or event value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:21: expected 'on', 'when' or 'script'\n")) {
+		    "foo:21: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:22: expected command\n")) {
+		    "foo:22: expected 'on', 'when' or 'script'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:23: ignored additional arguments\n")) {
+		    "foo:23: expected 'on', 'when' or 'script'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:24: expected 'file', 'binary' or 'timeout'\n")) {
+		    "foo:24: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:25: expected pid filename\n")) {
+		    "foo:25: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:26: ignored additional arguments\n")) {
+		    "foo:26: expected event name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:27: expected binary filename\n")) {
+		    "foo:27: expected 'is' or event value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -1343,119 +1397,119 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:29: expected timeout\n")) {
+		    "foo:29: expected 'on', 'when' or 'script'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:30: illegal value\n")) {
+		    "foo:30: expected command\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:31: illegal value\n")) {
+		    "foo:31: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:32: ignored additional arguments\n")) {
+		    "foo:32: expected 'file', 'binary' or 'timeout'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:33: expected 'file', 'binary' or 'timeout'\n")) {
+		    "foo:33: expected pid filename\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:34: expected 'timeout'\n")) {
+		    "foo:34: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:35: expected timeout\n")) {
+		    "foo:35: expected binary filename\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:36: illegal value\n")) {
+		    "foo:36: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:37: illegal value\n")) {
+		    "foo:37: expected timeout\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:38: ignored additional arguments\n")) {
+		    "foo:38: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:39: expected 'timeout'\n")) {
+		    "foo:39: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:40: expected exit status\n")) {
+		    "foo:40: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:41: illegal value\n")) {
+		    "foo:41: expected 'file', 'binary' or 'timeout'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:42: expected 'logged', 'output', 'owner' or 'none'\n")) {
+		    "foo:42: expected 'timeout'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:43: expected 'logged', 'output', 'owner' or 'none'\n")) {
+		    "foo:43: expected timeout\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:44: ignored additional arguments\n")) {
+		    "foo:44: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:45: expected variable setting\n")) {
+		    "foo:45: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -1469,14 +1523,14 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:47: expected file creation mask\n")) {
+		    "foo:47: expected 'timeout'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:48: illegal value\n")) {
+		    "foo:48: expected exit status\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -1490,77 +1544,77 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:50: illegal value\n")) {
+		    "foo:50: expected 'logged', 'output', 'owner' or 'none'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:51: ignored additional arguments\n")) {
+		    "foo:51: expected 'logged', 'output', 'owner' or 'none'\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:52: expected nice level\n")) {
+		    "foo:52: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:53: illegal value\n")) {
+		    "foo:53: expected variable setting\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:54: illegal value\n")) {
+		    "foo:54: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:55: illegal value\n")) {
+		    "foo:55: expected file creation mask\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:56: ignored additional arguments\n")) {
+		    "foo:56: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:57: expected limit name\n")) {
+		    "foo:57: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:58: unknown limit type\n")) {
+		    "foo:58: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:59: expected soft limit\n")) {
+		    "foo:59: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:60: expected hard limit\n")) {
+		    "foo:60: expected nice level\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -1581,49 +1635,56 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:63: ignored additional arguments\n")) {
+		    "foo:63: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:64: expected directory name\n")) {
+		    "foo:64: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:65: ignored additional arguments\n")) {
+		    "foo:65: expected limit name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:66: expected directory name\n")) {
+		    "foo:66: unknown limit type\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:67: ignored additional arguments\n")) {
+		    "foo:67: expected soft limit\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:68: ignored unknown stanza\n")) {
+		    "foo:68: expected hard limit\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:69: ignored additional arguments\n")) {
+		    "foo:69: illegal value\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:70: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -1637,6 +1698,13 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
+		    "foo:72: expected directory name\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
 		    "foo:73: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
@@ -1644,7 +1712,49 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
+		    "foo:74: expected directory name\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
 		    "foo:75: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:76: ignored unknown stanza\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:77: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:79: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:81: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:83: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -1667,7 +1777,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1704,7 +1814,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1744,7 +1854,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1782,7 +1892,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1821,7 +1931,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1861,7 +1971,7 @@ test_read_job (void)
 	fclose (jf);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
@@ -1904,7 +2014,7 @@ test_read_job (void)
 	unlink (filename);
 
 	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename);
+	job = cfg_read_job (NULL, filename, "test");
 	dup2 (oldstderr, STDERR_FILENO);
 
 	rewind (output);
