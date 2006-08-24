@@ -2,11 +2,13 @@
 nih/alloc.c
 nih/child.c
 nih/error.c
+nih/file.c
 nih/hash.c
 nih/io.c
 nih/list.c
 nih/logging.c
 nih/main.c
+nih/option.c
 nih/signal.c
 nih/string.c
 nih/timer.c
@@ -18,6 +20,7 @@ upstart/job.c
 
 upstart/errors.h
 
+init/cfgfile.c
 init/control.c
 init/event.c
 init/job.c

@@ -1,3 +1,8 @@
+2006-08-24  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add nih/file.c and nih/option.c,
+	add init/cfgfile.c	
+
 2006-08-19  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: add util/initctl.c
