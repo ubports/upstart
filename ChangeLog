@@ -1,5 +1,21 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+	* logd/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+	* upstart/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+	(upstartinclude_HEADERS): Install errors.h
+	* util/Makefile.am (DEFAULT_INCLUDES): Set to include the right
+	directories so out of tree builds work.
+
+	* Makefile.am (SUBDIRS): Add m4 to the list
+	* configure.ac (AC_CONFIG_FILES): Generate m4/Makefile
+	* upstart/Makefile.am (upstartinclude_HEADERS): Add errors.h
+
+	* upstart/control.c (upstart_open): 
+
 	* init/control.c (control_open): Raise the error before
 	performing other actions so errno is not lost.
 

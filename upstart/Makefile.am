@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir)
+DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
 
 localedir = $(datadir)/locale
 DEFS += -DLOCALEDIR="\"$(localedir)\""
@@ -33,7 +33,8 @@ include_HEADERS = \
 upstartincludedir = $(includedir)/upstart
 upstartinclude_HEADERS = \
 	job.h \
-	control.h
+	control.h \
+	errors.h
 
 
 TESTS = \

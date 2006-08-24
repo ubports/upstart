@@ -29,6 +29,7 @@ Makefile.in.in
 ./missing
 ./mkinstalldirs
 ./stamp-h1
+m4/Makefile.am
 m4/*.m4
 po/Makevars.template
 po/POTFILES
