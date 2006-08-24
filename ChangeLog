@@ -1,22 +1,9 @@
 2006-08-24  Scott James Remnant  <scott@netsplit.com>
 
-	* TODO: Update.
+	* init/control.c (control_open): Raise the error before
+	performing other actions so errno is not lost.
 
-	* init/main.c (main): Open the syslog connection and set the logger.
-
-	* TODO: Update.
-	* init/cfgfile.c (cfg_job_stanza): Add shortcut "on", "when" and
-	"while" event stanzas.
-	* init/tests/test_cfgfile.c (test_read_job): Test the new stanzas.
-
-	* init/main.c (main): Read our configuration.
-	* init/cfgfile.c (cfg_read_job): Get the job name passed in instead
-	of inferring from the filename.
-	(cfg_watch_dir): Write function to read and watch a directory.
-	(cfg_watcher): Watcher function to handle jobs coming and going.
-	* init/cfgfile.h: Update.
-	* init/tests/test_cfgfile.c (test_read_job): Pass the new argument.
-
+	* TODO: Update.o
 	* init/cfgfile.c (cfg_next_token): Don't count quote characters
 	unless we're actually planning to dequote the file, otherwise we
 	end up allocating short.

@@ -252,16 +252,18 @@ upstart_open (void)
 	/* Bind the socket so we can receive responses */
 	addrlen = upstart_addr (&addr, getpid ());
 	if (bind (sock, (struct sockaddr *)&addr, addrlen) < 0) {
+		nih_error_raise_system ();
 		close (sock);
-		nih_return_system_error (-1);
+		return -1;
 	}
 
 	/* Always requests credentials */
 	optval = 1;
 	if (setsockopt (sock, SOL_SOCKET, SO_PASSCRED, &optval,
 			sizeof (optval)) < 0) {
+		nih_error_raise_system ();
 		close (sock);
-		nih_return_system_error (-1);
+		return -1;
 	}
 
 	return sock;

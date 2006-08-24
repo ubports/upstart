@@ -128,9 +128,10 @@ control_open (void)
 	io_watch = nih_io_add_watch (NULL, sock, events,
 				     control_watcher, NULL);
 	if (! io_watch) {
-		close (sock);
 		errno = ENOMEM;
-		nih_return_system_error (NULL);
+		nih_error_raise_system ();
+		close (sock);
+		return NULL;
 	}
 
 	return io_watch;
