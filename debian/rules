@@ -1,0 +1,101 @@
+#!/usr/bin/make -f
+# debian/rules for the upstart package.
+# Author: Scott James Remnant <scott@ubuntu.com>
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export DH_OPTIONS
+
+CFLAGS = -Wall -g
+
+# Disable optimisations if noopt found in $DEB_BUILD_OPTIONS
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+	CFLAGS += -O0
+else
+	CFLAGS += -Os
+endif
+
+# These are used for cross-compiling and for saving the configure script
+# from having to guess our platform (since we know it already)
+DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+	confflags += --build=$(DEB_HOST_GNU_TYPE)
+else
+	confflags += --build=$(DEB_BUILD_GNU_TYPE) --host=$(DEB_HOST_GNU_TYPE)
+endif
+
+
+# Run the package configure script
+config.status: configure
+	./configure $(confflags) CFLAGS="$(CFLAGS)" \
+		--prefix=/usr \
+		--exec-prefix=/ \
+		--sysconfdir=/etc \
+		--localstatedir=/var/lib \
+		--mandir=\$${datadir}/man \
+		--infodir=\$${datadir}/info
+
+
+# Build the package
+build: build-stamp
+build-stamp: config.status
+	dh_testdir
+
+	$(MAKE)
+	touch $@
+
+# Install the package underneath debian/tmp
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k 
+	dh_installdirs
+
+	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
+
+	# Copy across the default jobs
+	@jobs=debian/event.d/*; \
+	set -x; for job in $$jobs; do \
+		install -m 644 -o root -g root $$job \
+			debian/upstart/etc/event.d || exit 1; \
+	done
+
+
+binary: binary-indep binary-arch
+
+# Build architecture-independent files here.
+binary-indep:
+# We have nothing to do by default.
+
+# Build architecture-dependent files here.
+binary-arch: DH_OPTIONS=-a
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs ChangeLog
+	dh_installdocs
+	dh_install --sourcedir=debian/tmp
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+
+# Clean up the mess we made
+clean:
+	dh_testdir
+	rm -f build-stamp
+
+	-$(MAKE) clean distclean
+	dh_clean 
+
+
+.PHONY: build install binary-indep binary-arch binary clean

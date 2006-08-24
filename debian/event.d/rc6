@@ -1,0 +1,5 @@
+on reboot
+
+exec /etc/init.d/rc 6
+
+console output

@@ -1,0 +1,5 @@
+when rcS is stopping
+
+exec /etc/init.d/rc 2
+
+console output

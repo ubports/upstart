@@ -1,0 +1,20 @@
+Source: upstart
+Section: base
+Priority: optional
+Maintainer: Scott James Remnant <scott@ubuntu.com>
+Standards-Version: 3.7.2.1
+Build-Depends: debhelper (>= 5.0)
+
+Package: upstart
+Architecture: any
+Depends: ${shlibs:Depends}, sysv-rc
+Description: event-based init daemon
+ upstart is a replacement for the /sbin/init daemon which handles
+ starting of tasks and services during boot, stopping them during
+ shutdown and supervising them while the system is running.
+ .
+ THIS PACKAGE IS EXPERIMENTAL, YOU INSTALL IT ON YOUR SYSTEM AT
+ YOUR OWN RISK.
+ .
+ Read /usr/share/doc/upstart/README.Debian after installation for
+ instructions how to active the daemon.

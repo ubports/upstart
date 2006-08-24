@@ -1,0 +1,102 @@
+!! THIS PACKAGE IS EXPERIMENTAL, YOU HAVE INSTALLED THIS AT YOUR OWN RISK !!
+
+
+  Ok, now that's out of the way, thanks for being one of the early
+people to test upstart.
+
+While the code is believed to be ready to take over from the existing
+init daemon, we'd like to get a little bit more testing first, so this
+package does not yet replace /sbin/init.
+
+In order to use this, you'll need to modify your boot loader
+configuration to change which init daemon is used.
+
+i386 and amd64 (grub)
+---------------------
+
+  Edit /boot/grub/menu.lst and find the following lines:
+
+	## altoption boot targets option
+	## multiple altoptions lines are allowed
+	## e.g. altoptions=(extra menu suffix) extra boot options
+	##      altoptions=(single-user) single
+	# altoptions=(recovery mode) single
+
+  Add a new line to that section that looks like:
+
+	# altoptions=(upstart) init=/sbin/upstart quiet
+
+  Save the file and then run update-grub.  When you reboot, you will
+find a new (upstart) option for each installed kernel.  Selecting
+this option will boot with upstart instead of sysvinit.
+
+powerpc (yaboot)
+----------------
+
+  Edit /etc/yaboot.conf and add the following lines:
+
+	image=/boot/vmlinux
+		label=upstart
+		read-only
+		initrd=/boot/initrd.img
+		append="quiet init=/sbin/upstart"
+
+  Saved the file.  When you reboot, you will be able to choose
+upstart which will boot the current kernel with upstart instead of
+sysvinit.
+
+
+initctl
+=======
+
+  Replacements for the existing sysvinit tools such as shutdown,
+halt, reboot, etc. are not yet provided.  Compatibility tools for
+these will be shipped in a future upstart-compat-sysv package.
+
+The package does ship the /sbin/initctl binary which can send control
+messages to the upstart daemon.  The following commands are
+understood:
+
+  initctl start JOB
+	
+	Start the job named if it is not already running.
+
+  initctl stop JOB
+
+	Stop the job named unless it is not running.
+
+  initctl status JOB
+
+	Return the status of the job named, you will receive a message
+	that looks something like:
+
+	JOB (start) starting, process 1234 active
+
+	This tells you that the last command for JOB was "start", that
+	the start script is running and the pid of the script.
+
+  initctl set EVENT LEVEL
+
+	Set the event named to the level given, both of which are
+	abitrary strings.  Any jobs with "on EVENT" or
+	"when EVENT is LEVEL" in their configuration will be started
+	or stopped as appropriate.
+
+  initctl trigger EVENT
+
+	Send the event again, if no level has been set only those jobs
+	with "on EVENT" will be started or stopped.
+
+  initctl jobs
+
+	Outputs a message as any job changes goal or state.
+
+  initctl events
+
+	Outputs a message any time an event is received.
+
+
+The machine can be shutdown or rebooted using the following commands:
+
+  initctl trigger shutdown
+  initctl trigger reboot

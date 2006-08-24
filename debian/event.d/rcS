@@ -1,0 +1,5 @@
+on startup
+
+exec /etc/init.d/rcS
+
+console output

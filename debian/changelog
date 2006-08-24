@@ -1,0 +1,5 @@
+upstart (0.1.0-1) edgy; urgency=low
+  
+  * Initial release.
+  
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 24 Aug 2006 14:27:47 +0200
