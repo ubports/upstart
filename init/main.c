@@ -23,6 +23,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -81,6 +82,8 @@ main (int   argc,
 		close (i);
 
 	process_setup_console (CONSOLE_OUTPUT);
+
+	setenv ("PATH", PATH, TRUE);
 
 	/* Become session and process group leader (should be already,
 	 * but you never know what initramfs did

@@ -1,5 +1,12 @@
 2006-08-25  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Inherit the PATH
+	and TERM environment variables from the init process, so the
+	console works properly.
+	* init/process.h (PATH): Declare a default value for this variable
+	* init/main.c (main): Set the value of PATH to the default.
+	* init/tests/test_process.c (child): Update test case.
+
 	* NEWS: Update.
 	* configure.ac: Bump version to 0.1.1
 

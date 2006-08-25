@@ -90,8 +90,11 @@ child (enum child_tests  test,
 		fprintf (out, "%s\n", buf);
 		exit (0);
 	case TEST_ENVIRONMENT:
-		for (char **env = __environ; *env; env++)
-			fprintf (out, "%s\n", *env);
+		for (char **env = __environ; *env; env++) {
+			if (strncmp (*env, "PATH=", 5)
+			    && strncmp (*env, "TERM=", 5))
+				fprintf (out, "%s\n", *env);
+		}
 		exit (0);
 	}
 }

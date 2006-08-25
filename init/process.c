@@ -41,6 +41,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/signal.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -214,11 +215,28 @@ static int
 process_setup_environment (Job *job)
 {
 	char **env;
+	char  *path, *term;
 
 	nih_assert (job != NULL);
 
+	/* Inherit PATH and TERM from our parent's environment, everything
+	 * else is often just overspill from initramfs.
+	 */
+	path = nih_strdup (NULL, getenv ("PATH"));
+	term = nih_strdup (NULL, getenv ("TERM"));
+
 	if (clearenv () < 0)
 		nih_return_system_error (-1);
+
+	if (path) {
+		setenv ("PATH", path, TRUE);
+		nih_free (path);
+	}
+
+	if (term) {
+		setenv ("TERM", term, TRUE);
+		nih_free (term);
+	}
 
 	for (env = job->env; env && *env; env++)
 		if (putenv (*env) < 0)
