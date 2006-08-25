@@ -1,5 +1,8 @@
 2006-08-25  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.1.2
+	* NEWS: Update.
+
 	* TODO: Update.
 
 	* init/process.c (process_setup_environment): Inherit the PATH
