@@ -1,56 +1,117 @@
-logging of processes
+High Priority:
+
+ * Logging of processes.  Involves writing logd and putting the
+   opposite hooks to it in init.
+
+    - need to add the job description to the job message
+    - logd will print these in the cute manner by subscribing to jobs
+    - init opens socket, writes the job name, etc. and dups that to
+      stdout/stderr (stdin can be null)
+    - writes to /var/log/boot or caches in a memory buffer, make it
+      look like syslog
+    - run other commands like usplash_write, spdsay, etc.
+
+ * Make sure processes don't respawn out of control.
+
+ * ctrl-alt-delete and powerfail, etc.
 
 
-shutdown - this is going to be need some special casing, as we're
-going to need to send a further poweroff or halt event after the
-shutdown event has been processed; we'll need to know about system
-harmony to be able to do that.
+Unfinished Features:
 
-send the job description in the status event, so logd can just
-subscribe to that ;)
+ * Handle locating the pid for a spawned daemon, use an inotify watch
+   on the pid file or scan /proc.
 
+ * Deal with instances, spawning and freeing of them.  Will need to be
+   hooked into job_find_by_name so that provides only the parent, and
+   another way to find other instances.  job_find_other_instance ()
+   which takes an existing job, iterates for the same name?
 
-handle location of pid/binary for spawned daemons
+ * Configuration files can be deleted, need to do something with the
+   job at that point.
 
-deal with instances
-
-query value of event
-
-
-per-user services
-
-use pam (and thus read /etc/environment) to set up child process
-environment from event
-file descriptors from event
-
-register services
-
-temporal events
-scheduled times
-load average checking
-respawning too fast (even if it goes through waiting and not
-  respawning)
-
-ctrl-alt-delete and powerfail, etc.
+ * Get the LANG environment variable somehow.
 
 
-The current system of using job names for their associated events
-isn't going to be, in the long term, ideal.  While it's the simplest
-design, I think that something more clever is going to be desired.
+Future Features:
 
-Another problem, with a related solution, is that dependencies are
-only useful for services as they're triggered when there's a process
-running.  Tasks need them to be triggered when the process has
-stopped.
+ * Per-user services; will need to use PAM to set up the session.
+   We want to do this for "root-user services" but not for jobs/tasks
 
-Perhaps the solution is to replace the level event for a job with an
-edge event, and have that triggered at either running or stopping as
-appropriate.  This would release dependencies.  This would mean you
-couldn't be specific as to the state, or watch for state changes
-though.
+ * Passing of environment and file descriptors from event over control
+   socket.
+
+ * Register services over the control socket.
+
+ * Temporal events ("15m after startup")
+
+ * Scheduled times ("every day at 3:00")
+
+ * Load average checking, maybe have separate CPU, Network and I/O
+   stats?
 
 
-Would be nice if we could use the "spawned" state for other things
-daemon-related too, like having a script that indicates whether the
-daemon is actually running yet or not -- useful for "not running until
-it listens on port 80"
+Musings and Feedback:
+
+ * The current system of using job names for their associated events
+   isn't going to be, in the long term, ideal.  While it's the
+   simplest design, I think that something more clever is going to be
+   desired.
+
+   Another problem, with a related solution, is that dependencies are
+   only useful for services as they're triggered when there's a
+   process running.  Tasks need them to be triggered when the process
+   has stopped.
+
+   Perhaps the solution is to replace the level event for a job with
+   an edge event, and have that triggered at either running or
+   stopping as appropriate.  This would release dependencies.  This
+   would mean you couldn't be specific as to the state, or watch for
+   state changes though.
+
+ * Perhaps some kind of namespacing is required for the events?
+   Instead of multiple values, how about a tree instead?  Doesn't
+   fulfill the above case :-(
+
+ * Unless we have an event trigger --parent-too or something
+
+ * Do we really want to keep events in a list anymore?  What purpose
+   does it serve?  It allows us to re-trigger the event at the
+   previous level.  Will we, in practice, use that?
+
+
+ * Some magic could be hidden through special commands.  It might be
+   common for example to depend on a job to be running, start when it
+   enters running and stop when it leaves running.
+
+ * We could replace release_depends with an implicit listen on
+   "foo running".  Though how would we know to send the dependency
+   event or equivalent?
+
+
+ * "depends" in its current form was considered confusing, suggested
+   rename was "wait for"
+
+ * "when" was considered confusing, suggested just "on"
+
+ * "while" confusing also about what its effect might be (this might
+   improve with event tweaks)
+
+
+ * script/process doesn't know what event was triggered.  Put it in
+   env?
+
+ * "end script" too verbose?
+
+ * how do you kill a runaway script?  timeouts?  kill?
+
+
+ * Would be nice if we could use the "spawned" state for other things
+   daemon-related too, like having a script that indicates whether the
+   daemon is actually running yet or not -- useful for "not running
+   until it listens on port 80"
+
+ * shutdown - this is going to be need some special casing, as we're
+   going to need to send a further poweroff or halt event after the
+   shutdown event has been processed; we'll need to know about system
+   harmony to be able to do that.
+

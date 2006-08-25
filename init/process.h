@@ -51,6 +51,13 @@
  **/
 #define DEV_NULL "/dev/null"
 
+/**
+ * PATH:
+ *
+ * This is the default PATH set by the init process itself.
+ **/
+#define PATH "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
+
 
 NIH_BEGIN_EXTERN
 
