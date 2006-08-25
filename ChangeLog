@@ -1,5 +1,7 @@
 2006-08-25  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/process.c (process_setup_environment): Inherit the PATH
 	and TERM environment variables from the init process, so the
 	console works properly.
