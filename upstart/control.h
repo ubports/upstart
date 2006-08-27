@@ -52,6 +52,8 @@ typedef enum {
 	UPSTART_JOB_QUERY,
 	UPSTART_JOB_STATUS,
 	UPSTART_JOB_UNKNOWN,
+	UPSTART_JOB_LIST,
+	UPSTART_JOB_LIST_END,
 
 	/* Event messages and responses */
 	UPSTART_EVENT_QUEUE_EDGE,
@@ -175,6 +177,34 @@ typedef struct upstart_job_unknown_msg {
 
 	char           *name;
 } UpstartJobUnknownMsg;
+
+/**
+ * UpstartJobListMsg:
+ * @type: always UPSTART_JOB_LIST,
+ * @name: name of unknown job.
+ *
+ * This message requests a list of the known jobs from the init daemon.
+ *
+ * Direction: client to server,
+ * Response: multiple UPSTART_JOB_STATUS followed by UPSTART_JOB_LIST_END.
+ **/
+typedef struct upstart_job_list_msg {
+	UpstartMsgType type;
+} UpstartJobListMsg;
+
+/**
+ * UpstartJobListEndMsg:
+ * @type: always UPSTART_JOB_LIST_END,
+ * @name: name of unknown job.
+ *
+ * This message indicates the end of a job list.
+ *
+ * Direction: server to client,
+ * Response: none.
+ **/
+typedef struct upstart_job_list_end_msg {
+	UpstartMsgType type;
+} UpstartJobListEndMsg;
 
 /**
  * UpstartEventQueueEdgeMsg:
@@ -307,6 +337,8 @@ typedef union upstart_msg {
 	UpstartJobQueryMsg        job_query;
 	UpstartJobStatusMsg       job_status;
 	UpstartJobUnknownMsg      job_unknown;
+	UpstartJobListMsg         job_list;
+	UpstartJobListEndMsg      job_list_end;
 
 	UpstartEventQueueEdgeMsg  event_queue_edge;
 	UpstartEventQueueLevelMsg event_queue_level;

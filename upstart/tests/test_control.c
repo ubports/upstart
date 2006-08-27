@@ -607,6 +607,36 @@ test_messages (void)
 	nih_free (r_msg);
 
 
+	printf ("...with UPSTART_JOB_LIST\n");
+	s_msg->type = UPSTART_JOB_LIST;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_JOB_LIST */
+	if (r_msg->type != UPSTART_JOB_LIST) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
+	printf ("...with UPSTART_JOB_LIST_END\n");
+	s_msg->type = UPSTART_JOB_LIST_END;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_JOB_LIST_END */
+	if (r_msg->type != UPSTART_JOB_LIST_END) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
 	printf ("...with UPSTART_WATCH_JOBS\n");
 	s_msg->type = UPSTART_WATCH_JOBS;
 

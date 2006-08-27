@@ -346,6 +346,8 @@ upstart_send_msg_to (pid_t       pid,
 	/* Message type determines actual payload */
 	switch (message->type) {
 	case UPSTART_NO_OP:
+	case UPSTART_JOB_LIST:
+	case UPSTART_JOB_LIST_END:
 	case UPSTART_WATCH_JOBS:
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
@@ -542,6 +544,8 @@ upstart_recv_msg (void  *parent,
 	/* Message type determines actual payload */
 	switch (message->type) {
 	case UPSTART_NO_OP:
+	case UPSTART_JOB_LIST:
+	case UPSTART_JOB_LIST_END:
 	case UPSTART_WATCH_JOBS:
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:

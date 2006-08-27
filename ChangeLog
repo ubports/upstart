@@ -1,5 +1,10 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Handle
+	the JOB_LIST and JOB_LIST_END messages which have no payload.
+	* upstart/control.h: Add enums and structures for job list messages.
+	* upstart/tests/test_control.c (test_messages): Update tests.
+
 	* init/main.c (main): Check that we're both uid and process #1
 
 	* init/main.c (main): Stop handling SIGTERM, we never want people
