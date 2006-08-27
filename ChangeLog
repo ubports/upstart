@@ -1,5 +1,7 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/job.c (job_detect_idle): Function to detect when the system is
 	stalled or idle.
 	* init/job.h: Update

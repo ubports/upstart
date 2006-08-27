@@ -13,17 +13,22 @@ High Priority:
  * Make sure processes don't respawn out of control.
 
 
- * SIGCONT, SIGTSTP
-   - loops until SIGCONT is received
-
  * re-exec: fork, exec in parent, child sends the state; we'll just want the
    job states as the child will have parsed the configuration
 
- * shutdown, halt, reboot, poweroff, telinit
+ * shutdown, halt, reboot, poweroff, telinit, sulogin (on stalled)
 
- * sulogin
+ * Configuration files can be deleted, need to do something with the
+   job at that point (stop it and delete it)
 
- * delete -- init kills them if the config goes away -- maybe we should too?
+ * Configuration files can be moved.
+
+
+ * cfg_watch_dir needs testing, as does cfg_watcher
+
+ * test event_queue_run
+
+ * fix up and document better the console setup stuff we stole
 
 
 Unfinished Features:
@@ -35,9 +40,6 @@ Unfinished Features:
    hooked into job_find_by_name so that provides only the parent, and
    another way to find other instances.  job_find_other_instance ()
    which takes an existing job, iterates for the same name?
-
- * Configuration files can be deleted, need to do something with the
-   job at that point.
 
  * Get the LANG environment variable somehow.
 
@@ -119,9 +121,3 @@ Musings and Feedback:
    daemon-related too, like having a script that indicates whether the
    daemon is actually running yet or not -- useful for "not running
    until it listens on port 80"
-
- * shutdown - this is going to be need some special casing, as we're
-   going to need to send a further poweroff or halt event after the
-   shutdown event has been processed; we'll need to know about system
-   harmony to be able to do that.
-
