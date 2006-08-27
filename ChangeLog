@@ -1,5 +1,7 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Check that we're both uid and process #1
+
 	* init/main.c (main): Stop handling SIGTERM, we never want people
 	to kill init.  Handle SIGINT and SIGWINCH through the ordinary
 	handler and SIGSEGV through a direct handler.

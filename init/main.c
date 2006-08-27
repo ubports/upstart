@@ -79,6 +79,18 @@ main (int   argc,
 
 	process_setup_console (CONSOLE_OUTPUT);
 
+	/* Check we're root */
+	if (getuid ()) {
+		nih_error (_("Need to be root"));
+		exit (1);
+	}
+
+	/* Check we're process #1 */
+	if (getpid () > 1) {
+		nih_error (_("Not being executed as init"));
+		exit (1);
+	}
+
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that

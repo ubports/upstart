@@ -14,36 +14,13 @@ High Priority:
  * Make sure processes don't respawn out of control.
 
 
- * sysvinit calls openlog every single time and blocks signals
-
  * SIGCONT, SIGTSTP
    - loops until SIGCONT is received
-
- * SIGSEGV
-   - forks and dumps core in / with a full mask, takes segv out of the mask,
-     sleeps and exits; parent sleeps and carries on (could just waitpid)
-
- * SIGINT:
-   - ctrl-alt-delete
-   - done by init_reboot(BMAGIC_SOFT) which is a wrap around the reboot
-     syscall
-
- * SIGWINCH:
-   - keyboard reques
-   - done by ioctl(KDSIGACCEPT, SIGWINCH) on /dev/console (or tty master?)
 
  * re-exec: fork, exec in parent, child sends the state; we'll just want the
    job states as the child will have parsed the configuration
 
- * writes to utmp and wtmp on boot (but that's not writable for us)
-
- * get rid of the TERM signal handler
-
  * shutdown, halt, reboot, poweroff, telinit
-
- * fail if uid is not zero
-
- * exec telinit if pid is not one
 
  * sulogin
 
