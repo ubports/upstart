@@ -7,13 +7,24 @@ DEFS += -DLOCALEDIR="\"$(localedir)\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
-sbin_PROGRAMS = initctl
+sbin_PROGRAMS = \
+	initctl \
+	shutdown
 
 initctl_SOURCES = \
 	initctl.c
 
 initctl_LDFLAGS = -static
 initctl_LDADD = \
+	../nih/libnih.la \
+	../upstart/libupstart.la
+
+
+shutdown_SOURCES = \
+	shutdown.c
+
+shutdown_LDFLAGS = -static
+shutdown_LDADD = \
 	../nih/libnih.la \
 	../upstart/libupstart.la
 

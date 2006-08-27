@@ -1,5 +1,11 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* util/shutdown.c: Template main function.
+	* util/Makefile.am (sbin_PROGRAMS): Build and install the
+	shutdown binary.
+	(shutdown_SOURCES, shutdown_LDFLAGS, shutdown_LDADD): Details for
+	the shutdown binary
+
 	* util/initctl.c (main): Add commands for halt, poweroff and reboot.
 
 	* init/event.c (event_queue_run): Remove the parameters.
