@@ -3,7 +3,6 @@ High Priority:
  * Logging of processes.  Involves writing logd and putting the
    opposite hooks to it in init.
 
-    - need to add the job description to the job message
     - logd will print these in the cute manner by subscribing to jobs
     - init opens socket, writes the job name, etc. and dups that to
       stdout/stderr (stdin can be null)
@@ -23,8 +22,6 @@ High Priority:
  * shutdown, halt, reboot, poweroff, telinit
 
  * sulogin
-
- * list jobs
 
  * delete -- init kills them if the config goes away -- maybe we should too?
 
