@@ -1,3 +1,14 @@
+2006-08-27  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (main): Stop handling SIGTERM, we never want people
+	to kill init.  Handle SIGINT and SIGWINCH through the ordinary
+	handler and SIGSEGV through a direct handler.
+	(segv_handler): Write a sensible core dump handler, we use a child
+	to dump core while we carry on in the parent hopefully stepping over
+	the bad instruction.
+	(cad_handler): Generate the control-alt-delete event.
+	(kbd_handler): Generate the kbdrequest event.
+
 2006-08-25  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.1.2
