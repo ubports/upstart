@@ -527,6 +527,21 @@ control_handle (pid_t       pid,
 			  pid);
 		control_subscribe (pid, NOTIFY_EVENTS, FALSE);
 		break;
+	case UPSTART_HALT:
+		nih_info (_("Control request to halt system"));
+		event_queue_edge ("shutdown");
+		job_set_idle_event ("halt");
+		break;
+	case UPSTART_POWEROFF:
+		nih_info (_("Control request to power off system"));
+		event_queue_edge ("shutdown");
+		job_set_idle_event ("poweroff");
+		break;
+	case UPSTART_REBOOT:
+		nih_info (_("Control request to reboto system"));
+		event_queue_edge ("shutdown");
+		job_set_idle_event ("reboot");
+		break;
 	default:
 		/* Unknown message */
 		nih_debug ("Unhandled control message %d", msg->type);

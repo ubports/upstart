@@ -1,5 +1,16 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Deal
+	with halting, rebooting and powering off; or at least the appropriate
+	messages.
+	* upstart/control.h: Add control message structures for halting,
+	powering off and rebooting the machine.
+	* upstart/tests/test_control.c (test_messages): Run the tests.
+	* init/control.c (control_handle): Add handling for halt, power off
+	and reboot that issue the shutdown event and arrange for the halt,
+	poweroff or reboot to be issued the next time the system is idle.
+	* init/tests/test_control.c (test_watcher): Test the events.
+
 	* TODO: Update.
 
 	* init/job.c (job_detect_idle): Function to detect when the system is

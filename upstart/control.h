@@ -64,7 +64,12 @@ typedef enum {
 	UPSTART_WATCH_JOBS,
 	UPSTART_UNWATCH_JOBS,
 	UPSTART_WATCH_EVENTS,
-	UPSTART_UNWATCH_EVENTS
+	UPSTART_UNWATCH_EVENTS,
+
+	/* Special commands */
+	UPSTART_HALT,
+	UPSTART_POWEROFF,
+	UPSTART_REBOOT
 } UpstartMsgType;
 
 
@@ -320,6 +325,45 @@ typedef struct upstart_unwatch_events_msg {
 	UpstartMsgType type;
 } UpstartUnwatchEventsMsg;
 
+/**
+ * UpstartHaltMsg:
+ * @type: always UPSTART_HALT.
+ *
+ * This message requests that the system be halted.
+ *
+ * Direction: client to server,
+ * Response: none.
+ **/
+typedef struct upstart_halt_msg {
+	UpstartMsgType type;
+} UpstartHaltMsg;
+
+/**
+ * UpstartPoweroffMsg:
+ * @type: always UPSTART_POWEROFF.
+ *
+ * This message requests that the system be halted.
+ *
+ * Direction: client to server,
+ * Response: none.
+ **/
+typedef struct upstart_poweroff_msg {
+	UpstartMsgType type;
+} UpstartPoweroffMsg;
+
+/**
+ * UpstartRebootMsg:
+ * @type: always UPSTART_REBOOT.
+ *
+ * This message requests that the system be halted.
+ *
+ * Direction: client to server,
+ * Response: none.
+ **/
+typedef struct upstart_reboot_msg {
+	UpstartMsgType type;
+} UpstartRebootMsg;
+
 
 /**
  * UpstartMsg:
@@ -350,6 +394,10 @@ typedef union upstart_msg {
 	UpstartUnwatchJobsMsg     unwatch_jobs;
 	UpstartWatchEventsMsg     watch_events;
 	UpstartUnwatchEventsMsg   unwatch_events;
+
+	UpstartHaltMsg            halt;
+	UpstartPoweroffMsg        poweroff;
+	UpstartRebootMsg          reboot;
 } UpstartMsg;
 
 

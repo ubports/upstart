@@ -725,6 +725,51 @@ test_messages (void)
 	nih_free (r_msg);
 
 
+	printf ("...with UPSTART_HALT\n");
+	s_msg->type = UPSTART_HALT;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_HALT */
+	if (r_msg->type != UPSTART_HALT) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
+	printf ("...with UPSTART_POWEROFF\n");
+	s_msg->type = UPSTART_POWEROFF;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_POWEROFF */
+	if (r_msg->type != UPSTART_POWEROFF) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
+	printf ("...with UPSTART_REBOOT\n");
+	s_msg->type = UPSTART_REBOOT;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_REBOOT */
+	if (r_msg->type != UPSTART_REBOOT) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
 	nih_free (s_msg);
 
 	close (r_sock);
