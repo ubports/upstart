@@ -1,5 +1,7 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (main): Handle the list command.
+
 	* TODO: Update.
 
 	* upstart/control.c (WireJobStatusPayload): add description to the

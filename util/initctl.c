@@ -129,6 +129,16 @@ main (int   argc,
 
 		msg.type = UPSTART_JOB_QUERY;
 		msg.job_query.name = args[1];
+	} else if (! strcmp (args[0], "list")) {
+		if (args[1] != NULL) {
+			fprintf (stderr, _("%s: unexpected argument\n"),
+				 program_name);
+			nih_main_suggest_help ();
+			exit (1);
+		}
+
+		msg.type = UPSTART_JOB_LIST;
+		expect_reply = -1;
 	} else if (! strcmp (args[0], "trigger")) {
 		if (args[1] == NULL) {
 			fprintf (stderr, _("%s: missing argument\n"),
@@ -229,6 +239,9 @@ main (int   argc,
 		case UPSTART_JOB_UNKNOWN:
 			fprintf (stderr, _("%s: Unknown job: %s\n"),
 				 program_name, reply->job_unknown.name);
+			break;
+		case UPSTART_JOB_LIST_END:
+			expect_reply = 0;
 			break;
 		case UPSTART_EVENT:
 			if (reply->event.level != NULL) {
