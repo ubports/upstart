@@ -29,6 +29,7 @@
 #include <nih/macros.h>
 #include <nih/list.h>
 #include <nih/timer.h>
+#include <nih/main.h>
 
 #include <upstart/job.h>
 
@@ -197,6 +198,9 @@ void        job_release_depends (Job *job);
 void        job_start_event     (Job *job, Event *event);
 void        job_stop_event      (Job *job, Event *event);
 void        job_handle_event    (Event *event);
+
+void        job_detect_idle     (void);
+void        job_set_idle_event  (const char *name);
 
 NIH_END_EXTERN
 

@@ -2481,6 +2481,165 @@ test_handle_event (void)
 	return ret;
 }
 
+int
+test_detect_idle (void)
+{
+	Job    *job1, *job2;
+	Event *event;
+	int    ret = 0;
+
+	printf ("Testing job_detect_idle()\n");
+	event = event_find_by_name ("stalled");
+	if (event)
+		nih_list_free (&event->entry);
+
+	event = event_find_by_name ("reboot");
+	if (event)
+		nih_list_free (&event->entry);
+
+	job1 = job_new (NULL, "foo");
+	job1->goal = JOB_STOP;
+	job1->state = JOB_WAITING;
+	job1->process_state = PROCESS_NONE;
+
+	job2 = job_new (NULL, "bar");
+	job2->goal = JOB_STOP;
+	job2->state = JOB_WAITING;
+	job2->process_state = PROCESS_NONE;
+
+
+	printf ("...with stalled state\n");
+	job_detect_idle ();
+
+	/* Stalled event should have been queued */
+	event = event_find_by_name ("stalled");
+	if (event == NULL) {
+		printf ("BAD: stalled event wasn't queued.\n");
+		ret = 1;
+	}
+	nih_list_free (&event->entry);
+
+ 	/* Idle event should not have been queued */
+	event = event_find_by_name ("reboot");
+	if (event != NULL) {
+		printf ("BAD: idle event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with waiting job\n");
+	job1->goal = JOB_START;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+ 	/* Stalled event should not have been queued */
+	event = event_find_by_name ("stalled");
+	if (event != NULL) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+ 	/* Idle event should not have been queued */
+	event = event_find_by_name ("reboot");
+	if (event != NULL) {
+		printf ("BAD: idle event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with starting job\n");
+	job1->state = JOB_STARTING;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+	/* Stalled event should not have been queued */
+	event = event_find_by_name ("stalled");
+	if (event != NULL) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+ 	/* Idle event should not have been queued */
+	event = event_find_by_name ("reboot");
+	if (event != NULL) {
+		printf ("BAD: idle event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running job\n");
+	job1->state = JOB_RUNNING;
+	job1->process_state = PROCESS_ACTIVE;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+	/* Stalled event should not have been queued */
+	event = event_find_by_name ("stalled");
+	if (event != NULL) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+ 	/* Idle event should have been queued */
+	event = event_find_by_name ("reboot");
+	if (event == NULL) {
+		printf ("BAD: idle event wasn't queued.\n");
+		ret = 1;
+	}
+	nih_list_free (&event->entry);
+
+
+	printf ("...with stopping job\n");
+	job1->goal = JOB_STOP;
+	job1->state = JOB_STOPPING;
+	job1->process_state = PROCESS_NONE;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+	/* Stalled event should not have been queued */
+	event = event_find_by_name ("stalled");
+	if (event != NULL) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+	/* Idle event should not have been queued */
+	event = event_find_by_name ("reboot");
+	if (event != NULL) {
+		printf ("BAD: idle event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stalled state and idle event\n");
+	job1->state = JOB_WAITING;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+	/* Stalled event should not have been queued */
+	event = event_find_by_name ("stalled");
+	if (event != NULL) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+ 	/* Idle event should have been queued */
+	event = event_find_by_name ("reboot");
+	if (event == NULL) {
+		printf ("BAD: idle event wasn't queued.\n");
+		ret = 1;
+	}
+	nih_list_free (&event->entry);
+
+
+	event_queue_run (NULL, NULL);
+
+	nih_list_free (&job1->entry);
+	nih_list_free (&job2->entry);
+
+	return ret;
+}
+
 
 int
 main (int   argc,
@@ -2503,6 +2662,7 @@ main (int   argc,
 	ret |= test_start_event ();
 	ret |= test_stop_event ();
 	ret |= test_handle_event ();
+	ret |= test_detect_idle ();
 
 	return ret;
 }

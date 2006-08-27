@@ -59,6 +59,14 @@ static void job_kill_timer  (Job *job, NihTimer *timer);
  **/
 static NihList *jobs = NULL;
 
+/**
+ * idle_event:
+ *
+ * Event to be triggered once when the system is idle with no jobs changing
+ * state.
+ **/
+static const char *idle_event = NULL;
+
 
 /**
  * job_init:
@@ -1072,4 +1080,64 @@ job_handle_event (Event *event)
 		job_stop_event (job, event);
 		job_start_event (job, event);
 	}
+}
+
+
+/**
+ * job_detect_idle:
+ * @data: unused,
+ * @func: loop function.
+ *
+ * This function is called each time through the main loop to detect whether
+ * the system is stalled (nothing is running) or idle (nothing is changing
+ * state).
+ *
+ * For the former it will generate the stalled event so that the system may
+ * take action (e.g. opening a shell), and for the latter it will generate
+ * the idle event set (usually none).
+ **/
+void
+job_detect_idle (void)
+{
+	int stalled = TRUE, idle = TRUE;
+
+	NIH_LIST_FOREACH (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		if (job->goal == JOB_STOP) {
+			if (job->state != JOB_WAITING)
+				stalled = idle = FALSE;
+		} else {
+			stalled = FALSE;
+
+			if ((job->state != JOB_RUNNING)
+			    || (job->process_state != PROCESS_ACTIVE))
+				idle = FALSE;
+		}
+	}
+
+	if (idle && idle_event) {
+		event_queue_edge (idle_event);
+		idle_event = NULL;
+	} else if (stalled) {
+		event_queue_edge ("stalled");
+	}
+}
+
+/**
+ * job_set_idle_event:
+ * @name: event name to trigger when idle.
+ *
+ * This function is used to indicate that an event should be triggered
+ * when the system is idle, which occurs when all jobs are either stopped
+ * and waiting or starting and running.
+ *
+ * This event is only triggered once.
+ **/
+void
+job_set_idle_event (const char *name)
+{
+	nih_assert (name != NULL);
+
+	idle_event = name;
 }
