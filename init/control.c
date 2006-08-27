@@ -464,6 +464,28 @@ control_handle (pid_t       pid,
 
 		break;
 	}
+	case UPSTART_JOB_LIST:
+		nih_info (_("Control request to list jobs"));
+
+		NIH_LIST_FOREACH (job_list (), iter) {
+			Job *job = (Job *)iter;
+
+			reply = nih_new (NULL, UpstartMsg);
+			reply->type = UPSTART_JOB_STATUS;
+			reply->job_status.name = job->name;
+			reply->job_status.goal = job->goal;
+			reply->job_status.state = job->state;
+			reply->job_status.process_state = job->process_state;
+			reply->job_status.pid = job->pid;
+
+			NIH_MUST (control_send (pid, reply));
+			nih_free (reply);
+		}
+
+		reply = nih_new (NULL, UpstartMsg);
+		reply->type = UPSTART_JOB_LIST_END;
+
+		break;
 	case UPSTART_EVENT_QUEUE_EDGE:
 		nih_info (_("Control request to queue %s"),
 			  msg->event_queue_edge.name);

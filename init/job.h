@@ -172,6 +172,8 @@ typedef struct job_name {
 
 NIH_BEGIN_EXTERN
 
+NihList *   job_list            (void);
+
 Job *       job_new             (void *parent, const char *name);
 
 Job *       job_find_by_name    (const char *name);

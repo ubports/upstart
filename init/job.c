@@ -72,6 +72,19 @@ job_init (void)
 		NIH_MUST (jobs = nih_list_new ());
 }
 
+/**
+ * job_list:
+ *
+ * Return the list of jobs.
+ **/
+NihList *
+job_list (void)
+{
+	job_init ();
+
+	return jobs;
+}
+
 
 /**
  * job_new:

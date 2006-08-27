@@ -1,5 +1,13 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_list): Add a function to return the job list.
+	* init/job.h: Update.
+	* init/control.c (control_handle): Handle the JOB_LIST message
+	by sending back a list of job status messages followed by the
+	JOB_LIST_END message.
+	* init/tests/test_control.c (test_watcher_child): Check the
+	JOB_LIST message works properly.
+
 	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Handle
 	the JOB_LIST and JOB_LIST_END messages which have no payload.
 	* upstart/control.h: Add enums and structures for job list messages.

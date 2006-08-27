@@ -576,6 +576,7 @@ enum {
 	TEST_JOB_STOP,
 	TEST_JOB_QUERY,
 	TEST_JOB_STATUS,
+	TEST_JOB_LIST,
 	TEST_EVENT_EDGE,
 	TEST_EVENT_LEVEL,
 	TEST_EVENT_TRIGGERED_EDGE,
@@ -705,8 +706,13 @@ test_watcher_child (int test)
 
 		break;
 	case TEST_JOB_QUERY:
-		s_msg->type = UPSTART_JOB_QUERY;
-		s_msg->job_stop.name = "test";
+	case TEST_JOB_LIST:
+		if (test == TEST_JOB_QUERY) {
+			s_msg->type = UPSTART_JOB_QUERY;
+			s_msg->job_stop.name = "test";
+		} else {
+			s_msg->type = UPSTART_JOB_LIST;
+		} 
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
 		/* fall though into the next test */
 	case TEST_JOB_STATUS:
@@ -742,7 +748,20 @@ test_watcher_child (int test)
 			ret = 1;
 		}
 
+		if (test != TEST_JOB_LIST)
+			break;
+		/* TEST_JOB_LIST only beyond this point */
+
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive a UPSTART_JOB_LIST_END message */
+		if (r_msg->type != UPSTART_JOB_LIST_END) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
 		break;
+
 	case TEST_EVENT_EDGE:
 		s_msg->type = UPSTART_EVENT_QUEUE_EDGE;
 		s_msg->event_queue_edge.name = "snarf";
@@ -957,6 +976,18 @@ test_watcher (void)
 	job->process_state = PROCESS_ACTIVE;
 
 	pid = test_watcher_child (TEST_JOB_QUERY);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	printf ("...with list jobs command\n");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+
+	pid = test_watcher_child (TEST_JOB_LIST);
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
