@@ -1,5 +1,18 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (WireJobStatusPayload): add description to the
+	job status payload.
+	(upstart_send_msg_to, upstart_recv_msg): Send and receieve the
+	description over the wire.
+	* upstart/control.h (UpstartJobStatusMsg): add a description field
+	* upstart/tests/test_control.c: Update test cases.
+	* init/control.c (control_handle): Include the job description in
+	the message.
+	(control_send): Copy the description when we put the message on
+	the queue.
+	(control_handle_job): Copy the description here too
+	* init/tests/test_control.c: Update test cases.
+
 	* init/job.c (job_list): Add a function to return the job list.
 	* init/job.h: Update.
 	* init/control.c (control_handle): Handle the JOB_LIST message

@@ -137,6 +137,7 @@ typedef struct upstart_job_query_msg {
  * UpstartJobStatusMsg:
  * @type: always UPSTART_JOB_STATUS,
  * @name: name of job,
+ * @description: description of job,
  * @goal: whether job is being started or stopped,
  * @state: actual state of job,
  * @process_state: state of attached process,
@@ -153,6 +154,7 @@ typedef struct upstart_job_status_msg {
 	UpstartMsgType  type;
 
 	char           *name;
+	char           *description;
 	JobGoal         goal;
 	JobState        state;
 	ProcessState    process_state;

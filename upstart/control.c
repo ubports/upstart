@@ -134,19 +134,23 @@ typedef struct wire_job_payload {
 
 /**
  * WireJobStatusPayload:
+ * @desclen: length of @description,
  * @goal: job goal,
  * @state: job state,
  * @process_state: process state,
  * @pid: current process.
  *
  * This payload follows a job payload for the JOB_STATUS message and contains
- * the status information.
+ * the status information.  The description follows immediately after the
+ * payload, if @desclen is zero then the resulting description is %NULL.
  **/
 typedef struct wire_job_status_payload {
+	size_t       desclen;
 	JobGoal      goal;
 	JobState     state;
 	ProcessState process_state;
 	pid_t        pid;
+	/* char description[desclen]; */
 } WireJobStatusPayload;
 
 /**
@@ -379,11 +383,23 @@ upstart_send_msg_to (pid_t       pid,
 		IOVEC_ADD (iov[0], message->job_status.name, job.namelen,
 			   sizeof (buf));
 
+		if (message->job_status.description) {
+			status.desclen
+				= strlen (message->job_status.description);
+		} else {
+			status.desclen = 0;
+		}
+
 		status.goal = message->job_status.goal;
 		status.state = message->job_status.state;
 		status.process_state = message->job_status.process_state;
 		status.pid = message->job_status.pid;
 		IOVEC_ADD (iov[0], &status, sizeof (status), sizeof (buf));
+
+		if (status.desclen) {
+			IOVEC_ADD (iov[0], message->job_status.description,
+				   status.desclen, sizeof (buf));
+		}
 
 		break;
 	}
@@ -583,6 +599,16 @@ upstart_recv_msg (void  *parent,
 		message->job_status.state = status.state;
 		message->job_status.process_state = status.process_state;
 		message->job_status.pid = status.pid;
+
+		if (status.desclen) {
+			message->job_status.description
+				= nih_alloc (message, status.desclen + 1);
+			message->job_status.description[status.desclen] = '\0';
+			IOVEC_READ (iov[0], message->job_status.description,
+				    status.desclen, len);
+		} else {
+			message->job_status.description = NULL;
+		}
 
 		break;
 	}

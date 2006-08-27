@@ -38,6 +38,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/list.h>
 #include <nih/io.h>
 
@@ -409,6 +410,63 @@ test_send (void)
 	nih_list_free (&msg->entry);
 
 
+	printf ("...with job status message\n");
+	message->type = UPSTART_JOB_STATUS;
+	message->job_status.name = "wibble";
+	message->job_status.description = "frodo";
+	msg = control_send (123, message);
+
+	/* Destination process should be 123 */
+	if (msg->pid != 123) {
+		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message type should be what we gave */
+	if (msg->message.type != UPSTART_JOB_STATUS) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message name should have been copied */
+	if (strcmp (msg->message.job_status.name, "wibble")) {
+		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message description should have been copied */
+	if (strcmp (msg->message.job_status.description, "frodo")) {
+		printf ("BAD: job description wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the send queue */
+	if (NIH_LIST_EMPTY (&msg->entry)) {
+		printf ("BAD: was not placed in the send queue.\n");
+		ret = 1;
+	}
+
+	/* Should have been allocated with NihAlloc */
+	if (nih_alloc_size (msg) != sizeof (ControlMsg)) {
+		printf ("BAD: nih_alloc was not used.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.job_status.name) != msg) {
+		printf ("BAD: job name wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.job_status.description) != msg) {
+		printf ("BAD: job name wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&msg->entry);
+
+
 	printf ("...with edge event message\n");
 	message->type = UPSTART_EVENT_QUEUE_EDGE;
 	message->event_queue_edge.name = "wibble";
@@ -730,6 +788,12 @@ test_watcher_child (int test)
 			ret = 1;
 		}
 
+		/* Description should be passed */
+		if (strcmp (r_msg->job_status.description, "a test job")) {
+			printf ("BAD: description wasn't what we expected.\n");
+			ret = 1;
+		}
+
 		/* Goal should be JOB_START */
 		if (r_msg->job_status.goal != JOB_START) {
 			printf ("BAD: goal wasn't what we expected.\n");
@@ -927,6 +991,7 @@ test_watcher (void)
 
 	printf ("...with start job command\n");
 	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->process_state = PROCESS_NONE;
@@ -1069,6 +1134,7 @@ test_handle_job (void)
 	sub = control_subscribe (pid, NOTIFY_JOBS, TRUE);
 
 	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_STOPPING;
 	job->process_state = PROCESS_ACTIVE;

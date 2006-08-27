@@ -265,10 +265,17 @@ control_send (pid_t       pid,
 	case UPSTART_JOB_START:
 	case UPSTART_JOB_STOP:
 	case UPSTART_JOB_QUERY:
-	case UPSTART_JOB_STATUS:
 	case UPSTART_JOB_UNKNOWN:
 		msg->message.job_query.name
 			= nih_strdup (msg, message->job_query.name);
+		break;
+	case UPSTART_JOB_STATUS:
+		msg->message.job_status.name
+			= nih_strdup (msg, message->job_status.name);
+		if (message->job_status.description)
+			msg->message.job_status.description
+				= nih_strdup (msg,
+					      message->job_status.description);
 		break;
 	case UPSTART_EVENT_QUEUE_EDGE:
 		msg->message.event.name
@@ -457,6 +464,7 @@ control_handle (pid_t       pid,
 		reply = nih_new (NULL, UpstartMsg);
 		reply->type = UPSTART_JOB_STATUS;
 		reply->job_status.name = msg->job_query.name;
+		reply->job_status.description = job->description;
 		reply->job_status.goal = job->goal;
 		reply->job_status.state = job->state;
 		reply->job_status.process_state = job->process_state;
@@ -473,6 +481,7 @@ control_handle (pid_t       pid,
 			reply = nih_new (NULL, UpstartMsg);
 			reply->type = UPSTART_JOB_STATUS;
 			reply->job_status.name = job->name;
+			reply->job_status.description = job->description;
 			reply->job_status.goal = job->goal;
 			reply->job_status.state = job->state;
 			reply->job_status.process_state = job->process_state;
@@ -549,6 +558,7 @@ control_handle_job (Job *job)
 
 	msg.type = UPSTART_JOB_STATUS;
 	msg.job_status.name = job->name;
+	msg.job_status.description = job->description;
 	msg.job_status.goal = job->goal;
 	msg.job_status.state = job->state;
 	msg.job_status.process_state = job->process_state;

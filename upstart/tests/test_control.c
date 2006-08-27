@@ -381,6 +381,7 @@ test_messages (void)
 	printf ("...with UPSTART_JOB_STATUS\n");
 	s_msg->type = UPSTART_JOB_STATUS;
 	s_msg->job_status.name = "wibble";
+	s_msg->job_status.description = "foo bar";
 	s_msg->job_status.goal = JOB_START;
 	s_msg->job_status.state = JOB_STARTING;
 	s_msg->job_status.process_state = PROCESS_ACTIVE;
@@ -407,6 +408,18 @@ test_messages (void)
 		ret = 1;
 	}
 
+	/* Description should be what we sent */
+	if (strcmp (r_msg->job_status.description, "foo bar")) {
+		printf ("BAD: description wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Description should be nih_alloc child of message */
+	if (nih_alloc_parent (r_msg->job_status.description) != r_msg) {
+		printf ("BAD: desc wasn't nih_alloc child of message.\n");
+		ret = 1;
+	}
+
 	/* Job goal should be what we sent */
 	if (r_msg->job_status.goal != JOB_START) {
 		printf ("BAD: job goal wasn't what we expected.\n");
@@ -428,6 +441,21 @@ test_messages (void)
 	/* Process id should be what we sent */
 	if (r_msg->job_status.pid != 123) {
 		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
+	printf ("...with UPSTART_JOB_STATUS without description\n");
+	s_msg->job_status.description = NULL;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Description should be NULL */
+	if (r_msg->job_status.description != NULL) {
+		printf ("BAD: description wasn't what we expected.\n");
 		ret = 1;
 	}
 
