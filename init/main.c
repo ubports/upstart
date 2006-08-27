@@ -120,7 +120,7 @@ main (int   argc,
 	nih_child_add_watch (NULL, -1, job_child_reaper, NULL);
 
 	/* Process the event queue every time through the main loop */
-	nih_main_loop_add_func (NULL, event_queue_run, NULL);
+	nih_main_loop_add_func (NULL, (NihMainLoopCb)event_queue_run, NULL);
 
 
 	/* Become session and process group leader (should be already,
@@ -140,7 +140,7 @@ main (int   argc,
 
 	/* Generate and run the startup event */
 	event_queue_edge ("startup");
-	event_queue_run (NULL, NULL);
+	event_queue_run ();
 
 	/* Go! */
 	ret = nih_main_loop ();

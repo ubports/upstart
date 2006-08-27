@@ -312,16 +312,13 @@ event_queue_level (const char *name,
 
 /**
  * event_queue_run:
- * @data: not used,
- * @func: loop function.
  *
  * This callback is called once during each iteration of the main loop.
  * It consumes all events in the queue and ensures that subscribed processes
  * are notified of them and jobs listening for them are handled.
  **/
 void
-event_queue_run (void            *data,
-		 NihMainLoopFunc *func)
+event_queue_run (void)
 {
 	event_init ();
 

@@ -2632,7 +2632,7 @@ test_detect_idle (void)
 	nih_list_free (&event->entry);
 
 
-	event_queue_run (NULL, NULL);
+	event_queue_run ();
 
 	nih_list_free (&job1->entry);
 	nih_list_free (&job2->entry);

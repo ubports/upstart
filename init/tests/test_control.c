@@ -1181,14 +1181,14 @@ test_watcher (void)
 
 	nih_list_free (&job->entry);
 
-	event_queue_run (NULL, NULL);
+	event_queue_run ();
 
 
 	printf ("...with halt event\n");
 	pid = test_watcher_child (TEST_HALT);
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	job_detect_idle ();
-	event_queue_run (NULL, NULL);
+	event_queue_run ();
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1199,7 +1199,7 @@ test_watcher (void)
 	pid = test_watcher_child (TEST_POWEROFF);
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	job_detect_idle ();
-	event_queue_run (NULL, NULL);
+	event_queue_run ();
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1210,7 +1210,7 @@ test_watcher (void)
 	pid = test_watcher_child (TEST_REBOOT);
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	job_detect_idle ();
-	event_queue_run (NULL, NULL);
+	event_queue_run ();
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))

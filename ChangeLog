@@ -1,5 +1,11 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_queue_run): Remove the parameters.
+	* init/event.h: Update.
+	* init/main.c (main): Update.
+	* init/tests/test_control.c (test_watcher): Update.
+	* init/tests/test_job.c (test_detect_idle): Update.
+
 	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Deal
 	with halting, rebooting and powering off; or at least the appropriate
 	messages.
