@@ -187,6 +187,36 @@ main (int   argc,
 
 		msg.type = UPSTART_WATCH_EVENTS;
 		expect_reply = -1;
+	} else if (! strcmp (args[0], "halt")) {
+		if (args[1] != NULL) {
+			fprintf (stderr, _("%s: unexpected argument\n"),
+				 program_name);
+			nih_main_suggest_help ();
+			exit (1);
+		}
+
+		msg.type = UPSTART_HALT;
+		expect_reply = -1;
+	} else if (! strcmp (args[0], "poweroff")) {
+		if (args[1] != NULL) {
+			fprintf (stderr, _("%s: unexpected argument\n"),
+				 program_name);
+			nih_main_suggest_help ();
+			exit (1);
+		}
+
+		msg.type = UPSTART_POWEROFF;
+		expect_reply = -1;
+	} else if (! strcmp (args[0], "reboot")) {
+		if (args[1] != NULL) {
+			fprintf (stderr, _("%s: unexpected argument\n"),
+				 program_name);
+			nih_main_suggest_help ();
+			exit (1);
+		}
+
+		msg.type = UPSTART_REBOOT;
+		expect_reply = -1;
 	} else {
 		fprintf (stderr, _("%s: unknown command: %s\n"),
 			 program_name, args[0]);

@@ -1,5 +1,7 @@
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (main): Add commands for halt, poweroff and reboot.
+
 	* init/event.c (event_queue_run): Remove the parameters.
 	* init/event.h: Update.
 	* init/main.c (main): Update.
