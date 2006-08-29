@@ -119,8 +119,10 @@ main (int   argc,
 	/* Reap all children that die */
 	nih_child_add_watch (NULL, -1, job_child_reaper, NULL);
 
-	/* Process the event queue every time through the main loop */
+	/* Process the event queue and check the jobs for idleness
+	 * every time through the main loop */
 	nih_main_loop_add_func (NULL, (NihMainLoopCb)event_queue_run, NULL);
+	nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle, NULL);
 
 
 	/* Become session and process group leader (should be already,

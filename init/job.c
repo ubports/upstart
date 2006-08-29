@@ -1118,9 +1118,11 @@ job_detect_idle (void)
 
 	if (idle && idle_event) {
 		event_queue_edge (idle_event);
+		nih_main_loop_interrupt ();
 		idle_event = NULL;
 	} else if (stalled) {
 		event_queue_edge ("stalled");
+		nih_main_loop_interrupt ();
 	}
 }
 

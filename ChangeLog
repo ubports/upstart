@@ -1,3 +1,10 @@
+2006-08-29  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (main): Actually run the idle-detect function.
+	* init/job.c (job_detect_idle): Interrupt the main loop, otherwise
+	we may end up waiting for a signal before we process the event
+	we just issued.
+
 2006-08-27  Scott James Remnant  <scott@netsplit.com>
 
 	* util/shutdown.c: Template main function.
