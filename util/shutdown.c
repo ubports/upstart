@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 
 #include <pwd.h>
 #include <utmp.h>
@@ -84,12 +85,14 @@ enum {
 
 
 /* Prototypes for static functions */
-static void cancel_callback   (void *data, NihSignal *signal)
+static void  shutdown_now      (void)
 	__attribute__ ((noreturn));
-static void shutdown_callback (void)
+static void  cancel_callback   (void *data, NihSignal *signal)
 	__attribute__ ((noreturn));
-static void warn_callback     (const char *message);
-static void wall              (const char *message);
+static void  timer_callback    (const char *message);
+static char *warning_message   (const char *message)
+	__attribute__ ((warn_unused_result));
+static void  wall              (const char *message);
 
 
 /**
@@ -196,7 +199,7 @@ int
 main (int   argc,
       char *argv[])
 {
-	char   **args, *message;
+	char   **args, *message, *msg;
 	int      arg;
 	size_t   messagelen;
 	FILE    *pidfile;
@@ -346,14 +349,19 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Send an initial message */
+	NIH_MUST (msg = warning_message (message));
+	wall (msg);
+	nih_free (msg);
+
 
 	/* Give us a sane environment */
 	chdir ("/");
 	umask (022);
 
-	/* Just shutdown now? */
+	/* Shutdown now? */
 	if (! delay)
-		shutdown_callback ();
+		shutdown_now ();
 
 	/* Save our pid so we can be interrupted later */
 	unlink (PID_FILE);
@@ -381,16 +389,9 @@ main (int   argc,
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	nih_signal_add_callback (NULL, SIGTERM, cancel_callback, NULL);
 
-	/* Shutdown in delay minutes time */
-	nih_timer_add_timeout (NULL, delay * 60,
-			       (NihTimerCb)shutdown_callback, NULL);
-
-	/* Call a timer every minute until we do */
+	/* Call a timer every minute until we shutdown */
 	nih_timer_add_periodic (NULL, 60,
-				(NihTimerCb)warn_callback, message);
-
-	/* Send out an initial warning */
-	warn_callback (message);
+				(NihTimerCb)timer_callback, message);
 
 	/* Hang around */
 	nih_main_loop ();
@@ -400,35 +401,14 @@ main (int   argc,
 
 
 /**
- * cancel_callback:
- * @data: not used,
- * @signal: signal caught.
+ * shutdown_now:
  *
- * This callback is run whenever one of the "cancel running shutdown"
- * signals is sent to us.
+ * Send a signal to init to shut down the machine.
  *
  * This does not return.
  **/
 static void
-cancel_callback (void      *data,
-		 NihSignal *signal)
-{
-	nih_info (_("Shutdown cancelled"));
-	unlink (PID_FILE);
-	unlink (ETC_NOLOGIN);
-	exit (0);
-}
-
-/**
- * shutdown_callback:
- *
- * This callback is run when the time until shut down has elapsed without
- * being cancelled, and we want to shutdown the machine.
- *
- * This does not return.
- **/
-static void
-shutdown_callback (void)
+shutdown_now (void)
 {
 	UpstartMsg msg;
 	int        sock;
@@ -477,95 +457,44 @@ shutdown_callback (void)
 }
 
 /**
- * warn_callback:
+ * cancel_callback:
+ * @data: not used,
+ * @signal: signal caught.
+ *
+ * This callback is run whenever one of the "cancel running shutdown"
+ * signals is sent to us.
+ *
+ * This does not return.
+ **/
+static void
+cancel_callback (void      *data,
+		 NihSignal *signal)
+{
+	nih_error (_("Shutdown cancelled"));
+	unlink (PID_FILE);
+	unlink (ETC_NOLOGIN);
+	exit (0);
+}
+
+/**
+ * timer_callback:
  * @message: message to display.
  *
  * This callback is run every minute until we are ready to shutdown, it
  * ensures regular warnings are sent to logged in users and handles
- * preventing new logins.
+ * preventing new logins.  Once time is up, it handles shutting down.
  *
  * This will modify delay each time it is called.
  **/
 static void
-warn_callback (const char *message)
+timer_callback (const char *message)
 {
 	char *msg;
 	int   warn = FALSE;
 
-	switch (mode) {
-	case SHUTDOWN:
-		if (delay > 1) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"maintenance in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"maintenance IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"maintenance NOW!\r\n%s"),
-				message);
-		}
-		break;
-	case REBOOT:
-		if (delay > 1) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"reboot in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"reboot IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"reboot NOW!\r\n%s"),
-				message);
-		}
-		break;
-	case HALT:
-		if (delay > 1) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"system halt in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"system halt IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"system halt NOW!\r\n%s"),
-				message);
-		}
-		break;
-	case POWEROFF:
-		if (delay > 1) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"power off in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"power off IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			msg = nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"power off NOW!\r\n%s"),
-				message);
-		}
-		break;
-	}
+	delay--;
+	NIH_MUST (msg = warning_message (message));
+
 
 	/* Write /etc/nologin with less than 5 minutes remaining */
 	if (delay <= 5) {
@@ -592,8 +521,103 @@ warn_callback (const char *message)
 	if (warn)
 		wall (msg);
 
+	/* Shutdown the machine at zero */
+	if (! delay)
+		shutdown_now ();
+
 	nih_free (msg);
-	delay--;
+}
+
+/**
+ * warning_message:
+ * @message: user message.
+ *
+ * Prefixes the message with details about how long until the shutdown
+ * completes.
+ *
+ * Returns: newly allocated string.
+ **/
+static char *
+warning_message (const char *message)
+{
+	nih_assert (message != NULL);
+
+	switch (mode) {
+	case SHUTDOWN:
+		if (delay > 1) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"maintenance in %d minutes!\r\n%s"),
+				delay, message);
+		} else if (delay) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"maintenance IN ONE MINUTE!\r\n%s"),
+				message);
+		} else {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"maintenance NOW!\r\n%s"),
+				message);
+		}
+		break;
+	case REBOOT:
+		if (delay > 1) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"reboot in %d minutes!\r\n%s"),
+				delay, message);
+		} else if (delay) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"reboot IN ONE MINUTE!\r\n%s"),
+				message);
+		} else {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"reboot NOW!\r\n%s"),
+				message);
+		}
+		break;
+	case HALT:
+		if (delay > 1) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"system halt in %d minutes!\r\n%s"),
+				delay, message);
+		} else if (delay) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"system halt IN ONE MINUTE!\r\n%s"),
+				message);
+		} else {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"system halt NOW!\r\n%s"),
+				message);
+		}
+		break;
+	case POWEROFF:
+		if (delay > 1) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"power off in %d minutes!\r\n%s"),
+				delay, message);
+		} else if (delay) {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"power off IN ONE MINUTE!\r\n%s"),
+				message);
+		} else {
+			return nih_sprintf (
+				NULL, _("\rThe system is going down for "
+					"power off NOW!\r\n%s"),
+				message);
+		}
+		break;
+	}
+
+	return NULL;
 }
 
 /**
@@ -622,7 +646,7 @@ wall (const char *message)
 	pid_t             pid;
 	time_t            now;
 	struct tm        *tm;
-	char             *user, *tty, *banner;
+	char             *user, *tty, hostname[MAXHOSTNAMELEN], *banner;
 
 	pid = fork ();
 	if (pid < 0) {
@@ -657,6 +681,9 @@ wall (const char *message)
 		}
 	}
 
+	/* Get hostname for banner */
+	gethostname (hostname, sizeof (hostname));
+
 	/* Get terminal for banner */
 	tty = ttyname (0);
 	if (! tty)
@@ -667,9 +694,10 @@ wall (const char *message)
 	tm = localtime (&now);
 
 	/* Construct banner */
-	banner = nih_sprintf (NULL, _("\007\r\nBroadcast message from %s\r\n"
-				      "\t(%s) at %d:%02d ...\r\n\r\n"),
-			      user, tty, tm->tm_hour, tm->tm_min);
+	banner = nih_sprintf (NULL, _("\007\r\nBroadcast message from "
+				      "%s@%s\r\n\t(%s) at %d:%02d "
+				      "...\r\n\r\n"),
+			      user, hostname, tty, tm->tm_hour, tm->tm_min);
 
 
 	/* Iterate entries in the utmp file */

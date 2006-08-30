@@ -1,3 +1,9 @@
+2006-08-31  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c: Adjust so that the warning message is sent out
+	if shutdown is immediate, and when it actually happens.  Include
+	the hostname as wall does.
+
 2006-08-30  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update.
