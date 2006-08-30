@@ -1,3 +1,10 @@
+2006-08-30  Scott James Remnant  <scott@netsplit.com>
+
+	* util/reboot.c: Implement reboot/halt/poweroff utility.
+	* util/Makefile.am (sbin_PROGRAMS): Build and install reboot
+	(reboot_SOURCES, reboot_LDFLAGS, reboot_LDADD): Details for reboot
+	(install-exec-local): Create hardlinks to reboot for halt and poweroff.
+
 2006-08-29  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c (main): Actually run the idle-detect function.
