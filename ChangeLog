@@ -1,5 +1,9 @@
 2006-08-30  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (main): Call setuid on the effective user id so
+	that we can be made setuid root and executable by a special group.
+	* util/reboot.c (main): Likewise.
+
 	* util/initctl.c (main): Check the effective rather than the real
 	user id, if we're effectively root, that's good enough.
 
