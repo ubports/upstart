@@ -1,5 +1,8 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_handle): Place a message in the syslog
+	before halting, powering off or rebooting.
+
 	* util/shutdown.c: Adjust so that the warning message is sent out
 	if shutdown is immediate, and when it actually happens.  Include
 	the hostname as wall does.
