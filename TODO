@@ -1,5 +1,9 @@
 High Priority:
 
+ * init should write a log message before reboot, etc.
+
+ * figure out what about setup_console kills X
+
  * Logging of processes.  Involves writing logd and putting the
    opposite hooks to it in init.
 
@@ -12,16 +16,24 @@ High Priority:
 
  * Make sure processes don't respawn out of control.
 
+ * simplify events to just a string, remove all records and state of events
+
+ * Replace when/while/etc. with a single code path of "on", add "at" alias?
+
+ * send "job" event on running or stopping
 
  * re-exec: fork, exec in parent, child sends the state; we'll just want the
    job states as the child will have parsed the configuration
 
- * shutdown, halt, reboot, poweroff, telinit, sulogin (on stalled)
+ * telinit, runlevel, sulogin (on stalled)
 
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)
 
  * Configuration files can be moved.
+
+ * Move config file parsing code into libnih and just have a stanza callback
+   function (so we can use it for all config file stuff)
 
 
  * cfg_watch_dir needs testing, as does cfg_watcher
@@ -64,33 +76,6 @@ Future Features:
 
 Musings and Feedback:
 
- * The current system of using job names for their associated events
-   isn't going to be, in the long term, ideal.  While it's the
-   simplest design, I think that something more clever is going to be
-   desired.
-
-   Another problem, with a related solution, is that dependencies are
-   only useful for services as they're triggered when there's a
-   process running.  Tasks need them to be triggered when the process
-   has stopped.
-
-   Perhaps the solution is to replace the level event for a job with
-   an edge event, and have that triggered at either running or
-   stopping as appropriate.  This would release dependencies.  This
-   would mean you couldn't be specific as to the state, or watch for
-   state changes though.
-
- * Perhaps some kind of namespacing is required for the events?
-   Instead of multiple values, how about a tree instead?  Doesn't
-   fulfill the above case :-(
-
- * Unless we have an event trigger --parent-too or something
-
- * Do we really want to keep events in a list anymore?  What purpose
-   does it serve?  It allows us to re-trigger the event at the
-   previous level.  Will we, in practice, use that?
-
-
  * Some magic could be hidden through special commands.  It might be
    common for example to depend on a job to be running, start when it
    enters running and stop when it leaves running.
@@ -102,11 +87,6 @@ Musings and Feedback:
 
  * "depends" in its current form was considered confusing, suggested
    rename was "wait for"
-
- * "when" was considered confusing, suggested just "on"
-
- * "while" confusing also about what its effect might be (this might
-   improve with event tweaks)
 
 
  * script/process doesn't know what event was triggered.  Put it in
