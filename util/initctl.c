@@ -63,7 +63,7 @@ main (int   argc,
 		exit (1);
 
 	/* Check we're root */
-	if (getuid ()) {
+	if (geteuid ()) {
 		nih_error (_("Need to be root"));
 		exit (1);
 	}

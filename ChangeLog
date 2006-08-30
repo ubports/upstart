@@ -1,5 +1,8 @@
 2006-08-30  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (main): Check the effective rather than the real
+	user id, if we're effectively root, that's good enough.
+
 	* util/reboot.c: Implement reboot/halt/poweroff utility.
 	* util/Makefile.am (sbin_PROGRAMS): Build and install reboot
 	(reboot_SOURCES, reboot_LDFLAGS, reboot_LDADD): Details for reboot
