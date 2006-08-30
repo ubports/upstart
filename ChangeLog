@@ -1,5 +1,8 @@
 2006-08-30  Scott James Remnant  <scott@netsplit.com>
 
+	* util/shutdown.c: Implement shutdown utility along the same lines
+	as the sysvinit one, but with rather different code.
+
 	* util/initctl.c (main): Call setuid on the effective user id so
 	that we can be made setuid root and executable by a special group.
 	* util/reboot.c (main): Likewise.
