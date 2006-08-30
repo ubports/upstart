@@ -47,4 +47,6 @@ init/test_*
 logd/logd
 logd/test_*
 util/initctl
+util/reboot
+util/shutdown
 util/test_*
