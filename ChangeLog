@@ -1,5 +1,7 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.2.0
+
 	* util/Makefile.am (install-exec-local): Create symbolic links,
 	not hard links.
 
