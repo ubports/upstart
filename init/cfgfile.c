@@ -507,6 +507,7 @@ cfg_job_stanza (Job        *job,
 
 	} else if (! strncmp (file + tok_start, "respawn", tok_len)) {
 		/* respawn (WS <command>)?
+		 * respawn WS limit FWS limit FWS interval
 		 * respawn WS script ... end WS script
 		 *
 		 * indicates that the job should be respawned if it
@@ -515,7 +516,10 @@ cfg_job_stanza (Job        *job,
 		 * optionally may give the command and its arguments that
 		 * will be executed
 		 *
-		 * second form declares a script that will be run while
+		 * second form declares the maximum number of times in
+		 * interval that the job may be respawned
+		 *
+		 * third form declares a script that will be run while
 		 * the job is respawning.
 		 */
 		char *cmd;
@@ -532,6 +536,46 @@ cfg_job_stanza (Job        *job,
 
 			job->respawn_script = cfg_parse_script (
 				job, filename, lineno, file, len, pos);
+		} else if (*args && (! strcmp (*arg, "limit"))) {
+			char   *endptr;
+			int     limit;
+			time_t  interval;
+
+			/* Parse the limit value */
+			if (arg && *++arg) {
+				limit = strtol (*arg, &endptr, 10);
+				if (*endptr || (limit < 0)) {
+					arg = NULL;
+					nih_warn ("%s:%d: %s",
+						  filename, *lineno,
+						  _("illegal value"));
+				}
+			} else if (arg) {
+				arg = NULL;
+				nih_warn ("%s:%d: %s", filename, *lineno,
+					  _("expected limit"));
+			}
+
+			/* Parse the interval */
+			if (arg && *++arg) {
+				interval = strtol (*arg, &endptr, 10);
+				if (*endptr || (interval < 0)) {
+					arg = NULL;
+					nih_warn ("%s:%d: %s",
+						  filename, *lineno,
+						  _("illegal value"));
+				}
+			} else if (arg) {
+				arg = NULL;
+				nih_warn ("%s:%d: %s", filename, *lineno,
+					  _("expected interval"));
+			}
+
+			/* If we got both values, assign them */
+			if (arg) {
+				job->respawn_limit = limit;
+				job->respawn_interval = interval;
+			}
 		} else {
 			job->respawn = TRUE;
 

@@ -113,6 +113,18 @@ test_new (void)
 		ret = 1;
 	}
 
+	/* Respawn limit should be the default */
+	if (job->respawn_limit != JOB_DEFAULT_RESPAWN_LIMIT) {
+		printf ("BAD: job respawn limit set incorrectly.\n");
+		ret = 1;
+	}
+
+	/* Respawn interval should be the default */
+	if (job->respawn_interval != JOB_DEFAULT_RESPAWN_INTERVAL) {
+		printf ("BAD: job respawn interval set incorrectly.\n");
+		ret = 1;
+	}
+
 	/* The console should be logged */
 	if (job->console != CONSOLE_LOGGED) {
 		printf ("BAD: job console type set incorrectly.\n");
@@ -265,7 +277,7 @@ test_change_state (void)
 	NihList     *list;
 	struct stat  statbuf;
 	char         dirname[22], filename[40];
-	int          ret = 0;
+	int          ret = 0, i;
 
 	printf ("Testing job_change_state()\n");
 	sprintf (dirname, "/tmp/test_job.XXXXXX");
@@ -586,6 +598,47 @@ test_change_state (void)
 	/* Command should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...running to respawning too fast\n");
+	job->respawn_count = 0;
+	job->respawn_time = 0;
+	job->respawn_limit = 10;
+	job->respawn_interval = 100;
+	for (i = 0; i < 11; i++) {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
+		job_change_state (job, JOB_RESPAWNING);
+	}
+
+	/* Goal should now be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Stop script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/stop", dirname);
 	if (stat (filename, &statbuf) < 0) {
 		printf ("BAD: command doesn't appear to have run.\n");
 		ret = 1;

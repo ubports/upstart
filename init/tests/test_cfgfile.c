@@ -236,6 +236,7 @@ test_read_job (void)
 	fprintf (jf, "nice -20\n");
 	fprintf (jf, "limit core 0 0\n");
 	fprintf (jf, "limit cpu 50 100\n");
+	fprintf (jf, "respawn limit 5 120\n");
 	fprintf (jf, "\n");
 	fprintf (jf, "chroot /jail/daemon\n");
 	fprintf (jf, "chdir /var/lib\n");
@@ -576,6 +577,18 @@ test_read_job (void)
 	/* RLIMIT_CPU limit should be nih_alloc child of job */
 	if (nih_alloc_parent (job->limits[RLIMIT_CPU]) != job) {
 		printf ("BAD: cpu limit wasn't nih_alloc child of job.\n");
+		ret = 1;
+	}
+
+	/* Respawn limit should be that given */
+	if (job->respawn_limit != 5) {
+		printf ("BAD: respawn limit wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Respawn interval should be that given */
+	if (job->respawn_interval != 120) {
+		printf ("BAD: respawn interval wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -1032,6 +1045,11 @@ test_read_job (void)
 	fprintf (jf, "limit core abc 0\n");
 	fprintf (jf, "limit core 0 abc\n");
 	fprintf (jf, "limit core 0 0 0\n");
+	fprintf (jf, "respawn limit\n");
+	fprintf (jf, "respawn limit 0\n");
+	fprintf (jf, "respawn limit abc 0\n");
+	fprintf (jf, "respawn limit 0 abc\n");
+	fprintf (jf, "respawn limit 0 0 0\n");
 	fprintf (jf, "chroot\n");
 	fprintf (jf, "chroot / foo\n");
 	fprintf (jf, "chdir\n");
@@ -1469,63 +1487,98 @@ test_read_job (void)
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:60: expected directory name\n")) {
+		    "foo:60: expected limit\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:61: ignored additional arguments\n")) {
+		    "foo:61: expected interval\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:62: expected directory name\n")) {
+		    "foo:62: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:63: ignored additional arguments\n")) {
+		    "foo:63: illegal value\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:64: ignored unknown stanza\n")) {
+		    "foo:64: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:65: ignored additional arguments\n")) {
+		    "foo:65: expected directory name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:67: ignored additional arguments\n")) {
+		    "foo:66: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:69: ignored additional arguments\n")) {
+		    "foo:67: expected directory name\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	fgets (text, sizeof (text), output);
 	if (strcmp (strstr (text, "foo:"),
-		    "foo:71: ignored additional arguments\n")) {
+		    "foo:68: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:69: ignored unknown stanza\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:70: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:72: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:74: ignored additional arguments\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (strstr (text, "foo:"),
+		    "foo:76: ignored additional arguments\n")) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}

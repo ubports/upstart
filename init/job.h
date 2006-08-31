@@ -54,6 +54,21 @@
 #define JOB_DEFAULT_KILL_TIMEOUT 5
 
 /**
+ * JOB_DEFAULT_RESPAWN_LIMIT:
+ *
+ * The default number of times in %JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * we permit a process to respawn before stoping it
+ **/
+#define JOB_DEFAULT_RESPAWN_LIMIT 10
+
+/**
+ * JOB_DEFAULT_RESPAWN_INTERVAL:
+ *
+ * The default number of seconds before resetting the respawn timer.
+ **/
+#define JOB_DEFAULT_RESPAWN_INTERVAL 5
+
+/**
  * JOB_DEFAULT_UMASK:
  *
  * The default file creation mark for processes.
@@ -82,6 +97,10 @@
  * @spawns_instance: job is always waiting and spawns instances,
  * @is_instance: job should be cleaned up instead of waiting,
  * @respawn: process should be restarted if it fails,
+ * @respawn_limit: number of respawns in @respawn_interval that we permit,
+ * @respawn_interval: barrier for @respawn_limit,
+ * @respawn_count: number of respawns since @respawn_time,
+ * @respawn_time: time service was first respawned,
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
  * @daemon: process forks into background; pid needs to be obtained,
@@ -132,6 +151,10 @@ typedef struct job {
 	int            is_instance;
 
 	int            respawn;
+	int            respawn_limit;
+	time_t         respawn_interval;
+	int            respawn_count;
+	time_t         respawn_time;
 	int           *normalexit;
 	size_t         normalexit_len;
 

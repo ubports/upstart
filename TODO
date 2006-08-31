@@ -2,8 +2,6 @@ High Priority:
 
  * sulogin (on stalled)
 
- * Make sure processes don't respawn out of control.
-
  * Logging of processes.  Involves writing logd and putting the
    opposite hooks to it in init.
 

@@ -47,8 +47,9 @@
 
 
 /* Prototypes for static functions */
-static void job_run_process (Job *job, char * const  argv[]);
-static void job_kill_timer  (Job *job, NihTimer *timer);
+static void job_run_process   (Job *job, char * const  argv[]);
+static void job_kill_timer    (Job *job, NihTimer *timer);
+static int  job_catch_runaway (Job *job);
 
 
 /**
@@ -151,6 +152,10 @@ job_new (void       *parent,
 	job->is_instance = 0;
 
 	job->respawn = 0;
+	job->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
+	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
+	job->respawn_count = 0;
+	job->respawn_time = 0;
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
 
@@ -366,6 +371,16 @@ job_change_state (Job      *job,
 			break;
 		case JOB_RESPAWNING:
 			nih_assert (old_state == JOB_RUNNING);
+
+			/* Catch run-away respawns */
+			if (job_catch_runaway (job)) {
+				nih_warn (_("%s respawning too fast, stopped"),
+					  job->name);
+
+				job->goal = JOB_STOP;
+				state = job_next_state (job);
+				break;
+			}
 
 			if (job->respawn_script) {
 				job_run_script (job, job->respawn_script);
@@ -994,6 +1009,40 @@ job_stop (Job *job)
 	job_kill_process (job);
 }
 
+
+/**
+ * job_catch_runaway
+ * @job: job respawning.
+ *
+ * This function ensures that a job doesn't enter a respawn loop by
+ * limiting the number of respawns in a particular time limit.
+ *
+ * Returns: %TRUE if the job is respawning too fast, %FALSE if not.
+ */
+static int
+job_catch_runaway (Job *job)
+{
+	nih_assert (job != NULL);
+
+	if (job->respawn_limit && job->respawn_interval) {
+		time_t interval;
+
+		/* Time since last respawn ... this goes very large if we
+		 * haven't done one, which is fine
+		 */
+		interval = time (NULL) - job->respawn_time;
+		if (interval < job->respawn_interval) {
+			job->respawn_count++;
+			if (job->respawn_count > job->respawn_limit)
+				return TRUE;
+		} else {
+			job->respawn_time = time (NULL);
+			job->respawn_count = 1;
+		}
+	}
+
+	return FALSE;
+}
 
 /**
  * job_release_depends:
