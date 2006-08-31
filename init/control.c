@@ -279,6 +279,7 @@ control_send (pid_t       pid,
 		break;
 	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN:
 		msg->message.event.name
 			= nih_strdup (msg, message->event.name);
 		break;
@@ -507,20 +508,11 @@ control_handle (pid_t       pid,
 			  pid);
 		control_subscribe (pid, NOTIFY_EVENTS, FALSE);
 		break;
-	case UPSTART_HALT:
-		nih_warn (_("System going down for system halt"));
+	case UPSTART_SHUTDOWN:
+		nih_info (_("Control request to shutdown system for %s"),
+			  msg->shutdown.name);
 		event_queue ("shutdown");
-		job_set_idle_event ("halt");
-		break;
-	case UPSTART_POWEROFF:
-		nih_warn (_("System going down for power off"));
-		event_queue ("shutdown");
-		job_set_idle_event ("poweroff");
-		break;
-	case UPSTART_REBOOT:
-		nih_warn (_("System going down for reboot"));
-		event_queue ("shutdown");
-		job_set_idle_event ("reboot");
+		job_set_idle_event (msg->shutdown.name);
 		break;
 	default:
 		/* Unknown message */

@@ -636,50 +636,32 @@ test_messages (void)
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_HALT\n");
-	s_msg->type = UPSTART_HALT;
+	printf ("...with UPSTART_SHUTDOWN\n");
+	s_msg->type = UPSTART_SHUTDOWN;
+	s_msg->shutdown.name = "reboot";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_HALT */
-	if (r_msg->type != UPSTART_HALT) {
+	/* Type should be UPSTART_SHUTDOWN */
+	if (r_msg->type != UPSTART_SHUTDOWN) {
 		printf ("BAD: message type wasn't what we expected.\n");
 		ret = 1;
 	}
 
-	nih_free (r_msg);
+	/* Name should be what we sent */
+	if (strcmp (r_msg->shutdown.name, "reboot")) {
+		printf ("BAD: event name wasn't what we expected.\n");
+		ret = 1;
+	}
 
-
-	printf ("...with UPSTART_POWEROFF\n");
-	s_msg->type = UPSTART_POWEROFF;
-
-	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
-
-	/* Type should be UPSTART_POWEROFF */
-	if (r_msg->type != UPSTART_POWEROFF) {
-		printf ("BAD: message type wasn't what we expected.\n");
+	/* Name should be nih_alloc child of message */
+	if (nih_alloc_parent (r_msg->event_queue.name) != r_msg) {
+		printf ("BAD: name wasn't nih_alloc child of message.\n");
 		ret = 1;
 	}
 
 	nih_free (r_msg);
-
-
-	printf ("...with UPSTART_REBOOT\n");
-	s_msg->type = UPSTART_REBOOT;
-
-	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
-
-	/* Type should be UPSTART_REBOOT */
-	if (r_msg->type != UPSTART_REBOOT) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_free (r_msg);
-
 
 	nih_free (s_msg);
 

@@ -1,5 +1,21 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.h: Abolish the separate halt, reboot and poweroff
+	messages and replace with a single shutdown message that takes
+	an event name (for the idle event issued afterwards).
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Handle
+	the new shutdown event type by just treating it as an event.
+	* upstart/tests/test_control.c (test_messages): Update tests.
+	* init/job.c (job_set_idle_event): Store a copy of the idle event
+	name.
+	* init/control.c (control_send): Copy the shutdown event name.
+	(control_handle): Replace individual handling with the new
+	single event.
+	* init/tests/test_control.c (test_watcher): Update.
+	* util/initctl.c: Drop handling for things that shutdown does now.
+	* util/shutdown.c: Send the UPSTART_SHUTDOWN event and let the user
+	specify anything they want, just give defaults.
+
 	This is quite a big change and abolishes level events entirely,
 	along with the event history.  We now just treat events as a
 	transient queue of strings that go past, may cause things to change,

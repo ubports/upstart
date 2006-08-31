@@ -65,7 +65,7 @@ static NihList *jobs = NULL;
  * Event to be triggered once when the system is idle with no jobs changing
  * state.
  **/
-static const char *idle_event = NULL;
+static char *idle_event = NULL;
 
 
 /**
@@ -1129,6 +1129,7 @@ job_detect_idle (void)
 
 	if (idle && idle_event) {
 		event_queue (idle_event);
+		nih_free (idle_event);
 		idle_event = NULL;
 
 		nih_main_loop_interrupt ();
@@ -1154,5 +1155,5 @@ job_set_idle_event (const char *name)
 {
 	nih_assert (name != NULL);
 
-	idle_event = name;
+	idle_event = nih_strdup (NULL, name);
 }

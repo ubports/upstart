@@ -75,16 +75,8 @@
 #define DEV "/dev"
 
 
-/* Operation modes */
-enum {
-	SHUTDOWN,
-	REBOOT,
-	HALT,
-	POWEROFF
-};
-
-
 /* Prototypes for static functions */
+static int   event_setter      (NihOption *option, const char *arg);
 static void  shutdown_now      (void)
 	__attribute__ ((noreturn));
 static void  cancel_callback   (void *data, NihSignal *signal)
@@ -96,32 +88,11 @@ static void  wall              (const char *message);
 
 
 /**
- * reboot:
+ * event:
  *
- * True if we should reboot after shutdown.
+ * Event to send after the shutdown event.
  **/
-static int reboot = FALSE;
-
-/**
- * shutdown:
- *
- * True if we should halt or poweroff after shutdown.
- **/
-static int shutdown = FALSE;
-
-/**
- * halt:
- *
- * True if we should halt after shutdown.
- **/
-static int halt = FALSE;
-
-/**
- * poweroff:
- *
- * True if we should power off after shutdown.
- **/
-static int poweroff = FALSE;
+static char *event = NULL;
 
 /**
  * cancel:
@@ -146,13 +117,6 @@ static int warn_only = FALSE;
 static char *when = NULL;
 
 /**
- * mode:
- *
- * Type of shutdown to perform.
- **/
-static int mode = SHUTDOWN;
-
-/**
  * delay:
  *
  * How long until we shutdown.
@@ -166,14 +130,16 @@ static int delay = 0;
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
+	{ 'e', "event", N_("shutdown event to send"),
+	  NULL, "EVENT", &event, NULL },
 	{ 'r', "reboot", N_("reboot after shutdown"),
-	  NULL, NULL, &reboot, NULL },
+	  NULL, NULL, &event, event_setter },
 	{ 'h', "shutdown", N_("halt or power off after shutdown"),
-	  NULL, NULL, &shutdown, NULL },
+	  NULL, NULL, &event, event_setter },
 	{ 'H', "halt", N_("halt after shutdown (implies -h)"),
-	  NULL, NULL, &halt, NULL },
+	  NULL, NULL, &event, event_setter },
 	{ 'P', "poweroff", N_("power off after shutdown (implies -h)"),
-	  NULL, NULL, &poweroff, NULL },
+	  NULL, NULL, &event, event_setter },
 	{ 'c', "cancel", N_("cancel a running shutdown"),
 	  NULL, NULL, &cancel, NULL },
 	{ 'k', "warn-only", N_("only send warnings, don't shutdown"),
@@ -211,18 +177,9 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
-	/* Operation mode */
-	if (reboot) {
-		mode = REBOOT;
-	} else if (halt) {
-		mode = HALT;
-	} else if (poweroff) {
-		mode = POWEROFF;
-	} else if (shutdown) {
-		mode = POWEROFF;
-	} else {
-		mode = SHUTDOWN;
-	}
+	/* If the event wasn't given explicitly, set it to maintenance */
+	if (! event)
+		NIH_MUST (event = nih_strdup (NULL, "maintenance"));
 
 
 	/* When may be specified with -g, or must be first argument */
@@ -231,7 +188,7 @@ main (int   argc,
 		nih_main_suggest_help ();
 		exit (1);
 	} else if (! (cancel || when)) {
-		when = nih_strdup (NULL, args[0]);
+		NIH_MUST (when = nih_strdup (NULL, args[0]));
 		arg = 1;
 	} else {
 		arg = 0;
@@ -294,7 +251,7 @@ main (int   argc,
 	 * Really this should be just the next argument, but that's not
 	 * how this has been traditionally done *sigh*
 	 */
-	message = nih_strdup (NULL, "");
+	NIH_MUST (message = nih_strdup (NULL, ""));
 	messagelen = 0;
 	for (; args[arg]; arg++) {
 		char *new_message;
@@ -401,6 +358,49 @@ main (int   argc,
 
 
 /**
+ * event_setter:
+ * @option: option found in arguments,
+ * @arg: always %NULL.
+ *
+ * This function is called whenever one of the -r, -h, -H or -P options
+ * is found in the argument list.  It changes the event (which can also
+ * be set by -e/--event) to that implied by the option.
+ **/
+static int
+event_setter (NihOption  *option,
+	      const char *arg)
+{
+	char **value;
+
+	nih_assert (option != NULL);
+	nih_assert (option->value != NULL);
+	nih_assert (arg == NULL);
+
+	value = (char **)option->value;
+
+	if (*value)
+		nih_free (*value);
+
+	switch (option->option) {
+	case 'r':
+		NIH_MUST (*value = nih_strdup (NULL, "reboot"));
+		break;
+	case 'h':
+		NIH_MUST (*value = nih_strdup (NULL, "poweroff"));
+		break;
+	case 'H':
+		NIH_MUST (*value = nih_strdup (NULL, "halt"));
+		break;
+	case 'P':
+		NIH_MUST (*value = nih_strdup (NULL, "poweroff"));
+		break;
+	}
+
+	return 0;
+}
+
+
+/**
  * shutdown_now:
  *
  * Send a signal to init to shut down the machine.
@@ -424,22 +424,9 @@ shutdown_now (void)
 		exit (1);
 	}
 
-	/* Pick the appropriate message to send */
-	switch (mode) {
-	case SHUTDOWN:
-		msg.type = UPSTART_EVENT_QUEUE;
-		msg.event_queue.name = "shutdown";
-		break;
-	case REBOOT:
-		msg.type = UPSTART_REBOOT;
-		break;
-	case HALT:
-		msg.type = UPSTART_HALT;
-		break;
-	case POWEROFF:
-		msg.type = UPSTART_POWEROFF;
-		break;
-	}
+	/* Build the message to send */
+	msg.type = UPSTART_SHUTDOWN;
+	msg.shutdown.name = event;
 
 	/* Send the message */
 	if (upstart_send_msg (sock, &msg) < 0) {
@@ -528,6 +515,7 @@ timer_callback (const char *message)
 	nih_free (msg);
 }
 
+
 /**
  * warning_message:
  * @message: user message.
@@ -542,79 +530,18 @@ warning_message (const char *message)
 {
 	nih_assert (message != NULL);
 
-	switch (mode) {
-	case SHUTDOWN:
-		if (delay > 1) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"maintenance in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"maintenance IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"maintenance NOW!\r\n%s"),
-				message);
-		}
-		break;
-	case REBOOT:
-		if (delay > 1) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"reboot in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"reboot IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"reboot NOW!\r\n%s"),
-				message);
-		}
-		break;
-	case HALT:
-		if (delay > 1) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"system halt in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"system halt IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"system halt NOW!\r\n%s"),
-				message);
-		}
-		break;
-	case POWEROFF:
-		if (delay > 1) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"power off in %d minutes!\r\n%s"),
-				delay, message);
-		} else if (delay) {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"power off IN ONE MINUTE!\r\n%s"),
-				message);
-		} else {
-			return nih_sprintf (
-				NULL, _("\rThe system is going down for "
-					"power off NOW!\r\n%s"),
-				message);
-		}
-		break;
+	if (delay > 1) {
+		return nih_sprintf (NULL, _("\rThe system is going down for "
+					    "%s in %d minutes!\r\n%s"),
+				    event, delay, message);
+	} else if (delay) {
+		return nih_sprintf (NULL, _("\rThe system is going down for "
+					    "%s IN ONE MINUTE!\r\n%s"),
+				    event, message);
+	} else {
+		return nih_sprintf (NULL, _("\rThe system is going down for "
+					    "%s NOW!\r\n%s"),
+				    event, message);
 	}
 
 	return NULL;
@@ -675,7 +602,8 @@ wall (const char *message)
 	}
 	if (! user) {
 		if (getuid ()) {
-			user = nih_sprintf (NULL, "uid %d", getuid ());
+			NIH_MUST (user = nih_sprintf (NULL, "uid %d",
+						      getuid ()));
 		} else {
 			user = "root";
 		}
@@ -694,10 +622,10 @@ wall (const char *message)
 	tm = localtime (&now);
 
 	/* Construct banner */
-	banner = nih_sprintf (NULL, _("\007\r\nBroadcast message from "
-				      "%s@%s\r\n\t(%s) at %d:%02d "
-				      "...\r\n\r\n"),
-			      user, hostname, tty, tm->tm_hour, tm->tm_min);
+	NIH_MUST (banner = nih_sprintf (
+			  NULL, _("\007\r\nBroadcast message from %s@%s\r\n"
+				  "\t(%s) at %d:%02d ...\r\n\r\n"),
+			  user, hostname, tty, tm->tm_hour, tm->tm_min));
 
 
 	/* Iterate entries in the utmp file */

@@ -352,9 +352,6 @@ upstart_send_msg_to (pid_t       pid,
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
 	case UPSTART_UNWATCH_EVENTS:
-	case UPSTART_HALT:
-	case UPSTART_POWEROFF:
-	case UPSTART_REBOOT:
 		/* No payload */
 		break;
 
@@ -403,7 +400,8 @@ upstart_send_msg_to (pid_t       pid,
 		break;
 	}
 	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT: {
+	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN: {
 		/* Event name */
 		WireEventPayload ev;
 
@@ -551,9 +549,6 @@ upstart_recv_msg (void  *parent,
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
 	case UPSTART_UNWATCH_EVENTS:
-	case UPSTART_HALT:
-	case UPSTART_POWEROFF:
-	case UPSTART_REBOOT:
 		/* No payload */
 		break;
 	case UPSTART_JOB_START:
@@ -601,7 +596,8 @@ upstart_recv_msg (void  *parent,
 		break;
 	}
 	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT: {
+	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN: {
 		/* Event name */
 		WireEventPayload ev;
 

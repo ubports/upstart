@@ -575,9 +575,7 @@ enum {
 	TEST_EVENT_TRIGGERED,
 	TEST_JOB_WATCH,
 	TEST_EVENT_WATCH,
-	TEST_HALT,
-	TEST_POWEROFF,
-	TEST_REBOOT
+	TEST_SHUTDOWN
 };
 
 static pid_t
@@ -842,18 +840,11 @@ test_watcher_child (int test)
 		s_msg->type = UPSTART_UNWATCH_EVENTS;
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
 		break;
-	case TEST_HALT:
-	case TEST_POWEROFF:
-	case TEST_REBOOT:
+	case TEST_SHUTDOWN:
 		s_msg->type = UPSTART_WATCH_EVENTS;
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
-		if (test == TEST_HALT) {
-			s_msg->type = UPSTART_HALT;
-		} else if (test == TEST_POWEROFF) {
-			s_msg->type = UPSTART_POWEROFF;
-		} else if (test == TEST_REBOOT) {
-			s_msg->type = UPSTART_REBOOT;
-		}
+		s_msg->type = UPSTART_SHUTDOWN;
+		s_msg->shutdown.name = "halt";
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
 		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
 
@@ -878,21 +869,9 @@ test_watcher_child (int test)
 		}
 
 		/* Event should be the right idle one */
-		if (test == TEST_HALT) {
-			if (strcmp (r_msg->event.name, "halt")) {
-				printf ("BAD: name wasn't what we expected.\n");
-				ret = 1;
-			}
-		} else if (test == TEST_POWEROFF) {
-			if (strcmp (r_msg->event.name, "poweroff")) {
-				printf ("BAD: name wasn't what we expected.\n");
-				ret = 1;
-			}
-		} else if (test == TEST_REBOOT) {
-			if (strcmp (r_msg->event.name, "reboot")) {
-				printf ("BAD: name wasn't what we expected.\n");
-				ret = 1;
-			}
+		if (strcmp (r_msg->event.name, "halt")) {
+			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
 		}
 
 		s_msg->type = UPSTART_UNWATCH_EVENTS;
@@ -1058,8 +1037,8 @@ test_watcher (void)
 	event_queue_run ();
 
 
-	printf ("...with halt event\n");
-	pid = test_watcher_child (TEST_HALT);
+	printf ("...with shutdown event\n");
+	pid = test_watcher_child (TEST_SHUTDOWN);
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	job_detect_idle ();
 	event_queue_run ();
@@ -1068,28 +1047,7 @@ test_watcher (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
-
-	printf ("...with poweroff event\n");
-	pid = test_watcher_child (TEST_POWEROFF);
-	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
-	job_detect_idle ();
 	event_queue_run ();
-	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		ret = 1;
-
-
-	printf ("...with reboot event\n");
-	pid = test_watcher_child (TEST_REBOOT);
-	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
-	job_detect_idle ();
-	event_queue_run ();
-	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		ret = 1;
-
 
 	upstart_disable_safeties = FALSE;
 	control_close ();
