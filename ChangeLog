@@ -1,5 +1,8 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* util/Makefile.am (install-exec-local): Create symbolic links,
+	not hard links.
+
 	* init/main.c: Can't catch STOP.
 
 	* util/reboot.c: Pause init while shutting down or rebooting.

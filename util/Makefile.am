@@ -32,11 +32,11 @@ start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
 
 install-exec-local:
-	ln reboot $(DESTDIR)$(sbindir)/halt
-	ln reboot $(DESTDIR)$(sbindir)/poweroff
+	ln -sf reboot $(DESTDIR)$(sbindir)/halt
+	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
 
-	ln start $(DESTDIR)$(sbindir)/stop
-	ln start $(DESTDIR)$(sbindir)/status
+	ln -sf start $(DESTDIR)$(sbindir)/stop
+	ln -sf start $(DESTDIR)$(sbindir)/status
 
 
 TESTS = 
