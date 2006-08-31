@@ -13,40 +13,22 @@ sbin_PROGRAMS = \
 	shutdown \
 	start
 
-initctl_SOURCES = \
-	initctl.c
 
+initctl_SOURCES = initctl.c
 initctl_LDFLAGS = -static
-initctl_LDADD = \
-	../nih/libnih.la \
-	../upstart/libupstart.la
+initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
-
-shutdown_SOURCES = \
-	shutdown.c
-
+shutdown_SOURCES = shutdown.c
 shutdown_LDFLAGS = -static
-shutdown_LDADD = \
-	../nih/libnih.la \
-	../upstart/libupstart.la
+shutdown_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
-
-reboot_SOURCES = \
-	reboot.c
-
+reboot_SOURCES = reboot.c
 reboot_LDFLAGS = -static
-reboot_LDADD = \
-	../nih/libnih.la \
-	../upstart/libupstart.la
+reboot_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
-
-start_SOURCES = \
-	start.c
-
+start_SOURCES = start.c
 start_LDFLAGS = -static
-start_LDADD = \
-	../nih/libnih.la \
-	../upstart/libupstart.la
+start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
 
 install-exec-local:
