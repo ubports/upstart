@@ -1,5 +1,10 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): As well as the job/state events,
+	send the job event when a service is running or a task is stopping.
+	* init/tests/test_job.c (test_change_state): Check the events get
+	sent properly.
+
 	* util/start.c: Write a simple utility to start, stop, or query
 	the status of the named jobs.
 	* util/Makefile.am (sbin_PROGRAMS): Build and install start

@@ -413,10 +413,61 @@ test_change_state (void)
 	unlink (filename);
 
 
+	printf ("...starting to running with respawn\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->respawn = TRUE;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_RUNNING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* First event should be job event */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test")) {
+		printf ("BAD: event wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Next event should be started */
+	event = (Event *)list->prev->prev;
+	if (strcmp (event->name, "test/started")) {
+		printf ("BAD: event wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Command should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
 	printf ("...starting to running with script\n");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 	job->process_state = PROCESS_NONE;
+	job->respawn = FALSE;
 	job->script = job->command;
 	job->command = NULL;
 	job_change_state (job, JOB_RUNNING);
@@ -567,8 +618,15 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be stop */
+	/* First event should be the job event */
 	event = (Event *)list->prev;
+	if (strcmp (event->name, "test")) {
+		printf ("BAD: event wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Next event should be stop */
+	event = (Event *)list->prev->prev;
 	if (strcmp (event->name, "test/stop")) {
 		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
