@@ -1,5 +1,7 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Can't catch STOP.
+
 	* util/reboot.c: Pause init while shutting down or rebooting.
 
 	* init/main.c (stop_handler): Catch STOP/TSTP and CONT.

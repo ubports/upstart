@@ -68,7 +68,6 @@ main (int   argc,
 
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
 
-	nih_log_set_priority (NIH_LOG_DEBUG);
 	nih_log_set_logger (nih_logger_syslog);
 
 	/* Close any file descriptors we inherited, and open the console
@@ -91,7 +90,6 @@ main (int   argc,
 		exit (1);
 	}
 
-
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
@@ -99,7 +97,6 @@ main (int   argc,
 	nih_signal_reset ();
 	nih_signal_set_handler (SIGALRM,  nih_signal_handler);
 	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
-	nih_signal_set_handler (SIGSTOP,  nih_signal_handler);
 	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
 	nih_signal_set_handler (SIGCONT,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
@@ -107,7 +104,6 @@ main (int   argc,
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
 
 	/* Ensure that we don't process events while paused */
-	nih_signal_add_callback (NULL, SIGSTOP, stop_handler, NULL);
 	nih_signal_add_callback (NULL, SIGTSTP, stop_handler, NULL);
 	nih_signal_add_callback (NULL, SIGCONT, stop_handler, NULL);
 
