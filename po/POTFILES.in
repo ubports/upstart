@@ -30,3 +30,9 @@ init/process.c
 logd/main.c
 
 util/initctl.c
+util/reboot.c
+util/shutdown.c
+util/start.c
+
+compat/sysv/runlevel.c
+compat/sysv/telinit.c
