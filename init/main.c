@@ -68,7 +68,6 @@ main (int   argc,
 
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
 
-	nih_log_set_priority (NIH_LOG_DEBUG);
 	nih_log_set_logger (nih_logger_syslog);
 
 	/* Close any file descriptors we inherited, and open the console
