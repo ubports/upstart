@@ -297,8 +297,6 @@ process_setup_console (ConsoleType type)
 		/* Open the console itself */
 		fd = open (CONSOLE, O_RDWR|O_NOCTTY);
 		if (fd >= 0) {
-			struct termios tty;
-
 			/* Take ownership of the console */
 			if (type == CONSOLE_OWNER)
 				ioctl (fd, TIOCSCTTY, 1);

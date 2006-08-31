@@ -169,6 +169,8 @@ main (int   argc,
 static void
 reset_console (void)
 {
+	struct termios tty;
+
 	tcgetattr (0, &tty);
 
 	tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB | PARODD);
