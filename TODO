@@ -1,6 +1,8 @@
 High Priority:
 
- * figure out what about setup_console kills X
+ * sulogin (on stalled)
+
+ * Make sure processes don't respawn out of control.
 
  * Logging of processes.  Involves writing logd and putting the
    opposite hooks to it in init.
@@ -12,20 +14,19 @@ High Priority:
       look like syslog
     - run other commands like usplash_write, spdsay, etc.
 
- * Make sure processes don't respawn out of control.
+ * option parsing, and kernel command-line parsing
 
  * re-exec: fork, exec in parent, child sends the state; we'll just want the
    job states as the child will have parsed the configuration
 
- * sulogin (on stalled)
 
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)
 
  * Configuration files can be moved.
 
- * Move config file parsing code into libnih and just have a stanza callback
-   function (so we can use it for all config file stuff)
+ * Move config file parsing code into libupstart and just have a stanza
+   callback function (so we can use it for all config file stuff)
 
 
  * cfg_watch_dir needs testing, as does cfg_watcher

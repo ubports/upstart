@@ -1,5 +1,10 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_console): Remove the console reset
+	code, it tends to just crash X and seems to do nothing interesting.
+	* init/main.c (reset_console): Instead put it here and just do it
+	on startup.
+
 	* configure.ac: Bump version to 0.2.0
 
 	* util/Makefile.am (install-exec-local): Create symbolic links,

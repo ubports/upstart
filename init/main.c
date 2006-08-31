@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <termios.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -53,10 +54,12 @@
 
 
 /* Prototypes for static functions */
-static void segv_handler (int signum);
-static void cad_handler  (void *data, NihSignal *signal);
-static void kbd_handler  (void *data, NihSignal *signal);
-static void stop_handler (void *data, NihSignal *signal);
+static void reset_console (void);
+static void segv_handler  (int signum);
+static void cad_handler   (void *data, NihSignal *signal);
+static void kbd_handler   (void *data, NihSignal *signal);
+static void stop_handler  (void *data, NihSignal *signal);
+
 
 int
 main (int   argc,
@@ -77,6 +80,7 @@ main (int   argc,
 		close (i);
 
 	process_setup_console (CONSOLE_OUTPUT);
+	reset_console ();
 
 	/* Check we're root */
 	if (getuid ()) {
@@ -153,6 +157,43 @@ main (int   argc,
 	ret = nih_main_loop ();
 
 	return ret;
+}
+
+
+/**
+ * reset_console:
+ *
+ * Set up the console flags to something sensible.  Cribbed from sysvinit,
+ * initng, etc.
+ **/
+static void
+reset_console (void)
+{
+	tcgetattr (0, &tty);
+
+	tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB | PARODD);
+	tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
+
+	/* Set up usual keys */
+	tty.c_cc[VINTR]  = 3;   /* ^C */
+	tty.c_cc[VQUIT]  = 28;  /* ^\ */
+	tty.c_cc[VERASE] = 127;
+	tty.c_cc[VKILL]  = 24;  /* ^X */
+	tty.c_cc[VEOF]   = 4;   /* ^D */
+	tty.c_cc[VTIME]  = 0;
+	tty.c_cc[VMIN]   = 1;
+	tty.c_cc[VSTART] = 17;  /* ^Q */
+	tty.c_cc[VSTOP]  = 19;  /* ^S */
+	tty.c_cc[VSUSP]  = 26;  /* ^Z */
+
+	/* Pre and post processing */
+	tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
+	tty.c_oflag = (OPOST | ONLCR);
+	tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL | ECHOPRT | ECHOKE);
+
+	/* Set the terminal line and flush it */
+	tcsetattr (0, TCSANOW, &tty);
+	tcflush (0, TCIOFLUSH);
 }
 
 
