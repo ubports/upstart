@@ -29,39 +29,32 @@
 /**
  * Event:
  * @entry: list header,
- * @name: string name of the event; namespace shared with jobs,
- * @value: current or expected value for level events.
+ * @name: string name of the event.
  *
- * We talk about two types of events, level events which have a @value
- * associated and edge events which do not (@value is %NULL).  The change
- * of any level event's @value is also considered an edge event.
+ * Events occur whenever something, somewhere changes state.  They are
+ * placed in the event queue and can cause jobs to change their goal to
+ * start or stop.
  *
- * This structure is used within the event code to hold a record of previously
- * seen events and the current value of level events; it is also
- * used within the job code to hold the list of events a job is waiting for.
+ * Once processed, they are forgotten about.  The state is stored by the
+ * event generator (the job state machine or external process) and upstart
+ * makes no attempt to track it.
  **/
 typedef struct event {
 	NihList  entry;
 
 	char    *name;
-	char    *value;
 } Event;
 
 
 NIH_BEGIN_EXTERN
 
-Event *event_new          (void *parent, const char *name)
+Event *event_new       (void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
-Event *event_record       (void *parent, const char *name);
 
-Event *event_find_by_name (const char *name);
-int    event_match        (Event *event1, Event *event2);
+int    event_match     (Event *event1, Event *event2);
 
-int    event_change_value (Event *event, const char *value);
-
-Event *event_queue_edge   (const char *name);
-Event *event_queue_level  (const char *name, const char *value);
-void   event_queue_run    (void);
+Event *event_queue     (const char *name);
+void   event_queue_run (void);
 
 NIH_END_EXTERN
 

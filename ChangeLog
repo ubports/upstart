@@ -1,5 +1,40 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	This is quite a big change and abolishes level events entirely,
+	along with the event history.  We now just treat events as a
+	transient queue of strings that go past, may cause things to change,
+	but are otherwise forgotten.  This turns out to be much easier to
+	understand and has no real loss of power.
+
+	* init/event.c: Vastly simplify; gone are the separate notions of
+	edge and level events, instead we just treat them as one-shot
+	things that go past and are forgotten about.
+	* init/event.h (Event): Remove value member.
+	Update prototypes.
+	* init/tests/test_event.c: Update.
+	* init/job.c (job_change_state): Change the event pattern to be
+	one that includes the job name and a description of the transition
+	instead of the new state.
+	(job_detect_idle): Call event_queue rather than event_queue_edge.
+	* init/tests/test_job.c: Update.
+	* init/cfgfile.c (cfg_job_stanza): Drop "when" and "while".
+	* init/tests/test_cfgfile.c (test_read_job): Drop mentions of
+	"when" and "while".
+	* init/control.c (control_send, control_handle): Drop cases for
+	level events.
+	(control_handle_event): Don't include a level in the event.
+	* init/tests/test_control.c: Update
+	* init/main.c: Call event_queue rather than event_queue_edge.
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Change
+	event handling so that only a name is read.
+	* upstart/control.h: Remove value/level event structures.
+	* upstart/tests/test_control.c (test_messages): Update.
+	* upstart/job.c (process_state_name): Not used for events, adjust
+	documentation so it doesn't lie.
+	* util/initctl.c (main): Drop the set function, simplify trigger.
+	* util/shutdown.c (shutdown_now): Call UPSTART_EVENT_QUEUE for
+	shutdown into maintenance mode.
+
 	* init/control.c (control_handle): Place a message in the syslog
 	before halting, powering off or rebooting.
 

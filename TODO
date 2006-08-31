@@ -1,6 +1,9 @@
 High Priority:
 
- * init should write a log message before reboot, etc.
+ * send "job" event on running or stopping
+
+ * make a new shutdown control message that we'll use for all of the
+   variations
 
  * figure out what about setup_console kills X
 
@@ -15,12 +18,6 @@ High Priority:
     - run other commands like usplash_write, spdsay, etc.
 
  * Make sure processes don't respawn out of control.
-
- * simplify events to just a string, remove all records and state of events
-
- * Replace when/while/etc. with a single code path of "on", add "at" alias?
-
- * send "job" event on running or stopping
 
  * re-exec: fork, exec in parent, child sends the state; we'll just want the
    job states as the child will have parsed the configuration

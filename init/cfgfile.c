@@ -381,98 +381,13 @@ cfg_job_stanza (Job        *job,
 				  _("expected event name"));
 		}
 
-	} else if (! strncmp (file + tok_start, "when", tok_len)) {
-		/* when WS <event> FWS (is FWS)? <value>
-		 *
-		 * names a level event that will cause the job to be
-		 * started.
-		 */
-		Event *event;
-		char  *name, *value;
-
-		/* Grab the event name */
-		if (*arg) {
-			name = *arg;
-		} else {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected event name"));
-		}
-
-		/* Grab the value */
-		if (arg && *++arg) {
-			value = *arg;
-		} else if (arg) {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'is' or event value"));
-		}
-
-		/* If the value is "is" then the argument after may
-		 * be the value (if not, we assume is was the value)
-		 */
-		if (arg && (! strcmp (value, "is")) && *++arg)
-			value = *arg;
-
-		/* Store the event */
-		if (arg) {
-			event = event_new (job, name);
-			event->value = nih_strdup (event, value);
-			nih_list_add (&job->start_events, &event->entry);
-		}
-
-	} else if (! strncmp (file + tok_start, "while", tok_len)) {
-		/* while WS <event> FWS (is FWS)? <value>
-		 *
-		 * short cut for naming a level event that will cause the
-		 * job to be started and stopped when it changes again.
-		 */
-		Event *event;
-		char  *name, *value;
-
-		/* Grab the event name */
-		if (*arg) {
-			name = *arg;
-		} else {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected event name"));
-		}
-
-		/* Grab the value */
-		if (arg && *++arg) {
-			value = *arg;
-		} else if (arg) {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'is' or event value"));
-		}
-
-		/* If the value is "is" then the argument after may
-		 * be the value (if not, we assume is was the value)
-		 */
-		if (arg && (! strcmp (value, "is")) && *++arg)
-			value = *arg;
-
-		/* Store the event */
-		if (arg) {
-			event = event_new (job, name);
-			event->value = nih_strdup (event, value);
-			nih_list_add (&job->start_events, &event->entry);
-
-			event = event_new (job, name);
-			nih_list_add (&job->stop_events, &event->entry);
-		}
-
 	} else if (! strncmp (file + tok_start, "start", tok_len)) {
 		/* start WS on FWS <event>
-		 * start WS when FWS <event> FWS (is FWS)? <value>
 		 * start WS script ... end WS script
 		 *
-		 * names an event that will cause the job to be started,
-		 * the second indicates that it is a level event.
+		 * names an event that will cause the job to be started.
 		 *
-		 * third form declares a script that will be run while
+		 * second form declares a script that will be run while
 		 * the job is starting.
 		 */
 		if (*arg && (! strcmp (*arg, "on"))) {
@@ -485,41 +400,6 @@ cfg_job_stanza (Job        *job,
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected event name"));
-			}
-		} else if (*arg && (! strcmp (*arg, "when"))) {
-			Event *event;
-			char  *name, *value;
-
-			/* Grab the event name */
-			if (*++arg) {
-				name = *arg;
-			} else {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected event name"));
-			}
-
-			/* Grab the value */
-			if (arg && *++arg) {
-				value = *arg;
-			} else if (arg) {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected 'is' or event value"));
-			}
-
-			/* If the value is "is" then the argument after may
-			 * be the value (if not, we assume is was the value)
-			 */
-			if (arg && (! strcmp (value, "is")) && *++arg)
-				value = *arg;
-
-			/* Store the event */
-			if (arg) {
-				event = event_new (job, name);
-				event->value = nih_strdup (event, value);
-				nih_list_add (&job->start_events,
-					      &event->entry);
 			}
 
 		} else if (*arg && (! strcmp (*arg, "script"))) {
@@ -537,18 +417,16 @@ cfg_job_stanza (Job        *job,
 
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'on', 'when' or 'script'"));
+				  _("expected 'on' or 'script'"));
 		}
 
 	} else if (! strncmp (file + tok_start, "stop", tok_len)) {
 		/* stop WS on FWS <event>
-		 * stop WS when FWS <event> FWS (is FWS)? <value>
 		 * stop WS script ... end WS script
 		 *
-		 * names an event that will cause the job to be stopped,
-		 * the second indicates that it is a level event.
+		 * names an event that will cause the job to be stopped.
 		 *
-		 * third form declares a script that will be run while
+		 * second form declares a script that will be run while
 		 * the job is stopping.
 		 */
 		if (*arg && (! strcmp (*arg, "on"))) {
@@ -561,41 +439,6 @@ cfg_job_stanza (Job        *job,
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected event name"));
-			}
-		} else if (*arg && (! strcmp (*arg, "when"))) {
-			Event *event;
-			char  *name, *value;
-
-			/* Grab the event name */
-			if (*++arg) {
-				name = *arg;
-			} else {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected event name"));
-			}
-
-			/* Grab the value */
-			if (arg && *++arg) {
-				value = *arg;
-			} else if (arg) {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected 'is' or event value"));
-			}
-
-			/* If the value is "is" then the argument after may
-			 * be the value (if not, we assume is was the value)
-			 */
-			if (arg && (! strcmp (value, "is")) && *++arg)
-				value = *arg;
-
-			/* Store the event */
-			if (arg) {
-				event = event_new (job, name);
-				event->value = nih_strdup (event, value);
-				nih_list_add (&job->stop_events,
-					      &event->entry);
 			}
 
 		} else if (*arg && (! strcmp (*arg, "script"))) {
@@ -613,7 +456,7 @@ cfg_job_stanza (Job        *job,
 
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'on', 'when' or 'script'"));
+				  _("expected 'on' or 'script'"));
 		}
 
 	} else if (! strncmp (file + tok_start, "exec", tok_len)) {

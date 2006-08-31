@@ -141,7 +141,7 @@ main (int   argc,
 
 
 	/* Generate and run the startup event */
-	event_queue_edge ("startup");
+	event_queue ("startup");
 	event_queue_run ();
 
 	/* Go! */
@@ -221,7 +221,7 @@ static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue_edge ("control-alt-delete");
+	event_queue ("control-alt-delete");
 }
 
 /**
@@ -237,5 +237,5 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue_edge ("kbdrequest");
+	event_queue ("kbdrequest");
 }

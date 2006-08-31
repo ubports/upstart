@@ -34,7 +34,7 @@
  * job_goal_name:
  * @goal: goal to convert.
  *
- * Converts an enumerated job goal into the string used for the event
+ * Converts an enumerated job goal into the string used for the status
  * and for logging purposes.
  *
  * Returns: static string or %NULL if state not known.
@@ -56,7 +56,7 @@ job_goal_name (JobGoal goal)
  * job_state_name:
  * @state: state to convert.
  *
- * Converts an enumerated job state into the string used for the event
+ * Converts an enumerated job state into the string used for the status
  * and for logging purposes.
  *
  * Returns: static string or %NULL if state not known.
@@ -84,7 +84,7 @@ job_state_name (JobState state)
  * process_state_name:
  * @state: state to convert.
  *
- * Converts an enumerated process state into the string used for the event
+ * Converts an enumerated process state into the string used for the status
  * and for logging purposes.
  *
  * Returns: static string or %NULL if state not known.

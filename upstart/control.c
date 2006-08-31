@@ -155,18 +155,14 @@ typedef struct wire_job_status_payload {
 
 /**
  * WireEventPayload:
- * @namelen: length of @name,
- * @levellen: length of @level.
+ * @namelen: length of @name.
  *
  * This is the payload of a message containing event information, the name
- * and level follow immediately after the payload.  If @levellen is zero
- * then the resulting level is %NULL.
+ * follows immediately after the payload.
  **/
 typedef struct wire_event_payload {
 	size_t namelen;
-	size_t levellen;
 	/* char name[namelen]; */
-	/* char level[levellen]; */
 } WireEventPayload;
 
 
@@ -406,29 +402,15 @@ upstart_send_msg_to (pid_t       pid,
 
 		break;
 	}
-	case UPSTART_EVENT_QUEUE_EDGE:
-	case UPSTART_EVENT_QUEUE_LEVEL:
+	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT: {
-		/* Event name, followed by optional level */
+		/* Event name */
 		WireEventPayload ev;
 
 		ev.namelen = strlen (message->event.name);
-		if ((message->type == UPSTART_EVENT_QUEUE_LEVEL)
-		    || ((message->type == UPSTART_EVENT)
-			&& (message->event.level != NULL)))
-		{
-			ev.levellen = strlen (message->event.level);
-		} else {
-			ev.levellen = 0;
-		}
-
 		IOVEC_ADD (iov[0], &ev, sizeof (ev), sizeof (buf));
 		IOVEC_ADD (iov[0], message->event.name, ev.namelen,
 			   sizeof (buf));
-		if (ev.levellen) {
-			IOVEC_ADD (iov[0], message->event.level,
-				   ev.levellen, sizeof (buf));
-		}
 
 		break;
 	}
@@ -618,31 +600,15 @@ upstart_recv_msg (void  *parent,
 
 		break;
 	}
-	case UPSTART_EVENT_QUEUE_EDGE:
-	case UPSTART_EVENT_QUEUE_LEVEL:
+	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT: {
-		/* Event name, followed by optional level */
+		/* Event name */
 		WireEventPayload ev;
 
 		IOVEC_READ (iov[0], &ev, sizeof (ev), len);
 		message->event.name = nih_alloc (message, ev.namelen + 1);
 		message->event.name[ev.namelen] = '\0';
 		IOVEC_READ (iov[0], message->event.name, ev.namelen, len);
-
-		if (message->type == UPSTART_EVENT_QUEUE_EDGE) {
-			/* Ignore levellen for edge trigger message */
-		} else if (ev.levellen) {
-			message->event.level = nih_alloc (
-				message, ev.levellen + 1);
-			message->event.level[ev.levellen] = '\0';
-			IOVEC_READ (iov[0], message->event.level,
-				    ev.levellen, len);
-		} else if (message->type == UPSTART_EVENT_QUEUE_LEVEL) {
-			/* Level events must have a level */
-			goto invalid;
-		} else {
-			message->event.level = NULL;
-		}
 
 		break;
 	}

@@ -248,7 +248,7 @@ job_find_by_pid (pid_t pid)
  * given, performing any actions to correctly enter the new state (such
  * as spawning scripts or processes).
  *
- * The associated level event is also set by this function.
+ * The associated event is also queued by this function.
  *
  * It does NOT perform any actions to leave the current state, so this
  * function may only be called when there is no active process.
@@ -266,7 +266,8 @@ job_change_state (Job      *job,
 	nih_assert (job->process_state == PROCESS_NONE);
 
 	while (job->state != state) {
-		JobState old_state;
+		JobState  old_state;
+		char     *event;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
@@ -285,6 +286,8 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
+			event = nih_sprintf (job, "%s/stopped", job->name);
+
 			break;
 		case JOB_STARTING:
 			nih_assert ((old_state == JOB_WAITING)
@@ -295,6 +298,8 @@ job_change_state (Job      *job,
 			} else {
 				state = job_next_state (job);
 			}
+
+			event = nih_sprintf (job, "%s/start", job->name);
 
 			break;
 		case JOB_RUNNING:
@@ -324,6 +329,8 @@ job_change_state (Job      *job,
 			if (job->process_state == PROCESS_ACTIVE)
 				job_release_depends (job);
 
+			event = nih_sprintf (job, "%s/started", job->name);
+
 			break;
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
@@ -336,6 +343,8 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
+			event = nih_sprintf (job, "%s/stop", job->name);
+
 			break;
 		case JOB_RESPAWNING:
 			nih_assert (old_state == JOB_RUNNING);
@@ -346,12 +355,15 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
+			event = nih_sprintf (job, "%s/respawn", job->name);
+
 			break;
 		}
 
-		/* Notify subscribed processes and queue the level event */
+		/* Notify subscribed processes and queue the event */
 		control_handle_job (job);
-		event_queue_level (job->name, job_state_name (job->state));
+		event_queue (event);
+		nih_free (event);
 	}
 }
 
@@ -1050,9 +1062,8 @@ job_stop_event (Job   *job,
  * job_handle_event:
  * @event: event to be handled.
  *
- * This function is called whenever an edge event is set or the level
- * of a level event is changed.  It iterates the list of jobs and stops
- * or starts any necessary.
+ * This function is called whenever an event occurs.  It iterates the list
+ * of jobs and stops or starts any necessary.
  **/
 void
 job_handle_event (Event *event)
@@ -1117,11 +1128,13 @@ job_detect_idle (void)
 	}
 
 	if (idle && idle_event) {
-		event_queue_edge (idle_event);
-		nih_main_loop_interrupt ();
+		event_queue (idle_event);
 		idle_event = NULL;
+
+		nih_main_loop_interrupt ();
 	} else if (stalled) {
-		event_queue_edge ("stalled");
+		event_queue ("stalled");
+
 		nih_main_loop_interrupt ();
 	}
 }

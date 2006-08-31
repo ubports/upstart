@@ -56,8 +56,7 @@ typedef enum {
 	UPSTART_JOB_LIST_END,
 
 	/* Event messages and responses */
-	UPSTART_EVENT_QUEUE_EDGE,
-	UPSTART_EVENT_QUEUE_LEVEL,
+	UPSTART_EVENT_QUEUE,
 	UPSTART_EVENT,
 
 	/* Watches */
@@ -214,50 +213,28 @@ typedef struct upstart_job_list_end_msg {
 } UpstartJobListEndMsg;
 
 /**
- * UpstartEventQueueEdgeMsg:
- * @type: always UPSTART_EVENT_QUEUE_EDGE,
+ * UpstartEventQueueMsg:
+ * @type: always UPSTART_EVENT_QUEUE,
  * @name: name of event to queue.
  *
- * This message queues the edge event called @name, which may cause jobs
+ * This message queues the event called @name, which may cause jobs
  * to be stopped or started.
  *
  * Direction: client to server,
  * Response: none.
  **/
-typedef struct upstart_event_queue_edge_msg {
+typedef struct upstart_event_queue_msg {
 	UpstartMsgType  type;
 
 	char           *name;
-} UpstartEventQueueEdgeMsg;
-
-/**
- * UpstartEventQueueLevelMsg:
- * @type: always UPSTART_EVENT_qUEUE_LEVEL,
- * @name: name of event to queue,
- * @level: level to set.
- *
- * This message queues a change of the level event called @name to @level,
- * which may cause jobs to be stopped or started.  This has no effect if
- * the @level is not a change from the current one.
- *
- * Direction: client to server,
- * Response: none.
- **/
-typedef struct upstart_event_queue_level_msg {
-	UpstartMsgType  type;
-
-	char           *name;
-	char           *level;
-} UpstartEventQueueLevelMsg;
+} UpstartEventQueueMsg;
 
 /**
  * UpstartEventMsg:
  * @type: always UPSTART_EVENT,
- * @name: name of event,
- * @level: level.
+ * @name: name of event.
  *
- * This message indicates that an event named @name has occurred at
- * @level, which may be %NULL if it is a pure edge event.
+ * This message indicates that an event named @name has occurred.
  *
  * Direction: server to client,
  * Response: none.
@@ -266,7 +243,6 @@ typedef struct upstart_event_msg {
 	UpstartMsgType  type;
 
 	char           *name;
-	char           *level;
 } UpstartEventMsg;
 
 /**
@@ -374,30 +350,29 @@ typedef struct upstart_reboot_msg {
  * msg.type and then use the appropriate member.
  **/
 typedef union upstart_msg {
-	UpstartMsgType            type;
+	UpstartMsgType          type;
 
-	UpstartNoOpMsg            no_op;
+	UpstartNoOpMsg          no_op;
 
-	UpstartJobStartMsg        job_start;
-	UpstartJobStopMsg         job_stop;
-	UpstartJobQueryMsg        job_query;
-	UpstartJobStatusMsg       job_status;
-	UpstartJobUnknownMsg      job_unknown;
-	UpstartJobListMsg         job_list;
-	UpstartJobListEndMsg      job_list_end;
+	UpstartJobStartMsg      job_start;
+	UpstartJobStopMsg       job_stop;
+	UpstartJobQueryMsg      job_query;
+	UpstartJobStatusMsg     job_status;
+	UpstartJobUnknownMsg    job_unknown;
+	UpstartJobListMsg       job_list;
+	UpstartJobListEndMsg    job_list_end;
 
-	UpstartEventQueueEdgeMsg  event_queue_edge;
-	UpstartEventQueueLevelMsg event_queue_level;
-	UpstartEventMsg           event;
+	UpstartEventQueueMsg    event_queue;
+	UpstartEventMsg         event;
 
-	UpstartWatchJobsMsg       watch_jobs;
-	UpstartUnwatchJobsMsg     unwatch_jobs;
-	UpstartWatchEventsMsg     watch_events;
-	UpstartUnwatchEventsMsg   unwatch_events;
+	UpstartWatchJobsMsg     watch_jobs;
+	UpstartUnwatchJobsMsg   unwatch_jobs;
+	UpstartWatchEventsMsg   watch_events;
+	UpstartUnwatchEventsMsg unwatch_events;
 
-	UpstartHaltMsg            halt;
-	UpstartPoweroffMsg        poweroff;
-	UpstartRebootMsg          reboot;
+	UpstartHaltMsg          halt;
+	UpstartPoweroffMsg      poweroff;
+	UpstartRebootMsg        reboot;
 } UpstartMsg;
 
 

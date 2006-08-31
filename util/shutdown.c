@@ -427,8 +427,8 @@ shutdown_now (void)
 	/* Pick the appropriate message to send */
 	switch (mode) {
 	case SHUTDOWN:
-		msg.type = UPSTART_EVENT_QUEUE_EDGE;
-		msg.event_queue_edge.name = "shutdown";
+		msg.type = UPSTART_EVENT_QUEUE;
+		msg.event_queue.name = "shutdown";
 		break;
 	case REBOOT:
 		msg.type = UPSTART_REBOOT;

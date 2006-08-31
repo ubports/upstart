@@ -277,22 +277,10 @@ control_send (pid_t       pid,
 				= nih_strdup (msg,
 					      message->job_status.description);
 		break;
-	case UPSTART_EVENT_QUEUE_EDGE:
-		msg->message.event.name
-			= nih_strdup (msg, message->event.name);
-		break;
-	case UPSTART_EVENT_QUEUE_LEVEL:
-		msg->message.event.name
-			= nih_strdup (msg, message->event.name);
-		msg->message.event.level
-			= nih_strdup (msg, message->event.level);
-		break;
+	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT:
 		msg->message.event.name
 			= nih_strdup (msg, message->event.name);
-		if (message->event.level)
-			msg->message.event.level
-				= nih_strdup (msg, message->event.level);
 		break;
 	default:
 		break;
@@ -495,19 +483,11 @@ control_handle (pid_t       pid,
 		reply->type = UPSTART_JOB_LIST_END;
 
 		break;
-	case UPSTART_EVENT_QUEUE_EDGE:
-		nih_info (_("Control request to queue %s"),
-			  msg->event_queue_edge.name);
+	case UPSTART_EVENT_QUEUE:
+		nih_info (_("Control request to queue event %s"),
+			  msg->event_queue.name);
 
-		event_queue_edge (msg->event_queue_edge.name);
-		break;
-	case UPSTART_EVENT_QUEUE_LEVEL:
-		nih_info (_("Control request to queue %s %s"),
-			  msg->event_queue_level.name,
-			  msg->event_queue_level.level);
-
-		event_queue_level (msg->event_queue_level.name,
-				   msg->event_queue_level.level);
+		event_queue (msg->event_queue.name);
 		break;
 	case UPSTART_WATCH_JOBS:
 		nih_info (_("Control request to subscribe %d to jobs"), pid);
@@ -529,17 +509,17 @@ control_handle (pid_t       pid,
 		break;
 	case UPSTART_HALT:
 		nih_warn (_("System going down for system halt"));
-		event_queue_edge ("shutdown");
+		event_queue ("shutdown");
 		job_set_idle_event ("halt");
 		break;
 	case UPSTART_POWEROFF:
 		nih_warn (_("System going down for power off"));
-		event_queue_edge ("shutdown");
+		event_queue ("shutdown");
 		job_set_idle_event ("poweroff");
 		break;
 	case UPSTART_REBOOT:
 		nih_warn (_("System going down for reboot"));
-		event_queue_edge ("shutdown");
+		event_queue ("shutdown");
 		job_set_idle_event ("reboot");
 		break;
 	default:
@@ -591,9 +571,8 @@ control_handle_job (Job *job)
  * control_handle_event:
  * @event: event to handle.
  *
- * Called when an edge event occurrs or the value of a level event
- * is changed.  Notifies subscribed processes with an UPSTART_EVENT
- * message.
+ * Called when an event occurrs.  Notifies subscribed processes with an
+ * UPSTART_EVENT message.
  **/
 void
 control_handle_event (Event *event)
@@ -606,7 +585,6 @@ control_handle_event (Event *event)
 
 	msg.type = UPSTART_EVENT;
 	msg.event.name = event->name;
-	msg.event.level = event->value;
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		ControlSub *sub = (ControlSub *)iter;
