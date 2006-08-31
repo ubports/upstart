@@ -56,7 +56,7 @@
 static void segv_handler (int signum);
 static void cad_handler  (void *data, NihSignal *signal);
 static void kbd_handler  (void *data, NihSignal *signal);
-
+static void stop_handler (void *data, NihSignal *signal);
 
 int
 main (int   argc,
@@ -99,9 +99,17 @@ main (int   argc,
 	nih_signal_reset ();
 	nih_signal_set_handler (SIGALRM,  nih_signal_handler);
 	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
+	nih_signal_set_handler (SIGSTOP,  nih_signal_handler);
+	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
+	nih_signal_set_handler (SIGCONT,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
+
+	/* Ensure that we don't process events while paused */
+	nih_signal_add_callback (NULL, SIGSTOP, stop_handler, NULL);
+	nih_signal_add_callback (NULL, SIGTSTP, stop_handler, NULL);
+	nih_signal_add_callback (NULL, SIGCONT, stop_handler, NULL);
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
@@ -239,4 +247,28 @@ kbd_handler (void      *data,
 	     NihSignal *signal)
 {
 	event_queue ("kbdrequest");
+}
+
+/**
+ * stop_handler:
+ * @data: unused,
+ * @signal: signal caught.
+ *
+ * This is called when we receive the STOP, TSTP or CONT signals; we
+ * adjust the paused variable appropriately so that the event queue and
+ * job idle detection is not run.
+ **/
+static void
+stop_handler (void      *data,
+	      NihSignal *signal)
+{
+	nih_assert (signal != NULL);
+
+	if (signal->signum == SIGCONT) {
+		nih_info (_("Event queue resumed"));
+		paused = FALSE;
+	} else {
+		nih_info (_("Event queue paused"));
+		paused = TRUE;
+	}
 }

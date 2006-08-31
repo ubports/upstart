@@ -48,6 +48,9 @@ typedef struct event {
 
 NIH_BEGIN_EXTERN
 
+int paused;
+
+
 Event *event_new       (void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 

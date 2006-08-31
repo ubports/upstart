@@ -1,5 +1,10 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (stop_handler): Catch STOP/TSTP and CONT.
+	* init/event.c (event_queue_run): Don't run the event queue while
+	paused.
+	* init/job.c (job_detect_idle): Don't detect idle jobs while paused.
+
 	* util/reboot.c: if we get the -w argument ("only write to wtmp")
 	we need to exit, and not behave as halt normally would.
 

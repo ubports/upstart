@@ -1140,6 +1140,9 @@ job_detect_idle (void)
 {
 	int stalled = TRUE, idle = TRUE;
 
+	if (paused)
+		return;
+
 	NIH_LIST_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
 

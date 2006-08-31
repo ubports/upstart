@@ -40,6 +40,14 @@
 
 
 /**
+ * paused:
+ *
+ * Do not process the event queue or detect idle jobs while this is %TRUE.
+ **/
+int paused = FALSE;
+
+
+/**
  * events:
  *
  * This list holds the list of events queued to be handled; each entry
@@ -156,6 +164,10 @@ event_queue (const char *name)
 void
 event_queue_run (void)
 {
+	if (paused)
+		return;
+
+
 	event_init ();
 
 	while (! NIH_LIST_EMPTY (events)) {
