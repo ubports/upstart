@@ -17,7 +17,7 @@ High Priority:
  * re-exec: fork, exec in parent, child sends the state; we'll just want the
    job states as the child will have parsed the configuration
 
- * telinit, runlevel, sulogin (on stalled)
+ * sulogin (on stalled)
 
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)

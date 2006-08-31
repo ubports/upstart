@@ -1,5 +1,12 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/Makefile.am (sbin_PROGRAMS): Build and install telinit
+	(telinit_SOURCES, telinit_LDFLAGS, telinit_LDADD): Details for
+	telinit binary.
+	* compat/sysv/telinit.c: Trivial telinit program that just runs
+	the appropriate rcX job.
+	* compat/sysv/runlevel.c (main): Suggest help on illegal runlevel.
+
 	* util/Makefile.am: Tidy up.
 
 	* configure.ac (AC_CONFIG_FILES): Create compat/sysv/Makefile

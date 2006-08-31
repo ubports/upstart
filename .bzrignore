@@ -52,4 +52,5 @@ util/shutdown
 util/start
 util/test_*
 compat/sysv/runlevel
+compat/sysv/telinit
 compat/sysv/test_*

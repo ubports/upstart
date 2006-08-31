@@ -121,6 +121,7 @@ main (int   argc,
 		if ((strlen (set) != 1) || (! strchr ("0123456S", set[0]))) {
 			fprintf (stderr, _("%s: illegal runlevel: %s"),
 				 program_name, set);
+			nih_main_suggest_help ();
 			exit (1);
 		}
 

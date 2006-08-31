@@ -8,11 +8,16 @@ INCLUDES = -I$(top_srcdir)/intl
 
 
 sbin_PROGRAMS = \
-	runlevel
+	runlevel \
+	telinit
 
 runlevel_SOURCES = runlevel.c
 runlevel_LDFLAGS = -static
 runlevel_LDADD = ../../nih/libnih.la
+
+telinit_SOURCES = telinit.c
+telinit_LDFLAGS = -static
+telinit_LDADD = ../../nih/libnih.la ../../upstart/libupstart.la
 
 
 TESTS = 
