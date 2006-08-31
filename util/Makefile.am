@@ -10,7 +10,8 @@ INCLUDES = -I$(top_srcdir)/intl
 sbin_PROGRAMS = \
 	initctl \
 	reboot \
-	shutdown
+	shutdown \
+	start
 
 initctl_SOURCES = \
 	initctl.c
@@ -38,9 +39,22 @@ reboot_LDADD = \
 	../nih/libnih.la \
 	../upstart/libupstart.la
 
+
+start_SOURCES = \
+	start.c
+
+start_LDFLAGS = -static
+start_LDADD = \
+	../nih/libnih.la \
+	../upstart/libupstart.la
+
+
 install-exec-local:
 	ln reboot $(DESTDIR)$(sbindir)/halt
 	ln reboot $(DESTDIR)$(sbindir)/poweroff
+
+	ln start $(DESTDIR)$(sbindir)/stop
+	ln start $(DESTDIR)$(sbindir)/status
 
 
 TESTS = 

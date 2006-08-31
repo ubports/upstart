@@ -1,5 +1,12 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* util/start.c: Write a simple utility to start, stop, or query
+	the status of the named jobs.
+	* util/Makefile.am (sbin_PROGRAMS): Build and install start
+	(start_SOURCES, start_LDFLAGS, start_LDADD): Details for start
+	(install-exec-local): Also install as stop and status.
+	* util/reboot.c (main): Drop the debugging set.
+
 	* init/cfgfile.c (cfg_job_stanza): Correct nih_alloc error.
 
 	* init/process.c (process_setup_environment): Guard memory alloc.

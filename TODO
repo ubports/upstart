@@ -1,10 +1,5 @@
 High Priority:
 
- * send "job" event on running or stopping
-
- * make a new shutdown control message that we'll use for all of the
-   variations
-
  * figure out what about setup_console kills X
 
  * Logging of processes.  Involves writing logd and putting the

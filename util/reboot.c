@@ -146,8 +146,6 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	nih_log_set_priority (NIH_LOG_DEBUG);
-
 	mode = REBOOT;
 	if (! strcmp (program_name, "halt")) {
 		mode = HALT;
