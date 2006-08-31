@@ -1,5 +1,8 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Check for idle after the startup event queue
+	has been run, otherwise we may just sit there.
+
 	* compat/sysv/Makefile.am (sbin_PROGRAMS): Build and install telinit
 	(telinit_SOURCES, telinit_LDFLAGS, telinit_LDADD): Details for
 	telinit binary.

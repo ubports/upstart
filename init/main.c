@@ -142,6 +142,7 @@ main (int   argc,
 	/* Generate and run the startup event */
 	event_queue ("startup");
 	event_queue_run ();
+	job_detect_idle ();
 
 	/* Go! */
 	ret = nih_main_loop ();
