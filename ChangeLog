@@ -1,5 +1,13 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (AC_CONFIG_FILES): Create compat/sysv/Makefile
+	* Makefile.am (SUBDIRS): Build things found in compat/sysv
+	* compat/sysv/Makefile.am (sbin_PROGRAMS): Build and install runlevel
+	(runlevel_SOURCES, runlevel_LDFLAGS, runlevel_LDADD): Details for
+	runlevel binary.
+	* compat/sysv/runlevel.c: Helper to store and retrieve the current
+	"runlevel" from utmp/wtmp; as well as the reboot time.
+
 	* init/main.c (main): Drop debugging set.
 
 	* init/job.c (job_change_state): As well as the job/state events,

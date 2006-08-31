@@ -51,3 +51,5 @@ util/reboot
 util/shutdown
 util/start
 util/test_*
+compat/sysv/runlevel
+compat/sysv/test_*
