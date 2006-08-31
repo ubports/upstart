@@ -55,8 +55,59 @@ test_goal_name (void)
 		ret = 1;
 	}
 
+
+	printf ("...with invalid goal\n");
+	name = job_goal_name (1234);
+
+	/* NULL should be returned */
+	if (name != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	return ret;
 }
+
+int
+test_goal_from_name (void)
+{
+	JobGoal goal;
+	int     ret = 0;
+
+	printf ("Testing job_goal_from_name()\n");
+
+	printf ("...with stop goal\n");
+	goal = job_goal_from_name ("stop");
+
+	/* JOB_STOP should be returned */
+	if (goal != JOB_STOP) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with start goal\n");
+	goal = job_goal_from_name ("start");
+
+	/* JOB_START should be returned */
+	if (goal != JOB_START) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with invalid goal\n");
+	goal = job_goal_from_name ("wibble");
+
+	/* -1 should be returned */
+	if (goal != -1) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
 
 int
 test_state_name (void)
@@ -115,8 +166,89 @@ test_state_name (void)
 		ret = 1;
 	}
 
+
+	printf ("...with invalid state\n");
+	name = job_state_name (1234);
+
+	/* NULL should be returned */
+	if (name != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	return ret;
 }
+
+int
+test_state_from_name (void)
+{
+	JobState state;
+	int      ret = 0;
+
+	printf ("Testing job_state_from_name()\n");
+
+	printf ("...with waiting state\n");
+	state = job_state_from_name ("waiting");
+
+	/* JOB_WAITING should be returned */
+	if (state != JOB_WAITING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with starting state\n");
+	state = job_state_from_name ("starting");
+
+	/* JOB_STARTING should be returned */
+	if (state != JOB_STARTING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running state\n");
+	state = job_state_from_name ("running");
+
+	/* JOB_RUNNING should be returned */
+	if (state != JOB_RUNNING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stopping state\n");
+	state = job_state_from_name ("stopping");
+
+	/* JOB_STOPPING should be returned */
+	if (state != JOB_STOPPING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawning state\n");
+	state = job_state_from_name ("respawning");
+
+	/* JOB_RESPAWNING should be returned */
+	if (state != JOB_RESPAWNING) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with invalid state\n");
+	state = job_state_from_name ("wibble");
+
+	/* -1 should be returned */
+	if (state != -1) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
 
 int
 test_process_state_name (void)
@@ -165,6 +297,76 @@ test_process_state_name (void)
 		ret = 1;
 	}
 
+
+	printf ("...with invalid state\n");
+	name = job_state_name (1234);
+
+	/* NULL should be returned */
+	if (name != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	return ret;
+}
+
+int
+test_process_state_from_name (void)
+{
+	ProcessState state;
+	int          ret = 0;
+
+	printf ("Testing process_state_from_name()\n");
+
+	printf ("...with none state\n");
+	state = process_state_from_name ("none");
+
+	/* PROCESS_NONE should be returned */
+	if (state != PROCESS_NONE) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with spawned state\n");
+	state = process_state_from_name ("spawned");
+
+	/* PROCESS_SPAWNED should be returned */
+	if (state != PROCESS_SPAWNED) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with active state\n");
+	state = process_state_from_name ("active");
+
+	/* PROCESS_ACTIVE should be returned */
+	if (state != PROCESS_ACTIVE) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with killed state\n");
+	state = process_state_from_name ("killed");
+
+	/* PROCESS_KILLED should be returned */
+	if (state != PROCESS_KILLED) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with invalid state\n");
+	state = process_state_from_name ("wibble");
+
+	/* -1 should be returned */
+	if (state != -1) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
 	return ret;
 }
 
@@ -176,8 +378,11 @@ main (int   argc,
 	int ret = 0;
 
 	ret |= test_goal_name ();
+	ret |= test_goal_from_name ();
 	ret |= test_state_name ();
+	ret |= test_state_from_name ();
 	ret |= test_process_state_name ();
+	ret |= test_process_state_from_name ();
 
 	return ret;
 }
