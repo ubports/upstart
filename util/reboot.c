@@ -110,6 +110,13 @@ static int disk_standby = FALSE;
  **/
 static int interface_down = FALSE;
 
+/**
+ * exit_only:
+ *
+ * TRUE if we should exit immediately.
+ **/
+static int exit_only = FALSE;
+
 
 /**
  * options:
@@ -128,8 +135,10 @@ static NihOption options[] = {
 	{ 'i', "interface-down", N_("bring down network interfaces"),
 	  NULL, NULL, &interface_down, NULL },
 
+	/* Compatibility option, just causes us to exit */
+	{ 'w', NULL, NULL, NULL, NULL, &exit_only, NULL },
+
 	/* Compatibility options, all ignored */
-	{ 'w', NULL, NULL, NULL, NULL, NULL, NULL },
 	{ 'd', NULL, NULL, NULL, NULL, NULL, NULL },
 	{ 't', NULL, NULL, NULL, "SECS", NULL, NULL },
 
@@ -168,6 +177,9 @@ main (int   argc,
 	/* Check for -p if halt */
 	if ((mode == HALT) && poweroff)
 		mode = POWEROFF;
+
+	if (exit_only)
+		exit (0);
 
 	/* Normally we just exec shutdown, which notifies everyone and
 	 * signals init.

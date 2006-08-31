@@ -1,5 +1,8 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* util/reboot.c: if we get the -w argument ("only write to wtmp")
+	we need to exit, and not behave as halt normally would.
+
 	* compat/sysv/runlevel.c (main): Add missing newline.
 	* compat/sysv/telinit.c (main): And here too.
 
