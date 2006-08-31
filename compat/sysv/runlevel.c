@@ -119,7 +119,7 @@ main (int   argc,
 	if (set) {
 		/* Sanity check */
 		if ((strlen (set) != 1) || (! strchr ("0123456S", set[0]))) {
-			fprintf (stderr, _("%s: illegal runlevel: %s"),
+			fprintf (stderr, _("%s: illegal runlevel: %s\n"),
 				 program_name, set);
 			nih_main_suggest_help ();
 			exit (1);

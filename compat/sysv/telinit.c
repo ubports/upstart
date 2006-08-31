@@ -68,7 +68,7 @@ main (int   argc,
 
 	/* First argument must be a single character we know */
 	if ((! args[0]) || (! strchr ("0123456SsQqabcUu", args[0][0]))) {
-		fprintf (stderr, _("%s: illegal runlevel: %s"),
+		fprintf (stderr, _("%s: illegal runlevel: %s\n"),
 			 program_name, args[0]);
 		nih_main_suggest_help ();
 		exit (1);
