@@ -1,5 +1,7 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* util/reboot.c: Pause init while shutting down or rebooting.
+
 	* init/main.c (stop_handler): Catch STOP/TSTP and CONT.
 	* init/event.c (event_queue_run): Don't run the event queue while
 	paused.

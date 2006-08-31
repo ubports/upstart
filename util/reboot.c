@@ -216,8 +216,11 @@ main (int   argc,
 	}
 
 
-	/* Re-enable Control-Alt-Delete in case it breaks */
+	/* Re-enable Control-Alt-Delete in case it breaks and tell
+	 * init not to process the event queue.
+	 */
 	reboot (RB_ENABLE_CAD);
+	kill (1, SIGTSTP);
 
 	/* Sync the disks */
 	chdir ("/");
@@ -250,6 +253,7 @@ main (int   argc,
 	}
 
 	/* Shouldn't get here, but if we do, carry on */
+	kill (1, SIGCONT);
 	reboot (RB_DISABLE_CAD);
 
 	return 0;
