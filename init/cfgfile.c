@@ -745,8 +745,7 @@ cfg_job_stanza (Job        *job,
 			NIH_MUST (e = nih_realloc (job->env, job,
 						  sizeof (char *) *
 						   (envc + 2)));
-
-			NIH_MUST (env = nih_strdup (job->env, *arg));
+			NIH_MUST (env = nih_strdup (e, *arg));
 
 			job->env = e;
 			job->env[envc++] = env;

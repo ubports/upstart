@@ -1,5 +1,7 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_job_stanza): Correct nih_alloc error.
+
 	* init/process.c (process_setup_environment): Guard memory alloc.
 	* init/job.c (job_set_idle_event): Likewise.
 	(job_change_state): And here too.
