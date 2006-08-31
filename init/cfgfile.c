@@ -308,7 +308,7 @@ cfg_job_stanza (Job        *job,
 			if (job->description)
 				nih_free (job->description);
 
-			job->description = nih_strdup (job, *arg);
+			NIH_MUST (job->description = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected job description"));
@@ -324,7 +324,7 @@ cfg_job_stanza (Job        *job,
 			if (job->author)
 				nih_free (job->author);
 
-			job->author = nih_strdup (job, *arg);
+			NIH_MUST (job->author = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected author name"));
@@ -340,7 +340,7 @@ cfg_job_stanza (Job        *job,
 			if (job->version)
 				nih_free (job->version);
 
-			job->version = nih_strdup (job, *arg);
+			NIH_MUST (job->version = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected version string"));
@@ -360,8 +360,8 @@ cfg_job_stanza (Job        *job,
 		for (arg = args; *arg; arg++) {
 			JobName *dep;
 
-			dep = nih_new (job, JobName);
-			dep->name = nih_strdup (job, *arg);
+			NIH_MUST (dep = nih_new (job, JobName));
+			NIH_MUST (dep->name = nih_strdup (job, *arg));
 			nih_list_init (&dep->entry);
 			nih_list_add (&job->depends, &dep->entry);
 		}
@@ -374,7 +374,7 @@ cfg_job_stanza (Job        *job,
 		if (*arg) {
 			Event *event;
 
-			event = event_new (job, *arg);
+			NIH_MUST (event = event_new (job, *arg));
 			nih_list_add (&job->start_events, &event->entry);
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
@@ -394,7 +394,7 @@ cfg_job_stanza (Job        *job,
 			if (*++arg) {
 				Event *event;
 
-				event = event_new (job, *arg);
+				NIH_MUST (event = event_new (job, *arg));
 				nih_list_add (&job->start_events,
 					      &event->entry);
 			} else {
@@ -433,7 +433,7 @@ cfg_job_stanza (Job        *job,
 			if (*++arg) {
 				Event *event;
 
-				event = event_new (job, *arg);
+				NIH_MUST (event = event_new (job, *arg));
 				nih_list_add (&job->stop_events,
 					      &event->entry);
 			} else {
@@ -599,7 +599,8 @@ cfg_job_stanza (Job        *job,
 				if (job->pidfile)
 					nih_free (job->pidfile);
 
-				job->pidfile = nih_strdup (job, *arg);
+				NIH_MUST (job->pidfile
+					  = nih_strdup (job, *arg));
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected pid filename"));
@@ -609,7 +610,8 @@ cfg_job_stanza (Job        *job,
 				if (job->binary)
 					nih_free (job->binary);
 
-				job->binary = nih_strdup (job, *arg);
+				NIH_MUST (job->binary
+					  = nih_strdup (job, *arg));
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected binary filename"));
@@ -734,7 +736,7 @@ cfg_job_stanza (Job        *job,
 		 * environment, <value> may be optionally quoted.
 		 */
 		if (*arg && strchr (*arg, '=')) {
-			char **e;
+			char **e, *env;
 			int    envc = 0;
 
 			for (e = job->env; e && *e; e++)
@@ -744,8 +746,10 @@ cfg_job_stanza (Job        *job,
 						  sizeof (char *) *
 						   (envc + 2)));
 
+			NIH_MUST (env = nih_strdup (job->env, *arg));
+
 			job->env = e;
-			job->env[envc++] = nih_strdup (job->env, *arg);
+			job->env[envc++] = env;
 			job->env[envc] = NULL;
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
@@ -891,7 +895,7 @@ cfg_job_stanza (Job        *job,
 			if (job->chroot)
 				nih_free (job->chroot);
 
-			job->chroot = nih_strdup (job, *arg);
+			NIH_MUST (job->chroot = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected directory name"));
@@ -906,7 +910,7 @@ cfg_job_stanza (Job        *job,
 			if (job->chdir)
 				nih_free (job->chdir);
 
-			job->chdir = nih_strdup (job, *arg);
+			NIH_MUST (job->chdir = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected directory name"));
@@ -1604,11 +1608,12 @@ cfg_watcher (WatchInfo    *info,
 	}
 
 	/* Construct filename and job name (also new prefix) */
-	filename = nih_sprintf (NULL, "%s/%s", watch->path, name);
+	NIH_MUST (filename = nih_sprintf (NULL, "%s/%s", watch->path, name));
 	if (info->prefix) {
-		jobname = nih_sprintf (NULL, "%s/%s", info->prefix, name);
+		NIH_MUST (jobname = nih_sprintf (NULL, "%s/%s",
+						 info->prefix, name));
 	} else {
-		jobname = nih_strdup (NULL, name);
+		NIH_MUST (jobname = nih_strdup (NULL, name));
 	}
 
 	/* Check we can stat it */

@@ -537,7 +537,7 @@ upstart_recv_msg (void  *parent,
 
 
 	/* Allocate the message */
-	message = nih_new (parent, UpstartMsg);
+	NIH_MUST (message = nih_new (parent, UpstartMsg));
 	message->type = hdr.type;
 
 	/* Message type determines actual payload */

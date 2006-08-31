@@ -1,5 +1,13 @@
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Guard memory alloc.
+	* init/job.c (job_set_idle_event): Likewise.
+	(job_change_state): And here too.
+	(job_run_command): Likewise.
+	* init/control.c (control_send): Likewise.
+	* init/cfgfile.c: And throughout this file.
+	* upstart/control.c (upstart_recv_msg): And once here too.
+
 	* upstart/control.h: Abolish the separate halt, reboot and poweroff
 	messages and replace with a single shutdown message that takes
 	an event name (for the idle event issued afterwards).

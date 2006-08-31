@@ -286,7 +286,8 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
-			event = nih_sprintf (job, "%s/stopped", job->name);
+			NIH_MUST (event = nih_sprintf (job, "%s/stopped",
+						       job->name));
 
 			break;
 		case JOB_STARTING:
@@ -299,7 +300,8 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			event = nih_sprintf (job, "%s/start", job->name);
+			NIH_MUST (event = nih_sprintf (job, "%s/start",
+						       job->name));
 
 			break;
 		case JOB_RUNNING:
@@ -329,7 +331,8 @@ job_change_state (Job      *job,
 			if (job->process_state == PROCESS_ACTIVE)
 				job_release_depends (job);
 
-			event = nih_sprintf (job, "%s/started", job->name);
+			NIH_MUST (event = nih_sprintf (job, "%s/started",
+						       job->name));
 
 			break;
 		case JOB_STOPPING:
@@ -343,7 +346,8 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			event = nih_sprintf (job, "%s/stop", job->name);
+			NIH_MUST (event = nih_sprintf (job, "%s/stop",
+						       job->name));
 
 			break;
 		case JOB_RESPAWNING:
@@ -355,7 +359,8 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			event = nih_sprintf (job, "%s/respawn", job->name);
+			NIH_MUST (event = nih_sprintf (job, "%s/respawn",
+						       job->name));
 
 			break;
 		}
@@ -461,13 +466,16 @@ job_run_command (Job        *job,
 
 	/* Use the shell for non-simple commands */
 	if (strpbrk (command, "~`!$^&*()=|\\{}[];\"'<>?")) {
-		argv = nih_alloc (NULL, sizeof (char *) * 4);
+		char *cmd;
+
+		NIH_MUST (argv = nih_alloc (NULL, sizeof (char *) * 4));
+		NIH_MUST (cmd = nih_sprintf (argv, "exec %s", command));
 		argv[0] = SHELL;
 		argv[1] = "-c";
-		argv[2] = nih_sprintf (argv, "exec %s", command);
+		argv[2] = cmd;
 		argv[3] = NULL;
 	} else {
-		argv = nih_str_split (NULL, command, " ", TRUE);
+		NIH_MUST (argv = nih_str_split (NULL, command, " ", TRUE));
 	}
 
 	job_run_process (job, argv);
@@ -518,6 +526,7 @@ job_run_script (Job        *job,
 	 */
 	if (strlen (script) > 1024) {
 		NihIo *io;
+		char  *cmd;
 		int    fds[2];
 
 		/* Close the writing end when the child is exec'd */
@@ -529,9 +538,11 @@ job_run_script (Job        *job,
 		 * of passing that yet
 		 */
 
+		NIH_MUST (cmd = nih_sprintf (NULL, "/dev/fd/%d", fds[0]));
+
 		argv[0] = SHELL;
 		argv[1] = "-e";
-		argv[2] = nih_sprintf (NULL, "/dev/fd/%d", fds[0]);
+		argv[2] = cmd;
 		argv[3] = NULL;
 
 		job_run_process (job, argv);
@@ -1155,5 +1166,5 @@ job_set_idle_event (const char *name)
 {
 	nih_assert (name != NULL);
 
-	idle_event = nih_strdup (NULL, name);
+	NIH_MUST (idle_event = nih_strdup (NULL, name));
 }
