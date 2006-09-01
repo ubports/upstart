@@ -25,6 +25,7 @@
 #include <sys/resource.h>
 
 #include <time.h>
+#include <stdio.h>
 
 #include <nih/macros.h>
 #include <nih/list.h>
@@ -224,6 +225,9 @@ void        job_handle_event    (Event *event);
 
 void        job_detect_idle     (void);
 void        job_set_idle_event  (const char *name);
+
+Job *       job_read_state      (Job *job, char *buf);
+void        job_write_state     (FILE *state);
 
 NIH_END_EXTERN
 

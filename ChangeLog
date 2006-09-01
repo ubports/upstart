@@ -1,5 +1,20 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Parse command-line arguments, specifically
+	look for --state-fd which we'll use for reexec.  Don't do a couple
+	of things if we're passed this.
+	(read_state): Parse the line-buffered state.
+	* init/job.c (job_read_state, job_write_state): Job state
+	serialisation so that we can re-exec ourselves.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the serialisation.
+	* init/event.c (event_read_state, event_write_state): And similar
+	functions for serialising the event queue.
+	* init/event.h: Update.
+	* init/tests/test_event.c: Test the serialisation.
+	* init/cfgfile.c (cfg_read_job): Fix a bug, need to subtract current
+	time to get due time.
+
 	* upstart/job.c (job_goal_from_name, job_state_from_name) 
 	(process_state_from_name): Add opposite numbers that convert a
 	string back into an enumeration.

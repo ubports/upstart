@@ -25,6 +25,8 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <stdio.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -1236,4 +1238,130 @@ job_set_idle_event (const char *name)
 	nih_assert (name != NULL);
 
 	NIH_MUST (idle_event = nih_strdup (NULL, name));
+}
+
+
+/**
+ * job_read_state:
+ * @job: job to update,
+ * @buf: serialised state.
+ *
+ * Parse the serialised state and update the job's details if we recognise
+ * the line.  We need to always retain knowledge of this so we can always
+ * be re-exec'd by an earlier version of init.  That's why this is so
+ * trivial.
+ *
+ * @job may be %NULL if @buf begins "Job "
+ **/
+Job *
+job_read_state (Job  *job,
+		char *buf)
+{
+	char *ptr;
+
+	nih_assert (buf != NULL);
+
+	/* Every line must have a space, which splits the key and value */
+	ptr = strchr (buf, ' ');
+	if (ptr) {
+		*(ptr++) = '\0';
+	} else {
+		return job;
+	}
+
+	/* Handle the case where we don't have a job yet first */
+	if (! job) {
+		if (strcmp (buf, "Job"))
+			return job;
+
+		/* Value is the name of the job to update */
+		return job_find_by_name (ptr);
+	}
+
+	/* Otherwise handle the attributes */
+	if (! strcmp (buf, ".goal")) {
+		JobGoal value;
+
+		value = job_goal_from_name (ptr);
+		if (value != -1)
+			job->goal = value;
+
+	} else if (! strcmp (buf, ".state")) {
+		JobState value;
+
+		value = job_state_from_name (ptr);
+		if (value != -1)
+			job->state = value;
+
+	} else if (! strcmp (buf, ".process_state")) {
+		ProcessState value;
+
+		value = process_state_from_name (ptr);
+		if (value != -1)
+			job->process_state = value;
+
+	} else if (! strcmp (buf, ".pid")) {
+		long value;
+
+		value = strtol (ptr, &ptr, 10);
+		if ((! *ptr) && (value > 1) && (value <= INT_MAX))
+			job->pid = value;
+
+	} else if (! strcmp (buf, ".kill_timer_due")) {
+		time_t value;
+
+		value = strtol (ptr, &ptr, 10);
+		if ((! *ptr) && (value > 1) && (value <= INT_MAX))
+			NIH_MUST (job->kill_timer = nih_timer_add_timeout (
+					  job, value - time (NULL),
+					  (NihTimerCb)job_kill_timer, job));
+
+	} else if (! strcmp (buf, ".respawn_count")) {
+		long value;
+
+		value = strtol (ptr, &ptr, 10);
+		if (! *ptr)
+			job->respawn_count = value;
+
+	} else if (! strcmp (buf, ".respawn_time")) {
+		time_t value;
+
+		value = strtol (ptr, &ptr, 10);
+		if (! *ptr)
+			job->respawn_time = value;
+	}
+
+	return job;
+}
+
+/**
+ * job_write_state:
+ * @state: file to write to.
+ *
+ * This is the companion function to %job_read_state, it writes to @state
+ * lines for each job known about.
+ **/
+void
+job_write_state (FILE *state)
+{
+	nih_assert (state != NULL);
+
+	NIH_LIST_FOREACH (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		fprintf (state, "Job %s\n", job->name);
+		fprintf (state, ".goal %s\n", job_goal_name (job->goal));
+		fprintf (state, ".state %s\n", job_state_name (job->state));
+		fprintf (state, ".process_state %s\n",
+			 process_state_name (job->process_state));
+		fprintf (state, ".pid %d\n", job->pid);
+		if (job->kill_timer)
+			fprintf (state, ".kill_timer_due %ld\n",
+				 job->kill_timer->due);
+		if (job->pid_timer)
+			fprintf (state, ".pid_timer_due %ld\n",
+				 job->pid_timer->due);
+		fprintf (state, ".respawn_count %d\n", job->respawn_count);
+		fprintf (state, ".respawn_time %ld\n", job->respawn_time);
+	}
 }

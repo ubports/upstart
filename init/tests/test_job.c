@@ -27,6 +27,7 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 
+#include <time.h>
 #include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -2736,6 +2737,300 @@ test_detect_idle (void)
 
 
 int
+test_read_state (void)
+{
+	Job  *job, *ptr;
+	char  buf[80];
+	int   ret = 0;
+
+	printf ("Testing job_read_state()\n");
+	job = job_new (NULL, "test");
+
+
+	printf ("...with header\n");
+	sprintf (buf, "Job test");
+	ptr = job_read_state (NULL, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with goal\n");
+	sprintf (buf, ".goal start");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job goal should be set */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with state\n");
+	sprintf (buf, ".state stopping");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should be set */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with process state\n");
+	sprintf (buf, ".process_state active");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be set */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with pid\n");
+	sprintf (buf, ".pid 9128");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process id should be set */
+	if (job->pid != 9128) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+	printf ("...with kill timer due\n");
+	sprintf (buf, ".kill_timer_due %ld", time (NULL) - 10);
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job should now have a kill timer */
+	if (job->kill_timer == NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should be due in about 10s */
+	if (job->kill_timer->due > (time (NULL) - 10)) {
+		printf ("BAD: timer not due when we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer data should be job */
+	if (job->kill_timer->data != job) {
+		printf ("BAD: timer data not what we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should be child of job */
+	if (nih_alloc_parent (job->kill_timer) != job) {
+		printf ("BAD: timer not nih_alloc child of job\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawn count\n");
+	sprintf (buf, ".respawn_count 6");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Respawn count should be set */
+	if (job->respawn_count != 6) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawn time\n");
+	sprintf (buf, ".respawn_time 91");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Respawn time should be set */
+	if (job->respawn_time != 91) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	nih_list_free (&job->entry);
+
+	return ret;
+}
+
+int
+test_write_state (void)
+{
+	FILE   *output;
+	Job    *job1, *job2;
+	char    text[80];
+	int     ret = 0;
+
+	printf ("Testing job_write_state()\n");
+	job1 = job_new (NULL, "frodo");
+	job1->goal = JOB_START;
+	job1->state = JOB_RUNNING;
+	job1->process_state = PROCESS_SPAWNED;
+	job1->pid = 1234;
+	job1->respawn_count = 3;
+	job1->respawn_time = 888;
+
+	job2 = job_new (NULL, "bilbo");
+	job2->goal = JOB_STOP;
+	job2->state = JOB_STOPPING;
+	job2->process_state = PROCESS_KILLED;
+	job2->pid = 999;
+	job2->respawn_count = 0;
+	job2->respawn_time = 0;
+
+	output = tmpfile ();
+	job_write_state (output);
+
+	rewind (output);
+
+	/* Check the output lines */
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "Job frodo\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".goal start\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".state running\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".process_state spawned\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".pid 1234\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_count 3\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_time 888\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "Job bilbo\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".goal stop\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".state stopping\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".process_state killed\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".pid 999\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_count 0\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_time 0\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be no more output */
+	if (fgets (text, sizeof (text), output)) {
+		printf ("BAD: more output than we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job1->entry);
+	nih_list_free (&job2->entry);
+
+	fclose (output);
+
+	return ret;
+}
+
+
+int
 main (int   argc,
       char *argv[])
 {
@@ -2757,6 +3052,8 @@ main (int   argc,
 	ret |= test_stop_event ();
 	ret |= test_handle_event ();
 	ret |= test_detect_idle ();
+	ret |= test_read_state ();
+	ret |= test_write_state ();
 
 	return ret;
 }

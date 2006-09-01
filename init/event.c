@@ -25,6 +25,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <stdio.h>
 #include <string.h>
 
 #include <nih/macros.h>
@@ -179,5 +180,70 @@ event_queue_run (void)
 
 			nih_list_free (&event->entry);
 		}
+	}
+}
+
+
+/**
+ * event_read_state:
+ * @event: event to update,
+ * @buf: serialised state.
+ *
+ * Parse the serialised state and update the event queue if we recognise
+ * the line.  We need to always retain knowledge of this so we can always
+ * be re-exec'd by an earlier version of init.  That's why this is so
+ * trivial.
+ *
+ * @event may be %NULL if @buf begins "Event "
+ **/
+Event *
+event_read_state (Event *event,
+		  char  *buf)
+{
+	char *ptr;
+
+	nih_assert (buf != NULL);
+
+	/* Every line must have a space, which splits the key and value */
+	ptr = strchr (buf, ' ');
+	if (ptr) {
+		*(ptr++) = '\0';
+	} else {
+		return event;
+	}
+
+	/* Handle the case where we don't have a event yet first */
+	if (! event) {
+		Event *event;
+
+		if (strcmp (buf, "Event"))
+			return event;
+
+		/* Add a new event record */
+		NIH_MUST (event = event_queue (ptr));
+		return event;
+	}
+
+	/* No attributes on events yet */
+
+	return event;
+}
+
+/**
+ * event_write_state:
+ * @state: file to write to.
+ *
+ * This is the companion function to %event_read_state, it writes to @state
+ * lines for each event in the queue.
+ **/
+void
+event_write_state (FILE *state)
+{
+	nih_assert (state != NULL);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *event = (Event *)iter;
+
+		fprintf (state, "Event %s\n", event->name);
 	}
 }

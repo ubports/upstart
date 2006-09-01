@@ -225,6 +225,8 @@ cfg_read_job (void       *parent,
 	 * copy information out of the old structure and free that
 	 */
 	if (old_job) {
+		time_t now;
+
 		nih_debug ("Replacing existing %s job", job->name);
 
 		job->goal = old_job->goal;
@@ -232,14 +234,16 @@ cfg_read_job (void       *parent,
 		job->process_state = old_job->process_state;
 		job->pid = old_job->pid;
 
+		now = time (NULL);
+
 		if (old_job->kill_timer)
 			NIH_MUST (job->kill_timer = nih_timer_add_timeout (
-					  job, old_job->kill_timer->due,
+					  job, old_job->kill_timer->due - now,
 					  old_job->kill_timer->callback, job));
 
 		if (old_job->pid_timer)
 			NIH_MUST (job->pid_timer = nih_timer_add_timeout (
-					  job, old_job->pid_timer->due,
+					  job, old_job->pid_timer->due - now,
 					  old_job->pid_timer->callback, job));
 
 		nih_list_free (&old_job->entry);

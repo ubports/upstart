@@ -128,6 +128,85 @@ test_queue (void)
 
 
 int
+test_read_state (void)
+{
+	Event *event;
+	char   buf[80];
+	int    ret = 0;
+
+	printf ("Testing event_read_state()\n");
+	sprintf (buf, "Event bang");
+	event = event_read_state (NULL, buf);
+
+	/* An event should be returned */
+	if (event == NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be the name given */
+	if (strcmp (event->name, "bang")) {
+		printf ("BAD: name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be in the queue */
+	if (NIH_LIST_EMPTY (&event->entry)) {
+		printf ("BAD: wasn't placed in the event queue.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&event->entry);
+
+	return ret;
+}
+
+int
+test_write_state (void)
+{
+	FILE  *output;
+	Event *event1, *event2;
+	char   text[80];
+	int    ret = 0;
+
+	printf ("Testing event_write_state()\n");
+	event1 = event_queue ("frodo");
+	event2 = event_queue ("bilbo");
+
+	output = tmpfile ();
+	event_write_state (output);
+
+	rewind (output);
+
+	/* Check the output lines */
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "Event frodo\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "Event bilbo\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be no more output */
+	if (fgets (text, sizeof (text), output)) {
+		printf ("BAD: more output than we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&event1->entry);
+	nih_list_free (&event2->entry);
+
+	fclose (output);
+
+	return ret;
+}
+
+
+int
 main (int   argc,
       char *argv[])
 {
@@ -136,6 +215,8 @@ main (int   argc,
 	ret |= test_new ();
 	ret |= test_match ();
 	ret |= test_queue ();
+	ret |= test_read_state ();
+	ret |= test_write_state ();
 
 	return ret;
 }

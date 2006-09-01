@@ -31,8 +31,11 @@
 #include <sys/reboot.h>
 #include <sys/resource.h>
 
+#include <errno.h>
+#include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <unistd.h>
 #include <termios.h>
@@ -43,6 +46,7 @@
 #include <nih/timer.h>
 #include <nih/signal.h>
 #include <nih/child.h>
+#include <nih/option.h>
 #include <nih/main.h>
 #include <nih/logging.h>
 
@@ -54,33 +58,68 @@
 
 
 /* Prototypes for static functions */
-static void reset_console (void);
-static void segv_handler  (int signum);
-static void cad_handler   (void *data, NihSignal *signal);
-static void kbd_handler   (void *data, NihSignal *signal);
-static void stop_handler  (void *data, NihSignal *signal);
+static void reset_console   (void);
+static void segv_handler    (int signum);
+static void cad_handler     (void *data, NihSignal *signal);
+static void kbd_handler     (void *data, NihSignal *signal);
+static void stop_handler    (void *data, NihSignal *signal);
+static void usr1_handler    (const char *prog, NihSignal *signal);
+static int  state_fd_setter (NihOption *option, const char *arg);
+static void read_state      (int fd);
+static void write_state     (int fd);
+
+/**
+ * state_fd:
+ *
+ * This is set to the file descriptor we should read state from if we
+ * are being re-exec'd.
+ **/
+static int state_fd = -1;
+
+
+/**
+ * options:
+ *
+ * Command-line options we accept.
+ **/
+static NihOption options[] = {
+	{ 0, "state-fd", N_("file descriptor to read state from"),
+	  NULL, "FD", &state_fd, state_fd_setter },
+
+	/* Ignore invalid options */
+	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
+
+	NIH_OPTION_LAST
+};
 
 
 int
 main (int   argc,
       char *argv[])
 {
-	int ret, i;
+	char **args;
+	int    ret, i;
 
 	nih_main_init (argv[0]);
 
-	openlog (program_name, LOG_CONS, LOG_DAEMON);
+	args = nih_option_parser (NULL, argc, argv, options, FALSE);
+	if (! args)
+		exit (1);
 
+	/* Send all logging output to syslog */
+	openlog (program_name, LOG_CONS, LOG_DAEMON);
 	nih_log_set_logger (nih_logger_syslog);
 
 	/* Close any file descriptors we inherited, and open the console
-	 * device instead
+	 * device instead.  Normally we reset the console, unless we're
+	 * inheriting one from another init process.
 	 */
 	for (i = 0; i < 3; i++)
 		close (i);
 
 	process_setup_console (CONSOLE_OUTPUT);
-	reset_console ();
+	if (state_fd < 0)
+		reset_console ();
 
 	/* Check we're root */
 	if (getuid ()) {
@@ -103,6 +142,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
 	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
 	nih_signal_set_handler (SIGCONT,  nih_signal_handler);
+	nih_signal_set_handler (SIGUSR1,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
@@ -110,6 +150,10 @@ main (int   argc,
 	/* Ensure that we don't process events while paused */
 	nih_signal_add_callback (NULL, SIGTSTP, stop_handler, NULL);
 	nih_signal_add_callback (NULL, SIGCONT, stop_handler, NULL);
+
+	/* SIGUSR1 instructs us to re-exec ourselves */
+	nih_signal_add_callback (NULL, SIGUSR1,
+				 (NihSignalCb)usr1_handler, argv[0]);
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
@@ -148,8 +192,17 @@ main (int   argc,
 	setenv ("PATH", PATH, TRUE);
 
 
-	/* Generate and run the startup event */
-	event_queue ("startup");
+	/* Generate and run the startup event or read the state from the
+	 * init daemon that exec'd us
+	 */
+	if (state_fd < 0) {
+		event_queue ("startup");
+	} else {
+		read_state (state_fd);
+		nih_child_poll ();
+	}
+
+	/* Run the event queue once, and detect anything idle */
 	event_queue_run ();
 	job_detect_idle ();
 
@@ -310,4 +363,188 @@ stop_handler (void      *data,
 		nih_info (_("Event queue paused"));
 		paused = TRUE;
 	}
+}
+
+
+/**
+ * usr1_handler:
+ * @argv0: program to run,
+ * @signal: signal caught.
+ *
+ * This is called when we receive the USR1 signal, which instructs us
+ * to reexec ourselves.
+ **/
+static void
+usr1_handler (const char *argv0,
+	      NihSignal  *signal)
+{
+	sigset_t  mask, oldmask;
+	int       fds[2] = { -1, -1 };
+	pid_t     pid;
+	char      buf[10];
+
+	nih_assert (argv0 != NULL);
+	nih_assert (signal != NULL);
+
+	nih_warn (_("Re-executing %s"), argv0);
+
+	/* Block signals while we work*/
+	sigfillset (&mask);
+	sigprocmask (SIG_BLOCK, &mask, &oldmask);
+
+	/* Create pipe */
+	if (pipe (fds) < 0)
+		goto error;
+
+	/* Fork a child that can send the state to the new init process */
+	pid = fork ();
+	if (pid < 0) {
+		close (fds[1]);
+		goto error;
+	} else if (pid == 0) {
+		close (fds[0]);
+		write_state (fds[1]);
+		exit (0);
+	} else {
+		close (fds[1]);
+	}
+
+	/* Argument list */
+	snprintf (buf, sizeof (buf), "%d", fds[0]);
+	execl (argv0, argv0, "--state-fd", buf, NULL);
+
+error:
+	/* Gnargh! */
+	nih_error (_("Failed to re-execute %s: %s"), argv0, strerror (errno));
+	close (fds[0]);
+	sigprocmask (SIG_SETMASK, &oldmask, NULL);
+}
+
+/**
+ * state_fd_setter:
+ * @option: option found,
+ * @arg: argument to option.
+ *
+ * This function is called when --state-fd is found on the command-line.
+ * It parses it as a file descriptor number.
+ *
+ * Returns: zero if valid descriptor found, negative value on error.
+ **/
+static int
+state_fd_setter (NihOption  *option,
+		 const char *arg)
+{
+	char *endptr;
+	int  *value;
+
+	nih_assert (option != NULL);
+	nih_assert (option->value != NULL);
+	nih_assert (arg != NULL);
+
+	value = (int *)option->value;
+	*value = strtol (arg, &endptr, 10);
+
+	if (*endptr || (*value < 0)) {
+		fprintf (stderr, _("%s: invalid file descriptor: %s\n"),
+			 program_name, arg);
+		nih_main_suggest_help ();
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * read_state:
+ * @fd: file descriptor to read from.
+ *
+ * Read event and job state from @fd, which is a trivial line-based
+ * protocol that we can keep the same without too much difficultly.  It's
+ * tempting to use the control sockets for this, but they break too often.
+ **/
+static void
+read_state (int fd)
+{
+	Job   *job = NULL;
+	Event *event = NULL;
+	FILE  *state;
+	char   buf[80];
+
+	nih_debug ("Reading state");
+
+	/* Use stdio as it's a light-weight thing that won't change */
+	state = fdopen (fd, "r");
+	if (! state) {
+		nih_warn (_("Unable to read from state descriptor: %s"),
+			  strerror (errno));
+		return;
+	}
+
+	/* It's just a series of simple lines; if one begins Job then it
+	 * indicates the start of a Job description, otherwise if it
+	 * begins Event then it's the start of an Event description.
+	 *
+	 * Lines beginning "." are assumed to belong to the current job
+	 * or event.
+	 */
+	while (fgets (buf, sizeof (buf), state)) {
+		char *ptr;
+
+		/* Strip newline */
+		ptr = strchr (buf, '\n');
+		if (ptr)
+			*ptr = '\0';
+
+		if (! strncmp (buf, "Job ", 4)) {
+			job = job_read_state (NULL, buf);
+			event = NULL;
+		} else if (! strncmp (buf, "Event ", 5)) {
+			event = event_read_state (NULL, buf);
+			job = NULL;
+		} else if (buf[0] == '.') {
+			if (job) {
+				job = job_read_state (job, buf);
+			} else if (event) {
+				event = event_read_state (event, buf);
+			}
+		} else {
+			event = NULL;
+			job = NULL;
+		}
+	}
+
+	if (fclose (state))
+		nih_warn (_("Error after reading state: %s"),
+			  strerror (errno));
+
+	nih_debug ("State read from parent");
+}
+
+/**
+ * write_state:
+ * @fd: file descriptor to write to.
+ *
+ * Write event and job state to @fd, which is a trivial line-based
+ * protocol that we can keep the same without too much difficultly.  It's
+ * tempting to use the control sockets for this, but they break too often.
+ **/
+static void
+write_state (int fd)
+{
+	FILE  *state;
+
+	/* Use stdio as it's a light-weight thing that won't change */
+	state = fdopen (fd, "w");
+	if (! state) {
+		nih_warn (_("Unable to write to state descriptor: %s"),
+			  strerror (errno));
+		return;
+	}
+
+	event_write_state (state);
+	job_write_state (state);
+
+	if (fclose (state))
+		nih_warn (_("Error after writing state: %s"),
+			  strerror (errno));
 }
