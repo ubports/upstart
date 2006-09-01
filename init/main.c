@@ -48,6 +48,7 @@
 #include <nih/child.h>
 #include <nih/option.h>
 #include <nih/main.h>
+#include <nih/error.h>
 #include <nih/logging.h>
 
 #include "process.h"
@@ -410,6 +411,9 @@ term_handler (const char *argv0,
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
+	/* Close the control connection */
+	control_close ();
+
 	/* Create pipe */
 	if (pipe (fds) < 0) {
 		nih_error_raise_system ();
@@ -444,10 +448,12 @@ term_handler (const char *argv0,
 error:
 	err = nih_error_get ();
 	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
-	nih_error_free (err);
+	nih_free (err);
 
 	close (fds[0]);
 	close (fds[1]);
+
+	control_open ();
 
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }

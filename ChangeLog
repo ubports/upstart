@@ -1,5 +1,8 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (term_handler): Close the control connection if we
+	re-exec init, otherwise it won't be able to bind.  Drop debugging.
+
 	* init/main.c (term_handler): It always helps if we dup2 the
 	right file descriptor.
 
