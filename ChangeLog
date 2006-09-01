@@ -1,5 +1,14 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_console): Ensure that the console
+	is always initialised to at least /dev/null
+	* init/job.c (job_change_state): Initialise event to NULL.
+	* init/event.c (event_read_state): Don't mask initialisation of
+	other variable.
+	* init/cfgfile.c (cfg_job_stanza, cfg_parse_script, cfg_next_token): 
+	Print lineno using %zi not %d
+	* compat/sysv/runlevel.c (store): Cast pointer type of timeval.
+
 	* init/main.c: Move the kernel headers include beneath the C
 	library ones, so that compilation doesn't fail on !i386.
 	* util/reboot.c: Likewise.
