@@ -1,7 +1,5 @@
 High Priority:
 
- * sulogin (on stalled)
-
  * Logging of processes.  Involves writing logd and putting the
    opposite hooks to it in init.
 
@@ -12,10 +10,7 @@ High Priority:
       look like syslog
     - run other commands like usplash_write, spdsay, etc.
 
- * option parsing, and kernel command-line parsing
-
- * re-exec: fork, exec in parent, child sends the state; we'll just want the
-   job states as the child will have parsed the configuration
+ * sulogin (on stalled)
 
 
  * Configuration files can be deleted, need to do something with the
