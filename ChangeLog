@@ -1,5 +1,7 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_watcher): Ignore any file with '.' or '~'
+
 	* TODO: Update.
 
 	* init/main.c (main): Parse command-line arguments, specifically
@@ -24,6 +26,7 @@
 	* upstart/tests/test_job.c: Test the new functions.
 
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
+
 	* init/job.h (Job): Add respawn_limit, respawn_interval,
 	respawn_count and respawn_time members so that we can keep track of
 	runaway processes.

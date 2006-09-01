@@ -1639,7 +1639,7 @@ cfg_watcher (WatchInfo    *info,
 	if (! name)
 		return;
 
-	if ((name[0] == '\0') || (name[0] == '.')) {
+	if ((name[0] == '\0') || strchr (name, '.') || strchr (name, '~')) {
 		nih_debug ("Ignored %s/%s", watch->path, name);
 		return;
 	}
