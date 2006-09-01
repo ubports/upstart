@@ -1,5 +1,7 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+
 	* init/cfgfile.c (cfg_watcher): Ignore any file with '.' or '~'
 
 	* TODO: Update.
