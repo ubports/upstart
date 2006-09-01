@@ -7,15 +7,36 @@ DEFS += -DLOCALEDIR="\"$(localedir)\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
-sbin_PROGRAMS = initctl
+sbin_PROGRAMS = \
+	initctl \
+	reboot \
+	shutdown \
+	start
 
-initctl_SOURCES = \
-	initctl.c
 
+initctl_SOURCES = initctl.c
 initctl_LDFLAGS = -static
-initctl_LDADD = \
-	../nih/libnih.la \
-	../upstart/libupstart.la
+initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+
+shutdown_SOURCES = shutdown.c
+shutdown_LDFLAGS = -static
+shutdown_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+
+reboot_SOURCES = reboot.c
+reboot_LDFLAGS = -static
+reboot_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+
+start_SOURCES = start.c
+start_LDFLAGS = -static
+start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+
+
+install-exec-local:
+	ln -sf reboot $(DESTDIR)$(sbindir)/halt
+	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
+
+	ln -sf start $(DESTDIR)$(sbindir)/stop
+	ln -sf start $(DESTDIR)$(sbindir)/status
 
 
 TESTS = 

@@ -1,5 +1,0 @@
-on shutdown
-
-exec /etc/init.d/rc 0
-
-console output

@@ -1,0 +1,26 @@
+# rcS - runlevel compatibility
+#
+# This task runs the old sysv-rc startup scripts.
+
+start on startup
+
+# rc events are exclusive
+stop on rc0-halt/start
+stop on rc0-poweroff/start
+stop on rc1/start
+stop on rc2/start
+stop on rc3/start
+stop on rc4/start
+stop on rc5/start
+stop on rc6/start
+
+script
+	set $(runlevel --set S || true)
+	if [ "$1" != "unknown" ]; then
+	    PREVLEVEL=$1
+	    RUNLEVEL=$2
+	    export PREVLEVEL RUNLEVEL
+	fi
+
+	exec /etc/init.d/rcS
+end script

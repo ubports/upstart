@@ -3,7 +3,6 @@ High Priority:
  * Logging of processes.  Involves writing logd and putting the
    opposite hooks to it in init.
 
-    - need to add the job description to the job message
     - logd will print these in the cute manner by subscribing to jobs
     - init opens socket, writes the job name, etc. and dups that to
       stdout/stderr (stdin can be null)
@@ -11,9 +10,23 @@ High Priority:
       look like syslog
     - run other commands like usplash_write, spdsay, etc.
 
- * Make sure processes don't respawn out of control.
+ * sulogin (on stalled)
 
- * ctrl-alt-delete and powerfail, etc.
+
+ * Configuration files can be deleted, need to do something with the
+   job at that point (stop it and delete it)
+
+ * Configuration files can be moved.
+
+ * Move config file parsing code into libupstart and just have a stanza
+   callback function (so we can use it for all config file stuff)
+
+
+ * cfg_watch_dir needs testing, as does cfg_watcher
+
+ * test event_queue_run
+
+ * fix up and document better the console setup stuff we stole
 
 
 Unfinished Features:
@@ -25,9 +38,6 @@ Unfinished Features:
    hooked into job_find_by_name so that provides only the parent, and
    another way to find other instances.  job_find_other_instance ()
    which takes an existing job, iterates for the same name?
-
- * Configuration files can be deleted, need to do something with the
-   job at that point.
 
  * Get the LANG environment variable somehow.
 
@@ -52,33 +62,6 @@ Future Features:
 
 Musings and Feedback:
 
- * The current system of using job names for their associated events
-   isn't going to be, in the long term, ideal.  While it's the
-   simplest design, I think that something more clever is going to be
-   desired.
-
-   Another problem, with a related solution, is that dependencies are
-   only useful for services as they're triggered when there's a
-   process running.  Tasks need them to be triggered when the process
-   has stopped.
-
-   Perhaps the solution is to replace the level event for a job with
-   an edge event, and have that triggered at either running or
-   stopping as appropriate.  This would release dependencies.  This
-   would mean you couldn't be specific as to the state, or watch for
-   state changes though.
-
- * Perhaps some kind of namespacing is required for the events?
-   Instead of multiple values, how about a tree instead?  Doesn't
-   fulfill the above case :-(
-
- * Unless we have an event trigger --parent-too or something
-
- * Do we really want to keep events in a list anymore?  What purpose
-   does it serve?  It allows us to re-trigger the event at the
-   previous level.  Will we, in practice, use that?
-
-
  * Some magic could be hidden through special commands.  It might be
    common for example to depend on a job to be running, start when it
    enters running and stop when it leaves running.
@@ -90,11 +73,6 @@ Musings and Feedback:
 
  * "depends" in its current form was considered confusing, suggested
    rename was "wait for"
-
- * "when" was considered confusing, suggested just "on"
-
- * "while" confusing also about what its effect might be (this might
-   improve with event tweaks)
 
 
  * script/process doesn't know what event was triggered.  Put it in
@@ -109,9 +87,3 @@ Musings and Feedback:
    daemon-related too, like having a script that indicates whether the
    daemon is actually running yet or not -- useful for "not running
    until it listens on port 80"
-
- * shutdown - this is going to be need some special casing, as we're
-   going to need to send a further poweroff or halt event after the
-   shutdown event has been processed; we'll need to know about system
-   harmony to be able to do that.
-

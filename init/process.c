@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <termios.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -222,8 +221,8 @@ process_setup_environment (Job *job)
 	/* Inherit PATH and TERM from our parent's environment, everything
 	 * else is often just overspill from initramfs.
 	 */
-	path = nih_strdup (NULL, getenv ("PATH"));
-	term = nih_strdup (NULL, getenv ("TERM"));
+	NIH_MUST (path = nih_strdup (NULL, getenv ("PATH")));
+	NIH_MUST (term = nih_strdup (NULL, getenv ("TERM")));
 
 	if (clearenv () < 0)
 		nih_return_system_error (-1);
@@ -298,42 +297,10 @@ process_setup_console (ConsoleType type)
 		/* Open the console itself */
 		fd = open (CONSOLE, O_RDWR|O_NOCTTY);
 		if (fd >= 0) {
-			struct termios tty;
-
 			/* Take ownership of the console */
 			if (type == CONSOLE_OWNER)
 				ioctl (fd, TIOCSCTTY, 1);
 
-			/* Set up the console flags to something sensible
-			 * (cribbed from sysvinit)
-			 */
-			tcgetattr (fd, &tty);
-
-			tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB
-					| PARENB | PARODD);
-			tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
-
-			/* Set up usual keys */
-			tty.c_cc[VINTR]  = 3;   /* ^C */
-			tty.c_cc[VQUIT]  = 28;  /* ^\ */
-			tty.c_cc[VERASE] = 127;
-			tty.c_cc[VKILL]  = 24;  /* ^X */
-			tty.c_cc[VEOF]   = 4;   /* ^D */
-			tty.c_cc[VTIME]  = 0;
-			tty.c_cc[VMIN]   = 1;
-			tty.c_cc[VSTART] = 17;  /* ^Q */
-			tty.c_cc[VSTOP]  = 19;  /* ^S */
-			tty.c_cc[VSUSP]  = 26;  /* ^Z */
-
-			/* Pre and post processing */
-			tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
-			tty.c_oflag = (OPOST | ONLCR);
-			tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL
-				       | ECHOPRT | ECHOKE);
-
-			/* Set the terminal line */
-			tcsetattr (fd, TCSANOW, &tty);
-			tcflush (fd, TCIOFLUSH);
 			break;
 		}
 
@@ -355,4 +322,3 @@ process_setup_console (ConsoleType type)
 
 	return 0;
 }
-

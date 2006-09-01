@@ -38,6 +38,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/list.h>
 #include <nih/io.h>
 
@@ -409,9 +410,10 @@ test_send (void)
 	nih_list_free (&msg->entry);
 
 
-	printf ("...with edge event message\n");
-	message->type = UPSTART_EVENT_QUEUE_EDGE;
-	message->event_queue_edge.name = "wibble";
+	printf ("...with job status message\n");
+	message->type = UPSTART_JOB_STATUS;
+	message->job_status.name = "wibble";
+	message->job_status.description = "frodo";
 	msg = control_send (123, message);
 
 	/* Destination process should be 123 */
@@ -421,14 +423,20 @@ test_send (void)
 	}
 
 	/* Message type should be what we gave */
-	if (msg->message.type != UPSTART_EVENT_QUEUE_EDGE) {
+	if (msg->message.type != UPSTART_JOB_STATUS) {
 		printf ("BAD: message type wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	/* Message name should have been copied */
-	if (strcmp (msg->message.event_queue_edge.name, "wibble")) {
+	if (strcmp (msg->message.job_status.name, "wibble")) {
 		printf ("BAD: job name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Message description should have been copied */
+	if (strcmp (msg->message.job_status.description, "frodo")) {
+		printf ("BAD: job description wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -445,18 +453,23 @@ test_send (void)
 	}
 
 	/* Name should be nih_alloc child of msg */
-	if (nih_alloc_parent (msg->message.event_queue_edge.name) != msg) {
-		printf ("BAD: name wasn't nih_alloc child of msg.\n");
+	if (nih_alloc_parent (msg->message.job_status.name) != msg) {
+		printf ("BAD: job name wasn't nih_alloc child of msg.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of msg */
+	if (nih_alloc_parent (msg->message.job_status.description) != msg) {
+		printf ("BAD: job name wasn't nih_alloc child of msg.\n");
 		ret = 1;
 	}
 
 	nih_list_free (&msg->entry);
 
 
-	printf ("...with level event message\n");
-	message->type = UPSTART_EVENT_QUEUE_LEVEL;
-	message->event_queue_level.name = "foo";
-	message->event_queue_level.level = "bar";
+	printf ("...with queue event message\n");
+	message->type = UPSTART_EVENT_QUEUE;
+	message->event_queue.name = "wibble";
 	msg = control_send (123, message);
 
 	/* Destination process should be 123 */
@@ -466,19 +479,13 @@ test_send (void)
 	}
 
 	/* Message type should be what we gave */
-	if (msg->message.type != UPSTART_EVENT_QUEUE_LEVEL) {
+	if (msg->message.type != UPSTART_EVENT_QUEUE) {
 		printf ("BAD: message type wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	/* Message name should have been copied */
-	if (strcmp (msg->message.event_queue_level.name, "foo")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Level should have been copied */
-	if (strcmp (msg->message.event_queue_level.level, "bar")) {
+	if (strcmp (msg->message.event_queue.name, "wibble")) {
 		printf ("BAD: job name wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -496,14 +503,8 @@ test_send (void)
 	}
 
 	/* Name should be nih_alloc child of msg */
-	if (nih_alloc_parent (msg->message.event_queue_level.name) != msg) {
+	if (nih_alloc_parent (msg->message.event_queue.name) != msg) {
 		printf ("BAD: name wasn't nih_alloc child of msg.\n");
-		ret = 1;
-	}
-
-	/* Level should be nih_alloc child of msg */
-	if (nih_alloc_parent (msg->message.event_queue_level.level) != msg) {
-		printf ("BAD: level wasn't nih_alloc child of msg.\n");
 		ret = 1;
 	}
 
@@ -513,7 +514,6 @@ test_send (void)
 	printf ("...with event message\n");
 	message->type = UPSTART_EVENT;
 	message->event.name = "foo";
-	message->event.level = NULL;
 	msg = control_send (123, message);
 
 	/* Destination process should be 123 */
@@ -530,12 +530,6 @@ test_send (void)
 
 	/* Message name should have been copied */
 	if (strcmp (msg->message.event.name, "foo")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Level should have been copied as NULL */
-	if (msg->message.event.level != NULL) {
 		printf ("BAD: job name wasn't what we expected.\n");
 		ret = 1;
 	}
@@ -576,12 +570,12 @@ enum {
 	TEST_JOB_STOP,
 	TEST_JOB_QUERY,
 	TEST_JOB_STATUS,
-	TEST_EVENT_EDGE,
-	TEST_EVENT_LEVEL,
-	TEST_EVENT_TRIGGERED_EDGE,
-	TEST_EVENT_TRIGGERED_LEVEL,
+	TEST_JOB_LIST,
+	TEST_EVENT,
+	TEST_EVENT_TRIGGERED,
 	TEST_JOB_WATCH,
-	TEST_EVENT_WATCH
+	TEST_EVENT_WATCH,
+	TEST_SHUTDOWN
 };
 
 static pid_t
@@ -705,8 +699,13 @@ test_watcher_child (int test)
 
 		break;
 	case TEST_JOB_QUERY:
-		s_msg->type = UPSTART_JOB_QUERY;
-		s_msg->job_stop.name = "test";
+	case TEST_JOB_LIST:
+		if (test == TEST_JOB_QUERY) {
+			s_msg->type = UPSTART_JOB_QUERY;
+			s_msg->job_stop.name = "test";
+		} else {
+			s_msg->type = UPSTART_JOB_LIST;
+		}
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
 		/* fall though into the next test */
 	case TEST_JOB_STATUS:
@@ -721,6 +720,12 @@ test_watcher_child (int test)
 		/* Job should be the one we asked for */
 		if (strcmp (r_msg->job_status.name, "test")) {
 			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Description should be passed */
+		if (strcmp (r_msg->job_status.description, "a test job")) {
+			printf ("BAD: description wasn't what we expected.\n");
 			ret = 1;
 		}
 
@@ -742,13 +747,26 @@ test_watcher_child (int test)
 			ret = 1;
 		}
 
+		if (test != TEST_JOB_LIST)
+			break;
+		/* TEST_JOB_LIST only beyond this point */
+
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive a UPSTART_JOB_LIST_END message */
+		if (r_msg->type != UPSTART_JOB_LIST_END) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
 		break;
-	case TEST_EVENT_EDGE:
-		s_msg->type = UPSTART_EVENT_QUEUE_EDGE;
-		s_msg->event_queue_edge.name = "snarf";
+
+	case TEST_EVENT:
+		s_msg->type = UPSTART_EVENT_QUEUE;
+		s_msg->event_queue.name = "snarf";
 		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
 		break;
-	case TEST_EVENT_TRIGGERED_EDGE:
+	case TEST_EVENT_TRIGGERED:
 		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
 
 		/* Should receive an UPSTART_EVENT message */
@@ -760,40 +778,6 @@ test_watcher_child (int test)
 		/* Event should be the one we queued */
 		if (strcmp (r_msg->event.name, "snarf")) {
 			printf ("BAD: name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Level should be NULL */
-		if (r_msg->event.level != NULL) {
-			printf ("BAD: level wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		break;
-	case TEST_EVENT_LEVEL:
-		s_msg->type = UPSTART_EVENT_QUEUE_LEVEL;
-		s_msg->event_queue_level.name = "foo";
-		s_msg->event_queue_level.level = "bar";
-		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
-		break;
-	case TEST_EVENT_TRIGGERED_LEVEL:
-		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
-
-		/* Should receive an UPSTART_EVENT message */
-		if (r_msg->type != UPSTART_EVENT) {
-			printf ("BAD: response wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Event should be the one we queued */
-		if (strcmp (r_msg->event.name, "foo")) {
-			printf ("BAD: name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Level should be the one we queued */
-		if (strcmp (r_msg->event.level, "bar")) {
-			printf ("BAD: level wasn't what we expected.\n");
 			ret = 1;
 		}
 
@@ -853,9 +837,40 @@ test_watcher_child (int test)
 			ret = 1;
 		}
 
-		/* Level should be NULL */
-		if (r_msg->event.level != NULL) {
-			printf ("BAD: level wasn't what we expected.\n");
+		s_msg->type = UPSTART_UNWATCH_EVENTS;
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		break;
+	case TEST_SHUTDOWN:
+		s_msg->type = UPSTART_WATCH_EVENTS;
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		s_msg->type = UPSTART_SHUTDOWN;
+		s_msg->shutdown.name = "halt";
+		assert (upstart_send_msg_to (getppid (), sock, s_msg) == 0);
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive an UPSTART_EVENT message */
+		if (r_msg->type != UPSTART_EVENT) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Event should be a shutdown one */
+		if (strcmp (r_msg->event.name, "shutdown")) {
+			printf ("BAD: name wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		assert (r_msg = upstart_recv_msg (NULL, sock, NULL));
+
+		/* Should receive an UPSTART_EVENT message */
+		if (r_msg->type != UPSTART_EVENT) {
+			printf ("BAD: response wasn't what we expected.\n");
+			ret = 1;
+		}
+
+		/* Event should be the right idle one */
+		if (strcmp (r_msg->event.name, "halt")) {
+			printf ("BAD: name wasn't what we expected.\n");
 			ret = 1;
 		}
 
@@ -908,6 +923,7 @@ test_watcher (void)
 
 	printf ("...with start job command\n");
 	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->process_state = PROCESS_NONE;
@@ -963,7 +979,19 @@ test_watcher (void)
 		ret = 1;
 
 
-	printf ("...with queue edge event command\n");
+	printf ("...with list jobs command\n");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+
+	pid = test_watcher_child (TEST_JOB_LIST);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+
+	printf ("...with queue event command\n");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->process_state = PROCESS_NONE;
@@ -971,15 +999,7 @@ test_watcher (void)
 	event = event_new (job, "snarf");
 	nih_list_add (&job->start_events, &event->entry);
 
-	pid = test_watcher_child (TEST_EVENT_EDGE);
-	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		ret = 1;
-
-
-	printf ("...with queue level event command\n");
-	pid = test_watcher_child (TEST_EVENT_LEVEL);
+	pid = test_watcher_child (TEST_EVENT);
 	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1012,6 +1032,22 @@ test_watcher (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		ret = 1;
 
+	nih_list_free (&job->entry);
+
+	event_queue_run ();
+
+
+	printf ("...with shutdown event\n");
+	pid = test_watcher_child (TEST_SHUTDOWN);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	job_detect_idle ();
+	event_queue_run ();
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		ret = 1;
+
+	event_queue_run ();
 
 	upstart_disable_safeties = FALSE;
 	control_close ();
@@ -1038,6 +1074,7 @@ test_handle_job (void)
 	sub = control_subscribe (pid, NOTIFY_JOBS, TRUE);
 
 	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_STOPPING;
 	job->process_state = PROCESS_ACTIVE;
@@ -1070,9 +1107,7 @@ test_handle_event (void)
 	watch = control_open ();
 	upstart_disable_safeties = TRUE;
 
-
-	printf ("...with edge event\n");
-	pid = test_watcher_child (TEST_EVENT_TRIGGERED_EDGE);
+	pid = test_watcher_child (TEST_EVENT_TRIGGERED);
 	sub = control_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	event = event_new (NULL, "snarf");
@@ -1085,24 +1120,6 @@ test_handle_event (void)
 		ret = 1;
 
 	nih_list_free (&sub->entry);
-
-
-	printf ("...with level event\n");
-	pid = test_watcher_child (TEST_EVENT_TRIGGERED_LEVEL);
-	sub = control_subscribe (pid, NOTIFY_EVENTS, TRUE);
-
-	event = event_new (NULL, "foo");
-	event->value = "bar";
-	 control_handle_event (event);
-	nih_free (event);
-
-	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		ret = 1;
-
-	nih_list_free (&sub->entry);
-
 
 	upstart_disable_safeties = FALSE;
 	control_close ();

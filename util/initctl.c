@@ -63,6 +63,7 @@ main (int   argc,
 		exit (1);
 
 	/* Check we're root */
+	setuid (geteuid ());
 	if (getuid ()) {
 		nih_error (_("Need to be root"));
 		exit (1);
@@ -129,6 +130,16 @@ main (int   argc,
 
 		msg.type = UPSTART_JOB_QUERY;
 		msg.job_query.name = args[1];
+	} else if (! strcmp (args[0], "list")) {
+		if (args[1] != NULL) {
+			fprintf (stderr, _("%s: unexpected argument\n"),
+				 program_name);
+			nih_main_suggest_help ();
+			exit (1);
+		}
+
+		msg.type = UPSTART_JOB_LIST;
+		expect_reply = -1;
 	} else if (! strcmp (args[0], "trigger")) {
 		if (args[1] == NULL) {
 			fprintf (stderr, _("%s: missing argument\n"),
@@ -137,25 +148,8 @@ main (int   argc,
 			exit (1);
 		}
 
-		msg.type = UPSTART_EVENT_QUEUE_EDGE;
-		msg.event_queue_edge.name = args[1];
-		expect_reply = 0;
-	} else if (! strcmp (args[0], "set")) {
-		if ((args[1] == NULL) || (args[2] == NULL)) {
-			fprintf (stderr, _("%s: missing argument\n"),
-				 program_name);
-			nih_main_suggest_help ();
-			exit (1);
-		} else if (args[3] != NULL) {
-			fprintf (stderr, _("%s: unexpected argument\n"),
-				 program_name);
-			nih_main_suggest_help ();
-			exit (1);
-		}
-
-		msg.type = UPSTART_EVENT_QUEUE_LEVEL;
-		msg.event_queue_level.name = args[1];
-		msg.event_queue_level.level = args[2];
+		msg.type = UPSTART_EVENT_QUEUE;
+		msg.event_queue.name = args[1];
 		expect_reply = 0;
 	} else if (! strcmp (args[0], "jobs")) {
 		if (args[1] != NULL) {
@@ -230,13 +224,11 @@ main (int   argc,
 			fprintf (stderr, _("%s: Unknown job: %s\n"),
 				 program_name, reply->job_unknown.name);
 			break;
+		case UPSTART_JOB_LIST_END:
+			expect_reply = 0;
+			break;
 		case UPSTART_EVENT:
-			if (reply->event.level != NULL) {
-				printf ("%s %s event\n", reply->event.name,
-					reply->event.level);
-			} else {
-				printf ("%s event\n", reply->event.name);
-			}
+			printf ("%s event\n", reply->event.name);
 			break;
 		default:
 			fprintf (stderr, _("%s: Unexpected reply (type %d)\n"),

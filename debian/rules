@@ -56,14 +56,15 @@ install: build
 
 	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
 
-	# Rename the daemon
-	mv debian/tmp/sbin/init debian/tmp/sbin/upstart
+	# Temporary hack
+	install -m 755 -o root -g root debian/sulogin debian/tmp/sbin/sulogin
 
 	# Copy across the default jobs
-	@jobs=debian/event.d/*; \
-	set -x; for job in $$jobs; do \
-		install -m 644 -o root -g root $$job \
-			debian/upstart/etc/event.d || exit 1; \
+	@set -x; for pkg in upstart upstart-compat-sysv; do \
+		for job in debian/event.d/$$pkg/*; do \
+			install -m 644 -o root -g root $$job \
+				debian/$$pkg/etc/event.d || exit 1; \
+		done; \
 	done
 
 

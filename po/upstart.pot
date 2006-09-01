@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2006-08-25 16:17+0200\n"
+"POT-Creation-Date: 2006-09-01 04:16+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -40,102 +40,107 @@ msgid ""
 "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
 msgstr ""
 
-#: nih/option.c:93
+#: nih/option.c:94
 msgid "reduce output to errors only"
 msgstr ""
 
-#: nih/option.c:96
+#: nih/option.c:97
 msgid "increase output to include informational messages"
 msgstr ""
 
-#: nih/option.c:99
+#: nih/option.c:101
 msgid "display this help and exit"
 msgstr ""
 
-#: nih/option.c:102
+#: nih/option.c:104
 msgid "output version information and exit"
 msgstr ""
 
-#: nih/option.c:271
+#: nih/option.c:277
 #, c-format
 msgid "%s: invalid option: -%c\n"
 msgstr ""
 
-#: nih/option.c:362
+#: nih/option.c:372
 #, c-format
 msgid "%s: invalid option: --%s\n"
 msgstr ""
 
-#: nih/option.c:378
+#: nih/option.c:388
 #, c-format
 msgid "%s: unexpected argument: --%s\n"
 msgstr ""
 
-#: nih/option.c:429
+#: nih/option.c:440
 #, c-format
 msgid "%s: missing argument: %s\n"
 msgstr ""
 
-#: nih/option.c:640
+#: nih/option.c:676
 msgid "Usage"
 msgstr ""
 
-#: nih/option.c:655
+#: nih/option.c:691
 #, c-format
 msgid "Report bugs to <%s>\n"
 msgstr ""
 
-#: nih/option.c:678
+#: nih/option.c:715
 #, c-format
 msgid "%s options:\n"
 msgstr ""
 
-#: nih/option.c:680
+#: nih/option.c:717
 #, c-format
 msgid "Other options:\n"
 msgstr ""
 
-#: upstart/job.c:47
+#: nih/option.c:719
+#, c-format
+msgid "Options:\n"
+msgstr ""
+
+#: upstart/job.c:50
 msgid "stop"
 msgstr ""
 
-#: upstart/job.c:49
+#: upstart/job.c:52
 msgid "start"
 msgstr ""
 
-#: upstart/job.c:69
+#: upstart/job.c:95
 msgid "waiting"
 msgstr ""
 
-#: upstart/job.c:71
+#: upstart/job.c:97
 msgid "starting"
 msgstr ""
 
-#: upstart/job.c:73
+#: upstart/job.c:99
 msgid "running"
 msgstr ""
 
-#: upstart/job.c:75
+#: upstart/job.c:101
 msgid "stopping"
 msgstr ""
 
-#: upstart/job.c:77
+#: upstart/job.c:103
 msgid "respawning"
 msgstr ""
 
-#: upstart/job.c:97
+#: upstart/job.c:152
 msgid "none"
 msgstr ""
 
-#: upstart/job.c:99
+#: upstart/job.c:154
 msgid "spawned"
 msgstr ""
 
-#: upstart/job.c:101
+#: upstart/job.c:156
 msgid "active"
 msgstr ""
 
-#: upstart/job.c:103
+#: upstart/job.c:158
 msgid "killed"
 msgstr ""
 
@@ -173,311 +178,571 @@ msgstr ""
 msgid "%s: 'pid binary' ignored unless 'respawn' specified"
 msgstr ""
 
-#: init/cfgfile.c:314
+#: init/cfgfile.c:318
 msgid "expected job description"
 msgstr ""
 
-#: init/cfgfile.c:330
+#: init/cfgfile.c:334
 msgid "expected author name"
 msgstr ""
 
-#: init/cfgfile.c:346
+#: init/cfgfile.c:350
 msgid "expected version string"
 msgstr ""
 
-#: init/cfgfile.c:357
+#: init/cfgfile.c:361
 msgid "expected job name"
 msgstr ""
 
-#: init/cfgfile.c:381 init/cfgfile.c:399 init/cfgfile.c:439 init/cfgfile.c:487
-#: init/cfgfile.c:499 init/cfgfile.c:563 init/cfgfile.c:575
+#: init/cfgfile.c:385 init/cfgfile.c:406 init/cfgfile.c:445
 msgid "expected event name"
 msgstr ""
 
-#: init/cfgfile.c:408 init/cfgfile.c:448 init/cfgfile.c:508 init/cfgfile.c:584
-msgid "expected 'is' or event value"
-msgstr ""
-
-#: init/cfgfile.c:532 init/cfgfile.c:608 init/cfgfile.c:687 init/cfgfile.c:720
-#: init/cfgfile.c:736 init/cfgfile.c:1081
+#: init/cfgfile.c:416 init/cfgfile.c:455 init/cfgfile.c:538 init/cfgfile.c:611
+#: init/cfgfile.c:627 init/cfgfile.c:975
 msgid "ignored additional arguments"
 msgstr ""
 
-#: init/cfgfile.c:540 init/cfgfile.c:616
-msgid "expected 'on', 'when' or 'script'"
+#: init/cfgfile.c:424 init/cfgfile.c:463
+msgid "expected 'on' or 'script'"
 msgstr ""
 
-#: init/cfgfile.c:638
+#: init/cfgfile.c:485
 msgid "expected command"
 msgstr ""
 
-#: init/cfgfile.c:762
-msgid "expected pid filename"
-msgstr ""
-
-#: init/cfgfile.c:772
-msgid "expected binary filename"
-msgstr ""
-
-#: init/cfgfile.c:783 init/cfgfile.c:813 init/cfgfile.c:844 init/cfgfile.c:924
-#: init/cfgfile.c:945 init/cfgfile.c:1010 init/cfgfile.c:1024
+#: init/cfgfile.c:555 init/cfgfile.c:570 init/cfgfile.c:676 init/cfgfile.c:706
+#: init/cfgfile.c:737 init/cfgfile.c:818 init/cfgfile.c:839 init/cfgfile.c:904
+#: init/cfgfile.c:918
 msgid "illegal value"
 msgstr ""
 
-#: init/cfgfile.c:789 init/cfgfile.c:819
+#: init/cfgfile.c:560
+msgid "expected limit"
+msgstr ""
+
+#: init/cfgfile.c:575
+msgid "expected interval"
+msgstr ""
+
+#: init/cfgfile.c:654
+msgid "expected pid filename"
+msgstr ""
+
+#: init/cfgfile.c:665
+msgid "expected binary filename"
+msgstr ""
+
+#: init/cfgfile.c:682 init/cfgfile.c:712
 msgid "expected timeout"
 msgstr ""
 
-#: init/cfgfile.c:793
+#: init/cfgfile.c:686
 msgid "expected 'file', 'binary' or 'timeout'"
 msgstr ""
 
-#: init/cfgfile.c:823
+#: init/cfgfile.c:716
 msgid "expected 'timeout'"
 msgstr ""
 
-#: init/cfgfile.c:834
+#: init/cfgfile.c:727
 msgid "expected exit status"
 msgstr ""
 
-#: init/cfgfile.c:878 init/cfgfile.c:883
+#: init/cfgfile.c:771 init/cfgfile.c:776
 msgid "expected 'logged', 'output', 'owner' or 'none'"
 msgstr ""
 
-#: init/cfgfile.c:909
+#: init/cfgfile.c:803
 msgid "expected variable setting"
 msgstr ""
 
-#: init/cfgfile.c:930
+#: init/cfgfile.c:824
 msgid "expected file creation mask"
 msgstr ""
 
-#: init/cfgfile.c:951
+#: init/cfgfile.c:845
 msgid "expected nice level"
 msgstr ""
 
-#: init/cfgfile.c:996
+#: init/cfgfile.c:890
 msgid "unknown limit type"
 msgstr ""
 
-#: init/cfgfile.c:1001
+#: init/cfgfile.c:895
 msgid "expected limit name"
 msgstr ""
 
-#: init/cfgfile.c:1015
+#: init/cfgfile.c:909
 msgid "expected soft limit"
 msgstr ""
 
-#: init/cfgfile.c:1029
+#: init/cfgfile.c:923
 msgid "expected hard limit"
 msgstr ""
 
-#: init/cfgfile.c:1054 init/cfgfile.c:1069
+#: init/cfgfile.c:948 init/cfgfile.c:963
 msgid "expected directory name"
 msgstr ""
 
-#: init/cfgfile.c:1075
+#: init/cfgfile.c:969
 msgid "ignored unknown stanza"
 msgstr ""
 
-#: init/cfgfile.c:1415
+#: init/cfgfile.c:1309
 msgid "ignored trailing slash"
 msgstr ""
 
-#: init/cfgfile.c:1426
+#: init/cfgfile.c:1320
 msgid "unterminated quoted string"
 msgstr ""
 
-#: init/cfgfile.c:1533
+#: init/cfgfile.c:1427
 msgid "'end script' expected"
 msgstr ""
 
-#: init/cfgfile.c:1679
+#: init/cfgfile.c:1573
 #, c-format
 msgid "Reading configuration from %s"
 msgstr ""
 
-#: init/control.c:341
+#: init/control.c:338
 #, c-format
 msgid "Error reading control message: %s"
 msgstr ""
 
-#: init/control.c:386
+#: init/control.c:383
 #, c-format
 msgid "Error sending control message: %s"
 msgstr ""
 
-#: init/control.c:447
+#: init/control.c:444
 #, c-format
 msgid "Control request to start %s"
 msgstr ""
 
-#: init/control.c:450
+#: init/control.c:447
 #, c-format
 msgid "Control request to stop %s"
 msgstr ""
 
-#: init/control.c:453
+#: init/control.c:450
 #, c-format
 msgid "Control request for state of %s"
 msgstr ""
 
-#: init/control.c:468
-#, c-format
-msgid "Control request to queue %s"
+#: init/control.c:466
+msgid "Control request to list jobs"
 msgstr ""
 
-#: init/control.c:474
+#: init/control.c:489
 #, c-format
-msgid "Control request to queue %s %s"
-msgstr ""
-
-#: init/control.c:482
-#, c-format
-msgid "Control request to subscribe %d to jobs"
-msgstr ""
-
-#: init/control.c:486
-#, c-format
-msgid "Control request to unsubscribe %d from jobs"
-msgstr ""
-
-#: init/control.c:491
-#, c-format
-msgid "Control request to subscribe %d to events"
+msgid "Control request to queue event %s"
 msgstr ""
 
 #: init/control.c:495
 #, c-format
+msgid "Control request to subscribe %d to jobs"
+msgstr ""
+
+#: init/control.c:499
+#, c-format
+msgid "Control request to unsubscribe %d from jobs"
+msgstr ""
+
+#: init/control.c:504
+#, c-format
+msgid "Control request to subscribe %d to events"
+msgstr ""
+
+#: init/control.c:508
+#, c-format
 msgid "Control request to unsubscribe %d from events"
 msgstr ""
 
-#: init/job.c:250
+#: init/control.c:513
+#, c-format
+msgid "Control request to shutdown system for %s"
+msgstr ""
+
+#: init/job.c:280
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:565
+#: init/job.c:379
+#, c-format
+msgid "%s respawning too fast, stopped"
+msgstr ""
+
+#: init/job.c:646
 msgid "Failed to spawn process"
 msgstr ""
 
-#: init/job.c:576
+#: init/job.c:657
 #, c-format
 msgid "Spawned %s process (%d)"
 msgstr ""
 
-#: init/job.c:579
+#: init/job.c:660
 #, c-format
 msgid "Active %s process (%d)"
 msgstr ""
 
-#: init/job.c:617
+#: init/job.c:698
 #, c-format
 msgid "Failed to send TERM signal to %s process (%d): %s"
 msgstr ""
 
-#: init/job.c:666
+#: init/job.c:747
 #, c-format
 msgid "Failed to send KILL signal to %s process (%d): %s"
 msgstr ""
 
-#: init/job.c:718
+#: init/job.c:799
 #, c-format
 msgid "%s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job.c:721
+#: init/job.c:802
 #, c-format
 msgid "%s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job.c:724
+#: init/job.c:805
 #, c-format
 msgid "%s process (%d) exited normally"
 msgstr ""
 
-#: init/job.c:757
+#: init/job.c:838
 #, c-format
 msgid "%s process ended, respawning"
 msgstr ""
 
-#: init/job.c:812
+#: init/job.c:893
 #, c-format
 msgid "%s will be started"
 msgstr ""
 
-#: init/job.c:840
+#: init/job.c:921
 #, c-format
 msgid "%s waiting for unknown dependency: %s"
 msgstr ""
 
-#: init/job.c:856
+#: init/job.c:937
 #, c-format
 msgid "%s waiting for dependency: %s"
 msgstr ""
 
-#: init/job.c:919
+#: init/job.c:1000
 #, c-format
 msgid "%s will be stopped"
 msgstr ""
 
-#: init/process.c:153
+#: init/main.c:134 util/initctl.c:68 util/reboot.c:172 util/shutdown.c:277
+#: util/start.c:82 compat/sysv/telinit.c:80
+msgid "Need to be root"
+msgstr ""
+
+#: init/main.c:140
+msgid "Not being executed as init"
+msgstr ""
+
+#: init/main.c:320
+msgid "Caught segmentation fault, core dumped"
+msgstr ""
+
+#: init/main.c:322
+msgid "Caught segmentation fault, unable to dump core"
+msgstr ""
+
+#: init/main.c:374
+msgid "Event queue resumed"
+msgstr ""
+
+#: init/main.c:377
+msgid "Event queue paused"
+msgstr ""
+
+#: init/main.c:403
+#, c-format
+msgid "Re-executing %s"
+msgstr ""
+
+#: init/main.c:450
+#, c-format
+msgid "Failed to re-execute %s: %s"
+msgstr ""
+
+#: init/main.c:482
+#, c-format
+msgid "Unable to read from state descriptor: %s"
+msgstr ""
+
+#: init/main.c:521
+#, c-format
+msgid "Error after reading state: %s"
+msgstr ""
+
+#: init/main.c:543
+#, c-format
+msgid "Unable to write to state descriptor: %s"
+msgstr ""
+
+#: init/main.c:552
+#, c-format
+msgid "Error after writing state: %s"
+msgstr ""
+
+#: init/process.c:152
 #, c-format
 msgid "Unable to execute \"%s\" for %s: %s"
 msgstr ""
 
-#: init/process.c:341
+#: init/process.c:308
 #, c-format
 msgid "Unable to open console: %s"
 msgstr ""
 
-#: logd/main.c:60 util/initctl.c:94 util/initctl.c:109 util/initctl.c:124
-#: util/initctl.c:150 util/initctl.c:162 util/initctl.c:172
+#: logd/main.c:60 util/initctl.c:95 util/initctl.c:110 util/initctl.c:125
+#: util/initctl.c:135 util/initctl.c:156 util/initctl.c:166
 #, c-format
 msgid "%s: unexpected argument\n"
 msgstr ""
 
-#: util/initctl.c:67
-msgid "Need to be root"
-msgstr ""
-
-#: util/initctl.c:77
+#: util/initctl.c:78 util/shutdown.c:422 util/start.c:92
+#: compat/sysv/telinit.c:115
 #, c-format
 msgid "Unable to establish control socket: %s"
 msgstr ""
 
-#: util/initctl.c:84
+#: util/initctl.c:85
 #, c-format
 msgid "%s: missing command\n"
 msgstr ""
 
-#: util/initctl.c:89 util/initctl.c:104 util/initctl.c:119 util/initctl.c:134
-#: util/initctl.c:145
+#: util/initctl.c:90 util/initctl.c:105 util/initctl.c:120 util/initctl.c:145
 #, c-format
 msgid "%s: missing argument\n"
 msgstr ""
 
-#: util/initctl.c:181
+#: util/initctl.c:175
 #, c-format
 msgid "%s: unknown command: %s\n"
 msgstr ""
 
-#: util/initctl.c:192
+#: util/initctl.c:186 util/shutdown.c:436 util/start.c:123
+#: compat/sysv/telinit.c:125
 #, c-format
 msgid "Unable to send message: %s"
 msgstr ""
 
-#: util/initctl.c:205
+#: util/initctl.c:199 util/start.c:134
 #, c-format
 msgid "Error receiving message: %s"
 msgstr ""
 
-#: util/initctl.c:230
+#: util/initctl.c:224 util/start.c:159
 #, c-format
 msgid "%s: Unknown job: %s\n"
 msgstr ""
 
-#: util/initctl.c:242
+#: util/initctl.c:234 util/start.c:163
 #, c-format
 msgid "%s: Unexpected reply (type %d)\n"
+msgstr ""
+
+#: util/reboot.c:127
+msgid "don't sync before reboot or halt"
+msgstr ""
+
+#: util/reboot.c:129
+msgid "force reboot or halt, don't call shutdown(8)"
+msgstr ""
+
+#: util/reboot.c:131
+msgid "switch off the power when called as halt"
+msgstr ""
+
+#: util/reboot.c:133
+msgid "put hard disks into standby"
+msgstr ""
+
+#: util/reboot.c:135
+msgid "bring down network interfaces"
+msgstr ""
+
+#: util/reboot.c:210
+msgid "Calling shutdown"
+msgstr ""
+
+#: util/reboot.c:213
+#, c-format
+msgid "Unable to execute shutdown: %s"
+msgstr ""
+
+#: util/reboot.c:228
+msgid "Syncing disks"
+msgstr ""
+
+#: util/reboot.c:242
+msgid "Rebooting"
+msgstr ""
+
+#: util/reboot.c:246
+msgid "Halting"
+msgstr ""
+
+#: util/reboot.c:250
+msgid "Powering off"
+msgstr ""
+
+#: util/reboot.c:275
+msgid "Putting disks into standby"
+msgstr ""
+
+#: util/reboot.c:280
+#, c-format
+msgid "Unable to iterate IDE devices: %s"
+msgstr ""
+
+#: util/reboot.c:328 util/reboot.c:335
+#, c-format
+msgid "Failed to put %s into standby: %s"
+msgstr ""
+
+#: util/reboot.c:360
+msgid "Bringing interfaces down"
+msgstr ""
+
+#: util/reboot.c:364
+#, c-format
+msgid "Unable to open socket to iterate interfaces: %s"
+msgstr ""
+
+#: util/reboot.c:373
+#, c-format
+msgid "Unable to get list of interfaces: %s"
+msgstr ""
+
+#: util/reboot.c:393 util/reboot.c:410
+#, c-format
+msgid "Failed to down interface %s: %s"
+msgstr ""
+
+#: util/shutdown.c:133
+msgid "shutdown event to send"
+msgstr ""
+
+#: util/shutdown.c:135
+msgid "reboot after shutdown"
+msgstr ""
+
+#: util/shutdown.c:137
+msgid "halt or power off after shutdown"
+msgstr ""
+
+#: util/shutdown.c:139
+msgid "halt after shutdown (implies -h)"
+msgstr ""
+
+#: util/shutdown.c:141
+msgid "power off after shutdown (implies -h)"
+msgstr ""
+
+#: util/shutdown.c:143
+msgid "cancel a running shutdown"
+msgstr ""
+
+#: util/shutdown.c:145
+msgid "only send warnings, don't shutdown"
+msgstr ""
+
+#: util/shutdown.c:187
+#, c-format
+msgid "%s: time expected\n"
+msgstr ""
+
+#: util/shutdown.c:211
+#, c-format
+msgid "%s: illegal hour value\n"
+msgstr ""
+
+#: util/shutdown.c:220
+#, c-format
+msgid "%s: illegal minute value\n"
+msgstr ""
+
+#: util/shutdown.c:240
+#, c-format
+msgid "%s: illegal time value\n"
+msgstr ""
+
+#: util/shutdown.c:292
+msgid "Shutdown is not running"
+msgstr ""
+
+#: util/shutdown.c:301
+msgid "Another shutdown is already running"
+msgstr ""
+
+#: util/shutdown.c:305
+msgid "Cannot find pid of running shutdown"
+msgstr ""
+
+#: util/shutdown.c:330
+#, c-format
+msgid "Unable to save pid to %s"
+msgstr ""
+
+#: util/shutdown.c:460
+msgid "Shutdown cancelled"
+msgstr ""
+
+#: util/shutdown.c:534
+#, c-format
+msgid ""
+"\rThe system is going down for %s in %d minutes!\r\n"
+"%s"
+msgstr ""
+
+#: util/shutdown.c:538
+#, c-format
+msgid ""
+"\rThe system is going down for %s IN ONE MINUTE!\r\n"
+"%s"
+msgstr ""
+
+#: util/shutdown.c:542
+#, c-format
+msgid ""
+"\rThe system is going down for %s NOW!\r\n"
+"%s"
+msgstr ""
+
+#: util/shutdown.c:580
+#, c-format
+msgid "Unable to fork child-process to warn users: %s"
+msgstr ""
+
+#: util/shutdown.c:626
+#, c-format
+msgid ""
+"\r\n"
+"Broadcast message from %s@%s\r\n"
+"\t(%s) at %d:%02d ...\r\n"
+"\r\n"
+msgstr ""
+
+#: compat/sysv/runlevel.c:70
+msgid "store time of system boot"
+msgstr ""
+
+#: compat/sysv/runlevel.c:72
+msgid "store new runlevel"
+msgstr ""
+
+#: compat/sysv/runlevel.c:122 compat/sysv/telinit.c:71
+#, c-format
+msgid "%s: illegal runlevel: %s\n"
 msgstr ""

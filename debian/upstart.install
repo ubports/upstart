@@ -1,2 +1,10 @@
-sbin/upstart
+sbin/init
 sbin/initctl
+sbin/start
+sbin/stop
+sbin/status
+sbin/reboot
+sbin/halt
+sbin/poweroff
+sbin/shutdown
+sbin/sulogin

@@ -1,5 +1,0 @@
-start when rc2 is stopping
-stop on shutdown
-stop on reboot
-
-respawn /sbin/getty 38400 tty2

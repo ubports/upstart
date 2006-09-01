@@ -1,0 +1,9 @@
+# tty1 - getty
+#
+# This service maintains a getty on tty1 from the point the system is
+# started until it is shut down again.
+
+start on startup
+stop on shutdown
+
+respawn /sbin/getty 38400 tty1

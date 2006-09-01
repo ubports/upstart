@@ -1,0 +1,28 @@
+# rc0-poweroff - runlevel 0 compatibility
+#
+# This task runs the old sysv-rc runlevel 0 ("halt/poweroff") scripts with
+# the environment variables set to power off the system.
+
+start on poweroff
+
+# rc events are exclusive
+stop on rcS/start
+stop on rc0-halt/start
+stop on rc1/start
+stop on rc2/start
+stop on rc3/start
+stop on rc4/start
+stop on rc5/start
+stop on rc6/start
+
+env INIT_HALT=POWEROFF
+script
+	set $(runlevel --set 0 || true)
+	if [ "$1" != "unknown" ]; then
+	    PREVLEVEL=$1
+	    RUNLEVEL=$2
+	    export PREVLEVEL RUNLEVEL
+	fi
+
+	exec /etc/init.d/rc 0
+end script

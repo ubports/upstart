@@ -1,5 +1,292 @@
+2006-09-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (term_handler): Close the control connection if we
+	re-exec init, otherwise it won't be able to bind.  Drop debugging.
+
+	* init/main.c (term_handler): It always helps if we dup2 the
+	right file descriptor.
+
+	* init/main.c: Use the TERM signal instead of USR1, as old init
+	used that for something else.  Also rather than passing across
+	file descriptor numbers, use a fixed descriptor and just pass
+	"--restart".  When we get that option we need to unmask signals
+	otherwise we sit there looking like a lemon.
+
+	* init/job.c (job_change_state): Don't free the event unless we
+	generate one.
+
+	* NEWS: Update.
+
+	* init/cfgfile.c (cfg_watcher): Ignore any file with '.' or '~'
+
+	* TODO: Update.
+
+	* init/main.c (main): Parse command-line arguments, specifically
+	look for --state-fd which we'll use for reexec.  Don't do a couple
+	of things if we're passed this.
+	(read_state): Parse the line-buffered state.
+	* init/job.c (job_read_state, job_write_state): Job state
+	serialisation so that we can re-exec ourselves.
+	* init/job.h: Update.
+	* init/tests/test_job.c: Test the serialisation.
+	* init/event.c (event_read_state, event_write_state): And similar
+	functions for serialising the event queue.
+	* init/event.h: Update.
+	* init/tests/test_event.c: Test the serialisation.
+	* init/cfgfile.c (cfg_read_job): Fix a bug, need to subtract current
+	time to get due time.
+
+	* upstart/job.c (job_goal_from_name, job_state_from_name) 
+	(process_state_from_name): Add opposite numbers that convert a
+	string back into an enumeration.
+	* upstart/job.h: Update.
+	* upstart/tests/test_job.c: Test the new functions.
+
+2006-08-31  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.h (Job): Add respawn_limit, respawn_interval,
+	respawn_count and respawn_time members so that we can keep track of
+	runaway processes.
+	* init/job.c (job_catch_runaway): Increment the respawn_count
+	within respawn_interval, or reset it if we go over.
+	(job_new): Initialise respawn_limit and respawn_interval to sensible
+	defaults.
+	* init/tests/test_job.c (test_new): Check the defaults are set.
+	(test_change_state): Check the respawning code works.
+	* init/cfgfile.c (cfg_job_stanza): Parse the "respawn limit" stanza.
+	* init/tests/test_cfgfile.c (test_read_job): Test the new stanza.
+
+	* init/process.c (process_setup_console): Remove the console reset
+	code, it tends to just crash X and seems to do nothing interesting.
+	* init/main.c (reset_console): Instead put it here and just do it
+	on startup.
+
+	* configure.ac: Bump version to 0.2.0
+
+	* util/Makefile.am (install-exec-local): Create symbolic links,
+	not hard links.
+
+	* init/main.c: Can't catch STOP.
+
+	* util/reboot.c: Pause init while shutting down or rebooting.
+
+	* init/main.c (stop_handler): Catch STOP/TSTP and CONT.
+	* init/event.c (event_queue_run): Don't run the event queue while
+	paused.
+	* init/job.c (job_detect_idle): Don't detect idle jobs while paused.
+
+	* util/reboot.c: if we get the -w argument ("only write to wtmp")
+	we need to exit, and not behave as halt normally would.
+
+	* compat/sysv/runlevel.c (main): Add missing newline.
+	* compat/sysv/telinit.c (main): And here too.
+
+	* init/main.c (main): Check for idle after the startup event queue
+	has been run, otherwise we may just sit there.
+
+	* compat/sysv/Makefile.am (sbin_PROGRAMS): Build and install telinit
+	(telinit_SOURCES, telinit_LDFLAGS, telinit_LDADD): Details for
+	telinit binary.
+	* compat/sysv/telinit.c: Trivial telinit program that just runs
+	the appropriate rcX job.
+	* compat/sysv/runlevel.c (main): Suggest help on illegal runlevel.
+
+	* util/Makefile.am: Tidy up.
+
+	* configure.ac (AC_CONFIG_FILES): Create compat/sysv/Makefile
+	* Makefile.am (SUBDIRS): Build things found in compat/sysv
+	* compat/sysv/Makefile.am (sbin_PROGRAMS): Build and install runlevel
+	(runlevel_SOURCES, runlevel_LDFLAGS, runlevel_LDADD): Details for
+	runlevel binary.
+	* compat/sysv/runlevel.c: Helper to store and retrieve the current
+	"runlevel" from utmp/wtmp; as well as the reboot time.
+
+	* init/main.c (main): Drop debugging set.
+
+	* init/job.c (job_change_state): As well as the job/state events,
+	send the job event when a service is running or a task is stopping.
+	* init/tests/test_job.c (test_change_state): Check the events get
+	sent properly.
+
+	* util/start.c: Write a simple utility to start, stop, or query
+	the status of the named jobs.
+	* util/Makefile.am (sbin_PROGRAMS): Build and install start
+	(start_SOURCES, start_LDFLAGS, start_LDADD): Details for start
+	(install-exec-local): Also install as stop and status.
+	* util/reboot.c (main): Drop the debugging set.
+
+	* init/cfgfile.c (cfg_job_stanza): Correct nih_alloc error.
+
+	* init/process.c (process_setup_environment): Guard memory alloc.
+	* init/job.c (job_set_idle_event): Likewise.
+	(job_change_state): And here too.
+	(job_run_command): Likewise.
+	* init/control.c (control_send): Likewise.
+	* init/cfgfile.c: And throughout this file.
+	* upstart/control.c (upstart_recv_msg): And once here too.
+
+	* upstart/control.h: Abolish the separate halt, reboot and poweroff
+	messages and replace with a single shutdown message that takes
+	an event name (for the idle event issued afterwards).
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Handle
+	the new shutdown event type by just treating it as an event.
+	* upstart/tests/test_control.c (test_messages): Update tests.
+	* init/job.c (job_set_idle_event): Store a copy of the idle event
+	name.
+	* init/control.c (control_send): Copy the shutdown event name.
+	(control_handle): Replace individual handling with the new
+	single event.
+	* init/tests/test_control.c (test_watcher): Update.
+	* util/initctl.c: Drop handling for things that shutdown does now.
+	* util/shutdown.c: Send the UPSTART_SHUTDOWN event and let the user
+	specify anything they want, just give defaults.
+
+	This is quite a big change and abolishes level events entirely,
+	along with the event history.  We now just treat events as a
+	transient queue of strings that go past, may cause things to change,
+	but are otherwise forgotten.  This turns out to be much easier to
+	understand and has no real loss of power.
+
+	* init/event.c: Vastly simplify; gone are the separate notions of
+	edge and level events, instead we just treat them as one-shot
+	things that go past and are forgotten about.
+	* init/event.h (Event): Remove value member.
+	Update prototypes.
+	* init/tests/test_event.c: Update.
+	* init/job.c (job_change_state): Change the event pattern to be
+	one that includes the job name and a description of the transition
+	instead of the new state.
+	(job_detect_idle): Call event_queue rather than event_queue_edge.
+	* init/tests/test_job.c: Update.
+	* init/cfgfile.c (cfg_job_stanza): Drop "when" and "while".
+	* init/tests/test_cfgfile.c (test_read_job): Drop mentions of
+	"when" and "while".
+	* init/control.c (control_send, control_handle): Drop cases for
+	level events.
+	(control_handle_event): Don't include a level in the event.
+	* init/tests/test_control.c: Update
+	* init/main.c: Call event_queue rather than event_queue_edge.
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Change
+	event handling so that only a name is read.
+	* upstart/control.h: Remove value/level event structures.
+	* upstart/tests/test_control.c (test_messages): Update.
+	* upstart/job.c (process_state_name): Not used for events, adjust
+	documentation so it doesn't lie.
+	* util/initctl.c (main): Drop the set function, simplify trigger.
+	* util/shutdown.c (shutdown_now): Call UPSTART_EVENT_QUEUE for
+	shutdown into maintenance mode.
+
+	* init/control.c (control_handle): Place a message in the syslog
+	before halting, powering off or rebooting.
+
+	* util/shutdown.c: Adjust so that the warning message is sent out
+	if shutdown is immediate, and when it actually happens.  Include
+	the hostname as wall does.
+
+2006-08-30  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* util/shutdown.c: Implement shutdown utility along the same lines
+	as the sysvinit one, but with rather different code.
+
+	* util/initctl.c (main): Call setuid on the effective user id so
+	that we can be made setuid root and executable by a special group.
+	* util/reboot.c (main): Likewise.
+
+	* util/initctl.c (main): Check the effective rather than the real
+	user id, if we're effectively root, that's good enough.
+
+	* util/reboot.c: Implement reboot/halt/poweroff utility.
+	* util/Makefile.am (sbin_PROGRAMS): Build and install reboot
+	(reboot_SOURCES, reboot_LDFLAGS, reboot_LDADD): Details for reboot
+	(install-exec-local): Create hardlinks to reboot for halt and poweroff.
+
+2006-08-29  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (main): Actually run the idle-detect function.
+	* init/job.c (job_detect_idle): Interrupt the main loop, otherwise
+	we may end up waiting for a signal before we process the event
+	we just issued.
+
+2006-08-27  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c: Template main function.
+	* util/Makefile.am (sbin_PROGRAMS): Build and install the
+	shutdown binary.
+	(shutdown_SOURCES, shutdown_LDFLAGS, shutdown_LDADD): Details for
+	the shutdown binary
+
+	* util/initctl.c (main): Add commands for halt, poweroff and reboot.
+
+	* init/event.c (event_queue_run): Remove the parameters.
+	* init/event.h: Update.
+	* init/main.c (main): Update.
+	* init/tests/test_control.c (test_watcher): Update.
+	* init/tests/test_job.c (test_detect_idle): Update.
+
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Deal
+	with halting, rebooting and powering off; or at least the appropriate
+	messages.
+	* upstart/control.h: Add control message structures for halting,
+	powering off and rebooting the machine.
+	* upstart/tests/test_control.c (test_messages): Run the tests.
+	* init/control.c (control_handle): Add handling for halt, power off
+	and reboot that issue the shutdown event and arrange for the halt,
+	poweroff or reboot to be issued the next time the system is idle.
+	* init/tests/test_control.c (test_watcher): Test the events.
+
+	* TODO: Update.
+
+	* init/job.c (job_detect_idle): Function to detect when the system is
+	stalled or idle.
+	* init/job.h: Update
+	* init/tests/test_job.c (test_detect_idle): Test the new function.
+
+	* util/initctl.c (main): Handle the list command.
+
+	* TODO: Update.
+
+	* upstart/control.c (WireJobStatusPayload): add description to the
+	job status payload.
+	(upstart_send_msg_to, upstart_recv_msg): Send and receieve the
+	description over the wire.
+	* upstart/control.h (UpstartJobStatusMsg): add a description field
+	* upstart/tests/test_control.c: Update test cases.
+	* init/control.c (control_handle): Include the job description in
+	the message.
+	(control_send): Copy the description when we put the message on
+	the queue.
+	(control_handle_job): Copy the description here too
+	* init/tests/test_control.c: Update test cases.
+
+	* init/job.c (job_list): Add a function to return the job list.
+	* init/job.h: Update.
+	* init/control.c (control_handle): Handle the JOB_LIST message
+	by sending back a list of job status messages followed by the
+	JOB_LIST_END message.
+	* init/tests/test_control.c (test_watcher_child): Check the
+	JOB_LIST message works properly.
+
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Handle
+	the JOB_LIST and JOB_LIST_END messages which have no payload.
+	* upstart/control.h: Add enums and structures for job list messages.
+	* upstart/tests/test_control.c (test_messages): Update tests.
+
+	* init/main.c (main): Check that we're both uid and process #1
+
+	* init/main.c (main): Stop handling SIGTERM, we never want people
+	to kill init.  Handle SIGINT and SIGWINCH through the ordinary
+	handler and SIGSEGV through a direct handler.
+	(segv_handler): Write a sensible core dump handler, we use a child
+	to dump core while we carry on in the parent hopefully stepping over
+	the bad instruction.
+	(cad_handler): Generate the control-alt-delete event.
+	(kbd_handler): Generate the kbdrequest event.
+
 2006-08-25  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.1.2
 	* NEWS: Update.
 
 	* TODO: Update.

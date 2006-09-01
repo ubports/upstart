@@ -25,10 +25,12 @@
 #include <sys/resource.h>
 
 #include <time.h>
+#include <stdio.h>
 
 #include <nih/macros.h>
 #include <nih/list.h>
 #include <nih/timer.h>
+#include <nih/main.h>
 
 #include <upstart/job.h>
 
@@ -51,6 +53,21 @@
  * signal before sending the KILL signal if it hasn't terminated.
  **/
 #define JOB_DEFAULT_KILL_TIMEOUT 5
+
+/**
+ * JOB_DEFAULT_RESPAWN_LIMIT:
+ *
+ * The default number of times in %JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * we permit a process to respawn before stoping it
+ **/
+#define JOB_DEFAULT_RESPAWN_LIMIT 10
+
+/**
+ * JOB_DEFAULT_RESPAWN_INTERVAL:
+ *
+ * The default number of seconds before resetting the respawn timer.
+ **/
+#define JOB_DEFAULT_RESPAWN_INTERVAL 5
 
 /**
  * JOB_DEFAULT_UMASK:
@@ -81,6 +98,10 @@
  * @spawns_instance: job is always waiting and spawns instances,
  * @is_instance: job should be cleaned up instead of waiting,
  * @respawn: process should be restarted if it fails,
+ * @respawn_limit: number of respawns in @respawn_interval that we permit,
+ * @respawn_interval: barrier for @respawn_limit,
+ * @respawn_count: number of respawns since @respawn_time,
+ * @respawn_time: time service was first respawned,
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
  * @daemon: process forks into background; pid needs to be obtained,
@@ -131,6 +152,10 @@ typedef struct job {
 	int            is_instance;
 
 	int            respawn;
+	int            respawn_limit;
+	time_t         respawn_interval;
+	int            respawn_count;
+	time_t         respawn_time;
 	int           *normalexit;
 	size_t         normalexit_len;
 
@@ -172,6 +197,8 @@ typedef struct job_name {
 
 NIH_BEGIN_EXTERN
 
+NihList *   job_list            (void);
+
 Job *       job_new             (void *parent, const char *name);
 
 Job *       job_find_by_name    (const char *name);
@@ -195,6 +222,12 @@ void        job_release_depends (Job *job);
 void        job_start_event     (Job *job, Event *event);
 void        job_stop_event      (Job *job, Event *event);
 void        job_handle_event    (Event *event);
+
+void        job_detect_idle     (void);
+void        job_set_idle_event  (const char *name);
+
+Job *       job_read_state      (Job *job, char *buf);
+void        job_write_state     (FILE *state);
 
 NIH_END_EXTERN
 

@@ -7,7 +7,9 @@ Build-Depends: debhelper (>= 5.0)
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, sysv-rc
+Depends: ${shlibs:Depends}
+Conflicts: sysvinit
+Replaces: sysvinit
 Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during
@@ -15,6 +17,10 @@ Description: event-based init daemon
  .
  THIS PACKAGE IS EXPERIMENTAL, YOU INSTALL IT ON YOUR SYSTEM AT
  YOUR OWN RISK.
- .
- Read /usr/share/doc/upstart/README.Debian after installation for
- instructions how to active the daemon.
+
+Package: upstart-compat-sysv
+Architecture: any
+Depends: ${shlibs:Depends}, upstart (>= 0.2.0), sysvutils, sysv-rc
+Description: compatibility for System-V-like init
+ This package contains compatibility tasks and utilities that emulate
+ the behaviour of the original sysvinit package, including runlevels.

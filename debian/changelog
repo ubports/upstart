@@ -1,3 +1,16 @@
+upstart (0.2.0-1) edgy; urgency=low
+
+  * New upstream release:
+    - upstart includes shutdown, reboot, halt, poweroff, start, stop, status,
+      runlevel and telinit utilities.
+    - "initctl list" will list active jobs.
+    - Events vastly simplified to just simple strings.
+  
+  * Compatibility tasks for old rc scripts, along with runlevel and telinit
+    utilities now shipped in upstart-compat-sysv package.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Fri,  1 Sep 2006 02:38:44 +0100
+
 upstart (0.1.1-1) edgy; urgency=low
 
   * New upstream release:

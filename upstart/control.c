@@ -134,35 +134,35 @@ typedef struct wire_job_payload {
 
 /**
  * WireJobStatusPayload:
+ * @desclen: length of @description,
  * @goal: job goal,
  * @state: job state,
  * @process_state: process state,
  * @pid: current process.
  *
  * This payload follows a job payload for the JOB_STATUS message and contains
- * the status information.
+ * the status information.  The description follows immediately after the
+ * payload, if @desclen is zero then the resulting description is %NULL.
  **/
 typedef struct wire_job_status_payload {
+	size_t       desclen;
 	JobGoal      goal;
 	JobState     state;
 	ProcessState process_state;
 	pid_t        pid;
+	/* char description[desclen]; */
 } WireJobStatusPayload;
 
 /**
  * WireEventPayload:
- * @namelen: length of @name,
- * @levellen: length of @level.
+ * @namelen: length of @name.
  *
  * This is the payload of a message containing event information, the name
- * and level follow immediately after the payload.  If @levellen is zero
- * then the resulting level is %NULL.
+ * follows immediately after the payload.
  **/
 typedef struct wire_event_payload {
 	size_t namelen;
-	size_t levellen;
 	/* char name[namelen]; */
-	/* char level[levellen]; */
 } WireEventPayload;
 
 
@@ -346,6 +346,8 @@ upstart_send_msg_to (pid_t       pid,
 	/* Message type determines actual payload */
 	switch (message->type) {
 	case UPSTART_NO_OP:
+	case UPSTART_JOB_LIST:
+	case UPSTART_JOB_LIST_END:
 	case UPSTART_WATCH_JOBS:
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
@@ -377,37 +379,36 @@ upstart_send_msg_to (pid_t       pid,
 		IOVEC_ADD (iov[0], message->job_status.name, job.namelen,
 			   sizeof (buf));
 
+		if (message->job_status.description) {
+			status.desclen
+				= strlen (message->job_status.description);
+		} else {
+			status.desclen = 0;
+		}
+
 		status.goal = message->job_status.goal;
 		status.state = message->job_status.state;
 		status.process_state = message->job_status.process_state;
 		status.pid = message->job_status.pid;
 		IOVEC_ADD (iov[0], &status, sizeof (status), sizeof (buf));
 
+		if (status.desclen) {
+			IOVEC_ADD (iov[0], message->job_status.description,
+				   status.desclen, sizeof (buf));
+		}
+
 		break;
 	}
-	case UPSTART_EVENT_QUEUE_EDGE:
-	case UPSTART_EVENT_QUEUE_LEVEL:
-	case UPSTART_EVENT: {
-		/* Event name, followed by optional level */
+	case UPSTART_EVENT_QUEUE:
+	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN: {
+		/* Event name */
 		WireEventPayload ev;
 
 		ev.namelen = strlen (message->event.name);
-		if ((message->type == UPSTART_EVENT_QUEUE_LEVEL)
-		    || ((message->type == UPSTART_EVENT)
-			&& (message->event.level != NULL)))
-		{
-			ev.levellen = strlen (message->event.level);
-		} else {
-			ev.levellen = 0;
-		}
-
 		IOVEC_ADD (iov[0], &ev, sizeof (ev), sizeof (buf));
 		IOVEC_ADD (iov[0], message->event.name, ev.namelen,
 			   sizeof (buf));
-		if (ev.levellen) {
-			IOVEC_ADD (iov[0], message->event.level,
-				   ev.levellen, sizeof (buf));
-		}
 
 		break;
 	}
@@ -536,12 +537,14 @@ upstart_recv_msg (void  *parent,
 
 
 	/* Allocate the message */
-	message = nih_new (parent, UpstartMsg);
+	NIH_MUST (message = nih_new (parent, UpstartMsg));
 	message->type = hdr.type;
 
 	/* Message type determines actual payload */
 	switch (message->type) {
 	case UPSTART_NO_OP:
+	case UPSTART_JOB_LIST:
+	case UPSTART_JOB_LIST_END:
 	case UPSTART_WATCH_JOBS:
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
@@ -580,33 +583,28 @@ upstart_recv_msg (void  *parent,
 		message->job_status.process_state = status.process_state;
 		message->job_status.pid = status.pid;
 
+		if (status.desclen) {
+			message->job_status.description
+				= nih_alloc (message, status.desclen + 1);
+			message->job_status.description[status.desclen] = '\0';
+			IOVEC_READ (iov[0], message->job_status.description,
+				    status.desclen, len);
+		} else {
+			message->job_status.description = NULL;
+		}
+
 		break;
 	}
-	case UPSTART_EVENT_QUEUE_EDGE:
-	case UPSTART_EVENT_QUEUE_LEVEL:
-	case UPSTART_EVENT: {
-		/* Event name, followed by optional level */
+	case UPSTART_EVENT_QUEUE:
+	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN: {
+		/* Event name */
 		WireEventPayload ev;
 
 		IOVEC_READ (iov[0], &ev, sizeof (ev), len);
 		message->event.name = nih_alloc (message, ev.namelen + 1);
 		message->event.name[ev.namelen] = '\0';
 		IOVEC_READ (iov[0], message->event.name, ev.namelen, len);
-
-		if (message->type == UPSTART_EVENT_QUEUE_EDGE) {
-			/* Ignore levellen for edge trigger message */
-		} else if (ev.levellen) {
-			message->event.level = nih_alloc (
-				message, ev.levellen + 1);
-			message->event.level[ev.levellen] = '\0';
-			IOVEC_READ (iov[0], message->event.level,
-				    ev.levellen, len);
-		} else if (message->type == UPSTART_EVENT_QUEUE_LEVEL) {
-			/* Level events must have a level */
-			goto invalid;
-		} else {
-			message->event.level = NULL;
-		}
 
 		break;
 	}
