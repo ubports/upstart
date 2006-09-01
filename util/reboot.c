@@ -29,9 +29,6 @@
 #include <sys/reboot.h>
 #include <sys/socket.h>
 
-#include <linux/if.h>
-#include <linux/hdreg.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -39,6 +36,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include <linux/if.h>
+#include <linux/hdreg.h>
 
 #include <nih/macros.h>
 #include <nih/main.h>

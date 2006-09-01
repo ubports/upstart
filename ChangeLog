@@ -1,5 +1,9 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Move the kernel headers include beneath the C
+	library ones, so that compilation doesn't fail on !i386.
+	* util/reboot.c: Likewise.
+
 	* init/main.c (term_handler): Close the control connection if we
 	re-exec init, otherwise it won't be able to bind.  Drop debugging.
 
