@@ -1,5 +1,11 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Use the TERM signal instead of USR1, as old init
+	used that for something else.  Also rather than passing across
+	file descriptor numbers, use a fixed descriptor and just pass
+	"--restart".  When we get that option we need to unmask signals
+	otherwise we sit there looking like a lemon.
+
 	* init/job.c (job_change_state): Don't free the event unless we
 	generate one.
 

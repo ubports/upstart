@@ -57,24 +57,32 @@
 #include "cfgfile.h"
 
 
+/**
+ * STATE_FD:
+ *
+ * File descriptor we read our state from.
+ **/
+#define STATE_FD 101
+
+
 /* Prototypes for static functions */
 static void reset_console   (void);
 static void segv_handler    (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
-static void usr1_handler    (const char *prog, NihSignal *signal);
-static int  state_fd_setter (NihOption *option, const char *arg);
+static void term_handler    (const char *prog, NihSignal *signal);
 static void read_state      (int fd);
 static void write_state     (int fd);
 
+
 /**
- * state_fd:
+ * restart:
  *
- * This is set to the file descriptor we should read state from if we
- * are being re-exec'd.
+ * This is set to %TRUE if we're being re-exec'd by an existing init
+ * process.
  **/
-static int state_fd = -1;
+static int restart = FALSE;
 
 
 /**
@@ -83,8 +91,7 @@ static int state_fd = -1;
  * Command-line options we accept.
  **/
 static NihOption options[] = {
-	{ 0, "state-fd", N_("file descriptor to read state from"),
-	  NULL, "FD", &state_fd, state_fd_setter },
+	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -118,7 +125,7 @@ main (int   argc,
 		close (i);
 
 	process_setup_console (CONSOLE_OUTPUT);
-	if (state_fd < 0)
+	if (! restart)
 		reset_console ();
 
 	/* Check we're root */
@@ -142,7 +149,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
 	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
 	nih_signal_set_handler (SIGCONT,  nih_signal_handler);
-	nih_signal_set_handler (SIGUSR1,  nih_signal_handler);
+	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
@@ -150,10 +157,6 @@ main (int   argc,
 	/* Ensure that we don't process events while paused */
 	nih_signal_add_callback (NULL, SIGTSTP, stop_handler, NULL);
 	nih_signal_add_callback (NULL, SIGCONT, stop_handler, NULL);
-
-	/* SIGUSR1 instructs us to re-exec ourselves */
-	nih_signal_add_callback (NULL, SIGUSR1,
-				 (NihSignalCb)usr1_handler, argv[0]);
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
@@ -166,6 +169,10 @@ main (int   argc,
 	 */
 	ioctl (0, KDSIGACCEPT, SIGWINCH);
 	nih_signal_add_callback (NULL, SIGWINCH, kbd_handler, NULL);
+
+	/* SIGTERM instructs us to re-exec ourselves */
+	nih_signal_add_callback (NULL, SIGTERM,
+				 (NihSignalCb)term_handler, argv[0]);
 
 
 	/* Reap all children that die */
@@ -195,11 +202,17 @@ main (int   argc,
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (state_fd < 0) {
+	if (! restart) {
 		event_queue ("startup");
 	} else {
-		read_state (state_fd);
-		nih_child_poll ();
+		sigset_t mask;
+
+		/* State file descriptor is fixed */
+		read_state (STATE_FD);
+
+		/* We're ok to receive signals again */
+		sigemptyset (&mask);
+		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
 
 	/* Run the event queue once, and detect anything idle */
@@ -367,28 +380,32 @@ stop_handler (void      *data,
 
 
 /**
- * usr1_handler:
+ * term_handler:
  * @argv0: program to run,
  * @signal: signal caught.
  *
- * This is called when we receive the USR1 signal, which instructs us
+ * This is called when we receive the TERM signal, which instructs us
  * to reexec ourselves.
  **/
 static void
-usr1_handler (const char *argv0,
+term_handler (const char *argv0,
 	      NihSignal  *signal)
 {
 	sigset_t  mask, oldmask;
 	int       fds[2] = { -1, -1 };
 	pid_t     pid;
-	char      buf[10];
 
 	nih_assert (argv0 != NULL);
 	nih_assert (signal != NULL);
 
 	nih_warn (_("Re-executing %s"), argv0);
 
-	/* Block signals while we work*/
+	/* Block signals while we work.  We're the last signal handler
+	 * installed so this should mean that they're all handled now.
+	 *
+	 * The child must make sure that it unblocks these again when
+	 * it's ready.
+	 */
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
@@ -402,56 +419,21 @@ usr1_handler (const char *argv0,
 		close (fds[1]);
 		goto error;
 	} else if (pid == 0) {
-		close (fds[0]);
-		write_state (fds[1]);
+		dup2 (fds[1], STATE_FD);
+		write_state (STATE_FD);
 		exit (0);
 	} else {
 		close (fds[1]);
 	}
 
 	/* Argument list */
-	snprintf (buf, sizeof (buf), "%d", fds[0]);
-	execl (argv0, argv0, "--state-fd", buf, NULL);
+	execl (argv0, argv0, "--restart", NULL);
 
 error:
 	/* Gnargh! */
 	nih_error (_("Failed to re-execute %s: %s"), argv0, strerror (errno));
 	close (fds[0]);
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-}
-
-/**
- * state_fd_setter:
- * @option: option found,
- * @arg: argument to option.
- *
- * This function is called when --state-fd is found on the command-line.
- * It parses it as a file descriptor number.
- *
- * Returns: zero if valid descriptor found, negative value on error.
- **/
-static int
-state_fd_setter (NihOption  *option,
-		 const char *arg)
-{
-	char *endptr;
-	int  *value;
-
-	nih_assert (option != NULL);
-	nih_assert (option->value != NULL);
-	nih_assert (arg != NULL);
-
-	value = (int *)option->value;
-	*value = strtol (arg, &endptr, 10);
-
-	if (*endptr || (*value < 0)) {
-		fprintf (stderr, _("%s: invalid file descriptor: %s\n"),
-			 program_name, arg);
-		nih_main_suggest_help ();
-		return -1;
-	}
-
-	return 0;
 }
 
 /**
