@@ -225,6 +225,8 @@ cfg_read_job (void       *parent,
 	 * copy information out of the old structure and free that
 	 */
 	if (old_job) {
+		time_t now;
+
 		nih_debug ("Replacing existing %s job", job->name);
 
 		job->goal = old_job->goal;
@@ -232,14 +234,16 @@ cfg_read_job (void       *parent,
 		job->process_state = old_job->process_state;
 		job->pid = old_job->pid;
 
+		now = time (NULL);
+
 		if (old_job->kill_timer)
 			NIH_MUST (job->kill_timer = nih_timer_add_timeout (
-					  job, old_job->kill_timer->due,
+					  job, old_job->kill_timer->due - now,
 					  old_job->kill_timer->callback, job));
 
 		if (old_job->pid_timer)
 			NIH_MUST (job->pid_timer = nih_timer_add_timeout (
-					  job, old_job->pid_timer->due,
+					  job, old_job->pid_timer->due - now,
 					  old_job->pid_timer->callback, job));
 
 		nih_list_free (&old_job->entry);
@@ -308,7 +312,7 @@ cfg_job_stanza (Job        *job,
 			if (job->description)
 				nih_free (job->description);
 
-			job->description = nih_strdup (job, *arg);
+			NIH_MUST (job->description = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected job description"));
@@ -324,7 +328,7 @@ cfg_job_stanza (Job        *job,
 			if (job->author)
 				nih_free (job->author);
 
-			job->author = nih_strdup (job, *arg);
+			NIH_MUST (job->author = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected author name"));
@@ -340,7 +344,7 @@ cfg_job_stanza (Job        *job,
 			if (job->version)
 				nih_free (job->version);
 
-			job->version = nih_strdup (job, *arg);
+			NIH_MUST (job->version = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected version string"));
@@ -360,8 +364,8 @@ cfg_job_stanza (Job        *job,
 		for (arg = args; *arg; arg++) {
 			JobName *dep;
 
-			dep = nih_new (job, JobName);
-			dep->name = nih_strdup (job, *arg);
+			NIH_MUST (dep = nih_new (job, JobName));
+			NIH_MUST (dep->name = nih_strdup (job, *arg));
 			nih_list_init (&dep->entry);
 			nih_list_add (&job->depends, &dep->entry);
 		}
@@ -374,152 +378,32 @@ cfg_job_stanza (Job        *job,
 		if (*arg) {
 			Event *event;
 
-			event = event_new (job, *arg);
+			NIH_MUST (event = event_new (job, *arg));
 			nih_list_add (&job->start_events, &event->entry);
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected event name"));
-		}
-
-	} else if (! strncmp (file + tok_start, "when", tok_len)) {
-		/* when WS <event> FWS (is FWS)? <value>
-		 *
-		 * names a level event that will cause the job to be
-		 * started.
-		 */
-		Event *event;
-		char  *name, *value;
-
-		/* Grab the event name */
-		if (*arg) {
-			name = *arg;
-		} else {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected event name"));
-		}
-
-		/* Grab the value */
-		if (arg && *++arg) {
-			value = *arg;
-		} else if (arg) {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'is' or event value"));
-		}
-
-		/* If the value is "is" then the argument after may
-		 * be the value (if not, we assume is was the value)
-		 */
-		if (arg && (! strcmp (value, "is")) && *++arg)
-			value = *arg;
-
-		/* Store the event */
-		if (arg) {
-			event = event_new (job, name);
-			event->value = nih_strdup (event, value);
-			nih_list_add (&job->start_events, &event->entry);
-		}
-
-	} else if (! strncmp (file + tok_start, "while", tok_len)) {
-		/* while WS <event> FWS (is FWS)? <value>
-		 *
-		 * short cut for naming a level event that will cause the
-		 * job to be started and stopped when it changes again.
-		 */
-		Event *event;
-		char  *name, *value;
-
-		/* Grab the event name */
-		if (*arg) {
-			name = *arg;
-		} else {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected event name"));
-		}
-
-		/* Grab the value */
-		if (arg && *++arg) {
-			value = *arg;
-		} else if (arg) {
-			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'is' or event value"));
-		}
-
-		/* If the value is "is" then the argument after may
-		 * be the value (if not, we assume is was the value)
-		 */
-		if (arg && (! strcmp (value, "is")) && *++arg)
-			value = *arg;
-
-		/* Store the event */
-		if (arg) {
-			event = event_new (job, name);
-			event->value = nih_strdup (event, value);
-			nih_list_add (&job->start_events, &event->entry);
-
-			event = event_new (job, name);
-			nih_list_add (&job->stop_events, &event->entry);
 		}
 
 	} else if (! strncmp (file + tok_start, "start", tok_len)) {
 		/* start WS on FWS <event>
-		 * start WS when FWS <event> FWS (is FWS)? <value>
 		 * start WS script ... end WS script
 		 *
-		 * names an event that will cause the job to be started,
-		 * the second indicates that it is a level event.
+		 * names an event that will cause the job to be started.
 		 *
-		 * third form declares a script that will be run while
+		 * second form declares a script that will be run while
 		 * the job is starting.
 		 */
 		if (*arg && (! strcmp (*arg, "on"))) {
 			if (*++arg) {
 				Event *event;
 
-				event = event_new (job, *arg);
+				NIH_MUST (event = event_new (job, *arg));
 				nih_list_add (&job->start_events,
 					      &event->entry);
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected event name"));
-			}
-		} else if (*arg && (! strcmp (*arg, "when"))) {
-			Event *event;
-			char  *name, *value;
-
-			/* Grab the event name */
-			if (*++arg) {
-				name = *arg;
-			} else {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected event name"));
-			}
-
-			/* Grab the value */
-			if (arg && *++arg) {
-				value = *arg;
-			} else if (arg) {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected 'is' or event value"));
-			}
-
-			/* If the value is "is" then the argument after may
-			 * be the value (if not, we assume is was the value)
-			 */
-			if (arg && (! strcmp (value, "is")) && *++arg)
-				value = *arg;
-
-			/* Store the event */
-			if (arg) {
-				event = event_new (job, name);
-				event->value = nih_strdup (event, value);
-				nih_list_add (&job->start_events,
-					      &event->entry);
 			}
 
 		} else if (*arg && (! strcmp (*arg, "script"))) {
@@ -537,65 +421,28 @@ cfg_job_stanza (Job        *job,
 
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'on', 'when' or 'script'"));
+				  _("expected 'on' or 'script'"));
 		}
 
 	} else if (! strncmp (file + tok_start, "stop", tok_len)) {
 		/* stop WS on FWS <event>
-		 * stop WS when FWS <event> FWS (is FWS)? <value>
 		 * stop WS script ... end WS script
 		 *
-		 * names an event that will cause the job to be stopped,
-		 * the second indicates that it is a level event.
+		 * names an event that will cause the job to be stopped.
 		 *
-		 * third form declares a script that will be run while
+		 * second form declares a script that will be run while
 		 * the job is stopping.
 		 */
 		if (*arg && (! strcmp (*arg, "on"))) {
 			if (*++arg) {
 				Event *event;
 
-				event = event_new (job, *arg);
+				NIH_MUST (event = event_new (job, *arg));
 				nih_list_add (&job->stop_events,
 					      &event->entry);
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected event name"));
-			}
-		} else if (*arg && (! strcmp (*arg, "when"))) {
-			Event *event;
-			char  *name, *value;
-
-			/* Grab the event name */
-			if (*++arg) {
-				name = *arg;
-			} else {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected event name"));
-			}
-
-			/* Grab the value */
-			if (arg && *++arg) {
-				value = *arg;
-			} else if (arg) {
-				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
-					  _("expected 'is' or event value"));
-			}
-
-			/* If the value is "is" then the argument after may
-			 * be the value (if not, we assume is was the value)
-			 */
-			if (arg && (! strcmp (value, "is")) && *++arg)
-				value = *arg;
-
-			/* Store the event */
-			if (arg) {
-				event = event_new (job, name);
-				event->value = nih_strdup (event, value);
-				nih_list_add (&job->stop_events,
-					      &event->entry);
 			}
 
 		} else if (*arg && (! strcmp (*arg, "script"))) {
@@ -613,7 +460,7 @@ cfg_job_stanza (Job        *job,
 
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
-				  _("expected 'on', 'when' or 'script'"));
+				  _("expected 'on' or 'script'"));
 		}
 
 	} else if (! strncmp (file + tok_start, "exec", tok_len)) {
@@ -664,6 +511,7 @@ cfg_job_stanza (Job        *job,
 
 	} else if (! strncmp (file + tok_start, "respawn", tok_len)) {
 		/* respawn (WS <command>)?
+		 * respawn WS limit FWS limit FWS interval
 		 * respawn WS script ... end WS script
 		 *
 		 * indicates that the job should be respawned if it
@@ -672,7 +520,10 @@ cfg_job_stanza (Job        *job,
 		 * optionally may give the command and its arguments that
 		 * will be executed
 		 *
-		 * second form declares a script that will be run while
+		 * second form declares the maximum number of times in
+		 * interval that the job may be respawned
+		 *
+		 * third form declares a script that will be run while
 		 * the job is respawning.
 		 */
 		char *cmd;
@@ -689,6 +540,46 @@ cfg_job_stanza (Job        *job,
 
 			job->respawn_script = cfg_parse_script (
 				job, filename, lineno, file, len, pos);
+		} else if (*args && (! strcmp (*arg, "limit"))) {
+			char   *endptr;
+			int     limit;
+			time_t  interval;
+
+			/* Parse the limit value */
+			if (arg && *++arg) {
+				limit = strtol (*arg, &endptr, 10);
+				if (*endptr || (limit < 0)) {
+					arg = NULL;
+					nih_warn ("%s:%d: %s",
+						  filename, *lineno,
+						  _("illegal value"));
+				}
+			} else if (arg) {
+				arg = NULL;
+				nih_warn ("%s:%d: %s", filename, *lineno,
+					  _("expected limit"));
+			}
+
+			/* Parse the interval */
+			if (arg && *++arg) {
+				interval = strtol (*arg, &endptr, 10);
+				if (*endptr || (interval < 0)) {
+					arg = NULL;
+					nih_warn ("%s:%d: %s",
+						  filename, *lineno,
+						  _("illegal value"));
+				}
+			} else if (arg) {
+				arg = NULL;
+				nih_warn ("%s:%d: %s", filename, *lineno,
+					  _("expected interval"));
+			}
+
+			/* If we got both values, assign them */
+			if (arg) {
+				job->respawn_limit = limit;
+				job->respawn_interval = interval;
+			}
 		} else {
 			job->respawn = TRUE;
 
@@ -756,7 +647,8 @@ cfg_job_stanza (Job        *job,
 				if (job->pidfile)
 					nih_free (job->pidfile);
 
-				job->pidfile = nih_strdup (job, *arg);
+				NIH_MUST (job->pidfile
+					  = nih_strdup (job, *arg));
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected pid filename"));
@@ -766,7 +658,8 @@ cfg_job_stanza (Job        *job,
 				if (job->binary)
 					nih_free (job->binary);
 
-				job->binary = nih_strdup (job, *arg);
+				NIH_MUST (job->binary
+					  = nih_strdup (job, *arg));
 			} else {
 				nih_warn ("%s:%d: %s", filename, *lineno,
 					  _("expected binary filename"));
@@ -891,7 +784,7 @@ cfg_job_stanza (Job        *job,
 		 * environment, <value> may be optionally quoted.
 		 */
 		if (*arg && strchr (*arg, '=')) {
-			char **e;
+			char **e, *env;
 			int    envc = 0;
 
 			for (e = job->env; e && *e; e++)
@@ -900,9 +793,10 @@ cfg_job_stanza (Job        *job,
 			NIH_MUST (e = nih_realloc (job->env, job,
 						  sizeof (char *) *
 						   (envc + 2)));
+			NIH_MUST (env = nih_strdup (e, *arg));
 
 			job->env = e;
-			job->env[envc++] = nih_strdup (job->env, *arg);
+			job->env[envc++] = env;
 			job->env[envc] = NULL;
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
@@ -1048,7 +942,7 @@ cfg_job_stanza (Job        *job,
 			if (job->chroot)
 				nih_free (job->chroot);
 
-			job->chroot = nih_strdup (job, *arg);
+			NIH_MUST (job->chroot = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected directory name"));
@@ -1063,7 +957,7 @@ cfg_job_stanza (Job        *job,
 			if (job->chdir)
 				nih_free (job->chdir);
 
-			job->chdir = nih_strdup (job, *arg);
+			NIH_MUST (job->chdir = nih_strdup (job, *arg));
 		} else {
 			nih_warn ("%s:%d: %s", filename, *lineno,
 				  _("expected directory name"));
@@ -1745,7 +1639,7 @@ cfg_watcher (WatchInfo    *info,
 	if (! name)
 		return;
 
-	if ((name[0] == '\0') || (name[0] == '.')) {
+	if ((name[0] == '\0') || strchr (name, '.') || strchr (name, '~')) {
 		nih_debug ("Ignored %s/%s", watch->path, name);
 		return;
 	}
@@ -1761,11 +1655,12 @@ cfg_watcher (WatchInfo    *info,
 	}
 
 	/* Construct filename and job name (also new prefix) */
-	filename = nih_sprintf (NULL, "%s/%s", watch->path, name);
+	NIH_MUST (filename = nih_sprintf (NULL, "%s/%s", watch->path, name));
 	if (info->prefix) {
-		jobname = nih_sprintf (NULL, "%s/%s", info->prefix, name);
+		NIH_MUST (jobname = nih_sprintf (NULL, "%s/%s",
+						 info->prefix, name));
 	} else {
-		jobname = nih_strdup (NULL, name);
+		NIH_MUST (jobname = nih_strdup (NULL, name));
 	}
 
 	/* Check we can stat it */

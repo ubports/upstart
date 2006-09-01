@@ -79,8 +79,11 @@ static NihOption options[] = {
 	  &test_group1, NULL, NULL, my_setter },
 	{ 'I', NULL, "add directory to include list",
 	  &test_group1, "DIRECTORY", NULL, NULL },
-	{ 'n', NULL, NULL,
-	  &test_group2, NULL, NULL, NULL },
+
+	NIH_OPTION_LAST
+};
+static NihOption catch_options[] = {
+	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -1112,6 +1115,20 @@ test_parser (void)
 	ftruncate (fileno (output), 0);
 
 
+	printf ("...with invalid short option and catch-all\n");
+	argc = 0;
+	argv[argc++] = "ignored";
+	argv[argc++] = "-z";
+	argv[argc] = NULL;
+	args = nih_option_parser (NULL, argc, argv, catch_options, FALSE);
+
+	/* Return value should not be NULL */
+	if (args == NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
 	printf ("...with invalid long option\n");
 	argc = 0;
 	argv[argc++] = "ignored";
@@ -1152,6 +1169,20 @@ test_parser (void)
 
 	rewind (output);
 	ftruncate (fileno (output), 0);
+
+
+	printf ("...with invalid long option and catch-all\n");
+	argc = 0;
+	argv[argc++] = "ignored";
+	argv[argc++] = "--zoiks";
+	argv[argc] = NULL;
+	args = nih_option_parser (NULL, argc, argv, catch_options, FALSE);
+
+	/* Return value should not be NULL */
+	if (args == NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
 
 
 	printf ("...with unexpected long option argument\n");
@@ -1816,6 +1847,48 @@ test_verbose (void)
 	return ret;
 }
 
+int
+test_debug (void)
+{
+	char *argv[3], **args;
+	int   ret = 0, argc;
+
+	printf ("Testing nih_option_debug()\n");
+	program_name = "test";
+	nih_log_set_logger (my_logger);
+
+	argc = 0;
+	argv[argc++] = "ignored";
+	argv[argc++] = "--debug";
+	argv[argc] = NULL;
+	nih_log_set_priority (NIH_LOG_WARN);
+	logger_called = 0;
+	args = nih_option_parser (NULL, argc, argv, options, FALSE);
+	nih_debug ("test message");
+	nih_info ("test message");
+	nih_warn ("test message");
+	nih_error ("test message");
+
+	/* Return value should be a NULL array */
+	if (args[0] != NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Logger should have been called four times */
+	if (logger_called != 4) {
+		printf ("BAD: priority wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (args);
+
+	nih_log_set_priority (NIH_LOG_INFO);
+	nih_log_set_logger (nih_logger_printf);
+
+	return ret;
+}
+
 
 int
 test_version (void)
@@ -2037,12 +2110,6 @@ test_help (void)
  	fgets (text, sizeof (text), output);
 	if (strcmp (text, ("                              "
 			   "something with special treatment\n"))) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ("  -n\n"))) {
 		printf ("BAD: output wasn't what we expected.\n");
 		ret = 1;
 	}

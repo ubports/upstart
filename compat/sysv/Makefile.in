@@ -20,7 +20,7 @@ VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
-top_builddir = ..
+top_builddir = ../..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = @INSTALL@
 install_sh_DATA = $(install_sh) -c -m 644
@@ -36,10 +36,9 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = initctl$(EXEEXT) reboot$(EXEEXT) shutdown$(EXEEXT) \
-	start$(EXEEXT)
+sbin_PROGRAMS = runlevel$(EXEEXT) telinit$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1)
-subdir = util
+subdir = compat/sysv
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/codeset.m4 \
@@ -67,18 +66,12 @@ am__EXEEXT_1 =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
-am_initctl_OBJECTS = initctl.$(OBJEXT)
-initctl_OBJECTS = $(am_initctl_OBJECTS)
-initctl_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
-am_reboot_OBJECTS = reboot.$(OBJEXT)
-reboot_OBJECTS = $(am_reboot_OBJECTS)
-reboot_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
-am_shutdown_OBJECTS = shutdown.$(OBJEXT)
-shutdown_OBJECTS = $(am_shutdown_OBJECTS)
-shutdown_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
-am_start_OBJECTS = start.$(OBJEXT)
-start_OBJECTS = $(am_start_OBJECTS)
-start_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
+am_runlevel_OBJECTS = runlevel.$(OBJEXT)
+runlevel_OBJECTS = $(am_runlevel_OBJECTS)
+runlevel_DEPENDENCIES = ../../nih/libnih.la
+am_telinit_OBJECTS = telinit.$(OBJEXT)
+telinit_OBJECTS = $(am_telinit_OBJECTS)
+telinit_DEPENDENCIES = ../../nih/libnih.la ../../upstart/libupstart.la
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -89,10 +82,8 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(initctl_SOURCES) $(reboot_SOURCES) $(shutdown_SOURCES) \
-	$(start_SOURCES)
-DIST_SOURCES = $(initctl_SOURCES) $(reboot_SOURCES) \
-	$(shutdown_SOURCES) $(start_SOURCES)
+SOURCES = $(runlevel_SOURCES) $(telinit_SOURCES)
+DIST_SOURCES = $(runlevel_SOURCES) $(telinit_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -229,18 +220,12 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
 INCLUDES = -I$(top_srcdir)/intl
-initctl_SOURCES = initctl.c
-initctl_LDFLAGS = -static
-initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-shutdown_SOURCES = shutdown.c
-shutdown_LDFLAGS = -static
-shutdown_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-reboot_SOURCES = reboot.c
-reboot_LDFLAGS = -static
-reboot_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-start_SOURCES = start.c
-start_LDFLAGS = -static
-start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+runlevel_SOURCES = runlevel.c
+runlevel_LDFLAGS = -static
+runlevel_LDADD = ../../nih/libnih.la
+telinit_SOURCES = telinit.c
+telinit_LDFLAGS = -static
+telinit_LDADD = ../../nih/libnih.la ../../upstart/libupstart.la
 TESTS = 
 all: all-am
 
@@ -255,9 +240,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  util/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  compat/sysv/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu  util/Makefile
+	  $(AUTOMAKE) --gnu  compat/sysv/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -310,18 +295,12 @@ clean-sbinPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
-initctl$(EXEEXT): $(initctl_OBJECTS) $(initctl_DEPENDENCIES) 
-	@rm -f initctl$(EXEEXT)
-	$(LINK) $(initctl_LDFLAGS) $(initctl_OBJECTS) $(initctl_LDADD) $(LIBS)
-reboot$(EXEEXT): $(reboot_OBJECTS) $(reboot_DEPENDENCIES) 
-	@rm -f reboot$(EXEEXT)
-	$(LINK) $(reboot_LDFLAGS) $(reboot_OBJECTS) $(reboot_LDADD) $(LIBS)
-shutdown$(EXEEXT): $(shutdown_OBJECTS) $(shutdown_DEPENDENCIES) 
-	@rm -f shutdown$(EXEEXT)
-	$(LINK) $(shutdown_LDFLAGS) $(shutdown_OBJECTS) $(shutdown_LDADD) $(LIBS)
-start$(EXEEXT): $(start_OBJECTS) $(start_DEPENDENCIES) 
-	@rm -f start$(EXEEXT)
-	$(LINK) $(start_LDFLAGS) $(start_OBJECTS) $(start_LDADD) $(LIBS)
+runlevel$(EXEEXT): $(runlevel_OBJECTS) $(runlevel_DEPENDENCIES) 
+	@rm -f runlevel$(EXEEXT)
+	$(LINK) $(runlevel_LDFLAGS) $(runlevel_OBJECTS) $(runlevel_LDADD) $(LIBS)
+telinit$(EXEEXT): $(telinit_OBJECTS) $(telinit_DEPENDENCIES) 
+	@rm -f telinit$(EXEEXT)
+	$(LINK) $(telinit_LDFLAGS) $(telinit_OBJECTS) $(telinit_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -329,10 +308,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/initctl.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/reboot.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shutdown.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/start.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/runlevel.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/telinit.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -569,7 +546,7 @@ info-am:
 
 install-data-am:
 
-install-exec-am: install-exec-local install-sbinPROGRAMS
+install-exec-am: install-sbinPROGRAMS
 
 install-info: install-info-am
 
@@ -604,21 +581,14 @@ uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
 	distclean-generic distclean-libtool distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-exec install-exec-am \
-	install-exec-local install-info install-info-am install-man \
-	install-sbinPROGRAMS install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic maintainer-clean-local mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-info-am uninstall-sbinPROGRAMS
+	install-info install-info-am install-man install-sbinPROGRAMS \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic \
+	maintainer-clean-local mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-info-am \
+	uninstall-sbinPROGRAMS
 
-
-install-exec-local:
-	ln -sf reboot $(DESTDIR)$(sbindir)/halt
-	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
-
-	ln -sf start $(DESTDIR)$(sbindir)/stop
-	ln -sf start $(DESTDIR)$(sbindir)/status
 
 clean-local:
 	rm -f *.gcno *.gcda

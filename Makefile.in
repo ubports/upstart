@@ -219,7 +219,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-SUBDIRS = m4 po intl nih upstart init logd util event.d
+SUBDIRS = m4 po intl nih upstart init logd util compat/sysv event.d
 EXTRA_DIST = HACKING
 ACLOCAL_AMFLAGS = -I m4
 all: config.h

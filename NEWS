@@ -1,3 +1,40 @@
+0.2.0  2006-09-01
+
+	* "shutdown", "reboot", "halt" and "poweroff" utilities provided
+	  that match their traditional equivalents.
+
+	* "start", "stop" and "status" utilities provided to start, stop
+	  and query the status of jobs respectively.
+
+	* "runlevel" and "telinit" utilities provided for compatibility.
+
+	* "initctl list" will list active jobs.
+
+	* Events vastly simplified to just simple strings.
+
+	* Jobs now generate "jobname/start", "jobname/started",
+	  "jobname/stop" and "jobname/stopped" events as they go through
+	  state transitions.
+
+	* Services generate a "jobname" event when they are running.
+
+	* Tasks generate a "jobname" event when they have finished.
+
+	* The "shutdown" utility will generate a "shutdown" event followed
+	  by one of "maintenance", "reboot", "halt" or "poweroff" or any
+	  admin-specified event.
+
+	* "stalled" event generated when no jobs are running or queued.
+
+	* "control-alt-delete" event generated when that key combination
+	  is pressed
+
+	* "kbdrequest" event generated when Alt-UpArrow is pressed
+
+	* Runaway respawning services will now be caught.
+
+	* init will re-exec on receipt of the SIGUSR1 signal.
+
 0.1.1  2006-08-25
 
 	* Minor bug fixes.

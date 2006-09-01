@@ -381,6 +381,7 @@ test_messages (void)
 	printf ("...with UPSTART_JOB_STATUS\n");
 	s_msg->type = UPSTART_JOB_STATUS;
 	s_msg->job_status.name = "wibble";
+	s_msg->job_status.description = "foo bar";
 	s_msg->job_status.goal = JOB_START;
 	s_msg->job_status.state = JOB_STARTING;
 	s_msg->job_status.process_state = PROCESS_ACTIVE;
@@ -407,6 +408,18 @@ test_messages (void)
 		ret = 1;
 	}
 
+	/* Description should be what we sent */
+	if (strcmp (r_msg->job_status.description, "foo bar")) {
+		printf ("BAD: description wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Description should be nih_alloc child of message */
+	if (nih_alloc_parent (r_msg->job_status.description) != r_msg) {
+		printf ("BAD: desc wasn't nih_alloc child of message.\n");
+		ret = 1;
+	}
+
 	/* Job goal should be what we sent */
 	if (r_msg->job_status.goal != JOB_START) {
 		printf ("BAD: job goal wasn't what we expected.\n");
@@ -428,6 +441,21 @@ test_messages (void)
 	/* Process id should be what we sent */
 	if (r_msg->job_status.pid != 123) {
 		printf ("BAD: process id wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
+
+
+	printf ("...with UPSTART_JOB_STATUS without description\n");
+	s_msg->job_status.description = NULL;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Description should be NULL */
+	if (r_msg->job_status.description != NULL) {
+		printf ("BAD: description wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -462,27 +490,27 @@ test_messages (void)
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_EVENT_QUEUE_EDGE\n");
-	s_msg->type = UPSTART_EVENT_QUEUE_EDGE;
-	s_msg->event_queue_edge.name = "frodo";
+	printf ("...with UPSTART_EVENT_QUEUE\n");
+	s_msg->type = UPSTART_EVENT_QUEUE;
+	s_msg->event_queue.name = "frodo";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_EVENT_QUEUE_EDGE */
-	if (r_msg->type != UPSTART_EVENT_QUEUE_EDGE) {
+	/* Type should be UPSTART_EVENT_QUEUE */
+	if (r_msg->type != UPSTART_EVENT_QUEUE) {
 		printf ("BAD: message type wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	/* Name should be what we sent */
-	if (strcmp (r_msg->event_queue_edge.name, "frodo")) {
+	if (strcmp (r_msg->event_queue.name, "frodo")) {
 		printf ("BAD: event name wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event_queue_edge.name) != r_msg) {
+	if (nih_alloc_parent (r_msg->event_queue.name) != r_msg) {
 		printf ("BAD: name wasn't nih_alloc child of message.\n");
 		ret = 1;
 	}
@@ -490,51 +518,9 @@ test_messages (void)
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_EVENT_QUEUE_LEVEL\n");
-	s_msg->type = UPSTART_EVENT_QUEUE_LEVEL;
-	s_msg->event_queue_level.name = "frodo";
-	s_msg->event_queue_level.level = "baggins";
-
-	upstart_send_msg_to (getpid (), s_sock, s_msg);
-	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
-
-	/* Type should be UPSTART_EVENT_QUEUE_LEVEL */
-	if (r_msg->type != UPSTART_EVENT_QUEUE_LEVEL) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->event_queue_level.name, "frodo")) {
-		printf ("BAD: event name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event_queue_level.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
-
-	/* Level should be what we sent */
-	if (strcmp (r_msg->event_queue_level.level, "baggins")) {
-		printf ("BAD: event level wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Level should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event_queue_level.level) != r_msg) {
-		printf ("BAD: level wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
-
-	nih_free (r_msg);
-
-
-	printf ("...with UPSTART_EVENT and level event\n");
+	printf ("...with UPSTART_EVENT\n");
 	s_msg->type = UPSTART_EVENT;
 	s_msg->event.name = "foo";
-	s_msg->event.level = "bar";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
@@ -557,50 +543,33 @@ test_messages (void)
 		ret = 1;
 	}
 
-	/* Level should be what we sent */
-	if (strcmp (r_msg->event.level, "bar")) {
-		printf ("BAD: event level wasn't what we expected.\n");
-		ret = 1;
-	}
+	nih_free (r_msg);
 
-	/* Level should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event.level) != r_msg) {
-		printf ("BAD: level wasn't nih_alloc child of message.\n");
+
+	printf ("...with UPSTART_JOB_LIST\n");
+	s_msg->type = UPSTART_JOB_LIST;
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_JOB_LIST */
+	if (r_msg->type != UPSTART_JOB_LIST) {
+		printf ("BAD: message type wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_EVENT and edge event\n");
-	s_msg->type = UPSTART_EVENT;
-	s_msg->event.name = "foo";
-	s_msg->event.level = NULL;
+	printf ("...with UPSTART_JOB_LIST_END\n");
+	s_msg->type = UPSTART_JOB_LIST_END;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_EVENT */
-	if (r_msg->type != UPSTART_EVENT) {
+	/* Type should be UPSTART_JOB_LIST_END */
+	if (r_msg->type != UPSTART_JOB_LIST_END) {
 		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->event.name, "foo")) {
-		printf ("BAD: event name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
-
-	/* Level should be NULL */
-	if (r_msg->event.level != NULL) {
-		printf ("BAD: event level wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -666,6 +635,33 @@ test_messages (void)
 
 	nih_free (r_msg);
 
+
+	printf ("...with UPSTART_SHUTDOWN\n");
+	s_msg->type = UPSTART_SHUTDOWN;
+	s_msg->shutdown.name = "reboot";
+
+	upstart_send_msg_to (getpid (), s_sock, s_msg);
+	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
+
+	/* Type should be UPSTART_SHUTDOWN */
+	if (r_msg->type != UPSTART_SHUTDOWN) {
+		printf ("BAD: message type wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Name should be what we sent */
+	if (strcmp (r_msg->shutdown.name, "reboot")) {
+		printf ("BAD: event name wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Name should be nih_alloc child of message */
+	if (nih_alloc_parent (r_msg->event_queue.name) != r_msg) {
+		printf ("BAD: name wasn't nih_alloc child of message.\n");
+		ret = 1;
+	}
+
+	nih_free (r_msg);
 
 	nih_free (s_msg);
 

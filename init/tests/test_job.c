@@ -27,6 +27,7 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 
+#include <time.h>
 #include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -110,6 +111,18 @@ test_new (void)
 	/* PID timeout should be the default */
 	if (job->pid_timeout != JOB_DEFAULT_PID_TIMEOUT) {
 		printf ("BAD: job pid timeout set incorrectly.\n");
+		ret = 1;
+	}
+
+	/* Respawn limit should be the default */
+	if (job->respawn_limit != JOB_DEFAULT_RESPAWN_LIMIT) {
+		printf ("BAD: job respawn limit set incorrectly.\n");
+		ret = 1;
+	}
+
+	/* Respawn interval should be the default */
+	if (job->respawn_interval != JOB_DEFAULT_RESPAWN_INTERVAL) {
+		printf ("BAD: job respawn interval set incorrectly.\n");
 		ret = 1;
 	}
 
@@ -262,13 +275,20 @@ test_change_state (void)
 {
 	Job         *job;
 	Event       *event;
+	NihList     *list;
 	struct stat  statbuf;
 	char         dirname[22], filename[40];
-	int          ret = 0;
+	int          ret = 0, i;
 
 	printf ("Testing job_change_state()\n");
 	sprintf (dirname, "/tmp/test_job.XXXXXX");
 	mkdtemp (dirname);
+
+	/* naughty way of grabbing the event queue */
+	event_queue_run ();
+	event = event_queue ("wibble");
+	list = event->entry.prev;
+	nih_list_free (&event->entry);
 
 	job = job_new (NULL, "test");
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
@@ -301,10 +321,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be starting */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "starting")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be start */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/start")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -345,10 +365,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be running */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "running")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be started */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/started")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -388,10 +408,60 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be running */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "running")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be started */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/started")) {
+		printf ("BAD: event wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Command should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...starting to running with respawn\n");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->respawn = TRUE;
+	job->process_state = PROCESS_NONE;
+	job_change_state (job, JOB_RUNNING);
+
+	/* Goal should still be JOB_START */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_RUNNING */
+	if (job->state != JOB_RUNNING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* First event should be job event */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test")) {
+		printf ("BAD: event wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Next event should be started */
+	event = (Event *)list->prev->prev;
+	if (strcmp (event->name, "test/started")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -410,6 +480,7 @@ test_change_state (void)
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 	job->process_state = PROCESS_NONE;
+	job->respawn = FALSE;
 	job->script = job->command;
 	job->command = NULL;
 	job_change_state (job, JOB_RUNNING);
@@ -432,10 +503,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be running */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "running")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be started */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/started")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -474,10 +545,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be respawning */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "respawning")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be respawn */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/respawn")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -518,16 +589,57 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be running */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "running")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be started */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/started")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
 	/* Command should have been run */
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/run", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...running to respawning too fast\n");
+	job->respawn_count = 0;
+	job->respawn_time = 0;
+	job->respawn_limit = 10;
+	job->respawn_interval = 100;
+	for (i = 0; i < 11; i++) {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
+		job_change_state (job, JOB_RESPAWNING);
+	}
+
+	/* Goal should now be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Stop script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/stop", dirname);
 	if (stat (filename, &statbuf) < 0) {
 		printf ("BAD: command doesn't appear to have run.\n");
 		ret = 1;
@@ -560,10 +672,17 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be stopping */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "stopping")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* First event should be the job event */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test")) {
+		printf ("BAD: event wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Next event should be stop */
+	event = (Event *)list->prev->prev;
+	if (strcmp (event->name, "test/stop")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -604,10 +723,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be waiting */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "waiting")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be stopped */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/stopped")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -632,10 +751,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be waiting */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "waiting")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be stopped */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/stopped")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -670,10 +789,10 @@ test_change_state (void)
 		ret = 1;
 	}
 
-	/* Event should be starting */
-	event = event_find_by_name (job->name);
-	if (strcmp (event->value, "starting")) {
-		printf ("BAD: event level wasn't what we expected.\n");
+	/* Event should be start */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "test/start")) {
+		printf ("BAD: event wasn't what we expected.\n");
 		ret = 1;
 	}
 
@@ -695,7 +814,7 @@ test_change_state (void)
 	waitpid (job->pid, NULL, 0);
 
 	nih_list_free (&job->entry);
-	nih_list_free (&event->entry);
+	event_queue_run ();
 
 	return ret;
 }
@@ -2127,12 +2246,11 @@ test_start_event (void)
 	job->command = "echo";
 
 	event = event_new (job, "wibble");
-	event->value = "up";
 	nih_list_add (&job->start_events, &event->entry);
 
 
 	printf ("...with non-matching event\n");
-	event = event_new (NULL, "wibble");
+	event = event_new (NULL, "biscuit");
 	job_start_event (job, event);
 
 	/* Job goal should still be JOB_STOP */
@@ -2153,9 +2271,12 @@ test_start_event (void)
 		ret = 1;
 	}
 
+	nih_free (event);
+
 
 	printf ("...with matching event\n");
-	event->value = "up";
+
+	event = event_new (NULL, "wibble");
 	job_start_event (job, event);
 
 	/* Job goal should now be JOB_START */
@@ -2205,12 +2326,11 @@ test_stop_event (void)
 	}
 
 	event = event_new (job, "wibble");
-	event->value = "down";
 	nih_list_add (&job->stop_events, &event->entry);
 
 
 	printf ("...with non-matching event\n");
-	event = event_new (NULL, "wibble");
+	event = event_new (NULL, "biscuit");
 	job_stop_event (job, event);
 
 	/* Job goal should still be JOB_START */
@@ -2231,9 +2351,11 @@ test_stop_event (void)
 		ret = 1;
 	}
 
+	nih_free (event);
+
 
 	printf ("...with matching event\n");
-	event->value = "down";
+	event = event_new (NULL, "wibble");
 	job_stop_event (job, event);
 
 	/* Job goal should now be JOB_STOP */
@@ -2481,6 +2603,432 @@ test_handle_event (void)
 	return ret;
 }
 
+int
+test_detect_idle (void)
+{
+	Job     *job1, *job2;
+	Event   *event;
+	NihList *list;
+	int      ret = 0;
+
+	printf ("Testing job_detect_idle()\n");
+
+	/* naughty way of grabbing the event queue */
+	event_queue_run ();
+	event = event_queue ("wibble");
+	list = event->entry.prev;
+	nih_list_free (&event->entry);
+
+	job1 = job_new (NULL, "foo");
+	job1->goal = JOB_STOP;
+	job1->state = JOB_WAITING;
+	job1->process_state = PROCESS_NONE;
+
+	job2 = job_new (NULL, "bar");
+	job2->goal = JOB_STOP;
+	job2->state = JOB_WAITING;
+	job2->process_state = PROCESS_NONE;
+
+
+	printf ("...with stalled state\n");
+	job_detect_idle ();
+
+	/* Stalled event should have been queued */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "stalled")) {
+		printf ("BAD: stalled event wasn't queued.\n");
+		ret = 1;
+	}
+	nih_list_free (&event->entry);
+
+	/* Idle event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: idle event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with waiting job\n");
+	job1->goal = JOB_START;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+ 	/* Neither event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with starting job\n");
+	job1->state = JOB_STARTING;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+ 	/* Neither event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with running job\n");
+	job1->state = JOB_RUNNING;
+	job1->process_state = PROCESS_ACTIVE;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+	/* Idle event should have been queued */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "reboot")) {
+		printf ("BAD: idle event wasn't queued.\n");
+		ret = 1;
+	}
+	nih_list_free (&event->entry);
+
+	/* Stalled event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stopping job\n");
+	job1->goal = JOB_STOP;
+	job1->state = JOB_STOPPING;
+	job1->process_state = PROCESS_NONE;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+ 	/* Neither event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with stalled state and idle event\n");
+	job1->state = JOB_WAITING;
+	job_set_idle_event ("reboot");
+	job_detect_idle ();
+
+	/* Idle event should have been queued */
+	event = (Event *)list->prev;
+	if (strcmp (event->name, "reboot")) {
+		printf ("BAD: idle event wasn't queued.\n");
+		ret = 1;
+	}
+	nih_list_free (&event->entry);
+
+	/* Stalled event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: stalled event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
+	event_queue_run ();
+
+	nih_list_free (&job1->entry);
+	nih_list_free (&job2->entry);
+
+	return ret;
+}
+
+
+int
+test_read_state (void)
+{
+	Job  *job, *ptr;
+	char  buf[80];
+	int   ret = 0;
+
+	printf ("Testing job_read_state()\n");
+	job = job_new (NULL, "test");
+
+
+	printf ("...with header\n");
+	sprintf (buf, "Job test");
+	ptr = job_read_state (NULL, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with goal\n");
+	sprintf (buf, ".goal start");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job goal should be set */
+	if (job->goal != JOB_START) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with state\n");
+	sprintf (buf, ".state stopping");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job state should be set */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with process state\n");
+	sprintf (buf, ".process_state active");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be set */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with pid\n");
+	sprintf (buf, ".pid 9128");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process id should be set */
+	if (job->pid != 9128) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+	printf ("...with kill timer due\n");
+	sprintf (buf, ".kill_timer_due %ld", time (NULL) - 10);
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Job should now have a kill timer */
+	if (job->kill_timer == NULL) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should be due in about 10s */
+	if (job->kill_timer->due > (time (NULL) - 10)) {
+		printf ("BAD: timer not due when we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer data should be job */
+	if (job->kill_timer->data != job) {
+		printf ("BAD: timer data not what we expected.\n");
+		ret = 1;
+	}
+
+	/* Kill timer should be child of job */
+	if (nih_alloc_parent (job->kill_timer) != job) {
+		printf ("BAD: timer not nih_alloc child of job\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawn count\n");
+	sprintf (buf, ".respawn_count 6");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Respawn count should be set */
+	if (job->respawn_count != 6) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	printf ("...with respawn time\n");
+	sprintf (buf, ".respawn_time 91");
+	ptr = job_read_state (job, buf);
+
+	/* The job should be returned */
+	if (ptr != job) {
+		printf ("BAD: return value wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Respawn time should be set */
+	if (job->respawn_time != 91) {
+		printf ("BAD: job wasn't changed as we expected.\n");
+		ret = 1;
+	}
+
+
+	nih_list_free (&job->entry);
+
+	return ret;
+}
+
+int
+test_write_state (void)
+{
+	FILE   *output;
+	Job    *job1, *job2;
+	char    text[80];
+	int     ret = 0;
+
+	printf ("Testing job_write_state()\n");
+	job1 = job_new (NULL, "frodo");
+	job1->goal = JOB_START;
+	job1->state = JOB_RUNNING;
+	job1->process_state = PROCESS_SPAWNED;
+	job1->pid = 1234;
+	job1->respawn_count = 3;
+	job1->respawn_time = 888;
+
+	job2 = job_new (NULL, "bilbo");
+	job2->goal = JOB_STOP;
+	job2->state = JOB_STOPPING;
+	job2->process_state = PROCESS_KILLED;
+	job2->pid = 999;
+	job2->respawn_count = 0;
+	job2->respawn_time = 0;
+
+	output = tmpfile ();
+	job_write_state (output);
+
+	rewind (output);
+
+	/* Check the output lines */
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "Job frodo\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".goal start\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".state running\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".process_state spawned\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".pid 1234\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_count 3\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_time 888\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, "Job bilbo\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".goal stop\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".state stopping\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".process_state killed\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".pid 999\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_count 0\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	fgets (text, sizeof (text), output);
+	if (strcmp (text, ".respawn_time 0\n")) {
+		printf ("BAD: output wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Should be no more output */
+	if (fgets (text, sizeof (text), output)) {
+		printf ("BAD: more output than we expected.\n");
+		ret = 1;
+	}
+
+	nih_list_free (&job1->entry);
+	nih_list_free (&job2->entry);
+
+	fclose (output);
+
+	return ret;
+}
+
 
 int
 main (int   argc,
@@ -2503,6 +3051,9 @@ main (int   argc,
 	ret |= test_start_event ();
 	ret |= test_stop_event ();
 	ret |= test_handle_event ();
+	ret |= test_detect_idle ();
+	ret |= test_read_state ();
+	ret |= test_write_state ();
 
 	return ret;
 }

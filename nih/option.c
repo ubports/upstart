@@ -79,7 +79,8 @@ static int         nih_option_handle_arg  (NihOptionCtx *ctx, NihOption *opt,
 					   const char *arg);
 static const char *nih_option_next_nonopt (NihOptionCtx *ctx);
 static void        nih_option_group_help  (NihOptionGroup *group,
-					   NihOption *options[]);
+					   NihOption *options[],
+					   NihOptionGroup **groups);
 
 
 /**
@@ -95,6 +96,7 @@ static NihOption default_options[] = {
 	{ 'v', "verbose",
 	  N_("increase output to include informational messages"),
 	  NULL, NULL, NULL, nih_option_verbose },
+	{ 0, "debug", NULL, NULL, NULL, NULL, nih_option_debug },
 	{ 0, "help",
 	  N_("display this help and exit"),
 	  NULL, NULL, NULL, NULL },
@@ -222,7 +224,9 @@ nih_option_add_arg (NihOptionCtx *ctx)
  * @ctx: parsing context,
  * @option: option to find.
  *
- * Find the option structure with the given short @option.
+ * Find the option structure with the given short @option.  If an option
+ * exists with the short option '-' this is used instead if no specific
+ * option is found.
  *
  * Returns; pointer to option, or %NULL if not found.
  **/
@@ -230,16 +234,18 @@ static NihOption *
 nih_option_get_short (NihOptionCtx *ctx,
 		      int           option)
 {
-	NihOption *opt, **opts;
+	NihOption *opt, **opts, *catch = NULL;
 
 	for (opts = ctx->options; *opts != NULL; opts++) {
 		for (opt = *opts; (opt->option || opt->long_option); opt++) {
 			if (opt->option == option)
 				return opt;
+			if (opt->option == '-')
+				catch = opt;
 		}
 	}
 
-	return NULL;
+	return catch;
 }
 
 /**
@@ -301,7 +307,8 @@ nih_option_short (NihOptionCtx *ctx)
  * @len: length of option.
  *
  * Find the option structure with the given long @option, of which only
- * the first @len characters will be read.
+ * the first @len characters will be read.  If an option named "--" exists
+ * then it is used if no other option could be found.
  *
  * Returns; pointer to option, or %NULL if not found.
  **/
@@ -310,12 +317,15 @@ nih_option_get_long (NihOptionCtx *ctx,
 		     const char   *option,
 		     size_t        len)
 {
-	NihOption *opt, **opts;
+	NihOption *opt, **opts, *catch = NULL;
 
 	for (opts = ctx->options; *opts != NULL; opts++) {
 		for (opt = *opts; (opt->option || opt->long_option); opt++) {
 			if (! opt->long_option)
 				continue;
+
+			if (! strcmp (opt->long_option, "--"))
+				catch = opt;
 
 			if (strlen (opt->long_option) > len)
 				continue;
@@ -325,7 +335,7 @@ nih_option_get_long (NihOptionCtx *ctx,
 		}
 	}
 
-	return NULL;
+	return catch;
 }
 
 /**
@@ -411,11 +421,12 @@ nih_option_handle (NihOptionCtx *ctx,
 	nih_assert (opt != NULL);
 
 	/* Handle the special cased options first */
-	if (opt == &(default_options[2])) {
+	if (opt->long_option && (! strcmp (opt->long_option, "help"))) {
 		/* --help */
 		nih_option_help (ctx->options);
 		exit (0);
-	} else if (opt == &(default_options[3])) {
+	} else if (opt->long_option
+		   && (! strcmp (opt->long_option, "version"))) {
 		/* --version */
 		nih_main_version ();
 		exit (0);
@@ -470,6 +481,9 @@ nih_option_handle_arg (NihOptionCtx *ctx,
 		return opt->setter (opt, arg);
 	} else if (opt->value) {
 		char **value = (char **)opt->value;
+
+		if (*value)
+			nih_free (*value);
 
 		NIH_MUST (*value = nih_strdup (ctx->parent, arg));
 	}
@@ -588,6 +602,28 @@ nih_option_verbose (NihOption  *option,
 	return 0;
 }
 
+/**
+ * nih_option_debug:
+ * @option: NihOption invoked,
+ * @arg: argument to parse.
+ *
+ * This option setter is used by the built-in --debug option to set the
+ * default logging level to DEBUG.
+ *
+ * Returns: always returns zero.
+ **/
+int
+nih_option_debug (NihOption  *option,
+		  const char *arg)
+{
+	nih_assert (option != NULL);
+	nih_assert (arg == NULL);
+
+	nih_log_set_priority (NIH_LOG_DEBUG);
+
+	return 0;
+}
+
 
 /**
  * nih_option_help:
@@ -644,11 +680,11 @@ nih_option_help (NihOption *options[])
 	 * only their options
 	 */
 	for (group = 0; group < ngroups; group++)
-		nih_option_group_help (groups[group], options);
+		nih_option_group_help (groups[group], options, groups);
 
 	/* Display the other group */
 	if (other)
-		nih_option_group_help (NULL, options);
+		nih_option_group_help (NULL, options, groups);
 
 	/* Append the bug report address */
 	if (package_bugreport)
@@ -667,8 +703,9 @@ nih_option_help (NihOption *options[])
  * standard output.
  **/
 static void
-nih_option_group_help (NihOptionGroup *group,
-		       NihOption      *options[])
+nih_option_group_help (NihOptionGroup  *group,
+		       NihOption       *options[],
+		       NihOptionGroup **groups)
 {
 	NihOption *opt, **opts;
 
@@ -676,8 +713,10 @@ nih_option_group_help (NihOptionGroup *group,
 
 	if (group) {
 		printf (_("%s options:\n"), _(group->title));
-	} else {
+	} else if (groups) {
 		printf (_("Other options:\n"));
+	} else {
+		printf (_("Options:\n"));
 	}
 
 	for (opts = options; *opts != NULL; opts++) {
@@ -686,6 +725,9 @@ nih_option_group_help (NihOptionGroup *group,
 			size_t  len = 0;
 
 			if (opt->group != group)
+				continue;
+
+			if (! opt->help)
 				continue;
 
 			/* Indent by two spaces */
@@ -725,12 +767,6 @@ nih_option_group_help (NihOptionGroup *group,
 					printf ("=%s", opt->arg_name);
 					len += strlen (opt->arg_name) + 1;
 				}
-			}
-
-			/* No help string? */
-			if (! opt->help) {
-				printf ("\n");
-				continue;
 			}
 
 			/* Format the help string to fit in the latter

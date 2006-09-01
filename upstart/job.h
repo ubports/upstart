@@ -102,12 +102,17 @@ typedef enum {
 
 NIH_BEGIN_EXTERN
 
-const char *job_goal_name      (JobGoal goal)
+const char * job_goal_name           (JobGoal goal)
 	__attribute__ ((const));
-const char *job_state_name     (JobState state)
+JobGoal      job_goal_from_name      (const char *goal);
+
+const char * job_state_name          (JobState state)
 	__attribute__ ((const));
-const char *process_state_name (ProcessState state)
+JobState     job_state_from_name     (const char *state);
+
+const char * process_state_name      (ProcessState state)
 	__attribute__ ((const));
+ProcessState process_state_from_name (const char *state);
 
 NIH_END_EXTERN
 

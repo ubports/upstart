@@ -25,6 +25,8 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <stdio.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -47,8 +49,9 @@
 
 
 /* Prototypes for static functions */
-static void job_run_process (Job *job, char * const  argv[]);
-static void job_kill_timer  (Job *job, NihTimer *timer);
+static void job_run_process   (Job *job, char * const  argv[]);
+static void job_kill_timer    (Job *job, NihTimer *timer);
+static int  job_catch_runaway (Job *job);
 
 
 /**
@@ -58,6 +61,14 @@ static void job_kill_timer  (Job *job, NihTimer *timer);
  * structure.  No particular order is maintained.
  **/
 static NihList *jobs = NULL;
+
+/**
+ * idle_event:
+ *
+ * Event to be triggered once when the system is idle with no jobs changing
+ * state.
+ **/
+static char *idle_event = NULL;
 
 
 /**
@@ -70,6 +81,19 @@ job_init (void)
 {
 	if (! jobs)
 		NIH_MUST (jobs = nih_list_new ());
+}
+
+/**
+ * job_list:
+ *
+ * Return the list of jobs.
+ **/
+NihList *
+job_list (void)
+{
+	job_init ();
+
+	return jobs;
 }
 
 
@@ -130,6 +154,10 @@ job_new (void       *parent,
 	job->is_instance = 0;
 
 	job->respawn = 0;
+	job->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
+	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
+	job->respawn_count = 0;
+	job->respawn_time = 0;
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
 
@@ -227,7 +255,7 @@ job_find_by_pid (pid_t pid)
  * given, performing any actions to correctly enter the new state (such
  * as spawning scripts or processes).
  *
- * The associated level event is also set by this function.
+ * The associated event is also queued by this function.
  *
  * It does NOT perform any actions to leave the current state, so this
  * function may only be called when there is no active process.
@@ -245,7 +273,9 @@ job_change_state (Job      *job,
 	nih_assert (job->process_state == PROCESS_NONE);
 
 	while (job->state != state) {
-		JobState old_state;
+		JobState  old_state;
+		char     *event;
+		int       job_event = FALSE;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
@@ -264,6 +294,9 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
+			NIH_MUST (event = nih_sprintf (job, "%s/stopped",
+						       job->name));
+
 			break;
 		case JOB_STARTING:
 			nih_assert ((old_state == JOB_WAITING)
@@ -274,6 +307,9 @@ job_change_state (Job      *job,
 			} else {
 				state = job_next_state (job);
 			}
+
+			NIH_MUST (event = nih_sprintf (job, "%s/start",
+						       job->name));
 
 			break;
 		case JOB_RUNNING:
@@ -300,8 +336,18 @@ job_change_state (Job      *job,
 			 * touches those in START/WAITING and we're in
 			 * START/RUNNING)
 			 */
-			if (job->process_state == PROCESS_ACTIVE)
+			if (job->process_state == PROCESS_ACTIVE) {
 				job_release_depends (job);
+
+				/* Also send the job event if we're a service
+				 * that is now running
+				 */
+				if (job->respawn)
+					job_event = TRUE;
+			}
+
+			NIH_MUST (event = nih_sprintf (job, "%s/started",
+						       job->name));
 
 			break;
 		case JOB_STOPPING:
@@ -315,9 +361,29 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
+			NIH_MUST (event = nih_sprintf (job, "%s/stop",
+						       job->name));
+
+			/* Send the job event if we're a task that's just
+			 * finished
+			 */
+			if (! job->respawn)
+				job_event = TRUE;
+
 			break;
 		case JOB_RESPAWNING:
 			nih_assert (old_state == JOB_RUNNING);
+
+			/* Catch run-away respawns */
+			if (job_catch_runaway (job)) {
+				nih_warn (_("%s respawning too fast, stopped"),
+					  job->name);
+
+				job->goal = JOB_STOP;
+				state = job_next_state (job);
+				event = NULL;
+				break;
+			}
 
 			if (job->respawn_script) {
 				job_run_script (job, job->respawn_script);
@@ -325,12 +391,21 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
+			NIH_MUST (event = nih_sprintf (job, "%s/respawn",
+						       job->name));
+
 			break;
 		}
 
-		/* Notify subscribed processes and queue the level event */
+		/* Notify subscribed processes and queue the event */
 		control_handle_job (job);
-		event_queue_level (job->name, job_state_name (job->state));
+		if (event) {
+			event_queue (event);
+			nih_free (event);
+		}
+
+		if (job_event)
+			event_queue (job->name);
 	}
 }
 
@@ -428,13 +503,16 @@ job_run_command (Job        *job,
 
 	/* Use the shell for non-simple commands */
 	if (strpbrk (command, "~`!$^&*()=|\\{}[];\"'<>?")) {
-		argv = nih_alloc (NULL, sizeof (char *) * 4);
+		char *cmd;
+
+		NIH_MUST (argv = nih_alloc (NULL, sizeof (char *) * 4));
+		NIH_MUST (cmd = nih_sprintf (argv, "exec %s", command));
 		argv[0] = SHELL;
 		argv[1] = "-c";
-		argv[2] = nih_sprintf (argv, "exec %s", command);
+		argv[2] = cmd;
 		argv[3] = NULL;
 	} else {
-		argv = nih_str_split (NULL, command, " ", TRUE);
+		NIH_MUST (argv = nih_str_split (NULL, command, " ", TRUE));
 	}
 
 	job_run_process (job, argv);
@@ -485,6 +563,7 @@ job_run_script (Job        *job,
 	 */
 	if (strlen (script) > 1024) {
 		NihIo *io;
+		char  *cmd;
 		int    fds[2];
 
 		/* Close the writing end when the child is exec'd */
@@ -496,9 +575,11 @@ job_run_script (Job        *job,
 		 * of passing that yet
 		 */
 
+		NIH_MUST (cmd = nih_sprintf (NULL, "/dev/fd/%d", fds[0]));
+
 		argv[0] = SHELL;
 		argv[1] = "-e";
-		argv[2] = nih_sprintf (NULL, "/dev/fd/%d", fds[0]);
+		argv[2] = cmd;
 		argv[3] = NULL;
 
 		job_run_process (job, argv);
@@ -935,6 +1016,40 @@ job_stop (Job *job)
 
 
 /**
+ * job_catch_runaway
+ * @job: job respawning.
+ *
+ * This function ensures that a job doesn't enter a respawn loop by
+ * limiting the number of respawns in a particular time limit.
+ *
+ * Returns: %TRUE if the job is respawning too fast, %FALSE if not.
+ */
+static int
+job_catch_runaway (Job *job)
+{
+	nih_assert (job != NULL);
+
+	if (job->respawn_limit && job->respawn_interval) {
+		time_t interval;
+
+		/* Time since last respawn ... this goes very large if we
+		 * haven't done one, which is fine
+		 */
+		interval = time (NULL) - job->respawn_time;
+		if (interval < job->respawn_interval) {
+			job->respawn_count++;
+			if (job->respawn_count > job->respawn_limit)
+				return TRUE;
+		} else {
+			job->respawn_time = time (NULL);
+			job->respawn_count = 1;
+		}
+	}
+
+	return FALSE;
+}
+
+/**
  * job_release_depends:
  * @job: job now running.
  *
@@ -1029,9 +1144,8 @@ job_stop_event (Job   *job,
  * job_handle_event:
  * @event: event to be handled.
  *
- * This function is called whenever an edge event is set or the level
- * of a level event is changed.  It iterates the list of jobs and stops
- * or starts any necessary.
+ * This function is called whenever an event occurs.  It iterates the list
+ * of jobs and stops or starts any necessary.
  **/
 void
 job_handle_event (Event *event)
@@ -1058,5 +1172,199 @@ job_handle_event (Event *event)
 		 */
 		job_stop_event (job, event);
 		job_start_event (job, event);
+	}
+}
+
+
+/**
+ * job_detect_idle:
+ * @data: unused,
+ * @func: loop function.
+ *
+ * This function is called each time through the main loop to detect whether
+ * the system is stalled (nothing is running) or idle (nothing is changing
+ * state).
+ *
+ * For the former it will generate the stalled event so that the system may
+ * take action (e.g. opening a shell), and for the latter it will generate
+ * the idle event set (usually none).
+ **/
+void
+job_detect_idle (void)
+{
+	int stalled = TRUE, idle = TRUE;
+
+	if (paused)
+		return;
+
+	NIH_LIST_FOREACH (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		if (job->goal == JOB_STOP) {
+			if (job->state != JOB_WAITING)
+				stalled = idle = FALSE;
+		} else {
+			stalled = FALSE;
+
+			if ((job->state != JOB_RUNNING)
+			    || (job->process_state != PROCESS_ACTIVE))
+				idle = FALSE;
+		}
+	}
+
+	if (idle && idle_event) {
+		event_queue (idle_event);
+		nih_free (idle_event);
+		idle_event = NULL;
+
+		nih_main_loop_interrupt ();
+	} else if (stalled) {
+		event_queue ("stalled");
+
+		nih_main_loop_interrupt ();
+	}
+}
+
+/**
+ * job_set_idle_event:
+ * @name: event name to trigger when idle.
+ *
+ * This function is used to indicate that an event should be triggered
+ * when the system is idle, which occurs when all jobs are either stopped
+ * and waiting or starting and running.
+ *
+ * This event is only triggered once.
+ **/
+void
+job_set_idle_event (const char *name)
+{
+	nih_assert (name != NULL);
+
+	NIH_MUST (idle_event = nih_strdup (NULL, name));
+}
+
+
+/**
+ * job_read_state:
+ * @job: job to update,
+ * @buf: serialised state.
+ *
+ * Parse the serialised state and update the job's details if we recognise
+ * the line.  We need to always retain knowledge of this so we can always
+ * be re-exec'd by an earlier version of init.  That's why this is so
+ * trivial.
+ *
+ * @job may be %NULL if @buf begins "Job "
+ **/
+Job *
+job_read_state (Job  *job,
+		char *buf)
+{
+	char *ptr;
+
+	nih_assert (buf != NULL);
+
+	/* Every line must have a space, which splits the key and value */
+	ptr = strchr (buf, ' ');
+	if (ptr) {
+		*(ptr++) = '\0';
+	} else {
+		return job;
+	}
+
+	/* Handle the case where we don't have a job yet first */
+	if (! job) {
+		if (strcmp (buf, "Job"))
+			return job;
+
+		/* Value is the name of the job to update */
+		return job_find_by_name (ptr);
+	}
+
+	/* Otherwise handle the attributes */
+	if (! strcmp (buf, ".goal")) {
+		JobGoal value;
+
+		value = job_goal_from_name (ptr);
+		if (value != -1)
+			job->goal = value;
+
+	} else if (! strcmp (buf, ".state")) {
+		JobState value;
+
+		value = job_state_from_name (ptr);
+		if (value != -1)
+			job->state = value;
+
+	} else if (! strcmp (buf, ".process_state")) {
+		ProcessState value;
+
+		value = process_state_from_name (ptr);
+		if (value != -1)
+			job->process_state = value;
+
+	} else if (! strcmp (buf, ".pid")) {
+		long value;
+
+		value = strtol (ptr, &ptr, 10);
+		if ((! *ptr) && (value > 1) && (value <= INT_MAX))
+			job->pid = value;
+
+	} else if (! strcmp (buf, ".kill_timer_due")) {
+		time_t value;
+
+		value = strtol (ptr, &ptr, 10);
+		if ((! *ptr) && (value > 1) && (value <= INT_MAX))
+			NIH_MUST (job->kill_timer = nih_timer_add_timeout (
+					  job, value - time (NULL),
+					  (NihTimerCb)job_kill_timer, job));
+
+	} else if (! strcmp (buf, ".respawn_count")) {
+		long value;
+
+		value = strtol (ptr, &ptr, 10);
+		if (! *ptr)
+			job->respawn_count = value;
+
+	} else if (! strcmp (buf, ".respawn_time")) {
+		time_t value;
+
+		value = strtol (ptr, &ptr, 10);
+		if (! *ptr)
+			job->respawn_time = value;
+	}
+
+	return job;
+}
+
+/**
+ * job_write_state:
+ * @state: file to write to.
+ *
+ * This is the companion function to %job_read_state, it writes to @state
+ * lines for each job known about.
+ **/
+void
+job_write_state (FILE *state)
+{
+	nih_assert (state != NULL);
+
+	NIH_LIST_FOREACH (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		fprintf (state, "Job %s\n", job->name);
+		fprintf (state, ".goal %s\n", job_goal_name (job->goal));
+		fprintf (state, ".state %s\n", job_state_name (job->state));
+		fprintf (state, ".process_state %s\n",
+			 process_state_name (job->process_state));
+		fprintf (state, ".pid %d\n", job->pid);
+		if (job->kill_timer)
+			fprintf (state, ".kill_timer_due %ld\n",
+				 job->kill_timer->due);
+		if (job->pid_timer)
+			fprintf (state, ".pid_timer_due %ld\n",
+				 job->pid_timer->due);
+		fprintf (state, ".respawn_count %d\n", job->respawn_count);
+		fprintf (state, ".respawn_time %ld\n", job->respawn_time);
 	}
 }
