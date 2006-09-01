@@ -214,8 +214,6 @@ event_read_state (Event *event,
 
 	/* Handle the case where we don't have a event yet first */
 	if (! event) {
-		Event *event;
-
 		if (strcmp (buf, "Event"))
 			return event;
 

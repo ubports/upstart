@@ -314,7 +314,7 @@ cfg_job_stanza (Job        *job,
 
 			NIH_MUST (job->description = nih_strdup (job, *arg));
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected job description"));
 		}
 
@@ -330,7 +330,7 @@ cfg_job_stanza (Job        *job,
 
 			NIH_MUST (job->author = nih_strdup (job, *arg));
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected author name"));
 		}
 
@@ -346,7 +346,7 @@ cfg_job_stanza (Job        *job,
 
 			NIH_MUST (job->version = nih_strdup (job, *arg));
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected version string"));
 		}
 
@@ -357,7 +357,7 @@ cfg_job_stanza (Job        *job,
 		 * start
 		 */
 		if (! *arg) {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected job name"));
 		}
 
@@ -381,7 +381,7 @@ cfg_job_stanza (Job        *job,
 			NIH_MUST (event = event_new (job, *arg));
 			nih_list_add (&job->start_events, &event->entry);
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected event name"));
 		}
 
@@ -402,7 +402,7 @@ cfg_job_stanza (Job        *job,
 				nih_list_add (&job->start_events,
 					      &event->entry);
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected event name"));
 			}
 
@@ -412,7 +412,7 @@ cfg_job_stanza (Job        *job,
 
 			if (*++arg) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("ignored additional arguments"));
 			}
 
@@ -420,7 +420,7 @@ cfg_job_stanza (Job        *job,
 				job, filename, lineno, file, len, pos);
 
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected 'on' or 'script'"));
 		}
 
@@ -441,7 +441,7 @@ cfg_job_stanza (Job        *job,
 				nih_list_add (&job->stop_events,
 					      &event->entry);
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected event name"));
 			}
 
@@ -451,7 +451,7 @@ cfg_job_stanza (Job        *job,
 
 			if (*++arg) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("ignored additional arguments"));
 			}
 
@@ -459,7 +459,7 @@ cfg_job_stanza (Job        *job,
 				job, filename, lineno, file, len, pos);
 
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected 'on' or 'script'"));
 		}
 
@@ -481,7 +481,7 @@ cfg_job_stanza (Job        *job,
 
 			job->command = cmd;
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected command"));
 		}
 
@@ -534,7 +534,7 @@ cfg_job_stanza (Job        *job,
 
 			if (*++arg) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("ignored additional arguments"));
 			}
 
@@ -550,13 +550,13 @@ cfg_job_stanza (Job        *job,
 				limit = strtol (*arg, &endptr, 10);
 				if (*endptr || (limit < 0)) {
 					arg = NULL;
-					nih_warn ("%s:%d: %s",
+					nih_warn ("%s:%zi: %s",
 						  filename, *lineno,
 						  _("illegal value"));
 				}
 			} else if (arg) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected limit"));
 			}
 
@@ -565,13 +565,13 @@ cfg_job_stanza (Job        *job,
 				interval = strtol (*arg, &endptr, 10);
 				if (*endptr || (interval < 0)) {
 					arg = NULL;
-					nih_warn ("%s:%d: %s",
+					nih_warn ("%s:%zi: %s",
 						  filename, *lineno,
 						  _("illegal value"));
 				}
 			} else if (arg) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected interval"));
 			}
 
@@ -607,7 +607,7 @@ cfg_job_stanza (Job        *job,
 
 		if (*arg) {
 			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("ignored additional arguments"));
 		}
 
@@ -623,7 +623,7 @@ cfg_job_stanza (Job        *job,
 		job->spawns_instance = TRUE;
 
 		if (*arg)
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("ignored additional arguments"));
 
 	} else if (! strncmp (file + tok_start, "pid", tok_len)) {
@@ -650,7 +650,7 @@ cfg_job_stanza (Job        *job,
 				NIH_MUST (job->pidfile
 					  = nih_strdup (job, *arg));
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected pid filename"));
 			}
 		} else if (*arg && (! strcmp (*arg, "binary"))) {
@@ -661,7 +661,7 @@ cfg_job_stanza (Job        *job,
 				NIH_MUST (job->binary
 					  = nih_strdup (job, *arg));
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected binary filename"));
 			}
 		} else if (*arg && (! strcmp (*arg, "timeout"))) {
@@ -671,18 +671,18 @@ cfg_job_stanza (Job        *job,
 
 				timeout = strtol (*arg, &endptr, 10);
 				if (*endptr || (timeout < 0)) {
-					nih_warn ("%s:%d: %s",
+					nih_warn ("%s:%zi: %s",
 						  filename, *lineno,
 						  _("illegal value"));
 				} else {
 					job->pid_timeout = timeout;
 				}
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected timeout"));
 			}
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected 'file', 'binary' or "
 				    "'timeout'"));
 		}
@@ -701,18 +701,18 @@ cfg_job_stanza (Job        *job,
 
 				timeout = strtol (*arg, &endptr, 10);
 				if (*endptr || (timeout < 0)) {
-					nih_warn ("%s:%d: %s",
+					nih_warn ("%s:%zi: %s",
 						  filename, *lineno,
 						  _("illegal value"));
 				} else {
 					job->kill_timeout = timeout;
 				}
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected timeout"));
 			}
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected 'timeout'"));
 		}
 
@@ -723,7 +723,7 @@ cfg_job_stanza (Job        *job,
 		 * process to be respawned
 		 */
 		if (! *arg) {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected exit status"));
 		}
 
@@ -733,7 +733,7 @@ cfg_job_stanza (Job        *job,
 
 			status = strtoul (*arg, &endptr, 10);
 			if (*endptr || (status > INT_MAX)) {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("illegal value"));
 			} else {
 				int *new_ne;
@@ -767,12 +767,12 @@ cfg_job_stanza (Job        *job,
 			} else if (! strcmp (*arg, "none")) {
 				job->console = CONSOLE_NONE;
 			} else {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("expected 'logged', 'output', "
 					    "'owner' or 'none'"));
 			}
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected 'logged', 'output', "
 				    "'owner' or 'none'"));
 		}
@@ -799,7 +799,7 @@ cfg_job_stanza (Job        *job,
 			job->env[envc++] = env;
 			job->env[envc] = NULL;
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected variable setting"));
 		}
 
@@ -814,13 +814,13 @@ cfg_job_stanza (Job        *job,
 
 			mask = strtol (*arg, &endptr, 8);
 			if (*endptr || (mask & ~0777)) {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("illegal value"));
 			} else {
 				job->umask = (mode_t) mask;
 			}
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected file creation mask"));
 		}
 
@@ -835,13 +835,13 @@ cfg_job_stanza (Job        *job,
 
 			nice = strtol (*arg, &endptr, 10);
 			if (*endptr || (nice < -20) || (nice > 19)) {
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("illegal value"));
 			} else {
 				job->nice = (int) nice;
 			}
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected nice level"));
 		}
 
@@ -886,12 +886,12 @@ cfg_job_stanza (Job        *job,
 				resource = RLIMIT_STACK;
 			} else {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("unknown limit type"));
 			}
 		} else {
 			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected limit name"));
 		}
 
@@ -900,12 +900,12 @@ cfg_job_stanza (Job        *job,
 			soft = strtoul (*arg, &endptr, 10);
 			if (*endptr) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("illegal value"));
 			}
 		} else if (arg) {
 			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected soft limit"));
 		}
 
@@ -914,12 +914,12 @@ cfg_job_stanza (Job        *job,
 			hard = strtoul (*arg, &endptr, 10);
 			if (*endptr) {
 				arg = NULL;
-				nih_warn ("%s:%d: %s", filename, *lineno,
+				nih_warn ("%s:%zi: %s", filename, *lineno,
 					  _("illegal value"));
 			}
 		} else if (arg) {
 			arg = NULL;
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected hard limit"));
 		}
 
@@ -944,7 +944,7 @@ cfg_job_stanza (Job        *job,
 
 			NIH_MUST (job->chroot = nih_strdup (job, *arg));
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected directory name"));
 		}
 
@@ -959,19 +959,19 @@ cfg_job_stanza (Job        *job,
 
 			NIH_MUST (job->chdir = nih_strdup (job, *arg));
 		} else {
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("expected directory name"));
 		}
 
 	} else {
 		arg = NULL;
-		nih_warn ("%s:%d: %s", filename, *lineno,
+		nih_warn ("%s:%zi: %s", filename, *lineno,
 			  _("ignored unknown stanza"));
 	}
 
 	/* Check we handled all arguments */
 	if (arg && *arg && *++arg) {
-		nih_warn ("%s:%d: %s", filename, *lineno,
+		nih_warn ("%s:%zi: %s", filename, *lineno,
 			  _("ignored additional arguments"));
 	}
 
@@ -1305,7 +1305,7 @@ cfg_next_token (const char *filename,
 	 */
 	if (slash) {
 		if (filename)
-			nih_warn ("%s:%d: %s", filename, *lineno + 1,
+			nih_warn ("%s:%zi: %s", filename, *lineno + 1,
 				  _("ignored trailing slash"));
 
 		ws++;
@@ -1316,7 +1316,7 @@ cfg_next_token (const char *filename,
 	 */
 	if (quote) {
 		if (filename)
-			nih_warn ("%s:%d: %s", filename, *lineno + 1,
+			nih_warn ("%s:%zi: %s", filename, *lineno + 1,
 				  _("unterminated quoted string"));
 	}
 
@@ -1423,7 +1423,7 @@ cfg_parse_script (void       *parent,
 			(*pos)++;
 		} else {
 			sh_end = *pos;
-			nih_warn ("%s:%d: %s", filename, *lineno,
+			nih_warn ("%s:%zi: %s", filename, *lineno,
 				  _("'end script' expected"));
 			break;
 		}

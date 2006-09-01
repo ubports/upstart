@@ -1,5 +1,21 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+	* configure.ac: Bump version to 0.2.1
+
+	* init/process.c (process_setup_console): Ensure that the console
+	is always initialised to at least /dev/null
+	* init/job.c (job_change_state): Initialise event to NULL.
+	* init/event.c (event_read_state): Don't mask initialisation of
+	other variable.
+	* init/cfgfile.c (cfg_job_stanza, cfg_parse_script, cfg_next_token): 
+	Print lineno using %zi not %d
+	* compat/sysv/runlevel.c (store): Cast pointer type of timeval.
+
+	* init/main.c: Move the kernel headers include beneath the C
+	library ones, so that compilation doesn't fail on !i386.
+	* util/reboot.c: Likewise.
+
 	* init/main.c (term_handler): Close the control connection if we
 	re-exec init, otherwise it won't be able to bind.  Drop debugging.
 
