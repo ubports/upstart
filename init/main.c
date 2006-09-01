@@ -23,8 +23,6 @@
 #endif /* HAVE_CONFIG_H */
 
 
-#include <linux/kd.h>
-
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
@@ -39,6 +37,8 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <termios.h>
+
+#include <linux/kd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>

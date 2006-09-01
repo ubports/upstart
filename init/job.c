@@ -274,7 +274,7 @@ job_change_state (Job      *job,
 
 	while (job->state != state) {
 		JobState  old_state;
-		char     *event;
+		char     *event = NULL;
 		int       job_event = FALSE;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,

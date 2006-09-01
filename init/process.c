@@ -304,11 +304,10 @@ process_setup_console (ConsoleType type)
 			break;
 		}
 
-		/* Open failed, fall through to CONSOLE_NONE handling */
+		/* Open failed, fall through to default handling */
 		nih_warn (_("Unable to open console: %s"), strerror (errno));
 
-	case CONSOLE_NONE:
-	case CONSOLE_LOGGED:
+	default:
 		fd = open (DEV_NULL, O_RDWR);
 		if (fd < 0)
 			nih_return_system_error (-1);
