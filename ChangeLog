@@ -1,5 +1,8 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (term_handler): It always helps if we dup2 the
+	right file descriptor.
+
 	* init/main.c: Use the TERM signal instead of USR1, as old init
 	used that for something else.  Also rather than passing across
 	file descriptor numbers, use a fixed descriptor and just pass

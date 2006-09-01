@@ -391,6 +391,7 @@ static void
 term_handler (const char *argv0,
 	      NihSignal  *signal)
 {
+	NihError *err;
 	sigset_t  mask, oldmask;
 	int       fds[2] = { -1, -1 };
 	pid_t     pid;
@@ -410,29 +411,44 @@ term_handler (const char *argv0,
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
 	/* Create pipe */
-	if (pipe (fds) < 0)
+	if (pipe (fds) < 0) {
+		nih_error_raise_system ();
 		goto error;
+	}
 
 	/* Fork a child that can send the state to the new init process */
 	pid = fork ();
 	if (pid < 0) {
-		close (fds[1]);
+		nih_error_raise_system ();
 		goto error;
 	} else if (pid == 0) {
-		dup2 (fds[1], STATE_FD);
-		write_state (STATE_FD);
+		close (fds[0]);
+
+		write_state (fds[1]);
 		exit (0);
 	} else {
+		if (dup2 (fds[0], STATE_FD) < 0) {
+			nih_error_raise_system ();
+			goto error;
+		}
+
+		close (fds[0]);
 		close (fds[1]);
+		fds[0] = fds[1] = -1;
 	}
 
 	/* Argument list */
 	execl (argv0, argv0, "--restart", NULL);
+	nih_error_raise_system ();
 
 error:
-	/* Gnargh! */
-	nih_error (_("Failed to re-execute %s: %s"), argv0, strerror (errno));
+	err = nih_error_get ();
+	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
+	nih_error_free (err);
+
 	close (fds[0]);
+	close (fds[1]);
+
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }
 
