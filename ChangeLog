@@ -1,5 +1,7 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.2.2
+
 	* NEWS: Update.
 	* configure.ac: Bump version to 0.2.1
 
