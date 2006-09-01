@@ -1,3 +1,7 @@
+0.2.1  2006-09-01
+
+	* Compilation fixes
+
 0.2.0  2006-09-01
 
 	* "shutdown", "reboot", "halt" and "poweroff" utilities provided

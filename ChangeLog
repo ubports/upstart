@@ -1,5 +1,8 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+	* configure.ac: Bump version to 0.2.1
+
 	* init/process.c (process_setup_console): Ensure that the console
 	is always initialised to at least /dev/null
 	* init/job.c (job_change_state): Initialise event to NULL.
