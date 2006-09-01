@@ -1,5 +1,8 @@
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Don't free the event unless we
+	generate one.
+
 	* NEWS: Update.
 
 	* init/cfgfile.c (cfg_watcher): Ignore any file with '.' or '~'

@@ -381,6 +381,7 @@ job_change_state (Job      *job,
 
 				job->goal = JOB_STOP;
 				state = job_next_state (job);
+				event = NULL;
 				break;
 			}
 
@@ -398,8 +399,10 @@ job_change_state (Job      *job,
 
 		/* Notify subscribed processes and queue the event */
 		control_handle_job (job);
-		event_queue (event);
-		nih_free (event);
+		if (event) {
+			event_queue (event);
+			nih_free (event);
+		}
 
 		if (job_event)
 			event_queue (job->name);
