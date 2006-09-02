@@ -1,3 +1,11 @@
+upstart (0.2.1-2) edgy; urgency=low
+
+  * Don't send the SIGTERM signal unless we're upgrading from a version
+    of upstart that supports re-exec; older versions would cause a kernel
+    PANIC and change from sysvinit does nothing.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Sat,  2 Sep 2006 17:18:38 +0100
+
 upstart (0.2.1-1) edgy; urgency=low
 
   * New upstream release:

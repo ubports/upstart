@@ -25,7 +25,10 @@ reexec_init()
 
 case "$1" in
     configure)
-	reexec_init
+	# On upgrade from a capable upstart version, tell it to re-exec
+	if dpkg --compare-versions "$2" ge "0.2.0-1"; then
+	    reexec_init
+	fi
 	;;
 
     abort-upgrade|abort-deconfigure|abort-remove)
