@@ -1,3 +1,10 @@
+upstart (0.2.1-3) edgy; urgency=low
+
+  * Remove the rc0 configuration file shipped in 0.1.0 that causes all
+    reboots to become shutdowns.  Ubuntu: #58557.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Sun,  3 Sep 2006 23:24:41 +0100
+
 upstart (0.2.1-2) edgy; urgency=low
 
   * Don't send the SIGTERM signal unless we're upgrading from a version
