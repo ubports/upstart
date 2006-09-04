@@ -206,7 +206,7 @@ upstart_addr (struct sockaddr_un *addr,
 	addr->sun_family = AF_UNIX;
 	addr->sun_path[0] = '\0';
 
-	addrlen = __builtin_offsetof (struct sockaddr_un, sun_path) + 1;
+	addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
 	if (pid == INIT_DAEMON) {
 		addrlen += snprintf (addr->sun_path + 1,
 				     sizeof (addr->sun_path) - 1,

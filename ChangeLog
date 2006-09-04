@@ -1,5 +1,11 @@
-2006-09-04  Scott James Remnant  <scott@netsplit.com>
+2006-09-04  Johan Kiviniemi  <johan@kiviniemi.name>
 
+	* upstart/control.c (upstart_addr): Replace use of __builtin_offsetof
+	with offsetof.
+	* upstart/tests/test_control.c (test_recv_msg): Likewise.
+
+2006-09-04  Scott James Remnant  <scott@netsplit.com>
+	
 	* util/shutdown.c (main): Exit normally after sending the warning
 	message if -k is given.
 
