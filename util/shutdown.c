@@ -311,6 +311,9 @@ main (int   argc,
 	wall (msg);
 	nih_free (msg);
 
+	if (warn_only)
+		exit (0);
+
 
 	/* Give us a sane environment */
 	chdir ("/");
