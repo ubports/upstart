@@ -14,13 +14,13 @@ stop on rc4/start
 stop on rc5/start
 stop on rc6/start
 
+# Note: there can be no previous runlevel here, if we have one it's bad
+# information (we enter rc1 not rcS for maintenance).  Run /etc/init.d/rc
+# without information so that it defaults to previous=N runlevel=S.
 script
-	set $(runlevel --set S || true)
-	if [ "$1" != "unknown" ]; then
-	    PREVLEVEL=$1
-	    RUNLEVEL=$2
-	    export PREVLEVEL RUNLEVEL
-	fi
-
+	runlevel --set S >/dev/null || true
 	exec /etc/init.d/rcS
 end script
+
+# Temporary grant until logd is ready and cryptdisks has been fixed
+console owner

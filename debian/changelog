@@ -1,3 +1,26 @@
+upstart (0.2.1-6) edgy; urgency=low
+
+  * Make packages Essential, and change Depends to Pre-Depends so that the
+    packages work when unconfigured (nothing interesting is performed in
+    postinst).  Ubuntu: #59005.
+  * Sync priority in debian/control with that in the archive (required)
+  * Drop warning of dire consequences if you install upstart, seeing as it's
+    installed by default.
+
+  * Add new startup-tasks and system-services packages which will contain
+    the /etc/event.d files themselves (other than the main ones).
+  * Move tty definitions into system-services.
+  * Modify tty definitions to start when the rcS task has finished.  This
+    puts them in the "right" place when compared to gdm.  Ubuntu: #58630.
+
+  * Correct rcS compatibility script to ignore any information in utmp so
+    that all scripts are always run.  Ubuntu: #59203.
+  * Make rcS the console owner while it runs, temporary fix for
+    Ubuntu: #58609, #58794, #58796
+  * Include default control-alt-delete handler that reboots the machine.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed,  6 Sep 2006 21:52:48 +0100
+
 upstart (0.2.1-5) edgy; urgency=low
 
   * upstart-compat-sysv Depends: initscripts (closes: Malone #58979).

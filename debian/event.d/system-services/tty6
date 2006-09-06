@@ -3,7 +3,7 @@
 # This service maintains a getty on tty6 from the point the system is
 # started until it is shut down again.
 
-start on startup
+start on rcS
 stop on shutdown
 
 respawn /sbin/getty 38400 tty6

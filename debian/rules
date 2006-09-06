@@ -60,7 +60,7 @@ install: build
 	install -m 755 -o root -g root debian/sulogin debian/tmp/sbin/sulogin
 
 	# Copy across the default jobs
-	@set -x; for pkg in upstart upstart-compat-sysv; do \
+	@set -x; for pkg in upstart upstart-compat-sysv system-services; do \
 		for job in debian/event.d/$$pkg/*; do \
 			install -m 644 -o root -g root $$job \
 				debian/$$pkg/etc/event.d || exit 1; \

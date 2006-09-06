@@ -1,26 +1,44 @@
 Source: upstart
 Section: base
-Priority: optional
+Priority: required
 Maintainer: Scott James Remnant <scott@ubuntu.com>
 Standards-Version: 3.7.2.1
 Build-Depends: debhelper (>= 5.0)
 
 Package: upstart
+Essential: yes
 Architecture: any
-Depends: ${shlibs:Depends}
+Pre-Depends: ${shlibs:Depends}
 Conflicts: sysvinit
 Replaces: sysvinit
 Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during
  shutdown and supervising them while the system is running.
- .
- THIS PACKAGE IS EXPERIMENTAL, YOU INSTALL IT ON YOUR SYSTEM AT
- YOUR OWN RISK.
 
 Package: upstart-compat-sysv
+Essential: yes
 Architecture: any
-Depends: ${shlibs:Depends}, upstart (>= 0.2.0), sysvutils, sysv-rc, initscripts
+Pre-Depends: ${shlibs:Depends}, upstart (>= 0.2.0), sysvutils, sysv-rc, initscripts
+Replaces: upstart (<< 0.2.0-1)
 Description: compatibility for System-V-like init
  This package contains compatibility tasks and utilities that emulate
- the behaviour of the original sysvinit package, including runlevels.
+ the behaviour of the original sysvinit package, including runlevels,
+ and ensures that the initscripts in /etc/rc*.d are still run.
+
+Package: startup-tasks
+Essential: yes
+Architecture: any
+Pre-Depends: upstart (>= 0.2.0)
+Description: definitions of essential tasks to run on startup
+ This package contains the definitions of tasks essential for normal
+ startup of a Linux system.
+
+Package: system-services
+Essential: yes
+Architecture: any
+Pre-Depends: upstart (>= 0.2.0), upstart-compat-sysv, util-linux
+Replaces: upstart (<< 0.2.1-6)
+Description: definitions of essential system services
+ This package contains the definitions of services essential for the
+ normal operation of a Linux system.
