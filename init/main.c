@@ -199,7 +199,7 @@ main (int   argc,
 	control_open ();
 
 	/* Read configuration */
-	cfg_watch_dir (NULL, CFG_DIR, NULL);
+/	cfg_watch_dir (NULL, CFG_DIR, NULL);
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);
@@ -209,7 +209,7 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		event_queue ("startup");
+		event_queue (STARTUP_EVENT);
 	} else {
 		sigset_t mask;
 

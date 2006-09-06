@@ -48,6 +48,29 @@ typedef struct event {
 } Event;
 
 
+/**
+ * STARTUP_EVENT:
+ *
+ * Name of the event that we generate when init is first executed.
+ **/
+#define STARTUP_EVENT "startup"
+
+/**
+ * SHUTDOWN_EVENT:
+ *
+ * Name of the event that we generate to begin the shutdown process.
+ **/
+#define SHUTDOWN_EVENT "shutdown"
+
+/**
+ * STALLED_EVENT:
+ *
+ * Name of the event that we generate if the system stalls (all jobs are
+ * stopped/waiting)
+ **/
+#define STALLED_EVENT "stalled"
+
+
 NIH_BEGIN_EXTERN
 
 int paused;

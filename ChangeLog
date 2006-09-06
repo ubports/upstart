@@ -1,5 +1,13 @@
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h (STARTUP_EVENT, SHUTDOWN_EVENT, STALLED_EVENT):
+	Macros to define the standard event names.
+	* init/main.c (main): Use STARTUP_EVENT macro instead of "startup"
+	* init/control.c (control_handle): Use SHUTDOWN_EVENT macro
+	instead of "shutdown".
+	* init/job.c (job_detect_idle): Use STALLED_EVENT macro instead
+	of "stalled".
+
 	* init/job.c (job_detect_idle): Add some log messages for when we
 	detect the idle or stalled states.
 	(job_kill_process, job_kill_timer): Increase log verbosity.

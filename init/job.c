@@ -1222,8 +1222,9 @@ job_detect_idle (void)
 
 		nih_main_loop_interrupt ();
 	} else if (stalled) {
-		nih_info (_("System has stalled, generating stalled event"));
-		event_queue ("stalled");
+		nih_info (_("System has stalled, generating %s event"),
+			  STALLED_EVENT);
+		event_queue (STALLED_EVENT);
 
 		nih_main_loop_interrupt ();
 	}
