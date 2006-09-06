@@ -83,22 +83,27 @@ main (int   argc,
 
 
 	/* Build the message */
-	msg.type = UPSTART_JOB_START;
 	switch (args[0][0]) {
-	case '1':
 	case '2':
 	case '3':
 	case '4':
 	case '5':
-	case '6':
-	case 'S':
+		msg.type = UPSTART_JOB_START;
 		msg.job_start.name = nih_sprintf (NULL, "rc%c", args[0][0]);
 		break;
-	case 's':
-		msg.job_start.name = "rcS";
-		break;
 	case '0':
+		msg.type = UPSTART_SHUTDOWN;
 		msg.job_start.name = "rc0-poweroff";
+		break;
+	case '1':
+	case 'S':
+	case 's':
+		msg.type = UPSTART_SHUTDOWN;
+		msg.job_start.name = "rc1";
+		break;
+	case '6':
+		msg.type = UPSTART_SHUTDOWN;
+		msg.job_start.name = "rc6";
 		break;
 	default:
 		/* Ignore other arguments */

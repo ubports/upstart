@@ -114,6 +114,22 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	/* Check we're root */
+	if (getuid ()) {
+		nih_error (_("Need to be root"));
+		exit (1);
+	}
+
+	/* Check we're process #1 */
+	if (getpid () > 1) {
+		execv ("/sbin/telinit", argv);
+		/* Ignore failure, probably just that telinit doesn't exist */
+
+		nih_error (_("Not being executed as init"));
+		exit (1);
+	}
+
+
 	/* Send all logging output to syslog */
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
 	nih_log_set_logger (nih_logger_syslog);
@@ -129,17 +145,6 @@ main (int   argc,
 	if (! restart)
 		reset_console ();
 
-	/* Check we're root */
-	if (getuid ()) {
-		nih_error (_("Need to be root"));
-		exit (1);
-	}
-
-	/* Check we're process #1 */
-	if (getpid () > 1) {
-		nih_error (_("Not being executed as init"));
-		exit (1);
-	}
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
