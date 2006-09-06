@@ -171,6 +171,17 @@ main (int   argc,
 
 		msg.type = UPSTART_WATCH_EVENTS;
 		expect_reply = -1;
+	} else if (! strcmp (args[0], "shutdown")) {
+		if (args[1] == NULL) {
+			fprintf (stderr, _("%s: missing argument\n"),
+				 program_name);
+			nih_main_suggest_help ();
+			exit (1);
+		}
+
+		msg.type = UPSTART_SHUTDOWN;
+		msg.shutdown.name = args[1];
+		expect_reply = 0;
 	} else {
 		fprintf (stderr, _("%s: unknown command: %s\n"),
 			 program_name, args[0]);

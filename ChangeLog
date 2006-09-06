@@ -1,5 +1,9 @@
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (main): Add a shutdown command that takes an
+	arbitrary event name to be issued after "shutdown".  You'll
+	nearly always want the /sbin/shutdown tool instead.
+
 	* init/job.c (job_detect_idle): Only generate the stalled event
 	if at least one job handles it in its start_events list.
 	* init/tests/test_job.c (test_detect_idle): Make sure that works.
