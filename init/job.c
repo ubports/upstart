@@ -1192,13 +1192,24 @@ job_handle_event (Event *event)
 void
 job_detect_idle (void)
 {
-	int stalled = TRUE, idle = TRUE;
+	int stalled = TRUE, idle = TRUE, can_stall = FALSE;
 
 	if (paused)
 		return;
 
 	NIH_LIST_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
+
+		/* Check the start events to make sure that at least one
+		 * job handles the stalled event, otherwise we loop.
+		 */
+		NIH_LIST_FOREACH (&job->start_events, event_iter) {
+			Event *event = (Event *)event_iter;
+
+			if (! strcmp (event->name, STALLED_EVENT))
+				can_stall = TRUE;
+		}
+
 
 		if (job->goal == JOB_STOP) {
 			if (job->state != JOB_WAITING)
@@ -1221,7 +1232,7 @@ job_detect_idle (void)
 		idle_event = NULL;
 
 		nih_main_loop_interrupt ();
-	} else if (stalled) {
+	} else if (stalled && can_stall) {
 		nih_info (_("System has stalled, generating %s event"),
 			  STALLED_EVENT);
 		event_queue (STALLED_EVENT);

@@ -1,5 +1,9 @@
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_detect_idle): Only generate the stalled event
+	if at least one job handles it in its start_events list.
+	* init/tests/test_job.c (test_detect_idle): Make sure that works.
+
 	* init/event.h (STARTUP_EVENT, SHUTDOWN_EVENT, STALLED_EVENT):
 	Macros to define the standard event names.
 	* init/main.c (main): Use STARTUP_EVENT macro instead of "startup"

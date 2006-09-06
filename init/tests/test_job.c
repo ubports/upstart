@@ -2630,7 +2630,19 @@ test_detect_idle (void)
 	job2->process_state = PROCESS_NONE;
 
 
+	printf ("...with stalled state and no handler\n");
+	job_detect_idle ();
+
+ 	/* Neither event should not have been queued */
+	if (! NIH_LIST_EMPTY (list)) {
+		printf ("BAD: event queued unexpectedly.\n");
+		ret = 1;
+	}
+
+
 	printf ("...with stalled state\n");
+	event = event_new (job1, "stalled");
+	nih_list_add (&job1->start_events, &event->entry);
 	job_detect_idle ();
 
 	/* Stalled event should have been queued */
