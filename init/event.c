@@ -148,6 +148,8 @@ event_queue (const char *name)
 
 	event_init ();
 
+	nih_debug ("Queued %s event", name);
+
 	NIH_MUST (event = event_new (NULL, name));
 	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destructor);
 	nih_list_add (events, &event->entry);
@@ -175,6 +177,7 @@ event_queue_run (void)
 		NIH_LIST_FOREACH_SAFE (events, iter) {
 			Event *event = (Event *)iter;
 
+			nih_debug ("Handling %s event", event->name);
 			control_handle_event (event);
 			job_handle_event (event);
 

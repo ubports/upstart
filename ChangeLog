@@ -1,5 +1,11 @@
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_detect_idle): Add some log messages for when we
+	detect the idle or stalled states.
+	(job_kill_process, job_kill_timer): Increase log verbosity.
+	* init/event.c (event_queue_run): Log which events we're handling
+	if --debug is given.
+
 	* compat/sysv/telinit.c (main): Send a shutdown command when
 	requesting to enter runlevel 0 or runlevel 6, likewise for
 	runlevel 1, s or S which all run "rc1" not "rcS".

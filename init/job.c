@@ -687,7 +687,7 @@ job_kill_process (Job *job)
 	nih_assert (job->state == JOB_RUNNING);
 	nih_assert (job->process_state == PROCESS_ACTIVE);
 
-	nih_debug ("Sending TERM signal to %s process (%d)",
+	nih_info (_("Sending TERM signal to %s process (%d)"),
 		   job->name, job->pid);
 
 	if (process_kill (job, job->pid, FALSE) < 0) {
@@ -736,7 +736,7 @@ job_kill_timer (Job      *job,
 	nih_assert (job->state == JOB_RUNNING);
 	nih_assert (job->process_state == PROCESS_KILLED);
 
-	nih_debug ("Sending KILL signal to %s process (%d)",
+	nih_info (_("Sending KILL signal to %s process (%d)"),
 		   job->name, job->pid);
 
 	if (process_kill (job, job->pid, TRUE) < 0) {
@@ -1213,12 +1213,16 @@ job_detect_idle (void)
 	}
 
 	if (idle && idle_event) {
+		nih_info (_("System is idle, generating %s event"),
+			  idle_event);
+
 		event_queue (idle_event);
 		nih_free (idle_event);
 		idle_event = NULL;
 
 		nih_main_loop_interrupt ();
 	} else if (stalled) {
+		nih_info (_("System has stalled, generating stalled event"));
 		event_queue ("stalled");
 
 		nih_main_loop_interrupt ();
