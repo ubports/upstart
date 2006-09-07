@@ -1,3 +1,11 @@
+upstart (0.2.1-7) edgy; urgency=low
+
+  * Remove the Essential tags again, they didn't solve the problem we
+    hoped they would (dpkg/apt still won't remove sysvinit without
+    serious persuasion) and I don't think these packages should be.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu,  7 Sep 2006 02:42:33 +0100
+
 upstart (0.2.1-6) edgy; urgency=low
 
   * Make packages Essential, and change Depends to Pre-Depends so that the

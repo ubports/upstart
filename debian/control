@@ -6,7 +6,6 @@ Standards-Version: 3.7.2.1
 Build-Depends: debhelper (>= 5.0)
 
 Package: upstart
-Essential: yes
 Architecture: any
 Pre-Depends: ${shlibs:Depends}
 Conflicts: sysvinit
@@ -17,9 +16,8 @@ Description: event-based init daemon
  shutdown and supervising them while the system is running.
 
 Package: upstart-compat-sysv
-Essential: yes
 Architecture: any
-Pre-Depends: ${shlibs:Depends}, upstart (>= 0.2.0), sysvutils, sysv-rc, initscripts
+Depends: ${shlibs:Depends}, upstart (>= 0.2.0), sysvutils, sysv-rc, initscripts
 Replaces: upstart (<< 0.2.0-1)
 Description: compatibility for System-V-like init
  This package contains compatibility tasks and utilities that emulate
@@ -27,17 +25,15 @@ Description: compatibility for System-V-like init
  and ensures that the initscripts in /etc/rc*.d are still run.
 
 Package: startup-tasks
-Essential: yes
 Architecture: any
-Pre-Depends: upstart (>= 0.2.0)
+Depends: upstart (>= 0.2.0)
 Description: definitions of essential tasks to run on startup
  This package contains the definitions of tasks essential for normal
  startup of a Linux system.
 
 Package: system-services
-Essential: yes
 Architecture: any
-Pre-Depends: upstart (>= 0.2.0), upstart-compat-sysv, util-linux
+Depends: upstart (>= 0.2.0), upstart-compat-sysv, util-linux
 Replaces: upstart (<< 0.2.1-6)
 Description: definitions of essential system services
  This package contains the definitions of services essential for the
