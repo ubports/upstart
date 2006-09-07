@@ -1,5 +1,9 @@
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Long discussion today on #upstart, many improvements to the
+	job and event model that make it more elegant.
+	* AUTHORS: Include a list of thanks.
+
 	* util/shutdown.c (shutdown_now): If we get ECONNREFUSED when we
 	try and send the shutdown event to init, it probably means we're
 	still in sysvinit.  So try that instead.
