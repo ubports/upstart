@@ -1,5 +1,11 @@
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
+	* util/shutdown.c (shutdown_now): If we get ECONNREFUSED when we
+	try and send the shutdown event to init, it probably means we're
+	still in sysvinit.  So try that instead.
+	(sysvinit_shutdown): Function to send a hand-crafted runlevel
+	change message across /dev/initctl.
+
 	* util/initctl.c (main): Add a shutdown command that takes an
 	arbitrary event name to be issued after "shutdown".  You'll
 	nearly always want the /sbin/shutdown tool instead.
