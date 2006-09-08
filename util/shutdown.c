@@ -390,13 +390,13 @@ event_setter (NihOption  *option,
 		NIH_MUST (*value = nih_strdup (NULL, "reboot"));
 		break;
 	case 'h':
-		NIH_MUST (*value = nih_strdup (NULL, "poweroff"));
-		break;
-	case 'H':
 		NIH_MUST (*value = nih_strdup (NULL, "halt"));
 		break;
+	case 'H':
+		NIH_MUST (*value = nih_strdup (NULL, "system-halt"));
+		break;
 	case 'P':
-		NIH_MUST (*value = nih_strdup (NULL, "poweroff"));
+		NIH_MUST (*value = nih_strdup (NULL, "power-off"));
 		break;
 	}
 
