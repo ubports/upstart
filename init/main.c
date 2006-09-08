@@ -335,13 +335,13 @@ segv_handler (int signum)
  *
  * Handle having recieved the SIGINT signal, sent to us when somebody
  * presses Ctrl-Alt-Delete on the console.  We just generate a
- * control-alt-delete event.
+ * ctrlaltdel event.
  **/
 static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue ("control-alt-delete");
+	event_queue (CTRLALTDEL_EVENT);
 }
 
 /**
@@ -357,7 +357,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue ("kbdrequest");
+	event_queue (KBDREQUEST_EVENT);
 }
 
 /**
