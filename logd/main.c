@@ -23,8 +23,12 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <sys/types.h>
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <syslog.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/signal.h>
@@ -34,11 +38,22 @@
 
 
 /**
+ * daemonise:
+ *
+ * This is set to %TRUE if we should become a daemon, rather than just
+ * running in the foreground.
+ **/
+static int daemonise = FALSE;
+
+/**
  * options:
  *
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
+	{ 0, "daemon", N_("Detach and run in the background"),
+	  NULL, NULL, &daemonise, NULL },
+
 	NIH_OPTION_LAST
 };
 
@@ -62,7 +77,22 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Check we're root */
+	if (getuid ()) {
+		nih_error (_("Need to be root"));
+		exit (1);
+	}
 
+	/* Become daemon */
+	if (daemonise)
+		nih_main_daemonise ();
+
+
+	/* Send all logging output to syslog */
+	openlog (program_name, LOG_CONS | LOG_PID, LOG_DAEMON);
+	nih_log_set_logger (nih_logger_syslog);
+
+	/* Handle TERM signal gracefully */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	nih_signal_add_callback (NULL, SIGTERM, nih_main_term_signal, NULL);
 

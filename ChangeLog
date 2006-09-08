@@ -1,3 +1,7 @@
+2006-09-08  Scott James Remnant  <scott@netsplit.com>
+
+	* logd/main.c (main): Add the code to daemonise, etc.
+
 2006-09-07  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Long discussion today on #upstart, many improvements to the
