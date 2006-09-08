@@ -70,6 +70,22 @@ typedef struct event {
  **/
 #define STALLED_EVENT "stalled"
 
+/**
+ * CTRLALTDEL_EVENT:
+ *
+ * Name of the event that we generate when the Control-Alt-Delete key
+ * combination is pressed.
+ **/
+#define CTRLALTDEL_EVENT "ctrlaltdel"
+
+/**
+ * KBDREQUEST_EVENT:
+ *
+ * Name of the event that we generate when the Alt-UpArrow key combination
+ * is pressed.
+ **/
+#define KBDREQUEST_EVENT "kbdrequest"
+
 
 NIH_BEGIN_EXTERN
 

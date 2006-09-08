@@ -1,5 +1,9 @@
 2006-09-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_event): Allow jobs to react to their own
+	events, this is how we'll do respawn eventually.
+	* init/tests/test_job.c (test_handle_event): Remove test.
+
 	* init/main.c (cad_handler, kbd_handler): Generate the new event
 	names.
 	* init/event.h (CTRLALTDEL_EVENT, KBDREQUEST_EVENT): Add definitions
