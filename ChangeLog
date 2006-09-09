@@ -1,5 +1,8 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_console): Revert part of the previous
+	change, should just output to /dev/null if we don't have logd.
+
 	* configure.ac: Bump version to 0.2.5
 
 	* init/main.c (main): Start the logd job if it exists.

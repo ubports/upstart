@@ -311,7 +311,6 @@ process_setup_console (Job         *job,
 			if (sock < 0) {
 				nih_warn (_("Unable to open logd socket: %s"),
 					  strerror (errno));
-				fd = open (CONSOLE, O_RDWR | O_NOCTTY);
 				break;
 			}
 
@@ -336,7 +335,6 @@ process_setup_console (Job         *job,
 						  strerror (errno));
 
 				close (sock);
-				fd = open (CONSOLE, O_RDWR | O_NOCTTY);
 				break;
 			}
 
@@ -347,7 +345,6 @@ process_setup_console (Job         *job,
 				nih_warn (_("Unable to send name to logd: %s"),
 					  strerror (errno));
 				close (sock);
-				fd = open (CONSOLE, O_RDWR | O_NOCTTY);
 				break;
 			}
 
@@ -356,7 +353,6 @@ process_setup_console (Job         *job,
 				nih_warn (_("Unable to send name to logd: %s"),
 					  strerror (errno));
 				close (sock);
-				fd = open (CONSOLE, O_RDWR | O_NOCTTY);
 				break;
 			}
 
