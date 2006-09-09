@@ -1,5 +1,8 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* event.d/logd: Should not be a console owner, but should stop
+	on shutdown.
+
 	* init/process.c (process_setup_console): Revert part of the previous
 	change, should just output to /dev/null if we don't have logd.
 
