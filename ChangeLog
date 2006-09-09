@@ -1,5 +1,7 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.2.5
+
 	* init/main.c (main): Start the logd job if it exists.
 
 	* init/process.c (process_setup_console): Ignore ECONNREFUSED as
