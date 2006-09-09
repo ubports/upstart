@@ -1,5 +1,11 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (main): Set the usage string.
+	* util/shutdown.c (main): Set the usage string.
+	* util/start.c (main): Set the usage string.
+	* compat/sysv/runlevel.c (main): Set the usage string.
+	* compat/sysv/telinit.c (main): Set the usage string.
+
 	* man/Makefile.am: Use install-data-hook and $(man8dir)
 	* util/Makefile.am: Also use install-exec-hook
 
