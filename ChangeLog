@@ -1,5 +1,8 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+	* TODO: Update.
+
 	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Change
 	the magic to be the package string.
 	* upstart/tests/test_control.c (test_recv_msg): Update tests.

@@ -1,8 +1,5 @@
 High Priority:
 
- * sulogin (on stalled)
-
-
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)
 
@@ -15,8 +12,6 @@ High Priority:
  * cfg_watch_dir needs testing, as does cfg_watcher
 
  * test event_queue_run
-
- * fix up and document better the console setup stuff we stole
 
 
 Unfinished Features:
