@@ -141,7 +141,7 @@ main (int   argc,
 	for (i = 0; i < 3; i++)
 		close (i);
 
-	process_setup_console (CONSOLE_OUTPUT);
+	process_setup_console (NULL, CONSOLE_OUTPUT);
 	if (! restart)
 		reset_console ();
 

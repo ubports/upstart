@@ -1,15 +1,5 @@
 High Priority:
 
- * Logging of processes.  Involves writing logd and putting the
-   opposite hooks to it in init.
-
-    - logd will print these in the cute manner by subscribing to jobs
-    - init opens socket, writes the job name, etc. and dups that to
-      stdout/stderr (stdin can be null)
-    - writes to /var/log/boot or caches in a memory buffer, make it
-      look like syslog
-    - run other commands like usplash_write, spdsay, etc.
-
  * sulogin (on stalled)
 
 

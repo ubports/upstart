@@ -1,5 +1,11 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_console): Implement handling for
+	CONSOLE_LOGGED and generally clean up the other handling.
+	* init/process.h: Update.
+	* init/main.c (main): Pass NULL for the job to setup console.
+	* TODO: Update.
+
 	* logd/main.c: Implement the logging daemon, it accepts connections
 	on a unix stream socket with the abstract name
 	"/com/ubuntu/upstart/logd", expects the length of the name and the

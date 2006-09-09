@@ -30,6 +30,8 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -42,6 +44,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/signal.h>
+#include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
@@ -128,7 +131,7 @@ process_spawn (Job          *job,
 	/* The job defines what the process's standard input, output and
 	 * error file descriptors should look like; set those up.
 	 */
-	if (process_setup_console (job->console) < 0)
+	if (process_setup_console (job, job->console) < 0)
 		goto error;
 
 	/* The job also gives us a consistent world to run all processes
@@ -279,6 +282,7 @@ process_kill (Job   *job,
 
 /**
  * process_setup_console:
+ * @job: job details,
  * @type: console type.
  *
  * Set up the standard input, output and error file descriptors for the
@@ -287,37 +291,104 @@ process_kill (Job   *job,
  * Returns: zero on success, negative value on raised error.
  **/
 int
-process_setup_console (ConsoleType type)
+process_setup_console (Job         *job,
+		       ConsoleType  type)
 {
-	int fd;
+	int fd = -1;
 
 	switch (type) {
-	case CONSOLE_OUTPUT:
-	case CONSOLE_OWNER:
-		/* Open the console itself */
-		fd = open (CONSOLE, O_RDWR|O_NOCTTY);
+	case CONSOLE_LOGGED:
+		/* Input from /dev/null, output to the logging process */
+		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
 		if (fd >= 0) {
-			/* Take ownership of the console */
-			if (type == CONSOLE_OWNER)
-				ioctl (fd, TIOCSCTTY, 1);
+			int                 sock;
+			struct sockaddr_un  addr;
+			size_t              addrlen, namelen;
+			const char         *name;
 
-			break;
+			/* Open a unix stream socket */
+			sock = socket (PF_UNIX, SOCK_STREAM, 0);
+			if (sock < 0) {
+				nih_warn (_("Unable to open logd socket: %s"),
+					  strerror (errno));
+				break;
+			}
+
+			/* Use the abstract namespace */
+			addr.sun_family = AF_UNIX;
+			addr.sun_path[0] = '\0';
+
+			/* Specifically /com/ubuntu/upstart/logd */
+			addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
+			addrlen += snprintf (addr.sun_path + 1,
+					     sizeof (addr.sun_path) - 1,
+					     "/com/ubuntu/upstart/logd");
+
+			/* Connect to the logging daemon (note: this blocks,
+			 * but that's ok, we're in the child)
+			 */
+			if (connect (sock, (struct sockaddr *)&addr,
+				     addrlen) < 0) {
+				nih_warn (_("Unable to connect to logd: %s"),
+					  strerror (errno));
+				close (sock);
+				break;
+			}
+
+			/* First send the length of the job name */
+			name = job ? job->name : program_name;
+			namelen = strlen (name);
+			if (write (sock, &namelen, sizeof (namelen)) < 0) {
+				nih_warn (_("Unable to send name to logd: %s"),
+					  strerror (errno));
+				close (sock);
+				break;
+			}
+
+			/* Then send the job name */
+			if (write (sock, name, namelen) < 0) {
+				nih_warn (_("Unable to send name to logd: %s"),
+					  strerror (errno));
+				close (sock);
+				break;
+			}
+
+			/* Socket is ready to be used for output */
+			fd = sock;
 		}
 
-		/* Open failed, fall through to default handling */
-		nih_warn (_("Unable to open console: %s"), strerror (errno));
+		break;
 
-	default:
-		fd = open (DEV_NULL, O_RDWR);
-		if (fd < 0)
-			nih_return_system_error (-1);
+	case CONSOLE_OUTPUT:
+		/* Ordinary console input and output */
+		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
+		break;
 
+	case CONSOLE_OWNER:
+		/* As CONSOLE_OUTPUT but with ^C, etc. sent */
+		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
+		if (fd >= 0)
+			ioctl (fd, TIOCSCTTY, 1);
+
+		break;
+
+	case CONSOLE_NONE:
+		/* No console really means /dev/null */
+		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
 		break;
 	}
 
+	/* Failed to open a console?  Use /dev/null */
+	if (fd < 0) {
+		nih_warn (_("Failed to open console: %s"), strerror (errno));
+
+		if ((fd = open (DEV_NULL, O_RDWR | O_NOCTTY)) < 0)
+			nih_return_system_error (-1);
+	}
+
 	/* Copy to standard output and standard error */
-	dup (fd);
-	dup (fd);
+	while (dup (fd) < 2)
+		;
 
 	return 0;
 }
