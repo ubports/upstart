@@ -12,9 +12,9 @@ dist_man_MANS = \
 	telinit.8
 
 
-install-data-local:
-	ln -sf reboot.8 $(DESTDIR)$(mandir)/man8/halt.8
-	ln -sf reboot.8 $(DESTDIR)$(mandir)/man8/poweroff.8
+install-data-hook:
+	ln -sf reboot.8 $(DESTDIR)$(man8dir)/halt.8
+	ln -sf reboot.8 $(DESTDIR)$(man8dir)/poweroff.8
 
-	ln -sf start.8 $(DESTDIR)$(mandir)/man8/stop.8
-	ln -sf start.8 $(DESTDIR)$(mandir)/man8/status.8
+	ln -sf start.8 $(DESTDIR)$(man8dir)/stop.8
+	ln -sf start.8 $(DESTDIR)$(man8dir)/status.8
