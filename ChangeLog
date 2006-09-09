@@ -1,4 +1,136 @@
+2006-09-09  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Update.
+	* TODO: Update.
+
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Change
+	the magic to be the package string.
+	* upstart/tests/test_control.c (test_recv_msg): Update tests.
+
+	* util/initctl.c (main): Set the usage string.
+	* util/shutdown.c (main): Set the usage string.
+	* util/start.c (main): Set the usage string.
+	* compat/sysv/runlevel.c (main): Set the usage string.
+	* compat/sysv/telinit.c (main): Set the usage string.
+
+	* man/Makefile.am: Use install-data-hook and $(man8dir)
+	* util/Makefile.am: Also use install-exec-hook
+
+	* Makefile.am (SUBDIRS): Install contents of the man directory
+	* configure.ac (AC_CONFIG_FILES): Generate man/Makefile
+	* man/Makefile.am: Install manpages in the appropriate places.
+	* man/init.8, man/logd.8, man/initctl.8, man/reboot.8,
+	* man/shutdown.8, man/start.8, man/sulogin.8, man/runlevel.8,
+	* man/telinit.8: Include some basic manpages so we at least have
+	some level of documentation.
+
+	* init/job.c (job_child_reaper): Don't check the exit status of
+	a respawning job if the goal is to stop it.
+
+	* compat/sysv/telinit.c (main): Generate events rather than
+	starting and stopping jobs directly, the events are named
+	"runlevel-X".  0, 1, 6 and s/S are shutdown events.
+
+	* logd/main.c (main): Raise SIGSTOP before entering the main loop.
+	* init/main.c (main): Interlock with logd.
+
+	* event.d/logd: Should not be a console owner, but should stop
+	on shutdown.
+
+	* init/process.c (process_setup_console): Revert part of the previous
+	change, should just output to /dev/null if we don't have logd.
+
+	* configure.ac: Bump version to 0.2.5
+
+	* init/main.c (main): Start the logd job if it exists.
+
+	* init/process.c (process_setup_console): Ignore ECONNREFUSED as
+	that just means that logd isn't around, handle errors by falling
+	back to opening the console.
+
+	* init/process.c (process_setup_console): Implement handling for
+	CONSOLE_LOGGED and generally clean up the other handling.
+	* init/process.h: Update.
+	* init/main.c (main): Pass NULL for the job to setup console.
+	* TODO: Update.
+
+	* logd/main.c: Implement the logging daemon, it accepts connections
+	on a unix stream socket with the abstract name
+	"/com/ubuntu/upstart/logd", expects the length of the name and the
+	name to follow; then sequences of lines which are logged to
+	/var/log/boot, or memory until that file can be opened.
+
+2006-09-08  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c (event_setter): Change the event names to
+	distinguish between "shutdown -h" and "shutdown -h -H".
+
+	* init/job.c (job_handle_event): Allow jobs to react to their own
+	events, this is how we'll do respawn eventually.
+	* init/tests/test_job.c (test_handle_event): Remove test.
+
+	* init/main.c (cad_handler, kbd_handler): Generate the new event
+	names.
+	* init/event.h (CTRLALTDEL_EVENT, KBDREQUEST_EVENT): Add definitions
+	of these event names, change the ctrlaltdel event to just that.
+
+	* logd/main.c (main): Add the code to daemonise, etc.
+
+2006-09-07  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Long discussion today on #upstart, many improvements to the
+	job and event model that make it more elegant.
+	* AUTHORS: Include a list of thanks.
+
+	* util/shutdown.c (shutdown_now): If we get ECONNREFUSED when we
+	try and send the shutdown event to init, it probably means we're
+	still in sysvinit.  So try that instead.
+	(sysvinit_shutdown): Function to send a hand-crafted runlevel
+	change message across /dev/initctl.
+
+	* util/initctl.c (main): Add a shutdown command that takes an
+	arbitrary event name to be issued after "shutdown".  You'll
+	nearly always want the /sbin/shutdown tool instead.
+
+	* init/job.c (job_detect_idle): Only generate the stalled event
+	if at least one job handles it in its start_events list.
+	* init/tests/test_job.c (test_detect_idle): Make sure that works.
+
+	* init/event.h (STARTUP_EVENT, SHUTDOWN_EVENT, STALLED_EVENT):
+	Macros to define the standard event names.
+	* init/main.c (main): Use STARTUP_EVENT macro instead of "startup"
+	* init/control.c (control_handle): Use SHUTDOWN_EVENT macro
+	instead of "shutdown".
+	* init/job.c (job_detect_idle): Use STALLED_EVENT macro instead
+	of "stalled".
+
+	* init/job.c (job_detect_idle): Add some log messages for when we
+	detect the idle or stalled states.
+	(job_kill_process, job_kill_timer): Increase log verbosity.
+	* init/event.c (event_queue_run): Log which events we're handling
+	if --debug is given.
+
+	* compat/sysv/telinit.c (main): Send a shutdown command when
+	requesting to enter runlevel 0 or runlevel 6, likewise for
+	runlevel 1, s or S which all run "rc1" not "rcS".
+	* init/main.c (main): When called directory (pid != 1) try and
+	run telinit before complaining that we're not init.  Make sure
+	errors aren't lost.
+
+2006-09-04  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* upstart/control.c (upstart_addr): Replace use of __builtin_offsetof
+	with offsetof.
+	* upstart/tests/test_control.c (test_recv_msg): Likewise.
+
+2006-09-04  Scott James Remnant  <scott@netsplit.com>
+	
+	* util/shutdown.c (main): Exit normally after sending the warning
+	message if -k is given.
+
 2006-09-01  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.2.2
 
 	* NEWS: Update.
 	* configure.ac: Bump version to 0.2.1

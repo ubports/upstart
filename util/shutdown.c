@@ -85,6 +85,7 @@ static void  timer_callback    (const char *message);
 static char *warning_message   (const char *message)
 	__attribute__ ((warn_unused_result));
 static void  wall              (const char *message);
+static void  sysvinit_shutdown (void);
 
 
 /**
@@ -172,6 +173,7 @@ main (int   argc,
 	pid_t    pid = 0;
 
 	nih_main_init (argv[0]);
+	nih_option_set_usage ("TIME [MESSAGE]");
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -311,6 +313,9 @@ main (int   argc,
 	wall (msg);
 	nih_free (msg);
 
+	if (warn_only)
+		exit (0);
+
 
 	/* Give us a sane environment */
 	chdir ("/");
@@ -386,13 +391,13 @@ event_setter (NihOption  *option,
 		NIH_MUST (*value = nih_strdup (NULL, "reboot"));
 		break;
 	case 'h':
-		NIH_MUST (*value = nih_strdup (NULL, "poweroff"));
-		break;
-	case 'H':
 		NIH_MUST (*value = nih_strdup (NULL, "halt"));
 		break;
+	case 'H':
+		NIH_MUST (*value = nih_strdup (NULL, "system-halt"));
+		break;
 	case 'P':
-		NIH_MUST (*value = nih_strdup (NULL, "poweroff"));
+		NIH_MUST (*value = nih_strdup (NULL, "power-off"));
 		break;
 	}
 
@@ -433,6 +438,14 @@ shutdown_now (void)
 		NihError *err;
 
 		err = nih_error_get ();
+
+		/* Connection Refused means that init isn't running, this
+		 * might mean we've just upgraded to upstart and haven't
+		 * yet rebooted ... so try /dev/initctl
+		 */
+		if (err->number == ECONNREFUSED)
+			sysvinit_shutdown ();
+
 		nih_error (_("Unable to send message: %s"), err->message);
 		exit (1);
 	}
@@ -665,4 +678,66 @@ wall (const char *message)
 	endutent ();
 
 	exit (0);
+}
+
+
+/**
+ * struct request:
+ *
+ * This is the structure passed across /dev/initctl.
+ **/
+struct request {
+	int  magic;
+	int  cmd;
+	int  runlevel;
+	int  sleeptime;
+	char data[368];
+};
+
+/**
+ * sysvinit_shutdown:
+ *
+ * Attempt to shutdown a running sysvinit /sbin/init using its /dev/initctl
+ * socket.
+ **/
+static void
+sysvinit_shutdown (void)
+{
+	struct sigaction act;
+	struct request   request;
+	int              fd;
+
+	/* Fill in the magic values */
+	memset (&request, 0, sizeof (request));
+	request.magic = 0x03091969;
+	request.sleeptime = 5;
+	request.cmd = 1;
+
+	/* Select a runlevel based on the event name */
+	if (! strcmp (event, "maintenance")) {
+		request.runlevel = '1';
+	} else if (! strcmp (event, "reboot")) {
+		request.runlevel = '6';
+	} else {
+		request.runlevel = '0';
+	}
+
+
+	/* Break syscalls with SIGALRM */
+	act.sa_handler = alarm_handler;
+	act.sa_flags = 0;
+	sigemptyset (&act.sa_mask);
+	sigaction (SIGALRM, &act, NULL);
+
+	/* Try and open /dev/initctl */
+	alarm (3);
+	fd = open ("/dev/initctl", O_WRONLY | O_NDELAY | O_NOCTTY);
+	if (fd >= 0) {
+		if (write (fd, &request, sizeof (request)) == sizeof (request))
+			exit (0);
+
+		close (fd);
+	}
+
+	alarm (0);
 }

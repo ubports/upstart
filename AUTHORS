@@ -1,1 +1,14 @@
 upstart was written by Scott James Remnant <scott@ubuntu.com>.
+
+
+The following people provided invaluable help with the design, better
+ideas or just listened attentively at the right time:
+
+	Colin Watson <cjwatson@ubuntu.com>
+	Erik Troan <ewt@rpath.com>
+	Johan Kiviniemi <johan@kiviniemi.name>
+	Jerry Haltom <wasabi@larvalstage.net>
+
+
+A complete list of contributors to the code can be obtained from the
+ChangeLog file.  Many thanks to them all.

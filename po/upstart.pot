@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2006-09-01 04:16+0100\n"
+"POT-Creation-Date: 2006-09-09 05:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -28,12 +28,12 @@ msgstr ""
 msgid "Error while reading from descriptor"
 msgstr ""
 
-#: nih/main.c:218
+#: nih/main.c:237
 #, c-format
 msgid "Try `%s --help' for more information.\n"
 msgstr ""
 
-#: nih/main.c:236
+#: nih/main.c:255
 #, c-format
 msgid ""
 "This is free software; see the source for copying conditions.  There is NO\n"
@@ -56,46 +56,46 @@ msgstr ""
 msgid "output version information and exit"
 msgstr ""
 
-#: nih/option.c:277
+#: nih/option.c:284
 #, c-format
 msgid "%s: invalid option: -%c\n"
 msgstr ""
 
-#: nih/option.c:372
+#: nih/option.c:379
 #, c-format
 msgid "%s: invalid option: --%s\n"
 msgstr ""
 
-#: nih/option.c:388
+#: nih/option.c:395
 #, c-format
 msgid "%s: unexpected argument: --%s\n"
 msgstr ""
 
-#: nih/option.c:440
+#: nih/option.c:447
 #, c-format
 msgid "%s: missing argument: %s\n"
 msgstr ""
 
-#: nih/option.c:676
+#: nih/option.c:697
 msgid "Usage"
 msgstr ""
 
-#: nih/option.c:691
+#: nih/option.c:714
 #, c-format
 msgid "Report bugs to <%s>\n"
 msgstr ""
 
-#: nih/option.c:715
+#: nih/option.c:738
 #, c-format
 msgid "%s options:\n"
 msgstr ""
 
-#: nih/option.c:717
+#: nih/option.c:740
 #, c-format
 msgid "Other options:\n"
 msgstr ""
 
-#: nih/option.c:719
+#: nih/option.c:742
 #, c-format
 msgid "Options:\n"
 msgstr ""
@@ -389,9 +389,19 @@ msgstr ""
 msgid "Active %s process (%d)"
 msgstr ""
 
+#: init/job.c:690
+#, c-format
+msgid "Sending TERM signal to %s process (%d)"
+msgstr ""
+
 #: init/job.c:698
 #, c-format
 msgid "Failed to send TERM signal to %s process (%d): %s"
+msgstr ""
+
+#: init/job.c:739
+#, c-format
+msgid "Sending KILL signal to %s process (%d)"
 msgstr ""
 
 #: init/job.c:747
@@ -439,115 +449,164 @@ msgstr ""
 msgid "%s will be stopped"
 msgstr ""
 
-#: init/main.c:134 util/initctl.c:68 util/reboot.c:172 util/shutdown.c:277
-#: util/start.c:82 compat/sysv/telinit.c:80
+#: init/job.c:1223
+#, c-format
+msgid "System is idle, generating %s event"
+msgstr ""
+
+#: init/job.c:1232
+#, c-format
+msgid "System has stalled, generating %s event"
+msgstr ""
+
+#: init/main.c:119 util/initctl.c:69 util/reboot.c:172 util/shutdown.c:279
+#: util/start.c:83 compat/sysv/telinit.c:81
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:140
+#: init/main.c:128
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:320
+#: init/main.c:344
 msgid "Caught segmentation fault, core dumped"
 msgstr ""
 
-#: init/main.c:322
+#: init/main.c:346
 msgid "Caught segmentation fault, unable to dump core"
 msgstr ""
 
-#: init/main.c:374
+#: init/main.c:398
 msgid "Event queue resumed"
 msgstr ""
 
-#: init/main.c:377
+#: init/main.c:401
 msgid "Event queue paused"
 msgstr ""
 
-#: init/main.c:403
+#: init/main.c:427
 #, c-format
 msgid "Re-executing %s"
 msgstr ""
 
-#: init/main.c:450
+#: init/main.c:474
 #, c-format
 msgid "Failed to re-execute %s: %s"
 msgstr ""
 
-#: init/main.c:482
+#: init/main.c:506
 #, c-format
 msgid "Unable to read from state descriptor: %s"
 msgstr ""
 
-#: init/main.c:521
+#: init/main.c:545
 #, c-format
 msgid "Error after reading state: %s"
 msgstr ""
 
-#: init/main.c:543
+#: init/main.c:567
 #, c-format
 msgid "Unable to write to state descriptor: %s"
 msgstr ""
 
-#: init/main.c:552
+#: init/main.c:576
 #, c-format
 msgid "Error after writing state: %s"
 msgstr ""
 
-#: init/process.c:152
+#: init/process.c:155
 #, c-format
 msgid "Unable to execute \"%s\" for %s: %s"
 msgstr ""
 
-#: init/process.c:308
+#: init/process.c:312
 #, c-format
-msgid "Unable to open console: %s"
+msgid "Unable to open logd socket: %s"
 msgstr ""
 
-#: logd/main.c:60 util/initctl.c:95 util/initctl.c:110 util/initctl.c:125
-#: util/initctl.c:135 util/initctl.c:156 util/initctl.c:166
+#: init/process.c:333
+#, c-format
+msgid "Unable to connect to logd: %s"
+msgstr ""
+
+#: init/process.c:345 init/process.c:353
+#, c-format
+msgid "Unable to send name to logd: %s"
+msgstr ""
+
+#: init/process.c:386
+#, c-format
+msgid "Failed to open console: %s"
+msgstr ""
+
+#: logd/main.c:96
+msgid "Detach and run in the background"
+msgstr ""
+
+#: logd/main.c:117 util/initctl.c:96 util/initctl.c:111 util/initctl.c:126
+#: util/initctl.c:136 util/initctl.c:157 util/initctl.c:167
 #, c-format
 msgid "%s: unexpected argument\n"
 msgstr ""
 
-#: util/initctl.c:78 util/shutdown.c:422 util/start.c:92
-#: compat/sysv/telinit.c:115
+#: logd/main.c:140
+#, c-format
+msgid "Unable to open listening socket: %s"
+msgstr ""
+
+#: logd/main.c:236
+#, c-format
+msgid "Unable to accept connection: %s"
+msgstr ""
+
+#: logd/main.c:244
+msgid "Insufficient memory to accept child"
+msgstr ""
+
+#: logd/main.c:343 logd/main.c:360
+#, c-format
+msgid "Error occurred while writing to log file: %s"
+msgstr ""
+
+#: util/initctl.c:79 util/shutdown.c:427 util/start.c:93
+#: compat/sysv/telinit.c:120
 #, c-format
 msgid "Unable to establish control socket: %s"
 msgstr ""
 
-#: util/initctl.c:85
+#: util/initctl.c:86
 #, c-format
 msgid "%s: missing command\n"
 msgstr ""
 
-#: util/initctl.c:90 util/initctl.c:105 util/initctl.c:120 util/initctl.c:145
+#: util/initctl.c:91 util/initctl.c:106 util/initctl.c:121 util/initctl.c:146
+#: util/initctl.c:177
 #, c-format
 msgid "%s: missing argument\n"
 msgstr ""
 
-#: util/initctl.c:175
+#: util/initctl.c:187
 #, c-format
 msgid "%s: unknown command: %s\n"
 msgstr ""
 
-#: util/initctl.c:186 util/shutdown.c:436 util/start.c:123
-#: compat/sysv/telinit.c:125
+#: util/initctl.c:198 util/shutdown.c:449 util/start.c:124
+#: compat/sysv/telinit.c:130
 #, c-format
 msgid "Unable to send message: %s"
 msgstr ""
 
-#: util/initctl.c:199 util/start.c:134
+#: util/initctl.c:211 util/start.c:135
 #, c-format
 msgid "Error receiving message: %s"
 msgstr ""
 
-#: util/initctl.c:224 util/start.c:159
+#: util/initctl.c:236 util/start.c:160
 #, c-format
 msgid "%s: Unknown job: %s\n"
 msgstr ""
 
-#: util/initctl.c:234 util/start.c:163
+#: util/initctl.c:246 util/start.c:164
 #, c-format
 msgid "%s: Unexpected reply (type %d)\n"
 msgstr ""
@@ -630,102 +689,102 @@ msgstr ""
 msgid "Failed to down interface %s: %s"
 msgstr ""
 
-#: util/shutdown.c:133
+#: util/shutdown.c:134
 msgid "shutdown event to send"
 msgstr ""
 
-#: util/shutdown.c:135
+#: util/shutdown.c:136
 msgid "reboot after shutdown"
 msgstr ""
 
-#: util/shutdown.c:137
+#: util/shutdown.c:138
 msgid "halt or power off after shutdown"
 msgstr ""
 
-#: util/shutdown.c:139
+#: util/shutdown.c:140
 msgid "halt after shutdown (implies -h)"
 msgstr ""
 
-#: util/shutdown.c:141
+#: util/shutdown.c:142
 msgid "power off after shutdown (implies -h)"
 msgstr ""
 
-#: util/shutdown.c:143
+#: util/shutdown.c:144
 msgid "cancel a running shutdown"
 msgstr ""
 
-#: util/shutdown.c:145
+#: util/shutdown.c:146
 msgid "only send warnings, don't shutdown"
 msgstr ""
 
-#: util/shutdown.c:187
+#: util/shutdown.c:189
 #, c-format
 msgid "%s: time expected\n"
 msgstr ""
 
-#: util/shutdown.c:211
+#: util/shutdown.c:213
 #, c-format
 msgid "%s: illegal hour value\n"
 msgstr ""
 
-#: util/shutdown.c:220
+#: util/shutdown.c:222
 #, c-format
 msgid "%s: illegal minute value\n"
 msgstr ""
 
-#: util/shutdown.c:240
+#: util/shutdown.c:242
 #, c-format
 msgid "%s: illegal time value\n"
 msgstr ""
 
-#: util/shutdown.c:292
+#: util/shutdown.c:294
 msgid "Shutdown is not running"
 msgstr ""
 
-#: util/shutdown.c:301
+#: util/shutdown.c:303
 msgid "Another shutdown is already running"
 msgstr ""
 
-#: util/shutdown.c:305
+#: util/shutdown.c:307
 msgid "Cannot find pid of running shutdown"
 msgstr ""
 
-#: util/shutdown.c:330
+#: util/shutdown.c:335
 #, c-format
 msgid "Unable to save pid to %s"
 msgstr ""
 
-#: util/shutdown.c:460
+#: util/shutdown.c:473
 msgid "Shutdown cancelled"
 msgstr ""
 
-#: util/shutdown.c:534
+#: util/shutdown.c:547
 #, c-format
 msgid ""
 "\rThe system is going down for %s in %d minutes!\r\n"
 "%s"
 msgstr ""
 
-#: util/shutdown.c:538
+#: util/shutdown.c:551
 #, c-format
 msgid ""
 "\rThe system is going down for %s IN ONE MINUTE!\r\n"
 "%s"
 msgstr ""
 
-#: util/shutdown.c:542
+#: util/shutdown.c:555
 #, c-format
 msgid ""
 "\rThe system is going down for %s NOW!\r\n"
 "%s"
 msgstr ""
 
-#: util/shutdown.c:580
+#: util/shutdown.c:593
 #, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr ""
 
-#: util/shutdown.c:626
+#: util/shutdown.c:639
 #, c-format
 msgid ""
 "\r\n"
@@ -742,7 +801,7 @@ msgstr ""
 msgid "store new runlevel"
 msgstr ""
 
-#: compat/sysv/runlevel.c:122 compat/sysv/telinit.c:71
+#: compat/sysv/runlevel.c:123 compat/sysv/telinit.c:72
 #, c-format
 msgid "%s: illegal runlevel: %s\n"
 msgstr ""

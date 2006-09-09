@@ -569,7 +569,9 @@ info-am:
 
 install-data-am:
 
-install-exec-am: install-exec-local install-sbinPROGRAMS
+install-exec-am: install-sbinPROGRAMS
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 
 install-info: install-info-am
 
@@ -604,7 +606,7 @@ uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
 	distclean-generic distclean-libtool distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-exec install-exec-am \
-	install-exec-local install-info install-info-am install-man \
+	install-exec-hook install-info install-info-am install-man \
 	install-sbinPROGRAMS install-strip installcheck \
 	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic maintainer-clean-local mostlyclean \
@@ -613,7 +615,7 @@ uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
 	uninstall-info-am uninstall-sbinPROGRAMS
 
 
-install-exec-local:
+install-exec-hook:
 	ln -sf reboot $(DESTDIR)$(sbindir)/halt
 	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
 

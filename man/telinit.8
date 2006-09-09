@@ -1,0 +1,59 @@
+.TH init 8 "September 2006" "Upstart"
+.\"
+.SH NAME
+telinit \- change runlevel
+.\"
+.SH SYNOPSIS
+\fBtelinit\fR \fIRUNLEVEL\fR
+.\"
+.SH DESCRIPTION
+.B telinit
+may be used to change the runlevel of the system.
+
+The
+.I RUNLEVEL
+argument should be one of the multi-user runlevels
+.BR 2-5 ,
+.B 0
+to halt the system,
+.B 6
+to reboot the system or
+.B 1
+to bring the system down into single-user mode.
+
+.I RUNLEVEL
+may also be
+.BR S " or " s
+which will place the system directly into single-user mode without actually
+stopping processes first, you probably won't want that.
+.\"
+.SH NOTES
+This tool is provided for compatibility with the traditional System V
+.BR init (8) .
+When invoked it generates a
+.I runlevel-X
+event, where
+.I X
+is the
+.I RUNLEVEL
+given.  For runlevels
+.BR 0 ", " 6 ", " 1 " and " S
+these are preceeded by a
+.I shutdown
+event.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2006 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR runlevel (8)

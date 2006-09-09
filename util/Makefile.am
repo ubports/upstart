@@ -31,7 +31,7 @@ start_LDFLAGS = -static
 start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
 
-install-exec-local:
+install-exec-hook:
 	ln -sf reboot $(DESTDIR)$(sbindir)/halt
 	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
 

@@ -1,0 +1,70 @@
+.TH initctl 8 "September 2006" "Upstart"
+.\"
+.SH NAME
+initctl \- init daemon control utility
+.\"
+.SH SYNOPSIS
+\fBinitctl\fR [\fIOPTION\fR]... \fICOMMAND\fR \fIARG...\fR
+.\"
+.SH DESCRIPTION
+.B initctl
+allows a system administrator to communication with the
+.BR init (8)
+daemon and perform various actions depending on
+.IR COMMAND .
+.\"
+.SH COMMANDS
+.TP
+.BI "start " JOB
+Requests that the named job be started.
+.\"
+.TP
+.BI "stop " JOB
+Requests that the named job be stopped.
+.\"
+.TP
+.BI "status " JOB
+Requests the status of the named job.
+.\"
+.TP
+.B list
+Requests a list of the known jobs and their statuses.
+.\"
+.TP
+.BI "trigger " EVENT
+Requests that the named event be generated, potentially causing jobs to
+be started and stopped.
+.\"
+.TP
+.B jobs
+Requests notification of all job state changes be sent to the process,
+which remains in the foreground until terminated.
+.\"
+.TP
+.B events
+Requests notification of all generated events be sent to the process,
+which remains in the foreground until terminated.
+.\"
+.TP
+.BI "shutdown " EVENT
+Requests that the system be brought down.  The
+.I shutdown
+event is generated, and once processed, the event given is generated.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2006 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR start (8)
+.BR shutdown (8)
+.BR telinit (8)

@@ -1,3 +1,36 @@
+0.2.5  2006-09-09
+
+	* "control-alt-delete" event name changed to "ctrlaltdel".
+
+	* "initctl shutdown EVENT" added that performs the same job as
+	  "shutdown" but without all the usual warnings, timings, etc.
+
+	* "logd" has now been written, if installed this is started by init
+	  before sending the "startup" call and all jobs with "console logged"
+	  (the default) will have their output sent to this daemon.  It
+	  currently just logs to /var/log/boot.
+
+	* "shutdown -k" implemented.
+
+	* The "shutdown" utility has been changed to generate "system-halt"
+	  for "-H", "power-off" for "-P" and just "halt" if only "-h" given.
+
+	* If "shutdown" is run when running under sysvinit, it will now
+	  send the appropriate /dev/initctl message to allow upgrades.
+
+	* "telinit S" implemented.
+
+	* Instead of trying to start or stop jobs, "telinit" now just sends
+	  "runlevel-X" events.
+
+	* The "telinit" utility now ensures a "shutdown" event is sent
+	  before switching to runlevel 0, 1 or 6.
+
+	* If "telinit" is installed and init is called by the super-user,
+	  "telinit" is invoked instead.
+
+	* Basic manual pages included.
+
 0.2.1  2006-09-01
 
 	* Compilation fixes
