@@ -209,6 +209,15 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
+		Job *logd;
+
+		/* FIXME this is a bit of a hack, should have a list of
+		 * essential services or something
+		 */
+		logd = job_find_by_name ("logd");
+		if (logd)
+			job_start (logd);
+
 		event_queue (STARTUP_EVENT);
 	} else {
 		sigset_t mask;
