@@ -1,5 +1,13 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* Makefile.am (SUBDIRS): Install contents of the man directory
+	* configure.ac (AC_CONFIG_FILES): Generate man/Makefile
+	* man/Makefile.am: Install manpages in the appropriate places.
+	* man/init.8, man/logd.8, man/initctl.8, man/reboot.8,
+	* man/shutdown.8, man/start.8, man/sulogin.8, man/runlevel.8,
+	* man/telinit.8: Include some basic manpages so we at least have
+	some level of documentation.
+
 	* init/job.c (job_child_reaper): Don't check the exit status of
 	a respawning job if the goal is to stop it.
 

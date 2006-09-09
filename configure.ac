@@ -31,8 +31,9 @@ NIH_COMPILER_COVERAGE
 NIH_LINKER_OPTIMISATIONS
 NIH_LINKER_VERSION_SCRIPT
 
-AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
-		  nih/Makefile upstart/Makefile init/Makefile logd/Makefile
-		  util/Makefile compat/sysv/Makefile event.d/Makefile ])
+AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in man/Makefile
+		  intl/Makefile nih/Makefile upstart/Makefile
+		  init/Makefile logd/Makefile util/Makefile
+		  compat/sysv/Makefile event.d/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

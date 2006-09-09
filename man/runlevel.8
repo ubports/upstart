@@ -1,0 +1,61 @@
+.TH runlevel 8 "September 2006" "Upstart"
+.\"
+.SH NAME
+runlevel \- display previous and current runlevel
+.\"
+.SH SYNOPSIS
+\fBrunlevel\fR [\fIOPTION\fR]... [\fIUTMP\fR]
+.\"
+.SH DESCRIPTION
+.B runlevel
+reads the system
+.I utmp
+file
+.RI "(typically " /var/run/utmp )
+to locate the runlevel record, then displays the previous and current
+runlevel on standard output, separated by a single space.
+
+If there is no previous runlevel, the letter
+.I N
+will be printed instead.
+
+If no
+.I utmp
+file exists, or if no runlevel record can be found,
+.B runlevel
+prints the word
+.I unknown
+and exits with an error.
+.\"
+.SH OPTIONS
+.TP
+.BR --set =\fIRUNLEVEL
+Store a new runlevel record in the
+.I utmp
+file.
+.\"
+.TP
+.B --reboot
+Store a record of the time the system was booted in the
+.I utmp
+file.
+.\"
+.SH NOTES
+This tool is provided for compatibility with the traditional System V
+.BR init (8) .
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2006 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR telinit (8)
