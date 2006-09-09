@@ -1,5 +1,9 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/telinit.c (main): Generate events rather than
+	starting and stopping jobs directly, the events are named
+	"runlevel-X".  0, 1, 6 and s/S are shutdown events.
+
 	* logd/main.c (main): Raise SIGSTOP before entering the main loop.
 	* init/main.c (main): Interlock with logd.
 

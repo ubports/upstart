@@ -88,22 +88,21 @@ main (int   argc,
 	case '3':
 	case '4':
 	case '5':
-		msg.type = UPSTART_JOB_START;
-		msg.job_start.name = nih_sprintf (NULL, "rc%c", args[0][0]);
+		msg.type = UPSTART_EVENT_QUEUE;
+		msg.event_queue.name = nih_sprintf (NULL, "runlevel-%c",
+						    args[0][0]);
 		break;
 	case '0':
-		msg.type = UPSTART_SHUTDOWN;
-		msg.job_start.name = "rc0-poweroff";
-		break;
 	case '1':
+	case '6':
+		msg.type = UPSTART_SHUTDOWN;
+		msg.shutdown.name = nih_sprintf (NULL, "runlevel-%c",
+						 args[0][0]);
+		break;
 	case 'S':
 	case 's':
 		msg.type = UPSTART_SHUTDOWN;
-		msg.job_start.name = "rc1";
-		break;
-	case '6':
-		msg.type = UPSTART_SHUTDOWN;
-		msg.job_start.name = "rc6";
+		msg.shutdown.name = "runlevel-S";
 		break;
 	default:
 		/* Ignore other arguments */
