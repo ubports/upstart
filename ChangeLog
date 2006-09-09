@@ -1,5 +1,8 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_reaper): Don't check the exit status of
+	a respawning job if the goal is to stop it.
+
 	* compat/sysv/telinit.c (main): Generate events rather than
 	starting and stopping jobs directly, the events are named
 	"runlevel-X".  0, 1, 6 and s/S are shutdown events.

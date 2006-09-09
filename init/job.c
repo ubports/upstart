@@ -826,7 +826,7 @@ job_child_reaper (void  *data,
 		 * If a list of "normal" exit codes is provided, this is
 		 * the list of exit codes that _prevent_ a respawn
 		 */
-		if (job->respawn) {
+		if ((job->respawn) && (job->goal == JOB_START)) {
 			size_t i;
 
 			for (i = 0; i < job->normalexit_len; i++)
