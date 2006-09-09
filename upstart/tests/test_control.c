@@ -162,6 +162,7 @@ test_recv_msg (void)
 	UpstartMsg         *msg;
 	NihError           *err;
 	pid_t               pid;
+	char                buf[80];
 	int                 ret = 0, s_sock, r_sock;
 
 	printf ("Testing upstart_recv_msg()\n");
@@ -176,8 +177,10 @@ test_recv_msg (void)
 			     "/com/ubuntu/upstart/%d", getpid ());
 
 	printf ("...without magic marker\n");
-	sendto (s_sock, "wibblefart\0\0\0\0\0\0", 16,
-		0, (struct sockaddr *)&addr, addrlen);
+	memset (buf, 0, 16);
+	memcpy (buf, "wibblefart", 10);
+	memcpy (buf + 16, "\0\0\0\0", 4);
+	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Return value should be NULL */
@@ -196,8 +199,10 @@ test_recv_msg (void)
 
 
 	printf ("...with unknown message type\n");
-	sendto (s_sock, "upstart0.1\0\0\0\0\0\001", 16,
-		0, (struct sockaddr *)&addr, addrlen);
+	memset (buf, 0, 16);
+	strncpy (buf, PACKAGE_STRING, 16);
+	memcpy (buf + 16, "\0\0\0\001", 4);
+	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Return value should be NULL */
@@ -216,8 +221,11 @@ test_recv_msg (void)
 
 
 	printf ("...with short message\n");
-	sendto (s_sock, "upstart0.1\0\0\001\0\0\0\040\0\0\0\0\0\0\0", 24,
-		0, (struct sockaddr *)&addr, addrlen);
+	memset (buf, 0, 16);
+	strncpy (buf, PACKAGE_STRING, 16);
+	memcpy (buf + 16, "\001\0\0\0", 4);
+	memcpy (buf + 20, "\040\0\0\0\0\0\0\0", 8);
+	sendto (s_sock, buf, 28, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	/* Return value should be NULL */
@@ -236,8 +244,10 @@ test_recv_msg (void)
 
 
 	printf ("...with valid message\n");
-	sendto (s_sock, "upstart0.1\0\0\0\0\0\0", 16,
-		0, (struct sockaddr *)&addr, addrlen);
+	memset (buf, 0, 16);
+	strncpy (buf, PACKAGE_STRING, 16);
+	memcpy (buf + 16, "\0\0\0\0", 4);
+	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, &pid);
 
 	/* Message type should be UPSTART_NO_OP */

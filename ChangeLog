@@ -1,5 +1,9 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_send_msg_to, upstart_recv_msg): Change
+	the magic to be the package string.
+	* upstart/tests/test_control.c (test_recv_msg): Update tests.
+
 	* util/initctl.c (main): Set the usage string.
 	* util/shutdown.c (main): Set the usage string.
 	* util/start.c (main): Set the usage string.
