@@ -3,15 +3,12 @@
 # This task runs the old sysv-rc runlevel 2 ("multi-user") scripts.  It
 # is usually started by the telinit compatibility wrapper.
 
-# rc events are exclusive
-stop on rcS/start
-stop on rc0-halt/start
-stop on rc0-poweroff/start
-stop on rc1/start
-stop on rc3/start
-stop on rc4/start
-stop on rc5/start
-stop on rc6/start
+start on runlevel-2
+
+stop on shutdown
+stop on runlevel-3
+stop on runlevel-4
+stop on runlevel-5
 
 script
 	set $(runlevel --set 2 || true)

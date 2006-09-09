@@ -1,4 +1,11 @@
 #!/bin/sh
 # UNGODLY HACK
+# but maybe it's the right way of doing this? :)
 
-exec /bin/sh
+CONSOLE=/dev/console
+
+[ "$1" = "-p" ] && shift
+[ "$1" = "-t" ] && shift 2
+[ -n "$1" ] && CONSOLE="$1"
+
+exec /bin/sh <$CONSOLE >$CONSOLE 2>&1

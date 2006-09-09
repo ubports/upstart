@@ -16,24 +16,6 @@
 #	<postinst> abort-remove in-favour <new-package> <version>
 
 
-# Remove a no-longer used conffile
-rm_conffile()
-{
-    CONFFILE="$1"
-
-    if [ -e "$CONFFILE" ]; then
-	echo "Removing obsolete conffile $CONFFILE"
-	rm -f "$CONFFILE"
-    fi
-}
-
-
-# Clean up previous configuration files
-cleanup()
-{
-    rm_conffile /etc/event.d/rc0
-}
-
 # Tell init to re-exec itself
 reexec_init()
 {
@@ -43,8 +25,6 @@ reexec_init()
 
 case "$1" in
     configure)
-	cleanup
-
 	# On upgrade from a capable upstart version, tell it to re-exec
 	if dpkg --compare-versions "$2" ge "0.2.0-1"; then
 	    reexec_init

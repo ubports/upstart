@@ -114,6 +114,22 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	/* Check we're root */
+	if (getuid ()) {
+		nih_error (_("Need to be root"));
+		exit (1);
+	}
+
+	/* Check we're process #1 */
+	if (getpid () > 1) {
+		execv ("/sbin/telinit", argv);
+		/* Ignore failure, probably just that telinit doesn't exist */
+
+		nih_error (_("Not being executed as init"));
+		exit (1);
+	}
+
+
 	/* Send all logging output to syslog */
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
 	nih_log_set_logger (nih_logger_syslog);
@@ -125,21 +141,10 @@ main (int   argc,
 	for (i = 0; i < 3; i++)
 		close (i);
 
-	process_setup_console (CONSOLE_OUTPUT);
+	process_setup_console (NULL, CONSOLE_OUTPUT);
 	if (! restart)
 		reset_console ();
 
-	/* Check we're root */
-	if (getuid ()) {
-		nih_error (_("Need to be root"));
-		exit (1);
-	}
-
-	/* Check we're process #1 */
-	if (getpid () > 1) {
-		nih_error (_("Not being executed as init"));
-		exit (1);
-	}
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
@@ -204,7 +209,26 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		event_queue ("startup");
+		Job *logd;
+
+		/* FIXME this is a bit of a hack, should have a list of
+		 * essential services or something
+		 */
+		logd = job_find_by_name ("logd");
+		if (logd) {
+			job_start (logd);
+			if (logd->state == JOB_RUNNING) {
+				/* Hang around until logd signals that it's
+				 * listening ... but not too long
+				 */
+				alarm (5);
+				waitpid (logd->pid, NULL, WUNTRACED);
+				kill (logd->pid, SIGCONT);
+				alarm (0);
+			}
+		}
+
+		event_queue (STARTUP_EVENT);
 	} else {
 		sigset_t mask;
 
@@ -330,13 +354,13 @@ segv_handler (int signum)
  *
  * Handle having recieved the SIGINT signal, sent to us when somebody
  * presses Ctrl-Alt-Delete on the console.  We just generate a
- * control-alt-delete event.
+ * ctrlaltdel event.
  **/
 static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue ("control-alt-delete");
+	event_queue (CTRLALTDEL_EVENT);
 }
 
 /**
@@ -352,7 +376,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue ("kbdrequest");
+	event_queue (KBDREQUEST_EVENT);
 }
 
 /**

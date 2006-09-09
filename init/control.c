@@ -512,7 +512,7 @@ control_handle (pid_t       pid,
 	case UPSTART_SHUTDOWN:
 		nih_info (_("Control request to shutdown system for %s"),
 			  msg->shutdown.name);
-		event_queue ("shutdown");
+		event_queue (SHUTDOWN_EVENT);
 		job_set_idle_event (msg->shutdown.name);
 		break;
 	default:

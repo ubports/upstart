@@ -1,0 +1,37 @@
+.TH sulogin 8 "September 2006" "Upstart"
+.\"
+.SH NAME
+sulogin \- single-user login
+.\"
+.SH SYNOPSIS
+\fBsulogin\fR [\fICONSOLE\fR]
+.\"
+.SH DESCRIPTION
+Provides a shell connected to the console device
+.RI "(usually " /dev/console )
+in which the user can perform system maintenance.  It is invoked during the
+boot process if any of the
+.IR -s ", " single " or " S
+options are present on the kernel command-line, if
+.BR fsck (8)
+fails or if
+.BR init (8)
+discovers that no other jobs are running.
+
+When the user exits the shell, the system will continue booting as normal.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2006 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR telinit (8)

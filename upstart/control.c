@@ -53,13 +53,6 @@
 #define MAX_PACKET_SIZE 4096
 
 /**
- * MAGIC:
- *
- * Magic data we send at the front of a packet.
- **/
-#define MAGIC "upstart0.1"
-
-/**
  * INIT_DAEMON:
  *
  * Macro used in place of a pid for the init daemon, simply to make it clear
@@ -108,7 +101,7 @@
 
 /**
  * WireHdr:
- * @magic: always "upstart0.1",
+ * @magic: always PACKAGE_STRING,
  * @type: type of message.
  *
  * This header preceeds all messages on the wire, it indicates that the
@@ -116,7 +109,7 @@
  * message that follows.
  **/
 typedef struct wire_hdr {
-	char            magic[10];
+	char            magic[16];
 	UpstartMsgType  type;
 } WireHdr;
 
@@ -206,7 +199,7 @@ upstart_addr (struct sockaddr_un *addr,
 	addr->sun_family = AF_UNIX;
 	addr->sun_path[0] = '\0';
 
-	addrlen = __builtin_offsetof (struct sockaddr_un, sun_path) + 1;
+	addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
 	if (pid == INIT_DAEMON) {
 		addrlen += snprintf (addr->sun_path + 1,
 				     sizeof (addr->sun_path) - 1,
@@ -339,7 +332,8 @@ upstart_send_msg_to (pid_t       pid,
 	iov[0].iov_len = 0;
 
 	/* Place a header at the start */
-	strncpy (hdr.magic, MAGIC, sizeof (hdr.magic));
+	memset (hdr.magic, 0, sizeof (hdr.magic));
+	strncpy (hdr.magic, PACKAGE_STRING, sizeof (hdr.magic));
 	hdr.type = message->type;
 	IOVEC_ADD (iov[0], &hdr, sizeof (hdr), sizeof (buf));
 
@@ -532,7 +526,8 @@ upstart_recv_msg (void  *parent,
 	 */
 	iov[0].iov_len = 0;
 	IOVEC_READ (iov[0], &hdr, sizeof (hdr), len);
-	if (strncmp (hdr.magic, MAGIC, sizeof (hdr.magic)))
+	hdr.magic[sizeof (hdr.magic) - 1] = '\0';
+	if (strcmp (hdr.magic, PACKAGE_STRING))
 		goto invalid;
 
 

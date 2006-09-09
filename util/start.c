@@ -64,6 +64,7 @@ main (int   argc,
 	int    mode, sock;
 
 	nih_main_init (argv[0]);
+	nih_option_set_usage ("JOB...");
 
 	mode = START;
 	if (! strcmp (program_name, "stop")) {

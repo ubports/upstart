@@ -1,0 +1,41 @@
+.TH logd 8 "September 2006" "Upstart"
+.\"
+.SH NAME
+logd \- job output logging daemon
+.\"
+.SH SYNOPSIS
+\fBlogd\fR [\fIOPTION\fR]...
+.\"
+.SH DESCRIPTION
+.B logd
+is started by
+.BR init (8)
+to receive the output of jobs with
+.I console logged
+in their job definition, which is the default if no other
+.I console
+setting is given.
+
+Output is timestamped and written, with the job name, to
+.I /var/log/boot
+or stored in memory until the file is writable.
+.\"
+.SH OPTIONS
+.TP
+.B --daemon
+Detaches from the terminal and runs in the background.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2006 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)

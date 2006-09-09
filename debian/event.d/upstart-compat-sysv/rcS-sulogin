@@ -1,0 +1,14 @@
+# rcS-sulogin - "single-user" runlevel compatibility
+#
+# This task runs the sulogin binary during "single-user" mode.
+
+start on runlevel-S
+
+stop on shutdown
+stop on runlevel-2
+stop on runlevel-3
+stop on runlevel-4
+stop on runlevel-5
+
+exec /sbin/sulogin
+console owner

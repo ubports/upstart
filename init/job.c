@@ -687,7 +687,7 @@ job_kill_process (Job *job)
 	nih_assert (job->state == JOB_RUNNING);
 	nih_assert (job->process_state == PROCESS_ACTIVE);
 
-	nih_debug ("Sending TERM signal to %s process (%d)",
+	nih_info (_("Sending TERM signal to %s process (%d)"),
 		   job->name, job->pid);
 
 	if (process_kill (job, job->pid, FALSE) < 0) {
@@ -736,7 +736,7 @@ job_kill_timer (Job      *job,
 	nih_assert (job->state == JOB_RUNNING);
 	nih_assert (job->process_state == PROCESS_KILLED);
 
-	nih_debug ("Sending KILL signal to %s process (%d)",
+	nih_info (_("Sending KILL signal to %s process (%d)"),
 		   job->name, job->pid);
 
 	if (process_kill (job, job->pid, TRUE) < 0) {
@@ -826,7 +826,7 @@ job_child_reaper (void  *data,
 		 * If a list of "normal" exit codes is provided, this is
 		 * the list of exit codes that _prevent_ a respawn
 		 */
-		if (job->respawn) {
+		if ((job->respawn) && (job->goal == JOB_START)) {
 			size_t i;
 
 			for (i = 0; i < job->normalexit_len; i++)
@@ -1157,10 +1157,6 @@ job_handle_event (Event *event)
 	NIH_LIST_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
-		/* Jobs can't react to their own events */
-		if (! strcmp (job->name, event->name))
-			continue;
-
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
 		 * to be killed, the stop script then the start script to be
@@ -1192,13 +1188,24 @@ job_handle_event (Event *event)
 void
 job_detect_idle (void)
 {
-	int stalled = TRUE, idle = TRUE;
+	int stalled = TRUE, idle = TRUE, can_stall = FALSE;
 
 	if (paused)
 		return;
 
 	NIH_LIST_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
+
+		/* Check the start events to make sure that at least one
+		 * job handles the stalled event, otherwise we loop.
+		 */
+		NIH_LIST_FOREACH (&job->start_events, event_iter) {
+			Event *event = (Event *)event_iter;
+
+			if (! strcmp (event->name, STALLED_EVENT))
+				can_stall = TRUE;
+		}
+
 
 		if (job->goal == JOB_STOP) {
 			if (job->state != JOB_WAITING)
@@ -1213,13 +1220,18 @@ job_detect_idle (void)
 	}
 
 	if (idle && idle_event) {
+		nih_info (_("System is idle, generating %s event"),
+			  idle_event);
+
 		event_queue (idle_event);
 		nih_free (idle_event);
 		idle_event = NULL;
 
 		nih_main_loop_interrupt ();
-	} else if (stalled) {
-		event_queue ("stalled");
+	} else if (stalled && can_stall) {
+		nih_info (_("System has stalled, generating %s event"),
+			  STALLED_EVENT);
+		event_queue (STALLED_EVENT);
 
 		nih_main_loop_interrupt ();
 	}

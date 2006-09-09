@@ -1,2 +1,4 @@
 sbin/runlevel
 sbin/telinit
+usr/share/man/man8/runlevel.8
+usr/share/man/man8/telinit.8

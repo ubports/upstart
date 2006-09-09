@@ -1,3 +1,28 @@
+upstart (0.2.5-1) edgy; urgency=low
+
+  * New upstream release:
+    - no longer spins when no stalled event handler.  Ubuntu: #59170.
+    - shutdown works when under sysvinit.  Ubuntu: #58523;
+    - shutdown -k implemented.  Ubuntu: #58723.
+    - telinit sends shutdown event for 0, 1 and 6.  Ubuntu: #58913.
+    - basic manual pages included.  Ubuntu: #58724.
+
+  * upstart-compat-sysv Replaces: sysvinit.  Ubuntu: #59427.
+  * upstart Recommends: upstart-compat-sysv, startup-tasks & system-services.
+
+  * New upstart-logd package includes the logd daemon that can will log
+    output of jobs with "console logged" (the default) in their description
+    to /var/log/boot.
+
+  * Add /etc/event.d/rc0 that is run on the "halt" event (neither -H or -P
+    given), and modify rc0-halt to run on "system-halt" (-H given) and
+    rc0-poweroff to run on "power-off" (-P given).  Ubuntu: #59134.
+  * Fix the control-alt-delete job to run on the "ctrlaltdel" event so
+    that it's triggered properly.  Ubuntu: #59398.
+  * Fix single-user mode.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Sat,  9 Sep 2006 05:10:12 +0100
+
 upstart (0.2.1-7) edgy; urgency=low
 
   * Remove the Essential tags again, they didn't solve the problem we

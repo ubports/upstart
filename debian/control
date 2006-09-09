@@ -8,6 +8,7 @@ Build-Depends: debhelper (>= 5.0)
 Package: upstart
 Architecture: any
 Pre-Depends: ${shlibs:Depends}
+Recommends: upstart-compat-sysv, upstart-logd, startup-tasks, system-services
 Conflicts: sysvinit
 Replaces: sysvinit
 Description: event-based init daemon
@@ -18,11 +19,18 @@ Description: event-based init daemon
 Package: upstart-compat-sysv
 Architecture: any
 Depends: ${shlibs:Depends}, upstart (>= 0.2.0), sysvutils, sysv-rc, initscripts
-Replaces: upstart (<< 0.2.0-1)
+Replaces: upstart (<< 0.2.0-1), sysvinit
 Description: compatibility for System-V-like init
  This package contains compatibility tasks and utilities that emulate
  the behaviour of the original sysvinit package, including runlevels,
  and ensures that the initscripts in /etc/rc*.d are still run.
+
+Package: upstart-logd
+Architecture: any
+Depends: ${shlibs:Depends}, upstart (>= 0.2.0)
+Description: boot logging daemon
+ This package contains the logd daemon used by /sbin/init to log output
+ of jobs started with "console logged" in their definitions.
 
 Package: startup-tasks
 Architecture: any

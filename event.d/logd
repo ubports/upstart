@@ -6,5 +6,7 @@
 description	"service logging daemon"
 author		"Scott James Remnant <scott@ubuntu.com>"
 
+stop on shutdown
+
 respawn /sbin/logd
-console owner
+console output

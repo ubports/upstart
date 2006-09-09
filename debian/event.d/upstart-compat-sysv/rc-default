@@ -3,13 +3,14 @@
 # This task guesses what the "default runlevel" should be and starts the
 # appropriate script.
 
-on rcS
+start on rcS/stop
+start on rcS-sulogin/stop
 
 script
 	runlevel --reboot || true
 
 	if grep -q -w -- "-s\|single\|S" /proc/cmdline; then
-	    telinit 1
+	    telinit S
 	elif [ -r /etc/inittab ]; then
 	    RL="$(sed -n -e "/^id:[0-9]*:initdefault:/{s/^id://;s/:.*//;p}" /etc/inittab || true)"
 	    if [ -n "$RL" ]; then

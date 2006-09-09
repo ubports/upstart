@@ -1,0 +1,109 @@
+.TH shutdown 8 "September 2006" "Upstart"
+.\"
+.SH NAME
+shutdown \- bring the system down
+.\"
+.SH SYNOPSIS
+\fBshutdown\fR [\fIOPTION\fR]... \fITIME\fR [\fIMESSAGE\fR]
+.\"
+.SH DESCRIPTION
+.B shutdown
+arranges for the system to be brought down in a safe way.  All logged-in
+users are notified that the system is going down and within the last
+five minutes of
+.IR TIME ,
+new logins are prevented.
+
+Once
+.I TIME
+has elapsed,
+.B shutdown
+sends a request to the
+.BR init (8)
+daemon to bring the system down,
+.BR init (8)
+will first generate the
+.I shutdown
+event and once that has been processed will generate a second event
+specified by the options to
+.BR shutdown .
+If no options are given, the
+.I maintenance
+event is sent.
+.\"
+.SH OPTIONS
+Mandatory arguments to long options are mandatory for short options too.
+.TP
+.BR -r ", " --reboot
+Requests that the system be rebooted after it has been brought down.
+.BR init (8)
+will generate the
+.I reboot
+event once the
+.I shutdown
+event has been processed.
+.\"
+.TP
+.BR -h ", " --shutdown
+Requests that the system be either halted or powered off after it has been
+brought down, with the choice as to which left up to the system.
+.BR init (8)
+will generate the
+.I halt
+event once the
+.I shutdown
+event has been processed.
+.\"
+.TP
+.BR -H ", " --halt
+Requests that the system be halted after it has been brought down.
+.BR init (8)
+will generate the
+.I system-halt
+event once the
+.I shutdown
+event has been processed.
+.\"
+.TP
+.BR -P ", " --poweroff
+Requests that the system be powered off after it has been brought down.
+.BR init (8)
+will generate the
+.I power-off
+event once the
+.I shutdown
+event has been processed.
+.\"
+.TP
+.BR -e ", " --event =\fIEVENT
+Specifies the second event to be sent, this may be used instead of
+.BR -h / --shutdown ,
+.BR -H / --halt ,
+.BR -P / --poweroff
+or
+.BR -r / --reboot .
+.\"
+.TP
+.BR -c ", " --cancel
+Cancels a running shutdown.
+.\"
+.TP
+.BR -k ", " --warn-only
+Only send out the warning messages and disable logins, do not actually
+bring the system down.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2006 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR telinit (8)

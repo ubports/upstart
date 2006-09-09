@@ -3,7 +3,11 @@
 # This service maintains a getty on tty4 from the point the system is
 # started until it is shut down again.
 
-start on rcS
+start on runlevel-2
+start on runlevel-3
+start on runlevel-4
+start on runlevel-5
+
 stop on shutdown
 
 respawn /sbin/getty 38400 tty4

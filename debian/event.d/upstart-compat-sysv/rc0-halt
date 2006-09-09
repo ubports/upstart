@@ -3,17 +3,13 @@
 # This task runs the old sysv-rc runlevel 0 ("halt/poweroff") scripts with
 # the environment variables set to halt the system.
 
-start on halt
+start on system-halt
 
-# rc events are exclusive
-stop on rcS/start
-stop on rc0-poweroff/start
-stop on rc1/start
-stop on rc2/start
-stop on rc3/start
-stop on rc4/start
-stop on rc5/start
-stop on rc6/start
+stop on shutdown
+stop on runlevel-2
+stop on runlevel-3
+stop on runlevel-4
+stop on runlevel-5
 
 env INIT_HALT=HALT
 script
