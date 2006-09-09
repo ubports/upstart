@@ -1,5 +1,8 @@
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c (main): Raise SIGSTOP before entering the main loop.
+	* init/main.c (main): Interlock with logd.
+
 	* event.d/logd: Should not be a console owner, but should stop
 	on shutdown.
 

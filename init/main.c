@@ -215,8 +215,18 @@ main (int   argc,
 		 * essential services or something
 		 */
 		logd = job_find_by_name ("logd");
-		if (logd)
+		if (logd) {
 			job_start (logd);
+			if (logd->state == JOB_RUNNING) {
+				/* Hang around until logd signals that it's
+				 * listening ... but not too long
+				 */
+				alarm (5);
+				waitpid (logd->pid, NULL, WUNTRACED);
+				kill (logd->pid, SIGCONT);
+				alarm (0);
+			}
+		}
 
 		event_queue (STARTUP_EVENT);
 	} else {

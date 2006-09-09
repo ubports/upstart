@@ -144,6 +144,9 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Signify that we're ready to receive events */
+	raise (SIGSTOP);
+
 	ret = nih_main_loop ();
 
 	return ret;
