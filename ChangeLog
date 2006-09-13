@@ -1,3 +1,7 @@
+2006-09-13  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: More TODO.
+
 2006-09-10  Scott James Remnant  <scott@netsplit.com>
 
 	* util/reboot.c (main): Don't give -H with "halt".

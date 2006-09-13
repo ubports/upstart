@@ -1,5 +1,11 @@
 High Priority:
 
+ * logd should output to console when "quiet" _not_ on the command-line
+
+ * logd should capture syslog/klog stuff?  (or just go away and get
+   replaced by a different daemon eventually)
+
+
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)
 
