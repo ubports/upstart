@@ -1,3 +1,11 @@
+0.2.6  2006-09-13
+
+	* Fix major bug on architectures with 64-bit kernel and 32-bit
+	  user-land caused by an inconsitency between the behaviour of
+	  kernel's compat_sys_waitid() vs. sys_waitid() functions.
+
+	* "halt" now only calls "shutdown -h now"
+
 0.2.5  2006-09-09
 
 	* "control-alt-delete" event name changed to "ctrlaltdel".

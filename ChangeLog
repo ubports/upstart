@@ -1,4 +1,16 @@
+2006-09-13  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Updated.
+
+	* TODO: More TODO.
+
+2006-09-10  Scott James Remnant  <scott@netsplit.com>
+
+	* util/reboot.c (main): Don't give -H with "halt".
+
 2006-09-09  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.2.6
 
 	* NEWS: Update.
 	* TODO: Update.

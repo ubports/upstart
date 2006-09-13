@@ -196,7 +196,6 @@ main (int   argc,
 			break;
 		case HALT:
 			args[i++] = "-h";
-			args[i++] = "-H";
 			break;
 		case POWEROFF:
 			args[i++] = "-h";

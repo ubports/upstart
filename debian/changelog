@@ -1,3 +1,11 @@
+upstart (0.2.6-1) edgy; urgency=low
+
+  * New upstream release:
+    - fix infinite loop caused by bad waitid() call.  Ubuntu: #59459.
+    - halt now behaves as "shutdown -h now".  Ubuntu: #59720.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 13 Sep 2006 22:16:17 +0100
+
 upstart (0.2.5-1) edgy; urgency=low
 
   * New upstream release:
