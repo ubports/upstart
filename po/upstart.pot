@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2006-09-09 05:07+0100\n"
+"POT-Creation-Date: 2006-09-13 22:11+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -631,60 +631,60 @@ msgstr ""
 msgid "bring down network interfaces"
 msgstr ""
 
-#: util/reboot.c:210
+#: util/reboot.c:209
 msgid "Calling shutdown"
 msgstr ""
 
-#: util/reboot.c:213
+#: util/reboot.c:212
 #, c-format
 msgid "Unable to execute shutdown: %s"
 msgstr ""
 
-#: util/reboot.c:228
+#: util/reboot.c:227
 msgid "Syncing disks"
 msgstr ""
 
-#: util/reboot.c:242
+#: util/reboot.c:241
 msgid "Rebooting"
 msgstr ""
 
-#: util/reboot.c:246
+#: util/reboot.c:245
 msgid "Halting"
 msgstr ""
 
-#: util/reboot.c:250
+#: util/reboot.c:249
 msgid "Powering off"
 msgstr ""
 
-#: util/reboot.c:275
+#: util/reboot.c:274
 msgid "Putting disks into standby"
 msgstr ""
 
-#: util/reboot.c:280
+#: util/reboot.c:279
 #, c-format
 msgid "Unable to iterate IDE devices: %s"
 msgstr ""
 
-#: util/reboot.c:328 util/reboot.c:335
+#: util/reboot.c:327 util/reboot.c:334
 #, c-format
 msgid "Failed to put %s into standby: %s"
 msgstr ""
 
-#: util/reboot.c:360
+#: util/reboot.c:359
 msgid "Bringing interfaces down"
 msgstr ""
 
-#: util/reboot.c:364
+#: util/reboot.c:363
 #, c-format
 msgid "Unable to open socket to iterate interfaces: %s"
 msgstr ""
 
-#: util/reboot.c:373
+#: util/reboot.c:372
 #, c-format
 msgid "Unable to get list of interfaces: %s"
 msgstr ""
 
-#: util/reboot.c:393 util/reboot.c:410
+#: util/reboot.c:392 util/reboot.c:409
 #, c-format
 msgid "Failed to down interface %s: %s"
 msgstr ""
