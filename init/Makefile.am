@@ -3,7 +3,8 @@
 DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
 
 localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\""
+DEFS += -DLOCALEDIR="\"$(localedir)\"" -DCFG_DIR="\"$(sysconfdir)/event.d\"" \
+	-DTELINIT="\"$(sbindir)/telinit\""
 INCLUDES = -I$(top_srcdir)/intl
 
 

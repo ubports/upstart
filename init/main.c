@@ -56,6 +56,7 @@
 #include "event.h"
 #include "control.h"
 #include "cfgfile.h"
+#include "paths.h"
 
 
 /**
@@ -122,7 +123,7 @@ main (int   argc,
 
 	/* Check we're process #1 */
 	if (getpid () > 1) {
-		execv ("/sbin/telinit", argv);
+		execv (TELINIT, argv);
 		/* Ignore failure, probably just that telinit doesn't exist */
 
 		nih_error (_("Not being executed as init"));

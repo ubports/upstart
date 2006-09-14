@@ -46,6 +46,7 @@
 #include "process.h"
 #include "job.h"
 #include "control.h"
+#include "paths.h"
 
 
 /* Prototypes for static functions */

@@ -1,5 +1,15 @@
 2006-09-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/paths.h: Create a new configuration file that can contain
+	all of the path definitions, and in particular, allow them to be
+	overidden elsewhere.
+	* init/Makefile.am (DEFS): Override definitions of CFG_DIR and
+	TELINIT using autoconf
+	* init/main.c: Include paths.h.  Don't hardcode location of telinit
+	* init/job.c: Include paths.h
+	* init/process.c: Include paths.h
+	* init/process.h: Remove definitions from here.
+
 	* configure.ac: Bump version to 0.2.7
 
 2006-09-13  Scott James Remnant  <scott@netsplit.com>

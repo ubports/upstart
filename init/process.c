@@ -50,6 +50,7 @@
 
 #include "job.h"
 #include "process.h"
+#include "paths.h"
 
 
 /* Prototypes for static functions */
