@@ -1,5 +1,14 @@
 ## Process this file with automake to produce Makefile.in
 
 eventdir = $(sysconfdir)/event.d
-dist_event_DATA = \
+event_DATA = \
 	logd
+
+CLEANFILES = $(event_DATA)
+EXTRA_DIST = logd.in
+
+do_subst = sed -e 's,[@]sbindir[@],$(sbindir),g'
+
+
+logd: logd.in
+	$(do_subst) < $(srcdir)/$< > $@
