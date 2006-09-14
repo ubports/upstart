@@ -1,5 +1,9 @@
 2006-09-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Catch runaway respawns when we
+	enter the running state, so we catch stop/start loops too.
+	* init/tests/test_job.c (test_change_state): Update test.
+
 	* event.d/logd: Rename to logd.in
 	* event.d/logd.in: Replace /sbin with @sbindir@ so we can transform
 	* event.d/Makefile.am: Generate logd from logd.in

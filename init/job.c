@@ -325,6 +325,17 @@ job_change_state (Job      *job,
 				    || ((job->script != NULL)
 					&& (job->command == NULL)));
 
+			/* Catch run-away respawns */
+			if (job_catch_runaway (job)) {
+				nih_warn (_("%s respawning too fast, stopped"),
+					  job->name);
+
+				job->goal = JOB_STOP;
+				state = job_next_state (job);
+				event = NULL;
+				break;
+			}
+
 			if (job->script) {
 				job_run_script (job, job->script);
 			} else if (job->command) {
@@ -374,17 +385,6 @@ job_change_state (Job      *job,
 			break;
 		case JOB_RESPAWNING:
 			nih_assert (old_state == JOB_RUNNING);
-
-			/* Catch run-away respawns */
-			if (job_catch_runaway (job)) {
-				nih_warn (_("%s respawning too fast, stopped"),
-					  job->name);
-
-				job->goal = JOB_STOP;
-				state = job_next_state (job);
-				event = NULL;
-				break;
-			}
 
 			if (job->respawn_script) {
 				job_run_script (job, job->respawn_script);
