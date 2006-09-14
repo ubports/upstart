@@ -1,5 +1,10 @@
 2006-09-14  Scott James Remnant  <scott@netsplit.com>
 
+	* util/reboot.c: Don't hardcode the location of /sbin/shutdown
+	* util/Makefile.am (DEFS): Use autoconf to seed it
+	* util/shutdown.c (sysvinit_shutdown): Don't hardcode the location
+	of /dev/initctl
+
 	* init/paths.h: Create a new configuration file that can contain
 	all of the path definitions, and in particular, allow them to be
 	overidden elsewhere.

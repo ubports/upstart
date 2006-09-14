@@ -3,7 +3,7 @@
 DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
 
 localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\""
+DEFS += -DLOCALEDIR="\"$(localedir)\"" -DSHUTDOWN="\"$(sbindir)/shutdown\""
 INCLUDES = -I$(top_srcdir)/intl
 
 

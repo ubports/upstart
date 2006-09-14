@@ -74,6 +74,15 @@
  **/
 #define DEV "/dev"
 
+/**
+ * DEV_INITCTL:
+ *
+ * System V init control socket.
+ **/
+#ifndef DEV_INITCTL
+#define DEV_INITCTL "/dev/initctl"
+#endif
+
 
 /* Prototypes for static functions */
 static int   event_setter      (NihOption *option, const char *arg);
@@ -731,7 +740,7 @@ sysvinit_shutdown (void)
 
 	/* Try and open /dev/initctl */
 	alarm (3);
-	fd = open ("/dev/initctl", O_WRONLY | O_NDELAY | O_NOCTTY);
+	fd = open (DEV_INITCTL, O_WRONLY | O_NDELAY | O_NOCTTY);
 	if (fd >= 0) {
 		if (write (fd, &request, sizeof (request)) == sizeof (request))
 			exit (0);
