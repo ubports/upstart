@@ -1,3 +1,7 @@
+2006-09-18  Michael Biebl  <mbiebl@gmail.com>
+
+	* configure.ac: Check for sys/inotify.h
+
 2006-09-18  Scott James Remnant  <scott@netsplit.com>
 
 	* util/shutdown.c (warning_message): Adjust method of constructing
