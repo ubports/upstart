@@ -550,23 +550,31 @@ timer_callback (const char *message)
 static char *
 warning_message (const char *message)
 {
+	char *banner, *msg;
+
 	nih_assert (message != NULL);
 
 	if (delay > 1) {
-		return nih_sprintf (NULL, _("\rThe system is going down for "
-					    "%s in %d minutes!\r\n%s"),
-				    event, delay, message);
+		banner = nih_sprintf (NULL, _("The system is going down for "
+					      "%s in %d minutes!"),
+				      event, delay);
 	} else if (delay) {
-		return nih_sprintf (NULL, _("\rThe system is going down for "
-					    "%s IN ONE MINUTE!\r\n%s"),
-				    event, message);
+		banner = nih_sprintf (NULL, _("The system is going down for "
+					      "%s IN ONE MINUTE!"),
+				      event);
 	} else {
-		return nih_sprintf (NULL, _("\rThe system is going down for "
-					    "%s NOW!\r\n%s"),
-				    event, message);
+		banner = nih_sprintf (NULL, _("The system is going down for "
+					      "%s NOW!"),
+				      event);
 	}
 
-	return NULL;
+	if (! banner)
+		return NULL;
+
+	msg = nih_sprintf (NULL, "\r%s\r\n%s", banner, message);
+	nih_free (banner);
+
+	return msg;
 }
 
 /**

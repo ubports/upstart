@@ -1,3 +1,9 @@
+2006-09-18  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c (warning_message): Adjust method of constructing
+	the message to not confuse poor translators who think \r and \n are
+	the same thing!
+
 2006-09-14  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_change_state): Catch runaway respawns when we
