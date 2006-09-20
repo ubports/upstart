@@ -1,5 +1,8 @@
 2006-09-20  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.2.8
+	* NEWS: Updated.
+
 	* logd/main.c (main): Check the kernel command-line for "quiet"
 	(line_reader): Write to console unless silent or a daemon
 
