@@ -1,3 +1,13 @@
+0.2.7  2006-09-20
+
+	* logd writes received messages to the console unless "quiet" is
+	  on the kernel command-line
+
+	* runaway jobs are now caught when they start, rather than respawn,
+	  so stop/start loops are caught
+
+	* Include inotify support for compiling under glibc 2.3
+
 0.2.6  2006-09-13
 
 	* Fix major bug on architectures with 64-bit kernel and 32-bit

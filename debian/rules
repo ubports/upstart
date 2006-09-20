@@ -56,9 +56,6 @@ install: build
 
 	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
 
-	# Temporary hack
-	install -m 755 -o root -g root debian/sulogin debian/tmp/sbin/sulogin
-
 	# Copy across the default jobs
 	@set -x; for pkg in upstart upstart-compat-sysv system-services; do \
 		for job in debian/event.d/$$pkg/*; do \

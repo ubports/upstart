@@ -3,7 +3,8 @@
 DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
 
 localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\""
+DEFS += -DLOCALEDIR="\"$(localedir)\"" -DCFG_DIR="\"$(sysconfdir)/event.d\"" \
+	-DTELINIT="\"$(sbindir)/telinit\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
@@ -11,6 +12,7 @@ sbin_PROGRAMS = init
 
 init_SOURCES = \
 	main.c \
+	paths.h \
 	process.c process.h \
 	job.c job.h \
 	event.c event.h \

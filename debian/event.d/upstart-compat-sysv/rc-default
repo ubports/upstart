@@ -4,7 +4,6 @@
 # appropriate script.
 
 start on rcS/stop
-start on rcS-sulogin/stop
 
 script
 	runlevel --reboot || true

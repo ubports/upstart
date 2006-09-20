@@ -1,3 +1,18 @@
+upstart (0.2.7-1) edgy; urgency=low
+
+  * New upstream release:
+    - logd now writes to the console unless "quiet" is specified
+    - runaway jobs caught when they start rather than respawn.  Ubuntu: #59807
+
+  * Fix failure to shutdown while in single-user mode, however this means
+    that for edgy you can't exit the sulogin shell to enter the default
+    runlevel; explicitly say what works.  Ubuntu: #60626.
+  * Drop unnecessary dependency on util-linux.
+  * Drop sulogin hack, instead depend on the version of sysvutils that
+    includes the real one.  Ubuntu: #60965.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 20 Sep 2006 05:39:16 +0100
+
 upstart (0.2.6-1) edgy; urgency=low
 
   * New upstream release:

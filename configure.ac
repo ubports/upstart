@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([upstart], [0.2.6], [new@bugs.launchpad.net])
+AC_INIT([upstart], [0.2.7], [new@bugs.launchpad.net])
 AC_COPYRIGHT([[Copyright © 2006 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -18,6 +18,7 @@ AC_PROG_LIBTOOL
 # Checks for libraries.
 
 # Checks for header files.
+AC_CHECK_HEADERS([sys/inotify.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 NIH_C_C99

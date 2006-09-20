@@ -134,7 +134,9 @@ CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
-DEFS = @DEFS@ -DLOCALEDIR="\"$(localedir)\""
+DEFS = @DEFS@ -DLOCALEDIR="\"$(localedir)\"" \
+	-DCFG_DIR="\"$(sysconfdir)/event.d\"" \
+	-DTELINIT="\"$(sbindir)/telinit\""
 DEPDIR = @DEPDIR@
 ECHO = @ECHO@
 ECHO_C = @ECHO_C@
@@ -246,6 +248,7 @@ DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
 INCLUDES = -I$(top_srcdir)/intl
 init_SOURCES = \
 	main.c \
+	paths.h \
 	process.c process.h \
 	job.c job.h \
 	event.c event.h \

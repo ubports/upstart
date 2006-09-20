@@ -10,5 +10,10 @@ stop on runlevel-3
 stop on runlevel-4
 stop on runlevel-5
 
-exec /sbin/sulogin
+respawn /sbin/sulogin
 console owner
+
+start script
+        echo
+        echo "Run 'telinit' or 'shutdown' when finished."
+end script
