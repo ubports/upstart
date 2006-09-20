@@ -1,5 +1,8 @@
 2006-09-20  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c (main): Check the kernel command-line for "quiet"
+	(line_reader): Write to console unless silent or a daemon
+
 	* man/Makefile.am (dist_man_MANS): Drop sulogin.8
 	* man/sulogin.8: Drop, we don't include an sulogin
 
