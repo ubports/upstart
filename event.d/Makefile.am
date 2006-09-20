@@ -11,4 +11,4 @@ do_subst = sed -e 's,[@]sbindir[@],$(sbindir),g'
 
 
 logd: logd.in
-	$(do_subst) < $(srcdir)/$< > $@
+	$(do_subst) < $< > $@
