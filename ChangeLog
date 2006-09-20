@@ -1,3 +1,53 @@
+2006-09-20  Scott James Remnant  <scott@netsplit.com>
+
+	* logd/main.c (main): Check the kernel command-line for "quiet"
+	(line_reader): Write to console unless silent or a daemon
+
+	* man/Makefile.am (dist_man_MANS): Drop sulogin.8
+	* man/sulogin.8: Drop, we don't include an sulogin
+
+2006-09-19  Michael Biebl  <mbiebl@gmail.com>
+
+	* event.d/Makefile.am (logd): Drop $(srcdir)
+	* init/Makefile.am (init_SOURCES): Distribute paths.h
+
+2006-09-18  Michael Biebl  <mbiebl@gmail.com>
+
+	* configure.ac: Check for sys/inotify.h
+
+2006-09-18  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c (warning_message): Adjust method of constructing
+	the message to not confuse poor translators who think \r and \n are
+	the same thing!
+
+2006-09-14  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_change_state): Catch runaway respawns when we
+	enter the running state, so we catch stop/start loops too.
+	* init/tests/test_job.c (test_change_state): Update test.
+
+	* event.d/logd: Rename to logd.in
+	* event.d/logd.in: Replace /sbin with @sbindir@ so we can transform
+	* event.d/Makefile.am: Generate logd from logd.in
+
+	* util/reboot.c: Don't hardcode the location of /sbin/shutdown
+	* util/Makefile.am (DEFS): Use autoconf to seed it
+	* util/shutdown.c (sysvinit_shutdown): Don't hardcode the location
+	of /dev/initctl
+
+	* init/paths.h: Create a new configuration file that can contain
+	all of the path definitions, and in particular, allow them to be
+	overidden elsewhere.
+	* init/Makefile.am (DEFS): Override definitions of CFG_DIR and
+	TELINIT using autoconf
+	* init/main.c: Include paths.h.  Don't hardcode location of telinit
+	* init/job.c: Include paths.h
+	* init/process.c: Include paths.h
+	* init/process.h: Remove definitions from here.
+
+	* configure.ac: Bump version to 0.2.7
+
 2006-09-13  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: Updated.

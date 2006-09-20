@@ -37,8 +37,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = event.d
-DIST_COMMON = $(dist_event_DATA) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/codeset.m4 \
 	$(top_srcdir)/m4/compiler.m4 $(top_srcdir)/m4/misc.m4 \
@@ -70,8 +69,8 @@ am__vpath_adj = case $$p in \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(eventdir)"
-dist_eventDATA_INSTALL = $(INSTALL_DATA)
-DATA = $(dist_event_DATA)
+eventDATA_INSTALL = $(INSTALL_DATA)
+DATA = $(event_DATA)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 ALLOCA = @ALLOCA@
@@ -205,9 +204,12 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 eventdir = $(sysconfdir)/event.d
-dist_event_DATA = \
+event_DATA = \
 	logd
 
+CLEANFILES = $(event_DATA)
+EXTRA_DIST = logd.in
+do_subst = sed -e 's,[@]sbindir[@],$(sbindir),g'
 all: all-am
 
 .SUFFIXES:
@@ -250,19 +252,19 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
-install-dist_eventDATA: $(dist_event_DATA)
+install-eventDATA: $(event_DATA)
 	@$(NORMAL_INSTALL)
 	test -z "$(eventdir)" || $(mkdir_p) "$(DESTDIR)$(eventdir)"
-	@list='$(dist_event_DATA)'; for p in $$list; do \
+	@list='$(event_DATA)'; for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  f=$(am__strip_dir) \
-	  echo " $(dist_eventDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(eventdir)/$$f'"; \
-	  $(dist_eventDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(eventdir)/$$f"; \
+	  echo " $(eventDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(eventdir)/$$f'"; \
+	  $(eventDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(eventdir)/$$f"; \
 	done
 
-uninstall-dist_eventDATA:
+uninstall-eventDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(dist_event_DATA)'; for p in $$list; do \
+	@list='$(event_DATA)'; for p in $$list; do \
 	  f=$(am__strip_dir) \
 	  echo " rm -f '$(DESTDIR)$(eventdir)/$$f'"; \
 	  rm -f "$(DESTDIR)$(eventdir)/$$f"; \
@@ -325,6 +327,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -350,7 +353,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dist_eventDATA
+install-data-am: install-eventDATA
 
 install-exec-am:
 
@@ -376,19 +379,21 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-dist_eventDATA uninstall-info-am
+uninstall-am: uninstall-eventDATA uninstall-info-am
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
 	distclean distclean-generic distclean-libtool distdir dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dist_eventDATA \
-	install-exec install-exec-am install-info install-info-am \
-	install-man install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am uninstall uninstall-am uninstall-dist_eventDATA \
-	uninstall-info-am
+	install-data install-data-am install-eventDATA install-exec \
+	install-exec-am install-info install-info-am install-man \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	uninstall uninstall-am uninstall-eventDATA uninstall-info-am
 
+
+logd: logd.in
+	$(do_subst) < $< > $@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

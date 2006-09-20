@@ -28,37 +28,6 @@
 #include "job.h"
 
 
-/**
- * SHELL:
- *
- * This is the shell binary used whenever we need special processing for
- * a command or when we need to run a script.
- **/
-#define SHELL "/bin/sh"
-
-/**
- * CONSOLE:
- *
- * This is the console device we give to processes that want one.
- **/
-#define CONSOLE "/dev/console"
-
-/**
- * DEV_NULL:
- *
- * This is the console device we give to processes that do not want any
- * console.
- **/
-#define DEV_NULL "/dev/null"
-
-/**
- * PATH:
- *
- * This is the default PATH set by the init process itself.
- **/
-#define PATH "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
-
-
 NIH_BEGIN_EXTERN
 
 pid_t process_spawn         (Job *job, char * const argv[]);

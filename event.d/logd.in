@@ -8,5 +8,5 @@ author		"Scott James Remnant <scott@ubuntu.com>"
 
 stop on shutdown
 
-respawn /sbin/logd
+respawn @sbindir@/logd
 console output

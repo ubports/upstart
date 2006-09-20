@@ -52,14 +52,27 @@
  *
  * Directory to iterate to find IDE disks.
  **/
+#ifndef PROC_IDE
 #define PROC_IDE "/proc/ide"
+#endif
 
 /**
  * DEV:
  *
  * Directory containing device nodes.
  **/
+#ifndef DEV
 #define DEV "/dev"
+#endif
+
+/**
+ * SHUTDOWN:
+ *
+ * Program to call when not called with -f.
+ **/
+#ifndef SHUTDOWN
+#define SHUTDOWN "/sbin/shutdown"
+#endif
 
 
 /* Operation modes */
@@ -188,7 +201,7 @@ main (int   argc,
 		char *args[5];
 		int   i = 0;
 
-		args[i++] = "/sbin/shutdown";
+		args[i++] = SHUTDOWN;
 
 		switch (mode) {
 		case REBOOT:

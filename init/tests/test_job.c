@@ -607,47 +607,6 @@ test_change_state (void)
 	unlink (filename);
 
 
-	printf ("...running to respawning too fast\n");
-	job->respawn_count = 0;
-	job->respawn_time = 0;
-	job->respawn_limit = 10;
-	job->respawn_interval = 100;
-	for (i = 0; i < 11; i++) {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
-		job_change_state (job, JOB_RESPAWNING);
-	}
-
-	/* Goal should now be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
 	printf ("...running to stopping with script\n");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
@@ -801,6 +760,93 @@ test_change_state (void)
 	sprintf (filename, "%s/start", dirname);
 	if (stat (filename, &statbuf) < 0) {
 		printf ("BAD: start script doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...starting to running too fast\n");
+	job->respawn_count = 0;
+	job->respawn_time = 0;
+	job->respawn_limit = 10;
+	job->respawn_interval = 100;
+	for (i = 0; i < 11; i++) {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_NONE;
+		job_change_state (job, JOB_RUNNING);
+
+		if (job->goal == JOB_START) {
+			waitpid (job->pid, NULL, 0);
+			unlink (filename);
+		}
+	}
+
+	/* Goal should now be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Stop script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/stop", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
+		ret = 1;
+	}
+
+	unlink (filename);
+
+
+	printf ("...running to respawning too fast\n");
+	job->respawn_count = 0;
+	job->respawn_time = 0;
+	job->respawn_limit = 10;
+	job->respawn_interval = 100;
+	for (i = 0; i < 11; i++) {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
+		job_change_state (job, JOB_RESPAWNING);
+	}
+
+	/* Goal should now be JOB_STOP */
+	if (job->goal != JOB_STOP) {
+		printf ("BAD: job goal wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* State should be JOB_STOPPING */
+	if (job->state != JOB_STOPPING) {
+		printf ("BAD: job state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Process state should be PROCESS_ACTIVE */
+	if (job->process_state != PROCESS_ACTIVE) {
+		printf ("BAD: process state wasn't what we expected.\n");
+		ret = 1;
+	}
+
+	/* Stop script should have been run */
+	waitpid (job->pid, NULL, 0);
+	sprintf (filename, "%s/stop", dirname);
+	if (stat (filename, &statbuf) < 0) {
+		printf ("BAD: command doesn't appear to have run.\n");
 		ret = 1;
 	}
 

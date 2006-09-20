@@ -18,12 +18,37 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef INIT_CFGFILE_H
-#define INIT_CFGFILE_H
+#ifndef INIT_PATHS_H
+#define INIT_PATHS_H
 
-#include <nih/macros.h>
+/**
+ * PATH:
+ *
+ * This is the default PATH set by the init process itself.
+ **/
+#ifndef PATH
+#define PATH "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
+#endif
 
-#include "job.h"
+
+/**
+ * CONSOLE:
+ *
+ * This is the console device we give to processes that want one.
+ **/
+#ifndef CONSOLE
+#define CONSOLE "/dev/console"
+#endif
+
+/**
+ * DEV_NULL:
+ *
+ * This is the console device we give to processes that do not want any
+ * console.
+ **/
+#ifndef DEV_NULL
+#define DEV_NULL "/dev/null"
+#endif
 
 
 /**
@@ -36,12 +61,25 @@
 #endif
 
 
-NIH_BEGIN_EXTERN
+/**
+ * SHELL:
+ *
+ * This is the shell binary used whenever we need special processing for
+ * a command or when we need to run a script.
+ **/
+#ifndef SHELL
+#define SHELL "/bin/sh"
+#endif
 
-Job *cfg_read_job  (void *parent, const char *filename, const char *jobname);
+/**
+ * TELINIT:
+ *
+ * This is the telinit binary used when init is executed as an ordinary
+ * process.
+ **/
+#ifndef TELINIT
+#define TELINIT "/sbin/telinit"
+#endif
 
-int  cfg_watch_dir (void *parent, const char *dirname, const char *prefix);
 
-NIH_END_EXTERN
-
-#endif /* INIT_CFGFILE_H */
+#endif /* INIT_PATHS_H */
