@@ -7,7 +7,6 @@ dist_man_MANS = \
 	reboot.8 \
 	shutdown.8 \
 	start.8 \
-	sulogin.8 \
 	runlevel.8 \
 	telinit.8
 
