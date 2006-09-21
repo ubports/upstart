@@ -1,3 +1,10 @@
+2006-09-21  Scott James Remnant  <scott@netsplit.com>
+
+	* logd/main.c: Revert the change that logged to the console, in
+	practice this doesn't work so well.  I want to get rid of logd
+	in the long term, or at least just have it as a simple logging
+	proxy, so giving it features seems wrong.
+
 2006-09-20  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.2.8
