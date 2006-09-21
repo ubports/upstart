@@ -13,6 +13,7 @@ stop on runlevel-5
 console owner
 
 script
+	runlevel --set S >/dev/null || true
 	/sbin/sulogin
 	start rc-default 2>/dev/null
 end script

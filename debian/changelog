@@ -1,3 +1,10 @@
+upstart (0.2.7-3) edgy; urgency=low
+
+  * Set the runlevel to "S" when we enter sulogin so that it appears
+    in utmp.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 21 Sep 2006 05:37:25 +0100
+
 upstart (0.2.7-2) edgy; urgency=low
 
   * Ensure that the same version of upstart is installed as the version of
