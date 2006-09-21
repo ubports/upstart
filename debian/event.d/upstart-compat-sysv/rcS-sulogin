@@ -10,10 +10,9 @@ stop on runlevel-3
 stop on runlevel-4
 stop on runlevel-5
 
-respawn /sbin/sulogin
 console owner
 
-start script
-        echo
-        echo "Run 'telinit' or 'shutdown' when finished."
+script
+	/sbin/sulogin
+	start rc-default 2>/dev/null
 end script

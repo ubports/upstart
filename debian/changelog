@@ -1,3 +1,18 @@
+upstart (0.2.7-2) edgy; urgency=low
+
+  * Ensure that the same version of upstart is installed as the version of
+    upstart-compat-sysv and upstart-logd; as the IPC protocol may change
+    between releases.
+
+  * Adjust the rcS-sulogin job so that if sulogin exits the default runlevel
+    is entered; but if the job is stopped (e.g. by shutdown) it isn't.  The
+    solves the regression introduced in the previous release.
+
+  * Revert upstream logd/"quiet" change in favour of doing it in our
+    lsb logging functions instead; seems to work better (fsvo better).
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 21 Sep 2006 03:12:33 +0100
+
 upstart (0.2.7-1) edgy; urgency=low
 
   * New upstream release:

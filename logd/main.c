@@ -28,7 +28,6 @@
 #include <sys/un.h>
 
 #include <time.h>
-#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,15 +88,6 @@ static FILE *log_file = NULL;
 static int daemonise = FALSE;
 
 /**
- * silent:
- *
- * This is set to %TRUE if we should not write a copy of all messages we
- * receive to the console.
- **/
-static int silent = FALSE;
-
-
-/**
  * options:
  *
  * Command-line options accepted for all arguments.
@@ -105,8 +95,6 @@ static int silent = FALSE;
 static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
-	{ 0, "silent", N_("Do not write messages to the console"),
-	  NULL, NULL, &silent, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -116,7 +104,6 @@ int
 main (int   argc,
       char *argv[])
 {
-	FILE  *fd;
 	char **args;
 	int    ret;
 
@@ -130,27 +117,6 @@ main (int   argc,
 		fprintf (stderr, _("%s: unexpected argument\n"), program_name);
 		nih_main_suggest_help ();
 		exit (1);
-	}
-
-	/* Check the kernel command-line for quiet;
-	 * this only works if /proc is mounted, which is only true if
-	 * initramfs is being used ... fails to chatty
-	 */
-	fd = fopen ("/proc/cmdline", "r");
-	if (fd != NULL) {
-		char buf[4096];
-
-		if (fgets (buf, sizeof (buf), fd) != NULL) {
-			char *ptr;
-
-			ptr = strstr (buf, "quiet");
-			if (ptr
-			    && ((ptr == buf) || isspace (*(ptr - 1)))
-			    && ((*(ptr + 5) == '\0') || isspace (*(ptr + 5))))
-				silent = TRUE;
-		}
-
-		fclose (fd);
 	}
 
 	/* Become daemon */
@@ -359,13 +325,6 @@ line_reader (const char *name,
 		time_t     now;
 		struct tm *tm;
 		char       stamp[32];
-
-		/* Write it directly to the console */
-		if (! (daemonise || silent)) {
-			fputs (line, stdout);
-			fputc ('\n', stdout);
-			fflush (stdout);
-		}
 
 		/* Format a time stamp for the log */
 		now = time (NULL);
