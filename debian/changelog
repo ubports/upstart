@@ -1,3 +1,15 @@
+upstart (0.2.7-4) edgy; urgency=low
+
+  * Can't just start rc-default once in single-user mode, because if we
+    boot into that, that will just return us back to sulogin again.  Copy
+    the script out of rc-default into rcS-sulogin to call telinit with the
+    right default runlevel.  Ubuntu: #62189.
+
+  * Add Build-Depend on dpkg-dev (>= 1.13.19) due to our use of
+    ${binary:Version}.  Ubuntu: #61693.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 26 Sep 2006 17:20:42 +0100
+
 upstart (0.2.7-3) edgy; urgency=low
 
   * Set the runlevel to "S" when we enter sulogin so that it appears
