@@ -1,3 +1,8 @@
+2006-09-27  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Replace macros with single call to NIH_INIT.
+	Bump version to 0.3.0 to begin new development cycle.
+
 2006-09-21  Scott James Remnant  <scott@netsplit.com>
 
 	* logd/main.c: Revert the change that logged to the console, in
