@@ -1,5 +1,9 @@
 2006-09-27  Scott James Remnant  <scott@netsplit.com>
 
+	* util: Rename to initctl
+	* configure.ac (AC_CONFIG_FILES): Update.
+	* Makefile.am (SUBDIRS): Update.
+
 	* util/reboot.c: Move to compat/sysv
 	* util/shutdown.c: Move to compat/sysv
 	* util/Makefile.am: Update.
