@@ -1,5 +1,10 @@
 2006-09-27  Scott James Remnant  <scott@netsplit.com>
 
+	* util/reboot.c: Move to compat/sysv
+	* util/shutdown.c: Move to compat/sysv
+	* util/Makefile.am: Update.
+	* compat/sysv/Makefile.am: Update.
+
 	* configure.ac: Replace macros with single call to NIH_INIT.
 	Bump version to 0.3.0 to begin new development cycle.
 
