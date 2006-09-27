@@ -1,5 +1,7 @@
 2006-09-27  Scott James Remnant  <scott@netsplit.com>
 
+	* event.d/Makefile.am (do_subst): Eliminate duplicate /s
+
 	* man/init.8: Move to init/man
 	* init/Makefile.am: Update to install man page.
 	* man/logd.8: Move to logd/man

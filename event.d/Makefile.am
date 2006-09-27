@@ -7,7 +7,7 @@ event_DATA = \
 CLEANFILES = $(event_DATA)
 EXTRA_DIST = logd.in
 
-do_subst = sed -e 's,[@]sbindir[@],$(sbindir),g'
+do_subst = sed -e '\,[@]sbindir[@],{s,[@]sbindir[@],$(sbindir),g;s,//*,/,g}'
 
 
 logd: logd.in
