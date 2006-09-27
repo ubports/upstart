@@ -7,6 +7,10 @@ DEFS += -DLOCALEDIR="\"$(localedir)\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
+dist_man_MANS = \
+	man/logd.8
+
+
 sbin_PROGRAMS = logd
 
 logd_SOURCES = \

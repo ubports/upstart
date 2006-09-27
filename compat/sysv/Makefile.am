@@ -7,6 +7,13 @@ DEFS += -DLOCALEDIR="\"$(localedir)\"" -DSHUTDOWN="\"$(sbindir)/shutdown\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
+dist_man_MANS = \
+	man/reboot.8 \
+	man/shutdown.8 \
+	man/runlevel.8 \
+	man/telinit.8
+
+
 sbin_PROGRAMS = \
 	reboot \
 	runlevel \
@@ -29,6 +36,10 @@ telinit_SOURCES = telinit.c
 telinit_LDFLAGS = -static
 telinit_LDADD = ../../nih/libnih.la ../../upstart/libupstart.la
 
+
+install-data-hook:
+	ln -sf reboot.8 $(DESTDIR)$(man8dir)/halt.8
+	ln -sf reboot.8 $(DESTDIR)$(man8dir)/poweroff.8
 
 install-exec-hook:
 	ln -sf reboot $(DESTDIR)$(sbindir)/halt

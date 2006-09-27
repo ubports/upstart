@@ -27,12 +27,12 @@ init/job.c
 init/main.c
 init/process.c
 
-logd/main.c
+initctl/initctl.c
+initctl/start.c
 
-util/initctl.c
-util/reboot.c
-util/shutdown.c
-util/start.c
-
+compat/sysv/reboot.c
 compat/sysv/runlevel.c
+compat/sysv/shutdown.c
 compat/sysv/telinit.c
+
+logd/main.c

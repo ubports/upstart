@@ -1,3 +1,4 @@
+0.3.0
 0.2.7  2006-09-20
 
 	* logd writes received messages to the console unless "quiet" is

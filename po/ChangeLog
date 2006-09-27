@@ -1,3 +1,7 @@
+2006-09-27  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Update with everything moving around
+
 2006-08-31  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Add new sources from util and compat/sysv directories.

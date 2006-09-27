@@ -8,6 +8,10 @@ DEFS += -DLOCALEDIR="\"$(localedir)\"" -DCFG_DIR="\"$(sysconfdir)/event.d\"" \
 INCLUDES = -I$(top_srcdir)/intl
 
 
+dist_man_MANS = \
+	man/init.8
+
+
 sbin_PROGRAMS = init
 
 init_SOURCES = \

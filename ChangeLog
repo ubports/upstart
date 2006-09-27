@@ -1,5 +1,18 @@
 2006-09-27  Scott James Remnant  <scott@netsplit.com>
 
+	* man/init.8: Move to init/man
+	* init/Makefile.am: Update to install man page.
+	* man/logd.8: Move to logd/man
+	* logd/Makefile.am: Update to install man page.
+	* man/initctl.8, man/start.8: Move to initctl/man
+	* initctl/Makefile.am: Update to install man pages.
+	* man/reboot.8, man/runlevel.8, man/shutdown.8, man/telinit.8:
+	Move to compat/sysv/man
+	* compat/sysv/Makefile.am: Update to install man pages.
+	* man/Makefile.am: Remove
+	* configure.ac (AC_CONFIG_FILES): Remove man/Makefile
+	* Makefile.am (SUBDIRS): Don't build in man
+
 	* util: Rename to initctl
 	* configure.ac (AC_CONFIG_FILES): Update.
 	* Makefile.am (SUBDIRS): Update.

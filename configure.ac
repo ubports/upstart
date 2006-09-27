@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([upstart], [0.3.0/], [new@bugs.launchpad.net])
+AC_INIT([upstart], [0.3.0], [new@bugs.launchpad.net])
 AC_COPYRIGHT([[Copyright © 2006 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -26,9 +26,8 @@ NIH_INIT
 
 # Other checks
 
-AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in man/Makefile
-		  intl/Makefile nih/Makefile upstart/Makefile
-		  init/Makefile initctl/Makefile compat/sysv/Makefile
-		  logd/Makefile event.d/Makefile ])
+AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
+		  nih/Makefile upstart/Makefile init/Makefile initctl/Makefile
+		  compat/sysv/Makefile logd/Makefile event.d/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
