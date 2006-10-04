@@ -1,3 +1,13 @@
+upstart (0.2.7-5) edgy; urgency=low
+
+  * Don't set the current runlevel in /var/run/utmp to 0 or 6 if it is
+    already either of those two values.  That way we don't end up with
+    either 0 or 6 in the PREVLEVEL variable, which can cause
+    /etc/init.d/rc to be "efficient" and not bother doing
+    anything.  Ubuntu: #63852.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed,  4 Oct 2006 14:06:18 +0100
+
 upstart (0.2.7-4) edgy; urgency=low
 
   * Can't just start rc-default once in single-user mode, because if we
