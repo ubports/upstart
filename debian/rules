@@ -64,6 +64,10 @@ install: build
 		done; \
 	done
 
+	# Copy the migration script
+	install -m 755 -o root -g root debian/migrate-inittab.pl \
+		debian/system-services/usr/lib/upstart
+
 
 binary: binary-indep binary-arch
 
@@ -78,6 +82,12 @@ binary-arch: build install
 	dh_testroot
 	dh_installchangelogs ChangeLog
 	dh_installdocs
+
+	@set -x; for pkg in upstart-logd upstart-compat-sysv system-services; do \
+		rm -rf debian/$$pkg/usr/share/doc/$$pkg; \
+		ln -sf upstart debian/$$pkg/usr/share/doc/$$pkg; \
+	done
+
 	dh_install --sourcedir=debian/tmp
 	dh_link
 	dh_strip

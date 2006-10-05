@@ -1,0 +1,248 @@
+upstart
+=======
+
+Upstart is a replacement for the traditional sysvinit package, and
+runs as process #1.  While it is eventually intended to be used to
+create an event-driven boot process, for Ubuntu 6.10 ("Edgy Eft") we
+are only using it to emulate the original sysvinit behaviour.
+
+This gives us the maximum amount of testing of the code and concepts
+behind it, while retaining the ability to fallback to sysvinit should
+things not work out.
+
+This file documents how to do a few common operations with the new
+system.
+
+
+Where are initscripts installed?
+--------------------------------
+
+This has not changed, they are installed in /etc/init.d.  See
+/etc/init.d/README.
+
+
+How are initscripts started and stopped?
+----------------------------------------
+
+This has not changed, symlinks are made from the initscript in the
+/etc/init.d directory to the /etc/rc?.d directories.  See
+/etc/init.d/README and /etc/rc?.d/README.
+
+
+What order are initscripts started and stopped in?
+--------------------------------------------------
+
+This has not changed, the symlinks are named SNNname or KNNname, where
+NN is a number from 00 to 99.  The K scripts are run first in
+numerical order, followed by the S scripts in numerical order.
+
+
+How do I find the current/previous runlevel?
+--------------------------------------------
+
+This has not changed, use the "runlevel" command provided by the
+upstart-compat-sysv package.  See runlevel(8).
+
+
+How do I change the runlevel?
+-----------------------------
+
+This has not changed, use the "telinit" command or just invoke "init"
+directly.  See telinit(8).
+
+
+How do I change the default runlevel?
+-------------------------------------
+
+Edit the /etc/inittab file, if you installed edgy fresh you'll need to
+create it.  Locate, or write, the following line:
+
+    id:N:initdefault:
+
+Where N is the default runlevel, change this to match.
+
+
+How do I shutdown the machine?
+------------------------------
+
+This has not changed, use the "shutdown" command provided by the
+upstart package; you may also use the "reboot"/"halt"/"poweroff"
+commands as a short-cut.  See shutdown(8) and reboot(8).
+
+You can also press Control-Alt-Delete on a console to reboot the
+machine.
+
+
+How do I change the behaviour of Control-Alt-Delete?
+----------------------------------------------------
+
+Edit the /etc/event.d/control-alt-delete file, the line beginning
+"exec" is what upstart will run when this key combination is pressed.
+
+To not do anything, you can simply delete this file.  After deleting
+the file, you need to "kill 1" to ensure that the job is removed from
+its memory.
+
+
+How do I enter single-user mode?
+--------------------------------
+
+This hasn't changed, choose the "(recovery mode)" option from GRUB;
+add "-s", "S" or "single" to the kernel command-line; or from a
+running machine, run "telinit 1" or "shutdown now".
+
+
+How do I reduce the number of gettys?
+-------------------------------------
+
+Also see "How do I change which runlevels gettys are run in?"
+
+In /etc/event.d there is a file named ttyN for each getty that will be
+started, where N is numbered 1 to 6.  Remove any that you do not
+want.
+
+This will not take immediate effect, however you can run "stop ttyN"
+to stop one that is running.
+
+
+How do I change getty parameters?
+---------------------------------
+
+In /etc/event.d there is a file named ttyN for each getty that will be
+started, where N is numbered 1 to 6.  Edit these files, the line
+beginning "respawn" is what upstart will run.
+
+This will not take immediate effect, run "stop ttyN" followed by
+"start ttyN" or just kill the running getty to respawn with the new
+parameters.
+
+
+How do I change which runlevels gettys are run in?
+--------------------------------------------------
+
+In /etc/event.d there is a file named ttyN for each getty that will be
+started, where N is numbered 1 to 6.  Edit these files, there are a
+series of lines of either "start on runlevel-N" or
+"stop on runlevel-N".
+
+Change "stop" to "start" or "start" to "stop" to match your taste.
+
+This will not take immediate effect, however you can run "stop ttyN"
+to stop one that is running or "start ttyN" to start one that isn't.
+
+
+How do I increase the number of gettys?
+---------------------------------------
+
+In /etc/event.d there is a file named ttyN for each getty that will be
+started, where N is numbered 1 to 6.
+
+Copy one of these files to a new name, we suggest you simply name it
+after the tty, e.g. "ttyS0".
+
+Edit that file, change the "respawn" line to match your requirements;
+in particular you'll need to change the tty the getty should be run
+on.
+
+This will not take immediate effect, however you can run "start ttyN"
+to start the getty.
+
+
+How do I add a serial console?
+------------------------------
+
+See "How do I increase the number of gettys?"
+
+
+Where are the boot messages logged?
+-----------------------------------
+
+Messages output by the rc scripts can be found in /var/log/boot, if
+you have the upstart-logd package installed.
+
+
+How can I see boot messages on the console?
+-------------------------------------------
+
+This is nothing to do with upstart, but I'll answer this anyway.
+Remove "quiet" from the kernel command-line.
+
+To make this permanent, edit /boot/grub/menu.lst and edit the line
+that begins "# defoptions=" (yes, it looks like a comment).
+
+This will change both usplash and the LSB init logging.
+
+
+Upstart isn't working, how do I debug it?
+-----------------------------------------
+
+Add "--debug" to the kernel command-line, and be sure to remove "quiet"
+and "splash".  You'll now see debugging messages as upstart works.
+
+
+Upstart does nothing, what's wrong?
+-----------------------------------
+
+You probably don't have the upstart-compat-sysv or system-services
+packages installed, likely because you've accidentally removed
+ubuntu-minimal in the past.
+
+Here's a quick guide to rescuing your system:
+
+ 1. Edit the kernel command-line, remove "quiet" and "splash",
+    add "init=/bin/bash".
+
+    The machine will boot into a root shell.
+
+ 2. Run "/etc/init.d/rcS"
+
+    The machine will set up the basic necessities such as hardware
+    and networking.
+
+ 3. Run "aptitude update"
+
+    The machine will update the package lists against the Ubuntu archive.
+
+ 4. Run "aptitude install ubuntu-minimal"
+
+    The machine will now install the missing packages.
+
+ 5. Check that there are now files in /etc/event.d
+
+ 6. Run "reboot -f"
+
+    The machine will now reboot.
+
+Hopefully your machine should now boot normally.
+
+
+Can I query upstart for a list of jobs?
+---------------------------------------
+
+Yes, "initctl list" will list the known jobs and their status.  You
+can receive notification of any changes with "initctl jobs".
+
+
+How do I manually start or stop a job?
+--------------------------------------
+
+Use "start JOB" or "stop JOB".
+
+
+How do I find the status of a job?
+----------------------------------
+
+Use "status JOB".
+
+
+Can I receive notification of events?
+-------------------------------------
+
+Yes, "initctl events" will display them as they are emitted.
+
+
+Can I emit an event by hand?
+----------------------------
+
+Yes, "initctl trigger EVENT" will emit the named event and cause any
+jobs waiting for it to be started or stopped as appropriate.

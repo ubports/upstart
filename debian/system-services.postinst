@@ -16,18 +16,20 @@
 #	<postinst> abort-remove in-favour <new-package> <version>
 
 
-# Tell init to re-exec itself
-reexec_init()
+# Migrate changes to /etc/inittab to /etc/event.d
+migrate_inittab()
 {
-    kill 1
+    if [ -f /etc/inittab ]; then
+        /usr/lib/upstart/migrate-inittab.pl
+    fi
 }
 
 
 case "$1" in
     configure)
-	# On upgrade from a capable upstart version, tell it to re-exec
-	if dpkg --compare-versions "$2" ge "0.2.0-1"; then
-	    reexec_init
+	# On new installation, migrate /etc/inittab
+	if [ -z "$2" ]; then
+	    migrate_inittab
 	fi
 	;;
 

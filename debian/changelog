@@ -1,3 +1,15 @@
+upstart (0.2.7-6) edgy; urgency=low
+
+  * Don't start gettys on tty2 thru tty6 in runlevels 4 and 5 (matches
+    our sysvinit configuration).
+  * Migrate common changes made to /etc/inittab to /etc/event.d by
+    adjusting the installed conffiles.  Ubuntu: #61539.
+
+  * Include missing AUTHORS and NEWS file in the upstart package.
+  * Include README.Debian which answers common questions.  Ubuntu: #60429.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu,  5 Oct 2006 16:08:34 +0100
+
 upstart (0.2.7-5) edgy; urgency=low
 
   * Don't set the current runlevel in /var/run/utmp to 0 or 6 if it is

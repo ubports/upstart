@@ -1,1 +1,3 @@
 etc/event.d
+usr/lib/upstart
+usr/share/doc
