@@ -1,3 +1,11 @@
+2006-10-06  Scott James Remnant  <scott@netsplit.com>
+
+	* doc/upstart-logo.svg: Include the logo Alexandre designed.
+	* doc/Makefile.am (EXTRA_DIST): Ship the logo in the tarball.
+	* Makefile.am (SUBDIRS): Install under doc
+	* configure.ac: Generate doc/Makefile
+	* AUTHORS: Ensure he's credited fully.
+
 2006-09-27  Scott James Remnant  <scott@netsplit.com>
 
 	* event.d/Makefile.am (do_subst): Eliminate duplicate /s
