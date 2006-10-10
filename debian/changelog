@@ -1,3 +1,9 @@
+upstart (0.2.7-7) edgy; urgency=low
+
+  * Don't abort the postinst if we can't send init SIGTERM.  Ubuntu: #64499.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 10 Oct 2006 10:13:05 +0100
+
 upstart (0.2.7-6) edgy; urgency=low
 
   * Don't start gettys on tty2 thru tty6 in runlevels 4 and 5 (matches

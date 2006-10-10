@@ -19,7 +19,7 @@
 # Tell init to re-exec itself
 reexec_init()
 {
-    kill 1
+    kill 1 || true
 }
 
 
