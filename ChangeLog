@@ -1,3 +1,10 @@
+2006-10-10  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Check for --enable-compat, default to sysv if given
+	or no compat if not given.
+	* compat/sysv/Makefile.am: Don't build binaries or install manpages
+	unless COMPAT_SYSV is defined.
+
 2006-10-06  Scott James Remnant  <scott@netsplit.com>
 
 	* doc/upstart-logo.svg: Include the logo Alexandre designed.

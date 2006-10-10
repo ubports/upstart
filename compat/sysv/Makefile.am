@@ -7,18 +7,24 @@ DEFS += -DLOCALEDIR="\"$(localedir)\"" -DSHUTDOWN="\"$(sbindir)/shutdown\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
-dist_man_MANS = \
+manpages = \
 	man/reboot.8 \
 	man/shutdown.8 \
 	man/runlevel.8 \
 	man/telinit.8
 
+EXTRA_DIST = $(manpages)
+
+
+if COMPAT_SYSV
+man_MANS = $(manpages)
 
 sbin_PROGRAMS = \
 	reboot \
 	runlevel \
 	shutdown \
 	telinit
+endif
 
 reboot_SOURCES = reboot.c
 reboot_LDFLAGS = -static
