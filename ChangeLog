@@ -1,5 +1,8 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c: Clean up documentation strings.
+	Change nih_signal_add_callback to nih_signal_add_handler.
+
 	* upstart/control.c, upstart/control.h, upstart/job.c: Clean up
 	documentation strings and correct parent pointer type.
 

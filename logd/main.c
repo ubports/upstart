@@ -74,7 +74,7 @@ static NihIoBuffer *log_buffer = NULL;
 /**
  * log_file:
  *
- * Open log file, this remains %NULL until it's opened successfully.
+ * Open log file, this remains NULL until it's opened successfully.
  **/
 static FILE *log_file = NULL;
 
@@ -82,7 +82,7 @@ static FILE *log_file = NULL;
 /**
  * daemonise:
  *
- * This is set to %TRUE if we should become a daemon, rather than just
+ * This is set to TRUE if we should become a daemon, rather than just
  * running in the foreground.
  **/
 static int daemonise = FALSE;
@@ -130,7 +130,7 @@ main (int   argc,
 
 	/* Handle TERM signal gracefully */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_callback (NULL, SIGTERM, nih_main_term_signal, NULL);
+	nih_signal_add_handler (NULL, SIGTERM, nih_main_term_signal, NULL);
 
 	/* Open the logging socket */
 	if (! open_logging ()) {
@@ -160,7 +160,7 @@ main (int   argc,
  * we accept connections on this socket and expect to read the name of
  * the daemon we are logging before reading the lines.
  *
- * Returns: NihIoWatch structure or %NULL on raised error.
+ * Returns: NihIoWatch structure or NULL on raised error.
  **/
 static NihIoWatch *
 open_logging (void)
@@ -213,7 +213,7 @@ open_logging (void)
 /**
  * logging_watcher:
  * @data: not used,
- * @watch: #NihIoWatch for which event occurred,
+ * @watch: NihIoWatch for which event occurred,
  * @events: events that occurred.
  *
  * This function is called whenever we can accept new connections on the
@@ -250,13 +250,13 @@ logging_watcher (void        *data,
 /**
  * logging_reader:
  * @data: not used,
- * @io: #NihIo with data to be read,
+ * @io: NihIo with data to be read,
  * @buf: buffer data is available in,
  * @len: bytes in @buf.
  *
  * This function is called when there is data available to be read from
  * a logging connection, this only takes care of reading the child name
- * from the socket and then adjusts the watch to call @line_reader
+ * from the socket and then adjusts the watch to call line_reader()
  * instead.
  **/
 static void
@@ -299,7 +299,7 @@ logging_reader (void       *data,
 /**
  * line_reader:
  * @name: name of daemon,
- * @io: #NihIo with data to be read,
+ * @io: NihIo with data to be read,
  * @buf: buffer data is available in,
  * @len: bytes in @buf.
  *
