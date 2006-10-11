@@ -1,3 +1,7 @@
+2006-10-11  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Detail function documentation requirement and format.
+
 2006-10-10  Scott James Remnant  <scott@netsplit.com>
 
 	* event.d/logd.in: Move to logd/event.d
