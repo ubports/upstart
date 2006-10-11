@@ -162,24 +162,24 @@ main (int   argc,
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
 
 	/* Ensure that we don't process events while paused */
-	nih_signal_add_callback (NULL, SIGTSTP, stop_handler, NULL);
-	nih_signal_add_callback (NULL, SIGCONT, stop_handler, NULL);
+	nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL);
+	nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL);
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
 	reboot (RB_DISABLE_CAD);
-	nih_signal_add_callback (NULL, SIGINT, cad_handler, NULL);
+	nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL);
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
 	 * generate a kbdrequest event.
 	 */
 	ioctl (0, KDSIGACCEPT, SIGWINCH);
-	nih_signal_add_callback (NULL, SIGWINCH, kbd_handler, NULL);
+	nih_signal_add_handler (NULL, SIGWINCH, kbd_handler, NULL);
 
 	/* SIGTERM instructs us to re-exec ourselves */
-	nih_signal_add_callback (NULL, SIGTERM,
-				 (NihSignalCb)term_handler, argv[0]);
+	nih_signal_add_handler (NULL, SIGTERM,
+				(NihSignalHandler)term_handler, argv[0]);
 
 
 	/* Reap all children that die */

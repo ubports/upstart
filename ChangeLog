@@ -1,5 +1,8 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Change nih_signal_add_callback to nih_signal_add_handler
+	and NihSignalCb to NihSignalHandler.
+
 	* init/cfgfile.c, init/cfgfile.h, init/control.c, init/control.h,
 	init/event.c, init/event.h, init/job.c, init/job.h, init/main.c,
 	init/process.c: Clean up documentation strings and parent pointer
