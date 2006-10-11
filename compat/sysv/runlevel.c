@@ -49,7 +49,7 @@ static void store (short type, pid_t pid, const char *user);
 /**
  * reboot:
  *
- * %TRUE if we need to store a reboot record.
+ * TRUE if we need to store a reboot record.
  **/
 static int reboot = FALSE;
 

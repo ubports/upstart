@@ -107,14 +107,14 @@ static char *event = NULL;
 /**
  * cancel:
  *
- * True if we should cancel an already running shutdown.
+ * TRUE if we should cancel an already running shutdown.
  **/
 static int cancel = FALSE;
 
 /**
  * warn_only:
  *
- * True if we should only send the warning, and not perform the actual
+ * TRUE if we should only send the warning, and not perform the actual
  * shutdown.
  **/
 static int warn_only = FALSE;
@@ -374,7 +374,7 @@ main (int   argc,
 /**
  * event_setter:
  * @option: option found in arguments,
- * @arg: always %NULL.
+ * @arg: always NULL.
  *
  * This function is called whenever one of the -r, -h, -H or -P options
  * is found in the argument list.  It changes the event (which can also

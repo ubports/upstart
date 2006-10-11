@@ -1,5 +1,8 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/runlevel.c, compat/sysv/shutdown.c: Clean up
+	documentation strings.
+
 	* logd/main.c: Set synopsis and help text.
 
 	* logd/main.c: Clean up documentation strings.
