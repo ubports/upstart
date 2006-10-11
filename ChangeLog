@@ -1,5 +1,11 @@
 2006-10-10  Scott James Remnant  <scott@netsplit.com>
 
+	* event.d/logd.in: Move to logd/event.d
+	* event.d/Makefile.am: Remove
+	* logd/Makefile.am: Create the logd job definition and install
+	* Makefile.am (SUBDIRS): event.d directory has been removed.
+	* configure.ac (AC_CONFIG_FILES): No longer make event.d/Makefile
+
 	* configure.ac: Check for --enable-compat, default to sysv if given
 	or no compat if not given.
 	* compat/sysv/Makefile.am: Don't build binaries or install manpages

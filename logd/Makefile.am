@@ -7,6 +7,16 @@ DEFS += -DLOCALEDIR="\"$(localedir)\""
 INCLUDES = -I$(top_srcdir)/intl
 
 
+eventdir = $(sysconfdir)/event.d
+event_DATA = \
+	event.d/logd
+
+CLEANFILES = $(event_DATA)
+EXTRA_DIST = event.d/logd.in
+
+do_subst = sed -e '\,[@]sbindir[@],{s,[@]sbindir[@],$(sbindir),g;s,//*,/,g}'
+
+
 dist_man_MANS = \
 	man/logd.8
 
@@ -25,6 +35,9 @@ TESTS =
 
 check_PROGRAMS = $(TESTS)
 
+
+event.d/logd: event.d/logd.in
+	$(do_subst) < $< > $@
 
 
 clean-local:

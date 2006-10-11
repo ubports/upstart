@@ -38,7 +38,6 @@ AM_CONDITIONAL(COMPAT_SYSV, test "x$compat" = "xsysv")dnl
 
 AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
 		  nih/Makefile upstart/Makefile init/Makefile initctl/Makefile
-		  compat/sysv/Makefile logd/Makefile
-		  event.d/Makefile doc/Makefile ])
+		  compat/sysv/Makefile logd/Makefile doc/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
