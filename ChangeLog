@@ -1,5 +1,12 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/reboot.c: Set synopsis text depending on command
+	used (probably should use nih_command_parser?)
+	* compat/sysv/runlevel.c: Set synopsis and help text, and correct
+	usage.
+	* compat/sysv/shutdown.c: Set synopsis text.
+	* compat/sysv/telinit.c: Set synopsis text.
+
 	* compat/sysv/runlevel.c, compat/sysv/shutdown.c: Clean up
 	documentation strings.
 

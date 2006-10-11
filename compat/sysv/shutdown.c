@@ -182,7 +182,9 @@ main (int   argc,
 	pid_t    pid = 0;
 
 	nih_main_init (argv[0]);
-	nih_option_set_usage ("TIME [MESSAGE]");
+
+	nih_option_set_usage (_("TIME [MESSAGE]"));
+	nih_option_set_synopsis (_("bring the system down"));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)

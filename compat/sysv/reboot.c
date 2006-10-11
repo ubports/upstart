@@ -168,11 +168,15 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
+	nih_option_set_synopsis (_("reboot the system"));
+
 	mode = REBOOT;
 	if (! strcmp (program_name, "halt")) {
 		mode = HALT;
+		nih_option_set_synopsis (_("halt the system"));
 	} else if (! strcmp (program_name, "poweroff")) {
 		mode = POWEROFF;
+		nih_option_set_synopsis (_("power off the system"));
 	}
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);

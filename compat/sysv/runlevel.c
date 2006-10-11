@@ -84,7 +84,20 @@ main (int   argc,
 	char        **args, prev = 0, cur = 0;
 
 	nih_main_init (argv[0]);
-	nih_option_set_usage ("RUNLEVEL");
+
+	nih_option_set_usage (_("[UTMP]"));
+	nih_option_set_synopsis (_("output previous and current runlevel"));
+	nih_option_set_help (_("Searches /var/run/utmp, or the alternate "
+			       "file UTMP, for the most recent runlevel "
+			       "record.  Outputs a line with the previous "
+			       "and current runlevel separated by a space, "
+			       "e.g.\n\n"
+			       "    $ runlevel\n"
+			       "    2 5\n\n"
+			       "If the previous runlevel is not available, "
+			       "N is output in its place.  If no runlevel "
+			       "record could be found, the word unknown "
+			       "is output and runlevel exits with an error"));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)

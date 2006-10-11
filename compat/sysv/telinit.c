@@ -61,7 +61,9 @@ main (int   argc,
 	int          sock;
 
 	nih_main_init (argv[0]);
+
 	nih_option_set_usage ("RUNLEVEL");
+	nih_option_set_synopsis (_("change runlevel"));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
