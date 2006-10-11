@@ -43,7 +43,7 @@
 /**
  * paused:
  *
- * Do not process the event queue or detect idle jobs while this is %TRUE.
+ * Do not process the event queue or detect idle jobs while this is TRUE.
  **/
 int paused = FALSE;
 
@@ -79,10 +79,16 @@ event_init (void)
  * does not place it in the event queue.  Use when a lone Event structure
  * is needed, such as for matching events.
  *
- * Returns: newly allocated Event structure or %NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated Event structure or NULL if insufficient memory.
  **/
 Event *
-event_new (void       *parent,
+event_new (const void *parent,
 	   const char *name)
 {
 	Event *event;
@@ -170,7 +176,6 @@ event_queue_run (void)
 	if (paused)
 		return;
 
-
 	event_init ();
 
 	while (! NIH_LIST_EMPTY (events)) {
@@ -197,7 +202,7 @@ event_queue_run (void)
  * be re-exec'd by an earlier version of init.  That's why this is so
  * trivial.
  *
- * @event may be %NULL if @buf begins "Event "
+ * @event may be NULL if @buf begins "Event "
  **/
 Event *
 event_read_state (Event *event,
@@ -234,7 +239,7 @@ event_read_state (Event *event,
  * event_write_state:
  * @state: file to write to.
  *
- * This is the companion function to %event_read_state, it writes to @state
+ * This is the companion function to event_read_state(), it writes to @state
  * lines for each event in the queue.
  **/
 void

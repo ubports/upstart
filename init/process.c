@@ -61,14 +61,14 @@ static int process_setup_environment (Job *job);
 /**
  * process_spawn:
  * @job: job context for process to be spawned in,
- * @argv: %NULL-terminated list of arguments for the process.
+ * @argv: NULL-terminated list of arguments for the process.
  *
  * This function spawns a new process using the @job details to set up the
  * environment for it; the process is always a session and process group
  * leader as we never want anything in our own group.
  *
  * The process to be executed is given in the @argv array which is passed
- * directly to #execvp, so should be in the same %NULL-terminated form with
+ * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
  * PATH environment for the job will be searched.
  *
@@ -76,7 +76,7 @@ static int process_setup_environment (Job *job);
  * that the information is saved into the job and the process is watched, etc.
  *
  * Note that the only error raised within this function is a failure of the
- * #fork syscall as the environment is set up within the child process.
+ * fork() syscall as the environment is set up within the child process.
  *
  * Returns: process id of new process on success, -1 on raised error
  **/

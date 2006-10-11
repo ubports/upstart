@@ -98,7 +98,7 @@ control_init (void)
  * Opens the control socket and sets it up so that incoming messages are
  * dealt with and outgoing messages can be queued.
  *
- * Returns: watch on socket on success, %NULL on raised error.
+ * Returns: watch on socket on success, NULL on raised error.
  **/
 NihIoWatch *
 control_open (void)
@@ -164,15 +164,15 @@ control_close (void)
  * control_subscribe:
  * @pid: process id to send to,
  * @notify: notify events mask to change,
- * @set: %TRUE to add events, %FALSE to remove.
+ * @set: TRUE to add events, FALSE to remove.
  *
  * Adjusts the subscription of process @pid by adding the events listed
- * in @notify if @set is %TRUE or removing if @set is %FALSE.  Removing
+ * in @notify if @set is TRUE or removing if @set is FALSE.  Removing
  * all subscribed events removes the subscription.
  *
- * The current subscription can be found by passing %NOTIFY_NONE.
+ * The current subscription can be found by passing NOTIFY_NONE.
  *
- * Returns: subscription record on success, %NULL on insufficient memory
+ * Returns: subscription record on success, NULL on insufficient memory
  * or removal of subscription.
  **/
 ControlSub *
@@ -235,10 +235,10 @@ control_subscribe (pid_t        pid,
  * Queue @message to be send to process @pid when next possible.  @message
  * is copied internally, including any pointers (such as the name).
  *
- * The message can be cancelled by using #nih_list_free on the returned
+ * The message can be cancelled by using nih_list_free() on the returned
  * structure.
  *
- * Returns: entry in the send queue on success, %NULL on insufficient memory.
+ * Returns: entry in the send queue on success, NULL on insufficient memory.
  **/
 ControlMsg *
 control_send (pid_t       pid,

@@ -81,8 +81,8 @@
  * Data pointed passed to the config file watcher function.
  **/
 typedef struct watch_info {
-	void *parent;
-	char *prefix;
+	const void *parent;
+	char       *prefix;
 } WatchInfo;
 
 
@@ -91,17 +91,17 @@ static void    cfg_job_stanza    (Job *job, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
 
-static char ** cfg_parse_args    (void *parent, const char *filename,
+static char ** cfg_parse_args    (const void *parent, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
-static char *  cfg_parse_command (void *parent, const char *filename,
+static char *  cfg_parse_command (const void *parent, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
 static ssize_t cfg_next_token    (const char *filename, ssize_t *lineno,
 				  const char *file, ssize_t len, ssize_t *pos,
 				  char *dest, const char *delim, int dequote);
 
-static char *  cfg_parse_script  (void *parent, const char *filename,
+static char *  cfg_parse_script  (const void *parent, const char *filename,
 				  ssize_t *lineno, const char *file,
 				  ssize_t len, ssize_t *pos);
 static ssize_t cfg_script_end    (ssize_t *lineno, const char *file,
@@ -120,10 +120,16 @@ static void    cfg_watcher       (WatchInfo *info, NihFileWatch *watch,
  * Reads the @filename given and uses the information within to construct
  * a new job structure named @name which is returned.
  *
- * Returns: newly allocated job structure, or %NULL if the file was invalid.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated job structure, or NULL if the file was invalid.
  **/
 Job *
-cfg_read_job (void       *parent,
+cfg_read_job (const void *parent,
 	      const char *filename,
 	      const char *name)
 {
@@ -996,10 +1002,16 @@ cfg_job_stanza (Job        *job,
  * @pos is updated to point to the next line in the configuration or will be
  * past the end of the file.
  *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
  * Returns: the list of arguments found.
  **/
 static char **
-cfg_parse_args (void       *parent,
+cfg_parse_args (const void *parent,
 		const char *filename,
 		ssize_t    *lineno,
 		const char *file,
@@ -1098,10 +1110,16 @@ cfg_parse_args (void       *parent,
  * @pos is updated to point to the next line in the configuration or will be
  * past the end of the file.
  *
- * Returns: the command string found or %NULL if one was not present.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: the command string found or NULL if one was not present.
  **/
 static char *
-cfg_parse_command (void       *parent,
+cfg_parse_command (const void *parent,
 		   const char *filename,
 		   ssize_t    *lineno,
 		   const char *file,
@@ -1182,10 +1200,10 @@ cfg_parse_command (void       *parent,
  * To copy the token into another string, collapsing any newlines and
  * surrounding whitespace to a single space, pass @dest which should be
  * pre-allocated to the right size (obtained by calling this function
- * with %NULL).
+ * with NULL).
  *
  * If you also want quotes to be removed and escaped characters to be
- * replaced with the character itself, set @dequote to %TRUE.
+ * replaced with the character itself, set @dequote to TRUE.
  *
  * Returns: the length of the token as it was/would be copied into @dest.
  **/
@@ -1354,10 +1372,16 @@ cfg_next_token (const char *filename,
  * @pos is updated to point to the next line in the configuration or will be
  * past the end of the file.
  *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
  * Returns: the script contained in the fragment.
  **/
 static char *
-cfg_parse_script (void       *parent,
+cfg_parse_script (const void *parent,
 		  const char *filename,
 		  ssize_t    *lineno,
 		  const char *file,
@@ -1554,12 +1578,18 @@ cfg_script_end (ssize_t    *lineno,
  * the initial parsing of jobs in the directory.
  *
  * Jobs are named by joining @prefix and the name of the file under @dir,
- * @prefix may be %NULL.
+ * @prefix may be NULL.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
  *
  * Returns: zero on success, negative value on raised error.
  **/
 int
-cfg_watch_dir (void       *parent,
+cfg_watch_dir (const void *parent,
 	       const char *dirname,
 	       const char *prefix)
 {

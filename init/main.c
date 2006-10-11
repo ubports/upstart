@@ -81,7 +81,7 @@ static void write_state     (int fd);
 /**
  * restart:
  *
- * This is set to %TRUE if we're being re-exec'd by an existing init
+ * This is set to TRUE if we're being re-exec'd by an existing init
  * process.
  **/
 static int restart = FALSE;
@@ -293,7 +293,7 @@ reset_console (void)
 
 /**
  * segv_handler:
- * @signum:
+ * @signum: signal number received.
  *
  * Handle receiving the SEGV signal, usually caused by one of our own
  * mistakes.  We deal with it by dumping core in a child process and

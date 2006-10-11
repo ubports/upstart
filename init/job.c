@@ -107,12 +107,18 @@ job_list (void)
  * appends it to the internal list of registered jobs.  It is up to the
  * caller to ensure that @name is unique amongst the job list.
  *
- * The job can be removed using #nih_list_free.
+ * The job can be removed using nih_list_free().
  *
- * Returns: newly allocated job structure or %NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated job structure or NULL if insufficient memory.
  **/
 Job *
-job_new (void       *parent,
+job_new (const void *parent,
 	 const char *name)
 {
 	Job *job;
@@ -198,7 +204,7 @@ job_new (void       *parent,
  *
  * Finds the job with the given @name in the list of known jobs.
  *
- * Returns: job found or %NULL if not known.
+ * Returns: job found or NULL if not known.
  **/
 Job *
 job_find_by_name (const char *name)
@@ -225,7 +231,7 @@ job_find_by_name (const char *name)
  *
  * Finds the job with a process of the given @pid in the list of known jobs.
  *
- * Returns: job found or %NULL if not known.
+ * Returns: job found or NULL if not known.
  **/
 Job *
 job_find_by_pid (pid_t pid)
@@ -481,7 +487,7 @@ job_next_state (Job *job)
  * @command: command and arguments to be run.
  *
  * This function splits @command into whitespace separated program name
- * and arguments and calls #job_run_process with the result.
+ * and arguments and calls job_run_process() with the result.
  *
  * As a bonus, if @command contains any special shell characters such
  * as variables, redirection, or even just quotes; it arranges for the
@@ -489,7 +495,7 @@ job_next_state (Job *job)
  * argument parsing of our own.
  *
  * No error is returned from this function because it will block until
- * the #process_spawn calls succeeds, that can only fail for temporary
+ * the process_spawn() calls succeeds, that can only fail for temporary
  * reasons (such as a lack of process ids) which would cause problems
  * carrying on anyway.
  **/
@@ -531,8 +537,8 @@ job_run_command (Job        *job,
  *
  * If @script is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
- * to read commands from one of the special /dev/fd/NN devices and #NihIo
- * used to feed the script into that device.  A pointer to the #NihIo object
+ * to read commands from one of the special /dev/fd/NN devices and NihIo
+ * used to feed the script into that device.  A pointer to the NihIo object
  * is not kept or stored because it will automatically clean itself up should
  * the script go away as the other end of the pipe will be closed.
  *
@@ -540,7 +546,7 @@ job_run_command (Job        *job,
  * fail if their exit status is not checked.
  *
  * No error is returned from this function because it will block until
- * the #process_spawn calls succeeds, that can only fail for temporary
+ * the process_spawn() calls succeeds, that can only fail for temporary
  * reasons (such as a lack of process ids) which would cause problems
  * carrying on anyway.
  **/
@@ -612,18 +618,18 @@ job_run_script (Job        *job,
 /**
  * job_run_process:
  * @job: job to run process for,
- * @argv: %NULL-terminated list of arguments for the process.
+ * @argv: NULL-terminated list of arguments for the process.
  *
  * This function spawns a new process for @job storing the pid and new
  * process state back in that object.  This can only be called when there
  * is not already a process, and the state is one that permits a process
- * (ie. everything except %JOB_WAITING).
+ * (ie. everything except JOB_WAITING).
  *
  * The caller should have already prepared the arguments, the list is
- * passed directly to #process_spawn.
+ * passed directly to process_spawn().
  *
  * No error is returned from this function because it will block until
- * the #process_spawn calls succeeds, that can only fail for temporary
+ * the process_spawn() calls succeeds, that can only fail for temporary
  * reasons (such as a lack of process ids) which would cause problems
  * carrying on anyway.
  **/
@@ -674,7 +680,7 @@ job_run_process (Job          *job,
  *
  * The state change is not immediate unless the kill syscall fails.
  *
- * The only state that this may be called in is %JOB_RUNNING with an
+ * The only state that this may be called in is JOB_RUNNING with an
  * active process; all other states are transient, and are expected to
  * change within a relatively short space of time anyway.  For those it
  * is sufficient to simply change the goal and have the appropriate
@@ -770,7 +776,7 @@ job_kill_timer (Job      *job,
  * @killed: whether @pid was killed,
  * @status: exit status of @pid or signal that killed it.
  *
- * This callback should be registered with #nih_child_add_watch so that
+ * This callback should be registered with nih_child_add_watch() so that
  * when processes associated with jobs die, the structure is updated and
  * the next appropriate state chosen.
  *
@@ -863,7 +869,7 @@ job_child_reaper (void  *data,
  * job_start:
  * @job: job to be started.
  *
- * Changes the goal of @job from %JOB_STOP to %JOB_START and begins the
+ * Changes the goal of @job from JOB_STOP to JOB_START and begins the
  * process of actually starting the job by changing the state if
  * necessary.
  *
@@ -874,7 +880,7 @@ job_child_reaper (void  *data,
  * If @job is already active in some way (e.g. currently stopping), this
  * ensures that the job will be cleanly restarted when possible.
  *
- * This function has no effect if the goal is already %JOB_START.
+ * This function has no effect if the goal is already JOB_START.
  **/
 void
 job_start (Job *job)
@@ -975,8 +981,7 @@ job_start (Job *job)
  * job_stop:
  * @job: job to be stopped.
  *
- *
- * Changes the goal of @job from %JOB_START to %JOB_STOP and begins the
+ * Changes the goal of @job from JOB_START to JOB_STOP and begins the
  * process of actually stopping the job by killing the active running
  * process if necessary.
  *
@@ -986,7 +991,7 @@ job_start (Job *job)
  * If @job is in the process of starting, this ensures that the job will
  * be cleanly stopped when possible.
  *
- * This function has no effect if the goal is already %JOB_STOP.
+ * This function has no effect if the goal is already JOB_STOP.
  **/
 void
 job_stop (Job *job)
@@ -1023,7 +1028,7 @@ job_stop (Job *job)
  * This function ensures that a job doesn't enter a respawn loop by
  * limiting the number of respawns in a particular time limit.
  *
- * Returns: %TRUE if the job is respawning too fast, %FALSE if not.
+ * Returns: TRUE if the job is respawning too fast, FALSE if not.
  */
 static int
 job_catch_runaway (Job *job)
@@ -1059,7 +1064,7 @@ job_catch_runaway (Job *job)
  *
  * The only jobs that will be affected are those that have a goal of
  * JOB_START but a state of JOB_WAITING and which list @job in their
- * depends list.  #job_change_state is called on these jobs.
+ * depends list.  job_change_state() is called on these jobs.
  *
  * It is not possible for @job to be changed by a call to this function.
  **/
@@ -1101,7 +1106,7 @@ job_release_depends (Job *job)
  * @event: event to handle.
  *
  * Iterates the list of events that can cause @job to be started, and if
- * @event is present, calls #job_start to change the goal.
+ * @event is present, calls job_start() to change the goal.
  **/
 void
 job_start_event (Job   *job,
@@ -1124,7 +1129,7 @@ job_start_event (Job   *job,
  * @event: event to handle.
  *
  * Iterates the list of events that can cause @job to be stopped, and if
- * @event is present, calls #job_stop to change the goal.
+ * @event is present, calls job_stop() to change the goal.
  **/
 void
 job_stop_event (Job   *job,
@@ -1267,7 +1272,9 @@ job_set_idle_event (const char *name)
  * be re-exec'd by an earlier version of init.  That's why this is so
  * trivial.
  *
- * @job may be %NULL if @buf begins "Job "
+ * @job may be NULL if @buf begins "Job "
+ *
+ * Returns: @job given.
  **/
 Job *
 job_read_state (Job  *job,
@@ -1354,7 +1361,7 @@ job_read_state (Job  *job,
  * job_write_state:
  * @state: file to write to.
  *
- * This is the companion function to %job_read_state, it writes to @state
+ * This is the companion function to job_read_state(), it writes to @state
  * lines for each job known about.
  **/
 void
