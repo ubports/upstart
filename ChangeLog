@@ -1,5 +1,10 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_init): Pass NULL to nih_list_new.
+	Clarify list item types.
+	* init/event.c (event_init): Pass NULL to nih_list_new.
+	* init/job.c (job_init): Pass NULL to nih_list_new.
+
 	* init/main.c: Change nih_signal_add_callback to nih_signal_add_handler
 	and NihSignalCb to NihSignalHandler.
 

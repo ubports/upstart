@@ -65,6 +65,8 @@ static NihIoWatch *io_watch = NULL;
  * List of messages that are queued up to be sent when the socket is
  * available for writing; done this way to avoid blocking on malicious
  * clients.
+ *
+ * Each item is a ControlMsg structure.
  **/
 static NihList *send_queue = NULL;
 
@@ -72,6 +74,7 @@ static NihList *send_queue = NULL;
  * subscriptions:
  *
  * List of processes that are subscribed to changes in events or job status.
+ * Each item is a ControlSub structure.
  **/
 static NihList *subscriptions = NULL;
 
@@ -85,10 +88,10 @@ static void
 control_init (void)
 {
 	if (! send_queue)
-		NIH_MUST (send_queue = nih_list_new ());
+		NIH_MUST (send_queue = nih_list_new (NULL));
 
 	if (! subscriptions)
-		NIH_MUST (subscriptions = nih_list_new ());
+		NIH_MUST (subscriptions = nih_list_new (NULL));
 }
 
 

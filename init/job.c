@@ -81,7 +81,7 @@ static inline void
 job_init (void)
 {
 	if (! jobs)
-		NIH_MUST (jobs = nih_list_new ());
+		NIH_MUST (jobs = nih_list_new (NULL));
 }
 
 /**

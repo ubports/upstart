@@ -51,7 +51,7 @@ int paused = FALSE;
 /**
  * events:
  *
- * This list holds the list of events queued to be handled; each entry
+ * This list holds the list of events queued to be handled; each item
  * is an Event structure.
  **/
 static NihList *events = NULL;
@@ -66,7 +66,7 @@ static inline void
 event_init (void)
 {
 	if (! events)
-		NIH_MUST (events = nih_list_new ());
+		NIH_MUST (events = nih_list_new (NULL));
 }
 
 
