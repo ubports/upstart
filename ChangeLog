@@ -1,5 +1,7 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c: Set synopsis and help text.
+
 	* logd/main.c: Clean up documentation strings.
 	Change nih_signal_add_callback to nih_signal_add_handler.
 

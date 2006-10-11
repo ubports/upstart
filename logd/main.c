@@ -109,6 +109,11 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
+	nih_option_set_synopsis (_("logs output of jobs to /var/log/boot"));
+	nih_option_set_help (_("logd receives the standard output and error "
+			       "messages from jobs run by init and logs them "
+			       "to /var/log/boot"));
+
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
