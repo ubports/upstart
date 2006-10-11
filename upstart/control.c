@@ -135,7 +135,7 @@ typedef struct wire_job_payload {
  *
  * This payload follows a job payload for the JOB_STATUS message and contains
  * the status information.  The description follows immediately after the
- * payload, if @desclen is zero then the resulting description is %NULL.
+ * payload, if @desclen is zero then the resulting description is NULL.
  **/
 typedef struct wire_job_status_payload {
 	size_t       desclen;
@@ -269,7 +269,7 @@ upstart_open (void)
  * @message: message to send.
  *
  * Send @message to the running init daemon using @sock which should have
- * been opened with #upstart_open.
+ * been opened with upstart_open().
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -290,7 +290,7 @@ upstart_send_msg (int         sock,
  * @message: message to send.
  *
  * Send @message to process @pid using @sock which should have been opened
- * with #upstart_open.
+ * with upstart_open().
  *
  * Clients will normally discard messages that do not come from process #1
  * (the init daemon), so this is only useful from the init daemon itself.
@@ -429,19 +429,25 @@ invalid:
  * @pid: place to store pid of sender.
  *
  * Receives a single message from @sock, which should have been opened with
- * #upstart_open.  Memory is allocated for the message structure and it
- * is returned, clients should use #nih_free or #upstart_free to free
+ * upstart_open().  Memory is allocated for the message structure and it
+ * is returned, clients should use nih_free() or upstart_free() to free
  * the message.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
  *
  * If you wish to know which process sent the message, usually because
  * you might want to send a response, pass a pointer for @pid.
  *
- * Returns: newly allocated message or %NULL on raised error.
+ * Returns: newly allocated message or NULL on raised error.
  **/
 UpstartMsg *
-upstart_recv_msg (void  *parent,
-		  int    sock,
-		  pid_t *pid)
+upstart_recv_msg (const void *parent,
+		  int         sock,
+		  pid_t      *pid)
 {
 	UpstartMsg     *message = NULL;
 	WireHdr         hdr;

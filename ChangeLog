@@ -1,5 +1,8 @@
 2006-10-11  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c, upstart/control.h, upstart/job.c: Clean up
+	documentation strings and correct parent pointer type.
+
 	* HACKING: Detail function documentation requirement and format.
 
 2006-10-10  Scott James Remnant  <scott@netsplit.com>
