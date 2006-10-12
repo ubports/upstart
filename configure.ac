@@ -1,14 +1,16 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.60)
 AC_INIT([upstart], [0.3.0], [new@bugs.launchpad.net])
 AC_COPYRIGHT([[Copyright © 2006 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
+AC_GNU_SOURCE
+
 AM_INIT_AUTOMAKE([1.9 gnu check-news dist-bzip2])
 
-AM_GNU_GETTEXT_VERSION(0.14.1)
+AM_GNU_GETTEXT_VERSION(0.15)
 AM_GNU_GETTEXT()
 
 # Checks for programs.
