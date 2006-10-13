@@ -1,7 +1,7 @@
-.TH runlevel 8 "September 2006" "Upstart"
+.TH runlevel 8 "October 2006" "Upstart"
 .\"
 .SH NAME
-runlevel \- display previous and current runlevel
+runlevel \- output previous and current runlevel
 .\"
 .SH SYNOPSIS
 \fBrunlevel\fR [\fIOPTION\fR]... [\fIUTMP\fR]
@@ -12,10 +12,11 @@ reads the system
 .I utmp
 file
 .RI "(typically " /var/run/utmp )
-to locate the runlevel record, then displays the previous and current
-runlevel on standard output, separated by a single space.
+to locate the most recent runlevel record, then outputs the previous and
+current runlevel from that record to standard output, separated by a single
+space.
 
-If there is no previous runlevel, the letter
+If there is no previous runlevel in the record, the letter
 .I N
 will be printed instead.
 
@@ -33,16 +34,37 @@ and exits with an error.
 Store a new runlevel record in the
 .I utmp
 file.
+.I RUNLEVEL
+should be one of 0123456S.
+
+The current runlevel in the output will be
+.IR RUNLEVEL ,
+the previous runlevel will be the runlevel from the last record or
+.I N
 .\"
 .TP
 .B --reboot
 Store a record of the time the system was booted in the
 .I utmp
-file.
+file, using the current time.
+
+This will not output anything.
+.\"
+.SH EXIT STATUS
+.B runlevel
+will exit with status
+.I 0
+if a
+.I utmp
+record was found or written to the file, otherwise it will exit with status
+.IR 1 .
 .\"
 .SH NOTES
 This tool is provided for compatibility with the traditional System V
-.BR init (8) .
+.BR init (8).
+Upstart has no notion of runlevels itself, this and the
+.BR telinit (8)
+tool are provided to emulate their behaviour.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.

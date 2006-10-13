@@ -1,5 +1,9 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/runlevel.c (main): Make the help text describe the
+	options, rather than the behaviour.
+	* compat/sysv/man/runlevel.8 (https): Flesh out a little more.
+
 	* configure.ac (AC_INIT): Change bug reporting address to the
 	mailing list, since Launchpad doesn't accept random bugs without
 	accounts and complicated control messages.
