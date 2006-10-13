@@ -1,5 +1,11 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Set the synopsis, and direct people to look
+	at telinit in the --help output.
+	* init/man/init.8: Flesh this out a little more, still a lot of
+	explaining to do about jobs and events, but we'll wait until we've
+	changed that code before documentating the behaviour.
+
 	* logd/main.c (main): Correct help text to describe the options,
 	rather than what the program does.  As per standard style.
 	Don't become a daemon until the logging socket is open, and make
