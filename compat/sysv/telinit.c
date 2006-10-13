@@ -64,7 +64,8 @@ main (int   argc,
 
 	nih_option_set_usage ("RUNLEVEL");
 	nih_option_set_synopsis (_("Change runlevel."));
-	nih_option_set_help (_("RUNLEVEL should be one of 0123456S."));
+	nih_option_set_help (
+		_("RUNLEVEL should be one of 0123456S."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)

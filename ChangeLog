@@ -1,5 +1,12 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Formatting.
+	* logd/main.c (main): Formatting.
+	* logd/man/logd.8: Formatting.
+	* compat/sysv/runlevel.c (main): Formatting.
+	* compat/sysv/telinit.c (main): Formatting.
+	* compat/sysv/man/shutdown.8: Remove long options.
+
 	* compat/sysv/shutdown.c: Remove -e/--event, it has no place in a
 	compatibility tool.  Get rid of long options that never existed
 	before.  Specify help text to describe the options.

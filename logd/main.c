@@ -110,9 +110,10 @@ main (int   argc,
 	nih_main_init (argv[0]);
 
 	nih_option_set_synopsis (_("Log output of jobs to /var/log/boot."));
-	nih_option_set_help (_("By default, logd does not detach from the "
-			       "console and remains in the foreground.  "
-			       "Use the --daemon option to have it detach."));
+	nih_option_set_help (
+		_("By default, logd does not detach from the console and "
+		  "remains in the foreground.  Use the --daemon option to "
+		  "have it detach."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)

@@ -37,11 +37,11 @@ signal, putting itself to sleep until continued by another process.
 
 After starting
 .BR logd ,
-.B init
+.BR init (8)
 waits for the process to stop if it hasn't already, and then sends it the
 .I SIGCONT
 signal so that it can proceed.  Only once this has happened, will
-.B init
+.BR init (8)
 start other jobs.
 
 When the
@@ -57,7 +57,7 @@ listens on a
 stream socket in the abstract namespace, bound to
 .IR /com/ubuntu/upstart/logd .
 
-.B init
+.BR init (8)
 opens a new connection for each job that is to be logged, binding the
 socket to the standard input, output and error file descriptors for the job.
 
@@ -70,7 +70,7 @@ it is up to the receiver to add that if required.
 
 Further information about the job, such as its description, can be obtained
 by opening an ordinary connection to the
-.B init
+.BR init (8)
 daemon and querying it using the name received.
 .\"
 .SH AUTHOR

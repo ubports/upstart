@@ -87,17 +87,16 @@ main (int   argc,
 
 	nih_option_set_usage (_("[UTMP]"));
 	nih_option_set_synopsis (_("Output previous and current runlevel."));
-	nih_option_set_help (_("The system /var/run/utmp file is used "
-			       "unless the alternate file UTMP is given.\n"
-			       "\n"
-			       "Normally this will only output the most "
-			       "recent runlevel record in the utmp file, "
-			       "the --set option can be used to add a new "
-			       "record.  RUNLEVEL should be one of 0123456S.\n"
-			       "\n"
-			       "Alternately a reboot record may be added "
-			       "to the file by using the --reboot option, "
-			       "this will not output anything."));
+	nih_option_set_help (
+		_("The system /var/run/utmp file is used unless the alternate "
+		  "file UTMP is given.\n"
+		  "\n"
+		  "Normally this will only output the most recent runlevel "
+		  "record in the utmp file, the --set option can be used to "
+		  "add a new record.  RUNLEVEL should be one of 0123456S.\n"
+		  "\n"
+		  "Alternately a reboot record may be added to the file by "
+		  "using the --reboot option, this produces no output."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)

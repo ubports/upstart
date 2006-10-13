@@ -112,11 +112,10 @@ main (int   argc,
 	nih_main_init (argv[0]);
 
 	nih_option_set_synopsis (_("Process management daemon."));
-	nih_option_set_help (_("This daemon is normally executed by the "
-			       "kernel and given process id 1 to denote its "
-			       "special status.  When executed by a user "
-			       "process, it will actually run /sbin/telinit "
-			       "if that exists."));
+	nih_option_set_help (
+		_("This daemon is normally executed by the kernel and given "
+		  "process id 1 to denote its special status.  When executed "
+		  "by a user process, it will actually run /sbin/telinit."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
