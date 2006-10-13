@@ -1,10 +1,10 @@
-.TH initctl 8 "September 2006" "Upstart"
+.TH initctl 8 "October 2006" "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control utility
 .\"
 .SH SYNOPSIS
-\fBinitctl\fR [\fIOPTION\fR]... \fICOMMAND\fR \fIARG...\fR
+\fBinitctl\fR [\fIOPTION\fR]... \fICOMMAND\fR [\fIOPTION\fR]... \fIARG...\fR
 .\"
 .SH DESCRIPTION
 .B initctl
@@ -12,28 +12,54 @@ allows a system administrator to communication with the
 .BR init (8)
 daemon and perform various actions depending on
 .IR COMMAND .
+
+Normally it is invoked directly with the command specified as the first
+non-option argument, however symbolic or hard links may be used so that
+it is invoked as the name of a command, in which case it behaves
+accordingly.
 .\"
 .SH COMMANDS
 .TP
-.BI "start " JOB
-Requests that the named job be started.
+.BI "start " JOB\fR...
+Requests that the named jobs be started.  The status of the jobs will be
+output to standard output.  It is common for jobs to not immediately reach
+the running state if they have scripts to run first.
 .\"
 .TP
-.BI "stop " JOB
-Requests that the named job be stopped.
+.BI "stop " JOB\fR...
+Requests that the named jobs be stopped.  The status of the jobs will be
+output to standard output.  It is common for jobs to not immediately reach
+the waiting state if they have scripts to run first.
 .\"
 .TP
-.BI "status " JOB
-Requests the status of the named job.
+.BI "status " JOB\fR...
+Requests the status of the named jobs.  For each job on the command-line, a
+line like the following is output.
+
+.nf
+  job (start) running, process 1234 active
+.fi
+
+The job name is given first; the goal of the job, either
+.IR start " or " stop
+is then given in parens followed by the current state of the job.  If
+there is an associated process, the pid is given and indication whether the
+process is
+.I active
+(running normally) or
+.I killed
+.RB ( SIGTERM
+sent, but process not yet reaped).
 .\"
 .TP
 .B list
-Requests a list of the known jobs and their statuses.
+Requests a list of the known jobs and their statuses.  The status of each
+job is output a line at a time.
 .\"
 .TP
-.BI "trigger " EVENT
-Requests that the named event be generated, potentially causing jobs to
-be started and stopped.
+.BI "emit " EVENT
+Requests that the named event be emitted, potentially causing jobs to
+be started and stopped.  No output is given at this time.
 .\"
 .TP
 .B jobs
@@ -49,7 +75,7 @@ which remains in the foreground until terminated.
 .BI "shutdown " EVENT
 Requests that the system be brought down.  The
 .I shutdown
-event is generated, and once processed, the event given is generated.
+event is emitted, and once processed, the event given is emitted.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.

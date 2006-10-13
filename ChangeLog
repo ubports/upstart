@@ -1,5 +1,16 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c: Rewrite using nih_command_parser.
+	* util/man/initctl.8: Improve.
+
+	* util/start.c: Remove, replaced by initctl.
+	* util/man/start.8: Remove, replaced by initctl.
+	* util/Makefile.am (sbin_PROGRAMS): Drop start, now just a symlink
+	to initctl.
+	(dist_man_MANS): Drop start.8, now a symlink to initctl.8
+	(install-exec-hook): Make symlinks to initctl, add start
+	(install-data-hook): Make symlinks to initctl.8, add start.8
+
 	* initctl: Rename to util again, I don't want a separate directory
 	for every single little tool; and we'll be shipping more than just
 	initctl (e.g. a non-compat reboot).
