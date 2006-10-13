@@ -109,10 +109,10 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	nih_option_set_synopsis (_("logs output of jobs to /var/log/boot"));
-	nih_option_set_help (_("logd receives the standard output and error "
-			       "messages from jobs run by init and logs them "
-			       "to /var/log/boot"));
+	nih_option_set_synopsis (_("Log output of jobs to /var/log/boot"));
+	nih_option_set_help (_("By default, logd does not detach from the "
+			       "console and remains in the foreground.  "
+			       "Use the --daemon option to have it detach."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -124,18 +124,6 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Become daemon */
-	if (daemonise)
-		nih_main_daemonise ();
-
-
-	/* Send all logging output to syslog */
-	openlog (program_name, LOG_CONS | LOG_PID, LOG_DAEMON);
-	nih_log_set_logger (nih_logger_syslog);
-
-	/* Handle TERM signal gracefully */
-	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_handler (NULL, SIGTERM, nih_main_term_signal, NULL);
 
 	/* Open the logging socket */
 	if (! open_logging ()) {
@@ -149,8 +137,22 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Signify that we're ready to receive events */
-	raise (SIGSTOP);
+	/* Become daemon, or signify that we're ready to receive events */
+	if (daemonise) {
+		nih_main_daemonise ();
+	} else {
+		raise (SIGSTOP);
+	}
+
+
+	/* Send all logging output to syslog */
+	openlog (program_name, LOG_CONS | LOG_PID, LOG_DAEMON);
+	nih_log_set_logger (nih_logger_syslog);
+
+	/* Handle TERM signal gracefully */
+	nih_signal_set_handler (SIGTERM, nih_signal_handler);
+	nih_signal_add_handler (NULL, SIGTERM, nih_main_term_signal, NULL);
+
 
 	ret = nih_main_loop ();
 

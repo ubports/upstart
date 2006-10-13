@@ -1,4 +1,4 @@
-.TH logd 8 "September 2006" "Upstart"
+.TH logd 8 "October 2006" "Upstart"
 .\"
 .SH NAME
 logd \- job output logging daemon
@@ -24,6 +24,54 @@ or stored in memory until the file is writable.
 .TP
 .B --daemon
 Detaches from the terminal and runs in the background.
+.\"
+.SH STARTUP
+To eliminate race conditions on startup, such as not being ready to receive
+connections when the first job is started, the following procedure is used.
+
+Once ready to receive connections,
+.B logd
+raises the
+.I SIGSTOP
+signal, putting itself to sleep until continued by another process.
+
+After starting
+.BR logd ,
+.B init
+waits for the process to stop if it hasn't already, and then sends it the
+.I SIGCONT
+signal so that it can proceed.  Only once this has happened, will
+.B init
+start other jobs.
+
+When the
+.I --daemon
+option is given, this is not performed; instead
+.B logd
+will not detach from the console until it is listening on the socket.
+.\"
+.SH SOCKET PROTOCOL
+.B logd
+listens on a
+.BR unix (7)
+stream socket in the abstract namespace, bound to
+.IR /com/ubuntu/upstart/logd .
+
+.B init
+opens a new connection for each job that is to be logged, binding the
+socket to the standard input, output and error file descriptors for the job.
+
+Before running the job, it sends the job name on the socket so that it can be
+logged along with the messages.  This is sent as a
+.I size_t
+that contains the length of the name to read, followed by that many
+character bytes.  The NULL terminator is not sent as part of the protocol,
+it is up to the receiver to add that if required.
+
+Further information about the job, such as its description, can be obtained
+by opening an ordinary connection to the
+.B init
+daemon and querying it using the name received.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.

@@ -1,3 +1,13 @@
+2006-10-13  Scott James Remnant  <scott@netsplit.com>
+
+	* logd/main.c (main): Correct help text to describe the options,
+	rather than what the program does.  As per standard style.
+	Don't become a daemon until the logging socket is open, and make
+	that exclusive with waiting for SIGCONT.
+	* logd/man/logd.8: Write some more extensive documentation,
+	including describing the startup interlock and the socket protocol.
+	* TODO: Plan to get rid of the signal interlock from  logd.
+
 2006-10-12  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Expand AC_GNU_SOURCE so we get _GNU_SOURCE and so

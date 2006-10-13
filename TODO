@@ -1,5 +1,7 @@
 High Priority:
 
+ * replace logd raise/wait/kill interlock with a pipe-based one?
+
  * logd should output to console when "quiet" _not_ on the command-line
 
  * logd should capture syslog/klog stuff?  (or just go away and get
