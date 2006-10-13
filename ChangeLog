@@ -1,5 +1,10 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/shutdown.c: Remove -e/--event, it has no place in a
+	compatibility tool.  Get rid of long options that never existed
+	before.  Specify help text to describe the options.
+	* compat/sysv/man/shutdown.8: Spruce up a bit.
+
 	* compat/sysv/telinit.c (main): Set help text to list the valid
 	runlevels.
 	* compat/sysv/man/telinit.8: Refine the notes to mention runlevel(8).

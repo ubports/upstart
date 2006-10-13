@@ -140,19 +140,17 @@ static int delay = 0;
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
-	{ 'e', "event", N_("shutdown event to send"),
-	  NULL, "EVENT", &event, NULL },
-	{ 'r', "reboot", N_("reboot after shutdown"),
+	{ 'r', NULL, N_("reboot after shutdown"),
 	  NULL, NULL, &event, event_setter },
-	{ 'h', "shutdown", N_("halt or power off after shutdown"),
+	{ 'h', NULL, N_("halt or power off after shutdown"),
 	  NULL, NULL, &event, event_setter },
-	{ 'H', "halt", N_("halt after shutdown (implies -h)"),
+	{ 'H', NULL, N_("halt after shutdown (implies -h)"),
 	  NULL, NULL, &event, event_setter },
-	{ 'P', "poweroff", N_("power off after shutdown (implies -h)"),
+	{ 'P', NULL, N_("power off after shutdown (implies -h)"),
 	  NULL, NULL, &event, event_setter },
-	{ 'c', "cancel", N_("cancel a running shutdown"),
+	{ 'c', NULL, N_("cancel a running shutdown"),
 	  NULL, NULL, &cancel, NULL },
-	{ 'k', "warn-only", N_("only send warnings, don't shutdown"),
+	{ 'k', NULL, N_("only send warnings, don't shutdown"),
 	  NULL, NULL, &warn_only, NULL },
 
 	/* Compatibility option for specifying time */
@@ -184,7 +182,30 @@ main (int   argc,
 	nih_main_init (argv[0]);
 
 	nih_option_set_usage (_("TIME [MESSAGE]"));
-	nih_option_set_synopsis (_("bring the system down"));
+	nih_option_set_synopsis (_("Bring the system down."));
+	nih_option_set_help (
+		_("TIME may have different formats, the most common is simply "
+		  "the word 'now' which will bring the system down "
+		  "immediately.  Other valid formats are +m, where m is the "
+		  "number of minutes to wait until shutting down and hh:mm "
+		  "which specifies the time on the 24hr clock.\n"
+		  "\n"
+		  "Logged in users are warned by a message sent to their "
+		  "terminal, you may include an optional MESSAGE included "
+		  "with this.  Messages can be sent without actually "
+		  "bringing the system down by using the -k option.\n"
+		  "\n"
+		  "If TIME is given, the command will remain in the "
+		  "foreground until the shutdown occurs.  It can be cancelled "
+		  "by Control-C, or by another user using the -c option.\n"
+		  "\n"
+		  "The system is brought down into maintenance (single-user) "
+		  "mode by default, you can change this with either the -r or "
+		  "-h option which specify a reboot or system halt "
+		  "respectively.  The -h option can be further modified with "
+		  "-H or -P to specify whether to halt the system, or to "
+		  "power it off afterwards.  The default is left up to the "
+		  "shutdown scripts."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -379,8 +400,8 @@ main (int   argc,
  * @arg: always NULL.
  *
  * This function is called whenever one of the -r, -h, -H or -P options
- * is found in the argument list.  It changes the event (which can also
- * be set by -e/--event) to that implied by the option.
+ * is found in the argument list.  It changes the event to that implied
+ * by the option.
  **/
 static int
 event_setter (NihOption  *option,

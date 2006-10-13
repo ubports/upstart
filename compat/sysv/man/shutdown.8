@@ -1,4 +1,4 @@
-.TH shutdown 8 "September 2006" "Upstart"
+.TH shutdown 8 "October 2006" "Upstart"
 .\"
 .SH NAME
 shutdown \- bring the system down
@@ -9,7 +9,7 @@ shutdown \- bring the system down
 .SH DESCRIPTION
 .B shutdown
 arranges for the system to be brought down in a safe way.  All logged-in
-users are notified that the system is going down and within the last
+users are notified that the system is going down and, within the last
 five minutes of
 .IR TIME ,
 new logins are prevented.
@@ -25,16 +25,20 @@ daemon to bring the system down,
 will first generate the
 .I shutdown
 event and once that has been processed will generate a second event
-specified by the options to
+specified by the
+.IR -r " or " -h
+options to
 .BR shutdown .
 If no options are given, the
 .I maintenance
 event is sent.
+
+To see what actions are actually taken, examine the jobs in
+.IR /etc/event.d .
 .\"
 .SH OPTIONS
-Mandatory arguments to long options are mandatory for short options too.
 .TP
-.BR -r ", " --reboot
+.BR -r
 Requests that the system be rebooted after it has been brought down.
 .BR init (8)
 will generate the
@@ -44,7 +48,7 @@ event once the
 event has been processed.
 .\"
 .TP
-.BR -h ", " --shutdown
+.BR -h
 Requests that the system be either halted or powered off after it has been
 brought down, with the choice as to which left up to the system.
 .BR init (8)
@@ -55,7 +59,7 @@ event once the
 event has been processed.
 .\"
 .TP
-.BR -H ", " --halt
+.BR -H
 Requests that the system be halted after it has been brought down.
 .BR init (8)
 will generate the
@@ -65,7 +69,7 @@ event once the
 event has been processed.
 .\"
 .TP
-.BR -P ", " --poweroff
+.BR -P
 Requests that the system be powered off after it has been brought down.
 .BR init (8)
 will generate the
@@ -75,22 +79,20 @@ event once the
 event has been processed.
 .\"
 .TP
-.BR -e ", " --event =\fIEVENT
-Specifies the second event to be sent, this may be used instead of
-.BR -h / --shutdown ,
-.BR -H / --halt ,
-.BR -P / --poweroff
-or
-.BR -r / --reboot .
-.\"
-.TP
 .BR -c ", " --cancel
 Cancels a running shutdown.
+.I TIME
+is not specified with this option, the first argument is
+.I MESSAGE.
 .\"
 .TP
 .BR -k ", " --warn-only
 Only send out the warning messages and disable logins, do not actually
 bring the system down.
+.\"
+.SH NOTES
+This tool is provided for compatibility with the traditional System V
+.BR init (8).
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.
