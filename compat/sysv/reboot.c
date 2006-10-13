@@ -137,15 +137,15 @@ static int exit_only = FALSE;
  * Command-line options accepted.
  **/
 static NihOption options[] = {
-	{ 'n', "no-sync", N_("don't sync before reboot or halt"),
+	{ 'n', NULL, N_("don't sync before reboot or halt"),
 	  NULL, NULL, &no_sync, NULL },
-	{ 'f', "force", N_("force reboot or halt, don't call shutdown(8)"),
+	{ 'f', NULL, N_("force reboot or halt, don't call shutdown(8)"),
 	  NULL, NULL, &force, NULL },
-	{ 'p', "poweroff", N_("switch off the power when called as halt"),
+	{ 'p', NULL, N_("switch off the power when called as halt"),
 	  NULL, NULL, &poweroff, NULL },
-	{ 'h', "hard-disk-standby", N_("put hard disks into standby"),
+	{ 'h', NULL, N_("put hard disks into standby"),
 	  NULL, NULL, &disk_standby, NULL },
-	{ 'i', "interface-down", N_("bring down network interfaces"),
+	{ 'i', NULL, N_("bring down network interfaces"),
 	  NULL, NULL, &interface_down, NULL },
 
 	/* Compatibility option, just causes us to exit */
@@ -168,16 +168,30 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	nih_option_set_synopsis (_("reboot the system"));
-
 	mode = REBOOT;
 	if (! strcmp (program_name, "halt")) {
 		mode = HALT;
-		nih_option_set_synopsis (_("halt the system"));
+		nih_option_set_synopsis (_("Halt the system."));
 	} else if (! strcmp (program_name, "poweroff")) {
 		mode = POWEROFF;
-		nih_option_set_synopsis (_("power off the system"));
+		nih_option_set_synopsis (_("Power off the system."));
+	} else {
+		mode = REBOOT;
+		nih_option_set_synopsis (_("Reboot the system."));
 	}
+
+	nih_option_set_help (
+		_("This command is intended to actually instruct the kernel "
+		  "to reboot or halt the system; when run without the -f "
+		  "option it will actually execute /sbin/shutdown.\n"
+		  "\n"
+		  "Before the system is rebooted or halted, the disks are "
+		  "sync'd; this can be avoided by giving -n.\n"
+		  "\n"
+		  "Network interfaces can be brought down by giving the -i "
+		  "option, and IDE disks can be put into standby by giving "
+		  "the -h option.  On Linux, these are almost never necessary "
+		  "as the kernel shuts down all devices anyway."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)

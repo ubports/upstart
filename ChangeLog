@@ -1,5 +1,9 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/reboot.c: Remove long options where they didn't exist
+	before.  Write help text.
+	* compat/sysv/man/reboot.8: Update.
+
 	* init/main.c (main): Formatting.
 	* logd/main.c (main): Formatting.
 	* logd/man/logd.8: Formatting.
