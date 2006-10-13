@@ -1,5 +1,7 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (start_action, emit_action): Add missing \n
+
 	* util/initctl.c: Rewrite using nih_command_parser.
 	* util/man/initctl.8: Improve.
 

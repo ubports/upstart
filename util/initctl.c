@@ -77,7 +77,7 @@ start_action (NihCommand   *command,
 	nih_assert (args != NULL);
 
 	if (! args[0]) {
-		fprintf (stderr, _("%s: missing job name"), program_name);
+		fprintf (stderr, _("%s: missing job name\n"), program_name);
 		nih_main_suggest_help ();
 		exit (1);
 	}
@@ -252,7 +252,7 @@ emit_action (NihCommand   *command,
 	nih_assert (args != NULL);
 
 	if (! args[0]) {
-		fprintf (stderr, _("%s: missing event name"), program_name);
+		fprintf (stderr, _("%s: missing event name\n"), program_name);
 		nih_main_suggest_help ();
 		exit (1);
 	}
