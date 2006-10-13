@@ -44,9 +44,9 @@ upstart/libupstart.la
 upstart/test_*
 init/init
 init/test_*
-initctl/initctl
-initctl/start
-initctl/test_*
+util/initctl
+util/start
+util/test_*
 compat/sysv/reboot
 compat/sysv/runlevel
 compat/sysv/shutdown

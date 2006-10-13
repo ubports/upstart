@@ -1,5 +1,12 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* initctl: Rename to util again, I don't want a separate directory
+	for every single little tool; and we'll be shipping more than just
+	initctl (e.g. a non-compat reboot).
+	* configure.ac (AC_CONFIG_FILES): Make util/Makefile instead of
+	initctl/Makefile.
+	* Makefile.am (SUBDIRS): Descend into util, not initctl.
+
 	* compat/sysv/reboot.c: Remove long options where they didn't exist
 	before.  Write help text.
 	* compat/sysv/man/reboot.8: Update.

@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = m4 po intl nih upstart init initctl compat/sysv logd doc
+SUBDIRS = m4 po intl nih upstart init util compat/sysv logd doc
 
 EXTRA_DIST = HACKING
 
