@@ -111,7 +111,7 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	nih_option_set_synopsis (_("Process management daemon"));
+	nih_option_set_synopsis (_("Process management daemon."));
 	nih_option_set_help (_("This daemon is normally executed by the "
 			       "kernel and given process id 1 to denote its "
 			       "special status.  When executed by a user "

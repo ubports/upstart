@@ -1,5 +1,10 @@
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (AC_INIT): Change bug reporting address to the
+	mailing list, since Launchpad doesn't accept random bugs without
+	accounts and complicated control messages.
+	* init/main.c, logd/main.c: Add a period to the synopsis.
+
 	* init/main.c (main): Set the synopsis, and direct people to look
 	at telinit in the --help output.
 	* init/man/init.8: Flesh this out a little more, still a lot of
