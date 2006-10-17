@@ -1,5 +1,8 @@
 2006-10-17  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/Makefile.am (event.d/logd): Make the event.d sub-directory
+	in case we're building outside of the source tree.
+
 	* compat/sysv/runlevel.c (store): Don't break strict-aliasing rules
 	by avoiding dereferencing type-punned pointer.  Answers on a
 	postcard, please.

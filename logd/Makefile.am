@@ -37,6 +37,7 @@ check_PROGRAMS = $(TESTS)
 
 
 event.d/logd: event.d/logd.in
+	$(mkdir_p) event.d
 	$(do_subst) < $< > $@
 
 
