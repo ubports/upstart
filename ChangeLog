@@ -1,5 +1,7 @@
 2006-10-17  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (AM_GNU_GETTEXT_VERSION): Quote version number.
+
 	* logd/Makefile.am (event.d/logd): Make the event.d sub-directory
 	in case we're building outside of the source tree.
 
