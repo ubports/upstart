@@ -1,4 +1,23 @@
-0.3.0
+0.3.0  2006-10-17
+
+	* Reverted logd behaviour from previous version, it's up to the
+	  init scripts to send messages to the console if they wish.
+
+	* Compatibility programs must now be explicitly enabled by using
+	  ./configure --enable-compat=sysv
+
+	* "shutdown" and "reboot" are now considered System V compatibility
+	  programs, as they emulate the behaviour of those.  Dropped some
+	  added options to make them fit.
+
+	* All programs given improved --help text.
+
+	* "initctl" rewritten, any sub-command can be run directly by
+	  making it a symlink to "initctl" itself.
+
+	* "start", "stop" and "status" are now just symlinks to "initctl";
+	  not a separate binary.
+
 0.2.7  2006-09-20
 
 	* logd writes received messages to the console unless "quiet" is

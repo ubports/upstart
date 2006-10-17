@@ -2,10 +2,8 @@ High Priority:
 
  * replace logd raise/wait/kill interlock with a pipe-based one?
 
- * logd should output to console when "quiet" _not_ on the command-line
-
- * logd should capture syslog/klog stuff?  (or just go away and get
-   replaced by a different daemon eventually)
+ * replace logd with something else that's more standard in the system,
+   and just use a normal API to communicate with it.
 
 
  * Configuration files can be deleted, need to do something with the
@@ -113,7 +111,9 @@ Musings and Feedback:
 
  * Maybe also generate a job event on itself
 
- * Then respawn could go away entirely!  "start on failed"
+ * Then respawn could go away entirely!  "start on failed"  (Though this
+   loses the distinction between the goal and the status, how would we
+   know the failure wasn't caused by the process being killed?)
 
  * respawn too fast needs to be done on stop/start anyway
 

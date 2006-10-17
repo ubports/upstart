@@ -1,5 +1,8 @@
 2006-10-17  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+	* TODO: Update.
+
 	* configure.ac (AM_GNU_GETTEXT_VERSION): Quote version number.
 
 	* logd/Makefile.am (event.d/logd): Make the event.d sub-directory
