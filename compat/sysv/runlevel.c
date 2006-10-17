@@ -174,6 +174,7 @@ store (short       type,
 {
 	struct utmp    utmp;
 	struct utsname uts;
+	struct timeval tv;
 
 	nih_assert (user != NULL);
 	nih_assert (strlen (user) > 0);
@@ -189,7 +190,10 @@ store (short       type,
 	if (uname (&uts) == 0)
 		strncpy (utmp.ut_host, uts.release, sizeof (utmp.ut_host));
 
-	gettimeofday ((struct timeval *)&utmp.ut_tv, NULL);
+	/* Not really struct timeval when on 64-bit */
+	gettimeofday (&tv, NULL);
+	utmp.ut_tv.tv_sec = tv.tv_sec;
+	utmp.ut_tv.tv_usec = tv.tv_usec;
 
 	/* Write utmp entry */
 	setutent ();

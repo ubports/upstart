@@ -1,3 +1,9 @@
+2006-10-17  Scott James Remnant  <scott@netsplit.com>
+
+	* compat/sysv/runlevel.c (store): Don't break strict-aliasing rules
+	by avoiding dereferencing type-punned pointer.  Answers on a
+	postcard, please.
+
 2006-10-13  Scott James Remnant  <scott@netsplit.com>
 
 	* util/initctl.c (start_action, emit_action): Add missing \n
