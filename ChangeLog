@@ -1,3 +1,9 @@
+2006-10-18  Sean E. Russell  <ser@ser1.net>
+
+	* init/main.c: Include sys/time.h
+	* init/cfgfile.c: Include sys/time.h and sys/resource.h
+	* init/job.c: Include sys/time.h and sys/resource.h
+
 2006-10-17  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.3.1

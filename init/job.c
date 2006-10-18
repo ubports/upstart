@@ -25,6 +25,9 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
