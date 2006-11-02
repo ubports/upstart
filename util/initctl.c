@@ -95,11 +95,9 @@ start_action (NihCommand   *command,
 		} else if (! strcmp (command->command, "stop")) {
 			msg.type = UPSTART_JOB_STOP;
 			msg.job_stop.name = *arg;
-			break;
 		} else if (! strcmp (command->command, "status")) {
 			msg.type = UPSTART_JOB_QUERY;
 			msg.job_stop.name = *arg;
-			break;
 		}
 
 		/* Send the message */

@@ -1,3 +1,8 @@
+2006-11-02  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c (start_action): Remove break calls which shouldn't
+	be there.
+
 2006-10-18  Sean E. Russell  <ser@ser1.net>
 
 	* init/main.c: Include sys/time.h
