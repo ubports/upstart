@@ -1,5 +1,7 @@
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c (open_logging): Likewise.
+
 	* init/control.c (control_open): No need to set ENOMEM, errno is
 	always set anyway.
 

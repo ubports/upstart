@@ -209,7 +209,6 @@ open_logging (void)
 	watch = nih_io_add_watch (NULL, sock, NIH_IO_READ,
 				  logging_watcher, NULL);
 	if (! watch) {
-		errno = ENOMEM;
 		nih_error_raise_system ();
 		close (sock);
 		return NULL;
