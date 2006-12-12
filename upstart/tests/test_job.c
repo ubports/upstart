@@ -20,354 +20,249 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
-
-#include <stdio.h>
-#include <string.h>
+#include <nih/test.h>
 
 #include <upstart/job.h>
 
 
-int
+void
 test_goal_name (void)
 {
 	const char *name;
-	int         ret = 0;
 
-	printf ("Testing job_goal_name()\n");
+	TEST_FUNCTION ("job_goal_name");
 
-	printf ("...with stop goal\n");
+	/* Check that the JOB_STOP goal returns the right string. */
+	TEST_FEATURE ("with stop goal");
 	name = job_goal_name (JOB_STOP);
 
-	/* String should be stop */
-	if (strcmp (name, "stop")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "stop");
 
 
-	printf ("...with start goal\n");
+	/* Check that the JOB_START goal returns the right string. */
+	TEST_FEATURE ("with start goal");
 	name = job_goal_name (JOB_START);
 
-	/* String should be start */
-	if (strcmp (name, "start")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "start");
 
 
-	printf ("...with invalid goal\n");
+	/* Check that an invalid goal returns NULL. */
+	TEST_FEATURE ("with invalid goal");
 	name = job_goal_name (1234);
 
-	/* NULL should be returned */
-	if (name != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ_P (name, NULL);
 }
 
-int
+void
 test_goal_from_name (void)
 {
 	JobGoal goal;
-	int     ret = 0;
 
-	printf ("Testing job_goal_from_name()\n");
+	TEST_FUNCTION ("job_goal_from_name");
 
-	printf ("...with stop goal\n");
+	/* Check that the JOB_STOP goal is returned for the right string. */
+	TEST_FEATURE ("with stop goal");
 	goal = job_goal_from_name ("stop");
 
-	/* JOB_STOP should be returned */
-	if (goal != JOB_STOP) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (goal, JOB_STOP);
 
 
-	printf ("...with start goal\n");
+	/* Check that the JOB_START goal is returned for the right string. */
+	TEST_FEATURE ("with start goal");
 	goal = job_goal_from_name ("start");
 
-	/* JOB_START should be returned */
-	if (goal != JOB_START) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (goal, JOB_START);
 
 
-	printf ("...with invalid goal\n");
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid goal");
 	goal = job_goal_from_name ("wibble");
 
-	/* -1 should be returned */
-	if (goal != -1) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ (goal, -1);
 }
 
 
-int
+void
 test_state_name (void)
 {
 	const char *name;
-	int         ret = 0;
 
-	printf ("Testing job_state_name()\n");
+	TEST_FUNCTION ("job_state_name");
 
-	printf ("...with waiting state\n");
+	/* Check that the JOB_WAITING state returns the right string. */
+	TEST_FEATURE ("with waiting state");
 	name = job_state_name (JOB_WAITING);
 
-	/* String should be waiting */
-	if (strcmp (name, "waiting")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "waiting");
 
 
-	printf ("...with starting state\n");
+	/* Check that the JOB_STARTING state returns the right string. */
+	TEST_FEATURE ("with starting state");
 	name = job_state_name (JOB_STARTING);
 
-	/* String should be starting */
-	if (strcmp (name, "starting")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "starting");
 
 
-	printf ("...with running state\n");
+	/* Check that the JOB_RUNNING state returns the right string. */
+	TEST_FEATURE ("with running state");
 	name = job_state_name (JOB_RUNNING);
 
-	/* String should be running */
-	if (strcmp (name, "running")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "running");
 
 
-	printf ("...with stopping state\n");
+	/* Check that the JOB_STOPPING state returns the right string. */
+	TEST_FEATURE ("with stopping state");
 	name = job_state_name (JOB_STOPPING);
 
-	/* String should be stopping */
-	if (strcmp (name, "stopping")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "stopping");
 
 
-	printf ("...with respawning state\n");
+	/* Check that the JOB_RESPAWNING state returns the right string. */
+	TEST_FEATURE ("with respawning state");
 	name = job_state_name (JOB_RESPAWNING);
 
-	/* String should be respawning */
-	if (strcmp (name, "respawning")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "respawning");
 
 
-	printf ("...with invalid state\n");
+	/* Check that an invalid state returns NULL. */
+	TEST_FEATURE ("with invalid state");
 	name = job_state_name (1234);
 
-	/* NULL should be returned */
-	if (name != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ_P (name, NULL);
 }
 
-int
+void
 test_state_from_name (void)
 {
 	JobState state;
-	int      ret = 0;
 
-	printf ("Testing job_state_from_name()\n");
+	TEST_FUNCTION ("job_state_from_name");
 
-	printf ("...with waiting state\n");
+	/* Check that JOB_WAITING is returned for the right string. */
+	TEST_FEATURE ("with waiting state");
 	state = job_state_from_name ("waiting");
 
-	/* JOB_WAITING should be returned */
-	if (state != JOB_WAITING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, JOB_WAITING);
 
 
-	printf ("...with starting state\n");
+	/* Check that JOB_STARTING is returned for the right string. */
+	TEST_FEATURE ("with starting state");
 	state = job_state_from_name ("starting");
 
-	/* JOB_STARTING should be returned */
-	if (state != JOB_STARTING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, JOB_STARTING);
 
 
-	printf ("...with running state\n");
+	/* Check that JOB_RUNNING is returned for the right string. */
+	TEST_FEATURE ("with running state");
 	state = job_state_from_name ("running");
 
-	/* JOB_RUNNING should be returned */
-	if (state != JOB_RUNNING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, JOB_RUNNING);
 
 
-	printf ("...with stopping state\n");
+	/* Check that JOB_STOPPING is returned for the right string. */
+	TEST_FEATURE ("with stopping state");
 	state = job_state_from_name ("stopping");
 
-	/* JOB_STOPPING should be returned */
-	if (state != JOB_STOPPING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, JOB_STOPPING);
 
 
-	printf ("...with respawning state\n");
+	/* Check that JOB_RESPAWNING is returned for the right string. */
+	TEST_FEATURE ("with respawning state");
 	state = job_state_from_name ("respawning");
 
-	/* JOB_RESPAWNING should be returned */
-	if (state != JOB_RESPAWNING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, JOB_RESPAWNING);
 
 
-	printf ("...with invalid state\n");
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid state");
 	state = job_state_from_name ("wibble");
 
-	/* -1 should be returned */
-	if (state != -1) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ (state, -1);
 }
 
 
-int
+void
 test_process_state_name (void)
 {
 	const char *name;
-	int         ret = 0;
 
-	printf ("Testing process_state_name()\n");
+	TEST_FUNCTION ("process_state_name");
 
-	printf ("...with none state\n");
+	/* Check that the PROCESS_NONE state returns the right string. */
+	TEST_FEATURE ("with none state");
 	name = process_state_name (PROCESS_NONE);
 
-	/* String should be none */
-	if (strcmp (name, "none")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "none");
 
 
-	printf ("...with spawned state\n");
+	/* Check that the PROCESS_SPAWNED state returns the right string. */
+	TEST_FEATURE ("with spawned state");
 	name = process_state_name (PROCESS_SPAWNED);
 
-	/* String should be spawned */
-	if (strcmp (name, "spawned")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "spawned");
 
 
-	printf ("...with active state\n");
+	/* Check that the PROCESS_ACTIVE state returns the right string. */
+	TEST_FEATURE ("with active state");
 	name = process_state_name (PROCESS_ACTIVE);
 
-	/* String should be active */
-	if (strcmp (name, "active")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "active");
 
 
-	printf ("...with killed state\n");
+	/* Check that the PROCESS_KILLED state returns the right string. */
+	TEST_FEATURE ("with killed state");
 	name = process_state_name (PROCESS_KILLED);
 
-	/* String should be killed */
-	if (strcmp (name, "killed")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (name, "killed");
 
 
-	printf ("...with invalid state\n");
-	name = job_state_name (1234);
+	/* Check that an invalid state returns NULL. */
+	TEST_FEATURE ("with invalid state");
+	name = process_state_name (1234);
 
-	/* NULL should be returned */
-	if (name != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ_P (name, NULL);
 }
 
-int
+void
 test_process_state_from_name (void)
 {
 	ProcessState state;
-	int          ret = 0;
 
-	printf ("Testing process_state_from_name()\n");
+	TEST_FUNCTION ("process_state_from_name");
 
-	printf ("...with none state\n");
+	/* Check that PROCESS_NONE is returned for the right string. */
+	TEST_FEATURE ("with none state");
 	state = process_state_from_name ("none");
 
-	/* PROCESS_NONE should be returned */
-	if (state != PROCESS_NONE) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, PROCESS_NONE);
 
 
-	printf ("...with spawned state\n");
+	/* Check that PROCESS_SPAWNED is returned for the right string. */
+	TEST_FEATURE ("with spawned state");
 	state = process_state_from_name ("spawned");
 
-	/* PROCESS_SPAWNED should be returned */
-	if (state != PROCESS_SPAWNED) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, PROCESS_SPAWNED);
 
 
-	printf ("...with active state\n");
+	/* Check that PROCESS_ACTIVE is returned for the right string. */
+	TEST_FEATURE ("with active state");
 	state = process_state_from_name ("active");
 
-	/* PROCESS_ACTIVE should be returned */
-	if (state != PROCESS_ACTIVE) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, PROCESS_ACTIVE);
 
 
-	printf ("...with killed state\n");
+	/* Check that PROCESS_KILLED is returned for the right string. */
+	TEST_FEATURE ("with killed state");
 	state = process_state_from_name ("killed");
 
-	/* PROCESS_KILLED should be returned */
-	if (state != PROCESS_KILLED) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (state, PROCESS_KILLED);
 
 
-	printf ("...with invalid state\n");
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid state");
 	state = process_state_from_name ("wibble");
 
-	/* -1 should be returned */
-	if (state != -1) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ (state, -1);
 }
 
 
@@ -375,14 +270,12 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_goal_name ();
+	test_goal_from_name ();
+	test_state_name ();
+	test_state_from_name ();
+	test_process_state_name ();
+	test_process_state_from_name ();
 
-	ret |= test_goal_name ();
-	ret |= test_goal_from_name ();
-	ret |= test_state_name ();
-	ret |= test_state_from_name ();
-	ret |= test_process_state_name ();
-	ret |= test_process_state_from_name ();
-
-	return ret;
+	return 0;
 }
