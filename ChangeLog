@@ -1,5 +1,8 @@
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_open): No need to set ENOMEM, errno is
+	always set anyway.
+
 	* configure.ac (AM_INIT_AUTOMAKE): Include nostdinc so we don't get
 	Automake's broken default includes.
 	* upstart/Makefile.am (DEFAULT_INCLUDES): Drop override now that

@@ -131,7 +131,6 @@ control_open (void)
 	io_watch = nih_io_add_watch (NULL, sock, events,
 				     control_watcher, NULL);
 	if (! io_watch) {
-		errno = ENOMEM;
 		nih_error_raise_system ();
 		close (sock);
 		return NULL;
