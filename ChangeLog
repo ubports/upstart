@@ -1,5 +1,9 @@
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/Makefile.am, util/Makefile.am, compat/sys/Makefile.am
+	(AM_CPPFLAGS): Add -I$(srcdir), necessary for testing "programs"
+	that don't have usual library path semantics.
+
 	* upstart/tests/test_control.c: Port to the new test framework.
 	* upstart/control.c (upstart_free): Drop this function, while not
 	exposing libnih is a valiant effort, it already slips out because
