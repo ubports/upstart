@@ -1,5 +1,7 @@
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_cfgfile.c: Port to the new test framework.
+
 	* init/tests/test_control.c: Port to the new test framework.
 	* init/init.supp: Suppress the list head allocated within control_init.
 
