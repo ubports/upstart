@@ -6,7 +6,7 @@ branch.
 
 Releases are available from:
 
-	http://people.ubuntu.com/~scott/software/upstart/
+	http://upstart.ubuntu.com/download/
 
 upstart uses the Malone bug tracking system:
 
@@ -121,3 +121,12 @@ follows:
 	 **/
 
 Structures should detail their members instead of function parameters.
+
+Where possible, all code should be covered by test cases checking the
+behaviour of that code.  It's particularly important that any bug
+fixes be accompanied by a test case which fails without the fix and
+succeeds with it.
+
+Tests should be placed in C files under the tests/ directory, and use
+the macros defined in the nih/test.h header.  See the existing test
+examples to see how.
