@@ -371,11 +371,15 @@ static void control_watcher (void        *data,
 					nih_free (err);
 					continue;
 				} else if (err->number == ECONNREFUSED) {
+					pid_t pid;
+
+					pid = msg->pid;
+
 					nih_free (err);
 					nih_list_free (&msg->entry);
 
 					control_subscribe
-						(msg->pid,
+						(pid,
 						 NOTIFY_JOBS | NOTIFY_EVENTS,
 						 FALSE);
 
