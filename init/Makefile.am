@@ -1,11 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
-
-localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\"" -DCFG_DIR="\"$(sysconfdir)/event.d\"" \
-	-DTELINIT="\"$(sbindir)/telinit\""
-INCLUDES = -I$(top_srcdir)/intl
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-DCFG_DIR="\"$(sysconfdir)/event.d\"" \
+	-DTELINIT="\"$(sbindir)/telinit\"" \
+	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
+	-I$(top_srcdir)/intl
 
 
 dist_man_MANS = \

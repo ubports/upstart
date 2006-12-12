@@ -1,10 +1,10 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
-
-localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\"" -DSHUTDOWN="\"$(sbindir)/shutdown\""
-INCLUDES = -I$(top_srcdir)/intl
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-DSHUTDOWN="\"$(sbindir)/shutdown\"" \
+	-I$(top_builddir) -I$(top_srcdir) \
+	-I$(top_srcdir)/intl
 
 
 manpages = \
