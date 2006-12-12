@@ -29,6 +29,9 @@ init_LDADD = \
 	../upstart/libupstart.la
 
 
+EXTRA_DIST = init.supp
+
+
 TESTS = \
 	test_process \
 	test_job \

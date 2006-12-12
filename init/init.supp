@@ -1,0 +1,18 @@
+# This is a valgrind suppressions file.
+
+# As in libnih, we often use a heap-allocated list head to link all of
+# the allocated structures such as the event queue or job list.  They
+# are allocated the first time that we need them with the static *_init
+# functions; valgrind complains because they are not freed before exit,
+# as there's little point doing so.
+
+{
+   event-init
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:nih_alloc_using
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:event_init
+}

@@ -1,5 +1,8 @@
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: Include a valgrind suppressions file.
+	* init/Makefile.am (EXTRA_DIST): Distribute the suppressions file.
+
 	* init/tests/test_event.c: Port to the new test framework.
 
 	* logd/Makefile.am, util/Makefile.am, compat/sys/Makefile.am
