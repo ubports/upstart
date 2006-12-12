@@ -430,8 +430,7 @@ invalid:
  *
  * Receives a single message from @sock, which should have been opened with
  * upstart_open().  Memory is allocated for the message structure and it
- * is returned, clients should use nih_free() or upstart_free() to free
- * the message.
+ * is returned, clients should use nih_free() to free the message.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -627,16 +626,3 @@ invalid:
 			  _(UPSTART_INVALID_MESSAGE_STR));
 }
 
-
-/**
- * upstart_free:
- * @message: message to be freed.
- *
- * Freeds the memory used by @message, this must be used instead of the
- * ordinary free function.
- **/
-void
-upstart_free (UpstartMsg *message)
-{
-	nih_free (message);
-}
