@@ -22,6 +22,8 @@
 
 #include <nih/test.h>
 
+#include <nih/macros.h>
+
 #include <upstart/job.h>
 
 

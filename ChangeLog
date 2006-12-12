@@ -1,5 +1,7 @@
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_job.c: Add missing include.
+
 	* upstart/tests/test_job.c: Port to the new test framework.
 	(test_process_state_name): Check that this returns NULL.
 
