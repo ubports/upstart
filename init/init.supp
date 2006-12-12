@@ -16,3 +16,14 @@
    fun:nih_list_new
    fun:event_init
 }
+
+{
+   job-init
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:nih_alloc_using
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:job_init
+}
