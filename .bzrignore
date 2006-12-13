@@ -5,6 +5,7 @@
 .deps
 .libs
 core
+ChangeLog.nih
 Makefile
 Makefile.in
 Makefile.in.in
