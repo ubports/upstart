@@ -14,6 +14,17 @@ five minutes of
 .IR TIME ,
 new logins are prevented.
 
+.I TIME
+may have different formats, the most common is simply the word
+.RI ' now '
+which will bring the system down immediately.  Other valid formats are
+.IR +m ,
+where
+.I m
+is the number of minutes to wait until shutting down and
+.I hh:mm
+which specifies the time on the 24hr clock.
+
 Once
 .I TIME
 has elapsed,

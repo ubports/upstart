@@ -1,3 +1,8 @@
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* compat/sysv/man/shutdown.8: Add missing documentation on the
+	format of TIME by copying it from --help output.
+
 2006-12-13  Alex Smith  <alex@alex-smith.me.uk>
 
 	* init/process.c (process_setup_console): Actually send output to
