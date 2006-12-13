@@ -38,9 +38,11 @@
 
 NIH_BEGIN_EXTERN
 
-Job *cfg_read_job  (void *parent, const char *filename, const char *jobname);
+Job *cfg_read_job  (const void *parent, const char *filename,
+		    const char *jobname);
 
-int  cfg_watch_dir (void *parent, const char *dirname, const char *prefix);
+int  cfg_watch_dir (const void *parent, const char *dirname,
+		    const char *prefix);
 
 NIH_END_EXTERN
 

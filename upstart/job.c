@@ -40,7 +40,7 @@
  * Converts an enumerated job goal into the string used for the status
  * and for logging purposes.
  *
- * Returns: static string or %NULL if state not known.
+ * Returns: static string or NULL if state not known.
  **/
 const char *
 job_goal_name (JobGoal goal)
@@ -85,7 +85,7 @@ job_goal_from_name (const char *goal)
  * Converts an enumerated job state into the string used for the status
  * and for logging purposes.
  *
- * Returns: static string or %NULL if state not known.
+ * Returns: static string or NULL if state not known.
  **/
 const char *
 job_state_name (JobState state)
@@ -142,7 +142,7 @@ job_state_from_name (const char *state)
  * Converts an enumerated process state into the string used for the status
  * and for logging purposes.
  *
- * Returns: static string or %NULL if state not known.
+ * Returns: static string or NULL if state not known.
  **/
 const char *
 process_state_name (ProcessState state)

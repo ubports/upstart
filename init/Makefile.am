@@ -1,11 +1,15 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-DCFG_DIR="\"$(sysconfdir)/event.d\"" \
+	-DTELINIT="\"$(sbindir)/telinit\"" \
+	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
+	-I$(top_srcdir)/intl
 
-localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\"" -DCFG_DIR="\"$(sysconfdir)/event.d\"" \
-	-DTELINIT="\"$(sbindir)/telinit\""
-INCLUDES = -I$(top_srcdir)/intl
+
+dist_man_MANS = \
+	man/init.8
 
 
 sbin_PROGRAMS = init
@@ -23,6 +27,9 @@ init_LDFLAGS = -static
 init_LDADD = \
 	../nih/libnih.la \
 	../upstart/libupstart.la
+
+
+EXTRA_DIST = init.supp
 
 
 TESTS = \

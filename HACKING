@@ -6,7 +6,7 @@ branch.
 
 Releases are available from:
 
-	http://people.ubuntu.com/~scott/software/upstart/
+	http://upstart.ubuntu.com/download/
 
 upstart uses the Malone bug tracking system:
 
@@ -44,10 +44,10 @@ The source tree for upstart uses the GNU Build System (sometimes known
 as the GNU Autotools).  You will need the following versions
 installed.
 
-	* GNU Autoconf 2.59
+	* GNU Autoconf 2.60
 	* GNU Automake 1.9
 	* GNU Libtool 1.5.22
-	* GNU Gettext 0.14.5
+	* GNU Gettext 0.15
 
 After checking out upstart from Bazaar-NG you will need to use these
 tools to generate the build files.  The correct way to do this is to
@@ -98,3 +98,35 @@ The right results can be almost acheived by doing the following.
 	* Indent: can be used to reformat code in a different style:
 
 	indent -kr -i8 -psl
+
+All functions, typedefs, structures and file-level variables, whether
+exported or not, must be preceeded by a documentation comment
+detailing their usage and behaviour.  The format of that command is as
+follows:
+
+	/**
+	 * function_name:
+	 * @foo: first parameter description,
+	 * @bar: second parameter description,
+	 * @baz: third parameter description.
+	 *
+	 * Describe the function here, when you reference parameters
+	 * use the form above, e.g. give @foo or @bar.
+	 *
+	 * Other functions should be referenced by function-call
+	 * syntax, e.g. call other_function() afterwards.
+	 *
+	 * Returns: if there is a return value, include this line and
+	 * give the possible values returned.
+	 **/
+
+Structures should detail their members instead of function parameters.
+
+Where possible, all code should be covered by test cases checking the
+behaviour of that code.  It's particularly important that any bug
+fixes be accompanied by a test case which fails without the fix and
+succeeds with it.
+
+Tests should be placed in C files under the tests/ directory, and use
+the macros defined in the nih/test.h header.  See the existing test
+examples to see how.

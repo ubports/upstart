@@ -1,4 +1,4 @@
-.TH init 8 "September 2006" "Upstart"
+.TH init 8 "October 2006" "Upstart"
 .\"
 .SH NAME
 telinit \- change runlevel
@@ -29,7 +29,11 @@ stopping processes first, you probably won't want that.
 .\"
 .SH NOTES
 This tool is provided for compatibility with the traditional System V
-.BR init (8) .
+.BR init (8).
+Upstart has no notion of runlevels itself, this and the
+.BR runlevel (8)
+tool are provided to emulate their behaviour.
+
 When invoked it generates a
 .I runlevel-X
 event, where

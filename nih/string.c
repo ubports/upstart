@@ -24,10 +24,13 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <sys/ioctl.h>
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -41,19 +44,19 @@
  * @parent: parent block of allocation,
  * @format: format string.
  *
- * Writes a new string according to @format as %sprintf, except that the
- * string is allocated using #nih_alloc.
+ * Writes a new string according to @format as sprintf(), except that the
+ * string is allocated using nih_alloc().
  *
- * If @parent is not %NULL, it should be a pointer to another allocated
+ * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned string will be freed too.  If you have clean-up
  * that would need to be run, you can assign a destructor function using
- * the #nih_alloc_set_destructor function.
+ * the nih_alloc_set_destructor() function.
  *
- * Returns: newly allocated string or %NULL.
+ * Returns: newly allocated string or NULL.
  **/
 char *
-nih_sprintf (void       *parent,
+nih_sprintf (const void *parent,
 	     const char *format,
 	     ...)
 {
@@ -75,19 +78,19 @@ nih_sprintf (void       *parent,
  * @format: format string,
  * @args: arguments to format string.
  *
- * Writes a new string according to @format as %vsprintf, except that the
- * string is allocated using #nih_alloc.
+ * Writes a new string according to @format as vsprintf(), except that the
+ * string is allocated using nih_alloc().
  *
- * If @parent is not %NULL, it should be a pointer to another allocated
+ * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned string will be freed too.  If you have clean-up
  * that would need to be run, you can assign a destructor function using
- * the #nih_alloc_set_destructor function.
+ * the nih_alloc_set_destructor() function.
  *
- * Returns: newly allocated string or %NULL.
+ * Returns: newly allocated string or NULL.
  **/
 char *
-nih_vsprintf (void       *parent,
+nih_vsprintf (const void *parent,
 	      const char *format,
 	      va_list     args)
 {
@@ -119,16 +122,16 @@ nih_vsprintf (void       *parent,
  * Allocates enough memory to store a duplicate of @str and writes a
  * copy of the string to it.
  *
- * If @parent is not %NULL, it should be a pointer to another allocated
+ * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned block will be freed too.  If you have clean-up
  * that would need to be run, you can assign a destructor function using
- * the #nih_alloc_set_destructor function.
+ * the nih_alloc_set_destructor() function.
  *
- * Returns: duplicated string or %NULL if allocation fails.
+ * Returns: duplicated string or NULL if allocation fails.
  **/
 char *
-nih_strdup (void       *parent,
+nih_strdup (const void *parent,
 	    const char *str)
 {
 	size_t len;
@@ -149,16 +152,16 @@ nih_strdup (void       *parent,
  * is shorter, @len bytes.  A copy of the string is written to this
  * block with a NUL byte appended.
  *
- * If @parent is not %NULL, it should be a pointer to another allocated
+ * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned block will be freed too.  If you have clean-up
  * that would need to be run, you can assign a destructor function using
- * the #nih_alloc_set_destructor function.
+ * the nih_alloc_set_destructor() function.
  *
- * Returns: duplicated string or %NULL if allocation fails.
+ * Returns: duplicated string or NULL if allocation fails.
  **/
 char *
-nih_strndup (void       *parent,
+nih_strndup (const void *parent,
 	     const char *str,
 	     size_t      len)
 {
@@ -190,13 +193,19 @@ nih_strndup (void       *parent,
  *
  * The last element in the array is always NULL.
  *
- * The individual strings are allocated using #nih_alloc so you may just use
- * #nih_free on the returned array and must NOT use #nih_strv_free.
+ * The individual strings are allocated using nih_alloc() so you may just use
+ * nih_free() on the returned array and must NOT use nih_strv_free().
  *
- * Returns: allocated array or %NULL if allocation fails.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: allocated array or NULL if allocation fails.
  **/
 char **
-nih_str_split (void       *parent,
+nih_str_split (const void *parent,
 	       const char *str,
 	       const char *delim,
 	       int         repeat)
@@ -250,7 +259,7 @@ nih_str_split (void       *parent,
  * @strv: array of strings:
  *
  * Free the given array of strings which should NOT have been allocated
- * using #nih_alloc (as you could just free the parent array if you used
+ * using nih_alloc() (as you could just free the parent array if you used
  * that).
  *
  * The last member of the array should be NULL, and the array itself is
@@ -283,10 +292,16 @@ nih_strv_free (char **strv)
  * subsequent lines may be intended by an extra @indent characters.  These
  * are added to the string as whitespace characters.
  *
- * Returns: newly allocated string or %NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated string or NULL if insufficient memory.
  **/
 char *
-nih_str_wrap (void       *parent,
+nih_str_wrap (const void *parent,
 	      const char *str,
 	      size_t      len,
 	      size_t      first_indent,
@@ -379,4 +394,85 @@ nih_str_wrap (void       *parent,
 	}
 
 	return txt;
+}
+
+/**
+ * nih_str_screen_width:
+ *
+ * Checks the COLUMNS environment variable, standard output if it is a
+ * terminal or defaults to 80 characters.
+ *
+ * Returns: the width of the screen.
+ **/
+size_t
+nih_str_screen_width (void)
+{
+	char   *columns;
+	size_t  len = 0;
+
+	/* Look at the columns environment variable */
+	columns = getenv ("COLUMNS");
+	if ((! len) && columns) {
+		char *endptr;
+
+		len = strtoul (columns, &endptr, 10);
+		if (*endptr)
+			len = 0;
+	}
+
+	/* Check whether standard output is a tty */
+	if ((! len) && isatty (STDOUT_FILENO)) {
+		struct winsize winsize;
+
+		if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &winsize) == 0)
+			len = winsize.ws_col;
+	}
+
+	/* Fallback to 80 columns */
+	if (! len)
+		len = 80;
+
+	return len;
+}
+
+/**
+ * nih_str_screen_wrap:
+ * @parent: parent of returned string,
+ * @str: string to be wrapped,
+ * @first_indent: indent for first line,
+ * @indent: indent for subsequent lines.
+ *
+ * Returns a newly allocated copy of @str with newlines inserted so no
+ * line is wider than the screen (not including the newline).  Where
+ * possible, newlines replace existing whitespace characters so that words
+ * are not broken.
+ *
+ * If standard output is not a terminal, then 80 characters is assumed.
+ * The width can be overriden with the COLUMNS environment variable.
+ *
+ * The first line may be indented by an extra @first_indent characters, and
+ * subsequent lines may be intended by an extra @indent characters.  These
+ * are added to the string as whitespace characters.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated string or NULL if insufficient memory.
+ **/
+char *
+nih_str_screen_wrap (const void *parent,
+		     const char *str,
+		     size_t      first_indent,
+		     size_t      indent)
+{
+	size_t len;
+
+	nih_assert (str != NULL);
+
+	len = nih_str_screen_width () - 1;
+
+	return nih_str_wrap (parent, str, len, first_indent, indent);
 }

@@ -20,10 +20,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
-
-#include <stdio.h>
-#include <string.h>
+#include <nih/test.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -32,177 +29,119 @@
 #include "event.h"
 
 
-int
+void
 test_new (void)
 {
 	Event *event;
-	int    ret = 0;
 
-	printf ("Testing event_new()\n");
+	/* Check that we can create a new Event structure, and have the
+	 * details filled in and returned.  It should not be placed in
+	 * any kind of list.
+	 */
+	TEST_FUNCTION ("event_new");
 	event = event_new (NULL, "test");
 
-	/* Name should be that given */
-	if (strcmp (event->name, "test")) {
-		printf ("BAD: name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* List entry header should be empty */
-	if (! NIH_LIST_EMPTY (&event->entry)) {
-		printf ("BAD: entry was placed in a list.\n");
-		ret = 1;
-	}
-
-	/* Should have been allocated with nih_alloc */
-	if (nih_alloc_size (event) != sizeof (Event)) {
-		printf ("BAD: nih_alloc was not used.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of object */
-	if (nih_alloc_parent (event->name) != event) {
-		printf ("BAD: nih_alloc parent of name wasn't object.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_LIST_EMPTY (&event->entry);
+	TEST_EQ_STR (event->name, "test");
+	TEST_ALLOC_PARENT (event->name, event);
 
 	nih_list_free (&event->entry);
-
-	return ret;
 }
 
-int
+void
 test_match (void)
 {
 	Event *event1, *event2;
-	int    ret = 0;
 
-	printf ("Testing event_match()\n");
+	TEST_FUNCTION ("event_match");
 
-	printf ("...with different name events\n");
+	/* Check that two events with different names do not match. */
+	TEST_FEATURE ("with different name events");
 	event1 = event_new (NULL, "foo");
 	event2 = event_new (NULL, "bar");
 
-	/* Should not match */
-	if (event_match (event1, event2)) {
-		printf ("BAD: events matched unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_FALSE (event_match (event1, event2));
 
 
-	printf ("...with same name events\n");
+	/* Check that two events with the same names match. */
+	TEST_FEATURE ("with same name events");
 	nih_free (event2);
 	event2 = event_new (NULL, "foo");
 
-	/* Should match */
-	if (! event_match (event1, event2)) {
-		printf ("BAD: events did not match.\n");
-		ret = 1;
-	}
+	TEST_TRUE (event_match (event1, event2));
 
 
 	nih_free (event2);
 	nih_free (event1);
-
-	return ret;
 }
 
-int
+void
 test_queue (void)
 {
 	Event *event;
-	int    ret = 0;
 
-	printf ("Testing event_queue()\n");
+	/* Check that an event can be queued, the structure returned should
+	 * be allocated with nih_alloc and placed in a list.
+	 */
+	TEST_FUNCTION ("event_queue");
 	event = event_queue ("test");
 
-	/* Name should be set */
-	if (strcmp (event->name, "test")) {
-		printf ("BAD: queued name wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_LIST_NOT_EMPTY (&event->entry);
+	TEST_EQ_STR (event->name, "test");
+	TEST_ALLOC_PARENT (event->name, event);
 
 	nih_list_free (&event->entry);
-
-	return ret;
 }
 
 
-int
+void
 test_read_state (void)
 {
 	Event *event;
 	char   buf[80];
-	int    ret = 0;
 
-	printf ("Testing event_read_state()\n");
+	/* Check that an event can be created from a text state that contains
+	 * the name, and queued automatically.
+	 */
+	TEST_FUNCTION ("event_read_state");
 	sprintf (buf, "Event bang");
 	event = event_read_state (NULL, buf);
 
-	/* An event should be returned */
-	if (event == NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be the name given */
-	if (strcmp (event->name, "bang")) {
-		printf ("BAD: name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be in the queue */
-	if (NIH_LIST_EMPTY (&event->entry)) {
-		printf ("BAD: wasn't placed in the event queue.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_LIST_NOT_EMPTY (&event->entry);
+	TEST_EQ_STR (event->name, "bang");
+	TEST_ALLOC_PARENT (event->name, event);
 
 	nih_list_free (&event->entry);
-
-	return ret;
 }
 
-int
+void
 test_write_state (void)
 {
 	FILE  *output;
 	Event *event1, *event2;
-	char   text[80];
-	int    ret = 0;
 
-	printf ("Testing event_write_state()\n");
+	/* Check that the state of the event queue can be written out to
+	 * a file descriptor.
+	 */
+	TEST_FUNCTION ("event_write_state");
 	event1 = event_queue ("frodo");
 	event2 = event_queue ("bilbo");
 
 	output = tmpfile ();
 	event_write_state (output);
-
 	rewind (output);
 
-	/* Check the output lines */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "Event frodo\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "Event bilbo\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&event1->entry);
-	nih_list_free (&event2->entry);
+	TEST_FILE_EQ (output, "Event frodo\n");
+	TEST_FILE_EQ (output, "Event bilbo\n");
+	TEST_FILE_END (output);
 
 	fclose (output);
 
-	return ret;
+	nih_list_free (&event1->entry);
+	nih_list_free (&event2->entry);
 }
 
 
@@ -210,13 +149,11 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_new ();
+	test_match ();
+	test_queue ();
+	test_read_state ();
+	test_write_state ();
 
-	ret |= test_new ();
-	ret |= test_match ();
-	ret |= test_queue ();
-	ret |= test_read_state ();
-	ret |= test_write_state ();
-
-	return ret;
+	return 0;
 }

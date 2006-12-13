@@ -20,20 +20,33 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
-#include <nih/alloc.h>
+#include <nih/list.h>
 #include <nih/timer.h>
+#include <nih/main.h>
 
 #include "cfgfile.h"
+
+
+/* Macro to aid us in testing the output which includes the program name
+ * and filename.
+ */
+#define TEST_ERROR_EQ(_text) \
+	do { \
+		char text[512]; \
+		sprintf (text, "%s:%s:%s", program_name, filename, (_text)); \
+		TEST_FILE_EQ (output, text); \
+	} while (0);
 
 
 static int was_called = 0;
@@ -52,24 +65,27 @@ my_timer (void *data, NihTimer *timer)
 	return;
 }
 
-int
+void
 test_read_job (void)
 {
 	Job  *job;
 	FILE *jf, *output;
-	char  dirname[25], filename[35], text[161];
-	int   ret = 0, i, oldstderr;
+	char  dirname[PATH_MAX], filename[PATH_MAX];
+	int   i;
 
-	printf ("Testing cfg_read_job()\n");
-	sprintf (dirname, "/tmp/test_cfgfile.%d", getpid ());
+	TEST_FUNCTION ("cfg_read_job");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (dirname);
 	sprintf (filename, "%s/foo", dirname);
 	mkdir (dirname, 0700);
 
-	output = tmpfile ();
-	oldstderr = dup (STDERR_FILENO);
 
-
-	printf ("...with simple job file\n");
+	/* Check that a simple job file can be parsed, with all of the
+	 * information given filled into the job structure.
+	 */
+	TEST_FEATURE ("with simple job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon -d\n");
 	fprintf (jf, "start script\n");
@@ -79,38 +95,22 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Command should be that passed to exec */
-	if (strcmp (job->command, "/sbin/daemon -d")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_EMPTY (&job->start_events);
+	TEST_LIST_EMPTY (&job->stop_events);
+	TEST_LIST_EMPTY (&job->depends);
 
-	/* Start script should be that passed to exec */
-	if (strcmp (job->start_script, "rm /var/lock/daemon\n")) {
-		printf ("BAD: start script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be allocated with nih_alloc */
-	if (nih_alloc_size (job) != sizeof (Job)) {
-		printf ("BAD: nih_alloc was not used.\n");
-		ret = 1;
-	}
-
-	/* Command should be nih_alloc child of job */
-	if (nih_alloc_parent (job->command) != job) {
-		printf ("BAD: command was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Start script should be nih_alloc child of job */
-	if (nih_alloc_parent (job->start_script) != job) {
-		printf ("BAD: start script was not nih_alloc child of job.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "/sbin/daemon -d");
+	TEST_ALLOC_PARENT (job->command, job);
+	TEST_EQ_STR (job->start_script, "rm /var/lock/daemon\n");
+	TEST_ALLOC_PARENT (job->start_script, job);
 
 
-	printf ("...with re-reading existing job file\n");
+	/* Check that we can give a new file for an existing job; this
+	 * frees the existing structure, while copying over critical
+	 * information from it to a new structure.
+	 */
+	TEST_FEATURE ("with re-reading existing job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon --daemon\n");
 	fclose (jf);
@@ -128,88 +128,38 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Old job should have been freed */
-	if (! was_called) {
-		printf ("BAD: original job was not freed.\n");
-		ret = 1;
-	}
+	TEST_TRUE (was_called);
 
-	/* Goal should have been copied */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal was not copied.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_EMPTY (&job->start_events);
+	TEST_LIST_EMPTY (&job->stop_events);
+	TEST_LIST_EMPTY (&job->depends);
 
-	/* State should have been copied */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state was not copied.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "/sbin/daemon --daemon");
+	TEST_ALLOC_PARENT (job->command, job);
 
-	/* Process state should have been copied */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state was not copied.\n");
-		ret = 1;
-	}
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_EQ (job->pid, 1000);
 
-	/* pid should have been copied */
-	if (job->pid != 1000) {
-		printf ("BAD: pid was not copied.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_PARENT (job->kill_timer, job);
+	TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+	TEST_EQ_P (job->kill_timer->callback, my_timer);
+	TEST_EQ_P (job->kill_timer->data, job);
 
-	/* New kill timer should have been created */
-	if (nih_alloc_parent (job->kill_timer) != job) {
-		printf ("BAD: newly parented timer wasn't created.\n");
-		ret = 1;
-	}
-
-	/* Due time should be copied */
-	if (job->kill_timer->due > time(NULL) + 1000) {
-		printf ("BAD: timer due time wasn't copied.\n");
-		ret =1;
-	}
-
-	/* Timer callback should be copied */
-	if (job->kill_timer->callback != my_timer) {
-		printf ("BAD: timer calback wasn't copied.\n");
-		ret = 1;
-	}
-
-	/* Timer data should be set to new job */
-	if (job->kill_timer->data != job) {
-		printf ("BAD: timer data wasn't updated.\n");
-		ret = 1;
-	}
-
-	/* New pid timer should have been created */
-	if (nih_alloc_parent (job->pid_timer) != job) {
-		printf ("BAD: newly parented timer wasn't created.\n");
-		ret = 1;
-	}
-
-	/* Due time should be copied */
-	if (job->pid_timer->due > time(NULL) + 500) {
-		printf ("BAD: timer due time wasn't copied.\n");
-		ret =1;
-	}
-
-	/* Timer callback should be copied */
-	if (job->pid_timer->callback != my_timer) {
-		printf ("BAD: timer calback wasn't copied.\n");
-		ret = 1;
-	}
-
-	/* Timer data should be set to new job */
-	if (job->pid_timer->data != job) {
-		printf ("BAD: timer data wasn't updated.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_PARENT (job->pid_timer, job);
+	TEST_LE (job->pid_timer->due, time (NULL) + 500);
+	TEST_EQ_P (job->pid_timer->callback, my_timer);
+	TEST_EQ_P (job->pid_timer->data, job);
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with complete job file\n");
+	/* Check a pretty complete job file, with all the major toggles.
+	 * Make sure the job structure is filled in properly.
+	 */
+	TEST_FEATURE ("with complete job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "# this is a comment\n");
 	fprintf (jf, "\n");
@@ -257,165 +207,83 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Description should be the unquoted string */
-	if (strcmp (job->description, "an example daemon")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	/* Author should be the unquoted string */
-	if (strcmp (job->author, "joe bloggs")) {
-		printf ("BAD: author wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->description, "an example daemon");
+	TEST_ALLOC_PARENT (job->description, job);
+	TEST_EQ_STR (job->author, "joe bloggs");
+	TEST_ALLOC_PARENT (job->author, job);
+	TEST_EQ_STR (job->version, "1.0");
+	TEST_ALLOC_PARENT (job->version, job);
 
-	/* Version should be the unquoted string */
-	if (strcmp (job->version, "1.0")) {
-		printf ("BAD: version wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "/sbin/daemon -d \"arg here\"");
+	TEST_ALLOC_PARENT (job->command, job);
 
-	/* Command should be the exact string */
-	if (strcmp (job->command, "/sbin/daemon -d \"arg here\"")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->start_script,
+		     ("  [ -d /var/run/daemon ] || mkdir /var/run/daemon\n"
+		      "[ -d /var/lock/daemon ] || mkdir /var/lock/daemon\n"));
+	TEST_ALLOC_PARENT (job->start_script, job);
+	TEST_EQ_STR (job->stop_script,
+		     ("rm -rf /var/run/daemon /var/lock/daemon\n"));
+	TEST_ALLOC_PARENT (job->stop_script, job);
 
-	/* Start script should be the fragment with initial ws removed */
-	if (strcmp (job->start_script,
-		    ("  [ -d /var/run/daemon ] || mkdir /var/run/daemon\n"
-		     "[ -d /var/lock/daemon ] || mkdir /var/lock/daemon\n"))) {
-		printf ("BAD: start script wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->chroot, "/jail/daemon");
+	TEST_ALLOC_PARENT (job->chroot, job);
+	TEST_EQ_STR (job->chdir, "/var/lib");
+	TEST_ALLOC_PARENT (job->chdir, job);
 
-	/* Stop script should be the fragment with initial ws removed */
-	if (strcmp (job->stop_script,
-		    "rm -rf /var/run/daemon /var/lock/daemon\n")) {
-		printf ("BAD: stop script wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (job->respawn);
+	TEST_EQ (job->console, CONSOLE_OWNER);
+	TEST_EQ (job->umask, 0155);
+	TEST_EQ (job->nice, -20);
+	TEST_EQ (job->kill_timeout, 30);
 
-	/* chroot should be the filename given */
-	if (strcmp (job->chroot, "/jail/daemon")) {
-		printf ("BAD: chroot wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chdir should be the filename given */
-	if (strcmp (job->chdir, "/var/lib")) {
-		printf ("BAD: chdir wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be marked as requiring respawn */
-	if (! job->respawn) {
-		printf ("BAD: respawn wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Console type should be CONSOLE_OWNER */
-	if (job->console != CONSOLE_OWNER) {
-		printf ("BAD: console type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Umask should be the value given */
-	if (job->umask != 0155) {
-		printf ("BAD: file creation mask wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Nice level should be the value given */
-	if (job->nice != -20) {
-		printf ("BAD: nice level wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timeout should be the value given */
-	if (job->kill_timeout != 30) {
-		printf ("BAD: kill timeout wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Start event list should not be empty */
-	if (NIH_LIST_EMPTY (&job->start_events)) {
-		printf ("BAD: start events list unexpectedly empty.\n");
-		ret = 1;
-	}
-
- 	/* Check the start events list */
+	/* Check we got all of the start events we expected */
 	i = 0;
+	TEST_LIST_NOT_EMPTY (&job->start_events);
 	NIH_LIST_FOREACH (&job->start_events, iter) {
 		Event *event = (Event *)iter;
 
-		/* Name should be one we expect */
+		TEST_ALLOC_PARENT (event, job);
+
 		if (! strcmp (event->name, "startup")) {
 			i |= 1;
 		} else if (! strcmp (event->name, "explosion")) {
 			i |= 2;
 		} else {
-			printf ("BAD: event name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Should be child of job */
-		if (nih_alloc_parent (event) != job) {
-			printf ("BAD: event wasn't nih_alloc child.\n");
-			ret = 1;
+			TEST_FAILED ("wrong start event, got unexpected '%s'",
+				     event->name);
 		}
 	}
+	if (i != 3)
+		TEST_FAILED ("missing at least one start event");
 
-	/* Should have had both */
-	if (i != 3) {
-		printf ("BAD: start events list wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop event list should not be empty */
-	if (NIH_LIST_EMPTY (&job->stop_events)) {
-		printf ("BAD: stop events list unexpectedly empty.\n");
-		ret = 1;
-	}
-
- 	/* Check the stop events list */
+	/* Check we got all of the start events we expected */
 	i = 0;
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
 	NIH_LIST_FOREACH (&job->stop_events, iter) {
 		Event *event = (Event *)iter;
 
-		/* Name should be one we expect */
+		TEST_ALLOC_PARENT (event, job);
+
 		if (! strcmp (event->name, "shutdown")) {
 			i |= 1;
 		} else {
-			printf ("BAD: event name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Should be child of job */
-		if (nih_alloc_parent (event) != job) {
-			printf ("BAD: event wasn't nih_alloc child.\n");
-			ret = 1;
+			TEST_FAILED ("wrong stop event, got unexpected '%s'",
+				     event->name);
 		}
 	}
+	if (i != 1)
+		TEST_FAILED ("missing at least one stop event");
 
-	/* Should have had just one */
-	if (i != 1) {
-		printf ("BAD: stop events list wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Dependency list should not be empty */
-	if (NIH_LIST_EMPTY (&job->depends)) {
-		printf ("BAD: dependency list unexpectedly empty.\n");
-		ret = 1;
-	}
-
- 	/* Check the dependency list */
+	/* Check we got all of the depends we expected */
 	i = 0;
+	TEST_LIST_NOT_EMPTY (&job->depends);
 	NIH_LIST_FOREACH (&job->depends, iter) {
 		JobName *dep = (JobName *)iter;
 
-		/* Name should be one we expect */
+		TEST_ALLOC_PARENT (dep, job);
+
 		if (! strcmp (dep->name, "frodo")) {
 			i |= 1;
 		} else if (! strcmp (dep->name, "bilbo")) {
@@ -423,227 +291,51 @@ test_read_job (void)
 		} else if (! strcmp (dep->name, "galadriel")) {
 			i |= 4;
 		} else {
-			printf ("BAD: dep name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Should be child of job */
-		if (nih_alloc_parent (dep) != job) {
-			printf ("BAD: dependency wasn't nih_alloc child.\n");
-			ret = 1;
+			TEST_FAILED ("wrong dependency, got unexpected '%s'",
+				     dep->name);
 		}
 	}
+	if (i != 7)
+		TEST_FAILED ("missing at least one dependency");
 
-	/* Should have had both */
-	if (i != 7) {
-		printf ("BAD: dependency list wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_NE_P (job->env, NULL);
+	TEST_ALLOC_PARENT (job->env, job);
+	TEST_EQ_STR (job->env[0], "PATH=/usr/games:/usr/bin");
+	TEST_ALLOC_PARENT (job->env[0], job->env);
+	TEST_EQ_STR (job->env[1], "LANG=C");
+	TEST_ALLOC_PARENT (job->env[1], job->env);
+	TEST_EQ_P (job->env[2], NULL);
 
-	/* Environment should be provided */
-	if (job->env == NULL) {
-		printf ("BAD: environment list unexpectedly empty.\n");
-		ret = 1;
-	}
+	TEST_EQ (job->normalexit_len, 3);
+	TEST_NE_P (job->normalexit, NULL);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * 3);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+	TEST_EQ (job->normalexit[0], 0);
+	TEST_EQ (job->normalexit[1], 99);
+	TEST_EQ (job->normalexit[2], 100);
 
-	/* Environment array should be child of job */
-	if (nih_alloc_parent (job->env) != job) {
-		printf ("BAD: environment array wasn't nih_alloc child.\n");
-		ret = 1;
-	}
+	TEST_NE_P (job->limits[RLIMIT_CORE], NULL);
+	TEST_ALLOC_SIZE (job->limits[RLIMIT_CORE], sizeof (struct rlimit));
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 0);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 0);
 
-	/* First environment variable should be unquoted */
-	if (strcmp (job->env[0], "PATH=/usr/games:/usr/bin")) {
-		printf ("BAD: PATH variable wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_NE_P (job->limits[RLIMIT_CPU], NULL);
+	TEST_ALLOC_SIZE (job->limits[RLIMIT_CPU], sizeof (struct rlimit));
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CPU], job);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 50);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 100);
 
-	/* Environment variable should be child of array */
-	if (nih_alloc_parent (job->env[0]) != job->env) {
-		printf ("BAD: environment var wasn't nih_alloc child.\n");
-		ret = 1;
-	}
-
-	/* Second environment variable should be unquoted */
-	if (strcmp (job->env[1], "LANG=C")) {
-		printf ("BAD: LANG variable wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Environment variable should be child of array */
-	if (nih_alloc_parent (job->env[1]) != job->env) {
-		printf ("BAD: environment var wasn't nih_alloc child.\n");
-		ret = 1;
-	}
-
-	/* Last environment variable should be NULL */
-	if (job->env[2] != NULL) {
-		printf ("BAD: last environment wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Normal exit array should not be NULL */
-	if (job->normalexit == NULL) {
-		printf ("BAD: exit array unexpectedly empty.\n");
-		ret = 1;
-	}
-
-	/* Length of normal exit array should be three */
-	if (job->normalexit_len != 3) {
-		printf ("BAD: exit array length wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* First exit status should be what we expected */
-	if (job->normalexit[0] != 0) {
-		printf ("BAD: exit status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Second exit status should be what we expected */
-	if (job->normalexit[1] != 99) {
-		printf ("BAD: exit status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Third exit status should be what we expected */
-	if (job->normalexit[2] != 100) {
-		printf ("BAD: exit status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Normal exit array should be nih_alloc child of job */
-	if (nih_alloc_parent (job->normalexit) != job) {
-		printf ("BAD: exit array wasn't nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE limit should be set */
-	if (job->limits[RLIMIT_CORE] == NULL) {
-		printf ("BAD: core limit wasn't set.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE soft limit should be that given */
-	if (job->limits[RLIMIT_CORE]->rlim_cur != 0) {
-		printf ("BAD: core soft limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE hard limit should be that given */
-	if (job->limits[RLIMIT_CORE]->rlim_max != 0) {
-		printf ("BAD: core hard limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE limit should be allocated with nih_alloc */
-	if (nih_alloc_size (job->limits[RLIMIT_CORE])
-	    != sizeof (struct rlimit)) {
-		printf ("BAD: core limit wasn't allocated with nih_alloc.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE limit should be nih_alloc child of job */
-	if (nih_alloc_parent (job->limits[RLIMIT_CORE]) != job) {
-		printf ("BAD: core limit wasn't nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU limit should be set */
-	if (job->limits[RLIMIT_CPU] == NULL) {
-		printf ("BAD: cpu limit wasn't set.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU soft limit should be that given */
-	if (job->limits[RLIMIT_CPU]->rlim_cur != 50) {
-		printf ("BAD: cpu soft limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU hard limit should be that given */
-	if (job->limits[RLIMIT_CPU]->rlim_max != 100) {
-		printf ("BAD: cpu hard limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU limit should be allocated with nih_alloc */
-	if (nih_alloc_size (job->limits[RLIMIT_CPU])
-	    != sizeof (struct rlimit)) {
-		printf ("BAD: cpu limit wasn't allocated with nih_alloc.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU limit should be nih_alloc child of job */
-	if (nih_alloc_parent (job->limits[RLIMIT_CPU]) != job) {
-		printf ("BAD: cpu limit wasn't nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Respawn limit should be that given */
-	if (job->respawn_limit != 5) {
-		printf ("BAD: respawn limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn interval should be that given */
-	if (job->respawn_interval != 120) {
-		printf ("BAD: respawn interval wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Description should be nih_alloc child of job */
-	if (nih_alloc_parent (job->description) != job) {
-		printf ("BAD: description was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Author should be nih_alloc child of job */
-	if (nih_alloc_parent (job->author) != job) {
-		printf ("BAD: author was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Version should be nih_alloc child of job */
-	if (nih_alloc_parent (job->version) != job) {
-		printf ("BAD: version was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Command should be nih_alloc child of job */
-	if (nih_alloc_parent (job->command) != job) {
-		printf ("BAD: command was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Start script should be nih_alloc child of job */
-	if (nih_alloc_parent (job->start_script) != job) {
-		printf ("BAD: start script was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be nih_alloc child of job */
-	if (nih_alloc_parent (job->stop_script) != job) {
-		printf ("BAD: stop script was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* chroot should be nih_alloc child of job */
-	if (nih_alloc_parent (job->chroot) != job) {
-		printf ("BAD: chroot was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* chdir should be nih_alloc child of job */
-	if (nih_alloc_parent (job->chdir) != job) {
-		printf ("BAD: chdir was not nih_alloc child of job.\n");
-		ret = 1;
-	}
+	TEST_EQ (job->respawn_limit, 5);
+	TEST_EQ (job->respawn_interval, 120);
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with exec and respawn\n");
+	/* Check that both exec and respawn can be given together,
+	 * and that respawn doesn't clear that.
+	 */
+	TEST_FEATURE ("with exec and respawn");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /usr/bin/foo arg\n");
 	fprintf (jf, "respawn\n");
@@ -651,44 +343,32 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Job should be respawned */
-	if (! job->respawn) {
-		printf ("BAD: respawn wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (job->respawn);
+	TEST_EQ_STR (job->command, "/usr/bin/foo arg");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with arguments to respawn\n");
+	/* Check that respawn can be given arguments, which acts like
+	 * passing that and exec with those arguments.
+	 */
+	TEST_FEATURE ("with arguments to respawn");
 	jf = fopen (filename, "w");
 	fprintf (jf, "respawn /usr/bin/foo arg\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Job should be respawned */
-	if (! job->respawn) {
-		printf ("BAD: respawn wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (job->respawn);
+	TEST_EQ_STR (job->command, "/usr/bin/foo arg");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with exec and daemon\n");
+	/* Check that both exec and daemon can be given together,
+	 * and that daemon doesn't clear that.
+	 */
+	TEST_FEATURE ("with exec and daemon");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /usr/bin/foo arg\n");
 	fprintf (jf, "daemon\n");
@@ -696,44 +376,30 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Job should be hunted for */
-	if (! job->daemon) {
-		printf ("BAD: daemon wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (job->daemon);
+	TEST_EQ_STR (job->command, "/usr/bin/foo arg");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with arguments to daemon\n");
+	/* Check that daemon can be given arguments, which acts like
+	 * passing that and exec with those arguments.
+	 */
+	TEST_FEATURE ("with arguments to daemon");
 	jf = fopen (filename, "w");
 	fprintf (jf, "daemon /usr/bin/foo arg\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Job should be hunted for */
-	if (! job->daemon) {
-		printf ("BAD: daemon wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (job->daemon);
+	TEST_EQ_STR (job->command, "/usr/bin/foo arg");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with instance job\n");
+	/* Check that the instance stanza marks the job as such. */
+	TEST_FEATURE ("with instance job");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /usr/bin/foo\n");
 	fprintf (jf, "instance\n");
@@ -741,16 +407,15 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Job should be an instance */
-	if (! job->spawns_instance) {
-		printf ("BAD: spawns_instance wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (job->spawns_instance);
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with interesting formatting\n");
+	/* Check an extreme case of bad formatting to make sure the config
+	 * file parser does the right thing and makes it sane.
+	 */
+	TEST_FEATURE ("with interesting formatting");
 	jf = fopen (filename, "w");
 	fprintf (jf, "    description   \"foo\n");
 	fprintf (jf, "   bar\"\n");
@@ -766,35 +431,19 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Description should be stripped of newline */
-	if (strcmp (job->description, "foo bar")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Author should be unchanged */
-	if (strcmp (job->author, "  something  with  spaces  ")) {
-		printf ("BAD: author wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Version should have slash stripped */
-	if (strcmp (job->version, "foo'bar")) {
-		printf ("BAD: version wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be laid out sensibly */
-	if (strcmp (job->command, "/usr/bin/foo first "
-		    "second \"third argument\"")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->description, "foo bar");
+	TEST_EQ_STR (job->author, "  something  with  spaces  ");
+	TEST_EQ_STR (job->version, "foo'bar");
+	TEST_EQ_STR (job->command,
+		     "/usr/bin/foo first second \"third argument\"");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with things that aren't script ends\n");
+	/* Check that the parsing of 'end script' is strict enough to allow
+	 * all sorts of other things in between.
+	 */
+	TEST_FEATURE ("with things that aren't script ends");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo\n");
 	fprintf (jf, "start script\n");
@@ -809,23 +458,17 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Start script should hold the first set */
-	if (strcmp (job->start_script,
-		    "endscript\nend foo\nend scripting\n")) {
-		printf ("BAD: start script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be set */
-	if (strcmp (job->stop_script, "# ok\n")) {
-		printf ("BAD: stop script wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->start_script,
+		     "endscript\nend foo\nend scripting\n");
+	TEST_EQ_STR (job->stop_script, "# ok\n");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with multiple stanzas\n");
+	/* Check that giving a stanza more than once is permitted, with the
+	 * last one taking precedence.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
 	jf = fopen (filename, "w");
 	fprintf (jf, "respawn\n");
 	fprintf (jf, "\n");
@@ -871,64 +514,24 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Description should be second one given */
-	if (strcmp (job->description, "yay")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Author should be second one given */
-	if (strcmp (job->author, "yay")) {
-		printf ("BAD: author wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Version should be second one given */
-	if (strcmp (job->version, "yay")) {
-		printf ("BAD: version wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Start script should be second one given */
-	if (strcmp (job->start_script, "yay\n")) {
-		printf ("BAD: start_script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be second one given */
-	if (strcmp (job->stop_script, "yay\n")) {
-		printf ("BAD: stop_script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn script should be second one given */
-	if (strcmp (job->respawn_script, "yay\n")) {
-		printf ("BAD: respawn_script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be second one given */
-	if (strcmp (job->command, "yay")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chroot should be second one given */
-	if (strcmp (job->chroot, "yay")) {
-		printf ("BAD: chroot wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chdir should be second one given */
-	if (strcmp (job->chdir, "yay")) {
-		printf ("BAD: chdir wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->description, "yay");
+	TEST_EQ_STR (job->author, "yay");
+	TEST_EQ_STR (job->version, "yay");
+	TEST_EQ_STR (job->start_script, "yay\n");
+	TEST_EQ_STR (job->stop_script, "yay\n");
+	TEST_EQ_STR (job->respawn_script, "yay\n");
+	TEST_EQ_STR (job->command, "yay");
+	TEST_EQ_STR (job->chroot, "yay");
+	TEST_EQ_STR (job->chdir, "yay");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with multiple script stanzas\n");
+	/* Check that giving a script stanza more than once is permitted,
+	 * with the last one taking precedence.  (Tested separately because
+	 * we check exec above)
+	 */
+	TEST_FEATURE ("with multiple script stanzas");
 	jf = fopen (filename, "w");
 	fprintf (jf, "script\n");
 	fprintf (jf, "oops\n");
@@ -941,16 +544,15 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Script should be second one given */
-	if (strcmp (job->script, "yay\n")) {
-		printf ("BAD: script wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->script, "yay\n");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with exec and respawn\n");
+	/* Check that we can give both exec and respawn with arguments, and
+	 * the latter takes precedence.
+	 */
+	TEST_FEATURE ("with exec and respawn");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec oops\n");
 	fprintf (jf, "respawn yay\n");
@@ -958,16 +560,15 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Command should be second one given */
-	if (strcmp (job->command, "yay")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "yay");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with exec and daemon\n");
+	/* Check that we can give both exec and daemon with arguments, and
+	 * the latter takes precedence.
+	 */
+	TEST_FEATURE ("with exec and daemon");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec oops\n");
 	fprintf (jf, "daemon yay\n");
@@ -975,16 +576,15 @@ test_read_job (void)
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Command should be second one given */
-	if (strcmp (job->command, "yay")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "yay");
 
 	nih_list_free (&job->entry);
 
 
-	printf ("...with various errors\n");
+	/* Check that all sorts of error conditions are caught, and result
+	 * in warnings being issued and the stanza being ignored.
+	 */
+	TEST_FEATURE ("with various errors");
 	jf = fopen (filename, "w");
 	fprintf (jf, "description\n");
 	fprintf (jf, "description foo bar\n");
@@ -1066,610 +666,141 @@ test_read_job (void)
 	fprintf (jf, "respawn\n");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:1: expected job description\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:2: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:3: expected author name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:4: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:5: expected version string\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:6: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:7: expected job name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:8: expected event name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:9: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:10: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:11: expected event name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:12: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:13: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:14: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:15: expected event name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:16: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:17: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:18: expected command\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:19: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:20: expected 'file', 'binary' or 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:21: expected pid filename\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:22: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:23: expected binary filename\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:24: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:25: expected timeout\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:26: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:27: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:28: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:29: expected 'file', 'binary' or 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:30: expected 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:31: expected timeout\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:32: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:33: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:34: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:35: expected 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:36: expected exit status\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:37: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:38: expected 'logged', 'output', 'owner' or 'none'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:39: expected 'logged', 'output', 'owner' or 'none'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:40: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:41: expected variable setting\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:42: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:43: expected file creation mask\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:44: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:45: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:46: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:47: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:48: expected nice level\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:49: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:50: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:51: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:52: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:53: expected limit name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:54: unknown limit type\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:55: expected soft limit\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:56: expected hard limit\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:57: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:58: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:59: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:60: expected limit\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:61: expected interval\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:62: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:63: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:64: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:65: expected directory name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:66: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:67: expected directory name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:68: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:69: ignored unknown stanza\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:70: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:72: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:74: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:76: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ ("1: expected job description\n");
+	TEST_ERROR_EQ ("2: ignored additional arguments\n");
+	TEST_ERROR_EQ ("3: expected author name\n");
+	TEST_ERROR_EQ ("4: ignored additional arguments\n");
+	TEST_ERROR_EQ ("5: expected version string\n");
+	TEST_ERROR_EQ ("6: ignored additional arguments\n");
+	TEST_ERROR_EQ ("7: expected job name\n");
+	TEST_ERROR_EQ ("8: expected event name\n");
+	TEST_ERROR_EQ ("9: ignored additional arguments\n");
+	TEST_ERROR_EQ ("10: expected 'on' or 'script'\n");
+	TEST_ERROR_EQ ("11: expected event name\n");
+	TEST_ERROR_EQ ("12: ignored additional arguments\n");
+	TEST_ERROR_EQ ("13: expected 'on' or 'script'\n");
+	TEST_ERROR_EQ ("14: expected 'on' or 'script'\n");
+	TEST_ERROR_EQ ("15: expected event name\n");
+	TEST_ERROR_EQ ("16: ignored additional arguments\n");
+	TEST_ERROR_EQ ("17: expected 'on' or 'script'\n");
+	TEST_ERROR_EQ ("18: expected command\n");
+	TEST_ERROR_EQ ("19: ignored additional arguments\n");
+	TEST_ERROR_EQ ("20: expected 'file', 'binary' or 'timeout'\n");
+	TEST_ERROR_EQ ("21: expected pid filename\n");
+	TEST_ERROR_EQ ("22: ignored additional arguments\n");
+	TEST_ERROR_EQ ("23: expected binary filename\n");
+	TEST_ERROR_EQ ("24: ignored additional arguments\n");
+	TEST_ERROR_EQ ("25: expected timeout\n");
+	TEST_ERROR_EQ ("26: illegal value\n");
+	TEST_ERROR_EQ ("27: illegal value\n");
+	TEST_ERROR_EQ ("28: ignored additional arguments\n");
+	TEST_ERROR_EQ ("29: expected 'file', 'binary' or 'timeout'\n");
+	TEST_ERROR_EQ ("30: expected 'timeout'\n");
+	TEST_ERROR_EQ ("31: expected timeout\n");
+	TEST_ERROR_EQ ("32: illegal value\n");
+	TEST_ERROR_EQ ("33: illegal value\n");
+	TEST_ERROR_EQ ("34: ignored additional arguments\n");
+	TEST_ERROR_EQ ("35: expected 'timeout'\n");
+	TEST_ERROR_EQ ("36: expected exit status\n");
+	TEST_ERROR_EQ ("37: illegal value\n");
+	TEST_ERROR_EQ ("38: expected 'logged', 'output', 'owner' or 'none'\n");
+	TEST_ERROR_EQ ("39: expected 'logged', 'output', 'owner' or 'none'\n");
+	TEST_ERROR_EQ ("40: ignored additional arguments\n");
+	TEST_ERROR_EQ ("41: expected variable setting\n");
+	TEST_ERROR_EQ ("42: ignored additional arguments\n");
+	TEST_ERROR_EQ ("43: expected file creation mask\n");
+	TEST_ERROR_EQ ("44: illegal value\n");
+	TEST_ERROR_EQ ("45: illegal value\n");
+	TEST_ERROR_EQ ("46: illegal value\n");
+	TEST_ERROR_EQ ("47: ignored additional arguments\n");
+	TEST_ERROR_EQ ("48: expected nice level\n");
+	TEST_ERROR_EQ ("49: illegal value\n");
+	TEST_ERROR_EQ ("50: illegal value\n");
+	TEST_ERROR_EQ ("51: illegal value\n");
+	TEST_ERROR_EQ ("52: ignored additional arguments\n");
+	TEST_ERROR_EQ ("53: expected limit name\n");
+	TEST_ERROR_EQ ("54: unknown limit type\n");
+	TEST_ERROR_EQ ("55: expected soft limit\n");
+	TEST_ERROR_EQ ("56: expected hard limit\n");
+	TEST_ERROR_EQ ("57: illegal value\n");
+	TEST_ERROR_EQ ("58: illegal value\n");
+	TEST_ERROR_EQ ("59: ignored additional arguments\n");
+	TEST_ERROR_EQ ("60: expected limit\n");
+	TEST_ERROR_EQ ("61: expected interval\n");
+	TEST_ERROR_EQ ("62: illegal value\n");
+	TEST_ERROR_EQ ("63: illegal value\n");
+	TEST_ERROR_EQ ("64: ignored additional arguments\n");
+	TEST_ERROR_EQ ("65: expected directory name\n");
+	TEST_ERROR_EQ ("66: ignored additional arguments\n");
+	TEST_ERROR_EQ ("67: expected directory name\n");
+	TEST_ERROR_EQ ("68: ignored additional arguments\n");
+	TEST_ERROR_EQ ("69: ignored unknown stanza\n");
+	TEST_ERROR_EQ ("70: ignored additional arguments\n");
+	TEST_ERROR_EQ ("72: ignored additional arguments\n");
+	TEST_ERROR_EQ ("74: ignored additional arguments\n");
+	TEST_ERROR_EQ ("76: ignored additional arguments\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
 
 	nih_list_free (&job->entry);
 
-	rewind (output);
-	ftruncate (fileno (output), 0);
 
-
-	printf ("...with unterminated quote\n");
+	/* Check that an exec line with an unterminated quote is caught,
+	 * but still results in the command being set without it.
+	 */
+	TEST_FEATURE ("with unterminated quote");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec \"/sbin/foo bar");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:1: unterminated quoted string\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "\"/sbin/foo bar");
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ ("1: unterminated quoted string\n");
+	TEST_FILE_END (output);
 
-	/* Command should still be set */
-	if (strcmp (job->command, "\"/sbin/foo bar")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_RESET (output);
 
 	nih_list_free (&job->entry);
 
-	rewind (output);
-	ftruncate (fileno (output), 0);
 
-
-	printf ("...with trailing slash\n");
+	/* Check that a line with a trailing slash but no following line
+	 * is caught, but still results in the command being set.
+	 */
+	TEST_FEATURE ("with trailing slash");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo bar \\");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:1: ignored trailing slash\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->command, "/sbin/foo bar");
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ ("1: ignored trailing slash\n");
+	TEST_FILE_END (output);
 
-	/* Command should still be set */
-	if (strcmp (job->command, "/sbin/foo bar")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_RESET (output);
 
 	nih_list_free (&job->entry);
 
-	rewind (output);
-	ftruncate (fileno (output), 0);
 
-
-	printf ("...with incomplete script\n");
+	/* Check that an unfinished script stanza is caught, but still results
+	 * in the script being set.
+	 */
+	TEST_FEATURE ("with incomplete script");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo\n");
 	fprintf (jf, "start script\n");
@@ -1677,75 +808,47 @@ test_read_job (void)
 	fprintf (jf, "    rm /var/run/daemon\n");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:4: 'end script' expected\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (job->start_script,
+		     "    rm /var/lock/daemon\n    rm /var/run/daemon\n");
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ ("4: 'end script' expected\n");
+	TEST_FILE_END (output);
 
-	/* Script should still be set */
-	if (strcmp (job->start_script,
-		    "    rm /var/lock/daemon\n    rm /var/run/daemon\n")) {
-		printf ("BAD: script wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_RESET (output);
 
 	nih_list_free (&job->entry);
 
-	rewind (output);
-	ftruncate (fileno (output), 0);
 
-
-	printf ("...with missing exec and script\n");
+	/* Check that a job may not be missing both exec and script.
+	 * Doing this causes no job to be returned.
+	 */
+	TEST_FEATURE ("with missing exec and script");
 	jf = fopen (filename, "w");
 	fprintf (jf, "description buggy");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo: 'exec' or 'script' must be specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (job, NULL);
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ (" 'exec' or 'script' must be specified\n");
+	TEST_FILE_END (output);
 
-	/* No job should be returned */
-	if (job != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
+	TEST_FILE_RESET (output);
 
 
-	printf ("...with both exec and script\n");
+	/* Check that a job may not supply both exec and script.
+	 * Doing this causes no job to be returned.
+	 */
+	TEST_FEATURE ("with both exec and script");
 	jf = fopen (filename, "w");
 	fprintf (jf, "description buggy\n");
 	fprintf (jf, "exec /sbin/foo\n");
@@ -1754,37 +857,23 @@ test_read_job (void)
 	fprintf (jf, "end script\n");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: only one of 'exec' and "
-		    "'script' may be specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (job, NULL);
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ (" only one of 'exec' and 'script' may be specified\n");
+	TEST_FILE_END (output);
 
-	/* No job should be returned */
-	if (job != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
+	TEST_FILE_RESET (output);
 
 
-	printf ("...with respawn options and not respawn\n");
+	/* Check that a job may not use options that normally affect respawn
+	 * if it doesn't use respawn itself.  It gets warnings.
+	 */
+	TEST_FEATURE ("with respawn options and not respawn");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo\n");
 	fprintf (jf, "respawn script\n");
@@ -1794,85 +883,40 @@ test_read_job (void)
 	fprintf (jf, "pid binary /lib/foo/foo.bin\n");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: 'respawn script' ignored "
-		    "unless 'respawn' specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ (" 'respawn script' ignored unless 'respawn' specified\n");
+	TEST_ERROR_EQ (" 'pid file' ignored unless 'respawn' specified\n");
+	TEST_ERROR_EQ (" 'pid binary' ignored unless 'respawn' specified\n");
+	TEST_FILE_END (output);
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: 'pid file' ignored "
-		    "unless 'respawn' specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: 'pid binary' ignored "
-		    "unless 'respawn' specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_RESET (output);
 
 	nih_list_free (&job->entry);
 
-	rewind (output);
-	ftruncate (fileno (output), 0);
 
-
-	printf ("...with non-existant file\n");
+	/* Check that a non-existant file is caught properly. */
+	TEST_FEATURE ("with non-existant file");
 	unlink (filename);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: unable to read: "
-		    "No such file or directory\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (job, NULL);
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* No job should be returned */
-	if (job != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
+	TEST_ERROR_EQ (" unable to read: No such file or directory\n");
+	TEST_FILE_END (output);
 
 
 	fclose (output);
 
 	unlink (filename);
 	rmdir (dirname);
-
-	return ret;
 }
 
 
@@ -1880,9 +924,7 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_read_job ();
 
-	ret |= test_read_job ();
-
-	return ret;
+	return 0;
 }

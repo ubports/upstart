@@ -55,7 +55,7 @@ typedef enum {
  * waiting to be sent on the control socket.
  *
  * @message is a copy of that given to us at the time, with any pointers
- * copied by #control_send.
+ * copied by control_send().
  **/
 typedef struct control_msg {
 	NihList    entry;

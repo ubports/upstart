@@ -28,7 +28,6 @@
 #include <sys/un.h>
 
 #include <time.h>
-#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,7 +74,7 @@ static NihIoBuffer *log_buffer = NULL;
 /**
  * log_file:
  *
- * Open log file, this remains %NULL until it's opened successfully.
+ * Open log file, this remains NULL until it's opened successfully.
  **/
 static FILE *log_file = NULL;
 
@@ -83,19 +82,10 @@ static FILE *log_file = NULL;
 /**
  * daemonise:
  *
- * This is set to %TRUE if we should become a daemon, rather than just
+ * This is set to TRUE if we should become a daemon, rather than just
  * running in the foreground.
  **/
 static int daemonise = FALSE;
-
-/**
- * silent:
- *
- * This is set to %TRUE if we should not write a copy of all messages we
- * receive to the console.
- **/
-static int silent = FALSE;
-
 
 /**
  * options:
@@ -105,8 +95,6 @@ static int silent = FALSE;
 static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
-	{ 0, "silent", N_("Do not write messages to the console"),
-	  NULL, NULL, &silent, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -116,11 +104,16 @@ int
 main (int   argc,
       char *argv[])
 {
-	FILE  *fd;
 	char **args;
 	int    ret;
 
 	nih_main_init (argv[0]);
+
+	nih_option_set_synopsis (_("Log output of jobs to /var/log/boot."));
+	nih_option_set_help (
+		_("By default, logd does not detach from the console and "
+		  "remains in the foreground.  Use the --daemon option to "
+		  "have it detach."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -132,39 +125,6 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Check the kernel command-line for quiet;
-	 * this only works if /proc is mounted, which is only true if
-	 * initramfs is being used ... fails to chatty
-	 */
-	fd = fopen ("/proc/cmdline", "r");
-	if (fd != NULL) {
-		char buf[4096];
-
-		if (fgets (buf, sizeof (buf), fd) != NULL) {
-			char *ptr;
-
-			ptr = strstr (buf, "quiet");
-			if (ptr
-			    && ((ptr == buf) || isspace (*(ptr - 1)))
-			    && ((*(ptr + 5) == '\0') || isspace (*(ptr + 5))))
-				silent = TRUE;
-		}
-
-		fclose (fd);
-	}
-
-	/* Become daemon */
-	if (daemonise)
-		nih_main_daemonise ();
-
-
-	/* Send all logging output to syslog */
-	openlog (program_name, LOG_CONS | LOG_PID, LOG_DAEMON);
-	nih_log_set_logger (nih_logger_syslog);
-
-	/* Handle TERM signal gracefully */
-	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_callback (NULL, SIGTERM, nih_main_term_signal, NULL);
 
 	/* Open the logging socket */
 	if (! open_logging ()) {
@@ -178,8 +138,22 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Signify that we're ready to receive events */
-	raise (SIGSTOP);
+	/* Become daemon, or signify that we're ready to receive events */
+	if (daemonise) {
+		nih_main_daemonise ();
+	} else {
+		raise (SIGSTOP);
+	}
+
+
+	/* Send all logging output to syslog */
+	openlog (program_name, LOG_CONS | LOG_PID, LOG_DAEMON);
+	nih_log_set_logger (nih_logger_syslog);
+
+	/* Handle TERM signal gracefully */
+	nih_signal_set_handler (SIGTERM, nih_signal_handler);
+	nih_signal_add_handler (NULL, SIGTERM, nih_main_term_signal, NULL);
+
 
 	ret = nih_main_loop ();
 
@@ -194,7 +168,7 @@ main (int   argc,
  * we accept connections on this socket and expect to read the name of
  * the daemon we are logging before reading the lines.
  *
- * Returns: NihIoWatch structure or %NULL on raised error.
+ * Returns: NihIoWatch structure or NULL on raised error.
  **/
 static NihIoWatch *
 open_logging (void)
@@ -235,7 +209,6 @@ open_logging (void)
 	watch = nih_io_add_watch (NULL, sock, NIH_IO_READ,
 				  logging_watcher, NULL);
 	if (! watch) {
-		errno = ENOMEM;
 		nih_error_raise_system ();
 		close (sock);
 		return NULL;
@@ -247,7 +220,7 @@ open_logging (void)
 /**
  * logging_watcher:
  * @data: not used,
- * @watch: #NihIoWatch for which event occurred,
+ * @watch: NihIoWatch for which event occurred,
  * @events: events that occurred.
  *
  * This function is called whenever we can accept new connections on the
@@ -284,13 +257,13 @@ logging_watcher (void        *data,
 /**
  * logging_reader:
  * @data: not used,
- * @io: #NihIo with data to be read,
+ * @io: NihIo with data to be read,
  * @buf: buffer data is available in,
  * @len: bytes in @buf.
  *
  * This function is called when there is data available to be read from
  * a logging connection, this only takes care of reading the child name
- * from the socket and then adjusts the watch to call @line_reader
+ * from the socket and then adjusts the watch to call line_reader()
  * instead.
  **/
 static void
@@ -333,7 +306,7 @@ logging_reader (void       *data,
 /**
  * line_reader:
  * @name: name of daemon,
- * @io: #NihIo with data to be read,
+ * @io: NihIo with data to be read,
  * @buf: buffer data is available in,
  * @len: bytes in @buf.
  *
@@ -359,13 +332,6 @@ line_reader (const char *name,
 		time_t     now;
 		struct tm *tm;
 		char       stamp[32];
-
-		/* Write it directly to the console */
-		if (! (daemonise || silent)) {
-			fputs (line, stdout);
-			fputc ('\n', stdout);
-			fflush (stdout);
-		}
 
 		/* Format a time stamp for the log */
 		now = time (NULL);

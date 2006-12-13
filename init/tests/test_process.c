@@ -20,28 +20,23 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <sys/select.h>
 
 #include <stdio.h>
-#include <assert.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
-#include <nih/alloc.h>
 #include <nih/list.h>
 
 #include "job.h"
 #include "process.h"
-
-
-extern pid_t getsid (pid_t);
 
 
 /* Sadly we can't test everything that process_spawn() does simply because
@@ -64,283 +59,210 @@ child (enum child_tests  test,
        const char       *filename)
 {
 	FILE *out;
-	char  buf[4096];
+	char  path[PATH_MAX];
 	int   i;
 
 	out = fopen (filename, "w");
 
 	switch (test) {
 	case TEST_PIDS:
-		fprintf (out, "%d\n", getpid ());
-		fprintf (out, "%d\n", getppid ());
-		fprintf (out, "%d\n", getpgrp ());
-		fprintf (out, "%d\n", getsid (0));
+		fprintf (out, "pid: %d\n", getpid ());
+		fprintf (out, "ppid: %d\n", getppid ());
+		fprintf (out, "pgrp: %d\n", getpgrp ());
+		fprintf (out, "sid: %d\n", getsid (0));
 		exit (0);
 	case TEST_CONSOLE:
 		for (i = 0; i < 3; i++) {
 			struct stat buf;
 
 			fstat (i, &buf);
-			fprintf (out, "%d %d\n", major (buf.st_rdev),
+			fprintf (out, "%d: %d %d\n", i,
+				 major (buf.st_rdev),
 				 minor (buf.st_rdev));
 		}
 		exit (0);
 	case TEST_PWD:
-		getcwd (buf, sizeof (buf));
-		fprintf (out, "%s\n", buf);
+		getcwd (path, sizeof (path));
+		fprintf (out, "wd: %s\n", path);
 		exit (0);
 	case TEST_ENVIRONMENT:
-		for (char **env = __environ; *env; env++) {
-			if (strncmp (*env, "PATH=", 5)
-			    && strncmp (*env, "TERM=", 5))
-				fprintf (out, "%s\n", *env);
-		}
+		for (char **env = environ; *env; env++)
+			fprintf (out, "%s\n", *env);
 		exit (0);
 	}
 }
 
-int
+
+void
 test_spawn (void)
 {
 	FILE  *output;
-	char   function[6], filename[24], text[81], *env[2];
+	char   function[PATH_MAX], filename[PATH_MAX], buf[80], *env[2];
 	char  *args[4];
 	Job   *job;
 	pid_t  pid;
-	int    ret = 0, maj, min, i;
 
 	printf ("Testing process_spawn()\n");
+	TEST_FILENAME (filename);
+
 	args[0] = argv0;
 	args[1] = function;
 	args[2] = filename;
 	args[3] = NULL;
 
-	sprintf (filename, "/tmp/test_process.%d", getpid ());
-	unlink (filename);
-
+	/* Check that we can spawn a simple job; we wait for the child
+	 * process and then read from the file written to check that the
+	 * process tree is what we expect it to look like.
+	 */
 	printf ("...with simple job\n");
 	sprintf (function, "%d", TEST_PIDS);
+
 	job = job_new (NULL, "test");
 	pid = process_spawn (job, args);
+
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	/* Return value should be pid and should be a positive integer */
-	if (pid <= 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_GT (pid, 0);
+	TEST_NE (pid, getpid ());
 
-	/* Return value should not be our process id */
-	if (pid == getpid ()) {
-		printf ("BAD: process id was our own.\n");
-		ret = 1;
-	}
+	sprintf (buf, "pid: %d\n", pid);
+	TEST_FILE_EQ (output, buf);
 
-	/* Return value should be the process id of the child */
-	fgets (text, sizeof (text), output);
-	if (atoi (text) != pid) {
-		printf ("BAD: process id of child wasn't what we expected.\n");
-		ret = 1;
-	}
+	sprintf (buf, "ppid: %d\n", getpid ());
+	TEST_FILE_EQ (output, buf);
 
-	/* Child's parent should be us */
-	fgets (text, sizeof (text), output);
-	if (atoi (text) != getpid ()) {
-		printf ("BAD: parent process wasn't what we expected.\n");
-		ret = 1;
-	}
+	sprintf (buf, "pgrp: %d\n", pid);
+	TEST_FILE_EQ (output, buf);
 
-	/* Child should be in its own process group */
-	fgets (text, sizeof (text), output);
-	if (atoi (text) != pid) {
-		printf ("BAD: child process group wasn't what we expected.\n");
-		ret = 1;
-	}
+	sprintf (buf, "sid: %d\n", pid);
+	TEST_FILE_EQ (output, buf);
 
-	/* Child should be in its own session */
-	fgets (text, sizeof (text), output);
-	if (atoi (text) != pid) {
-		printf ("BAD: child session wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_END (output);
 
 	fclose (output);
 	unlink (filename);
+
 	nih_list_free (&job->entry);
 
 
+	/* Check that a job spawned with no console has the file descriptors
+	 * bound to the /dev/null device.
+	 */
 	printf ("...with no console\n");
 	sprintf (function, "%d", TEST_CONSOLE);
+
 	job = job_new (NULL, "test");
 	job->console = CONSOLE_NONE;
 	pid = process_spawn (job, args);
+
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	/* Standard input should be /dev/null */
-	fgets (text, sizeof (text), output);
-	sscanf (text, "%d %d", &maj, &min);
-	if ((maj != 1) || (min != 3)) {
-		printf ("BAD: standard input wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Standard output should be /dev/null */
-	fgets (text, sizeof (text), output);
-	sscanf (text, "%d %d", &maj, &min);
-	if ((maj != 1) || (min != 3)) {
-		printf ("BAD: standard output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Standard error should be /dev/null */
-	fgets (text, sizeof (text), output);
-	sscanf (text, "%d %d", &maj, &min);
-	if ((maj != 1) || (min != 3)) {
-		printf ("BAD: standard error wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_EQ (output, "0: 1 3\n");
+	TEST_FILE_EQ (output, "1: 1 3\n");
+	TEST_FILE_EQ (output, "2: 1 3\n");
+	TEST_FILE_END (output);
 
 	fclose (output);
 	unlink (filename);
+
 	nih_list_free (&job->entry);
 
 
+	/* Check that a job with an alternate working directory is run from
+	 * that directory.
+	 */
 	printf ("...with working directory\n");
 	sprintf (function, "%d", TEST_PWD);
+
 	job = job_new (NULL, "test");
 	job->chdir = "/tmp";
 	pid = process_spawn (job, args);
+
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	/* Should be in the right working directory */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "/tmp\n")) {
-		printf ("BAD: working directory wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_EQ (output, "wd: /tmp\n");
+	TEST_FILE_END (output);
 
 	fclose (output);
 	unlink (filename);
+
 	nih_list_free (&job->entry);
 
 
+	/* Check that a job is run in a consistent environment containing
+	 * only approved variables, or those set within the job.
+	 */
 	printf ("...with environment\n");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
+	putenv ("BAR=baz");
+
 	job = job_new (NULL, "test");
 	job->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
-	/* Environment shouldn't leak */
-	putenv ("BAR=baz");
 	pid = process_spawn (job, args);
+
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	/* Check for unexpected environment */
-	i = 0;
-	while (fgets (text, sizeof (text), output) > 0) {
-		if (! strcmp (text, "FOO=bar\n")) {
-			i++;
-		} else {
-			printf ("BAD: environment wasn't what we expected.\n");
-			ret = 1;
-		}
-	}
-
-	/* Should have got all environment variables we expected */
-	if (i != 1) {
-		printf ("BAD: environment wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_EQ_N (output, "PATH=");
+	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_END (output);
 
 	fclose (output);
 	unlink (filename);
-	nih_list_free (&job->entry);
 
-	return ret;
+	nih_list_free (&job->entry);
 }
 
 
-int
+void
 test_kill (void)
 {
 	Job   *job;
 	pid_t  pid;
-	int    ret = 0, retval, status;
+	int    ret, status;
 
 	printf ("Testing process_kill()\n");
 	job = job_new (NULL, "test");
 
+	/* Check that when we normally kill the process, the TERM signal
+	 * is sent to it.
+	 */
 	printf ("...with TERM signal\n");
-	pid = fork ();
-	if (pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
+	TEST_CHILD (pid) {
+		pause ();
 	}
 
-	assert (pid >= 0);
-	usleep (1000); /* Urgh */
-	retval = process_kill (job, pid, FALSE);
+	ret = process_kill (job, pid, FALSE);
 	waitpid (pid, &status, 0);
 
-	/* Return value should be zero */
-	if (retval != 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Child should have exited by signal */
-	if (! WIFSIGNALED (status)) {
-		printf ("BAD: child not terminated by signal.\n");
-		ret = 1;
-	}
-
-	/* Signal should have been SIGTERM */
-	if (WTERMSIG (status) != SIGTERM) {
-		printf ("BAD: child not terminated by TERM signal.\n");
-		ret = 1;
-	}
+	TEST_EQ (ret, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGTERM);
 
 
+	/* Check that when we force the kill, the KILL signal is sent
+	 * instead.
+	 */
 	printf ("...with KILL signal\n");
-	pid = fork ();
-	if (pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
+	TEST_CHILD (pid) {
+		pause ();
 	}
 
-	assert (pid >= 0);
-	usleep (1000); /* Urgh */
-	retval = process_kill (job, pid, TRUE);
+	ret = process_kill (job, pid, TRUE);
 	waitpid (pid, &status, 0);
 
-	/* Return value should be zero */
-	if (retval != 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Child should have exited by signal */
-	if (! WIFSIGNALED (status)) {
-		printf ("BAD: child not terminated by signal.\n");
-		ret = 1;
-	}
-
-	/* Signal should have been SIGKILL */
-	if (WTERMSIG (status) != SIGKILL) {
-		printf ("BAD: child not terminated by KILL signal.\n");
-		ret = 1;
-	}
+	TEST_EQ (ret, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGKILL);
 
 
 	nih_list_free (&job->entry);
-
-	return ret;
 }
 
 
@@ -348,25 +270,31 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	/* We re-exec this binary to test various children features.  To
+	 * do that, we need to know the full path to the program.
+	 */
+	argv0 = argv[0];
+	if (argv0[0] != '/') {
+		char path[PATH_MAX];
 
-	/* We re-exec this binary to test various children features */
-	if (argv[0][0] != '/') {
-		char buf[4096];
+		getcwd (path, sizeof (path));
+		strcat (path, "/");
+		strcat (path, argv0);
 
-		getcwd (buf, sizeof (buf));
-		strcat (buf, "/");
-		strcat (buf, argv[0]);
-
-		argv0 = buf;
-	} else {
-		argv0 = argv[0];
+		argv0 = path;
 	}
-	if (argc > 2)
+
+	/* If two arguments are given, the first is the child enum and the
+	 * second is a filename to write the result to.
+	 */
+	if (argc == 3) {
 		child (atoi (argv[1]), argv[2]);
+		exit (1);
+	}
 
-	ret |= test_spawn ();
-	ret |= test_kill ();
+	/* Otherwise run the tests as normal */
+	test_spawn ();
+	test_kill ();
 
-	return ret;
+	return 0;
 }

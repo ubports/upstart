@@ -1,10 +1,23 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
+	-I$(top_srcdir)/intl
 
-localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\""
-INCLUDES = -I$(top_srcdir)/intl
+
+eventdir = $(sysconfdir)/event.d
+event_DATA = \
+	event.d/logd
+
+CLEANFILES = $(event_DATA)
+EXTRA_DIST = event.d/logd.in
+
+do_subst = sed -e '\,[@]sbindir[@],{s,[@]sbindir[@],$(sbindir),g;s,//*,/,g}'
+
+
+dist_man_MANS = \
+	man/logd.8
 
 
 sbin_PROGRAMS = logd
@@ -21,6 +34,10 @@ TESTS =
 
 check_PROGRAMS = $(TESTS)
 
+
+event.d/logd: event.d/logd.in
+	$(mkdir_p) event.d
+	$(do_subst) < $< > $@
 
 
 clean-local:

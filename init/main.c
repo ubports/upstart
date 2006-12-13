@@ -24,6 +24,7 @@
 
 
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
@@ -81,7 +82,7 @@ static void write_state     (int fd);
 /**
  * restart:
  *
- * This is set to %TRUE if we're being re-exec'd by an existing init
+ * This is set to TRUE if we're being re-exec'd by an existing init
  * process.
  **/
 static int restart = FALSE;
@@ -110,6 +111,12 @@ main (int   argc,
 	int    ret, i;
 
 	nih_main_init (argv[0]);
+
+	nih_option_set_synopsis (_("Process management daemon."));
+	nih_option_set_help (
+		_("This daemon is normally executed by the kernel and given "
+		  "process id 1 to denote its special status.  When executed "
+		  "by a user process, it will actually run /sbin/telinit."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -162,24 +169,24 @@ main (int   argc,
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
 
 	/* Ensure that we don't process events while paused */
-	nih_signal_add_callback (NULL, SIGTSTP, stop_handler, NULL);
-	nih_signal_add_callback (NULL, SIGCONT, stop_handler, NULL);
+	nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL);
+	nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL);
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
 	reboot (RB_DISABLE_CAD);
-	nih_signal_add_callback (NULL, SIGINT, cad_handler, NULL);
+	nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL);
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
 	 * generate a kbdrequest event.
 	 */
 	ioctl (0, KDSIGACCEPT, SIGWINCH);
-	nih_signal_add_callback (NULL, SIGWINCH, kbd_handler, NULL);
+	nih_signal_add_handler (NULL, SIGWINCH, kbd_handler, NULL);
 
 	/* SIGTERM instructs us to re-exec ourselves */
-	nih_signal_add_callback (NULL, SIGTERM,
-				 (NihSignalCb)term_handler, argv[0]);
+	nih_signal_add_handler (NULL, SIGTERM,
+				(NihSignalHandler)term_handler, argv[0]);
 
 
 	/* Reap all children that die */
@@ -293,7 +300,7 @@ reset_console (void)
 
 /**
  * segv_handler:
- * @signum:
+ * @signum: signal number received.
  *
  * Handle receiving the SEGV signal, usually caused by one of our own
  * mistakes.  We deal with it by dumping core in a child process and
