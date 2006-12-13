@@ -574,11 +574,11 @@ print_job_status (UpstartMsg *reply)
 
 	} else if ((reply->job_status.process_state == PROCESS_SPAWNED)
 		   || (reply->job_status.process_state == PROCESS_NONE)) {
-		extra = nih_sprintf (NULL, ", process %s\n",
+		extra = nih_sprintf (NULL, ", process %s",
 				     process_state_name (
 					     reply->job_status.process_state));
 	} else {
-		extra = nih_sprintf (NULL, ", process %d %s\n",
+		extra = nih_sprintf (NULL, ", process %d %s",
 				     reply->job_status.pid,
 				     process_state_name (
 					     reply->job_status.process_state));

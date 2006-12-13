@@ -1,3 +1,8 @@
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c (print_job_status): Drop the newline from the
+	output.
+
 2006-12-13  Alex Smith  <alex@alex-smith.me.uk>
 
 	* util/initctl.c (print_job_status): Clean up initctl job status
