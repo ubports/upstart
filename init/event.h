@@ -92,7 +92,7 @@ NIH_BEGIN_EXTERN
 int paused;
 
 
-Event *event_new         (void *parent, const char *name)
+Event *event_new         (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
 int    event_match       (Event *event1, Event *event2);

@@ -57,7 +57,7 @@
 /**
  * JOB_DEFAULT_RESPAWN_LIMIT:
  *
- * The default number of times in %JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
  * we permit a process to respawn before stoping it
  **/
 #define JOB_DEFAULT_RESPAWN_LIMIT 10
@@ -115,7 +115,7 @@
  * @stop_script: script to run after @command is stopped,
  * @respawn_script: script to run between @command respawns,
  * @console: how to arrange the job's stdin/out/err file descriptors,
- * @env: %NULL-terminated list of environment strings to set,
+ * @env: NULL-terminated list of environment strings to set,
  * @umask: file mode creation mask,
  * @nice: process priority,
  * @limits: resource limits indexed by resource,
@@ -199,7 +199,7 @@ NIH_BEGIN_EXTERN
 
 NihList *   job_list            (void);
 
-Job *       job_new             (void *parent, const char *name);
+Job *       job_new             (const void *parent, const char *name);
 
 Job *       job_find_by_name    (const char *name);
 Job *       job_find_by_pid     (pid_t pid);

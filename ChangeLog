@@ -1,4 +1,295 @@
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Update.
+
+	* util/initctl.c (print_job_status): Drop the newline from the
+	output.
+
+2006-12-13  Alex Smith  <alex@alex-smith.me.uk>
+
+	* util/initctl.c (print_job_status): Clean up initctl job status
+	output, which was badly converted from printf to nih_message.
+
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* compat/sysv/man/shutdown.8: Add missing documentation on the
+	format of TIME by copying it from --help output.
+
+2006-12-13  Alex Smith  <alex@alex-smith.me.uk>
+
+	* init/process.c (process_setup_console): Actually send output to
+	/dev/null instead of /dev/console, when CONSOLE_NONE.
+
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* Makefile.am (EXTRA_DIST): Distribute the nih ChangeLog as well.
+
+	* init/tests/test_job.c: Port to the new test framework.
+	* init/job.c (job_set_idle_event): Fix a slight memory leak,
+	repeated setting of the idle event never freed the previous one set.
+
+2006-12-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_cfgfile.c: Port to the new test framework.
+
+	* init/tests/test_control.c: Port to the new test framework.
+	* init/init.supp: Suppress the list head allocated within control_init.
+
+	* init/control.c (control_watcher): Need to save the pid when we
+	get ECONNREFUSED, otherwise we lose it when we free the message.
+
+	* init/tests/test_process.c: Port to the new test framework.
+	* init/init.supp: Suppress the list head allocated within job_init.
+
+	* init/init.supp: Include a valgrind suppressions file.
+	* init/Makefile.am (EXTRA_DIST): Distribute the suppressions file.
+
+	* init/tests/test_event.c: Port to the new test framework.
+
+	* logd/Makefile.am, util/Makefile.am, compat/sys/Makefile.am
+	(AM_CPPFLAGS): Add -I$(srcdir), necessary for testing "programs"
+	that don't have usual library path semantics.
+
+	* upstart/tests/test_control.c: Port to the new test framework.
+	* upstart/control.c (upstart_free): Drop this function, while not
+	exposing libnih is a valiant effort, it already slips out because
+	of the error handling.
+
+	* upstart/tests/test_job.c: Add missing include.
+
+	* upstart/tests/test_job.c: Port to the new test framework.
+	(test_process_state_name): Check that this returns NULL.
+
+	* HACKING: Update location of download directory.  Document
+	requirement that all code have test cases.
+
+	* logd/main.c (open_logging): Likewise.
+
+	* init/control.c (control_open): No need to set ENOMEM, errno is
+	always set anyway.
+
+	* configure.ac (AM_INIT_AUTOMAKE): Include nostdinc so we don't get
+	Automake's broken default includes.
+	* upstart/Makefile.am (DEFAULT_INCLUDES): Drop override now that
+	we don't need it.
+	(DEFS, INCLUDES): Replace these variables with the combined
+	(AM_CPPFLAGS): variable that declares everything.
+	* init/Makefile.am (DEFAULT_INCLUDES): Drop override now that
+	we don't need it.
+	(DEFS, INCLUDES): Replace these variables with the combined
+	(AM_CPPFLAGS): variable that declares everything.
+	* util/Makefile.am (DEFAULT_INCLUDES): Drop override now that
+	we don't need it.
+	(DEFS, INCLUDES): Replace these variables with the combined
+	(AM_CPPFLAGS): variable that declares everything.
+	* compat/sysv/Makefile.am (DEFAULT_INCLUDES): Drop override now that
+	we don't need it.
+	(DEFS, INCLUDES): Replace these variables with the combined
+	(AM_CPPFLAGS): variable that declares everything.
+	* logd/Makefile.am (DEFAULT_INCLUDES): Drop override now that
+	we don't need it.
+	(DEFS, INCLUDES): Replace these variables with the combined
+	(AM_CPPFLAGS): variable that declares everything.
+
+2006-11-02  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c (start_action): Remove break calls which shouldn't
+	be there.
+
+2006-10-18  Sean E. Russell  <ser@ser1.net>
+
+	* init/main.c: Include sys/time.h
+	* init/cfgfile.c: Include sys/time.h and sys/resource.h
+	* init/job.c: Include sys/time.h and sys/resource.h
+
+2006-10-17  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.3.1
+
+	* NEWS: Update.
+	* TODO: Update.
+
+	* configure.ac (AM_GNU_GETTEXT_VERSION): Quote version number.
+
+	* logd/Makefile.am (event.d/logd): Make the event.d sub-directory
+	in case we're building outside of the source tree.
+
+	* compat/sysv/runlevel.c (store): Don't break strict-aliasing rules
+	by avoiding dereferencing type-punned pointer.  Answers on a
+	postcard, please.
+
+2006-10-13  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c (start_action, emit_action): Add missing \n
+
+	* util/initctl.c: Rewrite using nih_command_parser.
+	* util/man/initctl.8: Improve.
+
+	* util/start.c: Remove, replaced by initctl.
+	* util/man/start.8: Remove, replaced by initctl.
+	* util/Makefile.am (sbin_PROGRAMS): Drop start, now just a symlink
+	to initctl.
+	(dist_man_MANS): Drop start.8, now a symlink to initctl.8
+	(install-exec-hook): Make symlinks to initctl, add start
+	(install-data-hook): Make symlinks to initctl.8, add start.8
+
+	* initctl: Rename to util again, I don't want a separate directory
+	for every single little tool; and we'll be shipping more than just
+	initctl (e.g. a non-compat reboot).
+	* configure.ac (AC_CONFIG_FILES): Make util/Makefile instead of
+	initctl/Makefile.
+	* Makefile.am (SUBDIRS): Descend into util, not initctl.
+
+	* compat/sysv/reboot.c: Remove long options where they didn't exist
+	before.  Write help text.
+	* compat/sysv/man/reboot.8: Update.
+
+	* init/main.c (main): Formatting.
+	* logd/main.c (main): Formatting.
+	* logd/man/logd.8: Formatting.
+	* compat/sysv/runlevel.c (main): Formatting.
+	* compat/sysv/telinit.c (main): Formatting.
+	* compat/sysv/man/shutdown.8: Remove long options.
+
+	* compat/sysv/shutdown.c: Remove -e/--event, it has no place in a
+	compatibility tool.  Get rid of long options that never existed
+	before.  Specify help text to describe the options.
+	* compat/sysv/man/shutdown.8: Spruce up a bit.
+
+	* compat/sysv/telinit.c (main): Set help text to list the valid
+	runlevels.
+	* compat/sysv/man/telinit.8: Refine the notes to mention runlevel(8).
+
+	* compat/sysv/runlevel.c (main): Make the help text describe the
+	options, rather than the behaviour.
+	* compat/sysv/man/runlevel.8: Flesh out a little more.
+
+	* configure.ac (AC_INIT): Change bug reporting address to the
+	mailing list, since Launchpad doesn't accept random bugs without
+	accounts and complicated control messages.
+	* init/main.c, logd/main.c: Add a period to the synopsis.
+
+	* init/main.c (main): Set the synopsis, and direct people to look
+	at telinit in the --help output.
+	* init/man/init.8: Flesh this out a little more, still a lot of
+	explaining to do about jobs and events, but we'll wait until we've
+	changed that code before documentating the behaviour.
+
+	* logd/main.c (main): Correct help text to describe the options,
+	rather than what the program does.  As per standard style.
+	Don't become a daemon until the logging socket is open, and make
+	that exclusive with waiting for SIGCONT.
+	* logd/man/logd.8: Write some more extensive documentation,
+	including describing the startup interlock and the socket protocol.
+	* TODO: Plan to get rid of the signal interlock from  logd.
+
+2006-10-12  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Expand AC_GNU_SOURCE so we get _GNU_SOURCE and so
+	that gettext doesn't complain.
+	(AM_GNU_GETTEXT_VERSION): Increase to 0.15
+	(AC_PREREQ): Increase to 2.60
+	* HACKING: Update autoconf and gettext requirements.
+
+2006-10-11  Scott James Remnant  <scott@netsplit.com>
+
+	* init/control.c (control_init): Pass NULL to nih_list_new.
+	Clarify list item types.
+	* init/event.c (event_init): Pass NULL to nih_list_new.
+	* init/job.c (job_init): Pass NULL to nih_list_new.
+
+	* init/main.c: Change nih_signal_add_callback to nih_signal_add_handler
+	and NihSignalCb to NihSignalHandler.
+
+	* init/cfgfile.c, init/cfgfile.h, init/control.c, init/control.h,
+	init/event.c, init/event.h, init/job.c, init/job.h, init/main.c,
+	init/process.c: Clean up documentation strings and parent pointer
+	types.
+
+	* compat/sysv/shutdown.c: Change nih_signal_add_callback to
+	nih_signal_add_handler.
+
+	* compat/sysv/reboot.c: Set synopsis text depending on command
+	used (probably should use nih_command_parser?)
+	* compat/sysv/runlevel.c: Set synopsis and help text, and correct
+	usage.
+	* compat/sysv/shutdown.c: Set synopsis text.
+	* compat/sysv/telinit.c: Set synopsis text.
+
+	* compat/sysv/runlevel.c, compat/sysv/shutdown.c: Clean up
+	documentation strings.
+
+	* logd/main.c: Set synopsis and help text.
+
+	* logd/main.c: Clean up documentation strings.
+	Change nih_signal_add_callback to nih_signal_add_handler.
+
+	* upstart/control.c, upstart/control.h, upstart/job.c: Clean up
+	documentation strings and correct parent pointer type.
+
+	* HACKING: Detail function documentation requirement and format.
+
+2006-10-10  Scott James Remnant  <scott@netsplit.com>
+
+	* event.d/logd.in: Move to logd/event.d
+	* event.d/Makefile.am: Remove
+	* logd/Makefile.am: Create the logd job definition and install
+	* Makefile.am (SUBDIRS): event.d directory has been removed.
+	* configure.ac (AC_CONFIG_FILES): No longer make event.d/Makefile
+
+	* configure.ac: Check for --enable-compat, default to sysv if given
+	or no compat if not given.
+	* compat/sysv/Makefile.am: Don't build binaries or install manpages
+	unless COMPAT_SYSV is defined.
+
+2006-10-06  Scott James Remnant  <scott@netsplit.com>
+
+	* doc/upstart-logo.svg: Include the logo Alexandre designed.
+	* doc/Makefile.am (EXTRA_DIST): Ship the logo in the tarball.
+	* Makefile.am (SUBDIRS): Install under doc
+	* configure.ac: Generate doc/Makefile
+	* AUTHORS: Ensure he's credited fully.
+
+2006-09-27  Scott James Remnant  <scott@netsplit.com>
+
+	* event.d/Makefile.am (do_subst): Eliminate duplicate /s
+
+	* man/init.8: Move to init/man
+	* init/Makefile.am: Update to install man page.
+	* man/logd.8: Move to logd/man
+	* logd/Makefile.am: Update to install man page.
+	* man/initctl.8, man/start.8: Move to initctl/man
+	* initctl/Makefile.am: Update to install man pages.
+	* man/reboot.8, man/runlevel.8, man/shutdown.8, man/telinit.8:
+	Move to compat/sysv/man
+	* compat/sysv/Makefile.am: Update to install man pages.
+	* man/Makefile.am: Remove
+	* configure.ac (AC_CONFIG_FILES): Remove man/Makefile
+	* Makefile.am (SUBDIRS): Don't build in man
+
+	* util: Rename to initctl
+	* configure.ac (AC_CONFIG_FILES): Update.
+	* Makefile.am (SUBDIRS): Update.
+
+	* util/reboot.c: Move to compat/sysv
+	* util/shutdown.c: Move to compat/sysv
+	* util/Makefile.am: Update.
+	* compat/sysv/Makefile.am: Update.
+
+	* configure.ac: Replace macros with single call to NIH_INIT.
+	Bump version to 0.3.0 to begin new development cycle.
+
+2006-09-21  Scott James Remnant  <scott@netsplit.com>
+
+	* logd/main.c: Revert the change that logged to the console, in
+	practice this doesn't work so well.  I want to get rid of logd
+	in the long term, or at least just have it as a simple logging
+	proxy, so giving it features seems wrong.
+
 2006-09-20  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.2.8
+	* NEWS: Updated.
 
 	* logd/main.c (main): Check the kernel command-line for "quiet"
 	(line_reader): Write to console unless silent or a daemon

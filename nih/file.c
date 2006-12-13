@@ -58,7 +58,8 @@ static void nih_file_reader (void *data, NihIo *io,
 /**
  * file_watches:
  *
- * List of all file watches.
+ * List of all file watches, in no particular order.  Each item is an
+ * NihFileWatch structure.
  **/
 static NihList *file_watches = NULL;
 
@@ -79,7 +80,7 @@ static inline void
 nih_file_init (void)
 {
 	if (! file_watches)
-		NIH_MUST (file_watches = nih_list_new ());
+		NIH_MUST (file_watches = nih_list_new (NULL));
 
 	if (inotify_fd == -1) {
 		inotify_fd = inotify_init ();
@@ -104,15 +105,21 @@ nih_file_init (void)
  * bitmask as described in inotify(7).  When any of the listed events
  * occur, @watcher is called.
  *
- * The watch structure is allocated using #nih_alloc and stored in a linked
+ * The watch structure is allocated using nih_alloc() and stored in a linked
  * list, a default destructor is set that removes the watch from the list
  * and terminates the inotify watch.  Removal of the watch can be performed
  * by freeing it.
  *
- * Returns: new NihFileWatch structure or %NULL on raised error.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: new NihFileWatch structure or NULL on raised error.
  **/
 NihFileWatch *
-nih_file_add_watch (void           *parent,
+nih_file_add_watch (const void     *parent,
 		    const char     *path,
 		    uint32_t        events,
 		    NihFileWatcher  watcher,
@@ -133,10 +140,8 @@ nih_file_add_watch (void           *parent,
 		nih_return_system_error (NULL);
 
 	watch = nih_new (parent, NihFileWatch);
-	if (! watch) {
-		errno = ENOMEM;
+	if (! watch)
 		nih_return_system_error (NULL);
-	}
 
 	nih_list_init (&watch->entry);
 	nih_alloc_set_destructor (watch, (NihDestructor)nih_file_remove_watch);
@@ -218,7 +223,10 @@ nih_file_reader (void       *data,
 		if (len < sz)
 			return;
 
-		/* Read the data (allocates the event structure, etc.) */
+		/* Read the data (allocates the event structure, etc.)
+		 * Force this, otherwise we won't get called until the
+		 * next inotify event.
+		 */
 		NIH_MUST (event = (struct inotify_event *)nih_io_read (
 				  NULL, io, sz));
 		len -= sz;
@@ -249,7 +257,7 @@ nih_file_reader (void       *data,
  * pointer and the length of the file (required to unmap it later).  The
  * file is opened with the @flags given.
  *
- * Returns: memory mapped file or %NULL on raised error.
+ * Returns: memory mapped file or NULL on raised error.
  **/
 void *
 nih_file_map (const char *path,
@@ -263,37 +271,32 @@ nih_file_map (const char *path,
 	nih_assert (path != NULL);
 	nih_assert (length != NULL);
 
+	nih_assert (((flags & O_ACCMODE) == O_RDONLY)
+		    || ((flags & O_ACCMODE) == O_RDWR));
+
 	fd = open (path, flags);
 	if (fd < 0)
 		nih_return_system_error (NULL);
 
-	if ((flags & O_ACCMODE) == O_RDONLY) {
-		prot = PROT_READ;
-	} else if ((flags & O_ACCMODE) == O_WRONLY) {
-		prot = PROT_WRITE;
-	} else if ((flags & O_ACCMODE) == O_RDWR) {
-		prot = PROT_READ | PROT_WRITE;
-	} else {
-		prot = PROT_NONE;
-	}
+	prot = PROT_READ;
+	if ((flags & O_ACCMODE) == O_RDWR)
+		prot |= PROT_WRITE;
 
-	if (fstat (fd, &statbuf) < 0) {
-		nih_error_raise_system ();
-		close (fd);
-		return NULL;
-	}
+	if (fstat (fd, &statbuf) < 0)
+		goto error;
 
 	*length = statbuf.st_size;
 
 	map = mmap (NULL, *length, prot, MAP_SHARED, fd, 0);
-	if (map == MAP_FAILED) {
-		nih_error_raise_system ();
-		close (fd);
-		return NULL;
-	}
+	if (map == MAP_FAILED)
+		goto error;
 
 	close (fd);
 	return map;
+error:
+	nih_error_raise_system ();
+	close (fd);
+	return NULL;
 }
 
 /**
@@ -301,9 +304,9 @@ nih_file_map (const char *path,
  * @map: memory mapped file,
  * @length: length of file.
  *
- * Unmap a file previously mapped with #nih_file_map.
+ * Unmap a file previously mapped with nih_file_map().
  *
- * Returns: zero on success, %NULL on raised error.
+ * Returns: zero on success, NULL on raised error.
  **/
 int
 nih_file_unmap (void   *map,

@@ -36,49 +36,43 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = initctl$(EXEEXT) reboot$(EXEEXT) shutdown$(EXEEXT) \
-	start$(EXEEXT)
+sbin_PROGRAMS = initctl$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1)
 subdir = util
-DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
+DIST_COMMON = $(dist_man_MANS) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/codeset.m4 \
-	$(top_srcdir)/m4/compiler.m4 $(top_srcdir)/m4/misc.m4 \
-	$(top_srcdir)/m4/gettext.m4 $(top_srcdir)/m4/glibc21.m4 \
+	$(top_srcdir)/m4/compiler.m4 $(top_srcdir)/m4/gettext.m4 \
+	$(top_srcdir)/m4/glibc2.m4 $(top_srcdir)/m4/glibc21.m4 \
 	$(top_srcdir)/m4/iconv.m4 $(top_srcdir)/m4/intdiv0.m4 \
-	$(top_srcdir)/m4/intmax.m4 $(top_srcdir)/m4/inttypes-pri.m4 \
-	$(top_srcdir)/m4/inttypes.m4 $(top_srcdir)/m4/inttypes_h.m4 \
-	$(top_srcdir)/m4/lcmessage.m4 $(top_srcdir)/m4/lib-ld.m4 \
-	$(top_srcdir)/m4/lib-link.m4 $(top_srcdir)/m4/lib-prefix.m4 \
-	$(top_srcdir)/m4/linker.m4 $(top_srcdir)/m4/longdouble.m4 \
-	$(top_srcdir)/m4/longlong.m4 $(top_srcdir)/m4/nls.m4 \
-	$(top_srcdir)/m4/po.m4 $(top_srcdir)/m4/printf-posix.m4 \
-	$(top_srcdir)/m4/progtest.m4 $(top_srcdir)/m4/signed.m4 \
-	$(top_srcdir)/m4/size_max.m4 $(top_srcdir)/m4/stdint_h.m4 \
-	$(top_srcdir)/m4/uintmax_t.m4 $(top_srcdir)/m4/ulonglong.m4 \
+	$(top_srcdir)/m4/intmax.m4 $(top_srcdir)/m4/inttypes-h.m4 \
+	$(top_srcdir)/m4/inttypes-pri.m4 \
+	$(top_srcdir)/m4/inttypes_h.m4 $(top_srcdir)/m4/lcmessage.m4 \
+	$(top_srcdir)/m4/lib-ld.m4 $(top_srcdir)/m4/lib-link.m4 \
+	$(top_srcdir)/m4/lib-prefix.m4 $(top_srcdir)/m4/linker.m4 \
+	$(top_srcdir)/m4/lock.m4 $(top_srcdir)/m4/longdouble.m4 \
+	$(top_srcdir)/m4/longlong.m4 $(top_srcdir)/m4/misc.m4 \
+	$(top_srcdir)/m4/nls.m4 $(top_srcdir)/m4/po.m4 \
+	$(top_srcdir)/m4/printf-posix.m4 $(top_srcdir)/m4/progtest.m4 \
+	$(top_srcdir)/m4/signed.m4 $(top_srcdir)/m4/size_max.m4 \
+	$(top_srcdir)/m4/stdint_h.m4 $(top_srcdir)/m4/uintmax_t.m4 \
+	$(top_srcdir)/m4/ulonglong.m4 $(top_srcdir)/m4/visibility.m4 \
 	$(top_srcdir)/m4/wchar_t.m4 $(top_srcdir)/m4/wint_t.m4 \
 	$(top_srcdir)/m4/xsize.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 am__EXEEXT_1 =
-am__installdirs = "$(DESTDIR)$(sbindir)"
+am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man8dir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
 am_initctl_OBJECTS = initctl.$(OBJEXT)
 initctl_OBJECTS = $(am_initctl_OBJECTS)
 initctl_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
-am_reboot_OBJECTS = reboot.$(OBJEXT)
-reboot_OBJECTS = $(am_reboot_OBJECTS)
-reboot_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
-am_shutdown_OBJECTS = shutdown.$(OBJEXT)
-shutdown_OBJECTS = $(am_shutdown_OBJECTS)
-shutdown_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
-am_start_OBJECTS = start.$(OBJEXT)
-start_OBJECTS = $(am_start_OBJECTS)
-start_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
+DEFAULT_INCLUDES = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -89,10 +83,11 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(initctl_SOURCES) $(reboot_SOURCES) $(shutdown_SOURCES) \
-	$(start_SOURCES)
-DIST_SOURCES = $(initctl_SOURCES) $(reboot_SOURCES) \
-	$(shutdown_SOURCES) $(start_SOURCES)
+SOURCES = $(initctl_SOURCES)
+DIST_SOURCES = $(initctl_SOURCES)
+man8dir = $(mandir)/man8
+NROFF = nroff
+MANS = $(dist_man_MANS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -111,6 +106,9 @@ CATOBJEXT = @CATOBJEXT@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CFLAG_VISIBILITY = @CFLAG_VISIBILITY@
+COMPAT_SYSV_FALSE = @COMPAT_SYSV_FALSE@
+COMPAT_SYSV_TRUE = @COMPAT_SYSV_TRUE@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
@@ -119,8 +117,7 @@ CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
-DEFS = @DEFS@ -DLOCALEDIR="\"$(localedir)\"" \
-	-DSHUTDOWN="\"$(sbindir)/shutdown\""
+DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO = @ECHO@
 ECHO_C = @ECHO_C@
@@ -131,14 +128,17 @@ EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
 GENCAT = @GENCAT@
+GLIBC2 = @GLIBC2@
 GLIBC21 = @GLIBC21@
 GMSGFMT = @GMSGFMT@
+GMSGFMT_015 = @GMSGFMT_015@
 GREP = @GREP@
 HAVE_ASPRINTF = @HAVE_ASPRINTF@
 HAVE_POSIX_PRINTF = @HAVE_POSIX_PRINTF@
 HAVE_SNPRINTF = @HAVE_SNPRINTF@
 HAVE_VERSION_SCRIPT_ARG_FALSE = @HAVE_VERSION_SCRIPT_ARG_FALSE@
 HAVE_VERSION_SCRIPT_ARG_TRUE = @HAVE_VERSION_SCRIPT_ARG_TRUE@
+HAVE_VISIBILITY = @HAVE_VISIBILITY@
 HAVE_WPRINTF = @HAVE_WPRINTF@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -149,19 +149,26 @@ INTLBISON = @INTLBISON@
 INTLLIBS = @INTLLIBS@
 INTLOBJS = @INTLOBJS@
 INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+INTL_MACOSX_LIBS = @INTL_MACOSX_LIBS@
 LDFLAGS = @LDFLAGS@
 LIBICONV = @LIBICONV@
 LIBINTL = @LIBINTL@
+LIBMULTITHREAD = @LIBMULTITHREAD@
 LIBOBJS = @LIBOBJS@
+LIBPTH = @LIBPTH@
 LIBS = @LIBS@
+LIBTHREAD = @LIBTHREAD@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 LTLIBICONV = @LTLIBICONV@
 LTLIBINTL = @LTLIBINTL@
+LTLIBMULTITHREAD = @LTLIBMULTITHREAD@
 LTLIBOBJS = @LTLIBOBJS@
+LTLIBPTH = @LTLIBPTH@
+LTLIBTHREAD = @LTLIBTHREAD@
 MAKEINFO = @MAKEINFO@
-MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
+MSGFMT_015 = @MSGFMT_015@
 MSGMERGE = @MSGMERGE@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
@@ -180,7 +187,9 @@ USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 VERSION_SCRIPT_ARG = @VERSION_SCRIPT_ARG@
+WOE32DLL = @WOE32DLL@
 XGETTEXT = @XGETTEXT@
+XGETTEXT_015 = @XGETTEXT_015@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
@@ -215,7 +224,7 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
-localedir = $(datadir)/locale
+localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
@@ -228,20 +237,17 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
-INCLUDES = -I$(top_srcdir)/intl
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
+	-I$(top_srcdir)/intl
+
+dist_man_MANS = \
+	man/initctl.8
+
 initctl_SOURCES = initctl.c
 initctl_LDFLAGS = -static
 initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-shutdown_SOURCES = shutdown.c
-shutdown_LDFLAGS = -static
-shutdown_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-reboot_SOURCES = reboot.c
-reboot_LDFLAGS = -static
-reboot_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-start_SOURCES = start.c
-start_LDFLAGS = -static
-start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 TESTS = 
 all: all-am
 
@@ -314,15 +320,6 @@ clean-sbinPROGRAMS:
 initctl$(EXEEXT): $(initctl_OBJECTS) $(initctl_DEPENDENCIES) 
 	@rm -f initctl$(EXEEXT)
 	$(LINK) $(initctl_LDFLAGS) $(initctl_OBJECTS) $(initctl_LDADD) $(LIBS)
-reboot$(EXEEXT): $(reboot_OBJECTS) $(reboot_DEPENDENCIES) 
-	@rm -f reboot$(EXEEXT)
-	$(LINK) $(reboot_LDFLAGS) $(reboot_OBJECTS) $(reboot_LDADD) $(LIBS)
-shutdown$(EXEEXT): $(shutdown_OBJECTS) $(shutdown_DEPENDENCIES) 
-	@rm -f shutdown$(EXEEXT)
-	$(LINK) $(shutdown_LDFLAGS) $(shutdown_OBJECTS) $(shutdown_LDADD) $(LIBS)
-start$(EXEEXT): $(start_OBJECTS) $(start_DEPENDENCIES) 
-	@rm -f start$(EXEEXT)
-	$(LINK) $(start_LDFLAGS) $(start_OBJECTS) $(start_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -331,9 +328,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/initctl.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/reboot.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shutdown.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/start.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -365,6 +359,51 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
+install-man8: $(man8_MANS) $(man_MANS)
+	@$(NORMAL_INSTALL)
+	test -z "$(man8dir)" || $(mkdir_p) "$(DESTDIR)$(man8dir)"
+	@list='$(man8_MANS) $(dist_man8_MANS) $(nodist_man8_MANS)'; \
+	l2='$(man_MANS) $(dist_man_MANS) $(nodist_man_MANS)'; \
+	for i in $$l2; do \
+	  case "$$i" in \
+	    *.8*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  case "$$ext" in \
+	    8*) ;; \
+	    *) ext='8' ;; \
+	  esac; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) '$$file' '$(DESTDIR)$(man8dir)/$$inst'"; \
+	  $(INSTALL_DATA) "$$file" "$(DESTDIR)$(man8dir)/$$inst"; \
+	done
+uninstall-man8:
+	@$(NORMAL_UNINSTALL)
+	@list='$(man8_MANS) $(dist_man8_MANS) $(nodist_man8_MANS)'; \
+	l2='$(man_MANS) $(dist_man_MANS) $(nodist_man_MANS)'; \
+	for i in $$l2; do \
+	  case "$$i" in \
+	    *.8*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  case "$$ext" in \
+	    8*) ;; \
+	    *) ext='8' ;; \
+	  esac; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f '$(DESTDIR)$(man8dir)/$$inst'"; \
+	  rm -f "$(DESTDIR)$(man8dir)/$$inst"; \
+	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -488,6 +527,7 @@ check-TESTS: $(TESTS)
 	else :; fi
 
 distdir: $(DISTFILES)
+	$(mkdir_p) $(distdir)/man
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -518,9 +558,9 @@ check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(PROGRAMS) $(MANS)
 installdirs:
-	for dir in "$(DESTDIR)$(sbindir)"; do \
+	for dir in "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man8dir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-am
@@ -568,7 +608,9 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-man
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 
 install-exec-am: install-sbinPROGRAMS
 	@$(NORMAL_INSTALL)
@@ -576,7 +618,7 @@ install-exec-am: install-sbinPROGRAMS
 
 install-info: install-info-am
 
-install-man:
+install-man: install-man8
 
 installcheck-am:
 
@@ -599,29 +641,35 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
+uninstall-am: uninstall-info-am uninstall-man uninstall-sbinPROGRAMS
+
+uninstall-man: uninstall-man8
 
 .PHONY: CTAGS GTAGS all all-am check check-TESTS check-am clean \
 	clean-checkPROGRAMS clean-generic clean-libtool clean-local \
 	clean-sbinPROGRAMS ctags distclean distclean-compile \
 	distclean-generic distclean-libtool distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-exec install-exec-am \
-	install-exec-hook install-info install-info-am install-man \
-	install-sbinPROGRAMS install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	install-data install-data-am install-data-hook install-exec \
+	install-exec-am install-exec-hook install-info install-info-am \
+	install-man install-man8 install-sbinPROGRAMS install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic maintainer-clean-local mostlyclean \
 	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-info-am uninstall-sbinPROGRAMS
+	uninstall-info-am uninstall-man uninstall-man8 \
+	uninstall-sbinPROGRAMS
 
+
+install-data-hook:
+	ln -sf initctl.8 $(DESTDIR)$(man8dir)/start.8
+	ln -sf initctl.8 $(DESTDIR)$(man8dir)/stop.8
+	ln -sf initctl.8 $(DESTDIR)$(man8dir)/status.8
 
 install-exec-hook:
-	ln -sf reboot $(DESTDIR)$(sbindir)/halt
-	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
-
-	ln -sf start $(DESTDIR)$(sbindir)/stop
-	ln -sf start $(DESTDIR)$(sbindir)/status
+	ln -sf initctl $(DESTDIR)$(sbindir)/start
+	ln -sf initctl $(DESTDIR)$(sbindir)/stop
+	ln -sf initctl $(DESTDIR)$(sbindir)/status
 
 clean-local:
 	rm -f *.gcno *.gcda

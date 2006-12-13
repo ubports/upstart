@@ -1,0 +1,51 @@
+#!/bin/sh -e
+# This script can be called in the following ways:
+#
+# Before the package is installed:
+#	<new-preinst> install
+#
+# Before removed package is upgraded:
+#	<new-preinst> install <old-version>
+#
+# Before the package is upgraded:
+#	<new-preinst> upgrade <old-version>
+#
+#
+# If postrm fails during upgrade or fails on failed upgrade:
+#	<old-preinst> abort-upgrade <new-version>
+
+
+# Replace the documentation directory with a symlink to the common one.
+replace_doc_dir()
+{
+    DOCDIR="/usr/share/doc/startup-tasks"
+
+    if [ -d "$DOCDIR" ] && [ ! -L "$DOCDIR" ]; then
+	rm -rf "$DOCDIR"
+	ln -sf "upstart" "$DOCDIR"
+    fi
+}
+
+
+case "$1" in
+    install)
+    	;;
+
+    upgrade)
+	# Upgrade from edgy
+	if dpkg --compare-versions "$2" lt "0.3.1-1"; then
+	    replace_doc_dir
+	fi
+	;;
+
+    abort-upgrade)
+	;;
+
+    *)
+	echo "$0 called with unknown argument \`$1'" 1>&2
+	exit 1
+	;;
+esac
+
+
+exit 0

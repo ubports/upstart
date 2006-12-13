@@ -65,6 +65,8 @@ static NihIoWatch *io_watch = NULL;
  * List of messages that are queued up to be sent when the socket is
  * available for writing; done this way to avoid blocking on malicious
  * clients.
+ *
+ * Each item is a ControlMsg structure.
  **/
 static NihList *send_queue = NULL;
 
@@ -72,6 +74,7 @@ static NihList *send_queue = NULL;
  * subscriptions:
  *
  * List of processes that are subscribed to changes in events or job status.
+ * Each item is a ControlSub structure.
  **/
 static NihList *subscriptions = NULL;
 
@@ -85,10 +88,10 @@ static void
 control_init (void)
 {
 	if (! send_queue)
-		NIH_MUST (send_queue = nih_list_new ());
+		NIH_MUST (send_queue = nih_list_new (NULL));
 
 	if (! subscriptions)
-		NIH_MUST (subscriptions = nih_list_new ());
+		NIH_MUST (subscriptions = nih_list_new (NULL));
 }
 
 
@@ -98,7 +101,7 @@ control_init (void)
  * Opens the control socket and sets it up so that incoming messages are
  * dealt with and outgoing messages can be queued.
  *
- * Returns: watch on socket on success, %NULL on raised error.
+ * Returns: watch on socket on success, NULL on raised error.
  **/
 NihIoWatch *
 control_open (void)
@@ -128,7 +131,6 @@ control_open (void)
 	io_watch = nih_io_add_watch (NULL, sock, events,
 				     control_watcher, NULL);
 	if (! io_watch) {
-		errno = ENOMEM;
 		nih_error_raise_system ();
 		close (sock);
 		return NULL;
@@ -164,15 +166,15 @@ control_close (void)
  * control_subscribe:
  * @pid: process id to send to,
  * @notify: notify events mask to change,
- * @set: %TRUE to add events, %FALSE to remove.
+ * @set: TRUE to add events, FALSE to remove.
  *
  * Adjusts the subscription of process @pid by adding the events listed
- * in @notify if @set is %TRUE or removing if @set is %FALSE.  Removing
+ * in @notify if @set is TRUE or removing if @set is FALSE.  Removing
  * all subscribed events removes the subscription.
  *
- * The current subscription can be found by passing %NOTIFY_NONE.
+ * The current subscription can be found by passing NOTIFY_NONE.
  *
- * Returns: subscription record on success, %NULL on insufficient memory
+ * Returns: subscription record on success, NULL on insufficient memory
  * or removal of subscription.
  **/
 ControlSub *
@@ -235,10 +237,10 @@ control_subscribe (pid_t        pid,
  * Queue @message to be send to process @pid when next possible.  @message
  * is copied internally, including any pointers (such as the name).
  *
- * The message can be cancelled by using #nih_list_free on the returned
+ * The message can be cancelled by using nih_list_free() on the returned
  * structure.
  *
- * Returns: entry in the send queue on success, %NULL on insufficient memory.
+ * Returns: entry in the send queue on success, NULL on insufficient memory.
  **/
 ControlMsg *
 control_send (pid_t       pid,
@@ -369,11 +371,15 @@ static void control_watcher (void        *data,
 					nih_free (err);
 					continue;
 				} else if (err->number == ECONNREFUSED) {
+					pid_t pid;
+
+					pid = msg->pid;
+
 					nih_free (err);
 					nih_list_free (&msg->entry);
 
 					control_subscribe
-						(msg->pid,
+						(pid,
 						 NOTIFY_JOBS | NOTIFY_EVENTS,
 						 FALSE);
 

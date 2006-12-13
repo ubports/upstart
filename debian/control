@@ -19,7 +19,7 @@ Description: event-based init daemon
 Package: upstart-compat-sysv
 Architecture: any
 Depends: ${shlibs:Depends}, upstart (= ${binary:Version}), sysvutils (>= 2.86.ds1-14.1ubuntu11), sysv-rc, initscripts
-Replaces: upstart (<< 0.2.0-1), sysvinit
+Replaces: upstart (<< 0.3.1-1), sysvinit
 Description: compatibility for System-V-like init
  This package contains compatibility tasks and utilities that emulate
  the behaviour of the original sysvinit package, including runlevels,

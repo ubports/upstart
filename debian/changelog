@@ -1,3 +1,23 @@
+upstart (0.3.1-1) feisty; urgency=low
+
+  * New upstream release:
+    - start, stop and status are now symlinks to initctl, not to a
+      different, separate utility.
+    - initctl completely rewritten to behave properly.
+    - some upstart-specific options to shutdown and reboot dropped, as
+      these are considered SysV-compat tools.
+    - "console none" fixed.  LP: #70782.
+    - improved documentation.  LP: #68805.
+
+  * shutdown and reboot moved to upstart-compat-sysv.
+
+  * Replace the /usr/share/doc/* directory in upstart-logd,
+    upstart-compat-sysv, system-services and startup-tasks with a symlink to
+    /usr/share/doc/upstart.  This was actually done in a previous package,
+    but the migration missed.  LP: #70895.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 13 Dec 2006 17:27:37 +0000
+
 upstart (0.2.7-7) edgy; urgency=low
 
   * Don't abort the postinst if we can't send init SIGTERM.  Ubuntu: #64499.

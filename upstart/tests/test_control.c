@@ -20,15 +20,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <stdio.h>
-#include <assert.h>
-#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
@@ -39,122 +37,100 @@
 #include <upstart/control.h>
 
 
-int
+void
 test_open (void)
 {
 	struct sockaddr_un addr;
-	int                ret = 0, sock, val;
-	char               name[26];
+	int                sock, val;
+	char               name[108];
 	socklen_t          len;
 
-	printf ("Testing upstart_open()\n");
+	/* Check that the socket opened is a datagram socket in the
+	 * AF_UNIX abstract namespace with a path that includes the PID
+	 * of the current process.  The SO_PASSCRED option should be set
+	 * so that we can get the credentials of any sender.
+	 */
+	TEST_FUNCTION ("upstart_open");
 	sock = upstart_open ();
 
-	/* Socket should be in AF_UNIX space */
 	len = sizeof (addr);
-	assert (getsockname (sock, (struct sockaddr *)&addr, &len) == 0);
-	if (addr.sun_family != AF_UNIX) {
-		printf ("BAD: address family wasn't what we expected.\n");
-		ret = 1;
-	}
+	getsockname (sock, (struct sockaddr *)&addr, &len);
 
-	/* Socket should be in abstract namespace */
-	if (addr.sun_path[0] != '\0') {
-		printf ("BAD: address type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (addr.sun_family, AF_UNIX);
+	TEST_EQ (addr.sun_path[0], '\0');
 
-	/* Name should be /com/ubuntu/upstart/$PID */
 	sprintf (name, "/com/ubuntu/upstart/%d", getpid ());
-	if (strncmp (addr.sun_path + 1, name, strlen (name))) {
-		printf ("BAD: address wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_STRN (addr.sun_path + 1, name);
 
-	/* Should work on datagrams */
 	val = 0;
 	len = sizeof (val);
-	assert (getsockopt (sock, SOL_SOCKET, SO_TYPE, &val, &len) == 0);
-	if (val != SOCK_DGRAM) {
-		printf ("BAD: socket type wasn't what we expected.\n");
-		ret = 1;
-	}
+	getsockopt (sock, SOL_SOCKET, SO_TYPE, &val, &len);
 
-	/* Credentials should be passed with any received message */
+	TEST_EQ (val, SOCK_DGRAM);
+
 	val = 0;
 	len = sizeof (val);
-	assert (getsockopt (sock, SOL_SOCKET, SO_PASSCRED, &val, &len) == 0);
-	if (val == 0) {
-		printf ("BAD: socket will not receive credentials.\n");
-		ret = 1;
-	}
+	getsockopt (sock, SOL_SOCKET, SO_PASSCRED, &val, &len);
+
+	TEST_NE (val, 0);
+
 
 	close (sock);
-
-	return ret;
 }
 
 
-int
+void
 test_send_msg_to (void)
 {
 	UpstartMsg *msg;
 	NihError   *err;
-	int         ret = 0, sock, retval;
+	int         sock, ret;
 
-	printf ("Testing upstart_send_msg_to()\n");
+	TEST_FUNCTION ("upstart_send_msg_to");
 	sock = upstart_open ();
 	msg = nih_new (NULL, UpstartMsg);
 
-	printf ("...with unknown message type\n");
+	/* Check that sending an unknown message type results in the
+	 * UPSTART_INVALID_MESSAGE error being raised.
+	 */
+	TEST_FEATURE ("with unknown message type");
 	msg->type = 90210;
-	retval = upstart_send_msg_to (getpid (), sock, msg);
+	ret = upstart_send_msg_to (getpid (), sock, msg);
 
-	/* Return value should be negative */
-	if (retval >= 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_LT (ret, 0);
 
-	/* UPSTART_INVALID_MESSAGE should be raised */
 	err = nih_error_get ();
-	if (err->number != UPSTART_INVALID_MESSAGE) {
-		printf ("BAD: raised error wasn't what we expected.\n");
-		ret = 1;
-	}
+
+	TEST_EQ (err->number, UPSTART_INVALID_MESSAGE);
+
 	nih_free (err);
 
 
-	printf ("...with overly long message\n");
+	/* Check that sending a message that's too long also results in the
+	 * UPSTART_INVALID_MESSAGE error being raised.
+	 */
+	TEST_FEATURE ("with overly long message");
 	msg->type = UPSTART_JOB_QUERY;
 	msg->job_query.name = nih_alloc (msg, 8192);
 	memset (msg->job_query.name, 'a', 8191);
 	msg->job_query.name[8191] = '\0';
 
-	retval = upstart_send_msg_to (getpid (), sock, msg);
+	ret = upstart_send_msg_to (getpid (), sock, msg);
 
-	/* Return value should be negative */
-	if (retval >= 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_LT (ret, 0);
 
-	/* UPSTART_INVALID_MESSAGE should be raised */
 	err = nih_error_get ();
-	if (err->number != UPSTART_INVALID_MESSAGE) {
-		printf ("BAD: raised error wasn't what we expected.\n");
-		ret = 1;
-	}
+
+	TEST_EQ (err->number, UPSTART_INVALID_MESSAGE);
+
 	nih_free (err);
 
 
 	nih_free (msg);
 	close (sock);
-
-	return ret;
 }
 
-int
+void
 test_recv_msg (void)
 {
 	struct sockaddr_un  addr;
@@ -163,9 +139,9 @@ test_recv_msg (void)
 	NihError           *err;
 	pid_t               pid;
 	char                buf[80];
-	int                 ret = 0, s_sock, r_sock;
+	int                 s_sock, r_sock;
 
-	printf ("Testing upstart_recv_msg()\n");
+	TEST_FUNCTION ("upstart_recv_msg");
 	s_sock = socket (PF_UNIX, SOCK_DGRAM, 0);
 	r_sock = upstart_open ();
 
@@ -176,51 +152,49 @@ test_recv_msg (void)
 	addrlen += snprintf (addr.sun_path + 1, sizeof (addr.sun_path) -1,
 			     "/com/ubuntu/upstart/%d", getpid ());
 
-	printf ("...without magic marker\n");
+	/* Check that receiving a message without the usual magic marker
+	 * results in only UPSTART_INVALID_MESSAGE being raised.
+	 */
+	TEST_FEATURE ("without magic marker");
 	memset (buf, 0, 16);
 	memcpy (buf, "wibblefart", 10);
 	memcpy (buf + 16, "\0\0\0\0", 4);
 	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Return value should be NULL */
-	if (msg != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (msg, NULL);
 
-	/* UPSTART_INVALID_MESSAGE should be raised */
 	err = nih_error_get ();
-	if (err->number != UPSTART_INVALID_MESSAGE) {
-		printf ("BAD: raised error wasn't what we expected.\n");
-		ret = 1;
-	}
+
+	TEST_EQ (err->number, UPSTART_INVALID_MESSAGE);
+
 	nih_free (err);
 
 
-	printf ("...with unknown message type\n");
+	/* Check that receiving a message with an unknown type results in
+	 * the UPSTART_INVALID_MESSAGE error being raised.
+	 */
+	TEST_FEATURE ("with unknown message type");
 	memset (buf, 0, 16);
 	strncpy (buf, PACKAGE_STRING, 16);
 	memcpy (buf + 16, "\0\0\0\001", 4);
 	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Return value should be NULL */
-	if (msg != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (msg, NULL);
 
-	/* UPSTART_INVALID_MESSAGE should be raised */
 	err = nih_error_get ();
-	if (err->number != UPSTART_INVALID_MESSAGE) {
-		printf ("BAD: raised error wasn't what we expected.\n");
-		ret = 1;
-	}
+
+	TEST_EQ (err->number, UPSTART_INVALID_MESSAGE);
+
 	nih_free (err);
 
 
-	printf ("...with short message\n");
+	/* Check that receiving a message which has been truncated (or is
+	 * just too short) results in the UPSTART_INVALID_MESSAGE error
+	 * being raised.
+	 */
+	TEST_FEATURE ("with short message");
 	memset (buf, 0, 16);
 	strncpy (buf, PACKAGE_STRING, 16);
 	memcpy (buf + 16, "\001\0\0\0", 4);
@@ -228,167 +202,127 @@ test_recv_msg (void)
 	sendto (s_sock, buf, 28, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Return value should be NULL */
-	if (msg != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (msg, NULL);
 
-	/* UPSTART_INVALID_MESSAGE should be raised */
 	err = nih_error_get ();
-	if (err->number != UPSTART_INVALID_MESSAGE) {
-		printf ("BAD: raised error wasn't what we expected.\n");
-		ret = 1;
-	}
+
+	TEST_EQ (err->number, UPSTART_INVALID_MESSAGE);
+
 	nih_free (err);
 
 
-	printf ("...with valid message\n");
+	/* Check that a valid message being received returns that message,
+	 * allocated with nih_alloc and with the values filled in.  Also
+	 * check that the pid of the sender is stored in the argument.
+	 */
+	TEST_FEATURE ("with valid message");
 	memset (buf, 0, 16);
 	strncpy (buf, PACKAGE_STRING, 16);
 	memcpy (buf + 16, "\0\0\0\0", 4);
 	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, &pid);
 
-	/* Message type should be UPSTART_NO_OP */
-	if (msg->type != UPSTART_NO_OP) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process id should be stored in pid */
-	if (pid != getpid ()) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (msg, sizeof (UpstartMsg));
+	TEST_EQ (msg->type, UPSTART_NO_OP);
+	TEST_EQ (pid, getpid ());
 
 	nih_free (msg);
 
 
 	close (s_sock);
 	close (r_sock);
-
-	return ret;
 }
 
-int
+void
 test_messages (void)
 {
 	UpstartMsg *s_msg, *r_msg;
 	int         s_sock, r_sock;
-	int         ret = 0;
 
 	/* Rather than test the sending and receiving separately,
 	 * check whether messages poked in one end come out the other
 	 * the same way
 	 */
 
-	printf ("Testing upstart_send/recv_msg()\n");
+	TEST_FUNCTION ("upstart_send/recv_msg");
 	s_sock = socket (PF_UNIX, SOCK_DGRAM, 0);
 	r_sock = upstart_open ();
 	s_msg = nih_new (NULL, UpstartMsg);
 
 
-	printf ("...with UPSTART_NO_OP\n");
+	/* Check that an UPSTART_NO_OP message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_NO_OP");
 	s_msg->type = UPSTART_NO_OP;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_NO_OP */
-	if (r_msg->type != UPSTART_NO_OP) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_NO_OP);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_START\n");
+	/* Check that an UPSTART_JOB_START message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_START");
 	s_msg->type = UPSTART_JOB_START;
 	s_msg->job_start.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_START */
-	if (r_msg->type != UPSTART_JOB_START) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->job_start.name, "wibble")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->job_start.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_START);
+	TEST_EQ_STR (r_msg->job_start.name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->job_start.name, r_msg);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_STOP\n");
+	/* Check that an UPSTART_JOB_STOP message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_STOP");
 	s_msg->type = UPSTART_JOB_STOP;
 	s_msg->job_stop.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_STOP */
-	if (r_msg->type != UPSTART_JOB_STOP) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->job_stop.name, "wibble")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->job_stop.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_STOP);
+	TEST_EQ_STR (r_msg->job_stop.name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->job_stop.name, r_msg);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_QUERY\n");
+	/* Check that an UPSTART_JOB_QUERY message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_QUERY");
 	s_msg->type = UPSTART_JOB_QUERY;
 	s_msg->job_query.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_QUERY */
-	if (r_msg->type != UPSTART_JOB_QUERY) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->job_query.name, "wibble")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->job_query.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_QUERY);
+	TEST_EQ_STR (r_msg->job_query.name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->job_query.name, r_msg);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_STATUS\n");
+	/* Check that an UPSTART_JOB_STATUS message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_STATUS");
 	s_msg->type = UPSTART_JOB_STATUS;
 	s_msg->job_status.name = "wibble";
 	s_msg->job_status.description = "foo bar";
@@ -400,300 +334,209 @@ test_messages (void)
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_STATUS */
-	if (r_msg->type != UPSTART_JOB_STATUS) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->job_status.name, "wibble")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->job_status.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
-
-	/* Description should be what we sent */
-	if (strcmp (r_msg->job_status.description, "foo bar")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Description should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->job_status.description) != r_msg) {
-		printf ("BAD: desc wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
-
-	/* Job goal should be what we sent */
-	if (r_msg->job_status.goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should be what we sent */
-	if (r_msg->job_status.state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be what we sent */
-	if (r_msg->job_status.process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process id should be what we sent */
-	if (r_msg->job_status.pid != 123) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
+	TEST_EQ_STR (r_msg->job_status.name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->job_status.name, r_msg);
+	TEST_EQ_STR (r_msg->job_status.description, "foo bar");
+	TEST_ALLOC_PARENT (r_msg->job_status.description, r_msg);
+	TEST_EQ (r_msg->job_status.goal, JOB_START);
+	TEST_EQ (r_msg->job_status.state, JOB_STARTING);
+	TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+	TEST_EQ (r_msg->job_status.pid, 123);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_STATUS without description\n");
+	/* Check that an UPSTART_JOB_STATUS message without a job
+	 * description can be sent and received correctly, with all fields
+	 * transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_STATUS without description");
 	s_msg->job_status.description = NULL;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Description should be NULL */
-	if (r_msg->job_status.description != NULL) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
+	TEST_EQ_STR (r_msg->job_status.name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->job_status.name, r_msg);
+	TEST_EQ_P (r_msg->job_status.description, NULL);
+	TEST_EQ (r_msg->job_status.goal, JOB_START);
+	TEST_EQ (r_msg->job_status.state, JOB_STARTING);
+	TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+	TEST_EQ (r_msg->job_status.pid, 123);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_UNKNOWN\n");
+	/* Check that an UPSTART_JOB_UNKNOWN message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_UNKNOWN");
 	s_msg->type = UPSTART_JOB_UNKNOWN;
 	s_msg->job_unknown.name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_UNKNOWN */
-	if (r_msg->type != UPSTART_JOB_UNKNOWN) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->job_unknown.name, "wibble")) {
-		printf ("BAD: job name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->job_unknown.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_UNKNOWN);
+	TEST_EQ_STR (r_msg->job_unknown.name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->job_unknown.name, r_msg);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_EVENT_QUEUE\n");
+	/* Check that an UPSTART_EVENT_QUEUE message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_EVENT_QUEUE");
 	s_msg->type = UPSTART_EVENT_QUEUE;
 	s_msg->event_queue.name = "frodo";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_EVENT_QUEUE */
-	if (r_msg->type != UPSTART_EVENT_QUEUE) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->event_queue.name, "frodo")) {
-		printf ("BAD: event name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event_queue.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_EVENT_QUEUE);
+	TEST_EQ_STR (r_msg->event_queue.name, "frodo");
+	TEST_ALLOC_PARENT (r_msg->event_queue.name, r_msg);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_EVENT\n");
+	/* Check that an UPSTART_EVENT message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_EVENT");
 	s_msg->type = UPSTART_EVENT;
 	s_msg->event.name = "foo";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_EVENT */
-	if (r_msg->type != UPSTART_EVENT) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->event.name, "foo")) {
-		printf ("BAD: event name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_EVENT);
+	TEST_EQ_STR (r_msg->event.name, "foo");
+	TEST_ALLOC_PARENT (r_msg->event.name, r_msg);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_LIST\n");
+	/* Check that an UPSTART_JOB_LIST message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_LIST");
 	s_msg->type = UPSTART_JOB_LIST;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_LIST */
-	if (r_msg->type != UPSTART_JOB_LIST) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_LIST);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_JOB_LIST_END\n");
+	/* Check that an UPSTART_JOB_LIST_END message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_LIST_END");
 	s_msg->type = UPSTART_JOB_LIST_END;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_JOB_LIST_END */
-	if (r_msg->type != UPSTART_JOB_LIST_END) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_JOB_LIST_END);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_WATCH_JOBS\n");
+	/* Check that an UPSTART_WATCH_JOBS message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_WATCH_JOBS");
 	s_msg->type = UPSTART_WATCH_JOBS;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_WATCH_JOBS */
-	if (r_msg->type != UPSTART_WATCH_JOBS) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_WATCH_JOBS);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_UNWATCH_JOBS\n");
+	/* Check that an UPSTART_UNWATCH_JOBS message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_UNWATCH_JOBS");
 	s_msg->type = UPSTART_UNWATCH_JOBS;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_UNWATCH_JOBS */
-	if (r_msg->type != UPSTART_UNWATCH_JOBS) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_UNWATCH_JOBS);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_WATCH_EVENTS\n");
+	/* Check that an UPSTART_WATCH_EVENTS message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_WATCH_EVENTS");
 	s_msg->type = UPSTART_WATCH_EVENTS;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_WATCH_EVENTS */
-	if (r_msg->type != UPSTART_WATCH_EVENTS) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_WATCH_EVENTS);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_UNWATCH_EVENTS\n");
+	/* Check that an UPSTART_UNWATCH_EVENTS message can be sent and
+	 * received correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_UNWATCH_EVENTS");
 	s_msg->type = UPSTART_UNWATCH_EVENTS;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_UNWATCH_EVENTS */
-	if (r_msg->type != UPSTART_UNWATCH_EVENTS) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_UNWATCH_EVENTS);
 
 	nih_free (r_msg);
 
 
-	printf ("...with UPSTART_SHUTDOWN\n");
+	/* Check that an UPSTART_SHUTDOWN message can be sent and received
+	 * correctly, with all fields transmitted properly.
+	 */
+	TEST_FEATURE ("with UPSTART_SHUTDOWN");
 	s_msg->type = UPSTART_SHUTDOWN;
 	s_msg->shutdown.name = "reboot";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
-	/* Type should be UPSTART_SHUTDOWN */
-	if (r_msg->type != UPSTART_SHUTDOWN) {
-		printf ("BAD: message type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be what we sent */
-	if (strcmp (r_msg->shutdown.name, "reboot")) {
-		printf ("BAD: event name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Name should be nih_alloc child of message */
-	if (nih_alloc_parent (r_msg->event_queue.name) != r_msg) {
-		printf ("BAD: name wasn't nih_alloc child of message.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
+	TEST_EQ (r_msg->type, UPSTART_SHUTDOWN);
+	TEST_EQ_STR (r_msg->shutdown.name, "reboot");
+	TEST_ALLOC_PARENT (r_msg->shutdown.name, r_msg);
 
 	nih_free (r_msg);
+
 
 	nih_free (s_msg);
 
 	close (r_sock);
 	close (s_sock);
-
-	return ret;
-}
-
-int
-test_free (void)
-{
-	void *ptr;
-	int   ret = 0;
-
-	printf ("Testing upstart_free()\n");
-	ptr = nih_alloc (NULL, 1024);
-	upstart_free (ptr);
-
-	/* didn't crash, so it worked */
-
-	return ret;
 }
 
 
@@ -701,13 +544,10 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_open ();
+	test_send_msg_to ();
+	test_recv_msg ();
+	test_messages ();
 
-	ret |= test_open ();
-	ret |= test_send_msg_to ();
-	ret |= test_recv_msg ();
-	ret |= test_messages ();
-	ret |= test_free ();
-
-	return ret;
+	return 0;
 }

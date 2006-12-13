@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://web.resource.org/cc/"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="435.04999"
+   height="400"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.44"
+   sodipodi:docbase="/home/alex/Pictures"
+   sodipodi:docname="upstart-logo.svg"
+   inkscape:export-filename="/home/alex/Pictures/upstart3.png"
+   inkscape:export-xdpi="90"
+   inkscape:export-ydpi="90"
+   version="1.0">
+  <defs
+     id="defs4">
+    <linearGradient
+       id="linearGradient12680">
+      <stop
+         style="stop-color:#cacaca;stop-opacity:1;"
+         offset="0"
+         id="stop12682" />
+      <stop
+         style="stop-color:#474747;stop-opacity:1;"
+         offset="1"
+         id="stop12684" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient10004">
+      <stop
+         id="stop10006"
+         offset="0"
+         style="stop-color:#24c000;stop-opacity:1;" />
+      <stop
+         style="stop-color:#23a000;stop-opacity:1;"
+         offset="0.99000001"
+         id="stop14503" />
+      <stop
+         id="stop10008"
+         offset="1"
+         style="stop-color:#227900;stop-opacity:1;" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient10004"
+       id="radialGradient10002"
+       cx="414.39334"
+       cy="459.26822"
+       fx="414.39334"
+       fy="459.26822"
+       r="216.05408"
+       gradientTransform="matrix(0.625431,-1.00407,0.718167,0.447338,-171.4562,549.6546)"
+       gradientUnits="userSpaceOnUse"
+       spreadMethod="pad" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient12680"
+       id="linearGradient12695"
+       x1="346.68173"
+       y1="357.00308"
+       x2="223.01379"
+       y2="463.06909"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient12680"
+       id="linearGradient18063"
+       gradientUnits="userSpaceOnUse"
+       x1="346.68173"
+       y1="357.00308"
+       x2="223.01379"
+       y2="463.06909" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient10004"
+       id="radialGradient18065"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.625431,-1.00407,0.718167,0.447338,-171.4562,549.6546)"
+       spreadMethod="pad"
+       cx="414.39334"
+       cy="459.26822"
+       fx="414.39334"
+       fy="459.26822"
+       r="216.05408" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.98994949"
+     inkscape:cx="394.47448"
+     inkscape:cy="179.2418"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     inkscape:window-width="1024"
+     inkscape:window-height="695"
+     inkscape:window-x="0"
+     inkscape:window-y="25"
+     width="435.05px"
+     height="400px"
+     showborder="true" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>upstart logo</dc:title>
+        <dc:date>Thursday, August 31 2006</dc:date>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Alexandre Vassalotti</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-sa/2.5/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-sa/2.5/">
+        <cc:permits
+           rdf:resource="http://web.resource.org/cc/Reproduction" />
+        <cc:permits
+           rdf:resource="http://web.resource.org/cc/Distribution" />
+        <cc:requires
+           rdf:resource="http://web.resource.org/cc/Notice" />
+        <cc:requires
+           rdf:resource="http://web.resource.org/cc/Attribution" />
+        <cc:permits
+           rdf:resource="http://web.resource.org/cc/DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://web.resource.org/cc/ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-161.6871,-284.4758)">
+    <g
+       id="g9041"
+       transform="translate(57.14286,-148.5714)" />
+    <g
+       id="g18059"
+       transform="translate(6.775201,5.245105)">
+      <path
+         style="fill:url(#linearGradient18063);fill-opacity:1;fill-rule:evenodd;stroke:black;stroke-width:10.0789299;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 240.21252,582.73095 C 240.21252,582.73095 214.69477,586.40206 224.7737,544.64649 C 160.69082,448.20242 292.30322,359.85028 363.43632,345.24656 C 363.43632,345.24656 313.58773,336.86234 264.0619,355.89495 C 238.3175,365.78844 212.15522,381.06993 194.13741,412.82899 C 196.92851,491.32439 214.29527,566.89263 240.21252,582.73095 z "
+         id="path9047"
+         sodipodi:nodetypes="cccscc" />
+      <path
+         style="fill:url(#radialGradient18065);fill-opacity:1;fill-rule:evenodd;stroke:black;stroke-width:10.0789299;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 578.701,446.30077 L 462.03955,289.51529 L 338.17887,450.62031 L 395.81786,453.51128 C 395.81786,588.52719 310.84429,577.896 310.84429,577.896 C 203.61998,576.6696 191.32023,476.12911 198.68697,406.21486 C 107.30793,543.66028 229.48902,672.82069 343.98337,672.36804 C 430.55294,673.86954 531.16349,616.37045 531.16349,450.63159 L 578.701,446.30077 z "
+         id="path9049"
+         sodipodi:nodetypes="ccccccccc" />
+    </g>
+  </g>
+</svg>

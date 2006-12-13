@@ -244,5 +244,5 @@ Yes, "initctl events" will display them as they are emitted.
 Can I emit an event by hand?
 ----------------------------
 
-Yes, "initctl trigger EVENT" will emit the named event and cause any
+Yes, "initctl emit EVENT" will emit the named event and cause any
 jobs waiting for it to be started or stopped as appropriate.

@@ -36,7 +36,8 @@ config.status: configure
 		--sysconfdir=/etc \
 		--localstatedir=/var/lib \
 		--mandir=\$${datadir}/man \
-		--infodir=\$${datadir}/info
+		--infodir=\$${datadir}/info \
+		--enable-compat=sysv
 
 
 # Build the package
@@ -45,6 +46,7 @@ build-stamp: config.status
 	dh_testdir
 
 	$(MAKE)
+	$(MAKE) check || true
 	touch $@
 
 # Install the package underneath debian/tmp
@@ -83,7 +85,10 @@ binary-arch: build install
 	dh_installchangelogs ChangeLog
 	dh_installdocs
 
-	@set -x; for pkg in upstart-logd upstart-compat-sysv system-services; do \
+	install -m 644 -o root -g root ChangeLog.nih \
+		debian/upstart/usr/share/doc/upstart/changelog.nih
+
+	@set -x; for pkg in upstart-logd upstart-compat-sysv system-services startup-tasks; do \
 		rm -rf debian/$$pkg/usr/share/doc/$$pkg; \
 		ln -sf upstart debian/$$pkg/usr/share/doc/$$pkg; \
 	done

@@ -1,10 +1,9 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir)
-
-localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\""
-INCLUDES = -I$(top_srcdir)/intl
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-I$(top_builddir) -I$(top_srcdir) \
+	-I$(top_srcdir)/intl
 
 
 lib_LTLIBRARIES = libnih.la
@@ -21,6 +20,7 @@ libnih_la_SOURCES = \
 	file.c \
 	main.c \
 	option.c \
+	command.c \
 	logging.c \
 	error.c
 
@@ -31,7 +31,7 @@ if HAVE_VERSION_SCRIPT_ARG
 libnih_la_LDFLAGS += @VERSION_SCRIPT_ARG@=$(srcdir)/libnih.ver
 endif
 
-EXTRA_DIST = libnih.ver
+EXTRA_DIST = libnih.ver libnih.supp
 
 
 include_HEADERS = \
@@ -51,10 +51,12 @@ nihinclude_HEADERS = \
 	file.h \
 	main.h \
 	option.h \
+	command.h \
 	logging.h \
 	error.h \
 	errors.h \
-	inotify.h
+	inotify.h \
+	test.h
 
 
 TESTS = \
@@ -69,6 +71,7 @@ TESTS = \
 	test_file \
 	test_main \
 	test_option \
+	test_command \
 	test_logging \
 	test_error
 
@@ -80,7 +83,7 @@ test_alloc_LDADD = libnih.la
 
 test_string_SOURCES = tests/test_string.c
 test_string_LDFLAGS = -static
-test_string_LDADD = libnih.la
+test_string_LDADD = libnih.la -lutil
 
 test_list_SOURCES = tests/test_list.c
 test_list_LDFLAGS = -static
@@ -117,6 +120,10 @@ test_main_LDADD = libnih.la
 test_option_SOURCES = tests/test_option.c
 test_option_LDFLAGS = -static
 test_option_LDADD = libnih.la
+
+test_command_SOURCES = tests/test_command.c
+test_command_LDFLAGS = -static
+test_command_LDADD = libnih.la
 
 test_logging_SOURCES = tests/test_logging.c
 test_logging_LDFLAGS = -static

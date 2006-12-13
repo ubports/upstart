@@ -41,6 +41,8 @@
  * This is the list of all registered timers, it is not sorted into any
  * particular order.  The due time of timers should be set when the timer
  * is added to this list, or rescheduled; it is not calculated on the fly.
+ *
+ * Each item is an NihTimer structure.
  **/
 static NihList *timers = NULL;
 
@@ -54,7 +56,7 @@ static inline void
 nih_timer_init (void)
 {
 	if (! timers)
-		NIH_MUST (timers = nih_list_new ());
+		NIH_MUST (timers = nih_list_new (NULL));
 }
 
 
@@ -69,14 +71,20 @@ nih_timer_init (void)
  * time, or the soonest period thereafter.  A timer may be called
  * immediately by passing zero or a non-negative number as @timeout.
  *
- * The timer structure is allocated using #nih_alloc and stored in a linked
+ * The timer structure is allocated using nih_alloc() and stored in a linked
  * list, a default destructor is set that removes the timer from the list.
  * Cancellation of the timer can be performed by freeing it.
  *
- * Returns: the new timer information, or %NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: the new timer information, or NULL if insufficient memory.
  **/
 NihTimer *
-nih_timer_add_timeout (void       *parent,
+nih_timer_add_timeout (const void *parent,
 		       time_t      timeout,
 		       NihTimerCb  callback,
 		       void       *data)
@@ -117,14 +125,20 @@ nih_timer_add_timeout (void       *parent,
  * Arranges for the @callback function to be called every @period seconds,
  * or the soonest time thereafter.
  *
- * The timer structure is allocated using #nih_alloc and stored in a linked
+ * The timer structure is allocated using nih_alloc() and stored in a linked
  * list, a default destructor is set that removes the timer from the list.
  * Cancellation of the timer can be performed by freeing it.
  *
- * Returns: the new timer information, or %NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: the new timer information, or NULL if insufficient memory.
  **/
 NihTimer *
-nih_timer_add_periodic (void       *parent,
+nih_timer_add_periodic (const void *parent,
 			time_t      period,
 			NihTimerCb  callback,
 			void       *data)
@@ -166,14 +180,20 @@ nih_timer_add_periodic (void       *parent,
  * Arranges for the @callback function to be called based on the @schedule
  * given.
  *
- * The timer structure is allocated using #nih_alloc and stored in a linked
+ * The timer structure is allocated using nih_alloc() and stored in a linked
  * list, a default destructor is set that removes the timer from the list.
  * Cancellation of the timer can be performed by freeing it.
  *
- * Returns: the new timer information, or %NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: the new timer information, or NULL if insufficient memory.
  **/
 NihTimer *
-nih_timer_add_scheduled (void             *parent,
+nih_timer_add_scheduled (const void       *parent,
 			 NihTimerSchedule *schedule,
 			 NihTimerCb        callback,
 			 void             *data)
@@ -217,7 +237,7 @@ nih_timer_add_scheduled (void             *parent,
  * Normally used to determine how long we can sleep for by subtracting the
  * current time from the due time of the next timer.
  *
- * Returns: next timer due, or %NULL if there are no timers.
+ * Returns: next timer due, or NULL if there are no timers.
  **/
 NihTimer *
 nih_timer_next_due (void)
