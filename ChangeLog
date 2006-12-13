@@ -1,3 +1,8 @@
+2006-12-13  Alex Smith  <alex@alex-smith.me.uk>
+
+	* util/initctl.c (print_job_status): Clean up initctl job status
+	output, which was badly converted from printf to nih_message.
+
 2006-12-13  Scott James Remnant  <scott@netsplit.com>
 
 	* compat/sysv/man/shutdown.8: Add missing documentation on the

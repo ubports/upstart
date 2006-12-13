@@ -30,6 +30,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/main.h>
 #include <nih/option.h>
 #include <nih/command.h>
@@ -563,27 +564,34 @@ open_socket (void)
 static void
 print_job_status (UpstartMsg *reply)
 {
+	char *extra;
+
 	nih_assert (reply != NULL);
 	nih_assert (reply->type == UPSTART_JOB_STATUS);
 
-	nih_message ("%s (%s) %s", reply->job_status.name,
-		     job_goal_name (reply->job_status.goal),
-		     job_state_name (reply->job_status.state));
-
 	if (reply->job_status.state == JOB_WAITING) {
-		nih_message ("\n");
+		extra = nih_strdup (NULL, "");
 
 	} else if ((reply->job_status.process_state == PROCESS_SPAWNED)
 		   || (reply->job_status.process_state == PROCESS_NONE)) {
-		nih_message (", process %s\n",
-			     process_state_name (
-				     reply->job_status.process_state));
+		extra = nih_sprintf (NULL, ", process %s\n",
+				     process_state_name (
+					     reply->job_status.process_state));
 	} else {
-		nih_message (", process %d %s\n", reply->job_status.pid,
-			     process_state_name (
-				     reply->job_status.process_state));
+		extra = nih_sprintf (NULL, ", process %d %s\n",
+				     reply->job_status.pid,
+				     process_state_name (
+					     reply->job_status.process_state));
 	}
+
+	nih_message ("%s (%s) %s%s", reply->job_status.name,
+		     job_goal_name (reply->job_status.goal),
+		     job_state_name (reply->job_status.state),
+		     extra);
+
+	nih_free (extra);
 }
+
 
 /**
  * print_event:
