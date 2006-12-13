@@ -1,3 +1,12 @@
+0.3.1  2006-12-13  "The Gathering"
+
+	* Compilation fixes
+
+	* Bug fixes.
+
+	* Massive improvement to test framework, which should make it much
+	  easier to test new features.
+
 0.3.0  2006-10-17
 
 	* Reverted logd behaviour from previous version, it's up to the
