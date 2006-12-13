@@ -378,7 +378,7 @@ process_setup_console (Job         *job,
 
 	case CONSOLE_NONE:
 		/* No console really means /dev/null */
-		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
+		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
 		break;
 	}
 
