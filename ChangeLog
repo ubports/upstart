@@ -1,3 +1,9 @@
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_job.c: Port to the new test framework.
+	* init/job.c (job_set_idle_event): Fix a slight memory leak,
+	repeated setting of the idle event never freed the previous one set.
+
 2006-12-12  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_cfgfile.c: Port to the new test framework.

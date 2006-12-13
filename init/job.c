@@ -1261,6 +1261,9 @@ job_set_idle_event (const char *name)
 {
 	nih_assert (name != NULL);
 
+	if (idle_event)
+		nih_free (idle_event);
+
 	NIH_MUST (idle_event = nih_strdup (NULL, name));
 }
 
