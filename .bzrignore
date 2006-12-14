@@ -38,8 +38,13 @@ po/*.sed
 po/*.sin
 po/*.header
 po/Rules-quot
+po/en@quot.insert-header
+po/en@quot.po
+po/en@boldquot.insert-header
+po/en@boldquot.po
 po/stamp-po
 po/upstart.pot
+po/*.gmo
 nih
 upstart/libupstart.la
 upstart/test_*
