@@ -1,3 +1,7 @@
+2006-12-14  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac (AC_INIT): Correct bug reporting address.
+
 2006-12-13  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.3.2
