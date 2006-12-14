@@ -1,5 +1,7 @@
 2006-12-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/man/init.8: Link to initctl.
+
 	* compat/sysv/reboot.c (main): Clear up help text a little.
 
 	* HACKING: Correct some typos.
