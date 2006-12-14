@@ -1,5 +1,8 @@
 2006-12-14  Scott James Remnant  <scott@netsplit.com>
 
+	* LINGUAS: Include the en@quot and en@boldquot translation files
+	as suggested by the manual, these seem to be generated correctly.
+
 	* ca.po, fr.po, sv.po: Download translations from Rosetta.
 	* LINGUAS: Update to include new languages.
 
