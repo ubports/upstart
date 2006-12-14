@@ -626,7 +626,8 @@ wall (const char *message)
 	pid_t             pid;
 	time_t            now;
 	struct tm        *tm;
-	char             *user, *tty, hostname[MAXHOSTNAMELEN], *banner;
+	char             *user, *tty, hostname[MAXHOSTNAMELEN];
+	char             *banner1, *banner2;
 
 	pid = fork ();
 	if (pid < 0) {
@@ -675,10 +676,10 @@ wall (const char *message)
 	tm = localtime (&now);
 
 	/* Construct banner */
-	NIH_MUST (banner = nih_sprintf (
-			  NULL, _("\007\r\nBroadcast message from %s@%s\r\n"
-				  "\t(%s) at %d:%02d ...\r\n\r\n"),
-			  user, hostname, tty, tm->tm_hour, tm->tm_min));
+	banner1 = nih_sprintf (NULL, _("Broadcast message from %s@%s"),
+			       user, hostname);
+	banner2 = nih_sprintf (NULL, _("(%s) at %d:%02d ..."),
+			       tty, tm->tm_hour, tm->tm_min);
 
 
 	/* Iterate entries in the utmp file */
@@ -707,7 +708,8 @@ wall (const char *message)
 
 			term = fdopen (fd, "w");
 			if (term) {
-				fputs (banner, term);
+				fprintf (term, "\007\r\n%s\r\n\t%s\r\n\r\n",
+					 banner1, banner2);
 				fputs (message, term);
 				fflush (term);
 				fclose (term);
@@ -716,6 +718,9 @@ wall (const char *message)
 		alarm (0);
 	}
 	endutent ();
+
+	nih_free (banner1);
+	nih_free (banner2);
 
 	exit (0);
 }

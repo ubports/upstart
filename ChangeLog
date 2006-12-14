@@ -1,5 +1,10 @@
 2006-12-14  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/shutdown.c (wall): Construct the wall message so that
+	we don't put \r into a po file; for some reason, gettext hates that
+	and bitches about it.  Someone's confusing internationalisation with
+	operating system portability, I expect.
+
 	* util/man/initctl.8: Drop reference to start(8), as that's just
 	a symlink to initctl now.
 
