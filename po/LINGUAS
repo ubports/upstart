@@ -3,3 +3,12 @@
 # Each should be prefixed with the English name for the language and
 # the current maintainer's name in their preferred form and contact
 # e-mail address.
+
+# Catalan - Jordi Mallach <jordi@canonical.com>
+ca
+
+# French - Nicolas Velin <nsv@fr.st>
+fr
+
+# Swedish - Daniel Nylander <po@danielnylander.se>
+sv

@@ -1,0 +1,1034 @@
+# French translation for upstart
+# Copyright (c) (c) 2006 Canonical Ltd, and Rosetta Contributors 2006
+# This file is distributed under the same license as the upstart package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2006.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: upstart\n"
+"Report-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2006-12-13 17:11+0000\n"
+"PO-Revision-Date: 2006-10-03 23:30+0000\n"
+"Last-Translator: Nicolas Velin <nsv@fr.st>\n"
+"Language-Team: French <fr@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Rosetta-Export-Date: 2006-12-13 22:18+0000\n"
+
+#: nih/error.c:231
+msgid "Unhandled Error"
+msgstr "Erreur non traitée"
+
+#: nih/io.c:501
+#, fuzzy
+msgid "Unable to set descriptor non-blocking"
+msgstr "Impossible d'assigner un descripteur non-bloquant"
+
+#: nih/io.c:650
+#, fuzzy
+msgid "Error while reading from descriptor"
+msgstr "Erreur lors de la lecture du descripteur"
+
+#: nih/main.c:238
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Utiliser « %s --help » pour plus d'informations.\n"
+
+#: nih/main.c:260
+msgid ""
+"This is free software; see the source for copying conditions.  There is NO "
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+msgstr ""
+
+#: nih/option.c:96
+#, fuzzy
+msgid "reduce output to errors only"
+msgstr "Réduire l'affichage aux erreurs seulement"
+
+#: nih/option.c:99
+#, fuzzy
+msgid "increase output to include informational messages"
+msgstr ""
+"mode d'affichage complet (inclusion des messages à caractère informatif)"
+
+#: nih/option.c:103
+msgid "display this help and exit"
+msgstr "afficher cette aide et quitter"
+
+#: nih/option.c:106
+#, fuzzy
+msgid "output version information and exit"
+msgstr "affichage de l'information de version et sortie"
+
+#: nih/option.c:323
+#, c-format
+msgid "%s: invalid option: -%c\n"
+msgstr "%s: option ivalide: -%c\n"
+
+#: nih/option.c:416
+#, c-format
+msgid "%s: invalid option: --%s\n"
+msgstr "%s : option invalide : --%s\n"
+
+#: nih/option.c:432
+#, c-format
+msgid "%s: unexpected argument: --%s\n"
+msgstr "%s : argument inattendu : --%s\n"
+
+#: nih/option.c:484
+#, c-format
+msgid "%s: missing argument: %s\n"
+msgstr "%s : argument manquant : %s\n"
+
+#: nih/option.c:845
+msgid "Usage"
+msgstr "Utilisation"
+
+#: nih/option.c:849
+msgid "[OPTION]..."
+msgstr ""
+
+#: nih/option.c:898
+#, c-format
+msgid "Report bugs to <%s>\n"
+msgstr "Signalez les anomalies à <%s>\n"
+
+#: nih/option.c:924
+#, c-format
+msgid "%s options:\n"
+msgstr "%s options:\n"
+
+#: nih/option.c:926
+#, c-format
+msgid "Other options:\n"
+msgstr "Autres options:\n"
+
+#: nih/option.c:928
+#, c-format
+msgid "Options:\n"
+msgstr "Options:\n"
+
+#: upstart/job.c:50
+msgid "stop"
+msgstr "arrêter"
+
+#: upstart/job.c:52
+msgid "start"
+msgstr "démarrer"
+
+#: upstart/job.c:95
+msgid "waiting"
+msgstr "en attente"
+
+#: upstart/job.c:97
+msgid "starting"
+msgstr "démarrage"
+
+#: upstart/job.c:99
+msgid "running"
+msgstr "en cours"
+
+#: upstart/job.c:101
+msgid "stopping"
+msgstr "en cours d'arrêt"
+
+#: upstart/job.c:103
+#, fuzzy
+msgid "respawning"
+msgstr "regénération"
+
+#: upstart/job.c:152
+msgid "none"
+msgstr "aucun"
+
+#: upstart/job.c:154
+#, fuzzy
+msgid "spawned"
+msgstr "généré"
+
+#: upstart/job.c:156
+#, fuzzy
+msgid "active"
+msgstr "actif"
+
+#: upstart/job.c:158
+msgid "killed"
+msgstr "tué"
+
+#: upstart/errors.h:37
+msgid "Invalid message received"
+msgstr "Réception d'un message invalide"
+
+#: init/cfgfile.c:154
+#, c-format
+msgid "%s: unable to read: %s"
+msgstr "%s : impossible de lire : %s"
+
+#: init/cfgfile.c:199
+#, c-format
+msgid "%s: 'exec' or 'script' must be specified"
+msgstr "%s : une des variables « exec » ou « script » doit être spécifiée"
+
+#: init/cfgfile.c:207
+#, c-format
+msgid "%s: only one of 'exec' and 'script' may be specified"
+msgstr ""
+"%s: une seule des variables « exec » ou « script » doit être spécifiée"
+
+#: init/cfgfile.c:215
+#, fuzzy
+msgid "%s: 'respawn script' ignored unless 'respawn' specified"
+msgstr "%s : 'respawn script' est ignoré à moins que 'respawn' est specifié"
+
+#: init/cfgfile.c:221
+#, fuzzy
+msgid "%s: 'pid file' ignored unless 'respawn' specified"
+msgstr "%s : 'pid file' est ignoré à moins que 'respawn' est specifié"
+
+#: init/cfgfile.c:227
+#, fuzzy
+msgid "%s: 'pid binary' ignored unless 'respawn' specified"
+msgstr "%s : 'pid binary' est ignoré à moins que 'respawn' est specifié"
+
+#: init/cfgfile.c:326
+msgid "expected job description"
+msgstr "description du travail attendue"
+
+#: init/cfgfile.c:342
+msgid "expected author name"
+msgstr "nom de l'auteur attendu"
+
+#: init/cfgfile.c:358
+msgid "expected version string"
+msgstr "version de la chaîne attendue"
+
+#: init/cfgfile.c:369
+msgid "expected job name"
+msgstr "nom du travail attendu"
+
+#: init/cfgfile.c:393 init/cfgfile.c:414 init/cfgfile.c:453
+msgid "expected event name"
+msgstr "nom de l'événement attendu"
+
+#: init/cfgfile.c:424 init/cfgfile.c:463 init/cfgfile.c:546 init/cfgfile.c:619
+#: init/cfgfile.c:635 init/cfgfile.c:983
+msgid "ignored additional arguments"
+msgstr "arguments supplémentaires ignorés"
+
+#: init/cfgfile.c:432 init/cfgfile.c:471
+msgid "expected 'on' or 'script'"
+msgstr "« on » ou « script » attendu"
+
+#: init/cfgfile.c:493
+msgid "expected command"
+msgstr "commande attendue"
+
+#: init/cfgfile.c:563 init/cfgfile.c:578 init/cfgfile.c:684 init/cfgfile.c:714
+#: init/cfgfile.c:745 init/cfgfile.c:826 init/cfgfile.c:847 init/cfgfile.c:912
+#: init/cfgfile.c:926
+msgid "illegal value"
+msgstr "valeur illégale"
+
+#: init/cfgfile.c:568
+msgid "expected limit"
+msgstr "limite attendue"
+
+#: init/cfgfile.c:583
+msgid "expected interval"
+msgstr "intervalle attendu"
+
+#: init/cfgfile.c:662
+msgid "expected pid filename"
+msgstr "nom de fichier pid attendu"
+
+#: init/cfgfile.c:673
+msgid "expected binary filename"
+msgstr "nom de fichier binaire attendu"
+
+#: init/cfgfile.c:690 init/cfgfile.c:720
+msgid "expected timeout"
+msgstr "délai attendu"
+
+#: init/cfgfile.c:694
+msgid "expected 'file', 'binary' or 'timeout'"
+msgstr "file', 'binary' ou 'timeout' attendu"
+
+#: init/cfgfile.c:724
+msgid "expected 'timeout'"
+msgstr "'timeout' attendu"
+
+#: init/cfgfile.c:735
+#, fuzzy
+msgid "expected exit status"
+msgstr "status de sortie attendu"
+
+#: init/cfgfile.c:779 init/cfgfile.c:784
+#, fuzzy
+msgid "expected 'logged', 'output', 'owner' or 'none'"
+msgstr "'logged','output','owner' ou 'none' attendu"
+
+#: init/cfgfile.c:811
+#, fuzzy
+msgid "expected variable setting"
+msgstr "choix de variable attendu"
+
+#: init/cfgfile.c:832
+#, fuzzy
+msgid "expected file creation mask"
+msgstr "valeur du mask attendu pour la création de fichier"
+
+#: init/cfgfile.c:853
+#, fuzzy
+msgid "expected nice level"
+msgstr "niveau de priorité attendu"
+
+#: init/cfgfile.c:898
+#, fuzzy
+msgid "unknown limit type"
+msgstr "type de limite inconnu"
+
+#: init/cfgfile.c:903
+#, fuzzy
+msgid "expected limit name"
+msgstr "nom de limite attendu"
+
+#: init/cfgfile.c:917
+#, fuzzy
+msgid "expected soft limit"
+msgstr "limite basse attendue"
+
+#: init/cfgfile.c:931
+#, fuzzy
+msgid "expected hard limit"
+msgstr "limite haute attendue"
+
+#: init/cfgfile.c:956 init/cfgfile.c:971
+#, fuzzy
+msgid "expected directory name"
+msgstr "nom de répertoire attendu"
+
+#: init/cfgfile.c:977
+#, fuzzy
+msgid "ignored unknown stanza"
+msgstr "ignore la strophe inconnue"
+
+#: init/cfgfile.c:1329
+#, fuzzy
+msgid "ignored trailing slash"
+msgstr "ignore le slash inattendu"
+
+#: init/cfgfile.c:1340
+#, fuzzy
+msgid "unterminated quoted string"
+msgstr "Chaîne quotée non terminée"
+
+#: init/cfgfile.c:1453
+msgid "'end script' expected"
+msgstr "'end script' attendu"
+
+#: init/cfgfile.c:1605
+#, fuzzy
+msgid "Reading configuration from %s"
+msgstr "Lis la configuration depuis %s"
+
+#: init/control.c:340
+#, fuzzy
+msgid "Error reading control message: %s"
+msgstr "Erreur lors de la lecture du message de contrôle : %s"
+
+#: init/control.c:389
+#, fuzzy
+msgid "Error sending control message: %s"
+msgstr "Erreur dans l'envoi du message de contrôle : %s"
+
+#: init/control.c:450
+#, fuzzy
+msgid "Control request to start %s"
+msgstr "Demande de contrôle à commencer %s"
+
+#: init/control.c:453
+#, fuzzy
+msgid "Control request to stop %s"
+msgstr "Demande de contrôle pour arreter %s"
+
+#: init/control.c:456
+#, fuzzy
+msgid "Control request for state of %s"
+msgstr "Demande de contrôle de status pour %s"
+
+#: init/control.c:472
+#, fuzzy
+msgid "Control request to list jobs"
+msgstr "Demande de contrôle pour lister les tâches"
+
+#: init/control.c:495
+#, fuzzy
+msgid "Control request to queue event %s"
+msgstr "Demande de contrôle pour faire la queue des évènements %s"
+
+#: init/control.c:501
+#, fuzzy
+msgid "Control request to subscribe %d to jobs"
+msgstr "Demande de contrôle pour inscrire %d aux tâches"
+
+#: init/control.c:505
+#, fuzzy
+msgid "Control request to unsubscribe %d from jobs"
+msgstr "Demande de contrôle pour désinscrire % des tâches"
+
+#: init/control.c:510
+#, fuzzy
+msgid "Control request to subscribe %d to events"
+msgstr "Demande de contrôle pour inscrire %d aux évènements"
+
+#: init/control.c:514
+#, fuzzy
+msgid "Control request to unsubscribe %d from events"
+msgstr "Demande de contrôle pour désinscrire %d des évènements"
+
+#: init/control.c:519
+#, fuzzy
+msgid "Control request to shutdown system for %s"
+msgstr "Demande de contrôle d'extinction du system pour %s"
+
+#: init/job.c:290
+#, fuzzy
+msgid "%s state changed from %s to %s"
+msgstr "L'état de %s a été changé de %s à %s"
+
+#: init/job.c:339
+#, fuzzy
+msgid "%s respawning too fast, stopped"
+msgstr "Résurection de %s trop rapide, arret"
+
+#: init/job.c:656
+#, fuzzy
+msgid "Failed to spawn process"
+msgstr "Echec de la création de process"
+
+#: init/job.c:667
+#, fuzzy
+msgid "Spawned %s process (%d)"
+msgstr "création de %s process (%d)"
+
+#: init/job.c:670
+#, fuzzy
+msgid "Active %s process (%d)"
+msgstr "processus %s (%d) actif"
+
+#: init/job.c:700
+#, fuzzy
+msgid "Sending TERM signal to %s process (%d)"
+msgstr "Envoi du signal TERM au processus %s (%d)"
+
+#: init/job.c:708
+#, fuzzy
+msgid "Failed to send TERM signal to %s process (%d): %s"
+msgstr "Echec de l'envoi du signal TERM au processus %s (%d): %s"
+
+#: init/job.c:749
+#, fuzzy
+msgid "Sending KILL signal to %s process (%d)"
+msgstr "Envoi du signal KILL au processus %s (%d)"
+
+#: init/job.c:757
+#, fuzzy
+msgid "Failed to send KILL signal to %s process (%d): %s"
+msgstr "Echech de l'envoi du signal KILL au processus %s (%d): %s"
+
+#: init/job.c:809
+#, fuzzy
+msgid "%s process (%d) killed by signal %d"
+msgstr "Le processus %s (%d) a été tué par le signal %d"
+
+#: init/job.c:812
+#, fuzzy
+msgid "%s process (%d) terminated with status %d"
+msgstr "le processus %s (%d) s'est terminé en retournant %d"
+
+#: init/job.c:815
+#, fuzzy
+msgid "%s process (%d) exited normally"
+msgstr "le processus %s (%d) s'est terminé normalent"
+
+#: init/job.c:848
+#, fuzzy
+msgid "%s process ended, respawning"
+msgstr "le process %s c'est terminé, redémarrage"
+
+#: init/job.c:903
+#, c-format
+msgid "%s will be started"
+msgstr "%s va être démarré"
+
+#: init/job.c:931
+#, fuzzy
+msgid "%s waiting for unknown dependency: %s"
+msgstr "%s attend une dépendance inconnue : %s"
+
+#: init/job.c:947
+#, fuzzy
+msgid "%s waiting for dependency: %s"
+msgstr "%s attend une dépendance : %s"
+
+#: init/job.c:1009
+#, c-format
+msgid "%s will be stopped"
+msgstr "%s va être arrêté"
+
+#: init/job.c:1232
+#, fuzzy
+msgid "System is idle, generating %s event"
+msgstr "Système au ralenti, génére l'évènement %s"
+
+#: init/job.c:1241
+#, fuzzy
+msgid "System has stalled, generating %s event"
+msgstr "Le système a bloqué, génération de l'évènement %s"
+
+#: init/main.c:115
+msgid "Process management daemon."
+msgstr ""
+
+#: init/main.c:117
+msgid ""
+"This daemon is normally executed by the kernel and given process id 1 to "
+"denote its special status.  When executed by a user process, it will "
+"actually run /sbin/telinit."
+msgstr ""
+
+#: init/main.c:127 util/initctl.c:539 compat/sysv/reboot.c:203
+#: compat/sysv/shutdown.c:311 compat/sysv/telinit.c:85
+#, fuzzy
+msgid "Need to be root"
+msgstr "Nécessite d'être super-utilisateur"
+
+#: init/main.c:136
+#, fuzzy
+msgid "Not being executed as init"
+msgstr "N'est pas executé comme init"
+
+#: init/main.c:352
+#, fuzzy
+msgid "Caught segmentation fault, core dumped"
+msgstr "Faute de segmentation attrapé, core dumped"
+
+#: init/main.c:354
+#, fuzzy
+msgid "Caught segmentation fault, unable to dump core"
+msgstr "Faute de segmentation attrapé, impossible d'écrire le core dump"
+
+#: init/main.c:406
+#, fuzzy
+msgid "Event queue resumed"
+msgstr "La queue d'évènement a repris"
+
+#: init/main.c:409
+#, fuzzy
+msgid "Event queue paused"
+msgstr "La queue d'évènement est en pause"
+
+#: init/main.c:435
+#, fuzzy
+msgid "Re-executing %s"
+msgstr "Ré-éxecution de %s"
+
+#: init/main.c:482
+#, fuzzy
+msgid "Failed to re-execute %s: %s"
+msgstr "Echec de la ré-execution de %s : %s"
+
+#: init/main.c:514
+#, fuzzy
+msgid "Unable to read from state descriptor: %s"
+msgstr "Impossible de lire le descripteur d'état : %s"
+
+#: init/main.c:553
+#, fuzzy
+msgid "Error after reading state: %s"
+msgstr "Erreur après la lecture de l'état : %s"
+
+#: init/main.c:575
+#, fuzzy
+msgid "Unable to write to state descriptor: %s"
+msgstr "Impossible d'écrire le descripteur d'état : %s"
+
+#: init/main.c:584
+#, fuzzy
+msgid "Error after writing state: %s"
+msgstr "Erreur après l'écriture de l'état : %s"
+
+#: init/process.c:156
+#, fuzzy
+msgid "Unable to execute \"%s\" for %s: %s"
+msgstr "Impossible d'executer \"%s\" pour %s : %s"
+
+#: init/process.c:313
+#, fuzzy
+msgid "Unable to open logd socket: %s"
+msgstr "Impossible d'ouvrir logd socket : %s"
+
+#: init/process.c:334
+#, fuzzy
+msgid "Unable to connect to logd: %s"
+msgstr "Impossible de se connecter à logd : %s"
+
+#: init/process.c:346 init/process.c:354
+#, fuzzy
+msgid "Unable to send name to logd: %s"
+msgstr "Impossible d'envoyer le nom à logd : %s"
+
+#: init/process.c:387
+#, fuzzy
+msgid "Failed to open console: %s"
+msgstr "Echec lors de l'ouverture de la console : %s"
+
+#: util/initctl.c:81
+#, c-format
+msgid "%s: missing job name\n"
+msgstr ""
+
+#: util/initctl.c:109 util/initctl.c:182 util/initctl.c:275 util/initctl.c:321
+#: util/initctl.c:394 compat/sysv/shutdown.c:481 compat/sysv/telinit.c:134
+#, c-format
+msgid "Unable to send message: %s"
+msgstr "Impossible d'envoyer le message : %s"
+
+#: util/initctl.c:120 util/initctl.c:196 util/initctl.c:335 util/initctl.c:408
+#, fuzzy
+msgid "Error receiving message: %s"
+msgstr "Erreur lors de la réception du message: %s"
+
+#: util/initctl.c:130 util/initctl.c:209
+#, c-format
+msgid "unknown job: %s\n"
+msgstr ""
+
+#: util/initctl.c:134 util/initctl.c:213 util/initctl.c:345 util/initctl.c:418
+#, c-format
+msgid "unexpected reply (type %d)\n"
+msgstr ""
+
+#: util/initctl.c:254
+#, c-format
+msgid "%s: missing event name\n"
+msgstr ""
+
+#: util/initctl.c:444
+msgid "Job"
+msgstr ""
+
+#: util/initctl.c:451
+msgid "Event"
+msgstr ""
+
+#: util/initctl.c:459 util/initctl.c:464 util/initctl.c:469
+msgid "JOB..."
+msgstr ""
+
+#: util/initctl.c:460
+msgid "Start jobs."
+msgstr ""
+
+#: util/initctl.c:461
+msgid "JOB is one or more job names that are to be started."
+msgstr ""
+
+#: util/initctl.c:465
+msgid "Stop jobs."
+msgstr ""
+
+#: util/initctl.c:466
+msgid "JOB is one or more job names that are to be stopped."
+msgstr ""
+
+#: util/initctl.c:470
+msgid "Query status of jobs."
+msgstr ""
+
+#: util/initctl.c:471
+msgid "JOB is one or more job names that are to be queried."
+msgstr ""
+
+#: util/initctl.c:475
+msgid "List known jobs."
+msgstr ""
+
+#: util/initctl.c:479 util/initctl.c:484 util/initctl.c:499
+msgid "EVENT"
+msgstr ""
+
+#: util/initctl.c:480
+msgid "Emit an event."
+msgstr ""
+
+#: util/initctl.c:481
+msgid "EVENT is the name of an event the init daemon should emit."
+msgstr ""
+
+#: util/initctl.c:490
+msgid "Receive notification of job state changes."
+msgstr ""
+
+#: util/initctl.c:495
+msgid "Receive notification of emitted events."
+msgstr ""
+
+#: util/initctl.c:500
+msgid "Emit a shutdown event."
+msgstr ""
+
+#: util/initctl.c:501
+msgid ""
+"EVENT is the name of an event the init daemon should emit after the shutdown "
+"event has been emitted."
+msgstr ""
+
+#: util/initctl.c:549 compat/sysv/shutdown.c:459 compat/sysv/telinit.c:124
+#, fuzzy
+msgid "Unable to establish control socket: %s"
+msgstr "Impossible d'établir le contrôle du socket : %s"
+
+#: util/initctl.c:609
+#, c-format
+msgid "%s event"
+msgstr ""
+
+#: compat/sysv/reboot.c:140
+#, fuzzy
+msgid "don't sync before reboot or halt"
+msgstr "Ne synchronise pas avant le redémarrage ou l'arret"
+
+#: compat/sysv/reboot.c:142
+#, fuzzy
+msgid "force reboot or halt, don't call shutdown(8)"
+msgstr "Redémarrage ou arret forcé, n'appel pas shutdown(8)"
+
+#: compat/sysv/reboot.c:144
+#, fuzzy
+msgid "switch off the power when called as halt"
+msgstr "éteindre quand halt est appelé"
+
+#: compat/sysv/reboot.c:146
+#, fuzzy
+msgid "put hard disks into standby"
+msgstr "mettre les disques durs en attente"
+
+#: compat/sysv/reboot.c:148
+#, fuzzy
+msgid "bring down network interfaces"
+msgstr "couper les interfaces réseaux"
+
+#: compat/sysv/reboot.c:174
+msgid "Halt the system."
+msgstr ""
+
+#: compat/sysv/reboot.c:177
+msgid "Power off the system."
+msgstr ""
+
+#: compat/sysv/reboot.c:180
+msgid "Reboot the system."
+msgstr ""
+
+#: compat/sysv/reboot.c:184
+msgid ""
+"This command is intended to actually instruct the kernel to reboot or halt "
+"the system; when run without the -f option it will actually execute "
+"/sbin/shutdown.\n"
+"\n"
+"Before the system is rebooted or halted, the disks are sync'd; this can be "
+"avoided by giving -n.\n"
+"\n"
+"Network interfaces can be brought down by giving the -i option, and IDE "
+"disks can be put into standby by giving the -h option.  On Linux, these are "
+"almost never necessary as the kernel shuts down all devices anyway."
+msgstr ""
+
+#: compat/sysv/reboot.c:240
+#, fuzzy
+msgid "Calling shutdown"
+msgstr "Appel shutdown"
+
+#: compat/sysv/reboot.c:243
+#, fuzzy
+msgid "Unable to execute shutdown: %s"
+msgstr "Impossible d'executer shutdown : %s"
+
+#: compat/sysv/reboot.c:258
+#, fuzzy
+msgid "Syncing disks"
+msgstr "Synchronisation des disques"
+
+#: compat/sysv/reboot.c:272
+msgid "Rebooting"
+msgstr "Redémarrage"
+
+#: compat/sysv/reboot.c:276
+#, fuzzy
+msgid "Halting"
+msgstr "En instance d'arret"
+
+#: compat/sysv/reboot.c:280
+#, fuzzy
+msgid "Powering off"
+msgstr "En instance d'arret de l'alimentation"
+
+#: compat/sysv/reboot.c:305
+#, fuzzy
+msgid "Putting disks into standby"
+msgstr "mise des disques en attente"
+
+#: compat/sysv/reboot.c:310
+#, fuzzy
+msgid "Unable to iterate IDE devices: %s"
+msgstr "Impossible d'itérer les périphériques IDE : %s"
+
+#: compat/sysv/reboot.c:358 compat/sysv/reboot.c:365
+#, fuzzy
+msgid "Failed to put %s into standby: %s"
+msgstr "Echec de la mise de %s en attente : %s"
+
+#: compat/sysv/reboot.c:390
+#, fuzzy
+msgid "Bringing interfaces down"
+msgstr "Démontage des interfaces"
+
+#: compat/sysv/reboot.c:394
+#, fuzzy
+msgid "Unable to open socket to iterate interfaces: %s"
+msgstr "Impossible d'ouvrir le socket pour itérer les interfaces : %s"
+
+#: compat/sysv/reboot.c:403
+#, fuzzy
+msgid "Unable to get list of interfaces: %s"
+msgstr "Impossible d'obtenir la liste des interfaces : %s"
+
+#: compat/sysv/reboot.c:423 compat/sysv/reboot.c:440
+#, fuzzy
+msgid "Failed to down interface %s: %s"
+msgstr "Echec du démontage de l'interface %s : %s"
+
+#: compat/sysv/runlevel.c:70
+#, fuzzy
+msgid "store time of system boot"
+msgstr "Enregistre la date de démarrage du système"
+
+#: compat/sysv/runlevel.c:72
+#, fuzzy
+msgid "store new runlevel"
+msgstr "Enregistre le nouveau runlevel"
+
+#: compat/sysv/runlevel.c:88
+msgid "[UTMP]"
+msgstr ""
+
+#: compat/sysv/runlevel.c:89
+msgid "Output previous and current runlevel."
+msgstr ""
+
+#: compat/sysv/runlevel.c:91
+msgid ""
+"The system /var/run/utmp file is used unless the alternate file UTMP is "
+"given.\n"
+"\n"
+"Normally this will only output the most recent runlevel record in the utmp "
+"file, the --set option can be used to add a new record.  RUNLEVEL should be "
+"one of 0123456S.\n"
+"\n"
+"Alternately a reboot record may be added to the file by using the --reboot "
+"option, this produces no output."
+msgstr ""
+
+#: compat/sysv/runlevel.c:135 compat/sysv/telinit.c:76
+#, fuzzy
+msgid "%s: illegal runlevel: %s\n"
+msgstr "%s : runlevel incorrect : %s\n"
+
+#: compat/sysv/shutdown.c:143
+#, fuzzy
+msgid "reboot after shutdown"
+msgstr "redémarrage après shutdown"
+
+#: compat/sysv/shutdown.c:145
+#, fuzzy
+msgid "halt or power off after shutdown"
+msgstr "Arret ou etteindre après shutdown"
+
+#: compat/sysv/shutdown.c:147
+#, fuzzy
+msgid "halt after shutdown (implies -h)"
+msgstr "Arret après shutdown (implique -h)"
+
+#: compat/sysv/shutdown.c:149
+#, fuzzy
+msgid "power off after shutdown (implies -h)"
+msgstr "Eteindre après shutdown (implique -h)"
+
+#: compat/sysv/shutdown.c:151
+#, fuzzy
+msgid "cancel a running shutdown"
+msgstr "Annuler un shutdown commencé"
+
+#: compat/sysv/shutdown.c:153
+#, fuzzy
+msgid "only send warnings, don't shutdown"
+msgstr "N'envoyer que des avertissement , ne shutdown pas"
+
+#: compat/sysv/shutdown.c:184
+msgid "TIME [MESSAGE]"
+msgstr ""
+
+#: compat/sysv/shutdown.c:185
+msgid "Bring the system down."
+msgstr ""
+
+#: compat/sysv/shutdown.c:187
+msgid ""
+"TIME may have different formats, the most common is simply the word 'now' "
+"which will bring the system down immediately.  Other valid formats are +m, "
+"where m is the number of minutes to wait until shutting down and hh:mm which "
+"specifies the time on the 24hr clock.\n"
+"\n"
+"Logged in users are warned by a message sent to their terminal, you may "
+"include an optional MESSAGE included with this.  Messages can be sent "
+"without actually bringing the system down by using the -k option.\n"
+"\n"
+"If TIME is given, the command will remain in the foreground until the "
+"shutdown occurs.  It can be cancelled by Control-C, or by another user using "
+"the -c option.\n"
+"\n"
+"The system is brought down into maintenance (single-user) mode by default, "
+"you can change this with either the -r or -h option which specify a reboot "
+"or system halt respectively.  The -h option can be further modified with -H "
+"or -P to specify whether to halt the system, or to power it off afterwards.  "
+"The default is left up to the shutdown scripts."
+msgstr ""
+
+#: compat/sysv/shutdown.c:221
+#, fuzzy
+msgid "%s: time expected\n"
+msgstr "%s : temps attendu\n"
+
+#: compat/sysv/shutdown.c:245
+#, c-format
+msgid "%s: illegal hour value\n"
+msgstr "%s : valeur de l'heure incorrecte\n"
+
+#: compat/sysv/shutdown.c:254
+#, c-format
+msgid "%s: illegal minute value\n"
+msgstr "%s : valeur des minutes incorrecte\n"
+
+#: compat/sysv/shutdown.c:274
+#, c-format
+msgid "%s: illegal time value\n"
+msgstr "%s : valeur de la date incorrecte\n"
+
+#: compat/sysv/shutdown.c:326
+#, fuzzy
+msgid "Shutdown is not running"
+msgstr "Shutdown n'a pas démarré"
+
+#: compat/sysv/shutdown.c:335
+#, fuzzy
+msgid "Another shutdown is already running"
+msgstr "Une autre extinction est déjà en cours"
+
+#: compat/sysv/shutdown.c:339
+#, fuzzy
+msgid "Cannot find pid of running shutdown"
+msgstr "Ne trouve pas le pid du shutdown en court"
+
+#: compat/sysv/shutdown.c:367
+#, fuzzy
+msgid "Unable to save pid to %s"
+msgstr "Impossible de sauver le pid de %s"
+
+#: compat/sysv/shutdown.c:505
+#, fuzzy
+msgid "Shutdown cancelled"
+msgstr "Arrêt du système annulé"
+
+#: compat/sysv/shutdown.c:581
+#, fuzzy
+msgid "The system is going down for %s in %d minutes!"
+msgstr "Le système va s'arrêter pour %s dans %d minutes !"
+
+#: compat/sysv/shutdown.c:585
+#, fuzzy
+msgid "The system is going down for %s IN ONE MINUTE!"
+msgstr "Le système va s'arrêter pour %s DANS UNE MINUTE !"
+
+#: compat/sysv/shutdown.c:589
+#, fuzzy
+msgid "The system is going down for %s NOW!"
+msgstr "Le système va s'arrêter pour %s MAINTENANT !"
+
+#: compat/sysv/shutdown.c:633
+#, fuzzy
+msgid "Unable to fork child-process to warn users: %s"
+msgstr ""
+"Impossible de séparer les processus-enfant pour avertir les utilisateurs : %s"
+
+#: compat/sysv/shutdown.c:679
+#, fuzzy
+msgid ""
+"\n"
+"Broadcast message from %s@%s\n"
+"\t(%s) at %d:%02d ...\n"
+"\n"
+msgstr ""
+"Message de diffusion de %s@%s\n"
+" (%s) à %d:%02d...\n"
+"\n"
+
+#: compat/sysv/telinit.c:66
+msgid "Change runlevel."
+msgstr ""
+
+#: compat/sysv/telinit.c:68
+msgid "RUNLEVEL should be one of 0123456S."
+msgstr ""
+
+#: logd/main.c:96
+#, fuzzy
+msgid "Detach and run in the background"
+msgstr "Détache et execute en arrière plan"
+
+#: logd/main.c:112
+msgid "Log output of jobs to /var/log/boot."
+msgstr ""
+
+#: logd/main.c:114
+msgid ""
+"By default, logd does not detach from the console and remains in the "
+"foreground.  Use the --daemon option to have it detach."
+msgstr ""
+
+#: logd/main.c:123
+#, c-format
+msgid "%s: unexpected argument\n"
+msgstr "%s : argument inattendu\n"
+
+#: logd/main.c:134
+#, fuzzy
+msgid "Unable to open listening socket: %s"
+msgstr "Impossible d'ouvrir le socket d'écoute : %s"
+
+#: logd/main.c:243
+#, fuzzy
+msgid "Unable to accept connection: %s"
+msgstr "Impossible d'accepter la connexion : %s"
+
+#: logd/main.c:251
+#, fuzzy
+msgid "Insufficient memory to accept child"
+msgstr "Mémoire inssuffisante pour accepter un enfant"
+
+#: logd/main.c:350 logd/main.c:367
+#, fuzzy
+msgid "Error occurred while writing to log file: %s"
+msgstr "Une erreur est survenue lors de l'écriture du fichier de log : %s"
