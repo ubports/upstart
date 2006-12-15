@@ -63,13 +63,6 @@
 #define MAGIC "upstart\0"
 
 /**
- * MSG_VERSION:
- *
- * Current protocol version number.
- **/
-#define MSG_VERSION 0
-
-/**
  * INIT_DAEMON:
  *
  * Macro used in place of a pid for the init daemon, simply to make it clear
@@ -267,7 +260,7 @@ upstart_send_msg_to (pid_t       pid,
 
 	/* Place a header at the start */
 	if (upstart_write_header (&iov[0], sizeof (buf),
-				  MSG_VERSION, message->type))
+				  UPSTART_API_VERSION, message->type))
 		goto invalid;
 
 	/* Message type determines actual payload */

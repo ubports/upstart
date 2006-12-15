@@ -1,5 +1,10 @@
 2006-12-15  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.h (UPSTART_API_VERSION): Define API version macro
+	to be public.
+	* upstart/control.c (MSG_VERSION, upstart_send_msg_to): Replacing the
+	previous MSG_VERSION macro here.
+
 	* upstart/control.c (upstart_read_int, upstart_write_int) 
 	(upstart_read_ints, upstart_write_ints, upstart_read_str) 
 	(upstart_write_str, upstart_read_header, upstart_write_header):

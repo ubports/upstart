@@ -29,6 +29,15 @@
 
 
 /**
+ * UPSTART_API_VERSION:
+ *
+ * This macro defines the current API version number; it can optionally
+ * be used to make a judgement about whether it's legal for a particular
+ * field to be missing or not.
+ **/
+#define UPSTART_API_VERSION 0
+
+/**
  * UpstartMsgType:
  *
  * This identifies the types of messages that can be passed between clients
