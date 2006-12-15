@@ -268,23 +268,18 @@ control_send (pid_t       pid,
 	case UPSTART_JOB_STOP:
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN:
-		NIH_MUST (msg->message.job_query.name
-			  = nih_strdup (msg, message->job_query.name));
+		NIH_MUST (msg->message.name = nih_strdup (msg, message->name));
 		break;
 	case UPSTART_JOB_STATUS:
-		NIH_MUST (msg->message.job_status.name
-			  = nih_strdup (msg, message->job_status.name));
-		if (message->job_status.description)
-			NIH_MUST (msg->message.job_status.description
-				  = nih_strdup (
-					  msg,
-					  message->job_status.description));
+		NIH_MUST (msg->message.name = nih_strdup (msg, message->name));
+		if (message->description)
+			NIH_MUST (msg->message.description
+				  = nih_strdup (msg, message->description));
 		break;
 	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN:
-		NIH_MUST (msg->message.event.name
-			  = nih_strdup (msg, message->event.name));
+		NIH_MUST (msg->message.name = nih_strdup (msg, message->name));
 		break;
 	default:
 		break;
@@ -438,11 +433,11 @@ control_handle (pid_t       pid,
 	case UPSTART_JOB_QUERY: {
 		Job *job;
 
-		job = job_find_by_name (msg->job_start.name);
+		job = job_find_by_name (msg->name);
 		if (! job) {
 			NIH_MUST (reply = nih_new (NULL, UpstartMsg));
 			reply->type = UPSTART_JOB_UNKNOWN;
-			reply->job_unknown.name = msg->job_start.name;
+			reply->name = msg->name;
 			break;
 		}
 
@@ -459,12 +454,12 @@ control_handle (pid_t       pid,
 
 		NIH_MUST (reply = nih_new (NULL, UpstartMsg));
 		reply->type = UPSTART_JOB_STATUS;
-		reply->job_status.name = msg->job_query.name;
-		reply->job_status.description = job->description;
-		reply->job_status.goal = job->goal;
-		reply->job_status.state = job->state;
-		reply->job_status.process_state = job->process_state;
-		reply->job_status.pid = job->pid;
+		reply->name = msg->name;
+		reply->description = job->description;
+		reply->goal = job->goal;
+		reply->state = job->state;
+		reply->process_state = job->process_state;
+		reply->pid = job->pid;
 
 		break;
 	}
@@ -476,12 +471,12 @@ control_handle (pid_t       pid,
 
 			NIH_MUST (reply = nih_new (NULL, UpstartMsg));
 			reply->type = UPSTART_JOB_STATUS;
-			reply->job_status.name = job->name;
-			reply->job_status.description = job->description;
-			reply->job_status.goal = job->goal;
-			reply->job_status.state = job->state;
-			reply->job_status.process_state = job->process_state;
-			reply->job_status.pid = job->pid;
+			reply->name = job->name;
+			reply->description = job->description;
+			reply->goal = job->goal;
+			reply->state = job->state;
+			reply->process_state = job->process_state;
+			reply->pid = job->pid;
 
 			NIH_MUST (control_send (pid, reply));
 			nih_free (reply);
@@ -492,10 +487,9 @@ control_handle (pid_t       pid,
 
 		break;
 	case UPSTART_EVENT_QUEUE:
-		nih_info (_("Control request to queue event %s"),
-			  msg->event_queue.name);
+		nih_info (_("Control request to queue event %s"), msg->name);
 
-		event_queue (msg->event_queue.name);
+		event_queue (msg->name);
 		break;
 	case UPSTART_WATCH_JOBS:
 		nih_info (_("Control request to subscribe %d to jobs"), pid);
@@ -517,9 +511,9 @@ control_handle (pid_t       pid,
 		break;
 	case UPSTART_SHUTDOWN:
 		nih_info (_("Control request to shutdown system for %s"),
-			  msg->shutdown.name);
+			  msg->name);
 		event_queue (SHUTDOWN_EVENT);
-		job_set_idle_event (msg->shutdown.name);
+		job_set_idle_event (msg->name);
 		break;
 	default:
 		/* Unknown message */
@@ -551,12 +545,12 @@ control_handle_job (Job *job)
 	control_init ();
 
 	msg.type = UPSTART_JOB_STATUS;
-	msg.job_status.name = job->name;
-	msg.job_status.description = job->description;
-	msg.job_status.goal = job->goal;
-	msg.job_status.state = job->state;
-	msg.job_status.process_state = job->process_state;
-	msg.job_status.pid = job->pid;
+	msg.name = job->name;
+	msg.description = job->description;
+	msg.goal = job->goal;
+	msg.state = job->state;
+	msg.process_state = job->process_state;
+	msg.pid = job->pid;
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		ControlSub *sub = (ControlSub *)iter;
@@ -583,7 +577,7 @@ control_handle_event (Event *event)
 	control_init ();
 
 	msg.type = UPSTART_EVENT;
-	msg.event.name = event->name;
+	msg.name = event->name;
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		ControlSub *sub = (ControlSub *)iter;

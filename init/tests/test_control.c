@@ -262,7 +262,7 @@ test_send (void)
 	/* Check that a job-start message is copied correctly. */
 	TEST_FEATURE ("with job start message");
 	message->type = UPSTART_JOB_START;
-	message->job_start.name = "wibble";
+	message->name = "wibble";
 	msg = control_send (123, message);
 
 	TEST_ALLOC_SIZE (msg, sizeof (ControlMsg));
@@ -270,8 +270,8 @@ test_send (void)
 	TEST_EQ (msg->pid, 123);
 	TEST_EQ (msg->message.type, UPSTART_JOB_START);
 
-	TEST_EQ_STR (msg->message.job_start.name, "wibble");
-	TEST_ALLOC_PARENT (msg->message.job_start.name, msg);
+	TEST_EQ_STR (msg->message.name, "wibble");
+	TEST_ALLOC_PARENT (msg->message.name, msg);
 
 	nih_list_free (&msg->entry);
 
@@ -279,8 +279,8 @@ test_send (void)
 	/* Check that a job-status message is copied correctly. */
 	TEST_FEATURE ("with job status message");
 	message->type = UPSTART_JOB_STATUS;
-	message->job_status.name = "wibble";
-	message->job_status.description = "frodo";
+	message->name = "wibble";
+	message->description = "frodo";
 	msg = control_send (123, message);
 
 	TEST_ALLOC_SIZE (msg, sizeof (ControlMsg));
@@ -288,10 +288,10 @@ test_send (void)
 	TEST_EQ (msg->pid, 123);
 	TEST_EQ (msg->message.type, UPSTART_JOB_STATUS);
 
-	TEST_EQ_STR (msg->message.job_status.name, "wibble");
-	TEST_ALLOC_PARENT (msg->message.job_status.name, msg);
-	TEST_EQ_STR (msg->message.job_status.description, "frodo");
-	TEST_ALLOC_PARENT (msg->message.job_status.description, msg);
+	TEST_EQ_STR (msg->message.name, "wibble");
+	TEST_ALLOC_PARENT (msg->message.name, msg);
+	TEST_EQ_STR (msg->message.description, "frodo");
+	TEST_ALLOC_PARENT (msg->message.description, msg);
 
 	nih_list_free (&msg->entry);
 
@@ -299,7 +299,7 @@ test_send (void)
 	/* Check that a queue-event message is copied correctly. */
 	TEST_FEATURE ("with queue event message");
 	message->type = UPSTART_EVENT_QUEUE;
-	message->event_queue.name = "wibble";
+	message->name = "wibble";
 	msg = control_send (123, message);
 
 	TEST_ALLOC_SIZE (msg, sizeof (ControlMsg));
@@ -307,8 +307,8 @@ test_send (void)
 	TEST_EQ (msg->pid, 123);
 	TEST_EQ (msg->message.type, UPSTART_EVENT_QUEUE);
 
-	TEST_EQ_STR (msg->message.event_queue.name, "wibble");
-	TEST_ALLOC_PARENT (msg->message.event_queue.name, msg);
+	TEST_EQ_STR (msg->message.name, "wibble");
+	TEST_ALLOC_PARENT (msg->message.name, msg);
 
 	nih_list_free (&msg->entry);
 
@@ -316,7 +316,7 @@ test_send (void)
 	/* Check that an event message is copied correctly */
 	TEST_FEATURE ("with event message");
 	message->type = UPSTART_EVENT;
-	message->event.name = "foo";
+	message->name = "foo";
 	msg = control_send (123, message);
 
 	TEST_ALLOC_SIZE (msg, sizeof (ControlMsg));
@@ -324,8 +324,8 @@ test_send (void)
 	TEST_EQ (msg->pid, 123);
 	TEST_EQ (msg->message.type, UPSTART_EVENT);
 
-	TEST_EQ_STR (msg->message.event.name, "foo");
-	TEST_ALLOC_PARENT (msg->message.event.name, msg);
+	TEST_EQ_STR (msg->message.name, "foo");
+	TEST_ALLOC_PARENT (msg->message.name, msg);
 
 	nih_list_free (&msg->entry);
 
@@ -376,7 +376,7 @@ watcher_child (int test,
 	case TEST_SILLY:
 		/* Send an odd message; this should just get ignored. */
 		s_msg->type = UPSTART_JOB_UNKNOWN;
-		s_msg->job_unknown.name = "eh";
+		s_msg->name = "eh";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 		break;
 	case TEST_NO_OP:
@@ -387,7 +387,7 @@ watcher_child (int test,
 	case TEST_JOB_UNKNOWN:
 		/* Send a job-start message with an unknown job. */
 		s_msg->type = UPSTART_JOB_START;
-		s_msg->job_start.name = "wibble";
+		s_msg->name = "wibble";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 
 		TEST_CHILD_RELEASE (fd);
@@ -398,12 +398,12 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_UNKNOWN);
-		TEST_EQ_STR (r_msg->job_unknown.name, "wibble");
+		TEST_EQ_STR (r_msg->name, "wibble");
 		break;
 	case TEST_JOB_START:
 		/* Send a job-start message with a known job. */
 		s_msg->type = UPSTART_JOB_START;
-		s_msg->job_start.name = "test";
+		s_msg->name = "test";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 
 		TEST_CHILD_RELEASE (fd);
@@ -414,15 +414,15 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-		TEST_EQ_STR (r_msg->job_status.name, "test");
-		TEST_EQ (r_msg->job_status.goal, JOB_START);
-		TEST_EQ (r_msg->job_status.state, JOB_RUNNING);
-		TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ (r_msg->goal, JOB_START);
+		TEST_EQ (r_msg->state, JOB_RUNNING);
+		TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
 		break;
 	case TEST_JOB_STOP:
 		/* Send a job-stop message. */
 		s_msg->type = UPSTART_JOB_STOP;
-		s_msg->job_stop.name = "test";
+		s_msg->name = "test";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 
 		TEST_CHILD_RELEASE (fd);
@@ -433,15 +433,15 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-		TEST_EQ_STR (r_msg->job_status.name, "test");
-		TEST_EQ (r_msg->job_status.goal, JOB_STOP);
-		TEST_EQ (r_msg->job_status.state, JOB_RUNNING);
-		TEST_EQ (r_msg->job_status.process_state, PROCESS_KILLED);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ (r_msg->goal, JOB_STOP);
+		TEST_EQ (r_msg->state, JOB_RUNNING);
+		TEST_EQ (r_msg->process_state, PROCESS_KILLED);
 		break;
 	case TEST_JOB_QUERY:
 		/* Send a job-query message. */
 		s_msg->type = UPSTART_JOB_QUERY;
-		s_msg->job_stop.name = "test";
+		s_msg->name = "test";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 
 		TEST_CHILD_RELEASE (fd);
@@ -452,11 +452,11 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-		TEST_EQ_STR (r_msg->job_status.name, "test");
-		TEST_EQ_STR (r_msg->job_status.description, "a test job");
-		TEST_EQ (r_msg->job_status.goal, JOB_START);
-		TEST_EQ (r_msg->job_status.state, JOB_STOPPING);
-		TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ_STR (r_msg->description, "a test job");
+		TEST_EQ (r_msg->goal, JOB_START);
+		TEST_EQ (r_msg->state, JOB_STOPPING);
+		TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
 		break;
 	case TEST_JOB_LIST:
 		/* Send a job-list message. */
@@ -471,11 +471,11 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-		TEST_EQ_STR (r_msg->job_status.name, "test");
-		TEST_EQ_STR (r_msg->job_status.description, "a test job");
-		TEST_EQ (r_msg->job_status.goal, JOB_START);
-		TEST_EQ (r_msg->job_status.state, JOB_STOPPING);
-		TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ_STR (r_msg->description, "a test job");
+		TEST_EQ (r_msg->goal, JOB_START);
+		TEST_EQ (r_msg->state, JOB_STOPPING);
+		TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
 
 		/* Check that we also receive a job-list-end response. */
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
@@ -491,16 +491,16 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-		TEST_EQ_STR (r_msg->job_status.name, "test");
-		TEST_EQ_STR (r_msg->job_status.description, "a test job");
-		TEST_EQ (r_msg->job_status.goal, JOB_START);
-		TEST_EQ (r_msg->job_status.state, JOB_STOPPING);
-		TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ_STR (r_msg->description, "a test job");
+		TEST_EQ (r_msg->goal, JOB_START);
+		TEST_EQ (r_msg->state, JOB_STOPPING);
+		TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
 		break;
 	case TEST_EVENT:
 		/* Send an event-queue message */
 		s_msg->type = UPSTART_EVENT_QUEUE;
-		s_msg->event_queue.name = "snarf";
+		s_msg->name = "snarf";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 		break;
 	case TEST_EVENT_TRIGGERED:
@@ -510,7 +510,7 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_EVENT);
-		TEST_EQ_STR (r_msg->event.name, "snarf");
+		TEST_EQ_STR (r_msg->name, "snarf");
 		break;
 	case TEST_JOB_WATCH:
 		/* Send a watch-jobs message. */
@@ -525,11 +525,11 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-		TEST_EQ_STR (r_msg->job_status.name, "test");
-		TEST_EQ_STR (r_msg->job_status.description, "a test job");
-		TEST_EQ (r_msg->job_status.goal, JOB_START);
-		TEST_EQ (r_msg->job_status.state, JOB_STOPPING);
-		TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ_STR (r_msg->description, "a test job");
+		TEST_EQ (r_msg->goal, JOB_START);
+		TEST_EQ (r_msg->state, JOB_STOPPING);
+		TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
 
 		/* Send an unwatch-jobs message. */
 		s_msg->type = UPSTART_UNWATCH_JOBS;
@@ -546,7 +546,7 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_EVENT);
-		TEST_EQ_STR (r_msg->event.name, "snarf");
+		TEST_EQ_STR (r_msg->name, "snarf");
 
 		/* Send an unwatch-events message. */
 		s_msg->type = UPSTART_UNWATCH_EVENTS;
@@ -565,7 +565,7 @@ watcher_child (int test,
 		 * second event.
 		 */
 		s_msg->type = UPSTART_SHUTDOWN;
-		s_msg->shutdown.name = "halt";
+		s_msg->name = "halt";
 		upstart_send_msg_to (getppid (), sock, s_msg);
 
 		/* Check that we receive an event message for the shutdown
@@ -574,7 +574,7 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_EVENT);
-		TEST_EQ_STR (r_msg->event.name, "shutdown");
+		TEST_EQ_STR (r_msg->name, "shutdown");
 
 		/* Check that we receive a second event message for the
 		 * halt event.
@@ -582,7 +582,7 @@ watcher_child (int test,
 		r_msg = upstart_recv_msg (NULL, sock, NULL);
 
 		TEST_EQ (r_msg->type, UPSTART_EVENT);
-		TEST_EQ_STR (r_msg->event.name, "halt");
+		TEST_EQ_STR (r_msg->name, "halt");
 
 		/* Send the unwatch-events message. */
 		s_msg->type = UPSTART_UNWATCH_EVENTS;

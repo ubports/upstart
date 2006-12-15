@@ -1,5 +1,9 @@
 2006-12-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c, init/tests/test_control.c: Update all uses of
+	the UpstartMsg structure to avoid the intermediate union that no
+	longer exists.	
+
 	* upstart/control.h: Combine all the previous message structures
 	into just one that has all of the fields anyway.
 	* upstart/control.c, upstart/tests/test_control.c: Update all uses of
