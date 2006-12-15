@@ -1,5 +1,9 @@
 2006-12-15  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c, compat/sysv/telinit.c, compat/sysv/shutdown.c:
+	Update all uses of the UpstartMsg structure to avoid the
+	intermediate union that no longer exists.	
+
 	* init/control.c, init/tests/test_control.c: Update all uses of
 	the UpstartMsg structure to avoid the intermediate union that no
 	longer exists.	

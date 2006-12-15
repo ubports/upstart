@@ -94,20 +94,18 @@ main (int   argc,
 	case '4':
 	case '5':
 		msg.type = UPSTART_EVENT_QUEUE;
-		msg.event_queue.name = nih_sprintf (NULL, "runlevel-%c",
-						    args[0][0]);
+		msg.name = nih_sprintf (NULL, "runlevel-%c", args[0][0]);
 		break;
 	case '0':
 	case '1':
 	case '6':
 		msg.type = UPSTART_SHUTDOWN;
-		msg.shutdown.name = nih_sprintf (NULL, "runlevel-%c",
-						 args[0][0]);
+		msg.name = nih_sprintf (NULL, "runlevel-%c", args[0][0]);
 		break;
 	case 'S':
 	case 's':
 		msg.type = UPSTART_SHUTDOWN;
-		msg.shutdown.name = "runlevel-S";
+		msg.name = "runlevel-S";
 		break;
 	default:
 		/* Ignore other arguments */

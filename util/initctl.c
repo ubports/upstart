@@ -92,13 +92,13 @@ start_action (NihCommand   *command,
 		/* Build the message to send */
 		if (! strcmp (command->command, "start")) {
 			msg.type = UPSTART_JOB_START;
-			msg.job_start.name = *arg;
+			msg.name = *arg;
 		} else if (! strcmp (command->command, "stop")) {
 			msg.type = UPSTART_JOB_STOP;
-			msg.job_stop.name = *arg;
+			msg.name = *arg;
 		} else if (! strcmp (command->command, "status")) {
 			msg.type = UPSTART_JOB_QUERY;
-			msg.job_stop.name = *arg;
+			msg.name = *arg;
 		}
 
 		/* Send the message */
@@ -127,8 +127,7 @@ start_action (NihCommand   *command,
 			print_job_status (reply);
 			break;
 		case UPSTART_JOB_UNKNOWN:
-			nih_warn (_("unknown job: %s\n"),
-				  reply->job_unknown.name);
+			nih_warn (_("unknown job: %s\n"), reply->name);
 			break;
 		default:
 			nih_warn (_("unexpected reply (type %d)\n"),
@@ -206,8 +205,7 @@ list_action (NihCommand   *command,
 			receive_replies = 0;
 			break;
 		case UPSTART_JOB_UNKNOWN:
-			nih_warn (_("unknown job: %s\n"),
-				  reply->job_unknown.name);
+			nih_warn (_("unknown job: %s\n"), reply->name);
 			break;
 		default:
 			nih_warn (_("unexpected reply (type %d)\n"),
@@ -265,7 +263,7 @@ emit_action (NihCommand   *command,
 	} else if (! strcmp (command->command, "shutdown")) {
 		msg.type = UPSTART_SHUTDOWN;
 	}
-	msg.event_queue.name = args[0];
+	msg.name = args[0];
 
 	/* Send the message */
 	if (upstart_send_msg (sock, &msg) < 0) {
@@ -569,25 +567,20 @@ print_job_status (UpstartMsg *reply)
 	nih_assert (reply != NULL);
 	nih_assert (reply->type == UPSTART_JOB_STATUS);
 
-	if (reply->job_status.state == JOB_WAITING) {
+	if (reply->state == JOB_WAITING) {
 		extra = nih_strdup (NULL, "");
 
-	} else if ((reply->job_status.process_state == PROCESS_SPAWNED)
-		   || (reply->job_status.process_state == PROCESS_NONE)) {
+	} else if ((reply->process_state == PROCESS_SPAWNED)
+		   || (reply->process_state == PROCESS_NONE)) {
 		extra = nih_sprintf (NULL, ", process %s",
-				     process_state_name (
-					     reply->job_status.process_state));
+				     process_state_name (reply->process_state));
 	} else {
-		extra = nih_sprintf (NULL, ", process %d %s",
-				     reply->job_status.pid,
-				     process_state_name (
-					     reply->job_status.process_state));
+		extra = nih_sprintf (NULL, ", process %d %s", reply->pid,
+				     process_state_name (reply->process_state));
 	}
 
-	nih_message ("%s (%s) %s%s", reply->job_status.name,
-		     job_goal_name (reply->job_status.goal),
-		     job_state_name (reply->job_status.state),
-		     extra);
+	nih_message ("%s (%s) %s%s", reply->name, job_goal_name (reply->goal),
+		     job_state_name (reply->state), extra);
 
 	nih_free (extra);
 }
@@ -606,5 +599,5 @@ print_event (UpstartMsg *reply)
 	nih_assert (reply != NULL);
 	nih_assert (reply->type == UPSTART_EVENT);
 
-	nih_message (_("%s event"), reply->event.name);
+	nih_message (_("%s event"), reply->name);
 }

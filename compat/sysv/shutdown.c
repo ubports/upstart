@@ -463,7 +463,7 @@ shutdown_now (void)
 
 	/* Build the message to send */
 	msg.type = UPSTART_SHUTDOWN;
-	msg.shutdown.name = event;
+	msg.name = event;
 
 	/* Send the message */
 	if (upstart_send_msg (sock, &msg) < 0) {
