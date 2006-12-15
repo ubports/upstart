@@ -157,9 +157,10 @@ test_recv_msg (void)
 	 */
 	TEST_FEATURE ("without magic marker");
 	memset (buf, 0, 16);
-	memcpy (buf, "wibblefart", 10);
-	memcpy (buf + 16, "\0\0\0\0", 4);
-	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
+	memcpy (buf, "deadbeef", 8);
+	memcpy (buf + 8, "\0\0\0\0", 4);
+	memcpy (buf + 12, "\0\0\0\0", 4);
+	sendto (s_sock, buf, 16, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_EQ_P (msg, NULL);
@@ -176,9 +177,10 @@ test_recv_msg (void)
 	 */
 	TEST_FEATURE ("with unknown message type");
 	memset (buf, 0, 16);
-	strncpy (buf, PACKAGE_STRING, 16);
-	memcpy (buf + 16, "\0\0\0\001", 4);
-	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
+	memcpy (buf, "upstart\0", 8);
+	memcpy (buf + 8, "\0\0\0\0", 4);
+	memcpy (buf + 12, "\001\0\0\0", 4);
+	sendto (s_sock, buf, 16, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_EQ_P (msg, NULL);
@@ -195,11 +197,12 @@ test_recv_msg (void)
 	 * being raised.
 	 */
 	TEST_FEATURE ("with short message");
-	memset (buf, 0, 16);
-	strncpy (buf, PACKAGE_STRING, 16);
-	memcpy (buf + 16, "\001\0\0\0", 4);
-	memcpy (buf + 20, "\040\0\0\0\0\0\0\0", 8);
-	sendto (s_sock, buf, 28, 0, (struct sockaddr *)&addr, addrlen);
+	memset (buf, 0, 24);
+	memcpy (buf, "upstart\0", 8);
+	memcpy (buf + 8, "\0\0\0\0", 4);
+	memcpy (buf + 12, "\0\0\0\001", 4);
+	memcpy (buf + 16, "\0\0\0\040\0\0\0\0", 8);
+	sendto (s_sock, buf, 24, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_EQ_P (msg, NULL);
@@ -217,9 +220,10 @@ test_recv_msg (void)
 	 */
 	TEST_FEATURE ("with valid message");
 	memset (buf, 0, 16);
-	strncpy (buf, PACKAGE_STRING, 16);
-	memcpy (buf + 16, "\0\0\0\0", 4);
-	sendto (s_sock, buf, 20, 0, (struct sockaddr *)&addr, addrlen);
+	memcpy (buf, "upstart\0", 8);
+	memcpy (buf + 8, "\0\0\0\0", 4);
+	memcpy (buf + 12, "\0\0\0\0", 4);
+	sendto (s_sock, buf, 16, 0, (struct sockaddr *)&addr, addrlen);
 	msg = upstart_recv_msg (NULL, r_sock, &pid);
 
 	TEST_ALLOC_SIZE (msg, sizeof (UpstartMsg));

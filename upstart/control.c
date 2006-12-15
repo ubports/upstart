@@ -25,11 +25,14 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <arpa/inet.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -53,6 +56,20 @@
 #define MAX_PACKET_SIZE 4096
 
 /**
+ * MAGIC:
+ *
+ * Magic string that is placed on the front of all messages.
+ **/
+#define MAGIC "upstart\0"
+
+/**
+ * MSG_VERSION:
+ *
+ * Current protocol version number.
+ **/
+#define MSG_VERSION 0
+
+/**
  * INIT_DAEMON:
  *
  * Macro used in place of a pid for the init daemon, simply to make it clear
@@ -61,106 +78,24 @@
 #define INIT_DAEMON 1
 
 
-/**
- * IOVEC_ADD:
- * @iov: iovec to add to,
- * @obj: object to add,
- * @objsz: size of object,
- * @bufsz: size of buffer.
- *
- * Expands to the code to add @objsz bytes from @obj to the @iov buffer,
- * without exceeding @bufsz.
- **/
-#define IOVEC_ADD(iov, obj, objsz, bufsz) \
-	if ((iov).iov_len + (objsz) <= (bufsz)) { \
-		memcpy ((iov).iov_base + (iov).iov_len, (obj), (objsz)); \
-		(iov).iov_len += (objsz); \
-	} else { \
-		goto invalid; \
-	}
-
-/**
- * IOVEC_READ:
- * @iov: iovec to read from,
- * @obj: object to copy into,
- * @objsz: size of object,
- * @bufsz: size of buffer.
- *
- * Expands to the code to copy @objsz bytes from @iov into @obj without
- * reading more than @bufsz bytes.  Uses the iov_len field of @iov to
- * store the current position.
- **/
-#define IOVEC_READ(iov, obj, objsz, bufsz) \
-	if ((iov).iov_len + (objsz) <= (bufsz)) { \
-		memcpy ((obj), (iov).iov_base + (iov).iov_len, (objsz)); \
-		(iov).iov_len += (objsz); \
-	} else { \
-		goto invalid; \
-	}
-
-
-/**
- * WireHdr:
- * @magic: always PACKAGE_STRING,
- * @type: type of message.
- *
- * This header preceeds all messages on the wire, it indicates that the
- * message is one from the upstart client library and the @type of
- * message that follows.
- **/
-typedef struct wire_hdr {
-	char            magic[16];
-	UpstartMsgType  type;
-} WireHdr;
-
-/**
- * WireJobPayload:
- * @namelen: length of @name.
- *
- * This is the payload of a message containing just a job name, the name
- * itself follows immediately after the payload.
- **/
-typedef struct wire_job_payload {
-	size_t namelen;
-	/* char name[namelen]; */
-} WireJobPayload;
-
-/**
- * WireJobStatusPayload:
- * @desclen: length of @description,
- * @goal: job goal,
- * @state: job state,
- * @process_state: process state,
- * @pid: current process.
- *
- * This payload follows a job payload for the JOB_STATUS message and contains
- * the status information.  The description follows immediately after the
- * payload, if @desclen is zero then the resulting description is NULL.
- **/
-typedef struct wire_job_status_payload {
-	size_t       desclen;
-	JobGoal      goal;
-	JobState     state;
-	ProcessState process_state;
-	pid_t        pid;
-	/* char description[desclen]; */
-} WireJobStatusPayload;
-
-/**
- * WireEventPayload:
- * @namelen: length of @name.
- *
- * This is the payload of a message containing event information, the name
- * follows immediately after the payload.
- **/
-typedef struct wire_event_payload {
-	size_t namelen;
-	/* char name[namelen]; */
-} WireEventPayload;
-
-
 /* Prototypes for static functions */
-static size_t upstart_addr (struct sockaddr_un *addr, pid_t pid);
+static size_t upstart_addr         (struct sockaddr_un *addr, pid_t pid);
+static int    upstart_read_int     (struct iovec *iovec, size_t *pos,
+				    int *value);
+static int    upstart_write_int    (struct iovec *iovec, size_t size,
+				    int value);
+static int    upstart_read_ints    (struct iovec *iovec, size_t *pos,
+				    int number, ...);
+static int    upstart_write_ints   (struct iovec *iovec, size_t size,
+				    int number, ...);
+static int    upstart_read_str     (struct iovec *iovec, size_t *pos,
+				    const void *parent, char **value);
+static int    upstart_write_str    (struct iovec *iovec, size_t size,
+				    const char *value);
+static int    upstart_read_header  (struct iovec *iovec, size_t *pos,
+				    int *version, UpstartMsgType *type);
+static int    upstart_write_header (struct iovec *iovec, size_t size,
+				    int version, UpstartMsgType type);
 
 
 /**
@@ -302,7 +237,6 @@ upstart_send_msg_to (pid_t       pid,
 		     int         sock,
 		     UpstartMsg *message)
 {
-	WireHdr            hdr;
 	struct sockaddr_un addr;
 	struct msghdr      msg;
 	struct iovec       iov[1];
@@ -332,10 +266,9 @@ upstart_send_msg_to (pid_t       pid,
 	iov[0].iov_len = 0;
 
 	/* Place a header at the start */
-	memset (hdr.magic, 0, sizeof (hdr.magic));
-	strncpy (hdr.magic, PACKAGE_STRING, sizeof (hdr.magic));
-	hdr.type = message->type;
-	IOVEC_ADD (iov[0], &hdr, sizeof (hdr), sizeof (buf));
+	if (upstart_write_header (&iov[0], sizeof (buf),
+				  MSG_VERSION, message->type))
+		goto invalid;
 
 	/* Message type determines actual payload */
 	switch (message->type) {
@@ -354,42 +287,28 @@ upstart_send_msg_to (pid_t       pid,
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN: {
 		/* Job name */
-		WireJobPayload job;
-
-		job.namelen = strlen (message->job_query.name);
-		IOVEC_ADD (iov[0], &job, sizeof (job), sizeof (buf));
-		IOVEC_ADD (iov[0], message->job_query.name, job.namelen,
-			   sizeof (buf));
+		if (upstart_write_str (&iov[0], sizeof (buf),
+				       message->job_query.name))
+			goto invalid;
 
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
 		/* Job name, followed by job status */
-		WireJobPayload       job;
-		WireJobStatusPayload status;
+		if (upstart_write_str (&iov[0], sizeof (buf),
+				       message->job_status.name))
+			goto invalid;
 
-		job.namelen = strlen (message->job_status.name);
-		IOVEC_ADD (iov[0], &job, sizeof (job), sizeof (buf));
-		IOVEC_ADD (iov[0], message->job_status.name, job.namelen,
-			   sizeof (buf));
+		if (upstart_write_ints (&iov[0], sizeof (buf), 4,
+					message->job_status.goal,
+					message->job_status.state,
+					message->job_status.process_state,
+					message->job_status.pid))
+			goto invalid;
 
-		if (message->job_status.description) {
-			status.desclen
-				= strlen (message->job_status.description);
-		} else {
-			status.desclen = 0;
-		}
-
-		status.goal = message->job_status.goal;
-		status.state = message->job_status.state;
-		status.process_state = message->job_status.process_state;
-		status.pid = message->job_status.pid;
-		IOVEC_ADD (iov[0], &status, sizeof (status), sizeof (buf));
-
-		if (status.desclen) {
-			IOVEC_ADD (iov[0], message->job_status.description,
-				   status.desclen, sizeof (buf));
-		}
+		if (upstart_write_str (&iov[0], sizeof (buf),
+				       message->job_status.description))
+			goto invalid;
 
 		break;
 	}
@@ -397,13 +316,9 @@ upstart_send_msg_to (pid_t       pid,
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
 		/* Event name */
-		WireEventPayload ev;
-
-		ev.namelen = strlen (message->event.name);
-		IOVEC_ADD (iov[0], &ev, sizeof (ev), sizeof (buf));
-		IOVEC_ADD (iov[0], message->event.name, ev.namelen,
-			   sizeof (buf));
-
+		if (upstart_write_str (&iov[0], sizeof (buf),
+				       message->event.name))
+			goto invalid;
 		break;
 	}
 	default:
@@ -449,14 +364,15 @@ upstart_recv_msg (const void *parent,
 		  pid_t      *pid)
 {
 	UpstartMsg     *message = NULL;
-	WireHdr         hdr;
 	struct msghdr   msg;
 	struct iovec    iov[1];
 	char            buf[MAX_PACKET_SIZE];
 	char            cmsg_buf[CMSG_SPACE (sizeof (struct ucred))];
 	struct cmsghdr *cmsg;
 	struct ucred    cred = { 0, 0, 0 };
+	size_t          pos = 0;
 	ssize_t         len;
+	int             version;
 
 	nih_assert (sock >= 0);
 
@@ -483,6 +399,8 @@ upstart_recv_msg (const void *parent,
 	len = recvmsg (sock, &msg, 0);
 	if (len < 0)
 		nih_return_system_error (NULL);
+
+	iov[0].iov_len = len;
 
 	/* Process the ancillary control information */
 	for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL;
@@ -526,19 +444,14 @@ upstart_recv_msg (const void *parent,
 		goto invalid;
 
 
+	/* Allocate the message */
+	NIH_MUST (message = nih_new (parent, UpstartMsg));
+
 	/* Copy the header out of the message, that'll tell us what
 	 * we're actually looking at.
 	 */
-	iov[0].iov_len = 0;
-	IOVEC_READ (iov[0], &hdr, sizeof (hdr), len);
-	hdr.magic[sizeof (hdr.magic) - 1] = '\0';
-	if (strcmp (hdr.magic, PACKAGE_STRING))
+	if (upstart_read_header (&iov[0], &pos, &version, &(message->type)))
 		goto invalid;
-
-
-	/* Allocate the message */
-	NIH_MUST (message = nih_new (parent, UpstartMsg));
-	message->type = hdr.type;
 
 	/* Message type determines actual payload */
 	switch (message->type) {
@@ -556,42 +469,28 @@ upstart_recv_msg (const void *parent,
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN: {
 		/* Job name */
-		WireJobPayload job;
-
-		IOVEC_READ (iov[0], &job, sizeof (job), len);
-		message->job_query.name = nih_alloc (message, job.namelen + 1);
-		message->job_query.name[job.namelen] = '\0';
-		IOVEC_READ (iov[0], message->job_query.name, job.namelen, len);
+		if (upstart_read_str (&iov[0], &pos,
+				      message, &(message->job_query.name)))
+			goto invalid;
 
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
 		/* Job name, followed by job status */
-		WireJobPayload       job;
-		WireJobStatusPayload status;
+		if (upstart_read_str (&iov[0], &pos,
+				      message, &(message->job_status.name)))
+			goto invalid;
 
-		IOVEC_READ (iov[0], &job, sizeof (job), len);
-		message->job_status.name = nih_alloc (message,
-						      job.namelen + 1);
-		message->job_status.name[job.namelen] = '\0';
-		IOVEC_READ (iov[0], message->job_status.name,
-			    job.namelen, len);
+		if (upstart_read_ints (&iov[0], &pos, 4,
+				       &(message->job_status.goal),
+				       &(message->job_status.state),
+				       &(message->job_status.process_state),
+				       &(message->job_status.pid)))
+			goto invalid;
 
-		IOVEC_READ (iov[0], &status, sizeof (status), len);
-		message->job_status.goal = status.goal;
-		message->job_status.state = status.state;
-		message->job_status.process_state = status.process_state;
-		message->job_status.pid = status.pid;
-
-		if (status.desclen) {
-			message->job_status.description
-				= nih_alloc (message, status.desclen + 1);
-			message->job_status.description[status.desclen] = '\0';
-			IOVEC_READ (iov[0], message->job_status.description,
-				    status.desclen, len);
-		} else {
-			message->job_status.description = NULL;
-		}
+		if (upstart_read_str (&iov[0], &pos,
+				      message, &(message->job_status.description)))
+			goto invalid;
 
 		break;
 	}
@@ -599,12 +498,9 @@ upstart_recv_msg (const void *parent,
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
 		/* Event name */
-		WireEventPayload ev;
-
-		IOVEC_READ (iov[0], &ev, sizeof (ev), len);
-		message->event.name = nih_alloc (message, ev.namelen + 1);
-		message->event.name[ev.namelen] = '\0';
-		IOVEC_READ (iov[0], message->event.name, ev.namelen, len);
+		if (upstart_read_str (&iov[0], &pos,
+				      message, &(message->event.name)))
+			goto invalid;
 
 		break;
 	}
@@ -619,10 +515,354 @@ upstart_recv_msg (const void *parent,
 	return message;
 
 invalid:
-	if (message)
-		nih_free (message);
+	nih_free (message);
 
 	nih_return_error (NULL, UPSTART_INVALID_MESSAGE,
 			  _(UPSTART_INVALID_MESSAGE_STR));
 }
 
+
+/**
+ * upstart_read_int:
+ * @iovec: iovec to read from,
+ * @pos: position within iovec,
+ * @value: pointer to write to.
+ *
+ * Read an integer value from @pos bytes into the @iovec given and store
+ * it in the pointer @value.  @pos is incremented by the number of bytes
+ * the integer used.
+ *
+ * Returns: zero on success, negative value if insufficient space.
+ **/
+static int
+upstart_read_int (struct iovec *iovec,
+		  size_t       *pos,
+		  int          *value)
+{
+	size_t start;
+	int    n_value;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (value != NULL);
+
+	start = *pos;
+	*pos += sizeof (int);
+
+	if (*pos > iovec->iov_len)
+		return -1;
+
+	memcpy (&n_value, iovec->iov_base + start, sizeof (int));
+	*value = ntohl (n_value);
+
+	return 0;
+}
+
+/**
+ * upstart_write_int:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @value: value to write.
+ *
+ * Write an integer @value to the end of the @iovec given, which has a
+ * buffer of @size bytes.  The length of the @iovec is incremented by
+ * the number of bytes the integer used.
+ *
+ * Returns: zero on success, negative value if insufficient space.
+ **/
+static int
+upstart_write_int (struct iovec *iovec,
+		   size_t        size,
+		   int           value)
+{
+	size_t start;
+	int    n_value;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+
+	start = iovec->iov_len;
+	iovec->iov_len += sizeof (int);
+
+	if (iovec->iov_len > size)
+		return -1;
+
+	n_value = htonl (value);
+	memcpy (iovec->iov_base + start, &n_value, sizeof (int));
+
+	return 0;
+}
+
+/**
+ * upstart_read_ints:
+ * @iovec: iovec to read from,
+ * @pos: position within iovec,
+ * @number: number of integers to read.
+ *
+ * Read @number integer values from @pos bytes into the @iovec given and
+ * store them in the pointers given as additional arguments to the function.
+ * @pos is incremented by the number of bytes the integers used.
+ *
+ * Returns: zero on success, negative value if insufficient space.
+ **/
+static int
+upstart_read_ints (struct iovec *iovec,
+		   size_t       *pos,
+		   int           number,
+		   ...)
+{
+	va_list args;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+
+	va_start (args, number);
+
+	while (number--) {
+		int *value;
+
+		value = va_arg (args, int *);
+
+		if (upstart_read_int (iovec, pos, value))
+			return -1;
+	}
+
+	va_end (args);
+
+	return 0;
+}
+
+/**
+ * upstart_write_ints:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @number: number of integers to read.
+ *
+ * Write @number integer values to the end of the @iovec given, which has a
+ * buffer of @size bytes.  The values are taken from additional arguments
+ * to the function.  The length of the @iovec is incremented by the number
+ * of bytes the integers used.
+ *
+ * Returns: zero on success, negative value if insufficient space.
+ **/
+static int
+upstart_write_ints (struct iovec *iovec,
+		    size_t        size,
+		    int           number,
+		    ...)
+{
+	va_list args;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+
+	va_start (args, number);
+
+	while (number--) {
+		int value;
+
+		value = va_arg (args, int);
+
+		if (upstart_write_int (iovec, size, value))
+			return -1;
+	}
+
+	va_end (args);
+
+	return 0;
+}
+
+/**
+ * upstart_read_str:
+ * @iovec: iovec to read from,
+ * @pos: position within iovec.
+ * @parent: parent of new string,
+ * @value: pointer to store string.
+ *
+ * Read a string value from @pos bytes into the @iovec given,
+ * allocates a new string to contain it and stores it in the pointer
+ * @value.
+ *
+ * The string will be NULL terminated.  If a zero-length string is
+ * read, @value will be set to NULL.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: zero on success, negative value if insufficient space
+ * or memory.
+ **/
+static int
+upstart_read_str (struct iovec  *iovec,
+		  size_t        *pos,
+		  const void    *parent,
+		  char         **value)
+{
+	size_t start, length;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (value != NULL);
+
+	if (upstart_read_int (iovec, pos, (int *)&length))
+		return -1;
+
+	if (! length) {
+		*value = NULL;
+		return 0;
+	}
+
+
+	start = *pos;
+	*pos += length;
+
+	if (*pos > iovec->iov_len)
+		return -1;
+
+	*value = nih_alloc (parent, length + 1);
+	if (! *value)
+		return -1;
+
+	memcpy (*value, iovec->iov_base + start, length);
+	(*value)[length] = '\0';
+
+	return 0;
+}
+
+/**
+ * upstart_write_str:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @value: value to write.
+ *
+ * Write a string @value to the end of the @iovec given, which has a
+ * buffer of @size bytes.  The length of the @iovec is incremented by
+ * the number of bytes the string used.
+ *
+ * If @value is NULL, a zero-length string is written.
+ *
+ * Returns: zero on success, negative value if insufficient space.
+ **/
+static int
+upstart_write_str (struct iovec *iovec,
+		   size_t        size,
+		   const char   *value)
+{
+	size_t start, length;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+
+	length = value ? strlen (value) : 0;
+	if (upstart_write_int (iovec, size, length))
+		return -1;
+
+	if (! length)
+		return 0;
+
+
+	start = iovec->iov_len;
+	iovec->iov_len += length;
+
+	if (iovec->iov_len > size)
+		return -1;
+
+	memcpy (iovec->iov_base + start, value, length);
+
+	return 0;
+}
+
+/**
+ * upstart_read_header:
+ * @iovec: iovec to read from,
+ * @pos: position within iovec,
+ * @version: pointer to write version to,
+ * @type: pointer to write message type to.
+ *
+ * Read a message header from @pos bytes into the @iovec given, storing
+ * the message version number in @version and message type in @type.  @pos
+ * is incremented by the number of bytes the header.
+ *
+ * Returns: zero on success, negative value if insufficient space or invalid
+ * format.
+ **/
+static int
+upstart_read_header (struct iovec   *iovec,
+		     size_t         *pos,
+		     int            *version,
+		     UpstartMsgType *type)
+{
+	size_t start;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (version != NULL);
+	nih_assert (type != NULL);
+
+	start = *pos;
+	*pos += sizeof (MAGIC) - 1;
+
+	if (*pos > iovec->iov_len)
+		return -1;
+
+	if (memcmp (iovec->iov_base + start, MAGIC, sizeof (MAGIC) - 1))
+		return -1;
+
+	if (upstart_read_int (iovec, pos, version))
+		return -1;
+
+	if (upstart_read_int (iovec, pos, (int *)type))
+		return -1;
+
+	return 0;
+}
+
+/**
+ * upstart_write_header:
+ * @iovec: iovec to read from,
+ * @size: size of iovec buffer,
+ * @version: version to write,
+ * @type: message type to write.
+ *
+ * Write a message header to the end of the @iovec given, which has a
+ * buffer of @size bytes.  The header declares a message version number of
+ * @version and a message type of @type.  The length of the @iovec is
+ * incremented by the number of bytes the header used.
+ *
+ * Returns: zero on success, negative value if insufficient space or invalid
+ * format.
+ **/
+static int
+upstart_write_header (struct iovec   *iovec,
+		      size_t          size,
+		      int             version,
+		      UpstartMsgType  type)
+{
+	size_t start;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+
+	start = iovec->iov_len;
+	iovec->iov_len += sizeof (MAGIC) - 1;
+
+	if (iovec->iov_len > size)
+		return -1;
+
+	memcpy (iovec->iov_base + start, MAGIC, sizeof (MAGIC) - 1);
+
+	if (upstart_write_int (iovec, size, version))
+		return -1;
+
+	if (upstart_write_int (iovec, size, type))
+		return -1;
+
+	return 0;
+}

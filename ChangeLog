@@ -1,3 +1,21 @@
+2006-12-15  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/control.c (upstart_read_int, upstart_write_int) 
+	(upstart_read_ints, upstart_write_ints, upstart_read_str) 
+	(upstart_write_str, upstart_read_header, upstart_write_header):
+	New functions to replace the old "write a struct" protocol with
+	something a little more regimented and supportable.
+	(IOVEC_ADD, IOVEC_READ, WireHdr, WireJobPayload, WireJobStatusPayload)
+	(WireEventPayload): Remove these structures, use the functions
+	instead.
+	(upstart_send_msg_to): Call write functions intead of using macros,
+	this makes the code somewhat neater.
+	(upstart_recv_msg): Call read functions instead of using macros,
+	again making the code somewhat neater.
+	* upstart/tests/test_control.c (test_recv_msg): Change wire
+	tests to match new protocol, and thus actually work properly,
+	previously these were endian sensitive.
+
 2006-12-14  Scott James Remnant  <scott@netsplit.com>
 
 	* compat/sysv/shutdown.c (wall): Construct the wall message so that
