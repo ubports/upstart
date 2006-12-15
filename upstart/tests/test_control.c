@@ -111,9 +111,9 @@ test_send_msg_to (void)
 	 */
 	TEST_FEATURE ("with overly long message");
 	msg->type = UPSTART_JOB_QUERY;
-	msg->job_query.name = nih_alloc (msg, 8192);
-	memset (msg->job_query.name, 'a', 8191);
-	msg->job_query.name[8191] = '\0';
+	msg->name = nih_alloc (msg, 8192);
+	memset (msg->name, 'a', 8191);
+	msg->name[8191] = '\0';
 
 	ret = upstart_send_msg_to (getpid (), sock, msg);
 
@@ -274,15 +274,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_START");
 	s_msg->type = UPSTART_JOB_START;
-	s_msg->job_start.name = "wibble";
+	s_msg->name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_JOB_START);
-	TEST_EQ_STR (r_msg->job_start.name, "wibble");
-	TEST_ALLOC_PARENT (r_msg->job_start.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 
@@ -292,15 +292,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_STOP");
 	s_msg->type = UPSTART_JOB_STOP;
-	s_msg->job_stop.name = "wibble";
+	s_msg->name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_JOB_STOP);
-	TEST_EQ_STR (r_msg->job_stop.name, "wibble");
-	TEST_ALLOC_PARENT (r_msg->job_stop.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 
@@ -310,15 +310,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_QUERY");
 	s_msg->type = UPSTART_JOB_QUERY;
-	s_msg->job_query.name = "wibble";
+	s_msg->name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_JOB_QUERY);
-	TEST_EQ_STR (r_msg->job_query.name, "wibble");
-	TEST_ALLOC_PARENT (r_msg->job_query.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 
@@ -328,26 +328,26 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_STATUS");
 	s_msg->type = UPSTART_JOB_STATUS;
-	s_msg->job_status.name = "wibble";
-	s_msg->job_status.description = "foo bar";
-	s_msg->job_status.goal = JOB_START;
-	s_msg->job_status.state = JOB_STARTING;
-	s_msg->job_status.process_state = PROCESS_ACTIVE;
-	s_msg->job_status.pid = 123;
+	s_msg->name = "wibble";
+	s_msg->description = "foo bar";
+	s_msg->goal = JOB_START;
+	s_msg->state = JOB_STARTING;
+	s_msg->process_state = PROCESS_ACTIVE;
+	s_msg->pid = 123;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-	TEST_EQ_STR (r_msg->job_status.name, "wibble");
-	TEST_ALLOC_PARENT (r_msg->job_status.name, r_msg);
-	TEST_EQ_STR (r_msg->job_status.description, "foo bar");
-	TEST_ALLOC_PARENT (r_msg->job_status.description, r_msg);
-	TEST_EQ (r_msg->job_status.goal, JOB_START);
-	TEST_EQ (r_msg->job_status.state, JOB_STARTING);
-	TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
-	TEST_EQ (r_msg->job_status.pid, 123);
+	TEST_EQ_STR (r_msg->name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
+	TEST_EQ_STR (r_msg->description, "foo bar");
+	TEST_ALLOC_PARENT (r_msg->description, r_msg);
+	TEST_EQ (r_msg->goal, JOB_START);
+	TEST_EQ (r_msg->state, JOB_STARTING);
+	TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
+	TEST_EQ (r_msg->pid, 123);
 
 	nih_free (r_msg);
 
@@ -357,20 +357,20 @@ test_messages (void)
 	 * transmitted properly.
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_STATUS without description");
-	s_msg->job_status.description = NULL;
+	s_msg->description = NULL;
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
-	TEST_EQ_STR (r_msg->job_status.name, "wibble");
-	TEST_ALLOC_PARENT (r_msg->job_status.name, r_msg);
-	TEST_EQ_P (r_msg->job_status.description, NULL);
-	TEST_EQ (r_msg->job_status.goal, JOB_START);
-	TEST_EQ (r_msg->job_status.state, JOB_STARTING);
-	TEST_EQ (r_msg->job_status.process_state, PROCESS_ACTIVE);
-	TEST_EQ (r_msg->job_status.pid, 123);
+	TEST_EQ_STR (r_msg->name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
+	TEST_EQ_P (r_msg->description, NULL);
+	TEST_EQ (r_msg->goal, JOB_START);
+	TEST_EQ (r_msg->state, JOB_STARTING);
+	TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
+	TEST_EQ (r_msg->pid, 123);
 
 	nih_free (r_msg);
 
@@ -380,15 +380,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_UNKNOWN");
 	s_msg->type = UPSTART_JOB_UNKNOWN;
-	s_msg->job_unknown.name = "wibble";
+	s_msg->name = "wibble";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_JOB_UNKNOWN);
-	TEST_EQ_STR (r_msg->job_unknown.name, "wibble");
-	TEST_ALLOC_PARENT (r_msg->job_unknown.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "wibble");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 
@@ -398,15 +398,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_EVENT_QUEUE");
 	s_msg->type = UPSTART_EVENT_QUEUE;
-	s_msg->event_queue.name = "frodo";
+	s_msg->name = "frodo";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_EVENT_QUEUE);
-	TEST_EQ_STR (r_msg->event_queue.name, "frodo");
-	TEST_ALLOC_PARENT (r_msg->event_queue.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "frodo");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 
@@ -416,15 +416,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_EVENT");
 	s_msg->type = UPSTART_EVENT;
-	s_msg->event.name = "foo";
+	s_msg->name = "foo";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_EVENT);
-	TEST_EQ_STR (r_msg->event.name, "foo");
-	TEST_ALLOC_PARENT (r_msg->event.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "foo");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 
@@ -524,15 +524,15 @@ test_messages (void)
 	 */
 	TEST_FEATURE ("with UPSTART_SHUTDOWN");
 	s_msg->type = UPSTART_SHUTDOWN;
-	s_msg->shutdown.name = "reboot";
+	s_msg->name = "reboot";
 
 	upstart_send_msg_to (getpid (), s_sock, s_msg);
 	r_msg = upstart_recv_msg (NULL, r_sock, NULL);
 
 	TEST_ALLOC_SIZE (r_msg, sizeof (UpstartMsg));
 	TEST_EQ (r_msg->type, UPSTART_SHUTDOWN);
-	TEST_EQ_STR (r_msg->shutdown.name, "reboot");
-	TEST_ALLOC_PARENT (r_msg->shutdown.name, r_msg);
+	TEST_EQ_STR (r_msg->name, "reboot");
+	TEST_ALLOC_PARENT (r_msg->name, r_msg);
 
 	nih_free (r_msg);
 

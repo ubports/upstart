@@ -1,5 +1,11 @@
 2006-12-15  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.h: Combine all the previous message structures
+	into just one that has all of the fields anyway.
+	* upstart/control.c, upstart/tests/test_control.c: Update all uses of
+	the UpstartMsg structure to avoid the intermediate union that no
+	longer exists.
+
 	* upstart/control.h (UPSTART_API_VERSION): Define API version macro
 	to be public.
 	* upstart/control.c (MSG_VERSION, upstart_send_msg_to): Replacing the

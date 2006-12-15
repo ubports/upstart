@@ -280,27 +280,25 @@ upstart_send_msg_to (pid_t       pid,
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN: {
 		/* Job name */
-		if (upstart_write_str (&iov[0], sizeof (buf),
-				       message->job_query.name))
+		if (upstart_write_str (&iov[0], sizeof (buf), message->name))
 			goto invalid;
 
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
 		/* Job name, followed by job status */
-		if (upstart_write_str (&iov[0], sizeof (buf),
-				       message->job_status.name))
+		if (upstart_write_str (&iov[0], sizeof (buf), message->name))
 			goto invalid;
 
 		if (upstart_write_ints (&iov[0], sizeof (buf), 4,
-					message->job_status.goal,
-					message->job_status.state,
-					message->job_status.process_state,
-					message->job_status.pid))
+					message->goal,
+					message->state,
+					message->process_state,
+					message->pid))
 			goto invalid;
 
 		if (upstart_write_str (&iov[0], sizeof (buf),
-				       message->job_status.description))
+				       message->description))
 			goto invalid;
 
 		break;
@@ -309,8 +307,7 @@ upstart_send_msg_to (pid_t       pid,
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
 		/* Event name */
-		if (upstart_write_str (&iov[0], sizeof (buf),
-				       message->event.name))
+		if (upstart_write_str (&iov[0], sizeof (buf), message->name))
 			goto invalid;
 		break;
 	}
@@ -443,7 +440,7 @@ upstart_recv_msg (const void *parent,
 	/* Copy the header out of the message, that'll tell us what
 	 * we're actually looking at.
 	 */
-	if (upstart_read_header (&iov[0], &pos, &version, &(message->type)))
+	if (upstart_read_header (&iov[0], &pos, &version, &message->type))
 		goto invalid;
 
 	/* Message type determines actual payload */
@@ -462,27 +459,25 @@ upstart_recv_msg (const void *parent,
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN: {
 		/* Job name */
-		if (upstart_read_str (&iov[0], &pos,
-				      message, &(message->job_query.name)))
+		if (upstart_read_str (&iov[0], &pos, message, &message->name))
 			goto invalid;
 
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
 		/* Job name, followed by job status */
-		if (upstart_read_str (&iov[0], &pos,
-				      message, &(message->job_status.name)))
+		if (upstart_read_str (&iov[0], &pos, message, &message->name))
 			goto invalid;
 
 		if (upstart_read_ints (&iov[0], &pos, 4,
-				       &(message->job_status.goal),
-				       &(message->job_status.state),
-				       &(message->job_status.process_state),
-				       &(message->job_status.pid)))
+				       &message->goal,
+				       &message->state,
+				       &message->process_state,
+				       &message->pid))
 			goto invalid;
 
 		if (upstart_read_str (&iov[0], &pos,
-				      message, &(message->job_status.description)))
+				      message, &message->description))
 			goto invalid;
 
 		break;
@@ -491,8 +486,7 @@ upstart_recv_msg (const void *parent,
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
 		/* Event name */
-		if (upstart_read_str (&iov[0], &pos,
-				      message, &(message->event.name)))
+		if (upstart_read_str (&iov[0], &pos, message, &message->name))
 			goto invalid;
 
 		break;
