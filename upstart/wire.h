@@ -33,8 +33,6 @@ NIH_BEGIN_EXTERN
 
 int upstart_read_int     (struct iovec *iovec, size_t *pos, int *value);
 int upstart_write_int    (struct iovec *iovec, size_t size, int value);
-int upstart_read_ints    (struct iovec *iovec, size_t *pos, int number, ...);
-int upstart_write_ints   (struct iovec *iovec, size_t size, int number, ...);
 int upstart_read_str     (struct iovec *iovec, size_t *pos,
 			  const void *parent, char **value);
 int upstart_write_str    (struct iovec *iovec, size_t size, const char *value);
