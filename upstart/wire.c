@@ -373,70 +373,28 @@ upstart_read_string (struct iovec  *iovec,
 
 
 /**
- * upstart_read_header:
- * @iovec: iovec to read from,
- * @pos: position within iovec,
- * @version: pointer to write version to,
- * @type: pointer to write message type to.
- *
- * Read a message header from @pos bytes into the @iovec given, storing
- * the message version number in @version and message type in @type.  @pos
- * is incremented by the number of bytes the header.
- *
- * Returns: zero on success, negative value if insufficient space or invalid
- * format.
- **/
-int
-upstart_read_header (struct iovec   *iovec,
-		     size_t         *pos,
-		     int            *version,
-		     UpstartMsgType *type)
-{
-	size_t start;
-
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
-	nih_assert (version != NULL);
-	nih_assert (type != NULL);
-
-	start = *pos;
-	*pos += sizeof (MAGIC) - 1;
-
-	if (*pos > iovec->iov_len)
-		return -1;
-
-	if (memcmp (iovec->iov_base + start, MAGIC, sizeof (MAGIC) - 1))
-		return -1;
-
-	if (upstart_read_int (iovec, pos, version))
-		return -1;
-
-	if (upstart_read_int (iovec, pos, (int *)type))
-		return -1;
-
-	return 0;
-}
-
-/**
  * upstart_write_header:
  * @iovec: iovec to read from,
  * @size: size of iovec buffer,
- * @version: version to write,
  * @type: message type to write.
  *
- * Write a message header to the end of the @iovec given, which has a
- * buffer of @size bytes.  The header declares a message version number of
- * @version and a message type of @type.  The length of the @iovec is
- * incremented by the number of bytes the header used.
+ * Write a header for a @type message to the end of the @iovec given,
+ * which has @size bytes available in its buffer.
  *
- * Returns: zero on success, negative value if insufficient space or invalid
- * format.
+ * The message header consists of a "magic" string ("upstart\n") followed
+ * by the message type transmitted as a signed 32-bit value in network
+ * byte order.
+ *
+ * On return from this function, the @iovec length will have been
+ * incremented by the number of bytes used by the header in the stream;
+ * if there is insufficient space in the stream for the header, the
+ * length will be greater than @size.
+ *
+ * Returns: zero on success, negative value on error.
  **/
 int
 upstart_write_header (struct iovec   *iovec,
 		      size_t          size,
-		      int             version,
 		      UpstartMsgType  type)
 {
 	size_t start;
@@ -445,17 +403,61 @@ upstart_write_header (struct iovec   *iovec,
 	nih_assert (iovec->iov_base != NULL);
 
 	start = iovec->iov_len;
-	iovec->iov_len += sizeof (MAGIC) - 1;
+	iovec->iov_len += strlen (MAGIC);
 
 	if (iovec->iov_len > size)
 		return -1;
 
-	memcpy (iovec->iov_base + start, MAGIC, sizeof (MAGIC) - 1);
-
-	if (upstart_write_int (iovec, size, version))
-		return -1;
+	memcpy (iovec->iov_base + start, MAGIC, strlen (MAGIC));
 
 	if (upstart_write_int (iovec, size, type))
+		return -1;
+
+	return 0;
+}
+
+/**
+ * upstart_read_header:
+ * @iovec: iovec to read from,
+ * @pos: position within iovec,
+ * @type: pointer to write message type to.
+ *
+ * Read a message header from @pos bytes into the @iovec given, storing
+ * the type of message found in the variable pointed to by @value.
+ *
+ * The message header consists of a "magic" string ("upstart\n") followed
+ * by the message type transmitted as a signed 32-bit value in network
+ * byte order.
+ *
+ * On return from this function, @pos will have been incremented by the
+ * number of bytes used by the header in the stream; if there is
+ * insufficient space in the stream for the header, @pos will be
+ * greater than the length of the stream.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_read_header (struct iovec   *iovec,
+		     size_t         *pos,
+		     UpstartMsgType *type)
+{
+	size_t start;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (type != NULL);
+
+	start = *pos;
+	*pos += strlen (MAGIC);
+
+	if (*pos > iovec->iov_len)
+		return -1;
+
+	if (memcmp (iovec->iov_base + start, MAGIC, strlen (MAGIC)))
+		return -1;
+
+	if (upstart_read_int (iovec, pos, (int *)type))
 		return -1;
 
 	return 0;

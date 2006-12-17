@@ -44,10 +44,10 @@ int upstart_write_string   (struct iovec *iovec, size_t size,
 int upstart_read_string    (struct iovec *iovec, size_t *pos,
 			    const void *parent, char **value);
 
-int upstart_read_header    (struct iovec *iovec, size_t *pos,
-			    int *version, UpstartMsgType *type);
 int upstart_write_header   (struct iovec *iovec, size_t size,
-			    int version, UpstartMsgType type);
+			    UpstartMsgType type);
+int upstart_read_header    (struct iovec *iovec, size_t *pos,
+			    UpstartMsgType *type);
 
 NIH_END_EXTERN
 

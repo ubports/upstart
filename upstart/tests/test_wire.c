@@ -27,6 +27,7 @@
 
 #include <nih/macros.h>
 
+#include <upstart/control.h>
 #include <upstart/wire.h>
 
 
@@ -324,7 +325,7 @@ test_write_string (void)
 	 * incremented past the size to indicate an invalid message.
 	 */
 	TEST_FEATURE ("with insufficient space in buffer for length");
-	ret = upstart_write_string (&iovec, sizeof (buf) - 34, "test");
+	ret = upstart_write_string (&iovec, sizeof (buf) - 4, "test");
 
 	TEST_LT (ret, 0);
 	TEST_EQ (iovec.iov_len, 32);
@@ -354,7 +355,6 @@ test_read_string (void)
 	TEST_FUNCTION ("upstart_read_int");
 	iovec.iov_base = buf;
 	iovec.iov_len = 34;
-	TEST_EQ_MEM (iovec.iov_base, "\0\0\0\x05hello\0\0\0\x07goodbye", 20);
 	memcpy (iovec.iov_base, ("\0\0\0\x05hello\0\0\0\x07goodbye"
 				 "\0\0\0\0\xff\xff\xff\xff"
 				 "\0\0\0\x04te"), 34);
@@ -441,6 +441,133 @@ test_read_string (void)
 }
 
 
+void
+test_write_header (void)
+{
+	struct iovec iovec;
+	char         buf[34];
+	int          ret;
+
+	TEST_FUNCTION ("upstart_write_header");
+	iovec.iov_base = buf;
+	iovec.iov_len = 0;
+
+	/* Check that we can write a header into an empty iovec that has
+	 * room; the magic string should be written at the start of the
+	 * buffer, followed by the message type in network byte order.
+	 * The length of the buffer should be increased.
+	 */
+	TEST_FEATURE ("with space in empty buffer");
+	ret = upstart_write_header (&iovec, sizeof (buf), UPSTART_NO_OP);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 12);
+	TEST_EQ_MEM (iovec.iov_base, "upstart\n\0\0\0\0", 12);
+
+
+	/* Check that we can write a header into an iovec that already has
+	 * something in it, it should be appended and the buffer increased
+	 * in length to include both.
+	 */
+	TEST_FEATURE ("with space in used buffer");
+	ret = upstart_write_header (&iovec, sizeof (buf), UPSTART_NO_OP);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 24);
+	TEST_EQ_MEM (iovec.iov_base, "upstart\n\0\0\0\0upstart\n\0\0\0\0", 24);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for the magic string, and that the length is
+	 * incremented past the size to indicate an invalid message.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer for magic");
+	ret = upstart_write_header (&iovec, sizeof (buf) - 4, UPSTART_NO_OP);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (iovec.iov_len, 32);
+
+
+	/* Check that -1 is returned if there is enough space in the buffer
+	 * for the magic string, but not the message type, and that the
+	 * length is incremented past the size to indicate an invalid
+	 * message.
+	 */
+	TEST_FEATURE ("with insufficient space for message type");
+	iovec.iov_len = 28;
+	ret = upstart_write_header (&iovec, sizeof (buf), UPSTART_NO_OP);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (iovec.iov_len, 36);
+}
+
+void
+test_read_header (void)
+{
+	struct iovec   iovec;
+	char           buf[34];
+	size_t         pos;
+	UpstartMsgType value;
+	int            ret;
+
+	TEST_FUNCTION ("upstart_read_header");
+	iovec.iov_base = buf;
+	iovec.iov_len = 34;
+	memcpy (iovec.iov_base,
+		"upstart\n\0\0\0\0upstart\n\0\0\0\0upstart\n\0\0", 34);
+	pos = 0;
+
+	/* Check that we can read a header from the start of an iovec,
+	 * and have the message type stored in value.  The pos variable
+	 * should be incremented past the header.
+	 */
+	TEST_FEATURE ("with header at start of buffer");
+	ret = upstart_read_header (&iovec, &pos, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 12);
+	TEST_EQ (value, UPSTART_NO_OP);
+
+
+	/* Check that we can read a header from a position inside the
+	 * iovec.  The pos variable should be incremented, not set.
+	 */
+	TEST_FEATURE ("with string inside buffer");
+	ret = upstart_read_header (&iovec, &pos, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 24);
+	TEST_EQ (value, UPSTART_NO_OP);
+
+
+	/* Check that -1 is returned if there is enough space in the buffer
+	 * for the magic string, but not the message type, and that
+	 * pos is incremented past the size to indicate an invalid
+	 * message.
+	 */
+	TEST_FEATURE ("with insufficient space for message type");
+	value = -1;
+	ret = upstart_read_header (&iovec, &pos, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (pos, 36);
+	TEST_EQ (value, -1);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for the magic string, and that pos is incremented past
+	 * the size to indicate an invalid message.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer for magic");
+	pos = 24;
+	iovec.iov_len = sizeof (buf) - 4;
+	ret = upstart_read_header (&iovec, &pos, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (pos, 32);
+	TEST_EQ (value, -1);
+}
+
 
 int
 main (int   argc,
@@ -452,6 +579,8 @@ main (int   argc,
 	test_read_unsigned ();
 	test_write_string ();
 	test_read_string ();
+	test_write_header ();
+	test_read_header ();
 
 	return 0;
 }
