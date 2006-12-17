@@ -58,9 +58,12 @@
 /**
  * MAGIC:
  *
- * Magic string that is placed on the front of all messages.
+ * Magic string that is placed on the front of all messages.  In theory, we
+ * don't need this; as we strongly guard against invalid messages anyway -
+ * however it's a useful check that both sides are at least agreeing in
+ * principal to communicate.
  **/
-#define MAGIC "upstart\0"
+#define MAGIC "upstart\n"
 
 /**
  * INIT_DAEMON:

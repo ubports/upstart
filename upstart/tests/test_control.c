@@ -177,7 +177,7 @@ test_recv_msg (void)
 	 */
 	TEST_FEATURE ("with unknown message type");
 	memset (buf, 0, 16);
-	memcpy (buf, "upstart\0", 8);
+	memcpy (buf, "upstart\n", 8);
 	memcpy (buf + 8, "\0\0\0\0", 4);
 	memcpy (buf + 12, "\001\0\0\0", 4);
 	sendto (s_sock, buf, 16, 0, (struct sockaddr *)&addr, addrlen);
@@ -198,7 +198,7 @@ test_recv_msg (void)
 	 */
 	TEST_FEATURE ("with short message");
 	memset (buf, 0, 24);
-	memcpy (buf, "upstart\0", 8);
+	memcpy (buf, "upstart\n", 8);
 	memcpy (buf + 8, "\0\0\0\0", 4);
 	memcpy (buf + 12, "\0\0\0\001", 4);
 	memcpy (buf + 16, "\0\0\0\040\0\0\0\0", 8);
@@ -220,7 +220,7 @@ test_recv_msg (void)
 	 */
 	TEST_FEATURE ("with valid message");
 	memset (buf, 0, 16);
-	memcpy (buf, "upstart\0", 8);
+	memcpy (buf, "upstart\n", 8);
 	memcpy (buf + 8, "\0\0\0\0", 4);
 	memcpy (buf + 12, "\0\0\0\0", 4);
 	sendto (s_sock, buf, 16, 0, (struct sockaddr *)&addr, addrlen);
