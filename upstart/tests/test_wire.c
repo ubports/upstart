@@ -1,4 +1,6 @@
-/* upstart
+/* libupstart
+ *
+ * test_wire.c - test suite for upstart/wire.c
  *
  * Copyright © 2006 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -18,12 +20,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef UPSTART_LIBUPSTART_H
-#define UPSTART_LIBUPSTART_H
+#include <nih/test.h>
 
-#include <upstart/job.h>
-#include <upstart/control.h>
-#include <upstart/wire.h>
-#include <upstart/errors.h>
+#include <nih/macros.h>
 
-#endif /* UPSTART_LIBUPSTART_H */
+
+int
+main (int   argc,
+      char *argv[])
+{
+	return 0;
+}

@@ -1,5 +1,19 @@
 2006-12-17  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_read_int, upstart_write_int) 
+	(upstart_read_ints, upstart_write_ints, upstart_read_str) 
+	(upstart_write_str, upstart_read_header, upstart_write_header): Move
+	functions to new wire.c file.
+	* upstart/wire.c: Source file to hold wire protocol functions.
+	* upstart/wire.h: Prototypes.
+	* upstart/tests/test_wire.c: (empty) test suite.
+	* upstart/libupstart.h: Include wire.h
+	* upstart/Makefile.am (libupstart_la_SOURCES): Build and link wire.c
+	(upstartinclude_HEADERS): Install wire.h
+	(TESTS): Build and run wire test suite.
+	(test_wire_SOURCES, test_wire_LDFLAGS, test_wire_LDADD): Details for
+	wire test suite binary.
+
 	* upstart/control.c (MAGIC): Change to "upstart\n", the final
 	character was originally \0 and then was a " " for the 0.2 series.
 	* upstart/tests/test_control.c (test_recv_msg): Change to match.
