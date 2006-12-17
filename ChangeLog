@@ -1,5 +1,12 @@
 2006-12-17  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_write_unsigned, upstart_read_unsigned):
+	Functions to send unsigned values over the wire, which we'll use
+	to get a bit extra for the string lengths.
+	* upstart/wire.h: Update.
+	* upstart/tests/test_wire.c (test_write_unsigned) 
+	(test_read_unsigned): Test the new functions.
+
 	* upstart/wire.c (upstart_write_ints, upstart_read_ints): Drop
 	these functions, we'll go with something far more generic and
 	useful.

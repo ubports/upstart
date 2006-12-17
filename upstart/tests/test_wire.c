@@ -33,9 +33,9 @@
 void
 test_write_int (void)
 {
-	struct iovec  iovec;
-	unsigned char buf[14];
-	int           ret;
+	struct iovec iovec;
+	char         buf[14];
+	int          ret;
 
 	TEST_FUNCTION ("upstart_write_int");
 	iovec.iov_base = buf;
@@ -89,10 +89,10 @@ test_write_int (void)
 void
 test_read_int (void)
 {
-	struct iovec  iovec;
-	unsigned char buf[14];
-	size_t        pos;
-	int           ret, value;
+	struct iovec iovec;
+	char         buf[14];
+	size_t       pos;
+	int          ret, value;
 
 	TEST_FUNCTION ("upstart_read_int");
 	iovec.iov_base = buf;
@@ -147,6 +147,124 @@ test_read_int (void)
 }
 
 
+void
+test_write_unsigned (void)
+{
+	struct iovec iovec;
+	char         buf[14];
+	int          ret;
+
+	TEST_FUNCTION ("upstart_write_unsigned");
+	iovec.iov_base = buf;
+	iovec.iov_len = 0;
+
+	/* Check that we can write an integer into an empty iovec that has
+	 * room; the integer should show up in network byte order at the
+	 * start of the buffer, and the length of the buffer should be
+	 * increased.
+	 */
+	TEST_FEATURE ("with space in empty buffer");
+	ret = upstart_write_unsigned (&iovec, sizeof (buf), 42);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 4);
+	TEST_EQ_MEM (iovec.iov_base, "\0\0\0\x2a", 4);
+
+
+	/* Check that we can write an integer into an iovec that already has
+	 * some thing in it, it should be appended and the buffer increased
+	 * in length to include both.
+	 */
+	TEST_FEATURE ("with space in used buffer");
+	ret = upstart_write_unsigned (&iovec, sizeof (buf), 1234567);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 8);
+	TEST_EQ_MEM (iovec.iov_base, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+
+
+	/* Check that we can write a very large number into the iovec. */
+	TEST_FEATURE ("with very large number");
+	ret = upstart_write_unsigned (&iovec, sizeof (buf), 0xfedcba98);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 12);
+	TEST_EQ_MEM (iovec.iov_base + 8, "\xfe\xdc\xba\x98", 4);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for the integer, and that the length is incremented past
+	 * the size to indicate an invalid message.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer");
+	ret = upstart_write_unsigned (&iovec, sizeof (buf), 100);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (iovec.iov_len, 16);
+}
+
+void
+test_read_unsigned (void)
+{
+	struct iovec iovec;
+	char         buf[14];
+	size_t       pos;
+	unsigned int value;
+	int          ret;
+
+	TEST_FUNCTION ("upstart_read_unsigned");
+	iovec.iov_base = buf;
+	iovec.iov_len = 14;
+	memcpy (iovec.iov_base, "\0\0\0\x2a\0\x12\xd6\x87\xfe\xdc\xba\x98\0\0",
+		14);
+	pos = 0;
+
+	/* Check that we can read an integer from the start of an iovec;
+	 * the integer should be returned in host byte order from the start
+	 * of the buffer, and the pos variable should be incremented past it.
+	 */
+	TEST_FEATURE ("with integer at start of buffer");
+	ret = upstart_read_unsigned (&iovec, &pos, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 4);
+	TEST_EQ_U (value, 42);
+
+
+	/* Check that we can read an integer from a position inside the
+	 * iovec.  The pos variable should be incremented, not set.
+	 */
+	TEST_FEATURE ("with integer inside buffer");
+	ret = upstart_read_unsigned (&iovec, &pos, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 8);
+	TEST_EQ_U (value, 1234567);
+
+
+	/* Check that we can read a very large number from an iovec. */
+	TEST_FEATURE ("with very large number");
+	ret = upstart_read_unsigned (&iovec, &pos, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 12);
+	TEST_EQ_U (value, 0xfedcba98);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for an integer, and that the pos is incremented past
+	 * the size to indicate an invalid message.  value should be
+	 * unchanged.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer");
+	ret = upstart_read_unsigned (&iovec, &pos, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (pos, 16);
+	TEST_EQ_U (value, 0xfedcba98);
+}
+
+
 
 int
 main (int   argc,
@@ -154,6 +272,8 @@ main (int   argc,
 {
 	test_write_int ();
 	test_read_int ();
+	test_write_unsigned ();
+	test_read_unsigned ();
 
 	return 0;
 }

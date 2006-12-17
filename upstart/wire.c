@@ -144,6 +144,100 @@ upstart_read_int (struct iovec *iovec,
 	return 0;
 }
 
+/**
+ * upstart_write_unsigned:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @value: value to write.
+ *
+ * Write an unsigned @value to the end of the @iovec given, which has
+ * @size bytes available in its buffer.
+ *
+ * Unsigneds are transmitted across the wire as 32-bit values,
+ * in network byte order.
+ *
+ * On return from this function, the @iovec length will have been
+ * incremented by the number of bytes used by this unsigned in the stream
+ * if there is insufficient space in the stream for this integer, the
+ * length will be greater than @size.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_write_unsigned (struct iovec *iovec,
+			size_t        size,
+			unsigned int  value)
+{
+	size_t   start;
+	uint32_t wire_value;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+
+	if (value > UINT32_MAX)
+		return -1;
+
+	start = iovec->iov_len;
+	iovec->iov_len += sizeof (wire_value);
+
+	if (iovec->iov_len > size)
+		return -1;
+
+	wire_value = ntohl (value);
+	memcpy (iovec->iov_base + start, &wire_value, sizeof (wire_value));
+
+	return 0;
+}
+
+/**
+ * upstart_read_unsigned:
+ * @iovec: iovec to read from,
+ * @pos: position within iovec,
+ * @value: pointer to write to.
+ *
+ * Read an unsigned value from @pos bytes into the @iovec given, storing
+ * the value found in the variable pointed to by @value.
+ *
+ * Unsigneds are transmitted across the wire as 32-bit values,
+ * in network byte order.
+ *
+ * On return from this function, @pos will have been incremented by the
+ * number of bytes used by this unsigned in the stream; if there is
+ * insufficient space in the stream for this unsigned, @pos will be
+ * greater than the length of the stream.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_read_unsigned (struct iovec *iovec,
+		       size_t       *pos,
+		       unsigned int *value)
+{
+	size_t   start;
+	uint32_t wire_value;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (value != NULL);
+
+	start = *pos;
+	*pos += sizeof (wire_value);
+
+	if (*pos > iovec->iov_len)
+		return -1;
+
+	memcpy (&wire_value, iovec->iov_base + start, sizeof (wire_value));
+	wire_value = ntohl (wire_value);
+
+	if (wire_value > UINT_MAX)
+		return -1;
+
+	*value = (unsigned int)wire_value;
+
+	return 0;
+}
+
 
 /**
  * upstart_read_str:
