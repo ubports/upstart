@@ -1,5 +1,9 @@
 2006-12-17  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_read_str, upstart_write_str): Rename to
+	upstart_read_string and upstart_write_string.
+	* upstart/wire.h: Update.
+	
 	* upstart/wire.c (upstart_write_unsigned, upstart_read_unsigned):
 	Functions to send unsigned values over the wire, which we'll use
 	to get a bit extra for the string lengths.

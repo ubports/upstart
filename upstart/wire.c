@@ -240,7 +240,7 @@ upstart_read_unsigned (struct iovec *iovec,
 
 
 /**
- * upstart_read_str:
+ * upstart_read_string:
  * @iovec: iovec to read from,
  * @pos: position within iovec.
  * @parent: parent of new string,
@@ -263,10 +263,10 @@ upstart_read_unsigned (struct iovec *iovec,
  * or memory.
  **/
 int
-upstart_read_str (struct iovec  *iovec,
-		  size_t        *pos,
-		  const void    *parent,
-		  char         **value)
+upstart_read_string (struct iovec  *iovec,
+		     size_t        *pos,
+		     const void    *parent,
+		     char         **value)
 {
 	size_t start, length;
 
@@ -301,7 +301,7 @@ upstart_read_str (struct iovec  *iovec,
 }
 
 /**
- * upstart_write_str:
+ * upstart_write_string:
  * @iovec: iovec to write to,
  * @size: size of iovec buffer,
  * @value: value to write.
@@ -315,9 +315,9 @@ upstart_read_str (struct iovec  *iovec,
  * Returns: zero on success, negative value if insufficient space.
  **/
 int
-upstart_write_str (struct iovec *iovec,
-		   size_t        size,
-		   const char   *value)
+upstart_write_string (struct iovec *iovec,
+		      size_t        size,
+		      const char   *value)
 {
 	size_t start, length;
 

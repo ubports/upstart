@@ -39,9 +39,9 @@ int upstart_write_unsigned (struct iovec *iovec, size_t size,
 int upstart_read_unsigned  (struct iovec *iovec, size_t *pos,
 			    unsigned int *value);
 
-int upstart_read_str       (struct iovec *iovec, size_t *pos,
+int upstart_read_string    (struct iovec *iovec, size_t *pos,
 			    const void *parent, char **value);
-int upstart_write_str      (struct iovec *iovec, size_t size,
+int upstart_write_string   (struct iovec *iovec, size_t size,
 			    const char *value);
 
 int upstart_read_header    (struct iovec *iovec, size_t *pos,
