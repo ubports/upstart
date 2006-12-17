@@ -569,6 +569,125 @@ test_read_header (void)
 }
 
 
+void
+test_write_pack (void)
+{
+	struct iovec iovec;
+	char         buf[46];
+	int          ret;
+
+	TEST_FUNCTION ("upstart_write_pack");
+	iovec.iov_base = buf;
+	iovec.iov_len = 0;
+
+	/* Check that we can write a series of different values in a single
+	 * function call, resulting in them being placed at the start of the
+	 * iovec in order.
+	 */
+	TEST_FEATURE ("with empty buffer");
+	ret = upstart_write_pack (&iovec, sizeof (buf), "iusi",
+				  100, 0x98765432, "string value", -42);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 28);
+	TEST_EQ_MEM (iovec.iov_base, ("\0\0\0\x64\x98\x76\x54\x32"
+				      "\0\0\0\x0cstring value"
+				      "\xff\xff\xff\xd6"), 28);
+
+
+	/* Check that we can write a series of different values onto the
+	 * end of an existing buffer, without smashing what was already
+	 * there.
+	 */
+	TEST_FEATURE ("with used buffer");
+	ret = upstart_write_pack (&iovec, sizeof (buf), "ii", 98, 100);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (iovec.iov_len, 36);
+	TEST_EQ_MEM (iovec.iov_base, ("\0\0\0\x64\x98\x76\x54\x32"
+				      "\0\0\0\x0cstring value"
+				      "\xff\xff\xff\xd6"
+				      "\0\0\0\x62\0\0\0\x64"), 36);
+
+
+	/* Check that -1 is returned if there's no enough space for the
+	 * entire pack, and that the length is incremented to point past
+	 * the available size.
+	 */
+	TEST_FEATURE ("with insufficient space");
+	ret = upstart_write_pack (&iovec, sizeof (buf), "is", 19, "test");
+
+	TEST_LT (ret, 0);
+	TEST_EQ (iovec.iov_len, 48);
+}
+
+void
+test_read_pack (void)
+{
+	struct iovec   iovec;
+	char           buf[46];
+	size_t         pos;
+	char          *str;
+	unsigned int   uint;
+	int            ret, int1, int2;
+
+	TEST_FUNCTION ("upstart_read_pack");
+	iovec.iov_base = buf;
+	iovec.iov_len = 46;
+	memcpy (iovec.iov_base,("\0\0\0\x64\x98\x76\x54\x32"
+				"\0\0\0\x0cstring value"
+				"\xff\xff\xff\xd6"
+				"\0\0\0\x62\0\0\0\x64"
+				"\0\0\0\x13\0\0\0\x04te"), 46);
+	pos = 0;
+
+	/* Check that we can read a series of different values in a single
+	 * function call, incrementing the pos variable past the lot.
+	 */
+	TEST_FEATURE ("with variables at start of buffer");
+	ret = upstart_read_pack (&iovec, &pos, NULL, "iusi",
+				 &int1, &uint, &str, &int2);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 28);
+	TEST_EQ (int1, 100);
+	TEST_EQ_U (uint, 0x98765432);
+	TEST_ALLOC_SIZE (str, 13);
+	TEST_EQ (str[12], '\0');
+	TEST_EQ_STR (str, "string value");
+	TEST_EQ (int2, -42);
+
+	nih_free (str);
+
+
+	/* Check that we can read a series of different values from a
+	 * point already inside the buffer.  pos should be incremented,
+	 * not set.
+	 */
+	TEST_FEATURE ("with variables inside buffer");
+	ret = upstart_read_pack (&iovec, &pos, NULL, "ii",
+				 &int1, &int2);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (pos, 36);
+	TEST_EQ (int1, 98);
+	TEST_EQ (int2, 100);
+
+
+	/* Check that -1 is returned if there's not enough space in the
+	 * buffer to the entire pack to exist, and that the length is
+	 * incremented to point past the available size.
+	 */
+	TEST_FEATURE ("with insufficient space");
+	str = NULL;
+	ret = upstart_read_pack (&iovec, &pos, NULL, "is", &int1, &str);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (str, NULL);
+}
+
+
+
 int
 main (int   argc,
       char *argv[])
@@ -581,6 +700,8 @@ main (int   argc,
 	test_read_string ();
 	test_write_header ();
 	test_read_header ();
+	test_write_pack ();
+	test_read_pack ();
 
 	return 0;
 }

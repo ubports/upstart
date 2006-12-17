@@ -462,3 +462,223 @@ upstart_read_header (struct iovec   *iovec,
 
 	return 0;
 }
+
+
+/**
+ * upstart_write_packv:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @pack: pack of values,
+ * @args: arguments.
+ *
+ * Write a set of values, as determined by @pack, to the end of the @iovec
+ * given, which has @size bytes available in its buffer.
+ *
+ * @pack is a string that indicates the types of @args.
+ *  i - int          (written with upstart_write_int)
+ *  u - unsigned int (written with upstart_write_unsigned)
+ *  s - const char * (written with upstart_write_string)
+ *
+ * On return from this function, the @iovec length will have been
+ * incremented by the number of bytes used by in the stream; if there is
+ * insufficient space in the stream, the length will be greater than @size.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_write_packv (struct iovec *iovec,
+		     size_t        size,
+		     const char   *pack,
+		     va_list       args)
+{
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pack != NULL);
+
+	for (; *pack; pack++) {
+		int ret;
+
+		switch (*pack) {
+		case 'i':
+			ret = upstart_write_int (
+				iovec, size, va_arg (args, int));
+			break;
+		case 'u':
+			ret = upstart_write_unsigned (
+				iovec, size, va_arg (args, unsigned int));
+			break;
+		case 's':
+			ret = upstart_write_string (
+				iovec, size, va_arg (args, const char *));
+			break;
+		default:
+			nih_assert_notreached ();
+		}
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * upstart_write_pack:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @pack: pack of values.
+ *
+ * Write a set of values, as determined by @pack, to the end of the @iovec
+ * given, which has @size bytes available in its buffer.
+ *
+ * @pack is a string that indicates the types of the following arguments:
+ *  i - int          - written with upstart_write_int()
+ *  u - unsigned int - written with upstart_write_unsigned()
+ *  s - const char * - written with upstart_write_string()
+ *
+ * On return from this function, the @iovec length will have been
+ * incremented by the number of bytes used by in the stream; if there is
+ * insufficient space in the stream, the length will be greater than @size.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_write_pack (struct iovec *iovec,
+		    size_t        size,
+		    const char   *pack,
+		    ...)
+{
+	va_list args;
+	int     ret;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pack != NULL);
+
+	va_start (args, pack);
+	ret = upstart_write_packv (iovec, size, pack, args);
+	va_end (args);
+
+	return ret;
+}
+
+/**
+ * upstart_read_pack:
+ * @iovec: iovec to write to,
+ * @pos: position within iovec,
+ * @parent: parent of new strings,
+ * @pack: pack of values,
+ * @args: arguments.
+ *
+ * Read a set of values, as determined by @pack, from @pos bytes into the
+ * @iovec given.
+ *
+ * @pack is a string that indicates the types of @args:
+ *  i - int *          - read with upstart_read_int()
+ *  u - unsigned int * - read with upstart_read_unsigned()
+ *  s - char **        - read with upstart_read_string()
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * On return from this function, @pos will have been incremented by the
+ * number of bytes used in the stream; if there is insufficient space in
+ * the stream, @pos will be greater than the length of the stream.
+ *
+ * Note that errors may be detected after strings have already been
+ * allocated for previous members in the pack, those will remain allocated
+ * if this returns with an error, so care should be taken to free those
+ * if necessary.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_read_packv (struct iovec *iovec,
+		    size_t       *pos,
+		    const void   *parent,
+		    const char   *pack,
+		    va_list       args)
+{
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (pack != NULL);
+
+	for (; *pack; pack++) {
+		int ret;
+
+		switch (*pack) {
+		case 'i':
+			ret = upstart_read_int (
+				iovec, pos, va_arg (args, int *));
+			break;
+		case 'u':
+			ret = upstart_read_unsigned (
+				iovec, pos, va_arg (args, unsigned int *));
+			break;
+		case 's':
+			ret = upstart_read_string (
+				iovec, pos, parent, va_arg (args, char **));
+			break;
+		default:
+			nih_assert_notreached ();
+		}
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * upstart_read_pack:
+ * @iovec: iovec to write to,
+ * @pos: position within iovec,
+ * @parent: parent of new strings,
+ * @pack: pack of values.
+ *
+ * Read a set of values, as determined by @pack, from @pos bytes into the
+ * @iovec given.
+ *
+ * @pack is a string that indicates the types of the following arguments:
+ *  i - int *          - read with upstart_read_int()
+ *  u - unsigned int * - read with upstart_read_unsigned()
+ *  s - char **        - read with upstart_read_string()
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * On return from this function, @pos will have been incremented by the
+ * number of bytes used in the stream; if there is insufficient space in
+ * the stream, @pos will be greater than the length of the stream.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_read_pack (struct iovec *iovec,
+		   size_t       *pos,
+		   const void   *parent,
+		   const char   *pack,
+		   ...)
+{
+	va_list args;
+	int     ret;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (pack != NULL);
+
+	va_start (args, pack);
+	ret = upstart_read_packv (iovec, pos, parent, pack, args);
+	va_end (args);
+
+	return ret;
+}

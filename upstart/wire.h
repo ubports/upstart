@@ -49,6 +49,16 @@ int upstart_write_header   (struct iovec *iovec, size_t size,
 int upstart_read_header    (struct iovec *iovec, size_t *pos,
 			    UpstartMsgType *type);
 
+int upstart_write_packv    (struct iovec *iovec, size_t size,
+			    const char *pack, va_list args);
+int upstart_write_pack     (struct iovec *iovec, size_t size,
+			    const char *pack, ...);
+int upstart_read_packv     (struct iovec *iovec, size_t *pos,
+			    const void *parent, const char *pack,
+			    va_list args);
+int upstart_read_pack      (struct iovec *iovec, size_t *pos,
+			    const void *parent, const char *pack, ...);
+
 NIH_END_EXTERN
 
 #endif /* UPSTART_WIRE_H */
