@@ -1,5 +1,10 @@
 2006-12-17  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_write_int, upstart_read_int): Transmit
+	integers as signed 32-bit values in network byte order.
+	* upstart/tests/test_wire.c (test_write_int, test_read_int): Test
+	the functions to make sure the wire is at it should be,
+
 	* upstart/control.c (upstart_read_int, upstart_write_int) 
 	(upstart_read_ints, upstart_write_ints, upstart_read_str) 
 	(upstart_write_str, upstart_read_header, upstart_write_header): Move
