@@ -63,7 +63,7 @@
  * in network byte order.
  *
  * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by this integer in the stream
+ * incremented by the number of bytes used by this integer in the stream;
  * if there is insufficient space in the stream for this integer, the
  * length will be greater than @size.
  *
@@ -144,6 +144,7 @@ upstart_read_int (struct iovec *iovec,
 	return 0;
 }
 
+
 /**
  * upstart_write_unsigned:
  * @iovec: iovec to write to,
@@ -157,7 +158,7 @@ upstart_read_int (struct iovec *iovec,
  * in network byte order.
  *
  * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by this unsigned in the stream
+ * incremented by the number of bytes used by this unsigned in the stream;
  * if there is insufficient space in the stream for this integer, the
  * length will be greater than @size.
  *
@@ -240,18 +241,84 @@ upstart_read_unsigned (struct iovec *iovec,
 
 
 /**
+ * upstart_write_string:
+ * @iovec: iovec to write to,
+ * @size: size of iovec buffer,
+ * @value: value to write.
+ *
+ * Write a string @value to the end of the @iovec given, which has
+ * @size bytes available in its buffer.
+ *
+ * Strings are transmitted across the wire as an unsigned 32-bit value
+ * containing the length, followed by that number of bytes containing the
+ * string itself, without any NULL terminator.
+ *
+ * @value may be an empty string, in which case a zero length is sent
+ * with no following bytes; it may also be NULL in which case the special
+ * length 0xffffffff is sent followed by no bytes.
+ *
+ * On return from this function, the @iovec length will have been
+ * incremented by the number of bytes used by the string in the stream
+ * (including the space to store the length); if there is insufficient
+ * space in the stream for this integer, the length will be greater
+ * than @size.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_write_string (struct iovec *iovec,
+		      size_t        size,
+		      const char   *value)
+{
+	size_t start, length;
+
+	nih_assert (iovec != NULL);
+	nih_assert (iovec->iov_base != NULL);
+
+	if (value) {
+		length = strlen (value);
+		if (length > 0xfffffffe)
+			return -1;
+	} else {
+		length = 0xffffffff;
+	}
+
+	if (upstart_write_unsigned (iovec, size, length))
+		return -1;
+
+	if (! value)
+		return 0;
+
+
+	start = iovec->iov_len;
+	iovec->iov_len += length;
+
+	if (iovec->iov_len > size)
+		return -1;
+
+	memcpy (iovec->iov_base + start, value, length);
+
+	return 0;
+}
+
+/**
  * upstart_read_string:
  * @iovec: iovec to read from,
  * @pos: position within iovec.
  * @parent: parent of new string,
  * @value: pointer to store string.
  *
- * Read a string value from @pos bytes into the @iovec given,
- * allocates a new string to contain it and stores it in the pointer
- * @value.
+ * Read a string value from @pos bytes into the @iovec given, allocate
+ * the new string with nih_alloc and store it in the variable pointed to
+ * by @value.
  *
- * The string will be NULL terminated.  If a zero-length string is
- * read, @value will be set to NULL.
+ * Strings are transmitted across the wire as an unsigned 32-bit value
+ * containing the length, followed by that number of bytes containing the
+ * string itself, without any NULL terminator.
+ *
+ * If the length of the string on the wire is zero, @value will be set
+ * to an allocated zero-length string; if the special length 0xffffffff
+ * is read, @value will be set to NULL.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -259,8 +326,12 @@ upstart_read_unsigned (struct iovec *iovec,
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
- * Returns: zero on success, negative value if insufficient space
- * or memory.
+ * On return from this function, @pos will have been incremented by the
+ * number of bytes used by the string in the stream (including the space
+ * to store the length); if there is insufficient space in the stream for
+ * the string, @pos will be greater than the length of the stream.
+ *
+ * Returns: zero on success, negative value on error.
  **/
 int
 upstart_read_string (struct iovec  *iovec,
@@ -275,10 +346,10 @@ upstart_read_string (struct iovec  *iovec,
 	nih_assert (pos != NULL);
 	nih_assert (value != NULL);
 
-	if (upstart_read_int (iovec, pos, (int *)&length))
+	if (upstart_read_unsigned (iovec, pos, (unsigned int *)&length))
 		return -1;
 
-	if (! length) {
+	if (length == 0xffffffff) {
 		*value = NULL;
 		return 0;
 	}
@@ -300,48 +371,6 @@ upstart_read_string (struct iovec  *iovec,
 	return 0;
 }
 
-/**
- * upstart_write_string:
- * @iovec: iovec to write to,
- * @size: size of iovec buffer,
- * @value: value to write.
- *
- * Write a string @value to the end of the @iovec given, which has a
- * buffer of @size bytes.  The length of the @iovec is incremented by
- * the number of bytes the string used.
- *
- * If @value is NULL, a zero-length string is written.
- *
- * Returns: zero on success, negative value if insufficient space.
- **/
-int
-upstart_write_string (struct iovec *iovec,
-		      size_t        size,
-		      const char   *value)
-{
-	size_t start, length;
-
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-
-	length = value ? strlen (value) : 0;
-	if (upstart_write_int (iovec, size, length))
-		return -1;
-
-	if (! length)
-		return 0;
-
-
-	start = iovec->iov_len;
-	iovec->iov_len += length;
-
-	if (iovec->iov_len > size)
-		return -1;
-
-	memcpy (iovec->iov_base + start, value, length);
-
-	return 0;
-}
 
 /**
  * upstart_read_header:

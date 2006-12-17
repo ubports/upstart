@@ -1,5 +1,12 @@
 2006-12-17  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_write_string, upstart_read_string):
+	Transmit the length as an unsigned, and use 0xffffffff to mean NULL
+	instead of zero so we can still transmit the empty string.
+	* upstart/wire.h: Update.
+	* upstart/tests/test_wire.c (test_write_string, test_read_string):
+	Tests for the functions to make sure the wire is at it should be.
+
 	* upstart/wire.c (upstart_read_str, upstart_write_str): Rename to
 	upstart_read_string and upstart_write_string.
 	* upstart/wire.h: Update.
