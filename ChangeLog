@@ -1,3 +1,11 @@
+2006-12-21  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_run_script): Open the NihIo structure in stream mode.
+	* logd/main.c (logging_watcher): Open the NihIo structure in
+	stream mode.
+	(logging_reader): Need to pass the length of the size_t as a pointer
+	so that it can be modified if less is read.
+
 2006-12-17  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/wire.c (upstart_write_packv, upstart_write_pack) 

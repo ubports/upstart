@@ -246,7 +246,8 @@ logging_watcher (void        *data,
 	}
 
 	/* Create an NihIo structure for the child */
-	io = nih_io_reopen (NULL, sock, logging_reader, NULL, NULL, NULL);
+	io = nih_io_reopen (NULL, sock, NIH_IO_STREAM, logging_reader,
+			    NULL, NULL, NULL);
 	if (! io) {
 		nih_error (_("Insufficient memory to accept child"));
 		close (sock);
@@ -272,7 +273,7 @@ logging_reader (void       *data,
 		const char *buf,
 		size_t      len)
 {
-	size_t  namelen;
+	size_t  namelen, len;
 	char   *name;
 
 	nih_assert (io != NULL);
@@ -289,12 +290,15 @@ logging_reader (void       *data,
 	if (len < (sizeof (size_t) + namelen))
 		return;
 
-	/* Read the size and then the name from the buffer */
-	NIH_MUST (name = nih_io_read (NULL, io, sizeof (size_t)));
+	/* Read the size and discard it */
+	len = sizeof (size_t);
+	NIH_MUST (name = nih_io_read (io, io, &len));
 	nih_free (name);
-	NIH_MUST (name = nih_io_read (io, io, namelen));
 
-	/* Change the functions called and pass the name */
+	/* Read the name from the buffer, change the function to be a
+	 * line_reader that gets the name in the data argument.
+	 */
+	NIH_MUST (name = nih_io_read (io, io, &namelen));
 	io->reader = (NihIoReader)line_reader;
 	io->data = name;
 
@@ -377,6 +381,7 @@ line_reader (const char *name,
 		 * open at this point (failed to open or failed to write)
 		 */
 		if (! log_file) {
+			size_t len;
 			if (! log_buffer)
 				NIH_MUST (log_buffer
 					  = nih_io_buffer_new (NULL));

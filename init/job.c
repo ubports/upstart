@@ -602,8 +602,8 @@ job_run_script (Job        *job,
 		 * then mark it for closure so that the shell gets EOF
 		 * and the structure gets cleaned up automatically.
 		 */
-		NIH_MUST (io = nih_io_reopen (job, fds[1], NULL, NULL,
-					      NULL, NULL));
+		NIH_MUST (io = nih_io_reopen (job, fds[1], NIH_IO_STREAM,
+					      NULL, NULL, NULL, NULL));
 		NIH_MUST (nih_io_write (io, script, strlen (script)) == 0);
 		nih_io_shutdown (io);
 	} else {
