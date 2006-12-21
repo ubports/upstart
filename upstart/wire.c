@@ -512,7 +512,7 @@ upstart_write_packv (struct iovec *iovec,
 				iovec, size, va_arg (args, const char *));
 			break;
 		default:
-			nih_assert_notreached ();
+			nih_assert_not_reached ();
 		}
 
 		if (ret)
@@ -624,7 +624,7 @@ upstart_read_packv (struct iovec *iovec,
 				iovec, pos, parent, va_arg (args, char **));
 			break;
 		default:
-			nih_assert_notreached ();
+			nih_assert_not_reached ();
 		}
 
 		if (ret)

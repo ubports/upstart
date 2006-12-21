@@ -1,5 +1,8 @@
 2006-12-21  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_read_packv, upstart_write_packv): Change
+	nih_assert_notreached to nih_assert_not_reached.
+
 	* init/job.c (job_run_script): Open the NihIo structure in stream mode.
 	* logd/main.c (logging_watcher): Open the NihIo structure in
 	stream mode.
