@@ -21,43 +21,36 @@
 #ifndef UPSTART_WIRE_H
 #define UPSTART_WIRE_H
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <stdarg.h>
 
 #include <nih/macros.h>
+#include <nih/io.h>
 
 #include <upstart/control.h>
 
 
 NIH_BEGIN_EXTERN
 
-int upstart_write_int      (struct iovec *iovec, size_t size, int value);
-int upstart_read_int       (struct iovec *iovec, size_t *pos, int *value);
+int upstart_push_int      (NihIoMessage *message, int value);
+int upstart_pop_int       (NihIoMessage *message, int *value);
 
-int upstart_write_unsigned (struct iovec *iovec, size_t size,
-			    unsigned int value);
-int upstart_read_unsigned  (struct iovec *iovec, size_t *pos,
-			    unsigned int *value);
+int upstart_push_unsigned (NihIoMessage *message, unsigned int value);
+int upstart_pop_unsigned  (NihIoMessage *message, unsigned int *value);
 
-int upstart_write_string   (struct iovec *iovec, size_t size,
-			    const char *value);
-int upstart_read_string    (struct iovec *iovec, size_t *pos,
-			    const void *parent, char **value);
+int upstart_push_string   (NihIoMessage *message, const char *value);
+int upstart_pop_string    (NihIoMessage *message, const void *parent,
+			   char **value);
 
-int upstart_write_header   (struct iovec *iovec, size_t size,
-			    UpstartMsgType type);
-int upstart_read_header    (struct iovec *iovec, size_t *pos,
-			    UpstartMsgType *type);
+int upstart_push_header   (NihIoMessage *message, UpstartMsgType type);
+int upstart_pop_header    (NihIoMessage *message, UpstartMsgType *type);
 
-int upstart_write_packv    (struct iovec *iovec, size_t size,
-			    const char *pack, va_list args);
-int upstart_write_pack     (struct iovec *iovec, size_t size,
-			    const char *pack, ...);
-int upstart_read_packv     (struct iovec *iovec, size_t *pos,
-			    const void *parent, const char *pack,
-			    va_list args);
-int upstart_read_pack      (struct iovec *iovec, size_t *pos,
-			    const void *parent, const char *pack, ...);
+int upstart_push_packv    (NihIoMessage *message, const char *pack,
+			   va_list args);
+int upstart_push_pack     (NihIoMessage *message, const char *pack, ...);
+int upstart_pop_packv     (NihIoMessage *message, const void *parent,
+			   const char *pack, va_list args);
+int upstart_pop_pack      (NihIoMessage *message, const void *parent,
+			   const char *pack, ...);
 
 NIH_END_EXTERN
 

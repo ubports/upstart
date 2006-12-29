@@ -26,15 +26,13 @@
 
 #include <arpa/inet.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-
 #include <stdarg.h>
 #include <string.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/logging.h>
+#include <nih/io.h>
 
 #include <upstart/wire.h>
 
@@ -51,91 +49,62 @@
 
 
 /**
- * upstart_write_int:
- * @iovec: iovec to write to,
- * @size: size of iovec buffer,
+ * upstart_push_int:
+ * @message: message to write to,
  * @value: value to write.
  *
- * Write an integer @value to the end of the @iovec given, which has
- * @size bytes available in its buffer.
+ * Write an integer @value to the @message given.
  *
  * Integers are transmitted across the wire as signed 32-bit values,
  * in network byte order.
  *
- * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by this integer in the stream;
- * if there is insufficient space in the stream for this integer, the
- * length will be greater than @size.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_write_int (struct iovec *iovec,
-		   size_t        size,
-		   int           value)
+upstart_push_int (NihIoMessage *message,
+		  int           value)
 {
-	size_t  start;
 	int32_t wire_value;
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-
-	if ((value < INT32_MIN) || (value > INT32_MAX))
-		return -1;
-
-	start = iovec->iov_len;
-	iovec->iov_len += sizeof (wire_value);
-
-	if (iovec->iov_len > size)
-		return -1;
+	nih_assert (message != NULL);
+	nih_assert (value >= INT32_MIN);
+	nih_assert (value <= INT32_MAX);
 
 	wire_value = ntohl (value);
-	memcpy (iovec->iov_base + start, &wire_value, sizeof (wire_value));
 
-	return 0;
+	return nih_io_buffer_push (message->data, (const char *)&wire_value,
+				   sizeof (wire_value));
 }
 
 /**
- * upstart_read_int:
- * @iovec: iovec to read from,
- * @pos: position within iovec,
+ * upstart_pop_int:
+ * @message: message to read from,
  * @value: pointer to write to.
  *
- * Read an integer value from @pos bytes into the @iovec given, storing
- * the value found in the integer pointed to by @value.
+ * Read an integer value from the @message given, storing the value
+ * in the integer pointed to by @value and removing it from the message.
  *
  * Integers are transmitted across the wire as signed 32-bit values,
  * in network byte order.
  *
- * On return from this function, @pos will have been incremented by the
- * number of bytes used by this integer in the stream; if there is
- * insufficient space in the stream for this integer, @pos will be
- * greater than the length of the stream.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_read_int (struct iovec *iovec,
-		  size_t       *pos,
-		  int          *value)
+upstart_pop_int (NihIoMessage *message,
+		 int          *value)
 {
-	size_t  start;
 	int32_t wire_value;
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
+	nih_assert (message != NULL);
 	nih_assert (value != NULL);
 
-	start = *pos;
-	*pos += sizeof (wire_value);
-
-	if (*pos > iovec->iov_len)
+	if (message->data->len < sizeof (wire_value))
 		return -1;
 
-	memcpy (&wire_value, iovec->iov_base + start, sizeof (wire_value));
-	wire_value = ntohl (wire_value);
+	memcpy (&wire_value, message->data->buf, sizeof (wire_value));
+	nih_io_buffer_shrink (message->data, sizeof (wire_value));
 
+	wire_value = ntohl (wire_value);
 	if ((wire_value < INT_MIN) || (wire_value > INT_MAX))
 		return -1;
 
@@ -146,91 +115,61 @@ upstart_read_int (struct iovec *iovec,
 
 
 /**
- * upstart_write_unsigned:
- * @iovec: iovec to write to,
- * @size: size of iovec buffer,
+ * upstart_push_unsigned:
+ * @message: message to write to,
  * @value: value to write.
  *
- * Write an unsigned @value to the end of the @iovec given, which has
- * @size bytes available in its buffer.
+ * Write an unsigned @value to the @message given.
  *
  * Unsigneds are transmitted across the wire as 32-bit values,
  * in network byte order.
  *
- * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by this unsigned in the stream;
- * if there is insufficient space in the stream for this integer, the
- * length will be greater than @size.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_write_unsigned (struct iovec *iovec,
-			size_t        size,
-			unsigned int  value)
+upstart_push_unsigned (NihIoMessage *message,
+		       unsigned int  value)
 {
-	size_t   start;
 	uint32_t wire_value;
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-
-	if (value > UINT32_MAX)
-		return -1;
-
-	start = iovec->iov_len;
-	iovec->iov_len += sizeof (wire_value);
-
-	if (iovec->iov_len > size)
-		return -1;
+	nih_assert (message != NULL);
+	nih_assert (value <= UINT32_MAX);
 
 	wire_value = ntohl (value);
-	memcpy (iovec->iov_base + start, &wire_value, sizeof (wire_value));
 
-	return 0;
+	return nih_io_buffer_push (message->data, (const char *)&wire_value,
+				   sizeof (wire_value));
 }
 
 /**
- * upstart_read_unsigned:
- * @iovec: iovec to read from,
- * @pos: position within iovec,
+ * upstart_pop_unsigned:
+ * @message: message to read from,
  * @value: pointer to write to.
  *
- * Read an unsigned value from @pos bytes into the @iovec given, storing
- * the value found in the variable pointed to by @value.
+ * Read an unsigned value from the @message given, storing the value
+ * in the variable pointed to by @value and removing it from the message.
  *
  * Unsigneds are transmitted across the wire as 32-bit values,
  * in network byte order.
  *
- * On return from this function, @pos will have been incremented by the
- * number of bytes used by this unsigned in the stream; if there is
- * insufficient space in the stream for this unsigned, @pos will be
- * greater than the length of the stream.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_read_unsigned (struct iovec *iovec,
-		       size_t       *pos,
-		       unsigned int *value)
+upstart_pop_unsigned (NihIoMessage *message,
+		      unsigned int *value)
 {
-	size_t   start;
 	uint32_t wire_value;
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
+	nih_assert (message != NULL);
 	nih_assert (value != NULL);
 
-	start = *pos;
-	*pos += sizeof (wire_value);
-
-	if (*pos > iovec->iov_len)
+	if (message->data->len < sizeof (wire_value))
 		return -1;
 
-	memcpy (&wire_value, iovec->iov_base + start, sizeof (wire_value));
-	wire_value = ntohl (wire_value);
+	memcpy (&wire_value, message->data->buf, sizeof (wire_value));
+	nih_io_buffer_shrink (message->data, sizeof (wire_value));
 
+	wire_value = ntohl (wire_value);
 	if (wire_value > UINT_MAX)
 		return -1;
 
@@ -241,13 +180,11 @@ upstart_read_unsigned (struct iovec *iovec,
 
 
 /**
- * upstart_write_string:
- * @iovec: iovec to write to,
- * @size: size of iovec buffer,
+ * upstart_push_string:
+ * @message: message to write to,
  * @value: value to write.
  *
- * Write a string @value to the end of the @iovec given, which has
- * @size bytes available in its buffer.
+ * Write a string @value to the @message given.
  *
  * Strings are transmitted across the wire as an unsigned 32-bit value
  * containing the length, followed by that number of bytes containing the
@@ -257,60 +194,37 @@ upstart_read_unsigned (struct iovec *iovec,
  * with no following bytes; it may also be NULL in which case the special
  * length 0xffffffff is sent followed by no bytes.
  *
- * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by the string in the stream
- * (including the space to store the length); if there is insufficient
- * space in the stream for this integer, the length will be greater
- * than @size.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_write_string (struct iovec *iovec,
-		      size_t        size,
-		      const char   *value)
+upstart_push_string (NihIoMessage *message,
+		     const char   *value)
 {
-	size_t start, length;
-
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-
+	nih_assert (message != NULL);
 	if (value) {
-		length = strlen (value);
-		if (length > 0xfffffffe)
-			return -1;
-	} else {
-		length = 0xffffffff;
+		nih_assert (strlen (value) <= UINT32_MAX);
+		nih_assert (strlen (value) != 0xffffffff);
 	}
 
-	if (upstart_write_unsigned (iovec, size, length))
+	if (upstart_push_unsigned (message,
+				   value ? strlen (value) : 0xffffffff))
 		return -1;
 
 	if (! value)
 		return 0;
 
-
-	start = iovec->iov_len;
-	iovec->iov_len += length;
-
-	if (iovec->iov_len > size)
-		return -1;
-
-	memcpy (iovec->iov_base + start, value, length);
-
-	return 0;
+	return nih_io_buffer_push (message->data, value, strlen (value));
 }
 
 /**
- * upstart_read_string:
- * @iovec: iovec to read from,
- * @pos: position within iovec.
+ * upstart_pop_string:
+ * @message: message to read from,
  * @parent: parent of new string,
  * @value: pointer to store string.
  *
- * Read a string value from @pos bytes into the @iovec given, allocate
- * the new string with nih_alloc and store it in the variable pointed to
- * by @value.
+ * Read a string value from the @message given, allocate the new string
+ * with nih_alloc and store it in the variable pointed to by @value,
+ * removing it from the message.
  *
  * Strings are transmitted across the wire as an unsigned 32-bit value
  * containing the length, followed by that number of bytes containing the
@@ -326,27 +240,22 @@ upstart_write_string (struct iovec *iovec,
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
- * On return from this function, @pos will have been incremented by the
- * number of bytes used by the string in the stream (including the space
- * to store the length); if there is insufficient space in the stream for
- * the string, @pos will be greater than the length of the stream.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_read_string (struct iovec  *iovec,
-		     size_t        *pos,
-		     const void    *parent,
-		     char         **value)
+upstart_pop_string (NihIoMessage  *message,
+		    const void    *parent,
+		    char         **value)
 {
-	size_t start, length;
+	size_t length;
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
+	nih_assert (message != NULL);
 	nih_assert (value != NULL);
 
-	if (upstart_read_unsigned (iovec, pos, (unsigned int *)&length))
+	/* Extract the length first, this can be the special 0xffffffff
+	 * in which case we just set the string to NULL and return.
+	 */
+	if (upstart_pop_unsigned (message, (unsigned int *)&length))
 		return -1;
 
 	if (length == 0xffffffff) {
@@ -355,109 +264,80 @@ upstart_read_string (struct iovec  *iovec,
 	}
 
 
-	start = *pos;
-	*pos += length;
-
-	if (*pos > iovec->iov_len)
+	/* Allocate the string and copy it out of the buffer */
+	if (message->data->len < length)
 		return -1;
 
-	*value = nih_alloc (parent, length + 1);
-	if (! *value)
-		return -1;
-
-	memcpy (*value, iovec->iov_base + start, length);
+	NIH_MUST (*value = nih_alloc (parent, length + 1));
+	memcpy (*value, message->data->buf, length);
 	(*value)[length] = '\0';
 
+	nih_io_buffer_shrink (message->data, length);
+
 	return 0;
 }
 
 
 /**
- * upstart_write_header:
- * @iovec: iovec to read from,
- * @size: size of iovec buffer,
+ * upstart_push_header:
+ * @message: message to write to,
  * @type: message type to write.
  *
- * Write a header for a @type message to the end of the @iovec given,
- * which has @size bytes available in its buffer.
+ * Write a header for a @type message to @message given.
  *
  * The message header consists of a "magic" string ("upstart\n") followed
  * by the message type transmitted as a signed 32-bit value in network
  * byte order.
  *
- * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by the header in the stream;
- * if there is insufficient space in the stream for the header, the
- * length will be greater than @size.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_write_header (struct iovec   *iovec,
-		      size_t          size,
-		      UpstartMsgType  type)
+upstart_push_header (NihIoMessage   *message,
+		     UpstartMsgType  type)
 {
-	size_t start;
+	nih_assert (message != NULL);
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-
-	start = iovec->iov_len;
-	iovec->iov_len += strlen (MAGIC);
-
-	if (iovec->iov_len > size)
+	if (nih_io_buffer_push (message->data, MAGIC, strlen (MAGIC)))
 		return -1;
 
-	memcpy (iovec->iov_base + start, MAGIC, strlen (MAGIC));
-
-	if (upstart_write_int (iovec, size, type))
+	if (upstart_push_int (message, type))
 		return -1;
 
 	return 0;
 }
 
 /**
- * upstart_read_header:
- * @iovec: iovec to read from,
- * @pos: position within iovec,
+ * upstart_pop_header:
+ * @message: message to read from,
  * @type: pointer to write message type to.
  *
- * Read a message header from @pos bytes into the @iovec given, storing
- * the type of message found in the variable pointed to by @value.
+ * Read a message header from the @message given, storing type of message
+ * in the variable pointed to by @value and removing the header from the
+ * message.
  *
  * The message header consists of a "magic" string ("upstart\n") followed
  * by the message type transmitted as a signed 32-bit value in network
  * byte order.
  *
- * On return from this function, @pos will have been incremented by the
- * number of bytes used by the header in the stream; if there is
- * insufficient space in the stream for the header, @pos will be
- * greater than the length of the stream.
- *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_read_header (struct iovec   *iovec,
-		     size_t         *pos,
-		     UpstartMsgType *type)
+upstart_pop_header (NihIoMessage   *message,
+		    UpstartMsgType *type)
 {
-	size_t start;
-
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
+	nih_assert (message != NULL);
 	nih_assert (type != NULL);
 
-	start = *pos;
-	*pos += strlen (MAGIC);
-
-	if (*pos > iovec->iov_len)
+	if (message->data->len < strlen (MAGIC))
 		return -1;
 
-	if (memcmp (iovec->iov_base + start, MAGIC, strlen (MAGIC)))
+	if (memcmp (message->data->buf, MAGIC, strlen (MAGIC)))
 		return -1;
 
-	if (upstart_read_int (iovec, pos, (int *)type))
+	nih_io_buffer_shrink (message->data, strlen (MAGIC));
+
+
+	if (upstart_pop_int (message, (int *)type))
 		return -1;
 
 	return 0;
@@ -465,146 +345,26 @@ upstart_read_header (struct iovec   *iovec,
 
 
 /**
- * upstart_write_packv:
- * @iovec: iovec to write to,
- * @size: size of iovec buffer,
+ * upstart_push_packv:
+ * @message: message to write to,
  * @pack: pack of values,
  * @args: arguments.
  *
- * Write a set of values, as determined by @pack, to the end of the @iovec
- * given, which has @size bytes available in its buffer.
+ * Write a set of values, as determined by @pack, to the @message given.
  *
  * @pack is a string that indicates the types of @args.
- *  i - int          (written with upstart_write_int)
- *  u - unsigned int (written with upstart_write_unsigned)
- *  s - const char * (written with upstart_write_string)
- *
- * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by in the stream; if there is
- * insufficient space in the stream, the length will be greater than @size.
+ *  i - int          (written with upstart_push_int)
+ *  u - unsigned int (written with upstart_push_unsigned)
+ *  s - const char * (written with upstart_push_string)
  *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_write_packv (struct iovec *iovec,
-		     size_t        size,
-		     const char   *pack,
-		     va_list       args)
-{
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pack != NULL);
-
-	for (; *pack; pack++) {
-		int ret;
-
-		switch (*pack) {
-		case 'i':
-			ret = upstart_write_int (
-				iovec, size, va_arg (args, int));
-			break;
-		case 'u':
-			ret = upstart_write_unsigned (
-				iovec, size, va_arg (args, unsigned int));
-			break;
-		case 's':
-			ret = upstart_write_string (
-				iovec, size, va_arg (args, const char *));
-			break;
-		default:
-			nih_assert_not_reached ();
-		}
-
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-/**
- * upstart_write_pack:
- * @iovec: iovec to write to,
- * @size: size of iovec buffer,
- * @pack: pack of values.
- *
- * Write a set of values, as determined by @pack, to the end of the @iovec
- * given, which has @size bytes available in its buffer.
- *
- * @pack is a string that indicates the types of the following arguments:
- *  i - int          - written with upstart_write_int()
- *  u - unsigned int - written with upstart_write_unsigned()
- *  s - const char * - written with upstart_write_string()
- *
- * On return from this function, the @iovec length will have been
- * incremented by the number of bytes used by in the stream; if there is
- * insufficient space in the stream, the length will be greater than @size.
- *
- * Returns: zero on success, negative value on error.
- **/
-int
-upstart_write_pack (struct iovec *iovec,
-		    size_t        size,
-		    const char   *pack,
-		    ...)
-{
-	va_list args;
-	int     ret;
-
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pack != NULL);
-
-	va_start (args, pack);
-	ret = upstart_write_packv (iovec, size, pack, args);
-	va_end (args);
-
-	return ret;
-}
-
-/**
- * upstart_read_pack:
- * @iovec: iovec to write to,
- * @pos: position within iovec,
- * @parent: parent of new strings,
- * @pack: pack of values,
- * @args: arguments.
- *
- * Read a set of values, as determined by @pack, from @pos bytes into the
- * @iovec given.
- *
- * @pack is a string that indicates the types of @args:
- *  i - int *          - read with upstart_read_int()
- *  u - unsigned int * - read with upstart_read_unsigned()
- *  s - char **        - read with upstart_read_string()
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * On return from this function, @pos will have been incremented by the
- * number of bytes used in the stream; if there is insufficient space in
- * the stream, @pos will be greater than the length of the stream.
- *
- * Note that errors may be detected after strings have already been
- * allocated for previous members in the pack, those will remain allocated
- * if this returns with an error, so care should be taken to free those
- * if necessary.
- *
- * Returns: zero on success, negative value on error.
- **/
-int
-upstart_read_packv (struct iovec *iovec,
-		    size_t       *pos,
-		    const void   *parent,
+upstart_push_packv (NihIoMessage *message,
 		    const char   *pack,
 		    va_list       args)
 {
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
+	nih_assert (message != NULL);
 	nih_assert (pack != NULL);
 
 	for (; *pack; pack++) {
@@ -612,16 +372,16 @@ upstart_read_packv (struct iovec *iovec,
 
 		switch (*pack) {
 		case 'i':
-			ret = upstart_read_int (
-				iovec, pos, va_arg (args, int *));
+			ret = upstart_push_int (
+				message, va_arg (args, int));
 			break;
 		case 'u':
-			ret = upstart_read_unsigned (
-				iovec, pos, va_arg (args, unsigned int *));
+			ret = upstart_push_unsigned (
+				message, va_arg (args, unsigned int));
 			break;
 		case 's':
-			ret = upstart_read_string (
-				iovec, pos, parent, va_arg (args, char **));
+			ret = upstart_push_string (
+				message, va_arg (args, const char *));
 			break;
 		default:
 			nih_assert_not_reached ();
@@ -635,49 +395,132 @@ upstart_read_packv (struct iovec *iovec,
 }
 
 /**
- * upstart_read_pack:
- * @iovec: iovec to write to,
- * @pos: position within iovec,
- * @parent: parent of new strings,
+ * upstart_push_pack:
+ * @message: message to write to,
  * @pack: pack of values.
  *
- * Read a set of values, as determined by @pack, from @pos bytes into the
- * @iovec given.
+ * Write a set of values, as determined by @pack, to the @message given.
  *
  * @pack is a string that indicates the types of the following arguments:
- *  i - int *          - read with upstart_read_int()
- *  u - unsigned int * - read with upstart_read_unsigned()
- *  s - char **        - read with upstart_read_string()
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * On return from this function, @pos will have been incremented by the
- * number of bytes used in the stream; if there is insufficient space in
- * the stream, @pos will be greater than the length of the stream.
+ *  i - int          - written with upstart_push_int()
+ *  u - unsigned int - written with upstart_push_unsigned()
+ *  s - const char * - written with upstart_push_string()
  *
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_read_pack (struct iovec *iovec,
-		   size_t       *pos,
-		   const void   *parent,
+upstart_push_pack (NihIoMessage *message,
 		   const char   *pack,
 		   ...)
 {
 	va_list args;
 	int     ret;
 
-	nih_assert (iovec != NULL);
-	nih_assert (iovec->iov_base != NULL);
-	nih_assert (pos != NULL);
+	nih_assert (message != NULL);
 	nih_assert (pack != NULL);
 
 	va_start (args, pack);
-	ret = upstart_read_packv (iovec, pos, parent, pack, args);
+	ret = upstart_push_packv (message, pack, args);
+	va_end (args);
+
+	return ret;
+}
+
+/**
+ * upstart_pop_pack:
+ * @message: message to read from,
+ * @parent: parent of new strings,
+ * @pack: pack of values,
+ * @args: arguments.
+ *
+ * Read a set of values, as determined by @pack, from the @message given
+ * removing them from the message.
+ *
+ * @pack is a string that indicates the types of @args:
+ *  i - int *          - read with upstart_pop_int()
+ *  u - unsigned int * - read with upstart_pop_unsigned()
+ *  s - char **        - read with upstart_pop_string()
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_pop_packv (NihIoMessage *message,
+		   const void   *parent,
+		   const char   *pack,
+		   va_list       args)
+{
+	nih_assert (message != NULL);
+	nih_assert (pack != NULL);
+
+	for (; *pack; pack++) {
+		int ret;
+
+		switch (*pack) {
+		case 'i':
+			ret = upstart_pop_int (
+				message, va_arg (args, int *));
+			break;
+		case 'u':
+			ret = upstart_pop_unsigned (
+				message, va_arg (args, unsigned int *));
+			break;
+		case 's':
+			ret = upstart_pop_string (
+				message, parent, va_arg (args, char **));
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * upstart_pop_pack:
+ * @message: message to read from,
+ * @parent: parent of new strings,
+ * @pack: pack of values.
+ *
+ * Read a set of values, as determined by @pack, from the @message given
+ * removing them from the message.
+ *
+ * @pack is a string that indicates the types of the following arguments:
+ *  i - int *          - read with upstart_pop_int()
+ *  u - unsigned int * - read with upstart_pop_unsigned()
+ *  s - char **        - read with upstart_pop_string()
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_pop_pack (NihIoMessage *message,
+		  const void   *parent,
+		  const char   *pack,
+		  ...)
+{
+	va_list args;
+	int     ret;
+
+	nih_assert (message != NULL);
+	nih_assert (pack != NULL);
+
+	va_start (args, pack);
+	ret = upstart_pop_packv (message, parent, pack, args);
 	va_end (args);
 
 	return ret;

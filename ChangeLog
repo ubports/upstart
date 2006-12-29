@@ -1,3 +1,17 @@
+2006-12-29  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/wire.c (upstart_write_int, upstart_write_unsigned) 
+	(upstart_write_string, upstart_write_header, upstart_write_packv) 
+	(upstart_write_pack): Rename to *_push_*
+	(upstart_read_int, upstart_read_unsigned, upstart_read_string) 
+	(upstart_read_header, upstart_read_packv, upstart_read_pack): Rename
+	to *_pop_*.
+	All of the above modified to modify an NihIoMessage structure,
+	instead of trying to carry around buffers ourself.
+	* upstart/wire.h: Update to match above.
+	* upstart/tests/test_wire.c: Update all tests to match the above
+	changes.
+
 2006-12-21  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/wire.c (upstart_read_packv, upstart_write_packv): Change
