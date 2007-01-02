@@ -151,6 +151,9 @@ int           upstart_message_handle (const void *parent,
 				      NihIoMessage *message,
 				      UpstartMessage *handlers);
 
+void          upstart_message_reader (UpstartMessage *handlers, NihIo *io,
+				      const char *buf, size_t len);
+
 NIH_END_EXTERN
 
 #endif /* UPSTART_MESSAGE_H */

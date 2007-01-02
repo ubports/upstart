@@ -32,6 +32,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/io.h>
 #include <nih/error.h>
 
 #include <upstart/errors.h>
@@ -85,7 +86,7 @@ test_open (void)
 
 
 void
-test_message_new (void)
+test_new (void)
 {
 	NihIoMessage *msg;
 
@@ -330,6 +331,16 @@ test_message_new (void)
 }
 
 
+static int destructor_called = 0;
+
+int
+my_destructor (void *ptr)
+{
+	destructor_called++;
+
+	return 0;
+}
+
 static int handler_called = 0;
 static pid_t last_pid = 0;
 static UpstartMessageType last_type = 0;
@@ -363,6 +374,9 @@ my_handler (pid_t               pid,
 		name = va_arg (args, char *);
 
 		TEST_EQ_STR (name, "test");
+
+		if (pid == 2000)
+			nih_alloc_set_destructor (name, my_destructor);
 
 		break;
 	}
@@ -406,7 +420,7 @@ static UpstartMessage any_handler[] = {
 };
 
 void
-test_message_handle (void)
+test_handle (void)
 {
 	NihIoMessage *msg;
 	NihError     *err;
@@ -914,13 +928,62 @@ test_message_handle (void)
 }
 
 
+void
+test_reader (void)
+{
+	NihIo        *io;
+	NihIoMessage *msg;
+	struct ucred  cred = { 2000, 1000, 1000 };
+
+	/* The message reader function should take the first message from
+	 * the queue, handle it, and then free the message also causing any
+	 * strings to be freed.
+	 */
+	TEST_FUNCTION ("upstart_message_reader");
+	io = nih_io_reopen (NULL, 0, NIH_IO_MESSAGE,
+			    (NihIoReader)upstart_message_reader,
+			    NULL, NULL, any_handler);
+
+	msg = nih_io_message_new (io);
+	nih_io_buffer_push (msg->data, "upstart\n\0\0\0\1\0\0\0\x4test", 20);
+	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+				    sizeof (cred), &cred);
+
+	nih_alloc_set_destructor (msg, my_destructor);
+
+	nih_list_add (io->recv_q, &msg->entry);
+
+	handler_called = FALSE;
+	last_pid = -1;
+	last_type = -1;
+
+	destructor_called = 0;
+
+	upstart_disable_safeties = TRUE;
+
+	upstart_message_reader (any_handler, io,
+				msg->data->buf, msg->data->len);
+
+	upstart_disable_safeties = FALSE;
+
+	TEST_TRUE (handler_called);
+	TEST_EQ (last_pid, 2000);
+	TEST_EQ (last_type, UPSTART_JOB_START);
+	TEST_EQ (destructor_called, 2);
+	TEST_LIST_EMPTY (io->recv_q);
+
+	nih_free (io);
+}
+
+
 int
 main (int   argc,
       char *argv[])
 {
 	test_open ();
-	test_message_new ();
-	test_message_handle ();
+	test_new ();
+	test_handle ();
+	test_reader ();
 
 	return 0;
 }

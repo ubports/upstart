@@ -255,9 +255,10 @@ error:
  * @handlers: list of handlers.
  *
  * Looks for a handler for the message @type received from process @pid
- * in the NULL-terminated @handlers list given.
+ * in the @handlers list given, the final entry of which should have NULL
+ * as the handler function pointer.
  *
- * Returns: handler function or NULL if none found.
+ * Returns: handler function, or NULL if none found.
  **/
 static UpstartMessageHandler
 upstart_message_handler (pid_t               pid,
@@ -293,9 +294,12 @@ upstart_message_handler (pid_t               pid,
  * The message is decoded, raising UPSTART_MESSAGE_INVALID if the message
  * was invalid.
  *
- * Once decoded, the appropriate function from the NULL-terminated @handlers
- * table is called, passing the origin of the message, type, and a variable
- * number of arguments that depend on the message type.
+ * Once decoded, the appropriate function from the @handlers list is called,
+ * passing the origin of the message, type, and a variable number of
+ * arguments that depend on the message type.
+ *
+ * The handler function pointer of the last entry in the @handlers list
+ * should be NULL.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for any strings allocated.  When
@@ -395,6 +399,9 @@ upstart_message_handle (const void     *parent,
 		if (upstart_pop_pack (message, parent, "s", &name))
 			goto invalid;
 
+		if (! name)
+			goto invalid;
+
 		ret = handler (cred.pid, type, name);
 		break;
 	}
@@ -407,6 +414,9 @@ upstart_message_handle (const void     *parent,
 				      &description))
 			goto invalid;
 
+		if (! name)
+			goto invalid;
+
 		ret = handler (cred.pid, type, name, goal, state,
 			       process_state, pid, description);
 		break;
@@ -417,6 +427,9 @@ upstart_message_handle (const void     *parent,
 		char *name;
 
 		if (upstart_pop_pack (message, parent, "s", &name))
+			goto invalid;
+
+		if (! name)
 			goto invalid;
 
 		ret = handler (cred.pid, type, name);
@@ -432,4 +445,49 @@ invalid:
 	nih_error_raise (UPSTART_MESSAGE_INVALID,
 			 _(UPSTART_MESSAGE_INVALID_STR));
 	return -1;
+}
+
+
+/**
+ * upstart_message_reader:
+ * @handlers: list of handlers,
+ * @io: NihIo with message to read,
+ * @buf: buffer of message data,
+ * @len: bytes in @buf.
+ *
+ * This I/O reader may be associated with any message in message mode to
+ * parse and handle incoming messages, according to the list of handlers
+ * given in @handlers.
+ *
+ * The handler function pointer of the last entry in the @handlers list
+ * should be NULL.  When associating this with an NihIo structure, pass
+ * the handlers list as the data argument.
+ *
+ * Because these handlers are called within the main loop, they should
+ * take care to handle any errors raised.
+ *
+ * Any strings allocated are given the message received as the parent,
+ * which is automatically freed after the handler has been called.  If you
+ * wish to keep the strings, reparent them with nih_alloc_reparent().
+ **/
+void
+upstart_message_reader (UpstartMessage *handlers,
+			NihIo          *io,
+			const char     *buf,
+			size_t          len)
+{
+	NihIoMessage *message;
+
+	nih_assert (handlers != NULL);
+	nih_assert (io != NULL);
+	nih_assert (io->type == NIH_IO_MESSAGE);
+	nih_assert (buf != NULL);
+	nih_assert (len > 0);
+
+	message = nih_io_read_message (NULL, io);
+	nih_assert (message != NULL);
+
+	upstart_message_handle (message, message, handlers);
+
+	nih_free (message);
 }

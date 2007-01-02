@@ -1,5 +1,12 @@
 2007-01-02  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_handle): Check that the name
+	argument is never NULL.
+	(upstart_message_reader): Simple message reader function that can
+	be associated with an I/O watch and handles each message received.
+	* upstart/message.h: Add prototype.
+	* upstart/tests/test_message.c (test_reader): Test the reader function.
+
 	* upstart/control.c: Rename to upstart/message.c
 	* upstart/control.h: Rename to upstart/message.h
 	* upstart/tests/test_control.c: Rename to upstart/tests/test_message.c
