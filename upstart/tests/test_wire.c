@@ -26,7 +26,7 @@
 #include <nih/alloc.h>
 #include <nih/io.h>
 
-#include <upstart/control.h>
+#include <upstart/message.h>
 #include <upstart/wire.h>
 
 

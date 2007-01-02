@@ -1,6 +1,6 @@
 /* libupstart
  *
- * test_control.c - test suite for upstart/control.c
+ * test_message.c - test suite for upstart/message.c
  *
  * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -35,7 +35,7 @@
 #include <nih/error.h>
 
 #include <upstart/errors.h>
-#include <upstart/control.h>
+#include <upstart/message.h>
 #include <upstart/job.h>
 
 
@@ -764,7 +764,7 @@ test_message_handle (void)
 	nih_free (msg);
 
 
-	/* Check that the UPSTART_INVALID_MESSAGE error is raised if the
+	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
 	 * message is invalid.
 	 */
 	TEST_FEATURE ("with invalid message");
@@ -784,7 +784,7 @@ test_message_handle (void)
 
 	err = nih_error_get ();
 
-	TEST_EQ (err->number, UPSTART_INVALID_MESSAGE);
+	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
 
 	nih_free (err);
 

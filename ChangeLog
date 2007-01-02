@@ -1,5 +1,17 @@
 2007-01-02  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c: Rename to upstart/message.c
+	* upstart/control.h: Rename to upstart/message.h
+	* upstart/tests/test_control.c: Rename to upstart/tests/test_message.c
+	* upstart/libupstart.h: Update includes.
+	* upstart/wire.c: Include message.h
+	* upstart/wire.h: Update includes.
+	* upstart/tests/test_wire.c: Update includes.
+	* upstart/errors.h: Rename UPSTART_INVALID_MESSAGE to
+	UPSTART_MESSAGE_INVALID so that it's prefixed.
+	* upstart/Makefile.am (libupstart_la_SOURCES) 
+	(upstartinclude_HEADERS, TESTS): Update filenames.
+
 	* upstart/control.c (upstart_message_new): New function that
 	creates an NihIoMessage directly from its arguments, which are a type
 	followed by a variable number of args depending on that type.

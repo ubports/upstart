@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef UPSTART_CONTROL_H
-#define UPSTART_CONTROL_H
+#ifndef UPSTART_MESSAGE_H
+#define UPSTART_MESSAGE_H
 
 #include <sys/types.h>
 
@@ -153,4 +153,4 @@ int           upstart_message_handle (const void *parent,
 
 NIH_END_EXTERN
 
-#endif /* UPSTART_CONTROL_H */
+#endif /* UPSTART_MESSAGE_H */

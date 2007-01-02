@@ -10,7 +10,7 @@ lib_LTLIBRARIES = libupstart.la
 
 libupstart_la_SOURCES = \
 	job.c \
-	control.c \
+	message.c \
 	wire.c
 
 
@@ -32,14 +32,14 @@ include_HEADERS = \
 upstartincludedir = $(includedir)/upstart
 upstartinclude_HEADERS = \
 	job.h \
-	control.h \
+	message.h \
 	wire.h \
 	errors.h
 
 
 TESTS = \
 	test_job \
-	test_control \
+	test_message \
 	test_wire
 
 check_PROGRAMS = $(TESTS)
@@ -48,9 +48,9 @@ test_job_SOURCES = tests/test_job.c
 test_job_LDFLAGS = -static
 test_job_LDADD = libupstart.la
 
-test_control_SOURCES = tests/test_control.c
-test_control_LDFLAGS = -static
-test_control_LDADD = libupstart.la
+test_message_SOURCES = tests/test_message.c
+test_message_LDFLAGS = -static
+test_message_LDADD = libupstart.la
 
 test_wire_SOURCES = tests/test_wire.c
 test_wire_LDFLAGS = -static

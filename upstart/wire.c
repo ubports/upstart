@@ -34,6 +34,7 @@
 #include <nih/logging.h>
 #include <nih/io.h>
 
+#include <upstart/message.h>
 #include <upstart/wire.h>
 
 

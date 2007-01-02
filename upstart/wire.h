@@ -26,7 +26,7 @@
 #include <nih/macros.h>
 #include <nih/io.h>
 
-#include <upstart/control.h>
+#include <upstart/message.h>
 
 
 NIH_BEGIN_EXTERN

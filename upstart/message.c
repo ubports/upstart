@@ -1,6 +1,6 @@
 /* upstart
  *
- * control.c - control socket communication
+ * message.c - control messages and socket opening
  *
  * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -40,7 +40,7 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/control.h>
+#include <upstart/message.h>
 #include <upstart/wire.h>
 #include <upstart/errors.h>
 
@@ -290,7 +290,7 @@ upstart_message_handler (pid_t               pid,
  * nih_io_message_recv() or taken from a queue of messages with
  * nih_io_read_message().
  *
- * The message is decoded, raising UPSTART_INVALID_MESSAGE if the message
+ * The message is decoded, raising UPSTART_MESSAGE_INVALID if the message
  * was invalid.
  *
  * Once decoded, the appropriate function from the NULL-terminated @handlers
@@ -429,7 +429,7 @@ upstart_message_handle (const void     *parent,
 	return ret;
 
 invalid:
-	nih_error_raise (UPSTART_INVALID_MESSAGE,
-			 _(UPSTART_INVALID_MESSAGE_STR));
+	nih_error_raise (UPSTART_MESSAGE_INVALID,
+			 _(UPSTART_MESSAGE_INVALID_STR));
 	return -1;
 }

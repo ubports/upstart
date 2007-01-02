@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 #define UPSTART_LIBUPSTART_H
 
 #include <upstart/job.h>
-#include <upstart/control.h>
+#include <upstart/message.h>
 #include <upstart/wire.h>
 #include <upstart/errors.h>
 
