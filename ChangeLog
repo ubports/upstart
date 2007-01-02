@@ -1,3 +1,7 @@
+2007-01-02  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac (AC_COPYRIGHT): Update copyright to 2007.
+
 2006-12-29  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/wire.c (upstart_write_int, upstart_write_unsigned) 
