@@ -1,5 +1,31 @@
 2007-01-02  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/control.c (upstart_message_new): New function that
+	creates an NihIoMessage directly from its arguments, which are a type
+	followed by a variable number of args depending on that type.
+	(upstart_message_handler): Function to find a handler function for
+	a particular message type and origin process.
+	(upstart_message_handle): New function that takes an NihIoMessage
+	and invokes a handler function with a variable number of args
+	depending on the message type.
+	(upstart_send_msg, upstart_send_msg_to, upstart_recv_msg): Drop these
+	functions, leave it up to the caller to decide whether to send and
+	receive the messages synchronously or asynchronously; now that the
+	capability is in nih_io_*.
+	* upstart/control.h (UpstartMsgType): Rename to UpstartMessageType.
+	(UpstartMessageHandler): Function with variable number of arguments
+	that handles a message received.
+	(UpstartMsg): Drop this structure entirely, we'll encode or decode
+	the wire format directly from or into a function call, rather than
+	use an intermediate structure to marshal it.
+	(UpstartMessage): New structure to make a table that can be passed
+	to upstart_message_handle to determine which handler should be called.
+	* upstart/tests/test_control.c: Test new behaviour.
+	* upstart/wire.c (upstart_push_header, upstart_pop_header): Change
+	structure name for type parameter.
+	* upstart/wire.h: Update.
+	* upstart/tests/test_wire.c: Update.
+
 	* configure.ac (AC_COPYRIGHT): Update copyright to 2007.
 
 2006-12-29  Scott James Remnant  <scott@netsplit.com>

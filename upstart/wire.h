@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -41,8 +41,8 @@ int upstart_push_string   (NihIoMessage *message, const char *value);
 int upstart_pop_string    (NihIoMessage *message, const void *parent,
 			   char **value);
 
-int upstart_push_header   (NihIoMessage *message, UpstartMsgType type);
-int upstart_pop_header    (NihIoMessage *message, UpstartMsgType *type);
+int upstart_push_header   (NihIoMessage *message, UpstartMessageType type);
+int upstart_pop_header    (NihIoMessage *message, UpstartMessageType *type);
 
 int upstart_push_packv    (NihIoMessage *message, const char *pack,
 			   va_list args);

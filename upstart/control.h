@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,27 +24,26 @@
 #include <sys/types.h>
 
 #include <nih/macros.h>
-
-#include <upstart/job.h>
+#include <nih/io.h>
 
 
 /**
- * UPSTART_API_VERSION:
+ * UPSTART_INIT_DAEMON:
  *
- * This macro defines the current API version number; it can optionally
- * be used to make a judgement about whether it's legal for a particular
- * field to be missing or not.
+ * Macro that can be used in place of a pid for the init daemon, simply to
+ * make it clear what you're doing.
  **/
-#define UPSTART_API_VERSION 0
+#define UPSTART_INIT_DAEMON 1
+
 
 /**
- * UpstartMsgType:
+ * UpstartMessageType:
  *
  * This identifies the types of messages that can be passed between clients
- * and the init daemon over the control socket.
- *
- * Each uses a different selection of the fields from the UpstartMsg
- * structure, depending on its type.
+ * and the init daemon over the control socket.  The type of the message
+ * determines what information must be given for that message, or what
+ * information is received with it.  See the documentation of
+ * UpstartMsgHandler for more details.
  **/
 typedef enum {
 	/* General messages */
@@ -70,45 +69,87 @@ typedef enum {
 	UPSTART_UNWATCH_EVENTS,
 
 	/* Special commands */
-	UPSTART_SHUTDOWN
-} UpstartMsgType;
+	UPSTART_SHUTDOWN,
+} UpstartMessageType;
 
 
 /**
- * UpstartMsg:
- * @type: type of message,
- * @name: name of job or event.
- * @description: description of job,
- * @goal: whether job is being started or stopped,
- * @state: actual state of job,
- * @process_state: state of attached process,
- * @pid: current pid, if any.
+ * UpstartMessageHandler:
+ * @pid: origin of message,
+ * @type: message type.
+ *
+ * A message handler function is called whenever a message of an appropriate
+ * @type is received from another process @pid.  The function will be called
+ * with additional arguments that vary based on @type as follows:
+ *
+ * UPSTART_JOB_START:
+ * UPSTART_JOB_STOP:
+ * UPSTART_JOB_QUERY:
+ * @name: name of job to start, stop or query the status of (char *).
+ *
+ * UPSTART_JOB_UNKNOWN:
+ * @name: unknown job name (char *).
+ *
+ * UPSTART_JOB_STATUS:
+ * @name: name of job (char *),
+ * @goal: current goal (JobGoal),
+ * @state: state of job (JobState),
+ * @process_state: state of current process (ProcessState),
+ * @pid: process id (pid_t),
+ * @description: description of job (char *).
+ *
+ * All other types receive no further arguments.
+ *
+ * Returns: zero on success, negative value on raised error.
  **/
-typedef struct upstart_msg {
-	UpstartMsgType  type;
+typedef int (*UpstartMessageHandler) (pid_t pid, UpstartMessageType type, ...);
 
-	char           *name;
-	char           *description;
-	JobGoal         goal;
-	JobState        state;
-	ProcessState    process_state;
 
-	pid_t           pid;
-} UpstartMsg;
+/**
+ * UpstartMessage:
+ * @pid: process id to match,
+ * @type: message type to match,
+ * @handler: handler function to call.
+ *
+ * This structure is used to associate a message handler function with
+ * a particular message @type from a particular @pid.  When a message
+ * matches, @handler will be called.
+ *
+ * @type may be the special value -1 to match any message.  @pid may be
+ * -1 to indicate any process.
+ *
+ * Remember that messages can be received asynchronously, so it's usually
+ * a good idea to set @pid if you're expecting a message from a particular
+ * source.
+ **/
+typedef struct upstart_message {
+	pid_t                 pid;
+	UpstartMessageType    type;
+	UpstartMessageHandler handler;
+} UpstartMessage;
+
+
+/**
+ * UPSTART_MESSAGE_LAST:
+ *
+ * This macro may be used as the last handler in the list to avoid typing
+ * all those NULLs and -1s yourself.
+ **/
+#define UPSTART_MESSAGE_LAST { -1, -1, NULL }
 
 
 NIH_BEGIN_EXTERN
 
-int         upstart_open        (void)
+int           upstart_open           (void)
 	__attribute__ ((warn_unused_result));
 
-int         upstart_send_msg    (int sock, UpstartMsg *message);
-int         upstart_send_msg_to (pid_t pid, int sock, UpstartMsg *message);
-
-UpstartMsg *upstart_recv_msg    (const void *parent, int sock, pid_t *pid)
+NihIoMessage *upstart_message_new    (const void *parent, pid_t pid,
+				      UpstartMessageType type, ...)
 	__attribute__ ((warn_unused_result, malloc));
 
-void        upstart_free        (UpstartMsg *message);
+int           upstart_message_handle (const void *parent,
+				      NihIoMessage *message,
+				      UpstartMessage *handlers);
 
 NIH_END_EXTERN
 

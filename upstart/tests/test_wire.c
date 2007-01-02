@@ -2,7 +2,7 @@
  *
  * test_wire.c - test suite for upstart/wire.c
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -456,9 +456,9 @@ test_push_header (void)
 void
 test_pop_header (void)
 {
-	NihIoMessage   *msg;
-	UpstartMsgType  value;
-	int             ret;
+	NihIoMessage       *msg;
+	UpstartMessageType  value;
+	int                 ret;
 
 	TEST_FUNCTION ("upstart_pop_header");
 	msg = nih_io_message_new (NULL);

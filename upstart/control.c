@@ -2,7 +2,7 @@
  *
  * control.c - control socket communication
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 #include <sys/un.h>
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -44,25 +45,12 @@
 #include <upstart/errors.h>
 
 
-/**
- * MAX_PACKET_SIZE:
- *
- * Maximum size of a packet, including all names, environment, etc.  This
- * is completely arbitrary and just needs to be agreed by both ends.
- **/
-#define MAX_PACKET_SIZE 4096
-
-/**
- * INIT_DAEMON:
- *
- * Macro used in place of a pid for the init daemon, simply to make it clear
- * what we're doing.
- **/
-#define INIT_DAEMON 1
-
-
 /* Prototypes for static functions */
-static size_t upstart_addr         (struct sockaddr_un *addr, pid_t pid);
+static size_t                upstart_addr            (struct sockaddr_un *addr,
+						      pid_t pid);
+static UpstartMessageHandler upstart_message_handler (pid_t pid,
+						      UpstartMessageType type,
+						      UpstartMessage *handlers);
 
 
 /**
@@ -102,7 +90,7 @@ upstart_addr (struct sockaddr_un *addr,
 	addr->sun_path[0] = '\0';
 
 	addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
-	if (pid == INIT_DAEMON) {
+	if (pid == UPSTART_INIT_DAEMON) {
 		addrlen += snprintf (addr->sun_path + 1,
 				     sizeof (addr->sun_path) - 1,
 				     "/com/ubuntu/upstart");
@@ -146,170 +134,36 @@ upstart_open (void)
 
 	/* Bind the socket so we can receive responses */
 	addrlen = upstart_addr (&addr, getpid ());
-	if (bind (sock, (struct sockaddr *)&addr, addrlen) < 0) {
-		nih_error_raise_system ();
-		close (sock);
-		return -1;
-	}
+	if (bind (sock, (struct sockaddr *)&addr, addrlen) < 0)
+		goto error;
 
 	/* Always requests credentials */
 	optval = 1;
 	if (setsockopt (sock, SOL_SOCKET, SO_PASSCRED, &optval,
-			sizeof (optval)) < 0) {
-		nih_error_raise_system ();
-		close (sock);
-		return -1;
-	}
+			sizeof (optval)) < 0)
+		goto error;
 
 	return sock;
+
+error:
+	nih_error_raise_system ();
+	close (sock);
+	return -1;
 }
 
 
 /**
- * upstart_send_msg:
- * @sock: socket to send @message on,
- * @message: message to send.
- *
- * Send @message to the running init daemon using @sock which should have
- * been opened with upstart_open().
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-upstart_send_msg (int         sock,
-		  UpstartMsg *message)
-{
-	nih_assert (sock >= 0);
-	nih_assert (message != NULL);
-
-	return upstart_send_msg_to (INIT_DAEMON, sock, message);
-}
-
-/**
- * upstart_send_msg_to:
- * @pid: process to send message to,
- * @sock: socket to send @message on,
- * @message: message to send.
- *
- * Send @message to process @pid using @sock which should have been opened
- * with upstart_open().
- *
- * Clients will normally discard messages that do not come from process #1
- * (the init daemon), so this is only useful from the init daemon itself.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-upstart_send_msg_to (pid_t       pid,
-		     int         sock,
-		     UpstartMsg *message)
-{
-	struct sockaddr_un addr;
-	struct msghdr      msg;
-	struct iovec       iov[1];
-	char               buf[MAX_PACKET_SIZE];
-
-	nih_assert (pid > 0);
-	nih_assert (sock >= 0);
-	nih_assert (message != NULL);
-
-	/* Recipient address */
-	msg.msg_name = &addr;
-	msg.msg_namelen = upstart_addr (&addr, pid);
-
-	/* Send whatever we put in the iovec */
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
-
-	/* Start off with no control information */
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-
-	/* Unused, so set to zero */
-	msg.msg_flags = 0;
-
-	/* Use the buffer */
-	iov[0].iov_base = buf;
-	iov[0].iov_len = 0;
-
-	/* Place a header at the start */
-	if (upstart_write_header (&iov[0], sizeof (buf),
-				  UPSTART_API_VERSION, message->type))
-		goto invalid;
-
-	/* Message type determines actual payload */
-	switch (message->type) {
-	case UPSTART_NO_OP:
-	case UPSTART_JOB_LIST:
-	case UPSTART_JOB_LIST_END:
-	case UPSTART_WATCH_JOBS:
-	case UPSTART_UNWATCH_JOBS:
-	case UPSTART_WATCH_EVENTS:
-	case UPSTART_UNWATCH_EVENTS:
-		/* No payload */
-		break;
-
-	case UPSTART_JOB_START:
-	case UPSTART_JOB_STOP:
-	case UPSTART_JOB_QUERY:
-	case UPSTART_JOB_UNKNOWN: {
-		/* Job name */
-		if (upstart_write_str (&iov[0], sizeof (buf), message->name))
-			goto invalid;
-
-		break;
-	}
-	case UPSTART_JOB_STATUS: {
-		/* Job name, followed by job status */
-		if (upstart_write_str (&iov[0], sizeof (buf), message->name))
-			goto invalid;
-
-		if (upstart_write_ints (&iov[0], sizeof (buf), 4,
-					message->goal,
-					message->state,
-					message->process_state,
-					message->pid))
-			goto invalid;
-
-		if (upstart_write_str (&iov[0], sizeof (buf),
-				       message->description))
-			goto invalid;
-
-		break;
-	}
-	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT:
-	case UPSTART_SHUTDOWN: {
-		/* Event name */
-		if (upstart_write_str (&iov[0], sizeof (buf), message->name))
-			goto invalid;
-		break;
-	}
-	default:
-		goto invalid;
-	}
-
-	/* Send it! */
-	if (sendmsg (sock, &msg, 0) < 0)
-		nih_return_system_error (-1);
-
-	return 0;
-
-invalid:
-	nih_return_error (-1, UPSTART_INVALID_MESSAGE,
-			  _(UPSTART_INVALID_MESSAGE_STR));
-}
-
-
-/**
- * upstart_recv_msg:
+ * upstart_message_new:
  * @parent: parent of new structure,
- * @sock: socket to receive from,
- * @pid: place to store pid of sender.
+ * @pid: process to send message to,
+ * @type: type of message.
  *
- * Receives a single message from @sock, which should have been opened with
- * upstart_open().  Memory is allocated for the message structure and it
- * is returned, clients should use nih_free() to free the message.
+ * Allocates an NihIoMessage structure using nih_alloc() that can be
+ * immediately sent down a socket with nih_io_message_send() or queued
+ * for later sending with nih_io_send_message().
+ *
+ * The arguments after @type depend on the type of message being sent,
+ * see the documentation for UpstartMessageHandler for more details.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -317,108 +171,41 @@ invalid:
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
- * If you wish to know which process sent the message, usually because
- * you might want to send a response, pass a pointer for @pid.
- *
- * Returns: newly allocated message or NULL on raised error.
+ * Returns: newly allocated message, or NULL if insufficient memory.
  **/
-UpstartMsg *
-upstart_recv_msg (const void *parent,
-		  int         sock,
-		  pid_t      *pid)
+NihIoMessage *
+upstart_message_new (const void         *parent,
+		     pid_t               pid,
+		     UpstartMessageType  type,
+		     ...)
 {
-	UpstartMsg     *message = NULL;
-	struct msghdr   msg;
-	struct iovec    iov[1];
-	char            buf[MAX_PACKET_SIZE];
-	char            cmsg_buf[CMSG_SPACE (sizeof (struct ucred))];
-	struct cmsghdr *cmsg;
-	struct ucred    cred = { 0, 0, 0 };
-	size_t          pos = 0;
-	ssize_t         len;
-	int             version;
+	NihIoMessage *message;
+	va_list       args;
 
-	nih_assert (sock >= 0);
+	nih_assert (pid > 0);
 
-	/* We don't use the sender address, but rely on credentials instead */
-	msg.msg_name = NULL;
-	msg.msg_namelen = 0;
+	message = nih_io_message_new (parent);
+	if (! message)
+		return NULL;
 
-	/* Put the message in the iovec */
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
+	/* Fill in the address structure */
+	message->addr = nih_new (message, struct sockaddr_un);
+	if (! message->addr)
+		goto error;
 
-	/* Space to receive control information */
-	msg.msg_control = cmsg_buf;
-	msg.msg_controllen = sizeof (cmsg_buf);
+	message->addrlen = upstart_addr ((struct sockaddr_un *)message->addr,
+					 pid);
 
-	/* Clear flags */
-	msg.msg_flags = 0;
-
-	/* Use the buffer */
-	iov[0].iov_base = buf;
-	iov[0].iov_len = sizeof (buf);
-
-	/* Receive a single message into the buffers */
-	len = recvmsg (sock, &msg, 0);
-	if (len < 0)
-		nih_return_system_error (NULL);
-
-	iov[0].iov_len = len;
-
-	/* Process the ancillary control information */
-	for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL;
-	     cmsg = CMSG_NXTHDR (&msg, cmsg)) {
-		if ((cmsg->cmsg_level == SOL_SOCKET)
-		    && (cmsg->cmsg_type == SCM_CREDENTIALS)) {
-			/* Sender credentials */
-			if (cmsg->cmsg_len < CMSG_LEN (sizeof (struct ucred)))
-				goto invalid;
-
-			memcpy (&cred, CMSG_DATA (cmsg),
-				sizeof (struct ucred));
-		}
-
-		/* FIXME receive SCM_RIGHTS fds, close if we're not
-		 * expecting them!
-		 */
-	}
-
-
-	if (! upstart_disable_safeties) {
-		/* Make sure we received the credentials of the
-		 * sending process */
-		if (cred.pid == 0)
-			goto invalid;
-
-		/* Can only receive messages from root, or our own uid
-		 * FIXME init may want to receive more in future
-		 */
-		if ((cred.uid != 0) && (cred.uid != getuid ()))
-			goto invalid;
-
-		/* Only the init daemon may accept messages from any process */
-		if ((cred.pid != INIT_DAEMON) && (cred.pid != getpid ())
-		    && (getpid () != INIT_DAEMON))
-			goto invalid;
-	}
-
-	/* Discard truncated messages */
-	if ((msg.msg_flags & MSG_TRUNC) || (msg.msg_flags & MSG_CTRUNC))
-		goto invalid;
-
-
-	/* Allocate the message */
-	NIH_MUST (message = nih_new (parent, UpstartMsg));
-
-	/* Copy the header out of the message, that'll tell us what
-	 * we're actually looking at.
+	/* All messages begin with a header that indicates the type of the
+	 * following message.
 	 */
-	if (upstart_read_header (&iov[0], &pos, &version, &message->type))
-		goto invalid;
+	if (upstart_push_header (message, type))
+		goto error;
 
-	/* Message type determines actual payload */
-	switch (message->type) {
+	/* Message type determines arguments and message payload */
+	va_start (args, type);
+
+	switch (type) {
 	case UPSTART_NO_OP:
 	case UPSTART_JOB_LIST:
 	case UPSTART_JOB_LIST_END:
@@ -426,58 +213,223 @@ upstart_recv_msg (const void *parent,
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
 	case UPSTART_UNWATCH_EVENTS:
-		/* No payload */
+		break;
+	case UPSTART_JOB_START:
+	case UPSTART_JOB_STOP:
+	case UPSTART_JOB_QUERY:
+	case UPSTART_JOB_UNKNOWN:
+		if (upstart_push_packv (message, "s", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_STATUS:
+		if (upstart_push_packv (message, "siiiis", args))
+			goto error;
+
+		break;
+	case UPSTART_EVENT_QUEUE:
+	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN:
+		if (upstart_push_packv (message, "s", args))
+			goto error;
+
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	va_end (args);
+
+	return message;
+
+error:
+	nih_free (message);
+	return NULL;
+}
+
+
+/**
+ * upstart_message_handler:
+ * @pid: origin process id,
+ * @type: message type received,
+ * @handlers: list of handlers.
+ *
+ * Looks for a handler for the message @type received from process @pid
+ * in the NULL-terminated @handlers list given.
+ *
+ * Returns: handler function or NULL if none found.
+ **/
+static UpstartMessageHandler
+upstart_message_handler (pid_t               pid,
+			 UpstartMessageType  type,
+			 UpstartMessage     *handlers)
+{
+	UpstartMessage *handler;
+
+	nih_assert (handlers != NULL);
+
+	for (handler = handlers; handler->handler; handler++) {
+		if ((handler->pid != -1) && (handler->pid != pid))
+			continue;
+		if ((handler->type != -1) && (handler->type != type))
+			continue;
+
+		return handler->handler;
+	}
+
+	return NULL;
+}
+
+/**
+ * upstart_message_handle:
+ * @parent: parent of any allocated strings,
+ * @message: message to be handled,
+ * @handlers: list of handlers.
+ *
+ * Handles an NihIoMessage received from a socket, either directly through
+ * nih_io_message_recv() or taken from a queue of messages with
+ * nih_io_read_message().
+ *
+ * The message is decoded, raising UPSTART_INVALID_MESSAGE if the message
+ * was invalid.
+ *
+ * Once decoded, the appropriate function from the NULL-terminated @handlers
+ * table is called, passing the origin of the message, type, and a variable
+ * number of arguments that depend on the message type.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for any strings allocated.  When
+ * @parent is freed, those strings will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: return value from handler on success, negative value
+ * on raised error.
+ **/
+int
+upstart_message_handle (const void     *parent,
+			NihIoMessage   *message,
+			UpstartMessage *handlers)
+{
+	UpstartMessageType      type;
+	UpstartMessageHandler   handler;
+	struct cmsghdr        **ptr;
+	struct ucred            cred = { 0, 0, 0 };
+	int                     ret;
+
+	nih_assert (message != NULL);
+	nih_assert (handlers != NULL);
+
+	/* First process the control headers; we require that any message
+	 * contain the credentials of the sending process.
+	 */
+	for (ptr = message->control; *ptr; ptr++) {
+		if (((*ptr)->cmsg_level == SOL_SOCKET)
+		    && ((*ptr)->cmsg_type == SCM_CREDENTIALS)) {
+			/* Sender credentials */
+			if ((*ptr)->cmsg_len < CMSG_LEN (sizeof (cred)))
+				goto invalid;
+
+			memcpy (&cred, CMSG_DATA (*ptr), sizeof (cred));
+		}
+
+		/* FIXME receive SCM_RIGHTS fds, close if we're not
+		 * expecting them!
+		 */
+	}
+
+	/* Check the origin of the message, this is a safety trap so we
+	 * don't even bother parsing memory if the process shouldn't be able
+	 * to talk to us.
+	 *
+	 * Only the init daemon accepts messages from any process, others
+	 * will only accept messages from the init daemon or themselves.
+	 *
+	 * In addition, we only permit messages to come from a process
+	 * running as root or our own user id (though this may be relaxed
+	 * for the init daemon later).
+	 */
+	if (! upstart_disable_safeties) {
+		if (cred.pid == 0)
+			goto invalid;
+
+		if ((cred.pid != UPSTART_INIT_DAEMON)
+		    && (cred.pid != getpid ())
+		    && (getpid () != UPSTART_INIT_DAEMON))
+			goto invalid;
+
+		if ((cred.uid != 0) && (cred.uid != getuid ()))
+			goto invalid;
+	}
+
+
+	/* Read the header from the message, which tells us what type of
+	 * message follows.
+	 */
+	if (upstart_pop_header (message, &type))
+		goto invalid;
+
+	handler = upstart_message_handler (cred.pid, type, handlers);
+	if (! handler)
+		return 0;
+
+	/* Message type determines message payload and thus
+	 * handler arguments
+	 */
+	switch (type) {
+	case UPSTART_NO_OP:
+	case UPSTART_JOB_LIST:
+	case UPSTART_JOB_LIST_END:
+	case UPSTART_WATCH_JOBS:
+	case UPSTART_UNWATCH_JOBS:
+	case UPSTART_WATCH_EVENTS:
+	case UPSTART_UNWATCH_EVENTS:
+		ret = handler (cred.pid, type);
 		break;
 	case UPSTART_JOB_START:
 	case UPSTART_JOB_STOP:
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN: {
-		/* Job name */
-		if (upstart_read_str (&iov[0], &pos, message, &message->name))
+		char *name;
+
+		if (upstart_pop_pack (message, parent, "s", &name))
 			goto invalid;
 
+		ret = handler (cred.pid, type, name);
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
-		/* Job name, followed by job status */
-		if (upstart_read_str (&iov[0], &pos, message, &message->name))
+		char *name, *description;
+		int   goal, state, process_state, pid;
+
+		if (upstart_pop_pack (message, parent, "siiiis", &name, &goal,
+				      &state, &process_state, &pid,
+				      &description))
 			goto invalid;
 
-		if (upstart_read_ints (&iov[0], &pos, 4,
-				       &message->goal,
-				       &message->state,
-				       &message->process_state,
-				       &message->pid))
-			goto invalid;
-
-		if (upstart_read_str (&iov[0], &pos,
-				      message, &message->description))
-			goto invalid;
-
+		ret = handler (cred.pid, type, name, goal, state,
+			       process_state, pid, description);
 		break;
 	}
 	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
-		/* Event name */
-		if (upstart_read_str (&iov[0], &pos, message, &message->name))
+		char *name;
+
+		if (upstart_pop_pack (message, parent, "s", &name))
 			goto invalid;
 
+		ret = handler (cred.pid, type, name);
 		break;
 	}
 	default:
 		goto invalid;
 	}
 
-	/* Save the pid */
-	if (pid)
-		*pid = cred.pid;
-
-	return message;
+	return ret;
 
 invalid:
-	nih_free (message);
-
-	nih_return_error (NULL, UPSTART_INVALID_MESSAGE,
-			  _(UPSTART_INVALID_MESSAGE_STR));
+	nih_error_raise (UPSTART_INVALID_MESSAGE,
+			 _(UPSTART_INVALID_MESSAGE_STR));
+	return -1;
 }

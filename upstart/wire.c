@@ -2,7 +2,7 @@
  *
  * wire.c - control socket wire protocol
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -292,8 +292,8 @@ upstart_pop_string (NihIoMessage  *message,
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_push_header (NihIoMessage   *message,
-		     UpstartMsgType  type)
+upstart_push_header (NihIoMessage       *message,
+		     UpstartMessageType  type)
 {
 	nih_assert (message != NULL);
 
@@ -322,8 +322,8 @@ upstart_push_header (NihIoMessage   *message,
  * Returns: zero on success, negative value on error.
  **/
 int
-upstart_pop_header (NihIoMessage   *message,
-		    UpstartMsgType *type)
+upstart_pop_header (NihIoMessage       *message,
+		    UpstartMessageType *type)
 {
 	nih_assert (message != NULL);
 	nih_assert (type != NULL);
