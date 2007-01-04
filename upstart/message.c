@@ -487,7 +487,14 @@ upstart_message_reader (UpstartMessage *handlers,
 	message = nih_io_read_message (NULL, io);
 	nih_assert (message != NULL);
 
-	upstart_message_handle (message, message, handlers);
+	if (upstart_message_handle (message, message, handlers) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error (_("Error while handling control message: %s"),
+			   err->message);
+		nih_free (err);
+	}
 
 	nih_free (message);
 }

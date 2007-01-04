@@ -1,3 +1,8 @@
+2007-01-04  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/message.c (upstart_message_reader): Handle any errors
+	that occurred while handling the message.
+
 2007-01-02  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/message.c (upstart_message_handle): Check that the name
