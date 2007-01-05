@@ -70,7 +70,7 @@ static int  control_shutdown       (pid_t pid, UpstartMessageType type,
  *
  * The NihIo being used to handle the control socket.
  **/
-NihIo *control_io = NULL;
+static NihIo *control_io = NULL;
 
 /**
  * message_handlers:
@@ -137,8 +137,9 @@ control_open_sock (void)
  * that ensures that all incoming messages are handled, outgoing messages
  * can be queued, and any errors caught and the control socket re-opened.
  *
- * This normally only needs to be called once; if you wish to call it again,
- * you need to call control_close() first.
+ * This can also be called to obtain an already open control socket; if
+ * you wish a new one, you need to call control_close() first, which will
+ * clear the send and receive queues.
  *
  * Returns: NihIo for socket on success, NULL on raised error.
  **/
@@ -147,7 +148,8 @@ control_open (void)
 {
 	int sock;
 
-	nih_assert (control_io == NULL);
+	if (control_io)
+		return control_io;
 
 	sock = control_open_sock ();
 	if (sock < 0)

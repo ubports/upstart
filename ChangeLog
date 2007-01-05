@@ -1,5 +1,9 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_open): Allow this to be called to obtain
+	the control socket, which means we can make it static.
+	* init/tests/test_control.c (test_open): Check that it works.
+
 	* init/control.c, init/control.h, init/tests/test_control.c: Move
 	functions that handle subscription and notification to new notify.c
 	(control_init): Drop completely, no need to maintain a send queue now

@@ -55,17 +55,19 @@ extern int upstart_disable_safeties;
 void
 test_open (void)
 {
-	NihIo              *io;
+	NihIo              *io, *ptr;
 	struct sockaddr_un  addr;
 	int                 val;
 	char                name[26];
 	socklen_t           len;
 
+	TEST_FUNCTION ("control_open");
+
 	/* Check that we can open the control socket, the returned structure
 	 * should be an NihIo on a non-blocking, close-on-exec socket that
 	 * matches the parameters of the upstart communication socket.
 	 */
-	TEST_FUNCTION ("control_open");
+	TEST_FEATURE ("with no open socket");
 	io = control_open ();
 
 	TEST_ALLOC_SIZE (io, sizeof (NihIo));
@@ -94,6 +96,15 @@ test_open (void)
 
 	TEST_TRUE (fcntl (io->watch->fd, F_GETFL) & O_NONBLOCK);
 	TEST_TRUE (fcntl (io->watch->fd, F_GETFD) & FD_CLOEXEC);
+
+
+	/* Check that if we call control_open() again, we get the same
+	 * structure as before.
+	 */
+	TEST_FEATURE ("with already open socket");
+	ptr = control_open ();
+
+	TEST_EQ_P (ptr, io);
 
 	control_close ();
 }
