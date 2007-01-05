@@ -47,6 +47,7 @@
 #include "event.h"
 #include "job.h"
 #include "control.h"
+#include "notify.h"
 
 
 extern int upstart_disable_safeties;
@@ -844,6 +845,326 @@ test_event_queue (void)
 }
 
 void
+test_watch_jobs (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Job                *job;
+	NotifySubscription *sub;
+
+	/* Check that we can handle a message from a child process asking us
+	 * to subscribe them to job status notifications.  We then tickle
+	 * a job so that the child gets a status notification.
+	 */
+	TEST_FUNCTION ("control_watch_jobs");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_WATCH_JOBS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Wait for job notification */
+		message = nih_io_message_recv (NULL, sock, &len);
+		upstart_message_handle_using (message, message,
+					      (UpstartMessageHandler)check_job_stopping);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (sub->pid, pid);
+	TEST_EQ (sub->notify, NOTIFY_JOBS);
+
+	notify_job (job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&job->entry);
+	nih_list_free (&sub->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+void
+test_unwatch_jobs (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Job                *job;
+	NotifySubscription *sub;
+
+	/* Check that we can handle a message from a child process asking us
+	 * to unsubscribe them from job status notifications.
+	 */
+	TEST_FUNCTION ("control_unwatch_jobs");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_WATCH_JOBS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Wait for job notification - this ensures that the parent
+		 * knows we're subscribed before we unsubscripe.
+		 */
+		message = nih_io_message_recv (NULL, sock, &len);
+		upstart_message_handle_using (message, message,
+					      (UpstartMessageHandler)check_job_stopping);
+		nih_free (message);
+
+		/* Now unsubscribe */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_UNWATCH_JOBS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (sub->pid, pid);
+	TEST_EQ (sub->notify, NOTIFY_JOBS);
+
+	notify_job (job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_EQ_P (sub, NULL);
+
+	nih_list_free (&job->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+static int
+check_event (pid_t               pid,
+	     UpstartMessageType  type,
+	     const char         *name)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT);
+	TEST_EQ_STR (name, "snarf");
+
+	return 0;
+}
+
+void
+test_watch_events (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Event              *event;
+	NotifySubscription *sub;
+
+	/* Check that we can handle a message from a child process asking us
+	 * to subscribe them to event notifications.  We then emit an event
+	 * so that the child gets a notification.
+	 */
+	TEST_FUNCTION ("control_watch_events");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_WATCH_EVENTS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Wait for event notification */
+		message = nih_io_message_recv (NULL, sock, &len);
+		upstart_message_handle_using (message, message,
+					      (UpstartMessageHandler)check_event);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (sub->pid, pid);
+	TEST_EQ (sub->notify, NOTIFY_EVENTS);
+
+	event = event_new (NULL, "snarf");
+	notify_event (event);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&event->entry);
+	nih_list_free (&sub->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+void
+test_unwatch_events (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Event              *event;
+	NotifySubscription *sub;
+
+	/* Check that we can handle a message from a child process asking us
+	 * to unsubscribe them from event notifications.
+	 */
+	TEST_FUNCTION ("control_unwatch_events");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_WATCH_EVENTS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Wait for event notification - this ensures that the parent
+		 * knows we're subscribed before we unsubscripe.
+		 */
+		message = nih_io_message_recv (NULL, sock, &len);
+		upstart_message_handle_using (message, message,
+					      (UpstartMessageHandler)check_event);
+		nih_free (message);
+
+		/* Now unsubscribe */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_UNWATCH_EVENTS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (sub->pid, pid);
+	TEST_EQ (sub->notify, NOTIFY_EVENTS);
+
+	event = event_new (NULL, "snarf");
+	notify_event (event);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_EQ_P (sub, NULL);
+
+	nih_list_free (&event->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+void
 test_shutdown (void)
 {
 	NihIo   *io;
@@ -905,6 +1226,88 @@ test_shutdown (void)
 }
 
 
+#if 0
+{
+	switch (test) {
+	case TEST_JOB_WATCH:
+		/* Send a watch-jobs message. */
+		s_msg->type = UPSTART_WATCH_JOBS;
+		upstart_send_msg_to (getppid (), sock, s_msg);
+
+		TEST_CHILD_RELEASE (fd);
+
+		/* Check that we receive a job-status response with the
+		 * full information about the job in it.
+		 */
+		r_msg = upstart_recv_msg (NULL, sock, NULL);
+
+		TEST_EQ (r_msg->type, UPSTART_JOB_STATUS);
+		TEST_EQ_STR (r_msg->name, "test");
+		TEST_EQ_STR (r_msg->description, "a test job");
+		TEST_EQ (r_msg->goal, JOB_START);
+		TEST_EQ (r_msg->state, JOB_STOPPING);
+		TEST_EQ (r_msg->process_state, PROCESS_ACTIVE);
+
+		/* Send an unwatch-jobs message. */
+		s_msg->type = UPSTART_UNWATCH_JOBS;
+		upstart_send_msg_to (getppid (), sock, s_msg);
+		break;
+	case TEST_EVENT_WATCH:
+		/* Send a watch-events message. */
+		s_msg->type = UPSTART_WATCH_EVENTS;
+		upstart_send_msg_to (getppid (), sock, s_msg);
+
+		TEST_CHILD_RELEASE (fd);
+
+		/* Check that we receive an event message. */
+		r_msg = upstart_recv_msg (NULL, sock, NULL);
+
+		TEST_EQ (r_msg->type, UPSTART_EVENT);
+		TEST_EQ_STR (r_msg->name, "snarf");
+
+		/* Send an unwatch-events message. */
+		s_msg->type = UPSTART_UNWATCH_EVENTS;
+		upstart_send_msg_to (getppid (), sock, s_msg);
+		break;
+	}
+}
+
+{
+	/* Check that a child can watch for job changes, and receive status
+	 * responses when they do (checked in child).
+	 */
+	TEST_FEATURE ("with job watch");
+	pid = test_watcher_child (TEST_JOB_WATCH);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	notify_job (job);
+
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	wait_watcher_child (pid);
+
+
+	/* Check that a child can watch for events, and receive notifications
+	 * when they occur (checked in child).
+	 */
+	TEST_FEATURE ("with event watch");
+	pid = test_watcher_child (TEST_EVENT_WATCH);
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	notify_event (event);
+
+	watch->watcher (watch->data, watch, NIH_IO_READ | NIH_IO_WRITE);
+	wait_watcher_child (pid);
+
+	nih_list_free (&job->entry);
+
+	event_queue_run ();
+}
+#endif
+
+
 int
 main (int   argc,
       char *argv[])
@@ -918,6 +1321,10 @@ main (int   argc,
 	test_job_query ();
 	test_job_list ();
 	test_event_queue ();
+	test_watch_jobs ();
+	test_unwatch_jobs ();
+	test_watch_events ();
+	test_unwatch_events ();
 	test_shutdown ();
 
 	return 0;

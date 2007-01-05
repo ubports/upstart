@@ -1,5 +1,15 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_watch_jobs, control_unwatch_jobs) 
+	(control_watch_events, control_unwatch_events): Restore functionality
+	to subscribe and unsubscribe from job and event notifications.	
+	* init/tests/test_control.c (test_watch_jobs, test_unwatch_jobs) 
+	(test_watch_events, test_unwatch_events): Check that the subscription
+	and unsubscription messages work.
+	* init/Makefile.am (test_control_LDADD): Link to notify.o
+
+	* init/control.c: Drop unused include of upstart/errors.h
+
 	* init/notify.c: Move functions that handle subscription and
 	notification from control.c.  Other than changing the names, we're
 	keeping the API the same for now; expect it to change later when we

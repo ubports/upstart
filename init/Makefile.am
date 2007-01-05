@@ -65,7 +65,7 @@ test_control_SOURCES = tests/test_control.c
 test_control_LDFLAGS = -static
 test_control_LDADD = \
 	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o
+	process.o job.o event.o control.o notify.o
 
 test_notify_SOURCES = tests/test_notify.c
 test_notify_LDFLAGS = -static

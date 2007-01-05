@@ -37,10 +37,10 @@
 #include <nih/error.h>
 
 #include <upstart/message.h>
-#include <upstart/errors.h>
 
 #include "job.h"
 #include "control.h"
+#include "notify.h"
 
 
 /* Prototypes for static functions */
@@ -522,9 +522,7 @@ control_watch_jobs (pid_t              pid,
 
 	nih_info (_("Control request to subscribe %d to jobs"), pid);
 
-	/*
-	control_subscribe (pid, NOTIFY_JOBS, TRUE);
-	*/
+	notify_subscribe (pid, NOTIFY_JOBS, TRUE);
 
 	return 0;
 }
@@ -548,9 +546,7 @@ control_unwatch_jobs (pid_t              pid,
 
 	nih_info (_("Control request to unsubscribe %d from jobs"), pid);
 
-	/*
-	control_subscribe (pid, NOTIFY_JOBS, FALSE);
-	*/
+	notify_subscribe (pid, NOTIFY_JOBS, FALSE);
 
 	return 0;
 }
@@ -574,9 +570,7 @@ control_watch_events (pid_t              pid,
 
 	nih_info (_("Control request to subscribe %d to events"), pid);
 
-	/*
-	control_subscribe (pid, NOTIFY_EVENTS, TRUE);
-	*/
+	notify_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	return 0;
 }
@@ -600,9 +594,7 @@ control_unwatch_events (pid_t              pid,
 
 	nih_info (_("Control request to unsubscribe %d from events"), pid);
 
-	/*
-	control_subscribe (pid, NOTIFY_EVENTS, FALSE);
-	*/
+	notify_subscribe (pid, NOTIFY_EVENTS, FALSE);
 
 	return 0;
 }
