@@ -157,7 +157,6 @@ test_job (void)
 	Job                *job;
 	NotifySubscription *sub;
 
-
 	/* Check that subscribed processes receive a job status message when
 	 * a job changes state.
 	 */
@@ -229,7 +228,6 @@ test_event (void)
 	int                 wait_fd, status;
 	Event              *event;
 	NotifySubscription *sub;
-
 
 	/* Check that subscribed processes receive an event message when
 	 * an event is emitted.

@@ -1,5 +1,7 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_notify.c: Whitespace fix.
+
 	* init/control.c (control_watch_jobs, control_unwatch_jobs) 
 	(control_watch_events, control_unwatch_events): Restore functionality
 	to subscribe and unsubscribe from job and event notifications.	
