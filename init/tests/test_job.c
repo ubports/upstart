@@ -43,6 +43,7 @@
 
 #include "event.h"
 #include "job.h"
+#include "control.h"
 
 
 void
@@ -889,6 +890,7 @@ test_run_script (void)
 
 	/* Loop until we've fed all of the data. */
 	first = TRUE;
+	control_close ();
 	for (;;) {
 		fd_set readfds, writefds, exceptfds;
 		int    nfds;

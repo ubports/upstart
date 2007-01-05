@@ -1,5 +1,10 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_run_script): This test case relies
+	on there only being one file descriptor watch, which won't be true
+	if the control socket has been opened because there's a message to
+	go out.  Make sure it's closed first.
+
 	* init/init.supp: Update supressions file now that control_init
 	has been renamed to notify_init
 
