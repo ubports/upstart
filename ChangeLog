@@ -1,5 +1,24 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c: Move functions that handle subscription and
+	notification from control.c.  Other than changing the names, we're
+	keeping the API the same for now; expect it to change later when we
+	add the ability to subscribe to individual jobs or events.
+	(notify_init): initialise the subscriptions list; we don't have a
+	separate send queue now that the control I/O is always asynchronous.
+	* init/notify.h: Moved notification enum, structure and prototypes
+	from control.h, changing the names so they match notify_* in the
+	process.
+	* init/Makefile.am (init_SOURCES): Build and link notify.c using
+	notify.h
+	(TESTS): Build the notify test suite binary.
+	(test_notify_SOURCES, test_notify_LDFLAGS, test_notify_LDADD): Details
+	for notify test suite binary.
+	* init/tests/test_notify.c: Rewrite test cases in the manner of
+	test_control.c so that we have one function for notify_job and
+	one for notify_event, each of which contains the child process that
+	receives the notification,
+
 	* init/control.c (control_open): Allow this to be called to obtain
 	the control socket, which means we can make it static.
 	* init/tests/test_control.c (test_open): Check that it works.

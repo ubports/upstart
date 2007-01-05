@@ -21,6 +21,7 @@ init_SOURCES = \
 	job.c job.h \
 	event.c event.h \
 	control.c control.h \
+	notify.c notify.h \
 	cfgfile.c cfgfile.h
 
 init_LDFLAGS = -static
@@ -37,6 +38,7 @@ TESTS = \
 	test_job \
 	test_event \
 	test_control \
+	test_notify \
 	test_cfgfile
 
 check_PROGRAMS = $(TESTS)
@@ -64,6 +66,12 @@ test_control_LDFLAGS = -static
 test_control_LDADD = \
 	../nih/libnih.la ../upstart/libupstart.la \
 	process.o job.o event.o control.o
+
+test_notify_SOURCES = tests/test_notify.c
+test_notify_LDFLAGS = -static
+test_notify_LDADD = \
+	../nih/libnih.la ../upstart/libupstart.la \
+	process.o job.o event.o control.o notify.o
 
 test_cfgfile_SOURCES = tests/test_cfgfile.c
 test_cfgfile_LDFLAGS = -static
