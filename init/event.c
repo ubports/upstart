@@ -37,7 +37,7 @@
 
 #include "event.h"
 #include "job.h"
-#include "control.h"
+#include "notify.h"
 
 
 /**
@@ -183,7 +183,7 @@ event_queue_run (void)
 			Event *event = (Event *)iter;
 
 			nih_debug ("Handling %s event", event->name);
-			control_handle_event (event);
+			notify_event (event);
 			job_handle_event (event);
 
 			nih_list_free (&event->entry);

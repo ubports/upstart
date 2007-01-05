@@ -1,5 +1,11 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am: Include notify.o from all tests.
+	* init/job.c (job_change_state, job_kill_process, job_start) 
+	(job_stop): Use the new notify_job function name.
+	* init/event.c (event_queue_run): Use the new notify_event function
+	name.
+
 	* init/control.c (control_error_handler): Handle ECONNREFUSED now
 	that the process id is available to us.
 	* init/tests/test_control.c (test_error_handler): Make sure children

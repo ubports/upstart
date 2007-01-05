@@ -48,7 +48,7 @@
 #include "event.h"
 #include "process.h"
 #include "job.h"
-#include "control.h"
+#include "notify.h"
 #include "paths.h"
 
 
@@ -408,7 +408,7 @@ job_change_state (Job      *job,
 		}
 
 		/* Notify subscribed processes and queue the event */
-		control_handle_job (job);
+		notify_job (job);
 		if (event) {
 			event_queue (event);
 			nih_free (event);
@@ -720,7 +720,7 @@ job_kill_process (Job *job)
 	}
 
 	job->process_state = PROCESS_KILLED;
-	control_handle_job (job);
+	notify_job (job);
 
 	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
 			  job, job->kill_timeout,
@@ -909,7 +909,7 @@ job_start (Job *job)
 	 * go the other way.
 	 */
 	if (job->state != JOB_WAITING) {
-		control_handle_job (job);
+		notify_job (job);
 		return;
 	}
 
@@ -974,7 +974,7 @@ job_start (Job *job)
 		 * made a goal change but not a state change.
 		 */
 		if (job->state == JOB_WAITING)
-			control_handle_job (job);
+			notify_job (job);
 	} else {
 		job_change_state (job, job_next_state (job));
 	}
@@ -1016,7 +1016,7 @@ job_stop (Job *job)
 	 */
 	if ((job->state != JOB_RUNNING)
 	    || (job->process_state != PROCESS_ACTIVE)) {
-		control_handle_job (job);
+		notify_job (job);
 		return;
 	}
 
