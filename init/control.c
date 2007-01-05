@@ -266,21 +266,20 @@ control_error_handler (void  *data,
 
 	switch (err->number) {
 	case ECONNREFUSED: {
-		/* FIXME need to handle connection refused somehow; that
-		 * requires the destination pid.
+		NihIoMessage *message;
 
-		pid_t pid;
+		/* Connection refused means that the process we're sending to
+		 * has closed their socket or just died.  We don't need to
+		 * error because of this, don't want to re-attempt delivery
+		 * of this message and in fact don't want to send them any
+		 * future notifications.
+		 */
+		message = (NihIoMessage *)io->send_q->next;
 
-		pid = msg->pid;
+		notify_subscribe ((pid_t)message->int_data,
+				  NOTIFY_JOBS | NOTIFY_EVENTS, FALSE);
 
-		nih_free (err);
-		nih_list_free (&msg->entry);
-
-		control_subscribe
-			(pid,
-			 NOTIFY_JOBS | NOTIFY_EVENTS,
-			 FALSE);
-		*/
+		nih_list_free (&message->entry);
 		break;
 	}
 	default:

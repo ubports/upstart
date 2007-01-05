@@ -1,5 +1,10 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_error_handler): Handle ECONNREFUSED now
+	that the process id is available to us.
+	* init/tests/test_control.c (test_error_handler): Make sure children
+	going away is handled properly.
+
 	* upstart/message.c (upstart_message_new): Store the process id in
 	the int_data message field.
 	* upstart/tests/test_message.c (test_new): Check the int_data field

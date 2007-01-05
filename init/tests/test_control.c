@@ -219,8 +219,11 @@ test_close_handler (void)
 void
 test_error_handler (void)
 {
-	NihIo *io;
-	int    fd, tmp_fd;
+	NihIo              *io;
+	pid_t               pid;
+	int                 fd, tmp_fd, wait_fd, status;
+	Job                *job;
+	NotifySubscription *sub;
 
 	TEST_FUNCTION ("control_error_handler");
 
@@ -276,6 +279,67 @@ test_error_handler (void)
 	close (tmp_fd);
 
 	nih_log_set_logger (nih_logger_printf);
+
+
+	/* Check that the error handler can handle receiving ECONNREFUSED
+	 * from a subscribed process that has gone away; the message should
+	 * be removed from the send queue, and the job's subscription
+	 * cancelled.
+	 */
+	TEST_FEATURE ("with subscribed process going away");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1000;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_WATCH_JOBS);
+		nih_io_message_send (message, sock);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (sub->pid, pid);
+	TEST_EQ (sub->notify, NOTIFY_JOBS);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	notify_job (job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+
+	TEST_EQ_P (sub, NULL);
+
+	TEST_LIST_EMPTY (io->send_q);
+
+	nih_list_free (&job->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
 }
 
 
