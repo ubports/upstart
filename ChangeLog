@@ -1,5 +1,28 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c, init/control.h, init/tests/test_control.c: Move
+	functions that handle subscription and notification to new notify.c
+	(control_init): Drop completely, no need to maintain a send queue now
+	(control_open): Change to return an NihIo that uses the default
+	control watcher, and our error handler.  Split socket opening into
+	(control_open_sock): which can be called from other functions.
+	(control_close): Use nih_io_close() to close the socket and free the
+	structure in one go.
+	(control_reopen): Close the open control socket and open it again
+	without destroying the NihIo structure, its queues or state.
+	(control_close_handler): Handle the control socket going away
+	(control_error_handler): Handle errors on the control socket,
+	including the connection refused error that indicates a client went
+	away.
+	(control_handle): Split this into a miriad of small functions with
+	a table to link them to the message type; this will make expanding
+	each message handler much easier in future.
+	* init/control.h: Update.
+	* init/tests/test_control.c: Rewrite test cases to check the new
+	handler functions; as a side-effect, this gets rid of the evil giant
+	child/parent functions in favour of one test function per handler
+	function.
+
 	* upstart/message.c (upstart_message_handle_using): Wrapper function
 	around upstart_message_handle that ensures all messages as passed to
 	a single function.
