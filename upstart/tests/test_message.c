@@ -102,6 +102,7 @@ test_new (void)
 
 	TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
+	TEST_EQ (msg->int_data, UPSTART_INIT_DAEMON);
 	TEST_EQ (msg->addrlen, offsetof (struct sockaddr_un, sun_path) + 20);
 	TEST_ALLOC_SIZE (msg->addr, sizeof (struct sockaddr_un));
 	TEST_ALLOC_PARENT (msg->addr, msg);

@@ -165,6 +165,9 @@ error:
  * The arguments after @type depend on the type of message being sent,
  * see the documentation for UpstartMessageHandler for more details.
  *
+ * The destination process id is used to construct the address member of
+ * the message, it is also stored in the int_data member for error handling.
+ *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned block will be freed too.  If you have clean-up
@@ -187,6 +190,8 @@ upstart_message_new (const void         *parent,
 	message = nih_io_message_new (parent);
 	if (! message)
 		return NULL;
+
+	message->int_data = pid;
 
 	/* Fill in the address structure */
 	message->addr = nih_new (message, struct sockaddr_un);
