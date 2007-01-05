@@ -140,19 +140,23 @@ typedef struct upstart_message {
 
 NIH_BEGIN_EXTERN
 
-int           upstart_open           (void)
+int           upstart_open                 (void)
 	__attribute__ ((warn_unused_result));
 
-NihIoMessage *upstart_message_new    (const void *parent, pid_t pid,
-				      UpstartMessageType type, ...)
+NihIoMessage *upstart_message_new          (const void *parent, pid_t pid,
+					    UpstartMessageType type, ...)
 	__attribute__ ((warn_unused_result, malloc));
 
-int           upstart_message_handle (const void *parent,
-				      NihIoMessage *message,
-				      UpstartMessage *handlers);
+int           upstart_message_handle       (const void *parent,
+					    NihIoMessage *message,
+					    UpstartMessage *handlers);
+int           upstart_message_handle_using (const void *parent,
+					    NihIoMessage *message,
+					    UpstartMessageHandler handler);
 
-void          upstart_message_reader (UpstartMessage *handlers, NihIo *io,
-				      const char *buf, size_t len);
+void          upstart_message_reader       (UpstartMessage *handlers,
+					    NihIo *io, const char *buf,
+					    size_t len);
 
 NIH_END_EXTERN
 

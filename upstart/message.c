@@ -301,6 +301,10 @@ upstart_message_handler (pid_t               pid,
  * The handler function pointer of the last entry in the @handlers list
  * should be NULL.
  *
+ * If you only require that one message handler function be called, which
+ * examines the type before retrieving arguments, use
+ * upstart_message_handle_using() instead.
+ *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for any strings allocated.  When
  * @parent is freed, those strings will be freed too.  If you have clean-up
@@ -445,6 +449,51 @@ invalid:
 	nih_error_raise (UPSTART_MESSAGE_INVALID,
 			 _(UPSTART_MESSAGE_INVALID_STR));
 	return -1;
+}
+
+/**
+ * upstart_message_handle_using:
+ * @parent: parent of any allocated strings,
+ * @message: message to be handled,
+ * @handler: handler function.
+ *
+ * Handles an NihIoMessage received from a socket, either directly through
+ * nih_io_message_recv() or taken from a queue of messages with
+ * nih_io_read_message().
+ *
+ * The message is decoded, raising UPSTART_MESSAGE_INVALID if the message
+ * was invalid.
+ *
+ * Once decoded, @handler is called passing the origin of the message, type,
+ * and a variable number of arguments that depend on the message type.
+ * This function must examine its type argument before decoding any further
+ * arguments.
+ *
+ * Where multiple types are accepted by a handler function, it's often more
+ * elegant to use a message handler table and upstart_message_handle() to
+ * dispatch each type to a specialist function,
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for any strings allocated.  When
+ * @parent is freed, those strings will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: return value from handler on success, negative value
+ * on raised error.
+ **/
+int
+upstart_message_handle_using (const void            *parent,
+			      NihIoMessage          *message,
+			      UpstartMessageHandler  handler)
+{
+	UpstartMessage handlers[2] = { { -1, -1, handler},
+				       UPSTART_MESSAGE_LAST };
+
+	nih_assert (message != NULL);
+	nih_assert (handler != NULL);
+
+	return upstart_message_handle (parent, message, handlers);
 }
 
 

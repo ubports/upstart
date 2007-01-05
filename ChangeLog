@@ -1,3 +1,12 @@
+2007-01-05  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/message.c (upstart_message_handle_using): Wrapper function
+	around upstart_message_handle that ensures all messages as passed to
+	a single function.
+	* upstart/message.h: Update.
+	* upstart/tests/test_message.c (test_handle_using): Make sure it
+	calls the single function.
+
 2007-01-04  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/message.c (upstart_message_reader): Handle any errors

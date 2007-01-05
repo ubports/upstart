@@ -927,6 +927,40 @@ test_handle (void)
 	upstart_disable_safeties = FALSE;
 }
 
+void
+test_handle_using (void)
+{
+	NihIoMessage *msg;
+	struct ucred  cred = { 1000, 1000, 1000 };
+	int           ret;
+
+	/* Check that the handler function is called for the message we
+	 * pass.
+	 */
+	TEST_FUNCTION ("upstart_message_handle_using");
+	upstart_disable_safeties = TRUE;
+	msg = nih_io_message_new (NULL);
+	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x1\0\0\0\x4test", 20);
+	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+				    sizeof (cred), &cred);
+
+	handler_called = FALSE;
+	last_pid = -1;
+	last_type = -1;
+
+	ret = upstart_message_handle_using (NULL, msg, my_handler);
+
+	TEST_EQ (ret, 0);
+	TEST_TRUE (handler_called);
+	TEST_EQ (last_pid, 1000);
+	TEST_EQ (last_type, UPSTART_JOB_START);
+
+	nih_free (msg);
+
+
+	upstart_disable_safeties = FALSE;
+}
+
 
 void
 test_reader (void)
@@ -983,6 +1017,7 @@ main (int   argc,
 	test_open ();
 	test_new ();
 	test_handle ();
+	test_handle_using ();
 	test_reader ();
 
 	return 0;
