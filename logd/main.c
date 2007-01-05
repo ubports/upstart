@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -152,7 +152,8 @@ main (int   argc,
 
 	/* Handle TERM signal gracefully */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_handler (NULL, SIGTERM, nih_main_term_signal, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
+					  nih_main_term_signal, NULL));
 
 
 	ret = nih_main_loop ();
