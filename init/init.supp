@@ -7,17 +7,6 @@
 # as there's little point doing so.
 
 {
-   control-init
-   Memcheck:Leak
-   fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
-   fun:nih_alloc
-   fun:nih_list_new
-   fun:control_init
-}
-
-{
    event-init
    Memcheck:Leak
    fun:malloc
@@ -37,4 +26,15 @@
    fun:nih_alloc
    fun:nih_list_new
    fun:job_init
+}
+
+{
+   notify-init
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:nih_alloc_using
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:notify_init
 }

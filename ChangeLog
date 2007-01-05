@@ -1,5 +1,8 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: Update supressions file now that control_init
+	has been renamed to notify_init
+
 	* init/Makefile.am: Include notify.o from all tests.
 	* init/job.c (job_change_state, job_kill_process, job_start) 
 	(job_stop): Use the new notify_job function name.
