@@ -149,7 +149,8 @@ main (int   argc,
 	for (i = 0; i < 3; i++)
 		close (i);
 
-	process_setup_console (NULL, CONSOLE_OUTPUT);
+	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
+		nih_free (nih_error_get ());
 	if (! restart)
 		reset_console ();
 
@@ -169,33 +170,37 @@ main (int   argc,
 	nih_signal_set_handler (SIGSEGV,  segv_handler);
 
 	/* Ensure that we don't process events while paused */
-	nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL);
-	nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL));
+	NIH_MUST (nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL));
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
 	reboot (RB_DISABLE_CAD);
-	nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
 	 * generate a kbdrequest event.
 	 */
-	ioctl (0, KDSIGACCEPT, SIGWINCH);
-	nih_signal_add_handler (NULL, SIGWINCH, kbd_handler, NULL);
+	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0)
+		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
+						  kbd_handler, NULL));
 
 	/* SIGTERM instructs us to re-exec ourselves */
-	nih_signal_add_handler (NULL, SIGTERM,
-				(NihSignalHandler)term_handler, argv[0]);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
+					  (NihSignalHandler)term_handler,
+					  argv[0]));
 
 
 	/* Reap all children that die */
-	nih_child_add_watch (NULL, -1, job_child_reaper, NULL);
+	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
 
 	/* Process the event queue and check the jobs for idleness
 	 * every time through the main loop */
-	nih_main_loop_add_func (NULL, (NihMainLoopCb)event_queue_run, NULL);
-	nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle, NULL);
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_queue_run,
+					  NULL));
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle,
+					  NULL));
 
 
 	/* Become session and process group leader (should be already,
@@ -204,10 +209,25 @@ main (int   argc,
 	setsid ();
 
 	/* Open control socket */
-	control_open ();
+	if (! control_open ()) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Unable to open control socket"),
+			   err->message);
+		nih_free (err);
+	}
 
 	/* Read configuration */
-	cfg_watch_dir (NULL, CFG_DIR, NULL);
+	if (cfg_watch_dir (NULL, CFG_DIR, NULL) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s",
+			   _("Unable to watch configuration directory"),
+			   err->message);
+		nih_free (err);
+	}
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);

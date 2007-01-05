@@ -1,5 +1,8 @@
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Guard against various things returning an error
+	that we weren't catching.
+
 	* init/tests/test_notify.c: Whitespace fix.
 
 	* init/control.c (control_watch_jobs, control_unwatch_jobs) 
