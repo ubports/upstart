@@ -297,7 +297,8 @@ upstart_message_handler (pid_t               pid,
  * nih_io_read_message().
  *
  * The message is decoded, raising UPSTART_MESSAGE_INVALID if the message
- * was invalid.
+ * was invalid or UPSTART_MESSAGE_ILLEGAL if the origin is not permitted
+ * to communicate.
  *
  * Once decoded, the appropriate function from the @handlers list is called,
  * passing the origin of the message, type, and a variable number of
@@ -305,6 +306,8 @@ upstart_message_handler (pid_t               pid,
  *
  * The handler function pointer of the last entry in the @handlers list
  * should be NULL.
+ *
+ * If no handler function can be found, UPSTART_MESSAGE_UNKNOWN is raised.
  *
  * If you only require that one message handler function be called, which
  * examines the type before retrieving arguments, use
@@ -364,15 +367,15 @@ upstart_message_handle (const void     *parent,
 	 */
 	if (! upstart_disable_safeties) {
 		if (cred.pid == 0)
-			goto invalid;
+			goto illegal;
 
 		if ((cred.pid != UPSTART_INIT_DAEMON)
 		    && (cred.pid != getpid ())
 		    && (getpid () != UPSTART_INIT_DAEMON))
-			goto invalid;
+			goto illegal;
 
 		if ((cred.uid != 0) && (cred.uid != getuid ()))
-			goto invalid;
+			goto illegal;
 	}
 
 
@@ -382,9 +385,15 @@ upstart_message_handle (const void     *parent,
 	if (upstart_pop_header (message, &type))
 		goto invalid;
 
+	/* Obtain the handler from the table given, if we don't find one,
+	 * we raise an error.
+	 */
 	handler = upstart_message_handler (cred.pid, type, handlers);
-	if (! handler)
-		return 0;
+	if (! handler) {
+		nih_error_raise (UPSTART_MESSAGE_UNKNOWN,
+				 _(UPSTART_MESSAGE_UNKNOWN_STR));
+		return -1;
+	}
 
 	/* Message type determines message payload and thus
 	 * handler arguments
@@ -450,6 +459,10 @@ upstart_message_handle (const void     *parent,
 
 	return ret;
 
+illegal:
+	nih_error_raise (UPSTART_MESSAGE_ILLEGAL,
+			 _(UPSTART_MESSAGE_ILLEGAL_STR));
+	return -1;
 invalid:
 	nih_error_raise (UPSTART_MESSAGE_INVALID,
 			 _(UPSTART_MESSAGE_INVALID_STR));

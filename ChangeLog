@@ -1,5 +1,12 @@
 2007-01-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_handle): Raise a new unknown
+	message error if we don't have a handler  and a new illegal message
+	error if the source is illegal.
+	* upstart/tests/test_message.c (test_handle): Adjust tests to check
+	for the new errors that we raise.
+	* upstart/errors.h: Define strings for new errors.
+
 	* util/initctl.c: Yet another makeover for this little program,
 	port it to the new message/control framework using handler functions
 	and NihIoMessage.  This starts to make each action function look

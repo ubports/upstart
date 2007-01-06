@@ -809,7 +809,7 @@ test_handle (void)
 
 
 	/* Check that no handler is called if the message doesn't come from
-	 * the right pid.
+	 * the right pid and the unknown message error is raised instead.
 	 */
 	TEST_FEATURE ("with message from unexpected pid");
 	cred.pid = 1234;
@@ -825,8 +825,14 @@ test_handle (void)
 
 	ret = upstart_message_handle (NULL, msg, no_op_handler);
 
-	TEST_EQ (ret, 0);
+	TEST_LT (ret, 0);
 	TEST_FALSE (handler_called);
+
+	err = nih_error_get ();
+
+	TEST_EQ (err->number, UPSTART_MESSAGE_UNKNOWN);
+
+	nih_free (err);
 
 	nih_free (msg);
 
@@ -846,8 +852,14 @@ test_handle (void)
 
 	ret = upstart_message_handle (NULL, msg, no_op_handler);
 
-	TEST_EQ (ret, 0);
+	TEST_LT (ret, 0);
 	TEST_FALSE (handler_called);
+
+	err = nih_error_get ();
+
+	TEST_EQ (err->number, UPSTART_MESSAGE_UNKNOWN);
+
+	nih_free (err);
 
 	nih_free (msg);
 
@@ -926,6 +938,37 @@ test_handle (void)
 
 
 	upstart_disable_safeties = FALSE;
+
+
+	/* Check that the illegal source error is raised if the message
+	 * comes from a bad source.
+	 */
+	TEST_FEATURE ("with illegal source");
+	cred.pid = 1234;
+	cred.uid = 999;
+	cred.gid = 876;
+
+	msg = nih_io_message_new (NULL);
+	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12);
+	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+				    sizeof (cred), &cred);
+
+	handler_called = FALSE;
+	last_pid = -1;
+	last_type = -1;
+
+	ret = upstart_message_handle (NULL, msg, no_op_handler);
+
+	TEST_LT (ret, 0);
+	TEST_FALSE (handler_called);
+
+	err = nih_error_get ();
+
+	TEST_EQ (err->number, UPSTART_MESSAGE_ILLEGAL);
+
+	nih_free (err);
+
+	nih_free (msg);
 }
 
 void
