@@ -274,7 +274,7 @@ logging_reader (void       *data,
 		const char *buf,
 		size_t      len)
 {
-	size_t  namelen, len;
+	size_t  sizelen, namelen;
 	char   *name;
 
 	nih_assert (io != NULL);
@@ -292,8 +292,8 @@ logging_reader (void       *data,
 		return;
 
 	/* Read the size and discard it */
-	len = sizeof (size_t);
-	NIH_MUST (name = nih_io_read (io, io, &len));
+	sizelen = sizeof (size_t);
+	NIH_MUST (name = nih_io_read (io, io, &sizelen));
 	nih_free (name);
 
 	/* Read the name from the buffer, change the function to be a
@@ -382,7 +382,6 @@ line_reader (const char *name,
 		 * open at this point (failed to open or failed to write)
 		 */
 		if (! log_file) {
-			size_t len;
 			if (! log_buffer)
 				NIH_MUST (log_buffer
 					  = nih_io_buffer_new (NULL));
