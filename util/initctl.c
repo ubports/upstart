@@ -586,7 +586,7 @@ static int handle_job_status (pid_t               pid,
 				  process_state_name (process_state)));
 	} else {
 		NIH_MUST (extra = nih_sprintf (
-				  NULL, ", process %d %s", pid,
+				  NULL, ", process %d %s", process,
 				  process_state_name (process_state)));
 	}
 
