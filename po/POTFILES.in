@@ -1,6 +1,7 @@
 # List of source files which contain translatable strings.
 nih/alloc.c
 nih/child.c
+nih/command.c
 nih/error.c
 nih/file.c
 nih/hash.c
@@ -15,8 +16,9 @@ nih/timer.c
 
 nih/errors.h
 
-upstart/control.c
 upstart/job.c
+upstart/message.c
+upstart/wire.c
 
 upstart/errors.h
 
