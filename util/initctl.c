@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,13 +38,48 @@
 #include <nih/error.h>
 
 #include <upstart/job.h>
-#include <upstart/control.h>
+#include <upstart/message.h>
 
 
 /* Prototypes for static functions */
-static int  open_socket      (void);
-static void print_job_status (UpstartMsg *reply);
-static void print_event      (UpstartMsg *reply);
+static int handle_job_status   (pid_t pid, UpstartMessageType type,
+				const char *name, JobGoal goal, JobState state,
+				ProcessState process_state, pid_t process,
+				const char *description);
+static int handle_job_unknown  (pid_t pid, UpstartMessageType type,
+				const char *name);
+static int handle_job_list_end (pid_t pid, UpstartMessageType type);
+static int handle_event        (pid_t pid, UpstartMessageType type,
+				const char *name);
+
+
+/**
+ * control_sock:
+ *
+ * Control socket opened by the main function for communication with the
+ * init daemon.
+ **/
+static int control_sock;
+
+
+/**
+ * handlers:
+ *
+ * Functions to be called when we receive replies from the server.
+ **/
+static UpstartMessage handlers[] = {
+	{ UPSTART_INIT_DAEMON, UPSTART_JOB_STATUS,
+	  (UpstartMessageHandler)handle_job_status },
+	{ UPSTART_INIT_DAEMON, UPSTART_JOB_UNKNOWN,
+	  (UpstartMessageHandler)handle_job_unknown },
+	{ UPSTART_INIT_DAEMON, UPSTART_JOB_LIST_END,
+	  (UpstartMessageHandler)handle_job_list_end },
+	{ UPSTART_INIT_DAEMON, UPSTART_EVENT,
+	  (UpstartMessageHandler)handle_event },
+
+	UPSTART_MESSAGE_LAST
+};
+
 
 
 /**
@@ -71,8 +106,8 @@ static int
 start_action (NihCommand   *command,
 	      char * const *args)
 {
+	NihError     *err;
 	char * const *arg;
-	int           sock;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
@@ -83,61 +118,51 @@ start_action (NihCommand   *command,
 		exit (1);
 	}
 
-	sock = open_socket ();
-
 	/* Iterate job names */
 	for (arg = args; *arg; arg++) {
-		UpstartMsg msg, *reply;
+		NihIoMessage *message, *reply;
+		size_t        len;
 
 		/* Build the message to send */
 		if (! strcmp (command->command, "start")) {
-			msg.type = UPSTART_JOB_START;
-			msg.name = *arg;
+			NIH_MUST (message = upstart_message_new (
+					  NULL, UPSTART_INIT_DAEMON,
+					  UPSTART_JOB_START, *arg));
 		} else if (! strcmp (command->command, "stop")) {
-			msg.type = UPSTART_JOB_STOP;
-			msg.name = *arg;
+			NIH_MUST (message = upstart_message_new (
+					  NULL, UPSTART_INIT_DAEMON,
+					  UPSTART_JOB_STOP, *arg));
 		} else if (! strcmp (command->command, "status")) {
-			msg.type = UPSTART_JOB_QUERY;
-			msg.name = *arg;
+			NIH_MUST (message = upstart_message_new (
+					  NULL, UPSTART_INIT_DAEMON,
+					  UPSTART_JOB_QUERY, *arg));
+		} else {
+			nih_assert_not_reached ();
 		}
 
 		/* Send the message */
-		if (upstart_send_msg (sock, &msg) < 0) {
-			NihError *err;
+		if (nih_io_message_send (message, control_sock) < 0)
+			goto error;
 
-			err = nih_error_get ();
-			nih_error (_("Unable to send message: %s"),
-				   err->message);
-			exit (1);
-		}
+		/* Wait for a single reply */
+		reply = nih_io_message_recv (message, control_sock, &len);
+		if (! reply)
+			goto error;
 
-		/* Wait for the reply */
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
+		if (upstart_message_handle (reply, reply, handlers) < 0)
+			goto error;
 
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_JOB_STATUS:
-			print_job_status (reply);
-			break;
-		case UPSTART_JOB_UNKNOWN:
-			nih_warn (_("unknown job: %s\n"), reply->name);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
-
-		nih_free (reply);
+		nih_free (message);
 	}
 
 	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error (_("Communication error: %s"), err->message);
+	nih_free (err);
+
+	exit (1);
 }
 
 
@@ -163,59 +188,51 @@ static int
 list_action (NihCommand   *command,
 	     char * const *args)
 {
-	UpstartMsg msg;
-	int        sock, receive_replies;
+	NihIoMessage *message;
+	NihError     *err;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-	sock = open_socket ();
-
-	msg.type = UPSTART_JOB_LIST;
+	NIH_MUST (message = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+						 UPSTART_JOB_LIST));
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
+	if (nih_io_message_send (message, control_sock) < 0)
+		goto error;
 
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"), err->message);
-		exit (1);
-	}
+	/* Handle replies until a handler exits with a non-zero value,
+	 * indicating either an error or the list end.
+	 */
+	for (;;) {
+		NihIoMessage *reply;
+		size_t        len;
+		int           ret;
 
-	/* Receive all replies */
-	receive_replies = 1;
-	while (receive_replies) {
-		UpstartMsg *reply;
+		reply = nih_io_message_recv (message, control_sock, &len);
+		if (! reply)
+			goto error;
 
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_JOB_STATUS:
-			print_job_status (reply);
+		ret = upstart_message_handle (reply, reply, handlers);
+		if (ret < 0) {
+			goto error;
+		} else if (ret > 0) {
 			break;
-		case UPSTART_JOB_LIST_END:
-			receive_replies = 0;
-			break;
-		case UPSTART_JOB_UNKNOWN:
-			nih_warn (_("unknown job: %s\n"), reply->name);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
 		}
 
 		nih_free (reply);
 	}
 
+	nih_free (message);
+
 	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error (_("Communication error: %s"), err->message);
+	nih_free (err);
+
+	exit (1);
 }
 
 
@@ -242,8 +259,8 @@ static int
 emit_action (NihCommand   *command,
 	     char * const *args)
 {
-	UpstartMsg msg;
-	int        sock;
+	NihIoMessage *message;
+	NihError     *err;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
@@ -254,27 +271,34 @@ emit_action (NihCommand   *command,
 		exit (1);
 	}
 
-	sock = open_socket ();
-
 	if (! strcmp (command->command, "emit")) {
-		msg.type = UPSTART_EVENT_QUEUE;
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_EVENT_QUEUE, args[0]));
 	} else if (! strcmp (command->command, "trigger")) {
-		msg.type = UPSTART_EVENT_QUEUE;
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_EVENT_QUEUE, args[0]));
 	} else if (! strcmp (command->command, "shutdown")) {
-		msg.type = UPSTART_SHUTDOWN;
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_SHUTDOWN,
+				  UPSTART_EVENT_QUEUE, args[0]));
 	}
-	msg.name = args[0];
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
+	if (nih_io_message_send (message, control_sock) < 0)
+		goto error;
 
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"), err->message);
-		exit (1);
-	}
+	nih_free (message);
 
 	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error (_("Communication error: %s"), err->message);
+	nih_free (err);
+
+	exit (1);
 }
 
 
@@ -301,53 +325,44 @@ static int
 jobs_action (NihCommand   *command,
 	     char * const *args)
 {
-	UpstartMsg msg;
-	int        sock;
+	NihIoMessage *message;
+	NihError     *err;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-	sock = open_socket ();
-
-	msg.type = UPSTART_WATCH_JOBS;
+	NIH_MUST (message = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+						 UPSTART_WATCH_JOBS));
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"),
-			   err->message);
-		exit (1);
-	}
+	if (nih_io_message_send (message, control_sock) < 0)
+		goto error;
 
 	/* Receive all replies */
 	for (;;) {
-		UpstartMsg *reply;
+		NihIoMessage *reply;
+		size_t        len;
 
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
+		reply = nih_io_message_recv (message, control_sock, &len);
+		if (! reply)
+			goto error;
 
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_JOB_STATUS:
-			print_job_status (reply);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
+		if (upstart_message_handle (reply, reply, handlers) < 0)
+			goto error;
 
 		nih_free (reply);
 	}
 
+	nih_free (message);
+
 	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error (_("Communication error: %s"), err->message);
+	nih_free (err);
+
+	exit (1);
 }
 
 
@@ -374,53 +389,44 @@ static int
 events_action (NihCommand   *command,
 	       char * const *args)
 {
-	UpstartMsg msg;
-	int        sock;
+	NihIoMessage *message;
+	NihError     *err;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-	sock = open_socket ();
-
-	msg.type = UPSTART_WATCH_EVENTS;
+	NIH_MUST (message = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+						 UPSTART_WATCH_EVENTS));
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"),
-			   err->message);
-		exit (1);
-	}
+	if (nih_io_message_send (message, control_sock) < 0)
+		goto error;
 
 	/* Receive all replies */
 	for (;;) {
-		UpstartMsg *reply;
+		NihIoMessage *reply;
+		size_t        len;
 
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
+		reply = nih_io_message_recv (message, control_sock, &len);
+		if (! reply)
+			goto error;
 
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_EVENT:
-			print_event (reply);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
+		if (upstart_message_handle (reply, reply, handlers) < 0)
+			goto error;
 
 		nih_free (reply);
 	}
 
+	nih_free (message);
+
 	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error (_("Communication error: %s"), err->message);
+	nih_free (err);
+
+	exit (1);
 }
 
 
@@ -512,25 +518,6 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	ret = nih_command_parser (NULL, argc, argv, options, commands);
-
-	return ret;
-}
-
-
-/**
- * open_socket:
- *
- * Open a connection to the upstart daemon, this will exit the process if
- * not successful.
- *
- * Returns: socket or exits.
- **/
-static int
-open_socket (void)
-{
-	int sock;
-
 	/* Check we're root */
 	setuid (geteuid ());
 	if (getuid ()) {
@@ -539,8 +526,8 @@ open_socket (void)
 	}
 
 	/* Connect to the daemon */
-	sock = upstart_open ();
-	if (sock < 0) {
+	control_sock = upstart_open ();
+	if (control_sock < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -549,55 +536,134 @@ open_socket (void)
 		exit (1);
 	}
 
-	return sock;
+	ret = nih_command_parser (NULL, argc, argv, options, commands);
+
+	return ret;
 }
 
 
 /**
- * print_job_status:
- * @reply: message received.
+ * handle_job_status:
+ * @pid: origin of message,
+ * @type: message type,
+ * @name: name of job,
+ * @goal: current goal,
+ * @state: state of job,
+ * @process_state: state of current process,
+ * @pid: process id,
+ * @description: description of job.
  *
- * Output job status information received from the init daemon.
+ * Function called on receipt of a message containing the status of a job,
+ * either as a result of changing the goal, querying the state or as part
+ * of a list of jobs.
+ *
+ * Builds a single-line string describing the message and outputs it.
+ *
+ * Returns: zero on success, negative value on error.
  **/
-static void
-print_job_status (UpstartMsg *reply)
+static int handle_job_status (pid_t               pid,
+			      UpstartMessageType  type,
+			      const char         *name,
+			      JobGoal             goal,
+			      JobState            state,
+			      ProcessState        process_state,
+			      pid_t               process,
+			      const char         *description)
 {
 	char *extra;
 
-	nih_assert (reply != NULL);
-	nih_assert (reply->type == UPSTART_JOB_STATUS);
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_STATUS);
+	nih_assert (name != NULL);
 
-	if (reply->state == JOB_WAITING) {
-		extra = nih_strdup (NULL, "");
+	if (state == JOB_WAITING) {
+		NIH_MUST (extra = nih_strdup (NULL, ""));
 
-	} else if ((reply->process_state == PROCESS_SPAWNED)
-		   || (reply->process_state == PROCESS_NONE)) {
-		extra = nih_sprintf (NULL, ", process %s",
-				     process_state_name (reply->process_state));
+	} else if ((process_state == PROCESS_SPAWNED)
+		   || (process_state == PROCESS_NONE)) {
+		NIH_MUST (extra = nih_sprintf (
+				  NULL, ", process %s",
+				  process_state_name (process_state)));
 	} else {
-		extra = nih_sprintf (NULL, ", process %d %s", reply->pid,
-				     process_state_name (reply->process_state));
+		NIH_MUST (extra = nih_sprintf (
+				  NULL, ", process %d %s", pid,
+				  process_state_name (process_state)));
 	}
 
-	nih_message ("%s (%s) %s%s", reply->name, job_goal_name (reply->goal),
-		     job_state_name (reply->state), extra);
+	nih_message ("%s (%s) %s%s", name, job_goal_name (goal),
+		     job_state_name (state), extra);
 
 	nih_free (extra);
+
+	return 0;
 }
 
+/**
+ * handle_job_unknown:
+ * @pid: origin of message,
+ * @type: message type,
+ * @name: name of job.
+ *
+ * Function called on receipt of a message alerting us to an unknown job
+ * in an attempt to change the goal or query the state.
+ *
+ * Outputs a warning message containing the job name.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int handle_job_unknown  (pid_t               pid,
+				UpstartMessageType  type,
+				const char         *name)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_UNKNOWN);
+	nih_assert (name != NULL);
+
+	nih_warn (_("unknown job: %s\n"), name);
+
+	return 0;
+}
 
 /**
- * print_event:
- * @reply: message received.
+ * handle_job_list_end:
+ * @pid: origin of message,
+ * @type: message type.
  *
- * Output the name of an event in a notification received from the
- * init daemon.
+ * Function called on receipt of a message indicating the end of a job list.
+ *
+ * Returns: positive value to end loop.
  **/
-static void
-print_event (UpstartMsg *reply)
+static int handle_job_list_end (pid_t              pid,
+				UpstartMessageType type)
 {
-	nih_assert (reply != NULL);
-	nih_assert (reply->type == UPSTART_EVENT);
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_LIST_END);
 
-	nih_message (_("%s event"), reply->name);
+	return 1;
+}
+
+/**
+ * handle_event:
+ * @pid: origin of message,
+ * @type: message type,
+ * @name: name of event.
+ *
+ * Function called on receipt of a message notifying us of an event
+ * emission.
+ *
+ * Builds a single-line string describing the event and outputs it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int handle_event (pid_t               pid,
+			 UpstartMessageType  type,
+			 const char         *name)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_EVENT);
+	nih_assert (name != NULL);
+
+	nih_message (_("%s event"), name);
+
+	return 0;
 }

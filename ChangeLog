@@ -1,3 +1,10 @@
+2007-01-06  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c: Yet another makeover for this little program,
+	port it to the new message/control framework using handler functions
+	and NihIoMessage.  This starts to make each action function look
+	very similar, so there's method to this madness.
+
 2007-01-05  Scott James Remnant  <scott@netsplit.com>
 
 	* logd/main.c (main): Make sure that we add the SIGTERM handler.
