@@ -1,5 +1,7 @@
 2007-01-06  Scott James Remnant  <scott@netsplit.com>
 
+	* ca.po, fr.po, sv.po: Update line numbers.
+
 	* POTFILES.in: Add nih/command.c, remove upstart/control.c and
 	replace with upstart/message.c and upstart/wire.c
 
