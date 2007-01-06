@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -44,12 +44,13 @@
 #include <nih/timer.h>
 #include <nih/string.h>
 #include <nih/signal.h>
+#include <nih/io.h>
 #include <nih/main.h>
 #include <nih/option.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/control.h>
+#include <upstart/message.h>
 
 
 /**
@@ -447,8 +448,8 @@ event_setter (NihOption  *option,
 static void
 shutdown_now (void)
 {
-	UpstartMsg msg;
-	int        sock;
+	NihIoMessage *message;
+	int           sock;
 
 	/* Connect to the daemon */
 	sock = upstart_open ();
@@ -462,11 +463,11 @@ shutdown_now (void)
 	}
 
 	/* Build the message to send */
-	msg.type = UPSTART_SHUTDOWN;
-	msg.name = event;
+	NIH_MUST (message = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+						 UPSTART_SHUTDOWN, event));
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
+	if (nih_io_message_send (message, sock) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();

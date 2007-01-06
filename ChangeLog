@@ -1,5 +1,9 @@
 2007-01-06  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/telinit.c: Oops, nearly forgot to port this to send
+	the messages in the new way.
+	* compat/sysv/shutdown.c (shutdown_now): Likewise, port this too.
+
 	* TODO: Update.
 
 	* util/initctl.c (handle_job_status): Output the process argument,

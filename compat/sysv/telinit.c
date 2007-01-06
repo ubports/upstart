@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,13 +29,15 @@
 #include <unistd.h>
 
 #include <nih/macros.h>
+#include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/io.h>
 #include <nih/main.h>
 #include <nih/option.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/control.h>
+#include <upstart/message.h>
 
 
 /**
@@ -56,9 +58,9 @@ int
 main (int   argc,
       char *argv[])
 {
-	char       **args;
-	UpstartMsg   msg;
-	int          sock;
+	char         **args, *name;
+	NihIoMessage  *message;
+	int            sock;
 
 	nih_main_init (argv[0]);
 
@@ -93,19 +95,28 @@ main (int   argc,
 	case '3':
 	case '4':
 	case '5':
-		msg.type = UPSTART_EVENT_QUEUE;
-		msg.name = nih_sprintf (NULL, "runlevel-%c", args[0][0]);
+		NIH_MUST (name = nih_sprintf (NULL, "runlevel-%c",
+					      args[0][0]));
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_EVENT_QUEUE, name));
+		nih_free (name);
 		break;
 	case '0':
 	case '1':
 	case '6':
-		msg.type = UPSTART_SHUTDOWN;
-		msg.name = nih_sprintf (NULL, "runlevel-%c", args[0][0]);
+		NIH_MUST (name = nih_sprintf (NULL, "runlevel-%c",
+					      args[0][0]));
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_SHUTDOWN, name));
+		nih_free (name);
 		break;
 	case 'S':
 	case 's':
-		msg.type = UPSTART_SHUTDOWN;
-		msg.name = "runlevel-S";
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_SHUTDOWN, "runlevel-S"));
 		break;
 	default:
 		/* Ignore other arguments */
@@ -125,7 +136,7 @@ main (int   argc,
 	}
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
+	if (nih_io_message_send (message, sock) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
