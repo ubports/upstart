@@ -1,6 +1,15 @@
 High Priority:
 
- * shutdown and telinit need updated message passing
+ * allow "" as a catch-all in the config stanza list?
+
+ * fix config file test suite to be per-stanza/function
+
+ * various job structure member names are bogus (pidfile -> pid_file, etc.)
+
+ * consider renaming daemon to "forks" or similar?
+
+ * ban using respawn/daemon as a shortcut?
+
 
  * need a sigjmp out of the segv handler
 
@@ -24,9 +33,6 @@ High Priority:
    job at that point (stop it and delete it)
 
  * Configuration files can be moved.
-
- * Move config file parsing code into libupstart and just have a stanza
-   callback function (so we can use it for all config file stuff)
 
  * config files don't get read if inotify not used.
 

@@ -1,3 +1,20 @@
+2007-01-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c: Rewrite using the nih_config API, rather than one
+	huge function we now just have seperate handler functions for each
+	stanza.  We can also use more fine-grained parsing than slurping
+	all args in and counting them.
+	(cfg_read_job): Catch exceptions from the configuration parser and
+	add the line number where the problem occurred to an output message.
+	Parser errors are now fatal, and not ignored.
+	* init/errors.h: Add a file containing errors raised within the init
+	daemon codebase.
+	* init/Makefile.am (init_SOURCES): Build with errors.h
+	* init/tests/test_cfgfile.c: Update test cases now we don't expect
+	a job to be returned if there's a parser error.
+
+	* TODO: Update
+
 2007-01-06  Scott James Remnant  <scott@netsplit.com>
 
 	* logd/main.c (logging_reader): Fix inadvertent shadowing of the

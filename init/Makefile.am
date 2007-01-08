@@ -16,7 +16,7 @@ sbin_PROGRAMS = init
 
 init_SOURCES = \
 	main.c \
-	paths.h \
+	errors.h paths.h \
 	process.c process.h \
 	job.c job.h \
 	event.c event.h \
