@@ -41,11 +41,11 @@
 /* Macro to aid us in testing the output which includes the program name
  * and filename.
  */
-#define TEST_ERROR_EQ(_text) \
+#define TEST_ERROR_EQ(_file, _text) \
 	do { \
 		char text[512]; \
 		sprintf (text, "%s:%s:%s", program_name, filename, (_text)); \
-		TEST_FILE_EQ (output, text); \
+		TEST_FILE_EQ (_file, text); \
 	} while (0);
 
 
@@ -738,7 +738,7 @@ test_read_job (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ ("1: Unterminated quoted string\n");
+	TEST_ERROR_EQ (output, "1: Unterminated quoted string\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -759,7 +759,7 @@ test_read_job (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ ("1: Trailing slash in file\n");
+	TEST_ERROR_EQ (output, "1: Trailing slash in file\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -782,7 +782,7 @@ test_read_job (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ ("5: Unterminated block\n");
+	TEST_ERROR_EQ (output, "5: Unterminated block\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -803,7 +803,7 @@ test_read_job (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (" 'exec' or 'script' must be specified\n");
+	TEST_ERROR_EQ (output, " 'exec' or 'script' must be specified\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -828,7 +828,8 @@ test_read_job (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (" only one of 'exec' and 'script' may be specified\n");
+	TEST_ERROR_EQ (output,
+		       " only one of 'exec' and 'script' may be specified\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -852,9 +853,12 @@ test_read_job (void)
 	}
 	rewind (output);
 
-	TEST_ERROR_EQ (" 'respawn script' ignored unless 'respawn' specified\n");
-	TEST_ERROR_EQ (" 'pid file' ignored unless 'respawn' specified\n");
-	TEST_ERROR_EQ (" 'pid binary' ignored unless 'respawn' specified\n");
+	TEST_ERROR_EQ (output,
+		       " 'respawn script' ignored unless 'respawn' specified\n");
+	TEST_ERROR_EQ (output,
+		       " 'pid file' ignored unless 'respawn' specified\n");
+	TEST_ERROR_EQ (output,
+		       " 'pid binary' ignored unless 'respawn' specified\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -873,7 +877,7 @@ test_read_job (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (" unable to read: No such file or directory\n");
+	TEST_ERROR_EQ (output, " unable to read: No such file or directory\n");
 	TEST_FILE_END (output);
 
 
@@ -1000,8 +1004,188 @@ test_stanza_emits (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ ("2: Expected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
+
+	fclose (output);
+}
+
+void
+test_stanza_normalexit (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_normalexit");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a normalexit stanza with a single argument results in
+	 * the exit code given being added to the normalexit array, which
+	 * should be allocated.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit 99\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 1);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a normalexit stanza with multiple arguments results in
+	 * all of the given exit codes being added to the array, which should
+	 * have been increased in size.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit 99 100 101\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 3);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+	TEST_EQ (job->normalexit[1], 100);
+	TEST_EQ (job->normalexit[2], 101);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated normalexit stanzas are permitted, each
+	 * appending to the array.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit 99\n");
+	fprintf (jf, "normalexit 100 101\n");
+	fprintf (jf, "normalexit 900\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 4);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+	TEST_EQ (job->normalexit[1], 100);
+	TEST_EQ (job->normalexit[2], 101);
+	TEST_EQ (job->normalexit[3], 900);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a normalexit stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normalexit stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normalexit stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normalexit stanza with a negative value results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
 
 	fclose (output);
 }
@@ -1013,6 +1197,7 @@ main (int   argc,
 {
 	test_read_job ();
 	test_stanza_emits ();
+	test_stanza_normalexit ();
 
 	return 0;
 }

@@ -1104,8 +1104,12 @@ cfg_stanza_kill (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a normalexit stanza from @file, extracting the arguments as
- * exit codes that the job considers normal.
+ * Parse a normalexit stanza from @file.  This stanza expects one or more
+ * arguments giving exit codes that the main process can return and be
+ * considered to have been stopped normally.
+ *
+ * Arguments are stored in the normalexit array, and the normalexit_len
+ * value updated.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1117,37 +1121,31 @@ cfg_stanza_normalexit (Job             *job,
 		       size_t          *pos,
 		       size_t          *lineno)
 {
-	char **args, **arg;
-
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	args = nih_config_parse_args (NULL, file, len, pos, lineno);
-	if (! args)
-		return -1;
+	if (! nih_config_has_token (file, len, pos, lineno))
+		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
-	if (! *args) {
-		nih_error_raise (NIH_CONFIG_EXPECTED_TOKEN,
-				 _(NIH_CONFIG_EXPECTED_TOKEN_STR));
-		nih_free (args);
-		return -1;
-	}
-
-	for (arg = args; *arg; arg++) {
+	while (nih_config_has_token (file, len, pos, lineno)) {
 		unsigned long  status;
-		char          *endptr;
+		char          *arg, *endptr;
 		int           *new_ne;
 
-		status = strtoul (*arg, &endptr, 10);
-		if (*endptr || (status > INT_MAX)) {
-			nih_error_raise (CFG_ILLEGAL_VALUE,
-					 _(CFG_ILLEGAL_VALUE_STR));
-			nih_free (args);
+		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! arg)
 			return -1;
-		}
 
+		status = strtoul (arg, &endptr, 10);
+		if (*endptr || (status > INT_MAX)) {
+			nih_free (arg);
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+		nih_free (arg);
 
 		NIH_MUST (new_ne = nih_realloc (job->normalexit, job,
 						sizeof (int) *
@@ -1157,9 +1155,7 @@ cfg_stanza_normalexit (Job             *job,
 		job->normalexit[job->normalexit_len++] = (int) status;
 	}
 
-	nih_free (args);
-
-	return 0;
+	return nih_config_skip_comment (file, len, pos, lineno);
 }
 
 /**

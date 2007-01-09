@@ -1,5 +1,14 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_normalexit): Change to peek at the next
+	token to see whether it's missing or not, and then just fetch each
+	next argument at a time.  This is more efficient than parsing them
+	all in one go, and also means we can report the error in the right
+	place!
+	* init/tests/test_cfgfile.c (test_stanza_normalexit): Since we've
+	changed the function that parses the stanza, add a proper test case
+	function for it, covering all the behaviours.
+
 	* init/job.c (job_new): Initialise the emits member to an empty list.
 	* init/job.h (Job): Add the emits member as a list.
 	* init/tests/test_job.c (test_new): Check the emits list starts off
