@@ -78,6 +78,9 @@ static int  cfg_stanza_author      (Job *job, NihConfigStanza *stanza,
 static int  cfg_stanza_version     (Job *job, NihConfigStanza *stanza,
 				    const char *file, size_t len,
 				    size_t *pos, size_t *lineno);
+static int  cfg_stanza_emits       (Job *job, NihConfigStanza *stanza,
+				    const char *file, size_t len,
+				    size_t *pos, size_t *lineno);
 static int  cfg_stanza_on          (Job *job, NihConfigStanza *stanza,
 				    const char *file, size_t len,
 				    size_t *pos, size_t *lineno);
@@ -147,6 +150,7 @@ static NihConfigStanza stanzas[] = {
 	{ "description", (NihConfigHandler)cfg_stanza_description },
 	{ "author",      (NihConfigHandler)cfg_stanza_author      },
 	{ "version",     (NihConfigHandler)cfg_stanza_version     },
+	{ "emits",       (NihConfigHandler)cfg_stanza_emits       },
 	{ "on",          (NihConfigHandler)cfg_stanza_on          },
 	{ "start",       (NihConfigHandler)cfg_stanza_start       },
 	{ "stop",        (NihConfigHandler)cfg_stanza_stop        },
@@ -418,6 +422,59 @@ cfg_stanza_version (Job             *job,
 		return -1;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_emits:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an emits stanza from @file.  This stanza expects one or more
+ * arguments giving the names of additional events that can be emitted
+ * by this job.
+ *
+ * Arguments are allocated as Event structures and stored in the emits
+ * list of the job.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_emits (Job             *job,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	char **args, **arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (! nih_config_has_token (file, len, pos, lineno))
+		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
+	args = nih_config_parse_args (NULL, file, len, pos, lineno);
+	if (! args)
+		return -1;
+
+	for (arg = args; *arg; arg++) {
+		Event *event;
+
+		NIH_MUST (event = event_new (job, *arg));
+		nih_list_add (&job->emits, &event->entry);
+	}
+
+	nih_free (args);
+
+	return 0;
 }
 
 /**

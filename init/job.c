@@ -153,6 +153,7 @@ job_new (const void *parent,
 
 	nih_list_init (&job->start_events);
 	nih_list_init (&job->stop_events);
+	nih_list_init (&job->emits);
 
 	job->process_state = PROCESS_NONE;
 	job->pid = 0;

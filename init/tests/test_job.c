@@ -63,6 +63,7 @@ test_new (void)
 	TEST_LIST_NOT_EMPTY (&job->entry);
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
+	TEST_LIST_EMPTY (&job->emits);
 
 	TEST_EQ_STR (job->name, "test");
 	TEST_ALLOC_PARENT (job->name, job);
