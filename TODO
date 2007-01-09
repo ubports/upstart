@@ -1,11 +1,5 @@
 High Priority:
 
- * allow "" as a catch-all in the config stanza list?
-
- * fix config file test suite to be per-stanza/function
-
- * various job structure member names are bogus (pidfile -> pid_file, etc.)
-
  * consider renaming daemon to "forks" or similar?
 
  * ban using respawn/daemon as a shortcut?
@@ -35,6 +29,9 @@ High Priority:
  * Configuration files can be moved.
 
  * config files don't get read if inotify not used.
+
+ * maybe consolidate above to a generic directory watching function, it's
+   quite a common thing to do
 
 
  * cfg_watch_dir needs testing, as does cfg_watcher
