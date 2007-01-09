@@ -137,6 +137,10 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Clear arguments, so we just show up as init */
+	for (i = 1; i < argc; i++)
+		memset (argv[i], '\0', strlen (argv[i]));
+
 
 	/* Send all logging output to syslog */
 	openlog (program_name, LOG_CONS, LOG_DAEMON);

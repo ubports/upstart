@@ -1,5 +1,8 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Clear arguments so that upstart only ever
+	appears as /sbin/init in ps, top, etc.
+
 	* TODO: Update.
 
 	* util/initctl.c: Add data pointer to functions and handle calls.
