@@ -1077,6 +1077,10 @@ cfg_stanza_kill (Job             *job,
 
 		nih_free (arg);
 
+		if (job->kill_timeout != JOB_DEFAULT_KILL_TIMEOUT)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
 		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
 		if (! arg)
 			return -1;

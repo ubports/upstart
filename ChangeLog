@@ -1,5 +1,11 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_kill): Guard against duplicate uses
+	of the kill timeout stanza.
+	* init/tests/test_cfgfile.c (test_stanza_kill): Test the complex
+	kill stanza.
+	(test_stanza_pid): Check duplicate usage results in an error.
+
 	* init/job.h (Job): Rename pidfile to pid_file and binary to pid_binary
 	* init/job.c (job_new): Update names here too.
 	* init/errors.h: Add a new "duplicate value" error.
