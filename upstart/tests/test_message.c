@@ -343,17 +343,20 @@ my_destructor (void *ptr)
 }
 
 static int handler_called = 0;
+static void *last_data = NULL;
 static pid_t last_pid = 0;
 static UpstartMessageType last_type = 0;
 
 int
-my_handler (pid_t               pid,
+my_handler (void                *data,
+	    pid_t               pid,
 	    UpstartMessageType  type,
 	    ...)
 {
 	va_list args;
 
 	handler_called++;
+	last_data = data;
 	last_pid = pid;
 	last_type = type;
 
@@ -442,13 +445,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, no_op_handler);
+	ret = upstart_message_handle (NULL, msg, no_op_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_NO_OP);
 
@@ -465,13 +470,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_START);
 
@@ -488,13 +495,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_STOP);
 
@@ -511,13 +520,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_QUERY);
 
@@ -536,13 +547,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_STATUS);
 
@@ -559,13 +572,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_UNKNOWN);
 
@@ -582,13 +597,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_LIST);
 
@@ -605,13 +622,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_LIST_END);
 
@@ -628,13 +647,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_EVENT_QUEUE);
 
@@ -651,13 +672,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_EVENT);
 
@@ -674,13 +697,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_WATCH_JOBS);
 
@@ -697,13 +722,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_UNWATCH_JOBS);
 
@@ -720,13 +747,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_WATCH_EVENTS);
 
@@ -743,13 +772,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_UNWATCH_EVENTS);
 
@@ -766,13 +797,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_SHUTDOWN);
 
@@ -789,10 +822,8 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
-	last_pid = -1;
-	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, no_op_handler);
+	ret = upstart_message_handle (NULL, msg, no_op_handler, &ret);
 
 	TEST_LT (ret, 0);
 	TEST_FALSE (handler_called);
@@ -820,10 +851,8 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
-	last_pid = -1;
-	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, no_op_handler);
+	ret = upstart_message_handle (NULL, msg, no_op_handler, &ret);
 
 	TEST_LT (ret, 0);
 	TEST_FALSE (handler_called);
@@ -847,10 +876,8 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
-	last_pid = -1;
-	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, no_op_handler);
+	ret = upstart_message_handle (NULL, msg, no_op_handler, &ret);
 
 	TEST_LT (ret, 0);
 	TEST_FALSE (handler_called);
@@ -874,13 +901,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1234);
 	TEST_EQ (last_type, UPSTART_NO_OP);
 
@@ -897,13 +926,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_START);
 
@@ -922,13 +953,15 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, any_handler);
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
 
 	TEST_EQ (ret, 100);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 999);
 	TEST_EQ (last_type, UPSTART_NO_OP);
 
@@ -954,10 +987,8 @@ test_handle (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
-	last_pid = -1;
-	last_type = -1;
 
-	ret = upstart_message_handle (NULL, msg, no_op_handler);
+	ret = upstart_message_handle (NULL, msg, no_op_handler, &ret);
 
 	TEST_LT (ret, 0);
 	TEST_FALSE (handler_called);
@@ -989,13 +1020,15 @@ test_handle_using (void)
 				    sizeof (cred), &cred);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
-	ret = upstart_message_handle_using (NULL, msg, my_handler);
+	ret = upstart_message_handle_using (NULL, msg, my_handler, &ret);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, &ret);
 	TEST_EQ (last_pid, 1000);
 	TEST_EQ (last_type, UPSTART_JOB_START);
 
@@ -1032,6 +1065,7 @@ test_reader (void)
 	nih_list_add (io->recv_q, &msg->entry);
 
 	handler_called = FALSE;
+	last_data = NULL;
 	last_pid = -1;
 	last_type = -1;
 
@@ -1045,6 +1079,7 @@ test_reader (void)
 	upstart_disable_safeties = FALSE;
 
 	TEST_TRUE (handler_called);
+	TEST_EQ_P (last_data, any_handler);
 	TEST_EQ (last_pid, 2000);
 	TEST_EQ (last_type, UPSTART_JOB_START);
 	TEST_EQ (destructor_called, 2);

@@ -75,6 +75,7 @@ typedef enum {
 
 /**
  * UpstartMessageHandler:
+ * @data: data passed to handler,
  * @pid: origin of message,
  * @type: message type.
  *
@@ -102,7 +103,8 @@ typedef enum {
  *
  * Returns: zero on success, negative value on raised error.
  **/
-typedef int (*UpstartMessageHandler) (pid_t pid, UpstartMessageType type, ...);
+typedef int (*UpstartMessageHandler) (void *data, pid_t pid,
+				      UpstartMessageType type, ...);
 
 
 /**
@@ -149,10 +151,12 @@ NihIoMessage *upstart_message_new          (const void *parent, pid_t pid,
 
 int           upstart_message_handle       (const void *parent,
 					    NihIoMessage *message,
-					    UpstartMessage *handlers);
+					    UpstartMessage *handlers,
+					    void *data);
 int           upstart_message_handle_using (const void *parent,
 					    NihIoMessage *message,
-					    UpstartMessageHandler handler);
+					    UpstartMessageHandler handler,
+					    void *data);
 
 void          upstart_message_reader       (UpstartMessage *handlers,
 					    NihIo *io, const char *buf,

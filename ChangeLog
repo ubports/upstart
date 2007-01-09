@@ -1,5 +1,16 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_handle) 
+	(upstart_message_handle_using): Add a data pointer argument to these
+	functions and pass it to the handler.
+	(upstart_message_reader): Pass the io structure's data pointer.
+	* upstart/message.h (UpstartMessageHandler): Add a data pointer to
+	the message handler.
+	* upstart/tests/test_message.c (test_handle, test_handle_using):
+	Pass a data pointer to the function call and check it's passed
+	to the handler correctly.
+	(test_reader): Check that the io data pointer gets passed.
+
 	* init/tests/test_cfgfile.c (test_stanza_console, test_stanza_env) 
 	(test_stanza_umask, test_stanza_nice, test_stanza_limit): Finish off
 	the newer style test cases.

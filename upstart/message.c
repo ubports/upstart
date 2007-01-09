@@ -290,7 +290,8 @@ upstart_message_handler (pid_t               pid,
  * upstart_message_handle:
  * @parent: parent of any allocated strings,
  * @message: message to be handled,
- * @handlers: list of handlers.
+ * @handlers: list of handlers,
+ * @data: pointer to pass to handler.
  *
  * Handles an NihIoMessage received from a socket, either directly through
  * nih_io_message_recv() or taken from a queue of messages with
@@ -325,7 +326,8 @@ upstart_message_handler (pid_t               pid,
 int
 upstart_message_handle (const void     *parent,
 			NihIoMessage   *message,
-			UpstartMessage *handlers)
+			UpstartMessage *handlers,
+			void           *data)
 {
 	UpstartMessageType      type;
 	UpstartMessageHandler   handler;
@@ -406,7 +408,7 @@ upstart_message_handle (const void     *parent,
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
 	case UPSTART_UNWATCH_EVENTS:
-		ret = handler (cred.pid, type);
+		ret = handler (data, cred.pid, type);
 		break;
 	case UPSTART_JOB_START:
 	case UPSTART_JOB_STOP:
@@ -420,7 +422,7 @@ upstart_message_handle (const void     *parent,
 		if (! name)
 			goto invalid;
 
-		ret = handler (cred.pid, type, name);
+		ret = handler (data, cred.pid, type, name);
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
@@ -435,7 +437,7 @@ upstart_message_handle (const void     *parent,
 		if (! name)
 			goto invalid;
 
-		ret = handler (cred.pid, type, name, goal, state,
+		ret = handler (data, cred.pid, type, name, goal, state,
 			       process_state, pid, description);
 		break;
 	}
@@ -450,7 +452,7 @@ upstart_message_handle (const void     *parent,
 		if (! name)
 			goto invalid;
 
-		ret = handler (cred.pid, type, name);
+		ret = handler (data, cred.pid, type, name);
 		break;
 	}
 	default:
@@ -473,7 +475,8 @@ invalid:
  * upstart_message_handle_using:
  * @parent: parent of any allocated strings,
  * @message: message to be handled,
- * @handler: handler function.
+ * @handler: handler function,
+ * @data: pointer to pass to @handler.
  *
  * Handles an NihIoMessage received from a socket, either directly through
  * nih_io_message_recv() or taken from a queue of messages with
@@ -503,7 +506,8 @@ invalid:
 int
 upstart_message_handle_using (const void            *parent,
 			      NihIoMessage          *message,
-			      UpstartMessageHandler  handler)
+			      UpstartMessageHandler  handler,
+			      void                  *data)
 {
 	UpstartMessage handlers[2] = { { -1, -1, handler},
 				       UPSTART_MESSAGE_LAST };
@@ -511,7 +515,7 @@ upstart_message_handle_using (const void            *parent,
 	nih_assert (message != NULL);
 	nih_assert (handler != NULL);
 
-	return upstart_message_handle (parent, message, handlers);
+	return upstart_message_handle (parent, message, handlers, data);
 }
 
 
@@ -531,7 +535,8 @@ upstart_message_handle_using (const void            *parent,
  * the handlers list as the data argument.
  *
  * Because these handlers are called within the main loop, they should
- * take care to handle any errors raised.
+ * take care to handle any errors raised.  The data argument in the
+ * handler call will be set from the data member of @io.
  *
  * Any strings allocated are given the message received as the parent,
  * which is automatically freed after the handler has been called.  If you
@@ -554,7 +559,8 @@ upstart_message_reader (UpstartMessage *handlers,
 	message = nih_io_read_message (NULL, io);
 	nih_assert (message != NULL);
 
-	if (upstart_message_handle (message, message, handlers) < 0) {
+	if (upstart_message_handle (message, message,
+				    handlers, io->data) < 0) {;
 		NihError *err;
 
 		err = nih_error_get ();
