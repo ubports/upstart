@@ -1,5 +1,12 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_description, cfg_stanza_author) 
+	(cfg_stanza_version): Don't allow stanza to be duplicated anymore.
+	* init/tests/test_cfgfile.c (test_stanza_description) 
+	(test_stanza_author, test_stanza_version): Test cases for these
+	simple stanza; making sure duplication is not permitted.
+	(test_stanza_on): Add a test case for this stanza too.
+
 	* init/cfgfile.c (cfg_stanza_kill): Guard against duplicate uses
 	of the kill timeout stanza.
 	* init/tests/test_cfgfile.c (test_stanza_kill): Test the complex

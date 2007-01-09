@@ -323,8 +323,9 @@ cfg_read_job (const void *parent,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a description stanza from @file, extracting a single argument
- * containing a description of the job.
+ * Parse a description stanza from @file.  This stanza expects a single
+ * argument giving a human-readable description of the job which is
+ * stored for later use.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -342,7 +343,8 @@ cfg_stanza_description (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->description)
-		nih_free (job->description);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
 
 	job->description = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->description)
@@ -360,8 +362,9 @@ cfg_stanza_description (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse an author stanza from @file, extracting a single argument
- * containing the author of the job.
+ * Parse an author stanza from @file.  This stanza expects a single
+ * argument giving a human-readable author name for the job which is
+ * stored for later use.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -379,7 +382,8 @@ cfg_stanza_author (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->author)
-		nih_free (job->author);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
 
 	job->author = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->author)
@@ -397,8 +401,9 @@ cfg_stanza_author (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a version stanza from @file, extracting a single argument
- * containing the version of the job.
+ * Parse a version stanza from @file.  This stanza expects a single
+ * argument giving a human-readable version number for the job which is
+ * stored for later use.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -416,7 +421,8 @@ cfg_stanza_version (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->version)
-		nih_free (job->version);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
 
 	job->version = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->version)
