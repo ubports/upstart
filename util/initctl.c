@@ -42,14 +42,15 @@
 
 
 /* Prototypes for static functions */
-static int handle_job_status   (pid_t pid, UpstartMessageType type,
+static int handle_job_status   (void *data, pid_t pid, UpstartMessageType type,
 				const char *name, JobGoal goal, JobState state,
 				ProcessState process_state, pid_t process,
 				const char *description);
-static int handle_job_unknown  (pid_t pid, UpstartMessageType type,
+static int handle_job_unknown  (void *data, pid_t pid, UpstartMessageType type,
 				const char *name);
-static int handle_job_list_end (pid_t pid, UpstartMessageType type);
-static int handle_event        (pid_t pid, UpstartMessageType type,
+static int handle_job_list_end (void *data, pid_t pid,
+				UpstartMessageType type);
+static int handle_event        (void *data, pid_t pid, UpstartMessageType type,
 				const char *name);
 
 
@@ -149,7 +150,7 @@ start_action (NihCommand   *command,
 		if (! reply)
 			goto error;
 
-		if (upstart_message_handle (reply, reply, handlers) < 0)
+		if (upstart_message_handle (reply, reply, handlers, NULL) < 0)
 			goto error;
 
 		nih_free (message);
@@ -213,7 +214,7 @@ list_action (NihCommand   *command,
 		if (! reply)
 			goto error;
 
-		ret = upstart_message_handle (reply, reply, handlers);
+		ret = upstart_message_handle (reply, reply, handlers, NULL);
 		if (ret < 0) {
 			goto error;
 		} else if (ret > 0) {
@@ -347,7 +348,7 @@ jobs_action (NihCommand   *command,
 		if (! reply)
 			goto error;
 
-		if (upstart_message_handle (reply, reply, handlers) < 0)
+		if (upstart_message_handle (reply, reply, handlers, NULL) < 0)
 			goto error;
 
 		nih_free (reply);
@@ -411,7 +412,7 @@ events_action (NihCommand   *command,
 		if (! reply)
 			goto error;
 
-		if (upstart_message_handle (reply, reply, handlers) < 0)
+		if (upstart_message_handle (reply, reply, handlers, NULL) < 0)
 			goto error;
 
 		nih_free (reply);
@@ -544,6 +545,7 @@ main (int   argc,
 
 /**
  * handle_job_status:
+ * @data: data pointer,
  * @pid: origin of message,
  * @type: message type,
  * @name: name of job,
@@ -561,7 +563,8 @@ main (int   argc,
  *
  * Returns: zero on success, negative value on error.
  **/
-static int handle_job_status (pid_t               pid,
+static int handle_job_status (void               *data,
+			      pid_t               pid,
 			      UpstartMessageType  type,
 			      const char         *name,
 			      JobGoal             goal,
@@ -600,6 +603,7 @@ static int handle_job_status (pid_t               pid,
 
 /**
  * handle_job_unknown:
+ * @data: data pointer,
  * @pid: origin of message,
  * @type: message type,
  * @name: name of job.
@@ -611,7 +615,8 @@ static int handle_job_status (pid_t               pid,
  *
  * Returns: zero on success, negative value on error.
  **/
-static int handle_job_unknown  (pid_t               pid,
+static int handle_job_unknown  (void               *data,
+				pid_t               pid,
 				UpstartMessageType  type,
 				const char         *name)
 {
@@ -626,6 +631,7 @@ static int handle_job_unknown  (pid_t               pid,
 
 /**
  * handle_job_list_end:
+ * @data: data pointer,
  * @pid: origin of message,
  * @type: message type.
  *
@@ -633,8 +639,9 @@ static int handle_job_unknown  (pid_t               pid,
  *
  * Returns: positive value to end loop.
  **/
-static int handle_job_list_end (pid_t              pid,
-				UpstartMessageType type)
+static int handle_job_list_end (void               *data,
+				pid_t               pid,
+				UpstartMessageType  type)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_LIST_END);
@@ -644,6 +651,7 @@ static int handle_job_list_end (pid_t              pid,
 
 /**
  * handle_event:
+ * @data: data pointer,
  * @pid: origin of message,
  * @type: message type,
  * @name: name of event.
@@ -655,7 +663,8 @@ static int handle_job_list_end (pid_t              pid,
  *
  * Returns: zero on success, negative value on error.
  **/
-static int handle_event (pid_t               pid,
+static int handle_event (void               *data,
+			 pid_t               pid,
 			 UpstartMessageType  type,
 			 const char         *name)
 {

@@ -1,5 +1,7 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c: Add data pointer to functions and handle calls.
+
 	* init/control.c: Add data pointer to all functions.
 	* init/tests/test_control.c: Pass data pointer to
 	upstart_message_handle_using()
