@@ -1126,11 +1126,7 @@ cfg_stanza_normalexit (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (! nih_config_has_token (file, len, pos, lineno))
-		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
-				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
-
-	while (nih_config_has_token (file, len, pos, lineno)) {
+	do {
 		unsigned long  status;
 		char          *arg, *endptr;
 		int           *new_ne;
@@ -1153,7 +1149,7 @@ cfg_stanza_normalexit (Job             *job,
 
 		job->normalexit = new_ne;
 		job->normalexit[job->normalexit_len++] = (int) status;
-	}
+	} while (nih_config_has_token (file, len, pos, lineno));
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }

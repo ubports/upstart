@@ -1,5 +1,9 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_normalexit): Use do/while instead of
+	while, that we don't have to test has_token first as next_arg does
+	that for us.
+
 	* init/cfgfile.c (cfg_stanza_normalexit): Change to peek at the next
 	token to see whether it's missing or not, and then just fetch each
 	next argument at a time.  This is more efficient than parsing them
