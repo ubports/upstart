@@ -1,5 +1,10 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_start, cfg_stanza_stop): Disallow
+	duplicate values for the script.
+	* init/tests/test_cfgfile.c (test_stanza_start, test_stanza_stop):
+	Test cases for those two functions.
+
 	* init/cfgfile.c (cfg_stanza_description, cfg_stanza_author) 
 	(cfg_stanza_version): Don't allow stanza to be duplicated anymore.
 	* init/tests/test_cfgfile.c (test_stanza_description) 

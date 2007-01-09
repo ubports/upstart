@@ -535,8 +535,13 @@ cfg_stanza_on (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a start stanza from @file, extracting a single argument which can
- * be either "on" followed by an event name or "script" followed by a block.
+ * Parse a stanrt stanza from @file.  This stanza expects a second
+ * argument which specifies whether a start event or start script.
+ * follows
+ *
+ * The event arguments is allocated as an Event structure and stored
+ * in the start events list of the job; the script is parsed as a
+ * block ending with "end script" and stored as the job's start script.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -583,7 +588,8 @@ cfg_stanza_start (Job             *job,
 			return -1;
 
 		if (job->start_script)
-			nih_free (job->start_script);
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
 
 		job->start_script = nih_config_parse_block (job, file, len,
 							    pos, lineno,
@@ -596,9 +602,8 @@ cfg_stanza_start (Job             *job,
 	} else {
 		nih_free (arg);
 
-		nih_error_raise (NIH_CONFIG_UNKNOWN_STANZA,
-				 _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-		return -1;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 }
 
@@ -611,8 +616,13 @@ cfg_stanza_start (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a stop stanza from @file, extracting a single argument which can
- * be either "on" followed by an event name or "script" followed by a block.
+ * Parse a stanrt stanza from @file.  This stanza expects a second
+ * argument which specifies whether a start event or start script.
+ * follows
+ *
+ * The event arguments is allocated as an Event structure and stored
+ * in the start events list of the job; the script is parsed as a
+ * block ending with "end script" and stored as the job's start script.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -659,7 +669,8 @@ cfg_stanza_stop (Job             *job,
 			return -1;
 
 		if (job->stop_script)
-			nih_free (job->stop_script);
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
 
 		job->stop_script = nih_config_parse_block (job, file, len, pos,
 							   lineno, "script");
@@ -671,9 +682,8 @@ cfg_stanza_stop (Job             *job,
 	} else {
 		nih_free (arg);
 
-		nih_error_raise (NIH_CONFIG_UNKNOWN_STANZA,
-				 _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-		return -1;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 }
 
