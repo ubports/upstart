@@ -1248,6 +1248,10 @@ cfg_stanza_console (Job             *job,
 	if (! arg)
 		return -1;
 
+	if (job->console != CONSOLE_LOGGED)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
 	if (! strcmp (arg, "logged")) {
 		job->console = CONSOLE_LOGGED;
 	} else if (! strcmp (arg, "output")) {
@@ -1278,7 +1282,8 @@ cfg_stanza_console (Job             *job,
  * @lineno: line number.
  *
  * Parse an env stanza from @file, extracting a single argument of the form
- * VAR=VALUE.
+ * VAR=VALUE.  These are stored in the env array, which is increased in
+ * size to accomodate the new value.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1350,6 +1355,10 @@ cfg_stanza_umask (Job             *job,
 	if (! arg)
 		return -1;
 
+	if (job->umask != JOB_DEFAULT_UMASK)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
 	mask = strtoul (arg, &endptr, 8);
 	if (*endptr || (mask & ~0777)) {
 		nih_free (arg);
@@ -1398,6 +1407,10 @@ cfg_stanza_nice (Job             *job,
 	if (! arg)
 		return -1;
 
+	if (job->nice)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
 	nice = strtol (arg, &endptr, 10);
 	if (*endptr || (nice < -20) || (nice > 19)) {
 		nih_free (arg);
@@ -1422,7 +1435,7 @@ cfg_stanza_nice (Job             *job,
  * @lineno: line number.
  *
  * Parse a limit stanza from @file, extracting a second-level stanza that
- * states which l.imit to set from its two following arguments.
+ * states which limit to set from its two following arguments.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1484,10 +1497,11 @@ cfg_stanza_limit (Job             *job,
 	nih_free (arg);
 
 
-	/* Allocate a resource limit structure in that position */
-	if (! job->limits[resource])
-		NIH_MUST (job->limits[resource]
-			  = nih_new (job, struct rlimit));
+	if (job->limits[resource])
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	NIH_MUST (job->limits[resource] = nih_new (job, struct rlimit));
 
 
 	/* Parse the soft limit value */
@@ -1549,7 +1563,8 @@ cfg_stanza_chroot (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->chroot)
-		nih_free (job->chroot);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
 
 	job->chroot = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->chroot)
@@ -1586,7 +1601,8 @@ cfg_stanza_chdir (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->chdir)
-		nih_free (job->chdir);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
 
 	job->chdir = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->chdir)

@@ -1,5 +1,15 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_console, cfg_stanza_umask)
+	(cfg_stanza_nice, cfg_stanza_limit, cfg_stanza_chroot)
+	(cfg_stanza_chdir): Guard against duplicate uses of the stanzas.
+	* init/tests/test_cfgfile.c (test_stanza_daemon) 
+	(test_stanza_respawn): Check that neither daemon or respawn override
+	exec if they have no arguments.
+	(test_stanza_script): Add missing function
+	(test_stanza_chroot, test_stanza_chdir): Add tests for these simple
+	stanzas.
+
 	* init/cfgfile.c: Change remaining uses of nih_error_raise and
 	return to just nih_return_error.
 
