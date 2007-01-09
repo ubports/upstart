@@ -1,5 +1,11 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c: Add data pointer to all functions.
+	* init/tests/test_control.c: Pass data pointer to
+	upstart_message_handle_using()
+	* init/tests/test_notify.c: Pass data pointer to
+	upstart_message_handle_using()
+
 	* upstart/message.c (upstart_message_handle) 
 	(upstart_message_handle_using): Add a data pointer argument to these
 	functions and pass it to the handler.

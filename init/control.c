@@ -48,21 +48,26 @@ static int  control_open_sock      (void);
 static void control_reopen         (void);
 static void control_close_handler  (void *data, NihIo *io);
 static void control_error_handler  (void *data, NihIo *io);
-static int  control_job_start      (pid_t pid, UpstartMessageType type,
-				    const char *name);
-static int  control_job_stop       (pid_t pid, UpstartMessageType type,
-				    const char *name);
-static int  control_job_query      (pid_t pid, UpstartMessageType type,
-				    const char *name);
-static int  control_job_list       (pid_t pid, UpstartMessageType type);
-static int  control_event_queue    (pid_t pid, UpstartMessageType type,
-				    const char *name);
-static int  control_watch_jobs     (pid_t pid, UpstartMessageType type);
-static int  control_unwatch_jobs   (pid_t pid, UpstartMessageType type);
-static int  control_watch_events   (pid_t pid, UpstartMessageType type);
-static int  control_unwatch_events (pid_t pid, UpstartMessageType type);
-static int  control_shutdown       (pid_t pid, UpstartMessageType type,
-				    const char *name);
+static int  control_job_start      (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_job_stop       (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_job_query      (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_job_list       (void *data,  pid_t pid,
+				    UpstartMessageType type);
+static int  control_event_queue    (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_watch_jobs     (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_unwatch_jobs   (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_watch_events   (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_unwatch_events (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_shutdown       (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
 
 
 /**
@@ -294,6 +299,7 @@ control_error_handler (void  *data,
 
 /**
  * control_job_start:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
  * @name: name of job to start.
@@ -308,7 +314,8 @@ control_error_handler (void  *data,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_job_start (pid_t               pid,
+control_job_start (void               *data,
+		   pid_t               pid,
 		   UpstartMessageType  type,
 		   const char         *name)
 {
@@ -342,6 +349,7 @@ control_job_start (pid_t               pid,
 
 /**
  * control_job_stop:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
  * @name: name of job to start.
@@ -356,7 +364,8 @@ control_job_start (pid_t               pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_job_stop (pid_t               pid,
+control_job_stop (void               *data,
+		  pid_t               pid,
 		  UpstartMessageType  type,
 		  const char         *name)
 {
@@ -390,6 +399,7 @@ control_job_stop (pid_t               pid,
 
 /**
  * control_job_query:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
  * @name: name of job to start.
@@ -404,7 +414,8 @@ control_job_stop (pid_t               pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_job_query (pid_t               pid,
+control_job_query (void               *data,
+		   pid_t               pid,
 		   UpstartMessageType  type,
 		   const char         *name)
 {
@@ -437,6 +448,7 @@ control_job_query (pid_t               pid,
 
 /**
  * control_job_list:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received.
  *
@@ -447,8 +459,9 @@ control_job_query (pid_t               pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_job_list (pid_t              pid,
-		  UpstartMessageType type)
+control_job_list (void               *data,
+		  pid_t               pid,
+		  UpstartMessageType  type)
 {
 	NihIoMessage *reply;
 
@@ -477,6 +490,7 @@ control_job_list (pid_t              pid,
 
 /**
  * control_event_queue:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
  * @name: name of event to queue.
@@ -487,7 +501,8 @@ control_job_list (pid_t              pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_event_queue (pid_t               pid,
+control_event_queue (void               *data,
+		     pid_t               pid,
 		     UpstartMessageType  type,
 		     const char         *name)
 {
@@ -504,6 +519,7 @@ control_event_queue (pid_t               pid,
 
 /**
  * control_watch_jobs:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received.
  *
@@ -513,8 +529,9 @@ control_event_queue (pid_t               pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_watch_jobs (pid_t              pid,
-		    UpstartMessageType type)
+control_watch_jobs (void               *data,
+		    pid_t               pid,
+		    UpstartMessageType  type)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_WATCH_JOBS);
@@ -528,6 +545,7 @@ control_watch_jobs (pid_t              pid,
 
 /**
  * control_unwatch_jobs:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received.
  *
@@ -537,8 +555,9 @@ control_watch_jobs (pid_t              pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_unwatch_jobs (pid_t              pid,
-		      UpstartMessageType type)
+control_unwatch_jobs (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_UNWATCH_JOBS);
@@ -552,6 +571,7 @@ control_unwatch_jobs (pid_t              pid,
 
 /**
  * control_watch_events:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received.
  *
@@ -561,8 +581,9 @@ control_unwatch_jobs (pid_t              pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_watch_events (pid_t              pid,
-		      UpstartMessageType type)
+control_watch_events (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_WATCH_EVENTS);
@@ -576,6 +597,7 @@ control_watch_events (pid_t              pid,
 
 /**
  * control_unwatch_events:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received.
  *
@@ -585,8 +607,9 @@ control_watch_events (pid_t              pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_unwatch_events (pid_t              pid,
-			UpstartMessageType type)
+control_unwatch_events (void               *data,
+			pid_t               pid,
+			UpstartMessageType  type)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_UNWATCH_EVENTS);
@@ -600,6 +623,7 @@ control_unwatch_events (pid_t              pid,
 
 /**
  * control_shutdown:
+ * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
  * @name: name of shutdown event to queue.
@@ -611,7 +635,8 @@ control_unwatch_events (pid_t              pid,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_shutdown (pid_t               pid,
+control_shutdown (void               *data,
+		  pid_t               pid,
 		  UpstartMessageType  type,
 		  const char         *name)
 {

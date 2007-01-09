@@ -344,7 +344,8 @@ test_error_handler (void)
 
 
 static int
-check_job_started (pid_t               pid,
+check_job_started (void               *data,
+		   pid_t               pid,
 		   UpstartMessageType  type,
 		   const char         *name,
 		   JobGoal             goal,
@@ -366,7 +367,8 @@ check_job_started (pid_t               pid,
 }
 
 static int
-check_job_unknown (pid_t               pid,
+check_job_unknown (void               *data,
+		   pid_t               pid,
 		   UpstartMessageType  type,
 		   const char         *name)
 {
@@ -422,7 +424,8 @@ test_job_start (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_started);
+					      (UpstartMessageHandler)check_job_started,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -467,7 +470,8 @@ test_job_start (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_unknown);
+					      (UpstartMessageHandler)check_job_unknown,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -485,7 +489,8 @@ test_job_start (void)
 }
 
 static int
-check_job_stopped (pid_t               pid,
+check_job_stopped (void               *data,
+		   pid_t               pid,
 		   UpstartMessageType  type,
 		   const char         *name,
 		   JobGoal             goal,
@@ -552,7 +557,8 @@ test_job_stop (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_stopped);
+					      (UpstartMessageHandler)check_job_stopped,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -600,7 +606,8 @@ test_job_stop (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_unknown);
+					      (UpstartMessageHandler)check_job_unknown,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -618,7 +625,8 @@ test_job_stop (void)
 }
 
 static int
-check_job_stopping (pid_t               pid,
+check_job_stopping (void               *data,
+		    pid_t               pid,
 		    UpstartMessageType  type,
 		    const char         *name,
 		    JobGoal             goal,
@@ -682,7 +690,8 @@ test_job_query (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_stopping);
+					      (UpstartMessageHandler)check_job_stopping,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -725,7 +734,8 @@ test_job_query (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_unknown);
+					      (UpstartMessageHandler)check_job_unknown,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -743,7 +753,8 @@ test_job_query (void)
 }
 
 static int
-check_job_starting (pid_t               pid,
+check_job_starting (void               *data,
+		    pid_t               pid,
 		    UpstartMessageType  type,
 		    const char         *name,
 		    JobGoal             goal,
@@ -765,7 +776,8 @@ check_job_starting (pid_t               pid,
 }
 
 static int
-check_job_list_end (pid_t               pid,
+check_job_list_end (void               *data,
+		    pid_t               pid,
 		    UpstartMessageType  type)
 {
 	TEST_EQ (pid, getppid ());
@@ -823,19 +835,22 @@ test_job_list (void)
 		/* Wait for a reply for the first job */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_stopping);
+					      (UpstartMessageHandler)check_job_stopping,
+					      NULL);
 		nih_free (message);
 
 		/* Wait for a reply for the second job */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_starting);
+					      (UpstartMessageHandler)check_job_starting,
+					      NULL);
 		nih_free (message);
 
 		/* Wait for a reply for the end of the list */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_list_end);
+					      (UpstartMessageHandler)check_job_list_end,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -951,7 +966,8 @@ test_watch_jobs (void)
 		/* Wait for job notification */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_stopping);
+					      (UpstartMessageHandler)check_job_stopping,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -1026,7 +1042,8 @@ test_unwatch_jobs (void)
 		 */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_stopping);
+					      (UpstartMessageHandler)check_job_stopping,
+					      NULL);
 		nih_free (message);
 
 		/* Now unsubscribe */
@@ -1069,7 +1086,8 @@ test_unwatch_jobs (void)
 }
 
 static int
-check_event (pid_t               pid,
+check_event (void               *data,
+	     pid_t               pid,
 	     UpstartMessageType  type,
 	     const char         *name)
 {
@@ -1116,7 +1134,8 @@ test_watch_events (void)
 		/* Wait for event notification */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_event);
+					      (UpstartMessageHandler)check_event,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -1185,7 +1204,8 @@ test_unwatch_events (void)
 		 */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_event);
+					      (UpstartMessageHandler)check_event,
+					      NULL);
 		nih_free (message);
 
 		/* Now unsubscribe */

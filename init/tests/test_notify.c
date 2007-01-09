@@ -127,7 +127,8 @@ test_subscribe (void)
 
 
 static int
-check_job_status (pid_t               pid,
+check_job_status (void               *data,
+		  pid_t               pid,
 		  UpstartMessageType  type,
 		  const char         *name,
 		  JobGoal             goal,
@@ -185,7 +186,8 @@ test_job (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_job_status);
+					      (UpstartMessageHandler)check_job_status,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
@@ -209,7 +211,8 @@ test_job (void)
 }
 
 static int
-check_event (pid_t               pid,
+check_event (void               *data,
+	     pid_t               pid,
 	     UpstartMessageType  type,
 	     const char         *name)
 {
@@ -251,7 +254,8 @@ test_event (void)
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
 		upstart_message_handle_using (message, message,
-					      (UpstartMessageHandler)check_event);
+					      (UpstartMessageHandler)check_event,
+					      NULL);
 		nih_free (message);
 
 		exit (0);
