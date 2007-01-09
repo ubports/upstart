@@ -225,6 +225,7 @@ cfg_read_job (const void *parent,
 		case NIH_CONFIG_UNTERMINATED_BLOCK:
 		case NIH_CONFIG_UNKNOWN_STANZA:
 		case CFG_ILLEGAL_VALUE:
+		case CFG_DUPLICATE_VALUE:
 			nih_error ("%s:%d: %s",
 				   filename, lineno, err->message);
 			break;
@@ -269,13 +270,13 @@ cfg_read_job (const void *parent,
 	}
 
 	/* pid file makes no sense unless respawn */
-	if (job->pidfile && (! job->respawn)) {
+	if (job->pid_file && (! job->respawn)) {
 		nih_warn (_("%s: 'pid file' ignored unless 'respawn' specified"),
 			  filename);
 	}
 
 	/* pid binary makes no sense unless respawn */
-	if (job->binary && (! job->respawn)) {
+	if (job->pid_binary && (! job->respawn)) {
 		nih_warn (_("%s: 'pid binary' ignored unless 'respawn' specified"),
 			  filename);
 	}
@@ -952,8 +953,10 @@ cfg_stanza_instance (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a pid stanza from @file, extracting a second-level stanza that
- * states which value to set from its argument.
+ * Parse a pid stanza from @file.  This stanza expects an second-level
+ * stanza argument indicating which job parameter to set, followed by
+ * an argument that sets that.  All are related to discovering the pid
+ * of a forked daemon.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -979,12 +982,13 @@ cfg_stanza_pid (Job             *job,
 	if (! strcmp (arg, "file")) {
 		nih_free (arg);
 
-		if (job->pidfile)
-			nih_free (job->pidfile);
+		if (job->pid_file)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
 
-		job->pidfile = nih_config_next_arg (job, file, len,
-						    pos, lineno);
-		if (! job->pidfile)
+		job->pid_file = nih_config_next_arg (job, file, len,
+						     pos, lineno);
+		if (! job->pid_file)
 			return -1;
 
 		return nih_config_skip_comment (file, len, pos, lineno);
@@ -992,12 +996,13 @@ cfg_stanza_pid (Job             *job,
 	} else if (! strcmp (arg, "binary")) {
 		nih_free (arg);
 
-		if (job->binary)
-			nih_free (job->binary);
+		if (job->pid_binary)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
 
-		job->binary = nih_config_next_arg (job, file, len,
-						   pos, lineno);
-		if (! job->binary)
+		job->pid_binary = nih_config_next_arg (job, file, len,
+						       pos, lineno);
+		if (! job->pid_binary)
 			return -1;
 
 		return nih_config_skip_comment (file, len, pos, lineno);
@@ -1007,6 +1012,10 @@ cfg_stanza_pid (Job             *job,
 
 		nih_free (arg);
 
+		if (job->pid_timeout != JOB_DEFAULT_PID_TIMEOUT)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
 		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
 		if (! arg)
 			return -1;
@@ -1015,9 +1024,8 @@ cfg_stanza_pid (Job             *job,
 		if (*endptr || (job->pid_timeout < 0)) {
 			nih_free (arg);
 
-			nih_error_raise (CFG_ILLEGAL_VALUE,
-					 _(CFG_ILLEGAL_VALUE_STR));
-			return -1;
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
 		}
 		nih_free (arg);
 
@@ -1026,9 +1034,8 @@ cfg_stanza_pid (Job             *job,
 	} else {
 		nih_free (arg);
 
-		nih_error_raise (NIH_CONFIG_UNKNOWN_STANZA,
-				 _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-		return -1;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 }
 

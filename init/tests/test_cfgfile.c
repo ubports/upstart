@@ -1011,6 +1011,338 @@ test_stanza_emits (void)
 }
 
 void
+test_stanza_pid (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_pid");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a pid stanza with the file argument and a filename
+	 * results in the filename being stored in the job.
+	 */
+	TEST_FEATURE ("with file and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid file /var/run/daemon.pid\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->pid_file, job);
+	TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pid stanza with the binary argument and a filename
+	 * results in the filename being stored in the job.
+	 */
+	TEST_FEATURE ("with binary and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid binary /usr/lib/daemon\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->pid_binary, job);
+	TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pid stanza with the timeout argument and a numeric
+	 * timeout results in it being stored in the job.
+	 */
+	TEST_FEATURE ("with timeout and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid timeout 10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->pid_timeout, 10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pid stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with an invalid second-level stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown second argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the file argument but no filename
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with file and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid file\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the binary argument but no filename
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with binary and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid binary\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the timeout argument but no timeout
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid timeout\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid timeout stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid timeout foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid timeout stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid timeout 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid timeout stanza with a negative value results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and negative argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid timeout -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the file argument and filename,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with file and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid file /var/run/daemon.pid foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the binary argument and filename,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with binary and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid binary /usr/lib/daemon foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the timeout argument and timeout,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with timeout and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "pid timeout 99 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+}
+
+void
 test_stanza_normalexit (void)
 {
 	Job  *job;
@@ -1124,7 +1456,7 @@ test_stanza_normalexit (void)
 	/* Check that a normalexit stanza with a non-integer argument results
 	 * in a syntax error.
 	 */
-	TEST_FEATURE ("with missing argument");
+	TEST_FEATURE ("with non-integer argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
 	fprintf (jf, "normalexit foo\n");
@@ -1146,7 +1478,7 @@ test_stanza_normalexit (void)
 	/* Check that a normalexit stanza with a partially numeric argument
 	 * results in a syntax error.
 	 */
-	TEST_FEATURE ("with missing argument");
+	TEST_FEATURE ("with alphanumeric argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
 	fprintf (jf, "normalexit 99foo\n");
@@ -1168,7 +1500,7 @@ test_stanza_normalexit (void)
 	/* Check that a normalexit stanza with a negative value results in
 	 * a syntax error.
 	 */
-	TEST_FEATURE ("with missing argument");
+	TEST_FEATURE ("with negative argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
 	fprintf (jf, "normalexit -1\n");
@@ -1197,6 +1529,7 @@ main (int   argc,
 {
 	test_read_job ();
 	test_stanza_emits ();
+	test_stanza_pid ();
 	test_stanza_normalexit ();
 
 	return 0;

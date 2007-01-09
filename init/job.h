@@ -105,8 +105,8 @@
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
  * @daemon: process forks into background; pid needs to be obtained,
- * @pidfile: obtain pid by reading this file,
- * @binary: obtain pid by locating this binary,
+ * @pid_file: obtain pid by reading this file,
+ * @pid_binary: obtain pid by locating this binary,
  * @pid_timeout: time to wait before giving up obtaining pid,
  * @pid_timer: timer for pid location,
  * @command: command to be run as the primary process,
@@ -160,8 +160,8 @@ typedef struct job {
 	size_t         normalexit_len;
 
 	int            daemon;
-	char          *pidfile;
-	char          *binary;
+	char          *pid_file;
+	char          *pid_binary;
 	time_t         pid_timeout;
 	NihTimer      *pid_timer;
 

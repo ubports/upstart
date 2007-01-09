@@ -1,5 +1,15 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Rename pidfile to pid_file and binary to pid_binary
+	* init/job.c (job_new): Update names here too.
+	* init/errors.h: Add a new "duplicate value" error.
+	* init/cfgfile.c (cfg_read_job): Change name of variables, and catch
+	the duplicate value error to add the line number.
+	(cfg_stanza_pid): Change variable names, and clean this function up
+	a little.  Make it an error to use a stanza more than once.
+	* init/tests/test_cfgfile.c (test_stanza_pid): Write a newer test
+	case function for the pid stanza.
+
 	* init/cfgfile.c (cfg_stanza_normalexit): Use do/while instead of
 	while, that we don't have to test has_token first as next_arg does
 	that for us.

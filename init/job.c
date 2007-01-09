@@ -172,8 +172,8 @@ job_new (const void *parent,
 	job->normalexit_len = 0;
 
 	job->daemon = 0;
-	job->pidfile = NULL;
-	job->binary = NULL;
+	job->pid_file = NULL;
+	job->pid_binary = NULL;
 	job->pid_timeout = JOB_DEFAULT_PID_TIMEOUT;
 	job->pid_timer = NULL;
 
