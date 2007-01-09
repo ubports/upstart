@@ -1,5 +1,8 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c: Change remaining uses of nih_error_raise and
+	return to just nih_return_error.
+
 	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_daemon)
 	(cfg_stanza_respawn, cfg_stanza_script): Disallow duplicates,
 	both of command strings, scripts, limits and of just the flags.

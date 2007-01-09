@@ -1141,9 +1141,8 @@ cfg_stanza_kill (Job             *job,
 		if (*endptr || (job->kill_timeout < 0)) {
 			nih_free (arg);
 
-			nih_error_raise (CFG_ILLEGAL_VALUE,
-					 _(CFG_ILLEGAL_VALUE_STR));
-			return -1;
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
 		}
 		nih_free (arg);
 
@@ -1152,9 +1151,8 @@ cfg_stanza_kill (Job             *job,
 	} else {
 		nih_free (arg);
 
-		nih_error_raise (NIH_CONFIG_UNKNOWN_STANZA,
-				 _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-		return -1;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 }
 
@@ -1261,9 +1259,8 @@ cfg_stanza_console (Job             *job,
 	} else {
 		nih_free (arg);
 
-		nih_error_raise (NIH_CONFIG_UNKNOWN_STANZA,
-				 _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-		return -1;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
 	nih_free (arg);
@@ -1357,9 +1354,8 @@ cfg_stanza_umask (Job             *job,
 	if (*endptr || (mask & ~0777)) {
 		nih_free (arg);
 
-		nih_error_raise (CFG_ILLEGAL_VALUE,
-				 _(CFG_ILLEGAL_VALUE_STR));
-		return -1;
+		nih_return_error (-1, CFG_ILLEGAL_VALUE,
+				  _(CFG_ILLEGAL_VALUE_STR));
 	}
 	nih_free (arg);
 
@@ -1406,9 +1402,8 @@ cfg_stanza_nice (Job             *job,
 	if (*endptr || (nice < -20) || (nice > 19)) {
 		nih_free (arg);
 
-		nih_error_raise (CFG_ILLEGAL_VALUE,
-				 _(CFG_ILLEGAL_VALUE_STR));
-		return -1;
+		nih_return_error (-1, CFG_ILLEGAL_VALUE,
+				  _(CFG_ILLEGAL_VALUE_STR));
 	}
 	nih_free (arg);
 
@@ -1482,9 +1477,8 @@ cfg_stanza_limit (Job             *job,
 	} else {
 		nih_free (arg);
 
-		nih_error_raise (NIH_CONFIG_UNKNOWN_STANZA,
-				 _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-		return -1;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
 	nih_free (arg);
@@ -1505,9 +1499,8 @@ cfg_stanza_limit (Job             *job,
 	if (*endptr) {
 		nih_free (arg);
 
-		nih_error_raise (CFG_ILLEGAL_VALUE,
-				 _(CFG_ILLEGAL_VALUE_STR));
-		return -1;
+		nih_return_error (-1, CFG_ILLEGAL_VALUE,
+				  _(CFG_ILLEGAL_VALUE_STR));
 	}
 	nih_free (arg);
 
@@ -1520,9 +1513,8 @@ cfg_stanza_limit (Job             *job,
 	if (*endptr) {
 		nih_free (arg);
 
-		nih_error_raise (CFG_ILLEGAL_VALUE,
-				 _(CFG_ILLEGAL_VALUE_STR));
-		return -1;
+		nih_return_error (-1, CFG_ILLEGAL_VALUE,
+				  _(CFG_ILLEGAL_VALUE_STR));
 	}
 	nih_free (arg);
 
