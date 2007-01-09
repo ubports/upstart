@@ -63,7 +63,6 @@ test_new (void)
 	TEST_LIST_NOT_EMPTY (&job->entry);
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
-	TEST_LIST_EMPTY (&job->depends);
 
 	TEST_EQ_STR (job->name, "test");
 	TEST_ALLOC_PARENT (job->name, job);
@@ -1336,10 +1335,7 @@ test_child_reaper (void)
 void
 test_start (void)
 {
-	FILE    *output;
-	Job     *job, *dep_job;
-	JobName *dep;
-	Event   *event;
+	Job *job;
 
 	TEST_FUNCTION ("job_start");
 	program_name = "test";
@@ -1400,135 +1396,6 @@ test_start (void)
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 	TEST_EQ (job->pid, 1);
 
-
-	/* Check that an attempt to start a stopped job with a dependency
-	 * that is running succeeds and the job begins starting.
-	 */
-	TEST_FEATURE ("with running dependency");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
-
-	dep_job = job_new (NULL, "frodo");
-	dep_job->goal = JOB_START;
-	dep_job->state = JOB_RUNNING;
-	dep_job->process_state = PROCESS_ACTIVE;
-
-	dep = nih_new (job, JobName);
-	dep->name = dep_job->name;
-	nih_list_init (&dep->entry);
-	nih_list_add (&job->depends, &dep->entry);
-
-	job_start (job);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job->pid, 0);
-
-	waitpid (job->pid, NULL, 0);
-
-
-	/* Check that an attempt to start a stopped job with a dependency
-	 * that is in the process of starting changes only the goal of the
-	 * job and leaves the state change up to future handling.  The
-	 * dependency event should not be emitted, as the dependency is
-	 * starting up.
-	 */
-	TEST_FEATURE ("with starting dependency");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
-
-	dep_job->goal = JOB_START;
-	dep_job->state = JOB_STARTING;
-	dep_job->process_state = PROCESS_ACTIVE;
-	dep_job->pid = 1;
-
-	event = event_new (dep_job, "dependency");
-	nih_list_add (&dep_job->stop_events, &event->entry);
-
-	job_start (job);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
-	TEST_EQ (job->pid, 0);
-
-	TEST_EQ (dep_job->goal, JOB_START);
-	TEST_EQ (dep_job->state, JOB_STARTING);
-	TEST_EQ (dep_job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (dep_job->pid, 1);
-
-
-	/* Check that an attempt to start a stopped job with a dependency
-	 * that is stopped results in the dependency event being emitted,
-	 * and thus the dependency job starting and causing the depending
-	 * job to also start.
-	 */
-	TEST_FEATURE ("with stopped dependency");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
-
-	dep_job->goal = JOB_STOP;
-	dep_job->state = JOB_WAITING;
-	dep_job->process_state = PROCESS_NONE;
-	dep_job->pid = 0;
-	dep_job->command = "echo";
-
-	nih_list_add (&dep_job->start_events, &event->entry);
-
-	job_start (job);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_NE (job->pid, 0);
-
-	waitpid (job->pid, NULL, 0);
-
-	TEST_EQ (dep_job->goal, JOB_START);
-	TEST_EQ (dep_job->state, JOB_RUNNING);
-	TEST_EQ (dep_job->process_state, PROCESS_ACTIVE);
-	TEST_NE (dep_job->pid, 0);
-
-	waitpid (dep_job->pid, NULL, 0);
-
-
-	/* Check that attempting to start a job with an unknown dependency
-	 * means that a warning is emitted, and the job held in waiting.
-	 */
-	TEST_FEATURE ("with unknown dependency");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
-
-	dep->name = "wibble";
-
-	output = tmpfile ();
-	TEST_DIVERT_STDERR (output) {
-		job_start (job);
-	}
-	rewind (output);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
-	TEST_EQ (job->pid, 0);
-
-	TEST_FILE_EQ (output, ("test: test waiting for unknown dependency: "
-			       "wibble\n"));
-	TEST_FILE_END (output);
-
-	fclose (output);
-
-	nih_list_free (&dep_job->entry);
 	nih_list_free (&job->entry);
 }
 
@@ -1618,77 +1485,6 @@ test_stop (void)
 
 
 	nih_list_free (&job->entry);
-}
-
-
-void
-test_release_depends (void)
-{
-	Job     *job1, *job2, *job3, *job4;
-	JobName *job2dep, *job3dep, *job4dep;
-
-	/* Check that an attempt to release the dependers of a job only
-	 * results in those that are starting but waiting, all others
-	 * should be left unchanged.
-	 */
-	TEST_FUNCTION ("job_release_depends");
-	job1 = job_new (NULL, "foo");
-	job1->command = "echo";
-	job1->goal = JOB_START;
-	job1->state = JOB_RUNNING;
-	job1->process_state = PROCESS_ACTIVE;
-
-	job2 = job_new (NULL, "bar");
-	job2->command = "echo";
-	job2->goal = JOB_START;
-	job2->state = JOB_WAITING;
-
-	job2dep = nih_new (job2, JobName);
-	job2dep->name = job1->name;
-	nih_list_init (&job2dep->entry);
-	nih_list_add (&job2->depends, &job2dep->entry);
-
-	job3 = job_new (NULL, "baz");
-	job3->command = "echo";
-	job3->goal = JOB_STOP;
-	job3->state = JOB_WAITING;
-
-	job3dep = nih_new (job3, JobName);
-	job3dep->name = job1->name;
-	nih_list_init (&job3dep->entry);
-	nih_list_add (&job3->depends, &job3dep->entry);
-
-	job4 = job_new (NULL, "wibble");
-	job4->command = "echo";
-	job4->goal = JOB_START;
-	job4->state = JOB_WAITING;
-
-	job4dep = nih_new (job4, JobName);
-	job4dep->name = "frodo";
-	nih_list_init (&job4dep->entry);
-	nih_list_add (&job4->depends, &job4dep->entry);
-
-	job_release_depends (job1);
-
-	TEST_EQ (job2->goal, JOB_START);
-	TEST_EQ (job2->state, JOB_RUNNING);
-	TEST_EQ (job2->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job2->pid, 0);
-	waitpid (job2->pid, NULL, 0);
-
-	TEST_EQ (job3->goal, JOB_STOP);
-	TEST_EQ (job3->state, JOB_WAITING);
-	TEST_EQ (job3->process_state, PROCESS_NONE);
-
-	TEST_EQ (job4->goal, JOB_START);
-	TEST_EQ (job4->state, JOB_WAITING);
-	TEST_EQ (job4->process_state, PROCESS_NONE);
-
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job3->entry);
-	nih_list_free (&job4->entry);
 }
 
 
@@ -2202,7 +1998,6 @@ main (int   argc,
 	test_child_reaper ();
 	test_start ();
 	test_stop ();
-	test_release_depends ();
 	test_start_event ();
 	test_stop_event ();
 	test_handle_event ();

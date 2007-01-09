@@ -153,7 +153,6 @@ job_new (const void *parent,
 
 	nih_list_init (&job->start_events);
 	nih_list_init (&job->stop_events);
-	nih_list_init (&job->depends);
 
 	job->process_state = PROCESS_NONE;
 	job->pid = 0;
@@ -351,21 +350,12 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
-			/* Release our dependencies.  This will cause some
-			 * amount of stack recursion while dependencies get
-			 * started but it cannot affect this job (it only
-			 * touches those in START/WAITING and we're in
-			 * START/RUNNING)
+			/* Send the job event if we're a service that is now
+			 * running.
 			 */
-			if (job->process_state == PROCESS_ACTIVE) {
-				job_release_depends (job);
-
-				/* Also send the job event if we're a service
-				 * that is now running
-				 */
+			if (job->process_state == PROCESS_ACTIVE)
 				if (job->respawn)
 					job_event = TRUE;
-			}
 
 			NIH_MUST (event = nih_sprintf (job, "%s/started",
 						       job->name));
@@ -877,8 +867,7 @@ job_child_reaper (void  *data,
  * necessary.
  *
  * The caller can infer the success of this function by checking the job
- * state after the call, e.g. if it remains in waiting then there are
- * dependencies.
+ * state after the call.
  *
  * If @job is already active in some way (e.g. currently stopping), this
  * ensures that the job will be cleanly restarted when possible.
@@ -888,8 +877,6 @@ job_child_reaper (void  *data,
 void
 job_start (Job *job)
 {
-	int held = FALSE;
-
 	nih_assert (job != NULL);
 
 	job_init ();
@@ -913,71 +900,7 @@ job_start (Job *job)
 		return;
 	}
 
-	/* Iterate our dependencies */
-	NIH_LIST_FOREACH (&job->depends, iter) {
-		JobName *dep = (JobName *)iter;
-		Job     *dep_job;
-
-		/* Ignore dependencies on ourselves ... some people */
-		if (! strcmp (dep->name, job->name))
-			continue;
-
-		/* First check the dependency is actually known; if not we
-		 * still hold the job but we warn that there's a potential
-		 * bogon in there.
-		 */
-		dep_job = job_find_by_name (dep->name);
-		if (! dep_job) {
-			nih_warn (_("%s waiting for unknown dependency: %s"),
-				  job->name, dep->name);
-			held = TRUE;
-			continue;
-		}
-
-		/* If the dependency is running with an active process,
-		 * we don't need to hold for it.
-		 */
-		if ((dep_job->goal == JOB_START)
-		    && (dep_job->state == JOB_RUNNING)
-		    && (dep_job->process_state == PROCESS_ACTIVE))
-			continue;
-
-		/* Hold for it */
-		held = TRUE;
-		nih_info (_("%s waiting for dependency: %s"),
-			  job->name, dep_job->name);
-
-		/* If the job is sitting at STOP, try poking it with a
-		 * dependency event to see whether that does anything
-		 * useful.
-		 *
-		 * NOTE: if successful and the dependency goes straight
-		 * to RUNNING, this will mean that we'll be released
-		 * _by_the_time_we_return_.
-		 *
-		 * MAKE NO FURTHER ASSUMPTIONS ABOUT THE JOB STATE
-		 * and certainly DO NOT call job_next_state!
-		 *
-		 * Fortunately we're safe from that while held is TRUE.
-		 */
-		if (dep_job->goal == JOB_STOP) {
-			Event *event;
-
-			NIH_MUST (event = event_new (NULL, "dependency"));
-			job_start_event (dep_job, event);
-			nih_free (event);
-		}
-	}
-
-	if (held) {
-		/* Notify subscribers if we're still waiting as we've
-		 * made a goal change but not a state change.
-		 */
-		if (job->state == JOB_WAITING)
-			notify_job (job);
-	} else {
-		job_change_state (job, job_next_state (job));
-	}
+	job_change_state (job, job_next_state (job));
 }
 
 /**
@@ -1056,50 +979,6 @@ job_catch_runaway (Job *job)
 	}
 
 	return FALSE;
-}
-
-/**
- * job_release_depends:
- * @job: job now running.
- *
- * Release any jobs which depend on @job now that it is running with an
- * active process.
- *
- * The only jobs that will be affected are those that have a goal of
- * JOB_START but a state of JOB_WAITING and which list @job in their
- * depends list.  job_change_state() is called on these jobs.
- *
- * It is not possible for @job to be changed by a call to this function.
- **/
-void
-job_release_depends (Job *job)
-{
-	nih_assert (job != NULL);
-	nih_assert (job->goal == JOB_START);
-	nih_assert (job->state == JOB_RUNNING);
-	nih_assert (job->process_state == PROCESS_ACTIVE);
-
-	/* This is rather too expensive, but at least avoids hard to maintain
-	 * linking tables.  Hopefully we'll never have thousands of jobs.
-	 */
-	NIH_LIST_FOREACH (jobs, job_iter) {
-		Job *dep_job = (Job *)job_iter;
-
-		/* Only release those jobs waiting to be released */
-		if ((dep_job->goal != JOB_START)
-		    || (dep_job->state != JOB_WAITING))
-			continue;
-
-		/* Check whether it's waiting for us */
-		NIH_LIST_FOREACH (&dep_job->depends, dep_iter) {
-			JobName *dep = (JobName *)dep_iter;
-
-			if (strcmp (dep->name, job->name))
-				continue;
-
-			job_change_state (dep_job, job_next_state (dep_job));
-		}
-	}
 }
 
 

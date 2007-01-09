@@ -98,7 +98,6 @@ test_read_job (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
-	TEST_LIST_EMPTY (&job->depends);
 
 	TEST_EQ_STR (job->command, "/sbin/daemon -d");
 	TEST_ALLOC_PARENT (job->command, job);
@@ -133,7 +132,6 @@ test_read_job (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
-	TEST_LIST_EMPTY (&job->depends);
 
 	TEST_EQ_STR (job->command, "/sbin/daemon --daemon");
 	TEST_ALLOC_PARENT (job->command, job);
@@ -175,9 +173,6 @@ test_read_job (void)
 	fprintf (jf, "stop on shutdown\n");
 	fprintf (jf, "\n");
 	fprintf (jf, "on explosion\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "depends frodo bilbo\n");
-	fprintf (jf, "depends galadriel\n");
 	fprintf (jf, "\n");
 	fprintf (jf, "env PATH=\"/usr/games:/usr/bin\"\n");
 	fprintf (jf, "env LANG=C\n");
@@ -275,28 +270,6 @@ test_read_job (void)
 	}
 	if (i != 1)
 		TEST_FAILED ("missing at least one stop event");
-
-	/* Check we got all of the depends we expected */
-	i = 0;
-	TEST_LIST_NOT_EMPTY (&job->depends);
-	NIH_LIST_FOREACH (&job->depends, iter) {
-		JobName *dep = (JobName *)iter;
-
-		TEST_ALLOC_PARENT (dep, job);
-
-		if (! strcmp (dep->name, "frodo")) {
-			i |= 1;
-		} else if (! strcmp (dep->name, "bilbo")) {
-			i |= 2;
-		} else if (! strcmp (dep->name, "galadriel")) {
-			i |= 4;
-		} else {
-			TEST_FAILED ("wrong dependency, got unexpected '%s'",
-				     dep->name);
-		}
-	}
-	if (i != 7)
-		TEST_FAILED ("missing at least one dependency");
 
 	TEST_NE_P (job->env, NULL);
 	TEST_ALLOC_PARENT (job->env, job);
@@ -593,7 +566,6 @@ test_read_job (void)
 	fprintf (jf, "author foo bar\n");
 	fprintf (jf, "version\n");
 	fprintf (jf, "version foo bar\n");
-	fprintf (jf, "depends\n");
 	fprintf (jf, "on\n");
 	fprintf (jf, "on foo bar\n");
 	fprintf (jf, "start\n");

@@ -1,3 +1,22 @@
+2007-01-09  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_stanza_depends): Remove the depends stanza
+	from the configuration file.  Dependency support has never been used,
+	and is to be replaced by a more flexible event/state configuration
+	and blocking on the starting/stopping events.
+	* init/tests/test_cfgfile.c: Remove references and tests for the
+	depends stanza.
+	* init/job.h: Remove the depends list from the job structure.
+	* init/job.c (job_new): No depends list to initialise.
+	(job_change_state): No dependencies to release
+	(job_start): No dependencies to iterate; this removes a particularly
+	hairy and complex interaction between state changes.  Remove the
+	dependency event.
+	(job_release_depends): Drop this function.
+	* init/tests/test_job.c (test_start, test_stop): Massively simplify
+	these tests cases now we don't have dependencies to worry about.
+	(test_release_depends): Drop tests
+
 2007-01-08  Scott James Remnant  <scott@netsplit.com>
 
 	* init/cfgfile.c: Rewrite using the nih_config API, rather than one

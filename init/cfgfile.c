@@ -78,9 +78,6 @@ static int  cfg_stanza_author      (Job *job, NihConfigStanza *stanza,
 static int  cfg_stanza_version     (Job *job, NihConfigStanza *stanza,
 				    const char *file, size_t len,
 				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_depends     (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
 static int  cfg_stanza_on          (Job *job, NihConfigStanza *stanza,
 				    const char *file, size_t len,
 				    size_t *pos, size_t *lineno);
@@ -150,7 +147,6 @@ static NihConfigStanza stanzas[] = {
 	{ "description", (NihConfigHandler)cfg_stanza_description },
 	{ "author",      (NihConfigHandler)cfg_stanza_author      },
 	{ "version",     (NihConfigHandler)cfg_stanza_version     },
-	{ "depends",     (NihConfigHandler)cfg_stanza_depends     },
 	{ "on",          (NihConfigHandler)cfg_stanza_on          },
 	{ "start",       (NihConfigHandler)cfg_stanza_start       },
 	{ "stop",        (NihConfigHandler)cfg_stanza_stop        },
@@ -422,60 +418,6 @@ cfg_stanza_version (Job             *job,
 		return -1;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
-}
-
-/**
- * cfg_stanza_depends:
- * @job: job being parsed,
- * @stanza: stanza found,
- * @file: file or string to parse,
- * @len: length of @file,
- * @pos: offset within @file,
- * @lineno: line number.
- *
- * Parse a depends stanza from @file, extracting the arguments as
- * names of job this one depends on.
- *
- * Returns: zero on success, negative value on error.
- **/
-static int
-cfg_stanza_depends (Job             *job,
-		    NihConfigStanza *stanza,
-		    const char      *file,
-		    size_t           len,
-		    size_t          *pos,
-		    size_t          *lineno)
-{
-	char **args, **arg;
-
-	nih_assert (job != NULL);
-	nih_assert (stanza != NULL);
-	nih_assert (file != NULL);
-	nih_assert (pos != NULL);
-
-	args = nih_config_parse_args (NULL, file, len, pos, lineno);
-	if (! args)
-		return -1;
-
-	if (! *args) {
-		nih_error_raise (NIH_CONFIG_EXPECTED_TOKEN,
-				 _(NIH_CONFIG_EXPECTED_TOKEN_STR));
-		nih_free (args);
-		return -1;
-	}
-
-	for (arg = args; *arg; arg++) {
-		JobName *dep;
-
-		NIH_MUST (dep = nih_new (job, JobName));
-		NIH_MUST (dep->name = nih_strdup (job, *arg));
-		nih_list_init (&dep->entry);
-		nih_list_add (&job->depends, &dep->entry);
-	}
-
-	nih_free (args);
-
-	return 0;
 }
 
 /**
