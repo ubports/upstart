@@ -2859,6 +2859,1198 @@ test_stanza_normalexit (void)
 }
 
 void
+test_stanza_console (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_console");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+	/* Check that console logged sets the job's console to
+	 * CONSOLE_LOGGED.
+	 */
+	TEST_FEATURE ("with logged argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console logged\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_LOGGED);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that console output sets the job's console to
+	 * CONSOLE_OUTPUT.
+	 */
+	TEST_FEATURE ("with output argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console output\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_OUTPUT);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that console owner sets the job's console to
+	 * CONSOLE_OWNER.
+	 */
+	TEST_FEATURE ("with owner argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console owner\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_OWNER);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that console none sets the job's console to
+	 * CONSOLE_NONE.
+	 */
+	TEST_FEATURE ("with none argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console none\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_NONE);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an unknown argument raises a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console wibble\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that additional arguments to the stanza results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console owner foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the console stanza result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console owner\n");
+	fprintf (jf, "console output\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_env (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_env");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a env stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env FOO=BAR\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->env, job);
+	TEST_ALLOC_SIZE (job->env, sizeof (char *) * 2);
+	TEST_EQ_STR (job->env[0], "FOO=BAR");
+	TEST_EQ_P (job->env[1], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated env stanzas are appended to those stored in
+	 * the job.
+	 */
+	TEST_FEATURE ("with repeated stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env FOO=BAR\n");
+	fprintf (jf, "env BAZ=QUUX\n");
+	fprintf (jf, "env FRODO=BILBO\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->env, job);
+	TEST_ALLOC_SIZE (job->env, sizeof (char *) * 4);
+	TEST_EQ_STR (job->env[0], "FOO=BAR");
+	TEST_EQ_STR (job->env[1], "BAZ=QUUX");
+	TEST_EQ_STR (job->env[2], "FRODO=BILBO");
+	TEST_EQ_P (job->env[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a env stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a env stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env FOO=BAR oops\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_umask (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_umask");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a umask stanza with an octal timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 0755\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->umask, 0755);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a umask stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a non-octal argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-octal argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 999\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a negative value results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with negative argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a creation mask
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 0755 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated umask stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 0755\n");
+	fprintf (jf, "umask 0711\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_nice (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_nice");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a nice stanza with an positive timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with positive argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->nice, 10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a nice stanza with a negative timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with positive argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice -10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->nice, -10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a nice stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with an overly large argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with overly large argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 20\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with an overly small argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with overly small argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice -21\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 12foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with a priority but with an extra
+	 * argument afterwards results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 10 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated nice stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 10\n");
+	fprintf (jf, "nice -12\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_limit (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_limit");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that the limit as stanza sets the RLIMIT_AS resource.
+	 */
+	TEST_FEATURE ("with as limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit as 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_AS], job);
+	TEST_EQ (job->limits[RLIMIT_AS]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_AS]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit core stanza sets the RLIMIT_CORE resource.
+	 */
+	TEST_FEATURE ("with core limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit as stanza sets the RLIMIT_CPU resource.
+	 */
+	TEST_FEATURE ("with cpu limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit cpu 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CPU], job);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit data stanza sets the RLIMIT_DATA resource.
+	 */
+	TEST_FEATURE ("with data limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit data 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_DATA], job);
+	TEST_EQ (job->limits[RLIMIT_DATA]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_DATA]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+	/* Check that the limit fsize stanza sets the RLIMIT_FSIZE resource.
+	 */
+	TEST_FEATURE ("with fsize limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit fsize 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_FSIZE], job);
+	TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit memlock stanza sets the RLIMIT_MEMLOCK
+	 * resource.
+	 */
+	TEST_FEATURE ("with memlock limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit memlock 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_MEMLOCK], job);
+	TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit msgqueue stanza sets the RLIMIT_MSGQUEUE
+	 * resource.
+	 */
+	TEST_FEATURE ("with msgqueue limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit msgqueue 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_MSGQUEUE], job);
+	TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+	/* Check that the limit nice stanza sets the RLIMIT_NICE resource.
+	 */
+	TEST_FEATURE ("with nice limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit nice 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_NICE], job);
+	TEST_EQ (job->limits[RLIMIT_NICE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_NICE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit nofile stanza sets the RLIMIT_NOFILE
+	 * resource.
+	 */
+	TEST_FEATURE ("with nofile limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit nofile 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_NOFILE], job);
+	TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+	/* Check that the limit nproc stanza sets the RLIMIT_NPROC resource.
+	 */
+	TEST_FEATURE ("with nproc limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit nproc 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_NPROC], job);
+	TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit rss stanza sets the RLIMIT_RSS resource.
+	 */
+	TEST_FEATURE ("with rss limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit rss 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_RSS], job);
+	TEST_EQ (job->limits[RLIMIT_RSS]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_RSS]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit rtprio stanza sets the RLIMIT_RTPRIO resource.
+	 */
+	TEST_FEATURE ("with rtprio limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit rtprio 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_RTPRIO], job);
+	TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit sigpending stanza sets the RLIMIT_SIGPENDING
+	 * resource.
+	 */
+	TEST_FEATURE ("with sigpending limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit sigpending 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_SIGPENDING], job);
+	TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit stack stanza sets the RLIMIT_STACK resource.
+	 */
+	TEST_FEATURE ("with stack limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit stack 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_STACK], job);
+	TEST_EQ (job->limits[RLIMIT_STACK]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_STACK]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple limit stanzas are permitted provided they
+	 * refer to different resources, all are set.
+	 */
+	TEST_FEATURE ("with multiple limits");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 20\n");
+	fprintf (jf, "limit cpu 15 30\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CPU], job);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 15);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 30);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a limit stanza with the soft argument but no hard value
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing hard limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with no soft value results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing soft limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with an unknown resource name results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown resource type");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with no resource name results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing resource type");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a non-integer hard value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer hard value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a non-integer soft value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer soft value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core foo 20\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a partially numeric hard value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric hard value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a partially numeric soft value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric soft value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 99foo 20\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the limit stanza with the
+	 * same reousrce is a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate resource");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 20\n");
+	fprintf (jf, "limit core 15 30\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with an extra argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit cpu 10 20 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
 test_stanza_chroot (void)
 {
 	Job  *job;
@@ -3087,13 +4279,11 @@ main (int   argc,
 	test_stanza_pid ();
 	test_stanza_kill ();
 	test_stanza_normalexit ();
-	/*
 	test_stanza_console ();
 	test_stanza_env ();
 	test_stanza_umask ();
 	test_stanza_nice ();
 	test_stanza_limit ();
-	 */
 	test_stanza_chroot ();
 	test_stanza_chdir ();
 

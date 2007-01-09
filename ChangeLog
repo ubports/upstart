@@ -1,5 +1,9 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_cfgfile.c (test_stanza_console, test_stanza_env) 
+	(test_stanza_umask, test_stanza_nice, test_stanza_limit): Finish off
+	the newer style test cases.
+
 	* init/cfgfile.c (cfg_stanza_console, cfg_stanza_umask)
 	(cfg_stanza_nice, cfg_stanza_limit, cfg_stanza_chroot)
 	(cfg_stanza_chdir): Guard against duplicate uses of the stanzas.
