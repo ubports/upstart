@@ -1,5 +1,12 @@
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_daemon)
+	(cfg_stanza_respawn, cfg_stanza_script): Disallow duplicates,
+	both of command strings, scripts, limits and of just the flags.
+	* init/tests/test_cfgfile.c (test_stanza_exec) 
+	(test_stanza_daemon, test_stanza_respawn, test_stanza_instance):
+	Check the behaviour of these stanzas.
+	
 	* init/cfgfile.c (cfg_stanza_start, cfg_stanza_stop): Disallow
 	duplicate values for the script.
 	* init/tests/test_cfgfile.c (test_stanza_start, test_stanza_stop):
