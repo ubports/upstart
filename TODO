@@ -5,16 +5,15 @@ High Priority:
  * ban using respawn/daemon as a shortcut?
 
 
- * need a sigjmp out of the segv handler
-
  * split initctl into separate pieces and test!
-
- * change process name of init so it doesn't have --restart in it
 
  * sort out the message types into groups, etc.
 
  * add a new information exchange message and use that for reexec, move
    all the reexec stuff into one place
+
+ * if environment variables don't have an = in them, copy that variable
+   from init's environment (default PATH, TERM)
 
 
  * replace logd raise/wait/kill interlock with a pipe-based one?
