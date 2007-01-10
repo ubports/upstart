@@ -1,5 +1,7 @@
 2007-01-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (crash_handler): s/SEGV/SIGSEGV/
+
 	* init/main.c (main): Rename variable
 
 	* TODO: Update.

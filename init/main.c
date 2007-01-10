@@ -400,10 +400,12 @@ crash_handler (int signum)
 		waitpid (pid, NULL, 0);
 
 		nih_error (_("Caught %s, core dumped"),
-			   (signum == SEGV ? "segmentation fault" : "abort"));
+			   (signum == SIGSEGV
+			    ? "segmentation fault" : "abort"));
 	} else {
 		nih_error (_("Caught %s, unable to dump core"),
-			   (signum == SEGV ? "segmentation fault" : "abort"));
+			   (signum == SIGSEGV
+			    ? "segmentation fault" : "abort"));
 	}
 }
 
