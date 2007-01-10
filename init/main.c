@@ -70,7 +70,7 @@
 
 /* Prototypes for static functions */
 static void reset_console   (void);
-static void segv_handler    (int signum);
+static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
@@ -171,7 +171,8 @@ main (int   argc,
 	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
-	nih_signal_set_handler (SIGSEGV,  segv_handler);
+	nih_signal_set_handler (SIGSEGV,  crash_handler);
+	nih_signal_set_handler (SIGABRT,  crash_handler);
 
 	/* Ensure that we don't process events while paused */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL));
@@ -323,15 +324,21 @@ reset_console (void)
 
 
 /**
- * segv_handler:
+ * crash_handler:
  * @signum: signal number received.
  *
- * Handle receiving the SEGV signal, usually caused by one of our own
- * mistakes.  We deal with it by dumping core in a child process and
- * just carrying on in the parent.
+ * Handle receiving the SEGV or ABRT signal, usually caused by one of
+ * our own mistakes.  We deal with it by dumping core in a child process
+ * and just carrying on in the parent.
+ *
+ * This may or may not work, but the only alternative would be sigjmp()ing
+ * to somewhere "safe" leaving inconsistent state everywhere (like dangling
+ * lists pointers) or exec'ing another process (which we couldn't transfer
+ * our state to anyway).  This just hopes that the kernel resumes on the
+ * next instruction.
  **/
 static void
-segv_handler (int signum)
+crash_handler (int signum)
 {
 	pid_t pid;
 
@@ -345,11 +352,11 @@ segv_handler (int signum)
 		sigfillset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 
-		/* Set the SEGV handler to the default so core is dumped */
+		/* Set the handler to the default so core is dumped */
 		act.sa_handler = SIG_DFL;
 		act.sa_flags = 0;
 		sigemptyset (&act.sa_mask);
-		sigaction (SIGSEGV, &act, NULL);
+		sigaction (signum, &act, NULL);
 
 		/* Dump in the root directory */
 		chdir ("/");
@@ -359,11 +366,11 @@ segv_handler (int signum)
 		limit.rlim_max = RLIM_INFINITY;
 		setrlimit (RLIMIT_CORE, &limit);
 
-		/* Raise the signal */
-		raise (SIGSEGV);
+		/* Raise the signal again */
+		raise (signum);
 
 		/* Unmask so that we receive it */
-		sigdelset (&mask, SIGSEGV);
+		sigdelset (&mask, signum);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 
 		/* Wait for death */
@@ -373,9 +380,11 @@ segv_handler (int signum)
 		/* Wait for the core to be generated */
 		waitpid (pid, NULL, 0);
 
-		nih_error (_("Caught segmentation fault, core dumped"));
+		nih_error (_("Caught %s, core dumped"),
+			   (signum == SEGV ? "segmentation fault" : "abort"));
 	} else {
-		nih_error (_("Caught segmentation fault, unable to dump core"));
+		nih_error (_("Caught %s, unable to dump core"),
+			   (signum == SEGV ? "segmentation fault" : "abort"));
 	}
 }
 

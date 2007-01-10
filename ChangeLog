@@ -1,3 +1,10 @@
+2007-01-10  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (segv_handler): Rename to crash_handler and handle
+	SIGABRT as well, so we can catch assertion errors.  Of course, in
+	theory, with our high test converage this should never happen in
+	practice <chortle>
+
 2007-01-09  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c (main): Clear arguments so that upstart only ever
