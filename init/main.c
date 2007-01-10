@@ -137,9 +137,28 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Clear arguments, so we just show up as init */
-	for (i = 1; i < argc; i++)
-		memset (argv[i], '\0', strlen (argv[i]));
+
+	/* Clear our arguments from the command-line, so that we show up in
+	 * ps or top output as /sbin/init, with no extra flags.
+	 *
+	 * This is a very Linux-specific trick; by deleting the NULL
+	 * terminator at the end of the last argument, we fool the kernel
+	 * into believing we used a setproctitle()-a-like to extend the
+	 * argument space into the environment space, and thus make it use
+	 * strlen() instead of its own assumed length.  In fact, we've done
+	 * the exact opposite, and shrunk the command line length to just that
+	 * of whatever is in argv[0].
+	 *
+	 * If we don't do this, and just write \0 over the rest of argv, for
+	 * example; the command-line length still includes those \0s, and ps
+	 * will show whitespace in their place.
+	 */
+	if (argc > 1) {
+		char *lastargv;
+
+		lastargv = argv[argc-1] + strlen (argv[argc-1]);
+		*lastargv = ' ';
+	}
 
 
 	/* Send all logging output to syslog */

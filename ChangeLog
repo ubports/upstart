@@ -1,5 +1,9 @@
 2007-01-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Change the way we clear the arguments; by
+	deleting just the final NULL terminator, we fool the kernel into
+	only returning one argument in cmdline.
+
 	* init/main.c (segv_handler): Rename to crash_handler and handle
 	SIGABRT as well, so we can catch assertion errors.  Of course, in
 	theory, with our high test converage this should never happen in
