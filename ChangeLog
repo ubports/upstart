@@ -1,5 +1,7 @@
 2007-01-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Rename variable
+
 	* TODO: Update.
 
 	* init/main.c (main): Change the way we clear the arguments; by

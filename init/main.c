@@ -154,10 +154,10 @@ main (int   argc,
 	 * will show whitespace in their place.
 	 */
 	if (argc > 1) {
-		char *lastargv;
+		char *arg_end;
 
-		lastargv = argv[argc-1] + strlen (argv[argc-1]);
-		*lastargv = ' ';
+		arg_end = argv[argc-1] + strlen (argv[argc-1]);
+		*arg_end = ' ';
 	}
 
 
