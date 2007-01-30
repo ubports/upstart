@@ -440,9 +440,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_NO_OP message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\0", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -465,9 +465,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_START message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x1\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x1\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -490,9 +491,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_STOP message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x2\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x2\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -515,9 +517,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_QUERY message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x3\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x3\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -540,11 +543,12 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_STATUS message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data, 	("upstart\n\0\0\0\x04\0\0\0\x04test"
-					 "\0\0\0\x01\0\0\0\x02\0\0\0\x02"
-					 "\0\0\x03\xe8\0\0\0\afoo bar"), 47);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      ("upstart\n\0\0\0\x04\0\0\0\x04test"
+				       "\0\0\0\x01\0\0\0\x02\0\0\0\x02"
+				       "\0\0\x03\xe8\0\0\0\afoo bar"), 47));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -567,9 +571,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_UNKNOWN message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x5\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x5\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -592,9 +597,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_LIST message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x6", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x6", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -617,9 +622,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_LIST_END message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x7", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x7", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -642,9 +647,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_EVENT_QUEUE message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x8\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x8\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -667,9 +673,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_EVENT message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x9\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x9\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -692,9 +699,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_WATCH_JOBS message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\xa", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xa", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -717,9 +724,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_UNWATCH_JOBS message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\xb", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xb", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -742,9 +749,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_WATCH_EVENTS message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\xc", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xc", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -767,9 +774,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_UNWATCH_EVENTS message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\xd", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xd", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -792,9 +799,10 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with UPSTART_SHUTDOWN message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\xe\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\xe\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -817,9 +825,9 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with invalid message");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "snarf", 5);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "snarf", 5));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 
@@ -846,9 +854,9 @@ test_handle (void)
 	cred.pid = 1234;
 
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\0", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 
@@ -871,9 +879,10 @@ test_handle (void)
 	/* Check that no handler is called if the message type isn't right. */
 	TEST_FEATURE ("with message of unexpected type");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\1\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\1\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 
@@ -896,9 +905,9 @@ test_handle (void)
 	cred.pid = 1234;
 
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\0", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -921,9 +930,10 @@ test_handle (void)
 	/* Check that a handler is called if the type is a wildcard. */
 	TEST_FEATURE ("with wildcard message type");
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\1\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\1\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -948,9 +958,9 @@ test_handle (void)
 	cred.pid = 999;
 
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\0", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -982,9 +992,9 @@ test_handle (void)
 	cred.gid = 876;
 
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\0", 12));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 
@@ -1015,9 +1025,10 @@ test_handle_using (void)
 	TEST_FUNCTION ("upstart_message_handle_using");
 	upstart_disable_safeties = TRUE;
 	msg = nih_io_message_new (NULL);
-	nih_io_buffer_push (msg->data,  "upstart\n\0\0\0\x1\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\x1\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	handler_called = FALSE;
 	last_data = NULL;
@@ -1056,9 +1067,10 @@ test_reader (void)
 			    NULL, NULL, any_handler);
 
 	msg = nih_io_message_new (io);
-	nih_io_buffer_push (msg->data, "upstart\n\0\0\0\1\0\0\0\x4test", 20);
-	nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-				    sizeof (cred), &cred);
+	NIH_ZERO (nih_io_buffer_push (msg->data,
+				      "upstart\n\0\0\0\1\0\0\0\x4test", 20));
+	NIH_ZERO (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					      sizeof (cred), &cred));
 
 	nih_alloc_set_destructor (msg, my_destructor);
 

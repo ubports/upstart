@@ -1,5 +1,9 @@
 2007-01-30  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_message.c: Guard calls to nih_io_buffer_push and
+	nih_io_message_add_control with NIH_ZERO to ensure they succeed.
+	* upstart/tests/test_wire.c: Guard calls to nih_io_buffer_push
+
 	* HACKING: Update from libnih with new Documentation,
 	Function Attributes and Test Cases sections.
 
