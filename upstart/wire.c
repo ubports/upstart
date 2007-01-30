@@ -59,7 +59,7 @@
  * Integers are transmitted across the wire as signed 32-bit values,
  * in network byte order.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero on success, negative value if insufficient memory.
  **/
 int
 upstart_push_int (NihIoMessage *message,
@@ -125,7 +125,7 @@ upstart_pop_int (NihIoMessage *message,
  * Unsigneds are transmitted across the wire as 32-bit values,
  * in network byte order.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero on success, negative value if insufficient memory.
  **/
 int
 upstart_push_unsigned (NihIoMessage *message,
@@ -195,7 +195,7 @@ upstart_pop_unsigned (NihIoMessage *message,
  * with no following bytes; it may also be NULL in which case the special
  * length 0xffffffff is sent followed by no bytes.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero on success, negative value if insufficient memory.
  **/
 int
 upstart_push_string (NihIoMessage *message,
@@ -290,7 +290,7 @@ upstart_pop_string (NihIoMessage  *message,
  * by the message type transmitted as a signed 32-bit value in network
  * byte order.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero on success, negative value if insufficient memory.
  **/
 int
 upstart_push_header (NihIoMessage       *message,
@@ -358,7 +358,7 @@ upstart_pop_header (NihIoMessage       *message,
  *  u - unsigned int (written with upstart_push_unsigned)
  *  s - const char * (written with upstart_push_string)
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero on success, negative value if insufficient memory.
  **/
 int
 upstart_push_packv (NihIoMessage *message,
@@ -407,7 +407,7 @@ upstart_push_packv (NihIoMessage *message,
  *  u - unsigned int - written with upstart_push_unsigned()
  *  s - const char * - written with upstart_push_string()
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero on success, negative value if insufficient memory.
  **/
 int
 upstart_push_pack (NihIoMessage *message,

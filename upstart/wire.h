@@ -31,22 +31,28 @@
 
 NIH_BEGIN_EXTERN
 
-int upstart_push_int      (NihIoMessage *message, int value);
+int upstart_push_int      (NihIoMessage *message, int value)
+	__attribute__ ((warn_unused_result));
 int upstart_pop_int       (NihIoMessage *message, int *value);
 
-int upstart_push_unsigned (NihIoMessage *message, unsigned int value);
+int upstart_push_unsigned (NihIoMessage *message, unsigned int value)
+	__attribute__ ((warn_unused_result));
 int upstart_pop_unsigned  (NihIoMessage *message, unsigned int *value);
 
-int upstart_push_string   (NihIoMessage *message, const char *value);
+int upstart_push_string   (NihIoMessage *message, const char *value)
+	__attribute__ ((warn_unused_result));
 int upstart_pop_string    (NihIoMessage *message, const void *parent,
 			   char **value);
 
-int upstart_push_header   (NihIoMessage *message, UpstartMessageType type);
+int upstart_push_header   (NihIoMessage *message, UpstartMessageType type)
+	__attribute__ ((warn_unused_result));
 int upstart_pop_header    (NihIoMessage *message, UpstartMessageType *type);
 
 int upstart_push_packv    (NihIoMessage *message, const char *pack,
-			   va_list args);
-int upstart_push_pack     (NihIoMessage *message, const char *pack, ...);
+			   va_list args)
+	__attribute__ ((warn_unused_result));
+int upstart_push_pack     (NihIoMessage *message, const char *pack, ...)
+	__attribute__ ((warn_unused_result));
 int upstart_pop_packv     (NihIoMessage *message, const void *parent,
 			   const char *pack, va_list args);
 int upstart_pop_pack      (NihIoMessage *message, const void *parent,
