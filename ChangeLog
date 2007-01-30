@@ -1,5 +1,8 @@
 2007-01-30  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_message.c (my_handler): Free the name and
+	description after checking; they aren't otherwise.
+
 	* upstart/wire.c (upstart_push_packv, upstart_pop_packv): Consume
 	a copy of the va_list, so these can be called multiple times on the
 	same list without ill effect.

@@ -379,8 +379,11 @@ my_handler (void                *data,
 
 		TEST_EQ_STR (name, "test");
 
-		if (pid == 2000)
+		if (pid == 2000) {
 			nih_alloc_set_destructor (name, my_destructor);
+		} else {
+			nih_free (name);
+		}
 
 		break;
 	}
@@ -401,6 +404,9 @@ my_handler (void                *data,
 		TEST_EQ (process_state, PROCESS_ACTIVE);
 		TEST_EQ (pid, 1000);
 		TEST_EQ_STR (description, "foo bar");
+
+		nih_free (name);
+		nih_free (description);
 
 		break;
 	}
