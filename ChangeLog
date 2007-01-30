@@ -1,5 +1,9 @@
 2007-01-30  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_push_packv, upstart_pop_packv): Consume
+	a copy of the va_list, so these can be called multiple times on the
+	same list without ill effect.
+
 	* upstart/message.h: Add warn_unused_result attributes to
 	upstart_message_handle and upstart_message_handle_using as they raise
 	errors.

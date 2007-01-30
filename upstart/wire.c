@@ -365,8 +365,12 @@ upstart_push_packv (NihIoMessage *message,
 		    const char   *pack,
 		    va_list       args)
 {
+	va_list args_copy;
+
 	nih_assert (message != NULL);
 	nih_assert (pack != NULL);
+
+	va_copy (args_copy, args);
 
 	for (; *pack; pack++) {
 		int ret;
@@ -374,15 +378,15 @@ upstart_push_packv (NihIoMessage *message,
 		switch (*pack) {
 		case 'i':
 			ret = upstart_push_int (
-				message, va_arg (args, int));
+				message, va_arg (args_copy, int));
 			break;
 		case 'u':
 			ret = upstart_push_unsigned (
-				message, va_arg (args, unsigned int));
+				message, va_arg (args_copy, unsigned int));
 			break;
 		case 's':
 			ret = upstart_push_string (
-				message, va_arg (args, const char *));
+				message, va_arg (args_copy, const char *));
 			break;
 		default:
 			nih_assert_not_reached ();
@@ -456,8 +460,12 @@ upstart_pop_packv (NihIoMessage *message,
 		   const char   *pack,
 		   va_list       args)
 {
+	va_list args_copy;
+
 	nih_assert (message != NULL);
 	nih_assert (pack != NULL);
+
+	va_copy (args_copy, args);
 
 	for (; *pack; pack++) {
 		int ret;
@@ -465,15 +473,15 @@ upstart_pop_packv (NihIoMessage *message,
 		switch (*pack) {
 		case 'i':
 			ret = upstart_pop_int (
-				message, va_arg (args, int *));
+				message, va_arg (args_copy, int *));
 			break;
 		case 'u':
 			ret = upstart_pop_unsigned (
-				message, va_arg (args, unsigned int *));
+				message, va_arg (args_copy, unsigned int *));
 			break;
 		case 's':
 			ret = upstart_pop_string (
-				message, parent, va_arg (args, char **));
+				message, parent, va_arg (args_copy, char **));
 			break;
 		default:
 			nih_assert_not_reached ();
