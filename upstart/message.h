@@ -152,11 +152,13 @@ NihIoMessage *upstart_message_new          (const void *parent, pid_t pid,
 int           upstart_message_handle       (const void *parent,
 					    NihIoMessage *message,
 					    UpstartMessage *handlers,
-					    void *data);
+					    void *data)
+	__attribute__ ((warn_unused_result));
 int           upstart_message_handle_using (const void *parent,
 					    NihIoMessage *message,
 					    UpstartMessageHandler handler,
-					    void *data);
+					    void *data)
+	__attribute__ ((warn_unused_result));
 
 void          upstart_message_reader       (UpstartMessage *handlers,
 					    NihIo *io, const char *buf,

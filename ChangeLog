@@ -1,5 +1,9 @@
 2007-01-30  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: Add warn_unused_result attributes to
+	upstart_message_handle and upstart_message_handle_using as they raise
+	errors.
+
 	* upstart/wire.c: push functions return negative values to indicate
 	insufficient memory.
 	* upstart/wire.h: Add warn_unused_result attributes to push functions
