@@ -45,11 +45,21 @@ test_push_int (void)
 	 * increased.
 	 */
 	TEST_FEATURE ("with space in empty buffer");
-	ret = upstart_push_int (msg, 42);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 0;
+		msg->data->size = 0;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 4);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a", 4);
+		ret = upstart_push_int (msg, 42);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 4);
+		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a", 4);
+	}
 
 
 	/* Check that we can write an integer into a message that already has
@@ -57,20 +67,40 @@ test_push_int (void)
 	 * in length to include both.
 	 */
 	TEST_FEATURE ("with space in used buffer");
-	ret = upstart_push_int (msg, 1234567);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 4;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 8);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+		ret = upstart_push_int (msg, 1234567);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 8);
+		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+	}
 
 
 	/* Check that we can place a negative number into the iovec. */
 	TEST_FEATURE ("with negative number");
-	ret = upstart_push_int (msg, -42);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 8;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 12);
-	TEST_EQ_MEM (msg->data->buf + 8, "\xff\xff\xff\xd6", 4);
+		ret = upstart_push_int (msg, -42);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf + 8, "\xff\xff\xff\xd6", 4);
+	}
 
 
 	nih_free (msg);
@@ -157,11 +187,21 @@ test_push_unsigned (void)
 	 * increased.
 	 */
 	TEST_FEATURE ("with space in empty buffer");
-	ret = upstart_push_unsigned (msg, 42);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 0;
+		msg->data->size = 0;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 4);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a", 4);
+		ret = upstart_push_unsigned (msg, 42);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 4);
+		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a", 4);
+	}
 
 
 	/* Check that we can write an integer into a message that already has
@@ -169,20 +209,40 @@ test_push_unsigned (void)
 	 * in length to include both.
 	 */
 	TEST_FEATURE ("with space in used buffer");
-	ret = upstart_push_unsigned (msg, 1234567);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 4;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 8);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+		ret = upstart_push_unsigned (msg, 1234567);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 8);
+		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+	}
 
 
 	/* Check that we can write a very large number into the message. */
 	TEST_FEATURE ("with very large number");
-	ret = upstart_push_unsigned (msg, 0xfedcba98);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 8;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 12);
-	TEST_EQ_MEM (msg->data->buf + 8, "\xfe\xdc\xba\x98", 4);
+		ret = upstart_push_unsigned (msg, 0xfedcba98);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf + 8, "\xfe\xdc\xba\x98", 4);
+	}
 
 
 	nih_free (msg);
@@ -270,11 +330,21 @@ test_push_string (void)
 	 * The length of the buffer should be increased.
 	 */
 	TEST_FEATURE ("with space in empty buffer");
-	ret = upstart_push_string (msg, "hello");
+	TEST_ALLOC_FAIL {
+		msg->data->len = 0;
+		msg->data->size = 0;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 9);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x05hello", 9);
+		ret = upstart_push_string (msg, "hello");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 9);
+		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x05hello", 9);
+	}
 
 
 	/* Check that we can write a string into a message that already has
@@ -282,29 +352,60 @@ test_push_string (void)
 	 * in length to include both.
 	 */
 	TEST_FEATURE ("with space in used buffer");
-	ret = upstart_push_string (msg, "goodbye");
+	TEST_ALLOC_FAIL {
+		msg->data->len = 9;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 20);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x05hello\0\0\0\x07goodbye", 20);
+		ret = upstart_push_string (msg, "goodbye");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 20);
+		TEST_EQ_MEM (msg->data->buf,
+			     "\0\0\0\x05hello\0\0\0\x07goodbye", 20);
+	}
 
 
 	/* Check that we can write the empty string into the message. */
 	TEST_FEATURE ("with empty string");
-	ret = upstart_push_string (msg, "");
+	TEST_ALLOC_FAIL {
+		msg->data->len = 20;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 24);
-	TEST_EQ_MEM (msg->data->buf + 20, "\0\0\0\0", 4);
+		ret = upstart_push_string (msg, "");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 24);
+		TEST_EQ_MEM (msg->data->buf + 20, "\0\0\0\0", 4);
+	}
 
 
 	/* Check that we can write NULL into the message. */
 	TEST_FEATURE ("with NULL string");
-	ret = upstart_push_string (msg, NULL);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 24;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 28);
-	TEST_EQ_MEM (msg->data->buf + 24, "\xff\xff\xff\xff", 4);
+		ret = upstart_push_string (msg, NULL);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 28);
+		TEST_EQ_MEM (msg->data->buf + 24, "\xff\xff\xff\xff", 4);
+	}
 
 
 	nih_free (msg);
@@ -432,11 +533,21 @@ test_push_header (void)
 	 * The length of the buffer should be increased.
 	 */
 	TEST_FEATURE ("with space in empty buffer");
-	ret = upstart_push_header (msg, UPSTART_NO_OP);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 0;
+		msg->data->size = 0;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 12);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\0", 12);
+		ret = upstart_push_header (msg, UPSTART_NO_OP);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\0", 12);
+	}
 
 
 	/* Check that we can write a header into a message that already has
@@ -444,11 +555,22 @@ test_push_header (void)
 	 * in length to include both.
 	 */
 	TEST_FEATURE ("with space in used buffer");
-	ret = upstart_push_header (msg, UPSTART_NO_OP);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 12;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 24);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\0upstart\n\0\0\0\0", 24);
+		ret = upstart_push_header (msg, UPSTART_NO_OP);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 24);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\0\0upstart\n\0\0\0\0", 24);
+	}
 
 
 	nih_free (msg);
@@ -519,6 +641,18 @@ test_pop_header (void)
 	TEST_EQ (value, -1);
 
 
+	/* Check that -1 is returned if the magic string doesn't match.
+	 */
+	TEST_FEATURE ("with wrong magic string in buffer");
+	msg->data->len = 0;
+	NIH_ZERO (nih_io_buffer_push (msg->data, "downstop\0\0\0\0", 12));
+
+	ret = upstart_pop_header (msg, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (value, -1);
+
+
 	nih_free (msg);
 }
 
@@ -538,14 +672,24 @@ test_push_pack (void)
 	 * message in order.
 	 */
 	TEST_FEATURE ("with empty buffer");
-	ret = upstart_push_pack (msg, "iusi", 100, 0x98765432,
-				 "string value", -42);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 0;
+		msg->data->size = 0;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 28);
-	TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
-				      "\0\0\0\x0cstring value"
-				      "\xff\xff\xff\xd6"), 28);
+		ret = upstart_push_pack (msg, "iusi", 100, 0x98765432,
+					 "string value", -42);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 28);
+		TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
+					      "\0\0\0\x0cstring value"
+					      "\xff\xff\xff\xd6"), 28);
+	}
 
 
 	/* Check that we can write a series of different values onto the
@@ -553,15 +697,24 @@ test_push_pack (void)
 	 * there.
 	 */
 	TEST_FEATURE ("with used buffer");
-	ret = upstart_push_pack (msg, "ii", 98, 100);
+	TEST_ALLOC_FAIL {
+		msg->data->len = 28;
+		msg->data->size = BUFSIZ;
 
-	TEST_EQ (ret, 0);
-	TEST_EQ (msg->data->len, 36);
-	TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
-				      "\0\0\0\x0cstring value"
-				      "\xff\xff\xff\xd6"
-				      "\0\0\0\x62\0\0\0\x64"), 36);
+		ret = upstart_push_pack (msg, "ii", 98, 100);
 
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 36);
+		TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
+					      "\0\0\0\x0cstring value"
+					      "\xff\xff\xff\xd6"
+					      "\0\0\0\x62\0\0\0\x64"), 36);
+	}
 
 	nih_free (msg);
 }

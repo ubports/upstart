@@ -1,5 +1,11 @@
 2007-01-30  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c: Note that if any of the push functions fail, the
+	entire buffer should be discarded.
+	* upstart/tests/test_wire.c (test_push_int, test_push_unsigned) 
+	(test_push_string, test_push_header, test_push_pack): Us
+	TEST_ALLOC_FAIL to ensure that failing to allocate memory is caught.
+
 	* upstart/tests/test_message.c (my_handler): Free the name and
 	description after checking; they aren't otherwise.
 

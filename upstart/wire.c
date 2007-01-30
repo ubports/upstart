@@ -59,6 +59,10 @@
  * Integers are transmitted across the wire as signed 32-bit values,
  * in network byte order.
  *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
+ *
  * Returns: zero on success, negative value if insufficient memory.
  **/
 int
@@ -124,6 +128,10 @@ upstart_pop_int (NihIoMessage *message,
  *
  * Unsigneds are transmitted across the wire as 32-bit values,
  * in network byte order.
+ *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
  *
  * Returns: zero on success, negative value if insufficient memory.
  **/
@@ -194,6 +202,10 @@ upstart_pop_unsigned (NihIoMessage *message,
  * @value may be an empty string, in which case a zero length is sent
  * with no following bytes; it may also be NULL in which case the special
  * length 0xffffffff is sent followed by no bytes.
+ *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
  *
  * Returns: zero on success, negative value if insufficient memory.
  **/
@@ -290,6 +302,10 @@ upstart_pop_string (NihIoMessage  *message,
  * by the message type transmitted as a signed 32-bit value in network
  * byte order.
  *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
+ *
  * Returns: zero on success, negative value if insufficient memory.
  **/
 int
@@ -358,6 +374,10 @@ upstart_pop_header (NihIoMessage       *message,
  *  u - unsigned int (written with upstart_push_unsigned)
  *  s - const char * (written with upstart_push_string)
  *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
+ *
  * Returns: zero on success, negative value if insufficient memory.
  **/
 int
@@ -410,6 +430,10 @@ upstart_push_packv (NihIoMessage *message,
  *  i - int          - written with upstart_push_int()
  *  u - unsigned int - written with upstart_push_unsigned()
  *  s - const char * - written with upstart_push_string()
+ *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
  *
  * Returns: zero on success, negative value if insufficient memory.
  **/
