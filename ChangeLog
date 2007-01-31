@@ -1,3 +1,8 @@
+2007-01-31  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/tests/test_message.c: Use TEST_ALLOC_FAIL to make sure
+	allocations are handled properly.
+
 2007-01-30  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/wire.c: Note that if any of the push functions fail, the
