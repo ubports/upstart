@@ -243,12 +243,11 @@ main (int   argc,
 	}
 
 	/* Read configuration */
-	if (cfg_watch_dir (NULL, CFG_DIR, NULL) < 0) {
+	if (cfg_watch_dir (CFG_DIR) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s: %s",
-			   _("Unable to watch configuration directory"),
+		nih_error ("%s: %s", _("Error parsing configuration"),
 			   err->message);
 		nih_free (err);
 	}

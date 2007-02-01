@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -41,8 +41,7 @@ NIH_BEGIN_EXTERN
 Job *cfg_read_job  (const void *parent, const char *filename,
 		    const char *jobname);
 
-int  cfg_watch_dir (const void *parent, const char *dirname,
-		    const char *prefix);
+int  cfg_watch_dir (const char *dirname);
 
 NIH_END_EXTERN
 

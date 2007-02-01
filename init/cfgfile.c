@@ -42,7 +42,7 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/timer.h>
-#include <nih/file.h>
+#include <nih/watch.h>
 #include <nih/config.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -55,89 +55,81 @@
 #include "errors.h"
 
 
-/**
- * WatchInfo:
- * @parent: parent for jobs,
- * @prefix: prefix for job names.
- *
- * Data pointed passed to the config file watcher function.
- **/
-typedef struct watch_info {
-	const void *parent;
-	char       *prefix;
-} WatchInfo;
-
-
 /* Prototypes for static functions */
-static int  cfg_stanza_description (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_author      (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_version     (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_emits       (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_on          (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_start       (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_stop        (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_exec        (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_daemon      (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_respawn     (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_script      (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_instance    (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_pid         (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_kill        (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_normalexit  (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_console     (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_env         (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_umask       (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_nice        (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_limit       (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_chroot      (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
-static int  cfg_stanza_chdir       (Job *job, NihConfigStanza *stanza,
-				    const char *file, size_t len,
-				    size_t *pos, size_t *lineno);
+static int   cfg_stanza_description    (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_author         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_version        (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_emits          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_on             (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_start          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_stop           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_exec           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_daemon         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_respawn        (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_script         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_instance       (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_pid            (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_kill           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_normalexit     (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_console        (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_env            (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_umask          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_nice           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_limit          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_chroot         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_chdir          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
 
-static void cfg_watcher            (WatchInfo *info, NihFileWatch *watch,
-				    uint32_t events, const char *name);
+static char *cfg_job_name              (const void *parent,
+					const char *dirname, const char *path);
+static void  cfg_create_modify_handler (void *data, NihWatch *watch,
+					const char *path);
+static void  cfg_delete_handler        (void *data, NihWatch *watch,
+					const char *path);
+static int   cfg_visitor               (void *data, const char *path);
 
 
 /**
@@ -230,7 +222,7 @@ cfg_read_job (const void *parent,
 				   filename, lineno, err->message);
 			break;
 		default:
-			nih_error (_("%s: unable to read: %s"), filename,
+			nih_error ("%s: %s: %s", filename, _("unable to read"),
 				   err->message);
 			break;
 		}
@@ -1614,16 +1606,59 @@ cfg_stanza_chdir (Job             *job,
 
 /**
  * cfg_watch_dir:
- * @parent: parent of jobs,
- * @dirname: directory to watch,
- * @prefix: prefix to append to job names.
+ * @dirname: directory to watch.
  *
  * Watch @dirname for creation or modification of configuration files or
  * sub-directories and parse them whenever they exist.  This also performs
  * the initial parsing of jobs in the directory.
  *
- * Jobs are named by joining @prefix and the name of the file under @dir,
- * @prefix may be NULL.
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+cfg_watch_dir (const char *dirname)
+{
+	NihWatch *watch;
+
+	nih_assert (dirname != NULL);
+
+	nih_info (_("Reading configuration from %s"), dirname);
+
+	/* Use inotify to keep up to date about changes.  It's not critical
+	 * for this to fail, but we do bitch about it.
+	 */
+	watch = nih_watch_new (NULL, dirname, TRUE, (NihFileFilter)NULL,
+			       (NihCreateHandler)cfg_create_modify_handler,
+			       (NihModifyHandler)cfg_create_modify_handler,
+			       (NihDeleteHandler)cfg_delete_handler, NULL);
+	if (! watch) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s: %s", dirname,
+			   _("Unable to watch configuration directory"),
+			   err->message);
+		nih_free (err);
+	}
+
+	/* Parse all files that we find right now.  If this fails, on the
+	 * other hand, it is a problem (though we may have parsed something).
+	 */
+	if (nih_dir_walk (dirname, S_IFREG, (NihFileFilter)NULL,
+			  (NihFileVisitor)cfg_visitor, NULL) < 0)
+		return -1;
+
+	return 0;
+}
+
+
+/**
+ * cfg_job_name:
+ * @parent: parent for new string,
+ * @dirname: top-level directory being watched,
+ * @path: full path to file.
+ *
+ * Constructs a job name for a given file by removing @dirname from the
+ * front.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -1631,128 +1666,100 @@ cfg_stanza_chdir (Job             *job,
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
- * Returns: zero on success, negative value on raised error.
+ * Returns: newly allocated job name or NULL if insufficient memory.
  **/
-int
-cfg_watch_dir (const void *parent,
-	       const char *dirname,
-	       const char *prefix)
+static char *
+cfg_job_name (const void *parent,
+	      const char *dirname,
+	      const char *path)
 {
-	DIR           *dir;
-	struct dirent *ent;
-	WatchInfo     *info;
-	NihFileWatch  *watch;
-
 	nih_assert (dirname != NULL);
+	nih_assert (path != NULL);
 
-	nih_info (_("Reading configuration from %s"), dirname);
+	/* Remove dirname from the front */
+	if (! strncmp (path, dirname, strlen (dirname)))
+		path += strlen (dirname);
 
-	NIH_MUST (info = nih_new (NULL, WatchInfo));
-	info->parent = parent;
-	info->prefix = prefix ? nih_strdup (info, prefix) : NULL;
+	/* Remove slashes */
+	while (*path == '/')
+		path++;
 
-	/* FIXME we don't handle move yet */
-
-	/* Add a watch so we can keep up to date */
-	watch = nih_file_add_watch (NULL, dirname,
-				    (IN_CREATE | IN_DELETE | IN_MODIFY),
-				    (NihFileWatcher)cfg_watcher, info);
-	if (! watch) {
-		nih_free (info);
-		return -1;
-	}
-
-	/* Read through any files already in the directory */
-	dir = opendir (dirname);
-	if (! dir) {
-		nih_error_raise_system ();
-		nih_free (info);
-		return -1;
-	}
-
-	/* Just call the watcher function */
-	while ((ent = readdir (dir)) != NULL)
-		cfg_watcher (info, watch, IN_CREATE, ent->d_name);
-
-	closedir (dir);
-
-	return 0;
+	/* Construct job name */
+	return nih_strdup (parent, path);
 }
 
 /**
- * cfg_watcher:
- * @info: watch information,
- * @watch: watch that generated the event,
- * @events: events that occurred,
- * @name: name of file that changed.
+ * cfg_create_modify_handler:
+ * @data: not used,
+ * @watch: NihWatch for directory tree,
+ * @path: full path to file.
  *
- * This function is called whenever a configuration file directory we are
- * watching changes.  It arranges for the job to be parsed, or the new
- * directory to be watched.
+ * This function is called whenever a new job file is created in a directory
+ * we're watching, or modified.  We attempt to parse the file as a valid job;
+ * though it's pretty common for these to fail since it's probably empty or
+ * only partially written.
  **/
 static void
-cfg_watcher (WatchInfo    *info,
-	     NihFileWatch *watch,
-	     uint32_t      events,
-	     const char   *name)
+cfg_create_modify_handler (void       *data,
+			   NihWatch   *watch,
+			   const char *path)
 {
-	struct stat  statbuf;
-	char        *filename, *jobname;
+	char *name;
 
 	nih_assert (watch != NULL);
+	nih_assert (path != NULL);
 
-	/* If this watch is now being ignored, free the info and watch */
-	if (events & IN_IGNORED) {
-		nih_debug ("Ceasing watching %s", watch->path);
+	NIH_MUST (name = cfg_job_name (NULL, watch->path, path));
 
-		nih_list_free (&watch->entry);
-		nih_free (info);
-		return;
-	}
+	cfg_read_job (NULL, path, name);
 
-	/* Otherwise name should be set and shouldn't begin . */
-	if (! name)
-		return;
+	nih_free (name);
+}
 
-	if ((name[0] == '\0') || strchr (name, '.') || strchr (name, '~')) {
-		nih_debug ("Ignored %s/%s", watch->path, name);
-		return;
-	}
+/**
+ * cfg_delete_handler:
+ * @data: not used,
+ * @watch: NihWatch for directory tree,
+ * @path: full path to file.
+ *
+ * This function is called whenever a job file is deleted from a directory
+ * we're watching.
+ **/
+static void
+cfg_delete_handler (void       *data,
+		    NihWatch   *watch,
+		    const char *path)
+{
+	nih_assert (watch != NULL);
+	nih_assert (path != NULL);
 
-	/* FIXME better name checking required */
+	nih_debug ("Delete of %s (ignored)", path);
+}
 
-	/* FIXME we don't handle DELETE yet ... that should probably mark
-	 * the running job as an instance or delete a stopped one
-	 */
-	if (events & IN_DELETE) {
-		nih_debug ("Delete of %s/%s (ignored)", watch->path, name);
-		return;
-	}
+/**
+ * cfg_visitor:
+ * @data: not used,
+ * @path: full path to file.
+ *
+ * This function is called for each file under a configuration directory
+ * whether or not we're watching it for changes; we parse the file to get
+ * the initial set of jobs.
+ *
+ * Returns: always zero.
+ **/
+static int
+cfg_visitor (void       *data,
+	     const char *path)
+{
+	char *name;
 
-	/* Construct filename and job name (also new prefix) */
-	NIH_MUST (filename = nih_sprintf (NULL, "%s/%s", watch->path, name));
-	if (info->prefix) {
-		NIH_MUST (jobname = nih_sprintf (NULL, "%s/%s",
-						 info->prefix, name));
-	} else {
-		NIH_MUST (jobname = nih_strdup (NULL, name));
-	}
+	nih_assert (path != NULL);
 
-	/* Check we can stat it */
-	if (stat (filename, &statbuf) < 0) {
-		/* Bah, ignore the error */
+	NIH_MUST (name = cfg_job_name (NULL, path, path));
 
-	} else if (S_ISDIR (statbuf.st_mode)) {
-		/* It's a directory, watch it */
-		cfg_watch_dir (info->parent, filename, jobname);
+	cfg_read_job (NULL, path, name);
 
-	} else if (S_ISREG (statbuf.st_mode)) {
-		/* It's a file, we parse it */
-		cfg_read_job (info->parent, filename, jobname);
+	nih_free (name);
 
-	}
-
-	/* Free up */
-	nih_free (jobname);
-	nih_free (filename);
+	return 0;
 }
