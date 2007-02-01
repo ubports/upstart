@@ -378,15 +378,19 @@ main (int   argc,
 
 	/* Catch the usual quit signals */
 	nih_signal_set_handler (SIGINT, nih_signal_handler);
-	nih_signal_add_handler (NULL, SIGINT, cancel_callback, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGINT,
+					  cancel_callback, NULL));
 	nih_signal_set_handler (SIGQUIT, nih_signal_handler);
-	nih_signal_add_handler (NULL, SIGQUIT, cancel_callback, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGQUIT,
+					  cancel_callback, NULL));
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_handler (NULL, SIGTERM, cancel_callback, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
+					  cancel_callback, NULL));
 
 	/* Call a timer every minute until we shutdown */
-	nih_timer_add_periodic (NULL, 60,
-				(NihTimerCb)timer_callback, message);
+	NIH_MUST (nih_timer_add_periodic (NULL, 60,
+					  (NihTimerCb)timer_callback,
+					  message));
 
 	/* Hang around */
 	nih_main_loop ();
