@@ -1,5 +1,10 @@
 2007-02-01  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_wire.c: Change to use assert instead of NIH_ZERO;
+	the rationale here is that in test cases we just want to fail, not
+	try again repeatedly.
+	* upstart/tests/test_message.c: Likewise.
+
 	* init/tests/test_control.c: Use assert to ensure we get the expected
 	return values of functions that raise errors.
 	* init/tests/test_notify.c: Use assert to ensure we get the expected
