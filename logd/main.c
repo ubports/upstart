@@ -140,7 +140,16 @@ main (int   argc,
 
 	/* Become daemon, or signify that we're ready to receive events */
 	if (daemonise) {
-		nih_main_daemonise ();
+		if (nih_main_daemonise () < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s", _("Unable to become daemon"),
+				   err->message);
+			nih_free (err);
+
+			exit (1);
+		}
 	} else {
 		raise (SIGSTOP);
 	}
