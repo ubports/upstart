@@ -22,8 +22,6 @@
 
 #include <nih/test.h>
 
-#include <assert.h>
-
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/io.h>
@@ -116,9 +114,8 @@ test_pop_int (void)
 
 	TEST_FUNCTION ("upstart_pop_int");
 	msg = nih_io_message_new (NULL);
-	assert (nih_io_buffer_push (
-			msg->data, ("\0\0\0\x2a\0\x12\xd6\x87"
-				    "\xff\xff\xff\xd6\0\0"), 14) == 0);
+	assert0 (nih_io_buffer_push (msg->data, ("\0\0\0\x2a\0\x12\xd6\x87"
+						 "\xff\xff\xff\xd6\0\0"), 14));
 
 
 	/* Check that we can read an integer from the start of a message;
@@ -259,9 +256,8 @@ test_pop_unsigned (void)
 
 	TEST_FUNCTION ("upstart_pop_unsigned");
 	msg = nih_io_message_new (NULL);
-	assert (nih_io_buffer_push (
-			msg->data, ("\0\0\0\x2a\0\x12\xd6\x87"
-				    "\xfe\xdc\xba\x98\0\0"), 14) == 0);
+	assert0 (nih_io_buffer_push (msg->data, ("\0\0\0\x2a\0\x12\xd6\x87"
+						 "\xfe\xdc\xba\x98\0\0"), 14));
 
 
 	/* Check that we can read an integer from the start of a message;
@@ -422,10 +418,10 @@ test_pop_string (void)
 
 	TEST_FUNCTION ("upstart_pop_string");
 	msg = nih_io_message_new (NULL);
-	assert (nih_io_buffer_push (
-			msg->data, ("\0\0\0\x05hello\0\0\0\x07goodbye"
-				    "\0\0\0\0\xff\xff\xff\xff"
-				    "\0\0\0\x04te"), 34) == 0);
+	assert0 (nih_io_buffer_push (msg->data,
+				     ("\0\0\0\x05hello\0\0\0\x07goodbye"
+				      "\0\0\0\0\xff\xff\xff\xff"
+				      "\0\0\0\x04te"), 34));
 
 
 	/* Check that we can read a string from the start of a message;
@@ -587,10 +583,9 @@ test_pop_header (void)
 
 	TEST_FUNCTION ("upstart_pop_header");
 	msg = nih_io_message_new (NULL);
-	assert (nih_io_buffer_push (
-			msg->data,
-			"upstart\n\0\0\0\0upstart\n\0\0\0\0upstart\n\0\0",
-			34) == 0);
+	assert0 (nih_io_buffer_push (msg->data,
+				     ("upstart\n\0\0\0\0upstart\n\0\0\0\0"
+				      "upstart\n\0\0"), 34));
 
 
 	/* Check that we can read a header from the start of a message,
@@ -648,7 +643,7 @@ test_pop_header (void)
 	 */
 	TEST_FEATURE ("with wrong magic string in buffer");
 	msg->data->len = 0;
-	assert (nih_io_buffer_push (msg->data, "downstop\0\0\0\0", 12) == 0);
+	assert0 (nih_io_buffer_push (msg->data, "downstop\0\0\0\0", 12));
 
 	ret = upstart_pop_header (msg, &value);
 
@@ -732,13 +727,12 @@ test_pop_pack (void)
 
 	TEST_FUNCTION ("upstart_pop_pack");
 	msg = nih_io_message_new (NULL);
-	assert (nih_io_buffer_push (
-			msg->data,
-			("\0\0\0\x64\x98\x76\x54\x32"
-			 "\0\0\0\x0cstring value"
-			 "\xff\xff\xff\xd6"
-			 "\0\0\0\x62\0\0\0\x64"
-			 "\0\0\0\x13\0\0\0\x04te"), 46) == 0);
+	assert0 (nih_io_buffer_push (msg->data,
+				     ("\0\0\0\x64\x98\x76\x54\x32"
+				      "\0\0\0\x0cstring value"
+				      "\xff\xff\xff\xd6"
+				      "\0\0\0\x62\0\0\0\x64"
+				      "\0\0\0\x13\0\0\0\x04te"), 46));
 
 
 	/* Check that we can read a series of different values in a single

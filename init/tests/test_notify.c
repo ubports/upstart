@@ -25,7 +25,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <assert.h>
 #include <stdlib.h>
 
 #include <nih/macros.h>
@@ -186,10 +185,10 @@ test_job (void)
 
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_status,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status,
+						       NULL));
 		nih_free (message);
 
 		exit (0);
@@ -255,10 +254,10 @@ test_event (void)
 
 		/* Wait for a reply */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_event,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event,
+						       NULL));
 		nih_free (message);
 
 		exit (0);

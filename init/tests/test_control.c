@@ -29,7 +29,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -307,7 +306,7 @@ test_error_handler (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_WATCH_JOBS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		exit (0);
@@ -416,7 +415,7 @@ test_job_start (void)
 		/* Send the job start message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_START, "test");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -463,7 +462,7 @@ test_job_start (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_START, "wibble");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -551,7 +550,7 @@ test_job_stop (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_STOP, "test");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -601,7 +600,7 @@ test_job_stop (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_STOP, "wibble");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -686,7 +685,7 @@ test_job_query (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_QUERY, "test");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -731,7 +730,7 @@ test_job_query (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_QUERY, "wibble");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -833,7 +832,7 @@ test_job_list (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_LIST);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -913,7 +912,7 @@ test_event_queue (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_EVENT_QUEUE, "snarf");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		exit (0);
@@ -967,7 +966,7 @@ test_watch_jobs (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_WATCH_JOBS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -1042,7 +1041,7 @@ test_unwatch_jobs (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_WATCH_JOBS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -1061,7 +1060,7 @@ test_unwatch_jobs (void)
 		/* Now unsubscribe */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_UNWATCH_JOBS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		exit (0);
@@ -1137,7 +1136,7 @@ test_watch_events (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_WATCH_EVENTS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -1206,7 +1205,7 @@ test_unwatch_events (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_WATCH_EVENTS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		/* Allow the parent to continue so it can receive it */
@@ -1225,7 +1224,7 @@ test_unwatch_events (void)
 		/* Now unsubscribe */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_UNWATCH_EVENTS);
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		exit (0);
@@ -1297,7 +1296,7 @@ test_shutdown (void)
 
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_SHUTDOWN, "kaboom");
-		assert (nih_io_message_send (message, sock) >= 0);
+		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
 		exit (0);

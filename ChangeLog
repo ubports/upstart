@@ -1,5 +1,11 @@
 2007-02-01  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_message.c: Change from assert to assert0 
+	* upstart/tests/test_wire.c: Change from assert to assert0
+	* init/tests/test_notify.c: Change from assert to assert0
+	* init/tests/test_control.c: nih_io_message_send should always return
+	a value greater than zero.
+
 	* upstart/tests/test_wire.c: Change to use assert instead of NIH_ZERO;
 	the rationale here is that in test cases we just want to fail, not
 	try again repeatedly.
