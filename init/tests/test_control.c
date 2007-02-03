@@ -56,7 +56,7 @@ extern int upstart_disable_safeties;
 void
 test_open (void)
 {
-	NihIo              *io, *ptr;
+	NihIo              *io;
 	NihError           *err;
 	struct sockaddr_un  addr;
 	int                 val, sock;
@@ -107,18 +107,6 @@ test_open (void)
 
 		control_close ();
 	}
-
-
-	/* Check that if we call control_open() again, we get the same
-	 * structure as before.
-	 */
-	TEST_FEATURE ("with already open socket");
-	io = control_open ();
-	ptr = control_open ();
-
-	TEST_EQ_P (ptr, io);
-
-	control_close ();
 
 
 	/* Check that if we call control_open() while something else has

@@ -138,23 +138,12 @@ notify_subscribe (pid_t        pid,
 void
 notify_job (Job *job)
 {
-	NihIo *io;
-
 	nih_assert (job != NULL);
 
 	notify_init ();
 
-	io = control_open ();
-	if (! io) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-
+	if (! control_io)
 		return;
-	}
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
@@ -163,14 +152,14 @@ notify_job (Job *job)
 		if (! (sub->notify & NOTIFY_JOBS))
 			continue;
 
-		NIH_MUST (message = upstart_message_new (io, sub->pid,
+		NIH_MUST (message = upstart_message_new (control_io, sub->pid,
 							 UPSTART_JOB_STATUS,
 							 job->name, job->goal,
 							 job->state,
 							 job->process_state,
 							 job->pid,
 							 job->description));
-		nih_io_send_message (io, message);
+		nih_io_send_message (control_io, message);
 	}
 }
 
@@ -184,23 +173,12 @@ notify_job (Job *job)
 void
 notify_event (Event *event)
 {
-	NihIo *io;
-
 	nih_assert (event != NULL);
 
 	notify_init ();
 
-	io = control_open ();
-	if (! io) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-
+	if (! control_io)
 		return;
-	}
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
@@ -209,9 +187,9 @@ notify_event (Event *event)
 		if (! (sub->notify & NOTIFY_EVENTS))
 			continue;
 
-		NIH_MUST (message = upstart_message_new (io, sub->pid,
+		NIH_MUST (message = upstart_message_new (control_io, sub->pid,
 							 UPSTART_EVENT,
 							 event->name));
-		nih_io_send_message (io, message);
+		nih_io_send_message (control_io, message);
 	}
 }

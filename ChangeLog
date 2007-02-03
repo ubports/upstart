@@ -1,5 +1,16 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_run_script): Control socket doesn't
+	get unexpectedly opened anymore; so no need to close it.
+
+	* init/control.c (control_open): Remove the strange behaviour that
+	this can be called to get the socket.  Instead make control_io
+	global; we're all adults after all.
+	* init/tests/test_control.c (test_open): Remove the test for the
+	silly behaviour.
+	* init/notify.c (notify_job, notify_event): Use the control_io
+	pointer directly, and just do nothing if we lost it somehow.
+
 	* init/main.c (main): Being unable tp open the control socket, or
 	parse the configuration, should be a fatal error; stop being so
 	damned liberal! <g>   Don't reset the signal state if we're

@@ -27,6 +27,10 @@
 
 NIH_BEGIN_EXTERN
 
+/* The control socket */
+NihIo *control_io;
+
+
 NihIo *control_open  (void)
 	__attribute__ ((warn_unused_result, malloc));
 void   control_close (void);
