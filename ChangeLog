@@ -1,5 +1,17 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Being unable tp open the control socket, or
+	parse the configuration, should be a fatal error; stop being so
+	damned liberal! <g>   Don't reset the signal state if we're
+	being restarted, as this loses any pending signals -- be happy
+	that our parent left them in a good state.  Set SIGCHLD to the
+	standard handler, otherwise we might lose this before we start
+	the main loop (which does the same anyway).
+	(term_handler): Rework so we don't need to close and open the
+	control socket; instead we just close it in the child that's
+	going to send the state, and notify the parent that it's safe to
+	exec (which will cause it to be closed so the new init can open it).
+
 	* init/tests/test_control.c (test_open): Fix valgrind error
 	* init/tests/test_notify.c (test_subscribe): Fix valgrind error
 

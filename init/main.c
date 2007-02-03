@@ -108,7 +108,7 @@ main (int   argc,
       char *argv[])
 {
 	char **args;
-	int    ret, i;
+	int    ret;
 
 	nih_main_init (argv[0]);
 
@@ -137,6 +137,30 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Open control socket */
+	if (! control_open ()) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Unable to open control socket"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	/* Read configuration */
+	if (cfg_watch_dir (CFG_DIR) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Error parsing configuration"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
 
 	/* Clear our arguments from the command-line, so that we show up in
 	 * ps or top output as /sbin/init, with no extra flags.
@@ -160,6 +184,10 @@ main (int   argc,
 		*arg_end = ' ';
 	}
 
+	/* Become session and process group leader (should be already,
+	 * but you never know what initramfs did
+	 */
+	setsid ();
 
 	/* Send all logging output to syslog */
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
@@ -169,7 +197,7 @@ main (int   argc,
 	 * device instead.  Normally we reset the console, unless we're
 	 * inheriting one from another init process.
 	 */
-	for (i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 		close (i);
 
 	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
@@ -177,12 +205,23 @@ main (int   argc,
 	if (! restart)
 		reset_console ();
 
+	/* Set the PATH environment variable */
+	setenv ("PATH", PATH, TRUE);
+
+
+	nih_debug ("attach gdb to %d now", getpid ());
+	sleep (5);
+	nih_debug ("too late");
+
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
 	 */
-	nih_signal_reset ();
+	if (! restart)
+		nih_signal_reset ();
+
+	nih_signal_set_handler (SIGCHLD,  nih_signal_handler);
 	nih_signal_set_handler (SIGALRM,  nih_signal_handler);
 	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
 	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
@@ -215,7 +254,6 @@ main (int   argc,
 					  (NihSignalHandler)term_handler,
 					  argv[0]));
 
-
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
 
@@ -225,35 +263,6 @@ main (int   argc,
 					  NULL));
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle,
 					  NULL));
-
-
-	/* Become session and process group leader (should be already,
-	 * but you never know what initramfs did
-	 */
-	setsid ();
-
-	/* Open control socket */
-	if (! control_open ()) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-	}
-
-	/* Read configuration */
-	if (cfg_watch_dir (CFG_DIR) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s", _("Error parsing configuration"),
-			   err->message);
-		nih_free (err);
-	}
-
-	/* Set the PATH environment variable */
-	setenv ("PATH", PATH, TRUE);
 
 
 	/* Generate and run the startup event or read the state from the
@@ -496,9 +505,6 @@ term_handler (const char *argv0,
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
-	/* Close the control connection */
-	control_close ();
-
 	/* Create pipe */
 	if (pipe (fds) < 0) {
 		nih_error_raise_system ();
@@ -513,9 +519,20 @@ term_handler (const char *argv0,
 	} else if (pid == 0) {
 		close (fds[0]);
 
+		/* Close the control socket so the new init process won't
+		 * get EADDRINUSE when it tries to open it.
+		 */
+		control_close ();
+		write (fds[1], "\n", 1);
+
 		write_state (fds[1]);
 		exit (0);
 	} else {
+		char buf[1];
+
+		/* Make sure the child is ready to send its state */
+		read (fds[0], buf, sizeof (buf));
+
 		if (dup2 (fds[0], STATE_FD) < 0) {
 			nih_error_raise_system ();
 			goto error;
@@ -537,16 +554,6 @@ error:
 
 	close (fds[0]);
 	close (fds[1]);
-
-	/* Open the control socket again */
-	if (! control_open ()) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-	}
 
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }
