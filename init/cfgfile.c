@@ -31,6 +31,7 @@
 #include <sys/resource.h>
 
 #include <time.h>
+#include <errno.h>
 #include <dirent.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -124,12 +125,16 @@ static int   cfg_stanza_chdir          (Job *job, NihConfigStanza *stanza,
 					size_t *pos, size_t *lineno);
 
 static char *cfg_job_name              (const void *parent,
-					const char *dirname, const char *path);
+					const char *dirname, const char *path)
+	__attribute__ ((warn_unused_result, malloc));
 static void  cfg_create_modify_handler (void *data, NihWatch *watch,
-					const char *path);
+					const char *path,
+					struct stat *statbuf);
 static void  cfg_delete_handler        (void *data, NihWatch *watch,
 					const char *path);
-static int   cfg_visitor               (void *data, const char *path);
+static int   cfg_visitor               (void *data, const char *path,
+					struct stat *statbuf)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -1626,7 +1631,7 @@ cfg_watch_dir (const char *dirname)
 	/* Use inotify to keep up to date about changes.  It's not critical
 	 * for this to fail, but we do bitch about it.
 	 */
-	watch = nih_watch_new (NULL, dirname, TRUE, (NihFileFilter)NULL,
+	watch = nih_watch_new (NULL, dirname, TRUE, TRUE, nih_file_ignore,
 			       (NihCreateHandler)cfg_create_modify_handler,
 			       (NihModifyHandler)cfg_create_modify_handler,
 			       (NihDeleteHandler)cfg_delete_handler, NULL);
@@ -1634,18 +1639,19 @@ cfg_watch_dir (const char *dirname)
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s: %s: %s", dirname,
-			   _("Unable to watch configuration directory"),
-			   err->message);
+		if (err->number != EOPNOTSUPP)
+			nih_error ("%s: %s: %s", dirname,
+				   _("Unable to watch configuration directory"),
+				   err->message);
 		nih_free (err);
-	}
 
-	/* Parse all files that we find right now.  If this fails, on the
-	 * other hand, it is a problem (though we may have parsed something).
-	 */
-	if (nih_dir_walk (dirname, S_IFREG, (NihFileFilter)NULL,
-			  (NihFileVisitor)cfg_visitor, NULL) < 0)
-		return -1;
+		/* Fall back to just walking and parsing the old fashioned
+		 * way.
+		 */
+		if (nih_dir_walk (dirname, nih_file_ignore,
+				  (NihFileVisitor)cfg_visitor, NULL, NULL) < 0)
+			return -1;
+	}
 
 	return 0;
 }
@@ -1692,7 +1698,8 @@ cfg_job_name (const void *parent,
  * cfg_create_modify_handler:
  * @data: not used,
  * @watch: NihWatch for directory tree,
- * @path: full path to file.
+ * @path: full path to file,
+ * @statbuf: stat of @path.
  *
  * This function is called whenever a new job file is created in a directory
  * we're watching, or modified.  We attempt to parse the file as a valid job;
@@ -1700,14 +1707,19 @@ cfg_job_name (const void *parent,
  * only partially written.
  **/
 static void
-cfg_create_modify_handler (void       *data,
-			   NihWatch   *watch,
-			   const char *path)
+cfg_create_modify_handler (void        *data,
+			   NihWatch    *watch,
+			   const char  *path,
+			   struct stat *statbuf)
 {
 	char *name;
 
 	nih_assert (watch != NULL);
 	nih_assert (path != NULL);
+	nih_assert (statbuf != NULL);
+
+	if (! S_ISREG (statbuf->st_mode))
+		return;
 
 	NIH_MUST (name = cfg_job_name (NULL, watch->path, path));
 
@@ -1739,7 +1751,8 @@ cfg_delete_handler (void       *data,
 /**
  * cfg_visitor:
  * @data: not used,
- * @path: full path to file.
+ * @path: full path to file,
+ * @statbuf: stat of @path.
  *
  * This function is called for each file under a configuration directory
  * whether or not we're watching it for changes; we parse the file to get
@@ -1748,12 +1761,17 @@ cfg_delete_handler (void       *data,
  * Returns: always zero.
  **/
 static int
-cfg_visitor (void       *data,
-	     const char *path)
+cfg_visitor (void        *data,
+	     const char  *path,
+	     struct stat *statbuf)
 {
 	char *name;
 
 	nih_assert (path != NULL);
+	nih_assert (statbuf != NULL);
+
+	if (! S_ISREG (statbuf->st_mode))
+		return 0;
 
 	NIH_MUST (name = cfg_job_name (NULL, path, path));
 

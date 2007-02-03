@@ -1,5 +1,14 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_watch_dir): Update to even newer watch API;
+	our create_handler is now always called if inotify is successful,
+	so we just need to fall back to walking the directory when it
+	isn't -- if inotify isn't supported, don't even bother complaining.
+	(cfg_create_modify_handler): Check the stat of the file visited to
+	make sure it's a regular file.
+	(cfg_visitor): Check the stat of the file visited to make sure it's
+	a regular file.
+
 	* init/cfgfile.c: Update include to upstart/enum.h
 	* init/job.c: Update include to upstart/enum.h
 	* init/job.h: Update include to upstart/enum.h
