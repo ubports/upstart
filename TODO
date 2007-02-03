@@ -1,41 +1,53 @@
-High Priority:
+Code Cleanup:
 
- * consider renaming daemon to "forks" or similar?
+ * Ensure all functions that call an allocating function are tested with
+   TEST_ALLOC_FAIL
 
- * ban using respawn/daemon as a shortcut?
+ * Ensure all functions that allocate and return memory have the
+   warn_unused_result and malloc attributes
 
+ * Ensure all functions that return a raised error have the warn_unused_result
+   attribute.
+
+ * Functions that only return a status to indicate a non-raised error do not
+   need attributes (it's ok to ignore the error)
 
  * split initctl into separate pieces and test!
+
+ * cfg_watch_dir needs testing
+
+ * test event_queue_run needs testing
+
+
+High Priority:
 
  * sort out the message types into groups, etc.
 
  * add a new information exchange message and use that for reexec, move
    all the reexec stuff into one place
 
+ * Configuration files can be deleted, need to do something with the
+   job at that point (stop it and delete it)
+
  * if environment variables don't have an = in them, copy that variable
    from init's environment (default PATH, TERM)
 
+ * use execve, not putenv/setenv!
+
+
+Medium Priority:
+
+
+Low Priority:
+
+ * consider renaming daemon to "forks" or similar?
+
+ * ban using respawn/daemon as a shortcut?
 
  * replace logd raise/wait/kill interlock with a pipe-based one?
 
  * replace logd with something else that's more standard in the system,
    and just use a normal API to communicate with it.
-
-
- * Configuration files can be deleted, need to do something with the
-   job at that point (stop it and delete it)
-
- * Configuration files can be moved.
-
- * config files don't get read if inotify not used.
-
- * maybe consolidate above to a generic directory watching function, it's
-   quite a common thing to do
-
-
- * cfg_watch_dir needs testing, as does cfg_watcher
-
- * test event_queue_run
 
 
 Unfinished Features:
@@ -68,115 +80,7 @@ Future Features:
  * Load average checking, maybe have separate CPU, Network and I/O
    stats?
 
-
-Musings and Feedback:
-
- * respawn is over-used for things, we should have a "service" stanza
-   that defines that the job event is sent afterwards, not re-use "respawn"
-   for that.
-
-
- * Some magic could be hidden through special commands.  It might be
-   common for example to depend on a job to be running, start when it
-   enters running and stop when it leaves running.
-
- * We could replace release_depends with an implicit listen on
-   "foo running".  Though how would we know to send the dependency
-   event or equivalent?
-
-
- * "depends" in its current form was considered confusing, suggested
-   rename was "wait for"
-
- * "end script" too verbose?
-
-
- * script/process doesn't know what event was triggered.  Put it in
-   env?  Would need to record this in the job so that it's passed
-   correctly.
-
- * Recording the event that caused the goal change would be useful; we
-   could then know when we had really finished processing an event,
-   and drop the idle event code and shutdown special-casing.
-
- * If the goal got changed back, we could then "abort" the event and
-   indicate to all concerned that it failed.
-
-
- * Events should have arguments, e.g. "block-device-added hda"
-
- * We can then invert the "job/*" things to "* job",
-   e.g. "on stopped apache" ... no need for special syntax?
-
- * "start script" should become "pre-start script"
-
- * "stop script" should become "post-stop script"
-
-
- * Would be nice if we could use the "spawned" state for other things
-   daemon-related too, like having a script that indicates whether the
-   daemon is actually running yet or not -- useful for "not running
-   until it listens on port 80"
-
- * But see below, we could use a "post-start" script for this.
-
-
- * Generate events when scripts fail and daemons die (in the child handler)
-   "start on failed apache"
-
- * Should generate an event whenever the goal is changed if we haven't
-   done one already
-
- * Maybe also generate a job event on itself
-
- * Then respawn could go away entirely!  "start on failed"  (Though this
-   loses the distinction between the goal and the status, how would we
-   know the failure wasn't caused by the process being killed?)
-
- * respawn too fast needs to be done on stop/start anyway
-
-
- * Actions "reload" and optional replacements for "stop", "start", etc.
-   Would then require multiple processes per job.
-
-
- * the post-start and pre-stop processes can be run at the same time
-   as the job itself
-
- * pre-start run during STARTING state
-
- * post-start run during STARTED state
-
- * pre-stop run during STOPPING state
-
- * post-stop run during STOPPED state
-
- * executable is run when entering STARTED state (from STARTING), but
-   might be looking for a pid
-
- * for a task, it's the pre-stop finishing or executable being killed
-   that sends the event
-
- * for a service, post-start finishing or pid being found, etc. sends
-   the job event
-
- * executable is killed when entering STOPPING state unless pre-stop
-   script is available, in which case it's killed when it exits
-
- * when a pid is found, if post-start is not yet running, we can issue
-   the job event for a service
-
- * when post-start finishes, if a pid has been found, we can issue the
-   job event for a service
-
- * post-start can thus hold the process from issuing its own event
-   (ie. waiting for it to be listening on a port)
-
- * pre-stop can prevent the process from entering STOPPED state (and
-   thus put it back into STARTED)
-
- * RUNNING goes away, the job is in STARTED with no script process
- * WAITING goes way, the job is just in STOPPED with no script process
+ * Actions: "reload" and optional replacements for "stop", "start", etc.
 
  * we may need to KILL scripts, e.g. post-start
 

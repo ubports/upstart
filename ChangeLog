@@ -1,5 +1,7 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Big update; strip anything we have a spec for.
+
 	* upstart/message.c (upstart_message_handle): Make sure that if we
 	fail to parse a message, we don't leave strings around in memory.
 	* upstart/tests/test_message.c (test_open): Check that we get a
