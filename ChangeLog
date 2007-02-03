@@ -1,5 +1,7 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/main.c: Add attribute to open_logging
+
 	* util/initctl.c: Split out the command functions into new files;
 	* util/jobs.c: This gets the job-related commands
 	* util/events.h: This gets the event-related commands

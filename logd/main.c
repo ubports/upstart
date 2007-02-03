@@ -55,7 +55,8 @@
 
 
 /* Prototypes for static functions */
-static NihIoWatch *open_logging    (void);
+static NihIoWatch *open_logging    (void)
+	__attribute__ ((warn_unused_result, malloc));
 static void        logging_watcher (void *data, NihIoWatch *watch,
 				    NihIoEvents events);
 static void        logging_reader  (void *data, NihIo *io,
