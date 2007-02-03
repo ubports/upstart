@@ -60,6 +60,7 @@ test_subscribe (void)
 	NotifySubscription *sub1, *sub2;
 
 	TEST_FUNCTION ("notify_subscribe");
+	notify_subscribe (getpid (), NOTIFY_NONE, FALSE);
 
 	/* Check that we can add a new subscription, the structure returned
 	 * should be allocated with nih_alloc, placed in the subscriptions

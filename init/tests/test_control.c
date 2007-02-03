@@ -64,6 +64,8 @@ test_open (void)
 	socklen_t           len;
 
 	TEST_FUNCTION ("control_open");
+	io = control_open ();
+	control_close ();
 
 
 	/* Check that we can open the control socket, the returned structure
