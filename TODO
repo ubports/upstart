@@ -14,7 +14,7 @@ Code Cleanup:
 
  * cfg_watch_dir needs testing
 
- * test event_queue_run needs testing
+ * event_queue_run needs testing
 
 
 High Priority:
