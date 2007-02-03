@@ -1,8 +1,8 @@
 /* upstart
  *
- * job.c - handling of tasks and services
+ * enum.c - conversion of enums into strings, and vice-versa
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,7 @@
 #include <nih/macros.h>
 #include <nih/logging.h>
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 
 /**

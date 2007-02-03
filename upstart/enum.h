@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef UPSTART_JOB_H
-#define UPSTART_JOB_H
+#ifndef UPSTART_ENUM_H
+#define UPSTART_ENUM_H
 
 #include <nih/macros.h>
 
@@ -116,4 +116,4 @@ ProcessState process_state_from_name (const char *state);
 
 NIH_END_EXTERN
 
-#endif /* UPSTART_JOB_H */
+#endif /* UPSTART_ENUM_H */

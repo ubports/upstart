@@ -37,7 +37,7 @@
 
 #include <upstart/errors.h>
 #include <upstart/message.h>
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 
 extern int upstart_disable_safeties;

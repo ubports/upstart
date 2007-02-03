@@ -21,7 +21,7 @@
 #ifndef UPSTART_LIBUPSTART_H
 #define UPSTART_LIBUPSTART_H
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 #include <upstart/message.h>
 #include <upstart/wire.h>
 #include <upstart/errors.h>

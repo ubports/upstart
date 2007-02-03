@@ -1,3 +1,12 @@
+2007-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/job.c, upstart/job.h, upstart/tests/test_job.c: Rename to
+	enum.c, enum.h and tests/test_enum.c; since this just includes enums
+	and convert functions really.
+	* upstart/Makefile.am: Update.
+	* upstart/libupstart.h: Update include.
+	* upstart/tests/test_message.c: Update include.
+
 2007-02-01  Scott James Remnant  <scott@netsplit.com>
 
 	* logd/main.c (main): Ensure we error if daemonise fails.

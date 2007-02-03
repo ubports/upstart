@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 lib_LTLIBRARIES = libupstart.la
 
 libupstart_la_SOURCES = \
-	job.c \
+	enum.c \
 	message.c \
 	wire.c
 
@@ -31,22 +31,22 @@ include_HEADERS = \
 
 upstartincludedir = $(includedir)/upstart
 upstartinclude_HEADERS = \
-	job.h \
+	enum.h \
 	message.h \
 	wire.h \
 	errors.h
 
 
 TESTS = \
-	test_job \
+	test_enum \
 	test_message \
 	test_wire
 
 check_PROGRAMS = $(TESTS)
 
-test_job_SOURCES = tests/test_job.c
-test_job_LDFLAGS = -static
-test_job_LDADD = libupstart.la
+test_enum_SOURCES = tests/test_enum.c
+test_enum_LDFLAGS = -static
+test_enum_LDADD = libupstart.la
 
 test_message_SOURCES = tests/test_message.c
 test_message_LDFLAGS = -static
