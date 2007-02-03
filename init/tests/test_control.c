@@ -172,87 +172,21 @@ my_logger (NihLogLevel  priority,
 }
 
 void
-test_close_handler (void)
-{
-	NihIo *io;
-	int    fd, tmp_fd;
-
-	TEST_FUNCTION ("control_close_handler");
-
-	/* Check that we handle the closing of the socket by opening a new
-	 * descriptor and not clearing the queue.  A warning message should
-	 * be emitted.
-	 */
-	TEST_FEATURE ("with no problem reopening");
-	tmp_fd = socket (PF_UNIX, SOCK_DGRAM, 0);
-
-	io = control_open ();
-	fd = io->watch->fd;
-
-	close (tmp_fd);
-
-	logger_called = 0;
-	nih_log_set_logger (my_logger);
-
-	io->close_handler (io->data, io);
-
-	TEST_TRUE (logger_called);
-
-	TEST_NE (io->watch->fd, fd);
-	TEST_GE (fcntl (io->watch->fd, F_GETFD), 0);
-
-	TEST_LT (fcntl (fd, F_GETFD), 0);
-	TEST_EQ (errno, EBADF);
-
-
-	/* Check that an error is emitted if it's not possible to open a new
-	 * descriptor, and the control structure closed and freed.
-	 */
-	TEST_FEATURE ("with inability to reopen");
-	close (io->watch->fd);
-	fd = io->watch->fd = socket (PF_UNIX, SOCK_DGRAM, 0);
-	tmp_fd = upstart_open ();
-
-	logger_called = 0;
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (io, my_destructor);
-
-	io->close_handler (io->data, io);
-
-	TEST_TRUE (destructor_called);
-	TEST_EQ (logger_called, 2);
-
-	TEST_LT (fcntl (fd, F_GETFD), 0);
-	TEST_EQ (errno, EBADF);
-
-	close (tmp_fd);
-
-	nih_log_set_logger (nih_logger_printf);
-}
-
-void
 test_error_handler (void)
 {
 	NihIo              *io;
 	pid_t               pid;
-	int                 fd, tmp_fd, wait_fd, status;
+	int                 wait_fd, status;
 	Job                *job;
 	NotifySubscription *sub;
 
 	TEST_FUNCTION ("control_error_handler");
 
-	/* Check that we handle an error on the socket by opening a new
-	 * descriptor and not clearing the queue.  A warning message should
-	 * be emitted.
+	/* Check that we handle an error on the socket by emitting a warning
+	 * message.
 	 */
-	TEST_FEATURE ("with no problem reopening");
-	tmp_fd = socket (PF_UNIX, SOCK_DGRAM, 0);
-
+	TEST_FEATURE ("with error on socket");
 	io = control_open ();
-	fd = io->watch->fd;
-
-	close (tmp_fd);
 
 	logger_called = 0;
 	nih_log_set_logger (my_logger);
@@ -262,38 +196,9 @@ test_error_handler (void)
 
 	TEST_TRUE (logger_called);
 
-	TEST_NE (io->watch->fd, fd);
-	TEST_GE (fcntl (io->watch->fd, F_GETFD), 0);
-
-	TEST_LT (fcntl (fd, F_GETFD), 0);
-	TEST_EQ (errno, EBADF);
-
-
-	/* Check that an error is emitted if it's not possible to open a new
-	 * descriptor, and the control structure closed and freed.
-	 */
-	TEST_FEATURE ("with inability to reopen");
-	close (io->watch->fd);
-	fd = io->watch->fd = socket (PF_UNIX, SOCK_DGRAM, 0);
-	tmp_fd = upstart_open ();
-
-	logger_called = 0;
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (io, my_destructor);
-
-	nih_error_raise (EBADF, strerror (EBADF));
-	io->error_handler (io->data, io);
-
-	TEST_TRUE (destructor_called);
-	TEST_EQ (logger_called, 2);
-
-	TEST_LT (fcntl (fd, F_GETFD), 0);
-	TEST_EQ (errno, EBADF);
-
-	close (tmp_fd);
-
 	nih_log_set_logger (nih_logger_printf);
+
+	control_close ();
 
 
 	/* Check that the error handler can handle receiving ECONNREFUSED
@@ -1426,7 +1331,6 @@ main (int   argc,
 {
 	test_open ();
 	test_close ();
-	test_close_handler ();
 	test_error_handler ();
 	test_job_start ();
 	test_job_stop ();

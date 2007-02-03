@@ -1,5 +1,14 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_open_sock, control_reopen)
+	(control_close_handler): Drop these functions; unconnected datagram
+	sockets don't close -- so why try dealing with it?
+	(control_error_handler): Don't reopen the socket on error, just log
+	it -- the socket should be fine, there's no remote end to be lost,
+	after all.
+	* init/tests/test_control.c (test_close_handler): Drop.
+	(test_error_handler): Drop the reopen tests.
+
 	* init/tests/test_job.c (test_run_script): Control socket doesn't
 	get unexpectedly opened anymore; so no need to close it.
 

@@ -44,11 +44,7 @@
 
 
 /* Prototypes for static functions */
-static int  control_open_sock      (void)
-	__attribute__ ((warn_unused_result));
-static void control_reopen         (void);
-static void control_close_handler  (void *data, NihIo *io);
-static void control_error_handler  (void *data, NihIo *io);
+static void control_error_handler  (void  *data, NihIo *io);
 static int  control_job_start      (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name);
 static int  control_job_stop       (void *data, pid_t pid,
@@ -111,32 +107,6 @@ static UpstartMessage message_handlers[] = {
 
 
 /**
- * control_open_sock:
- *
- * Opens an upstart control socket for the current process (which should be
- * pid #1), and marks it to be closed when exec() is called so that it isn't
- * leaked to child processes.
- *
- * Returns: newly opened socket, or -1 on raised error;
- **/
-static int
-control_open_sock (void)
-{
-	int sock;
-
-	sock = upstart_open ();
-	if (sock < 0)
-		return -1;
-
-	if (nih_io_set_cloexec (sock) < 0) {
-		close (sock);
-		return -1;
-	}
-
-	return sock;
-}
-
-/**
  * control_open:
  *
  * Opens the control socket and associates it with an NihIo structure
@@ -150,14 +120,18 @@ control_open (void)
 {
 	int sock;
 
-	sock = control_open_sock ();
+	sock = upstart_open ();
 	if (sock < 0)
 		return NULL;
 
+	if (nih_io_set_cloexec (sock) < 0) {
+		close (sock);
+		return NULL;
+	}
+
 	while (! (control_io = nih_io_reopen (NULL, sock, NIH_IO_MESSAGE,
 					      (NihIoReader)upstart_message_reader,
-					      control_close_handler,
-					      control_error_handler,
+					      NULL, control_error_handler,
 					      message_handlers))) {
 		NihError *err;
 
@@ -190,73 +164,13 @@ control_close (void)
 }
 
 /**
- * control_reopen:
- *
- * This function is used to reopen a control socket that has been closed,
- * or on which an error has occurred.  The error is hopefully cleared, and
- * we can again continue receiving messages.
- *
- * This is all done without losing the state or queues in the NihIo
- * structure, so if there's no error, the send queue is not lost
- *
- * If we fail to reopen the socket, an error is logged and we're left with
- * no open socket.
- **/
-static void
-control_reopen (void)
-{
-	int sock;
-
-	nih_assert (control_io != NULL);
-
-	close (control_io->watch->fd);
-
-	sock = control_open_sock ();
-	if (sock < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s: %s", _("Unable to re-open control socket"),
-			   err->message, _("you may need to re-exec init"));
-		nih_free (err);
-
-		nih_free (control_io);
-		control_io = NULL;
-
-		return;
-	}
-
-	control_io->watch->fd = sock;
-}
-
-
-/**
- * control_close_handler:
- * @data: ignored,
- * @io: NihIo structure closed.
- *
- * This function is called should the control socket be unexpectedly closed;
- * we log the problem and attempt to re-open the control socket.
- **/
-static void
-control_close_handler (void  *data,
-		       NihIo *io)
-{
-	nih_assert (io != NULL);
-	nih_assert (io == control_io);
-
-	nih_warn (_("Control socket closed unexpectedly"));
-	control_reopen ();
-}
-
-/**
  * control_error_handler:
  * @data: ignored,
  * @io: NihIo structure on which an error occurred.
  *
  * This function is called should an error occur while reading from or
  * writing to a descriptor.  We handle errors that we recognise, otherwise
- * we log them and attempt to re-open the control socket.
+ * we log them and carry on.
  **/
 static void
 control_error_handler (void  *data,
@@ -289,7 +203,6 @@ control_error_handler (void  *data,
 	}
 	default:
 		nih_error (_("Error on control socket: %s"), err->message);
-		control_reopen ();
 		break;
 	}
 
