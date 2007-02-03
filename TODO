@@ -12,8 +12,6 @@ Code Cleanup:
  * Functions that only return a status to indicate a non-raised error do not
    need attributes (it's ok to ignore the error)
 
- * split initctl into separate pieces and test!
-
  * cfg_watch_dir needs testing
 
  * test event_queue_run needs testing

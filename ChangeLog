@@ -1,5 +1,19 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c: Split out the command functions into new files;
+	* util/jobs.c: This gets the job-related commands
+	* util/events.h: This gets the event-related commands
+	* util/initctl.h, util/jobs.h, util/events.h: Headers
+	* util/tests/test_jobs.c: Test suite for job-related commands.
+	* util/tests/test_events.c: Test suite for event-related commands.
+	* util/Makefile.am (initctl_SOURCES): Add new files.
+	(TESTS): Build new test suites.
+	(test_jobs_SOURCES, test_jobs_LDFLAGS, test_jobs_LDADD):
+	Details for job-related commands test suite binary.
+	(test_events_SOURCES, test_events_LDFLAGS, test_events_LDADD):
+	Details for event-related commands test suite binary.
+	* TODO: Remove item about splitting initctl now we've done it.
+
 	* TODO: Big update; strip anything we have a spec for.
 
 	* upstart/message.c (upstart_message_handle): Make sure that if we
