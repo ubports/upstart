@@ -43,7 +43,7 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 #include "event.h"
 #include "process.h"

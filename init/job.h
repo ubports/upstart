@@ -32,7 +32,7 @@
 #include <nih/timer.h>
 #include <nih/main.h>
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 #include "event.h"
 

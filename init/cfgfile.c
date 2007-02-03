@@ -47,7 +47,7 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 #include "job.h"
 #include "event.h"

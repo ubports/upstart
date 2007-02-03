@@ -1,5 +1,9 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c: Update include to upstart/enum.h
+	* init/job.c: Update include to upstart/enum.h
+	* init/job.h: Update include to upstart/enum.h
+
 	* logd/main.c: Add attribute to open_logging
 
 	* util/initctl.c: Split out the command functions into new files;
