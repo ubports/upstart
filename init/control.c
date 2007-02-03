@@ -44,7 +44,8 @@
 
 
 /* Prototypes for static functions */
-static int  control_open_sock      (void);
+static int  control_open_sock      (void)
+	__attribute__ ((warn_unused_result));
 static void control_reopen         (void);
 static void control_close_handler  (void *data, NihIo *io);
 static void control_error_handler  (void *data, NihIo *io);
@@ -116,7 +117,7 @@ static UpstartMessage message_handlers[] = {
  * pid #1), and marks it to be closed when exec() is called so that it isn't
  * leaked to child processes.
  *
- * Returns: newly opened socket, or -1 on error;
+ * Returns: newly opened socket, or -1 on raised error;
  **/
 static int
 control_open_sock (void)
@@ -160,15 +161,21 @@ control_open (void)
 	if (sock < 0)
 		return NULL;
 
-	control_io = nih_io_reopen (NULL, sock, NIH_IO_MESSAGE,
-				    (NihIoReader)upstart_message_reader,
-				    control_close_handler,
-				    control_error_handler,
-				    message_handlers);
-	if (! control_io) {
-		nih_error_raise_system ();
-		close (sock);
-		return NULL;
+	while (! (control_io = nih_io_reopen (NULL, sock, NIH_IO_MESSAGE,
+					      (NihIoReader)upstart_message_reader,
+					      control_close_handler,
+					      control_error_handler,
+					      message_handlers))) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number != ENOMEM) {
+			nih_free (err);
+			close (sock);
+			return NULL;
+		}
+
+		nih_free (err);
 	}
 
 	return control_io;
@@ -328,8 +335,9 @@ control_job_start (void               *data,
 
 	job = job_find_by_name (name);
 	if (! job) {
-		NIH_MUST (reply = upstart_message_new (
-				  control_io, pid, UPSTART_JOB_UNKNOWN, name));
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name));
 		nih_io_send_message (control_io, reply);
 		return 0;
 	}
@@ -378,8 +386,9 @@ control_job_stop (void               *data,
 
 	job = job_find_by_name (name);
 	if (! job) {
-		NIH_MUST (reply = upstart_message_new (
-				  control_io, pid, UPSTART_JOB_UNKNOWN, name));
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name));
 		nih_io_send_message (control_io, reply);
 		return 0;
 	}
@@ -428,8 +437,9 @@ control_job_query (void               *data,
 
 	job = job_find_by_name (name);
 	if (! job) {
-		NIH_MUST (reply = upstart_message_new (
-				  control_io, pid, UPSTART_JOB_UNKNOWN, name));
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name));
 		nih_io_send_message (control_io, reply);
 		return 0;
 	}
@@ -473,11 +483,13 @@ control_job_list (void               *data,
 	NIH_LIST_FOREACH (job_list (), iter) {
 		Job *job = (Job *)iter;
 
-		NIH_MUST (reply = upstart_message_new (
-				  control_io, pid, UPSTART_JOB_STATUS,
-				  job->name, job->goal, job->state,
-				  job->process_state, job->pid,
-				  job->description));
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       job->name, job->goal,
+						       job->state,
+						       job->process_state,
+						       job->pid,
+						       job->description));
 		nih_io_send_message (control_io, reply);
 	}
 

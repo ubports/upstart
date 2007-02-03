@@ -538,7 +538,15 @@ error:
 	close (fds[0]);
 	close (fds[1]);
 
-	control_open ();
+	/* Open the control socket again */
+	if (! control_open ()) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Unable to open control socket"),
+			   err->message);
+		nih_free (err);
+	}
 
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }

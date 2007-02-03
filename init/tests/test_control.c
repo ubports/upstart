@@ -57,57 +57,82 @@ void
 test_open (void)
 {
 	NihIo              *io, *ptr;
+	NihError           *err;
 	struct sockaddr_un  addr;
-	int                 val;
+	int                 val, sock;
 	char                name[26];
 	socklen_t           len;
 
 	TEST_FUNCTION ("control_open");
+
 
 	/* Check that we can open the control socket, the returned structure
 	 * should be an NihIo on a non-blocking, close-on-exec socket that
 	 * matches the parameters of the upstart communication socket.
 	 */
 	TEST_FEATURE ("with no open socket");
-	io = control_open ();
+	TEST_ALLOC_FAIL {
+		io = control_open ();
 
-	TEST_ALLOC_SIZE (io, sizeof (NihIo));
-	TEST_EQ (io->type, NIH_IO_MESSAGE);
-	TEST_EQ (io->watch->events, NIH_IO_READ);
+		TEST_ALLOC_SIZE (io, sizeof (NihIo));
+		TEST_EQ (io->type, NIH_IO_MESSAGE);
+		TEST_EQ (io->watch->events, NIH_IO_READ);
 
-	len = sizeof (addr);
-	getsockname (io->watch->fd, (struct sockaddr *)&addr, &len);
+		len = sizeof (addr);
+		getsockname (io->watch->fd, (struct sockaddr *)&addr, &len);
 
-	TEST_EQ (addr.sun_family, AF_UNIX);
-	TEST_EQ (addr.sun_path[0], '\0');
+		TEST_EQ (addr.sun_family, AF_UNIX);
+		TEST_EQ (addr.sun_path[0], '\0');
 
-	sprintf (name, "/com/ubuntu/upstart/%d", getpid ());
-	TEST_EQ_STRN (addr.sun_path + 1, name);
+		sprintf (name, "/com/ubuntu/upstart/%d", getpid ());
+		TEST_EQ_STRN (addr.sun_path + 1, name);
 
-	val = 0;
-	len = sizeof (val);
-	getsockopt (io->watch->fd, SOL_SOCKET, SO_TYPE, &val, &len);
+		val = 0;
+		len = sizeof (val);
+		getsockopt (io->watch->fd, SOL_SOCKET, SO_TYPE,
+			    &val, &len);
 
-	TEST_EQ (val, SOCK_DGRAM);
+		TEST_EQ (val, SOCK_DGRAM);
 
-	val = 0;
-	len = sizeof (val);
-	getsockopt (io->watch->fd, SOL_SOCKET, SO_PASSCRED, &val, &len);
-	TEST_NE (val, 0);
+		val = 0;
+		len = sizeof (val);
+		getsockopt (io->watch->fd, SOL_SOCKET, SO_PASSCRED,
+			    &val, &len);
+		TEST_NE (val, 0);
 
-	TEST_TRUE (fcntl (io->watch->fd, F_GETFL) & O_NONBLOCK);
-	TEST_TRUE (fcntl (io->watch->fd, F_GETFD) & FD_CLOEXEC);
+		TEST_TRUE (fcntl (io->watch->fd, F_GETFL) & O_NONBLOCK);
+		TEST_TRUE (fcntl (io->watch->fd, F_GETFD) & FD_CLOEXEC);
+
+		control_close ();
+	}
 
 
 	/* Check that if we call control_open() again, we get the same
 	 * structure as before.
 	 */
 	TEST_FEATURE ("with already open socket");
+	io = control_open ();
 	ptr = control_open ();
 
 	TEST_EQ_P (ptr, io);
 
 	control_close ();
+
+
+	/* Check that if we call control_open() while something else has
+	 * already got a socket open, we get EADDRINUSE.
+	 */
+	TEST_FEATURE ("with already bound socket");
+	sock = upstart_open ();
+	io = control_open ();
+
+	TEST_EQ_P (io, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, EADDRINUSE);
+	nih_free (err);
+
+	close (sock);
 }
 
 
