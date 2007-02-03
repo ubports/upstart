@@ -1,5 +1,9 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_watch_dir): Clean this up a bit; now we only
+	output a warning if inotify failed for any reason other than not
+	being supported AND walking worked.
+
 	* init/cfgfile.c (cfg_watch_dir): Update to even newer watch API;
 	our create_handler is now always called if inotify is successful,
 	so we just need to fall back to walking the directory when it

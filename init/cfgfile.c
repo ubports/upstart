@@ -1623,35 +1623,43 @@ int
 cfg_watch_dir (const char *dirname)
 {
 	NihWatch *watch;
+	NihError *err;
 
 	nih_assert (dirname != NULL);
 
 	nih_info (_("Reading configuration from %s"), dirname);
 
-	/* Use inotify to keep up to date about changes.  It's not critical
-	 * for this to fail, but we do bitch about it.
+	/* We use inotify to keep abreast of any changes to our configuration
+	 * directory, parsing them while we walk to add inotify watches.
 	 */
 	watch = nih_watch_new (NULL, dirname, TRUE, TRUE, nih_file_ignore,
 			       (NihCreateHandler)cfg_create_modify_handler,
 			       (NihModifyHandler)cfg_create_modify_handler,
 			       (NihDeleteHandler)cfg_delete_handler, NULL);
-	if (! watch) {
-		NihError *err;
+	if (watch)
+		return 0;
 
-		err = nih_error_get ();
-		if (err->number != EOPNOTSUPP)
-			nih_error ("%s: %s: %s", dirname,
-				   _("Unable to watch configuration directory"),
-				   err->message);
+	/* Failed to watch with inotify, fall back to walking the directory
+	 * the old fashioned way.  If this fails, then there's obviously
+	 * some problem with the directory; discard the error nih_watch_new()
+	 * returned as it's probably not relevant, and leave the
+	 * nih_dir_walk() error raised for our caller.
+	 */
+	err = nih_error_get ();
+	if (nih_dir_walk (dirname, nih_file_ignore,
+			  (NihFileVisitor)cfg_visitor, NULL, NULL) < 0) {
 		nih_free (err);
-
-		/* Fall back to just walking and parsing the old fashioned
-		 * way.
-		 */
-		if (nih_dir_walk (dirname, nih_file_ignore,
-				  (NihFileVisitor)cfg_visitor, NULL, NULL) < 0)
-			return -1;
+		return -1;
 	}
+
+	/* Walk worked; but inotify didn't ... if this is for any other
+	 * reason than inotify simply being not supported, we warn about it.
+	 */
+	if (err->number != EOPNOTSUPP)
+		nih_error ("%s: %s: %s", dirname,
+			   _("Unable to watch configuration directory"),
+			   err->message);
+	nih_free (err);
 
 	return 0;
 }
