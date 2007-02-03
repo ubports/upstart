@@ -66,23 +66,27 @@ test_subscribe (void)
 	 * list and be filled out correctly.
 	 */
 	TEST_FEATURE ("with new subscription");
-	sub1 = notify_subscribe (123, NOTIFY_JOBS, TRUE);
+	TEST_ALLOC_FAIL {
+		sub1 = notify_subscribe (123, NOTIFY_JOBS, TRUE);
 
-	TEST_ALLOC_SIZE (sub1, sizeof (NotifySubscription));
-	TEST_LIST_NOT_EMPTY (&sub1->entry);
-	TEST_EQ (sub1->pid, 123);
-	TEST_EQ (sub1->notify, NOTIFY_JOBS);
+		TEST_ALLOC_SIZE (sub1, sizeof (NotifySubscription));
+		TEST_LIST_NOT_EMPTY (&sub1->entry);
+		TEST_EQ (sub1->pid, 123);
+		TEST_EQ (sub1->notify, NOTIFY_JOBS);
+	}
 
 
 	/* Check that we can amend an existing subscription to include
 	 * more notification.  The object returned should be the same one.
 	 */
 	TEST_FEATURE ("with addition to existing subscription");
-	sub2 = notify_subscribe (123, NOTIFY_EVENTS, TRUE);
+	TEST_ALLOC_FAIL {
+		sub2 = notify_subscribe (123, NOTIFY_EVENTS, TRUE);
 
-	TEST_EQ_P (sub2, sub1);
-	TEST_EQ (sub1->pid, 123);
-	TEST_EQ (sub1->notify, NOTIFY_JOBS | NOTIFY_EVENTS);
+		TEST_EQ_P (sub2, sub1);
+		TEST_EQ (sub1->pid, 123);
+		TEST_EQ (sub1->notify, NOTIFY_JOBS | NOTIFY_EVENTS);
+	}
 
 
 	/* Check that we can amend an existing subscription to remove
@@ -90,39 +94,45 @@ test_subscribe (void)
 	 * same one.
 	 */
 	TEST_FEATURE ("with removal from existing subscription");
-	sub2 = notify_subscribe (123, NOTIFY_JOBS, FALSE);
+	TEST_ALLOC_FAIL {
+		sub2 = notify_subscribe (123, NOTIFY_JOBS, FALSE);
 
-	TEST_EQ_P (sub2, sub1);
-	TEST_EQ (sub1->pid, 123);
-	TEST_EQ (sub1->notify, NOTIFY_EVENTS);
+		TEST_EQ_P (sub2, sub1);
+		TEST_EQ (sub1->pid, 123);
+		TEST_EQ (sub1->notify, NOTIFY_EVENTS);
+	}
 
 
 	/* Check that we can add a subscription for a different process,
 	 * the object returned should be a different one.
 	 */
 	TEST_FEATURE ("with second new subscription");
-	sub2 = notify_subscribe (456, NOTIFY_JOBS, TRUE);
+	TEST_ALLOC_FAIL {
+		sub2 = notify_subscribe (456, NOTIFY_JOBS, TRUE);
 
-	TEST_NE_P (sub2, sub1);
-	TEST_ALLOC_SIZE (sub2, sizeof (NotifySubscription));
-	TEST_LIST_NOT_EMPTY (&sub2->entry);
-	TEST_EQ (sub2->pid, 456);
-	TEST_EQ (sub2->notify, NOTIFY_JOBS);
+		TEST_NE_P (sub2, sub1);
+		TEST_ALLOC_SIZE (sub2, sizeof (NotifySubscription));
+		TEST_LIST_NOT_EMPTY (&sub2->entry);
+		TEST_EQ (sub2->pid, 456);
+		TEST_EQ (sub2->notify, NOTIFY_JOBS);
 
-	nih_list_free (&sub2->entry);
+		nih_list_free (&sub2->entry);
+	}
 
 
 	/* Check that a subscription is removed from the list and freed
 	 * if we remove all notifications from it.  This should return NULL.
 	 */
 	TEST_FEATURE ("with removal");
-	destructor_called = 0;
-	nih_alloc_set_destructor (sub1, my_destructor);
+	TEST_ALLOC_FAIL {
+		destructor_called = 0;
+		nih_alloc_set_destructor (sub1, my_destructor);
 
-	sub2 = notify_subscribe (123, NOTIFY_EVENTS, FALSE);
+		sub2 = notify_subscribe (123, NOTIFY_EVENTS, FALSE);
 
-	TEST_EQ_P (sub2, NULL);
-	TEST_TRUE (destructor_called);
+		TEST_EQ_P (sub2, NULL);
+		TEST_TRUE (destructor_called);
+	}
 }
 
 

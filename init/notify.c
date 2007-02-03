@@ -76,8 +76,7 @@ notify_init (void)
  *
  * The current subscription can be found by passing NOTIFY_NONE.
  *
- * Returns: subscription record on success, NULL on insufficient memory
- * or removal of subscription.
+ * Returns: subscription record on success, NULL on removal of subscription.
  **/
 NotifySubscription *
 notify_subscribe (pid_t        pid,
@@ -116,9 +115,7 @@ notify_subscribe (pid_t        pid,
 		return NULL;
 
 	/* Create new subscription record */
-	sub = nih_new (NULL, NotifySubscription);
-	if (! sub)
-		return NULL;
+	NIH_MUST (sub = nih_new (NULL, NotifySubscription));
 
 	nih_list_init (&sub->entry);
 
@@ -166,11 +163,13 @@ notify_job (Job *job)
 		if (! (sub->notify & NOTIFY_JOBS))
 			continue;
 
-		NIH_MUST (message = upstart_message_new (
-				  io, sub->pid, UPSTART_JOB_STATUS,
-				  job->name, job->goal, job->state,
-				  job->process_state, job->pid,
-				  job->description));
+		NIH_MUST (message = upstart_message_new (io, sub->pid,
+							 UPSTART_JOB_STATUS,
+							 job->name, job->goal,
+							 job->state,
+							 job->process_state,
+							 job->pid,
+							 job->description));
 		nih_io_send_message (io, message);
 	}
 }
@@ -210,8 +209,9 @@ notify_event (Event *event)
 		if (! (sub->notify & NOTIFY_EVENTS))
 			continue;
 
-		NIH_MUST (message = upstart_message_new (
-				  io, sub->pid, UPSTART_EVENT, event->name));
+		NIH_MUST (message = upstart_message_new (io, sub->pid,
+							 UPSTART_EVENT,
+							 event->name));
 		nih_io_send_message (io, message);
 	}
 }

@@ -1,5 +1,8 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c (notify_subscribe): Make safe against ENOMEM.
+	* init/tests/test_notify.c (test_subscribe): Use TEST_ALLOC_FAIL
+
 	* init/control.c: Add needed attributes; tidy up formatting.
 	(control_open): Don't let ENOMEM fail opening the control socket.
 	* init/control.h: Add needed attributes.
