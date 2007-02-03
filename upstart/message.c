@@ -414,10 +414,14 @@ upstart_message_handle (const void     *parent,
 	case UPSTART_JOB_STOP:
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN: {
-		char *name;
+		char *name = NULL;
 
-		if (upstart_pop_pack (message, parent, "s", &name))
+		if (upstart_pop_pack (message, parent, "s", &name)) {
+			if (name)
+				nih_free (name);
+
 			goto invalid;
+		}
 
 		if (! name)
 			goto invalid;
@@ -426,16 +430,26 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
-		char *name, *description;
+		char *name = NULL, *description = NULL;
 		int   goal, state, process_state, pid;
 
 		if (upstart_pop_pack (message, parent, "siiiis", &name, &goal,
 				      &state, &process_state, &pid,
-				      &description))
-			goto invalid;
+				      &description)) {
+			if (name)
+				nih_free (name);
+			if (description)
+				nih_free (description);
 
-		if (! name)
 			goto invalid;
+		}
+
+		if (! name) {
+			if (description)
+				nih_free (description);
+
+			goto invalid;
+		}
 
 		ret = handler (data, cred.pid, type, name, goal, state,
 			       process_state, pid, description);
@@ -444,10 +458,14 @@ upstart_message_handle (const void     *parent,
 	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
-		char *name;
+		char *name = NULL;
 
-		if (upstart_pop_pack (message, parent, "s", &name))
+		if (upstart_pop_pack (message, parent, "s", &name)) {
+			if (name)
+				nih_free (name);
+
 			goto invalid;
+		}
 
 		if (! name)
 			goto invalid;

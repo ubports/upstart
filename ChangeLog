@@ -1,5 +1,14 @@
 2007-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_handle): Make sure that if we
+	fail to parse a message, we don't leave strings around in memory.
+	* upstart/tests/test_message.c (test_open): Check that we get a
+	raised EADDRINUSE if we try an open a socket twice.
+	(test_handle): Add lots of checks for things like NULL names and
+	incomplete messages; as well as the obvious unknown message.
+	(test_reader): Make sure that errors while handling messages are
+	dealt with by logging it.
+
 	* upstart/job.c, upstart/job.h, upstart/tests/test_job.c: Rename to
 	enum.c, enum.h and tests/test_enum.c; since this just includes enums
 	and convert functions really.
