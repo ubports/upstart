@@ -1,5 +1,7 @@
 2007-02-05  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+
 	* init/process.c (process_spawn): Exit with 255 so we don't clash
 	with anything that uses 1 as a normal exit code.  Note why we only
 	close 0..2 (everything else is FD_CLOEXEC).

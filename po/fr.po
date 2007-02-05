@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2007-01-06 20:26+0000\n"
+"POT-Creation-Date: 2007-02-05 22:52+0000\n"
 "PO-Revision-Date: 2006-10-03 23:30+0000\n"
 "Last-Translator: Nicolas Velin <nsv@fr.st>\n"
 "Language-Team: French <fr@li.org>\n"
@@ -70,7 +70,7 @@ msgstr ""
 msgid "Unhandled Error"
 msgstr "Erreur non traitée"
 
-#: nih/io.c:1191
+#: nih/io.c:1203
 #, fuzzy
 msgid "Error while reading from descriptor"
 msgstr "Erreur lors de la lecture du descripteur"
@@ -121,87 +121,133 @@ msgstr "%s : option invalide : --%s\n"
 msgid "%s: unexpected argument: --%s\n"
 msgstr "%s : argument inattendu : --%s\n"
 
-#: nih/option.c:484
+#: nih/option.c:488
 #, c-format
 msgid "%s: missing argument: %s\n"
 msgstr "%s : argument manquant : %s\n"
 
-#: nih/option.c:845
+#: nih/option.c:688
+#, fuzzy, c-format
+msgid "%s: illegal argument: %s\n"
+msgstr "%s : argument manquant : %s\n"
+
+#: nih/option.c:886
 msgid "Usage"
 msgstr "Utilisation"
 
-#: nih/option.c:849
+#: nih/option.c:890
 msgid "[OPTION]..."
 msgstr ""
 
-#: nih/option.c:898
+#: nih/option.c:939
 #, c-format
 msgid "Report bugs to <%s>\n"
 msgstr "Signalez les anomalies à <%s>\n"
 
-#: nih/option.c:924
+#: nih/option.c:965
 #, c-format
 msgid "%s options:\n"
 msgstr "%s options:\n"
 
-#: nih/option.c:926
+#: nih/option.c:967
 #, c-format
 msgid "Other options:\n"
 msgstr "Autres options:\n"
 
-#: nih/option.c:928
+#: nih/option.c:969
 #, c-format
 msgid "Options:\n"
 msgstr "Options:\n"
 
-#: upstart/job.c:50
+#: nih/watch.c:520
+#, fuzzy
+msgid "Unable to watch directory"
+msgstr "Impossible d'accepter la connexion : %s"
+
+#: nih/errors.h:54
+msgid "File is too long"
+msgstr ""
+
+#: nih/errors.h:55
+#, fuzzy
+msgid "Expected token"
+msgstr "commande attendue"
+
+#: nih/errors.h:56
+#, fuzzy
+msgid "Unexpected token"
+msgstr "commande attendue"
+
+#: nih/errors.h:57
+msgid "Trailing slash in file"
+msgstr ""
+
+#: nih/errors.h:58
+#, fuzzy
+msgid "Unterminated quoted string"
+msgstr "Chaîne quotée non terminée"
+
+#: nih/errors.h:59
+msgid "Unterminated block"
+msgstr ""
+
+#: nih/errors.h:60
+#, fuzzy
+msgid "Unknown stanza"
+msgstr "ignore la strophe inconnue"
+
+#: nih/errors.h:62
+msgid "Directory loop detected"
+msgstr ""
+
+#: upstart/enum.c:50
 msgid "stop"
 msgstr "arrêter"
 
-#: upstart/job.c:52
+#: upstart/enum.c:52
 msgid "start"
 msgstr "démarrer"
 
-#: upstart/job.c:95
+#: upstart/enum.c:95
 msgid "waiting"
 msgstr "en attente"
 
-#: upstart/job.c:97
+#: upstart/enum.c:97
 msgid "starting"
 msgstr "démarrage"
 
-#: upstart/job.c:99
+#: upstart/enum.c:99
 msgid "running"
 msgstr "en cours"
 
-#: upstart/job.c:101
+#: upstart/enum.c:101
 msgid "stopping"
 msgstr "en cours d'arrêt"
 
-#: upstart/job.c:103
+#: upstart/enum.c:103
 #, fuzzy
 msgid "respawning"
 msgstr "regénération"
 
-#: upstart/job.c:152
+#: upstart/enum.c:152
 msgid "none"
 msgstr "aucun"
 
-#: upstart/job.c:154
+#: upstart/enum.c:154
 #, fuzzy
 msgid "spawned"
 msgstr "généré"
 
-#: upstart/job.c:156
+#: upstart/enum.c:156
 #, fuzzy
 msgid "active"
 msgstr "actif"
 
-#: upstart/job.c:158
+#: upstart/enum.c:158
 msgid "killed"
 msgstr "tué"
 
-#: upstart/message.c:561
+#: upstart/message.c:585
 #, fuzzy, c-format
 msgid "Error while handling control message: %s"
 msgstr "Erreur lors de la lecture du message de contrôle : %s"
@@ -219,241 +265,97 @@ msgstr "Réception d'un message invalide"
 msgid "Unknown message received"
 msgstr "Réception d'un message invalide"
 
-#: init/cfgfile.c:154
-#, c-format
-msgid "%s: unable to read: %s"
+#: init/cfgfile.c:230
+#, fuzzy
+msgid "unable to read"
 msgstr "%s : impossible de lire : %s"
 
-#: init/cfgfile.c:199
+#: init/cfgfile.c:249
 #, c-format
 msgid "%s: 'exec' or 'script' must be specified"
 msgstr "%s : une des variables « exec » ou « script » doit être spécifiée"
 
-#: init/cfgfile.c:207
+#: init/cfgfile.c:257
 #, c-format
 msgid "%s: only one of 'exec' and 'script' may be specified"
 msgstr "%s: une seule des variables « exec » ou « script » doit être spécifiée"
 
-#: init/cfgfile.c:215
+#: init/cfgfile.c:265
 #, fuzzy, c-format
 msgid "%s: 'respawn script' ignored unless 'respawn' specified"
 msgstr "%s : 'respawn script' est ignoré à moins que 'respawn' est specifié"
 
-#: init/cfgfile.c:221
+#: init/cfgfile.c:271
 #, fuzzy, c-format
 msgid "%s: 'pid file' ignored unless 'respawn' specified"
 msgstr "%s : 'pid file' est ignoré à moins que 'respawn' est specifié"
 
-#: init/cfgfile.c:227
+#: init/cfgfile.c:277
 #, fuzzy, c-format
 msgid "%s: 'pid binary' ignored unless 'respawn' specified"
 msgstr "%s : 'pid binary' est ignoré à moins que 'respawn' est specifié"
 
-#: init/cfgfile.c:326
-msgid "expected job description"
-msgstr "description du travail attendue"
-
-#: init/cfgfile.c:342
-msgid "expected author name"
-msgstr "nom de l'auteur attendu"
-
-#: init/cfgfile.c:358
-msgid "expected version string"
-msgstr "version de la chaîne attendue"
-
-#: init/cfgfile.c:369
-msgid "expected job name"
-msgstr "nom du travail attendu"
-
-#: init/cfgfile.c:393 init/cfgfile.c:414 init/cfgfile.c:453
-msgid "expected event name"
-msgstr "nom de l'événement attendu"
-
-#: init/cfgfile.c:424 init/cfgfile.c:463 init/cfgfile.c:546 init/cfgfile.c:619
-#: init/cfgfile.c:635 init/cfgfile.c:983
-msgid "ignored additional arguments"
-msgstr "arguments supplémentaires ignorés"
-
-#: init/cfgfile.c:432 init/cfgfile.c:471
-msgid "expected 'on' or 'script'"
-msgstr "« on » ou « script » attendu"
-
-#: init/cfgfile.c:493
-msgid "expected command"
-msgstr "commande attendue"
-
-#: init/cfgfile.c:563 init/cfgfile.c:578 init/cfgfile.c:684 init/cfgfile.c:714
-#: init/cfgfile.c:745 init/cfgfile.c:826 init/cfgfile.c:847 init/cfgfile.c:912
-#: init/cfgfile.c:926
-msgid "illegal value"
-msgstr "valeur illégale"
-
-#: init/cfgfile.c:568
-msgid "expected limit"
-msgstr "limite attendue"
-
-#: init/cfgfile.c:583
-msgid "expected interval"
-msgstr "intervalle attendu"
-
-#: init/cfgfile.c:662
-msgid "expected pid filename"
-msgstr "nom de fichier pid attendu"
-
-#: init/cfgfile.c:673
-msgid "expected binary filename"
-msgstr "nom de fichier binaire attendu"
-
-#: init/cfgfile.c:690 init/cfgfile.c:720
-msgid "expected timeout"
-msgstr "délai attendu"
-
-#: init/cfgfile.c:694
-msgid "expected 'file', 'binary' or 'timeout'"
-msgstr "file', 'binary' ou 'timeout' attendu"
-
-#: init/cfgfile.c:724
-msgid "expected 'timeout'"
-msgstr "'timeout' attendu"
-
-#: init/cfgfile.c:735
-#, fuzzy
-msgid "expected exit status"
-msgstr "status de sortie attendu"
-
-#: init/cfgfile.c:779 init/cfgfile.c:784
-#, fuzzy
-msgid "expected 'logged', 'output', 'owner' or 'none'"
-msgstr "'logged','output','owner' ou 'none' attendu"
-
-#: init/cfgfile.c:811
-#, fuzzy
-msgid "expected variable setting"
-msgstr "choix de variable attendu"
-
-#: init/cfgfile.c:832
-#, fuzzy
-msgid "expected file creation mask"
-msgstr "valeur du mask attendu pour la création de fichier"
-
-#: init/cfgfile.c:853
-#, fuzzy
-msgid "expected nice level"
-msgstr "niveau de priorité attendu"
-
-#: init/cfgfile.c:898
-#, fuzzy
-msgid "unknown limit type"
-msgstr "type de limite inconnu"
-
-#: init/cfgfile.c:903
-#, fuzzy
-msgid "expected limit name"
-msgstr "nom de limite attendu"
-
-#: init/cfgfile.c:917
-#, fuzzy
-msgid "expected soft limit"
-msgstr "limite basse attendue"
-
-#: init/cfgfile.c:931
-#, fuzzy
-msgid "expected hard limit"
-msgstr "limite haute attendue"
-
-#: init/cfgfile.c:956 init/cfgfile.c:971
-#, fuzzy
-msgid "expected directory name"
-msgstr "nom de répertoire attendu"
-
-#: init/cfgfile.c:977
-#, fuzzy
-msgid "ignored unknown stanza"
-msgstr "ignore la strophe inconnue"
-
-#: init/cfgfile.c:1329
-#, fuzzy
-msgid "ignored trailing slash"
-msgstr "ignore le slash inattendu"
-
-#: init/cfgfile.c:1340
-#, fuzzy
-msgid "unterminated quoted string"
-msgstr "Chaîne quotée non terminée"
-
-#: init/cfgfile.c:1453
-msgid "'end script' expected"
-msgstr "'end script' attendu"
-
-#: init/cfgfile.c:1605
+#: init/cfgfile.c:1630
 #, fuzzy, c-format
 msgid "Reading configuration from %s"
 msgstr "Lis la configuration depuis %s"
 
-#: init/control.c:214
+#: init/cfgfile.c:1662
 #, fuzzy
-msgid "Unable to re-open control socket"
-msgstr "Impossible d'établir le contrôle du socket : %s"
+msgid "Unable to watch configuration directory"
+msgstr "Impossible d'accepter la connexion : %s"
 
-#: init/control.c:215
-msgid "you may need to re-exec init"
-msgstr ""
-
-#: init/control.c:243
-msgid "Control socket closed unexpectedly"
-msgstr ""
-
-#: init/control.c:286
+#: init/control.c:202
 #, fuzzy, c-format
 msgid "Error on control socket: %s"
 msgstr "Erreur lors de la lecture du message de contrôle : %s"
 
-#: init/control.c:330
+#: init/control.c:248
 #, fuzzy, c-format
 msgid "Control request to start %s"
 msgstr "Demande de contrôle à commencer %s"
 
-#: init/control.c:378
+#: init/control.c:299
 #, fuzzy, c-format
 msgid "Control request to stop %s"
 msgstr "Demande de contrôle pour arreter %s"
 
-#: init/control.c:426
+#: init/control.c:350
 #, fuzzy, c-format
 msgid "Control request for state of %s"
 msgstr "Demande de contrôle de status pour %s"
 
-#: init/control.c:458
+#: init/control.c:384
 #, fuzzy
 msgid "Control request to list jobs"
 msgstr "Demande de contrôle pour lister les tâches"
 
-#: init/control.c:498
+#: init/control.c:428
 #, fuzzy, c-format
 msgid "Control request to queue event %s"
 msgstr "Demande de contrôle pour faire la queue des évènements %s"
 
-#: init/control.c:522
+#: init/control.c:454
 #, fuzzy, c-format
 msgid "Control request to subscribe %d to jobs"
 msgstr "Demande de contrôle pour inscrire %d aux tâches"
 
-#: init/control.c:546
+#: init/control.c:480
 #, fuzzy, c-format
 msgid "Control request to unsubscribe %d from jobs"
 msgstr "Demande de contrôle pour désinscrire % des tâches"
 
-#: init/control.c:570
+#: init/control.c:506
 #, fuzzy, c-format
 msgid "Control request to subscribe %d to events"
 msgstr "Demande de contrôle pour inscrire %d aux évènements"
 
-#: init/control.c:594
+#: init/control.c:532
 #, fuzzy, c-format
 msgid "Control request to unsubscribe %d from events"
 msgstr "Demande de contrôle pour désinscrire %d des évènements"
 
-#: init/control.c:622
+#: init/control.c:562
 #, fuzzy, c-format
 msgid "Control request to shutdown system for %s"
 msgstr "Demande de contrôle d'extinction du system pour %s"
@@ -468,87 +370,77 @@ msgstr "L'état de %s a été changé de %s à %s"
 msgid "%s respawning too fast, stopped"
 msgstr "Résurection de %s trop rapide, arret"
 
-#: init/job.c:656
+#: init/job.c:647
 #, fuzzy
 msgid "Failed to spawn process"
 msgstr "Echec de la création de process"
 
-#: init/job.c:667
+#: init/job.c:658
 #, fuzzy, c-format
 msgid "Spawned %s process (%d)"
 msgstr "création de %s process (%d)"
 
-#: init/job.c:670
+#: init/job.c:661
 #, fuzzy, c-format
 msgid "Active %s process (%d)"
 msgstr "processus %s (%d) actif"
 
-#: init/job.c:700
+#: init/job.c:691
 #, fuzzy, c-format
 msgid "Sending TERM signal to %s process (%d)"
 msgstr "Envoi du signal TERM au processus %s (%d)"
 
-#: init/job.c:708
+#: init/job.c:699
 #, fuzzy, c-format
 msgid "Failed to send TERM signal to %s process (%d): %s"
 msgstr "Echec de l'envoi du signal TERM au processus %s (%d): %s"
 
-#: init/job.c:749
+#: init/job.c:740
 #, fuzzy, c-format
 msgid "Sending KILL signal to %s process (%d)"
 msgstr "Envoi du signal KILL au processus %s (%d)"
 
-#: init/job.c:757
+#: init/job.c:748
 #, fuzzy, c-format
 msgid "Failed to send KILL signal to %s process (%d): %s"
 msgstr "Echech de l'envoi du signal KILL au processus %s (%d): %s"
 
-#: init/job.c:809
+#: init/job.c:800
 #, fuzzy, c-format
 msgid "%s process (%d) killed by signal %d"
 msgstr "Le processus %s (%d) a été tué par le signal %d"
 
-#: init/job.c:812
+#: init/job.c:803
 #, fuzzy, c-format
 msgid "%s process (%d) terminated with status %d"
 msgstr "le processus %s (%d) s'est terminé en retournant %d"
 
-#: init/job.c:815
+#: init/job.c:806
 #, fuzzy, c-format
 msgid "%s process (%d) exited normally"
 msgstr "le processus %s (%d) s'est terminé normalent"
 
-#: init/job.c:848
+#: init/job.c:839
 #, fuzzy, c-format
 msgid "%s process ended, respawning"
 msgstr "le process %s c'est terminé, redémarrage"
 
-#: init/job.c:903
+#: init/job.c:891
 #, c-format
 msgid "%s will be started"
 msgstr "%s va être démarré"
 
-#: init/job.c:931
-#, fuzzy, c-format
-msgid "%s waiting for unknown dependency: %s"
-msgstr "%s attend une dépendance inconnue : %s"
-
-#: init/job.c:947
-#, fuzzy, c-format
-msgid "%s waiting for dependency: %s"
-msgstr "%s attend une dépendance : %s"
-
-#: init/job.c:1009
+#: init/job.c:933
 #, c-format
 msgid "%s will be stopped"
 msgstr "%s va être arrêté"
 
-#: init/job.c:1232
+#: init/job.c:1112
 #, fuzzy, c-format
 msgid "System is idle, generating %s event"
 msgstr "Système au ralenti, génére l'évènement %s"
 
-#: init/job.c:1241
+#: init/job.c:1121
 #, fuzzy, c-format
 msgid "System has stalled, generating %s event"
 msgstr "Le système a bloqué, génération de l'évènement %s"
@@ -564,7 +456,7 @@ msgid ""
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:127 util/initctl.c:524 compat/sysv/reboot.c:203
+#: init/main.c:127 util/initctl.c:199 compat/sysv/reboot.c:203
 #: compat/sysv/shutdown.c:312 compat/sysv/telinit.c:87
 #, fuzzy
 msgid "Need to be root"
@@ -575,190 +467,190 @@ msgstr "Nécessite d'être super-utilisateur"
 msgid "Not being executed as init"
 msgstr "N'est pas executé comme init"
 
-#: init/main.c:216
+#: init/main.c:145
 #, fuzzy
 msgid "Unable to open control socket"
 msgstr "Impossible d'ouvrir logd socket : %s"
 
-#: init/main.c:227
+#: init/main.c:157
 #, fuzzy
-msgid "Unable to watch configuration directory"
-msgstr "Impossible d'accepter la connexion : %s"
+msgid "Error parsing configuration"
+msgstr "Lis la configuration depuis %s"
 
-#: init/main.c:372
-#, fuzzy
-msgid "Caught segmentation fault, core dumped"
+#: init/main.c:410
+#, fuzzy, c-format
+msgid "Caught %s, core dumped"
 msgstr "Faute de segmentation attrapé, core dumped"
 
-#: init/main.c:374
-#, fuzzy
-msgid "Caught segmentation fault, unable to dump core"
+#: init/main.c:414
+#, fuzzy, c-format
+msgid "Caught %s, unable to dump core"
 msgstr "Faute de segmentation attrapé, impossible d'écrire le core dump"
 
-#: init/main.c:426
+#: init/main.c:468
 #, fuzzy
 msgid "Event queue resumed"
 msgstr "La queue d'évènement a repris"
 
-#: init/main.c:429
+#: init/main.c:471
 #, fuzzy
 msgid "Event queue paused"
 msgstr "La queue d'évènement est en pause"
 
-#: init/main.c:455
+#: init/main.c:497
 #, fuzzy, c-format
 msgid "Re-executing %s"
 msgstr "Ré-éxecution de %s"
 
-#: init/main.c:502
+#: init/main.c:552
 #, fuzzy, c-format
 msgid "Failed to re-execute %s: %s"
 msgstr "Echec de la ré-execution de %s : %s"
 
-#: init/main.c:534
+#: init/main.c:582
 #, fuzzy, c-format
 msgid "Unable to read from state descriptor: %s"
 msgstr "Impossible de lire le descripteur d'état : %s"
 
-#: init/main.c:573
+#: init/main.c:621
 #, fuzzy, c-format
 msgid "Error after reading state: %s"
 msgstr "Erreur après la lecture de l'état : %s"
 
-#: init/main.c:595
+#: init/main.c:643
 #, fuzzy, c-format
 msgid "Unable to write to state descriptor: %s"
 msgstr "Impossible d'écrire le descripteur d'état : %s"
 
-#: init/main.c:604
+#: init/main.c:652
 #, fuzzy, c-format
 msgid "Error after writing state: %s"
 msgstr "Erreur après l'écriture de l'état : %s"
 
-#: init/process.c:156
+#: init/process.c:159
 #, fuzzy, c-format
 msgid "Unable to execute \"%s\" for %s: %s"
 msgstr "Impossible d'executer \"%s\" pour %s : %s"
 
-#: init/process.c:313
+#: init/process.c:316
 #, fuzzy, c-format
 msgid "Unable to open logd socket: %s"
 msgstr "Impossible d'ouvrir logd socket : %s"
 
-#: init/process.c:334
+#: init/process.c:337
 #, fuzzy, c-format
 msgid "Unable to connect to logd: %s"
 msgstr "Impossible de se connecter à logd : %s"
 
-#: init/process.c:346 init/process.c:354
+#: init/process.c:349 init/process.c:357
 #, fuzzy, c-format
 msgid "Unable to send name to logd: %s"
 msgstr "Impossible d'envoyer le nom à logd : %s"
 
-#: init/process.c:387
+#: init/process.c:390
 #, fuzzy, c-format
 msgid "Failed to open console: %s"
 msgstr "Echec lors de l'ouverture de la console : %s"
 
-#: util/initctl.c:116
-#, c-format
-msgid "%s: missing job name\n"
-msgstr ""
-
-#: util/initctl.c:162 util/initctl.c:232 util/initctl.c:298 util/initctl.c:362
-#: util/initctl.c:426
-#, c-format
-msgid "Communication error: %s"
-msgstr ""
-
-#: util/initctl.c:269
+#: util/events.c:87
 #, c-format
 msgid "%s: missing event name\n"
 msgstr ""
 
-#: util/initctl.c:448
+#: util/events.c:120 util/events.c:185 util/jobs.c:143 util/jobs.c:204
+#: util/jobs.c:259
+#, c-format
+msgid "Communication error: %s"
+msgstr ""
+
+#: util/events.c:215
+#, c-format
+msgid "%s event"
+msgstr ""
+
+#: util/initctl.c:123
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:455
+#: util/initctl.c:130
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:463 util/initctl.c:468 util/initctl.c:473
+#: util/initctl.c:138 util/initctl.c:143 util/initctl.c:148
 msgid "JOB..."
 msgstr ""
 
-#: util/initctl.c:464
+#: util/initctl.c:139
 msgid "Start jobs."
 msgstr ""
 
-#: util/initctl.c:465
+#: util/initctl.c:140
 msgid "JOB is one or more job names that are to be started."
 msgstr ""
 
-#: util/initctl.c:469
+#: util/initctl.c:144
 msgid "Stop jobs."
 msgstr ""
 
-#: util/initctl.c:470
+#: util/initctl.c:145
 msgid "JOB is one or more job names that are to be stopped."
 msgstr ""
 
-#: util/initctl.c:474
+#: util/initctl.c:149
 msgid "Query status of jobs."
 msgstr ""
 
-#: util/initctl.c:475
+#: util/initctl.c:150
 msgid "JOB is one or more job names that are to be queried."
 msgstr ""
 
-#: util/initctl.c:479
+#: util/initctl.c:154
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:483 util/initctl.c:488 util/initctl.c:503
+#: util/initctl.c:158 util/initctl.c:163 util/initctl.c:178
 msgid "EVENT"
 msgstr ""
 
-#: util/initctl.c:484
+#: util/initctl.c:159
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:485
+#: util/initctl.c:160
 msgid "EVENT is the name of an event the init daemon should emit."
 msgstr ""
 
-#: util/initctl.c:494
+#: util/initctl.c:169
 msgid "Receive notification of job state changes."
 msgstr ""
 
-#: util/initctl.c:499
+#: util/initctl.c:174
 msgid "Receive notification of emitted events."
 msgstr ""
 
-#: util/initctl.c:504
+#: util/initctl.c:179
 msgid "Emit a shutdown event."
 msgstr ""
 
-#: util/initctl.c:505
+#: util/initctl.c:180
 msgid ""
 "EVENT is the name of an event the init daemon should emit after the shutdown "
 "event has been emitted."
 msgstr ""
 
-#: util/initctl.c:534 compat/sysv/shutdown.c:460 compat/sysv/telinit.c:133
+#: util/initctl.c:209 compat/sysv/shutdown.c:464 compat/sysv/telinit.c:133
 #, fuzzy, c-format
 msgid "Unable to establish control socket: %s"
 msgstr "Impossible d'établir le contrôle du socket : %s"
 
-#: util/initctl.c:622
+#: util/jobs.c:98
 #, c-format
-msgid "unknown job: %s\n"
+msgid "%s: missing job name\n"
 msgstr ""
 
-#: util/initctl.c:666
+#: util/jobs.c:347
 #, c-format
-msgid "%s event"
+msgid "unknown job: %s"
 msgstr ""
 
 #: compat/sysv/reboot.c:140
@@ -1012,38 +904,38 @@ msgstr "Ne trouve pas le pid du shutdown en court"
 msgid "Unable to save pid to %s"
 msgstr "Impossible de sauver le pid de %s"
 
-#: compat/sysv/shutdown.c:482 compat/sysv/telinit.c:143
+#: compat/sysv/shutdown.c:486 compat/sysv/telinit.c:143
 #, c-format
 msgid "Unable to send message: %s"
 msgstr "Impossible d'envoyer le message : %s"
 
-#: compat/sysv/shutdown.c:506
+#: compat/sysv/shutdown.c:510
 #, fuzzy
 msgid "Shutdown cancelled"
 msgstr "Arrêt du système annulé"
 
-#: compat/sysv/shutdown.c:582
+#: compat/sysv/shutdown.c:586
 #, fuzzy, c-format
 msgid "The system is going down for %s in %d minutes!"
 msgstr "Le système va s'arrêter pour %s dans %d minutes !"
 
-#: compat/sysv/shutdown.c:586
+#: compat/sysv/shutdown.c:590
 #, fuzzy, c-format
 msgid "The system is going down for %s IN ONE MINUTE!"
 msgstr "Le système va s'arrêter pour %s DANS UNE MINUTE !"
 
-#: compat/sysv/shutdown.c:590
+#: compat/sysv/shutdown.c:594
 #, fuzzy, c-format
 msgid "The system is going down for %s NOW!"
 msgstr "Le système va s'arrêter pour %s MAINTENANT !"
 
-#: compat/sysv/shutdown.c:635
+#: compat/sysv/shutdown.c:639
 #, fuzzy, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr ""
 "Impossible de séparer les processus-enfant pour avertir les utilisateurs : %s"
 
-#: compat/sysv/shutdown.c:680
+#: compat/sysv/shutdown.c:684
 #, fuzzy, c-format
 msgid "Broadcast message from %s@%s"
 msgstr ""
@@ -1051,7 +943,7 @@ msgstr ""
 " (%s) à %d:%02d...\r\n"
 "\r\n"
 
-#: compat/sysv/shutdown.c:682
+#: compat/sysv/shutdown.c:686
 #, c-format
 msgid "(%s) at %d:%02d ..."
 msgstr ""
@@ -1064,45 +956,154 @@ msgstr ""
 msgid "RUNLEVEL should be one of 0123456S."
 msgstr ""
 
-#: logd/main.c:96
+#: logd/main.c:97
 #, fuzzy
 msgid "Detach and run in the background"
 msgstr "Détache et execute en arrière plan"
 
-#: logd/main.c:112
+#: logd/main.c:113
 msgid "Log output of jobs to /var/log/boot."
 msgstr ""
 
-#: logd/main.c:114
+#: logd/main.c:115
 msgid ""
 "By default, logd does not detach from the console and remains in the "
 "foreground.  Use the --daemon option to have it detach."
 msgstr ""
 
-#: logd/main.c:123
+#: logd/main.c:124
 #, c-format
 msgid "%s: unexpected argument\n"
 msgstr "%s : argument inattendu\n"
 
-#: logd/main.c:134
+#: logd/main.c:135
 #, fuzzy, c-format
 msgid "Unable to open listening socket: %s"
 msgstr "Impossible d'ouvrir le socket d'écoute : %s"
 
-#: logd/main.c:244
+#: logd/main.c:148
+#, fuzzy
+msgid "Unable to become daemon"
+msgstr "Impossible d'executer shutdown : %s"
+
+#: logd/main.c:254
 #, fuzzy, c-format
 msgid "Unable to accept connection: %s"
 msgstr "Impossible d'accepter la connexion : %s"
 
-#: logd/main.c:253
+#: logd/main.c:263
 #, fuzzy
 msgid "Insufficient memory to accept child"
 msgstr "Mémoire inssuffisante pour accepter un enfant"
 
-#: logd/main.c:355 logd/main.c:372
+#: logd/main.c:365 logd/main.c:382
 #, fuzzy, c-format
 msgid "Error occurred while writing to log file: %s"
 msgstr "Une erreur est survenue lors de l'écriture du fichier de log : %s"
+
+#~ msgid "expected job description"
+#~ msgstr "description du travail attendue"
+
+#~ msgid "expected author name"
+#~ msgstr "nom de l'auteur attendu"
+
+#~ msgid "expected version string"
+#~ msgstr "version de la chaîne attendue"
+
+#~ msgid "expected job name"
+#~ msgstr "nom du travail attendu"
+
+#~ msgid "expected event name"
+#~ msgstr "nom de l'événement attendu"
+
+#~ msgid "ignored additional arguments"
+#~ msgstr "arguments supplémentaires ignorés"
+
+#~ msgid "expected 'on' or 'script'"
+#~ msgstr "« on » ou « script » attendu"
+
+#~ msgid "illegal value"
+#~ msgstr "valeur illégale"
+
+#~ msgid "expected limit"
+#~ msgstr "limite attendue"
+
+#~ msgid "expected interval"
+#~ msgstr "intervalle attendu"
+
+#~ msgid "expected pid filename"
+#~ msgstr "nom de fichier pid attendu"
+
+#~ msgid "expected binary filename"
+#~ msgstr "nom de fichier binaire attendu"
+
+#~ msgid "expected timeout"
+#~ msgstr "délai attendu"
+
+#~ msgid "expected 'file', 'binary' or 'timeout'"
+#~ msgstr "file', 'binary' ou 'timeout' attendu"
+
+#~ msgid "expected 'timeout'"
+#~ msgstr "'timeout' attendu"
+
+#, fuzzy
+#~ msgid "expected exit status"
+#~ msgstr "status de sortie attendu"
+
+#, fuzzy
+#~ msgid "expected 'logged', 'output', 'owner' or 'none'"
+#~ msgstr "'logged','output','owner' ou 'none' attendu"
+
+#, fuzzy
+#~ msgid "expected variable setting"
+#~ msgstr "choix de variable attendu"
+
+#, fuzzy
+#~ msgid "expected file creation mask"
+#~ msgstr "valeur du mask attendu pour la création de fichier"
+
+#, fuzzy
+#~ msgid "expected nice level"
+#~ msgstr "niveau de priorité attendu"
+
+#, fuzzy
+#~ msgid "unknown limit type"
+#~ msgstr "type de limite inconnu"
+
+#, fuzzy
+#~ msgid "expected limit name"
+#~ msgstr "nom de limite attendu"
+
+#, fuzzy
+#~ msgid "expected soft limit"
+#~ msgstr "limite basse attendue"
+
+#, fuzzy
+#~ msgid "expected hard limit"
+#~ msgstr "limite haute attendue"
+
+#, fuzzy
+#~ msgid "expected directory name"
+#~ msgstr "nom de répertoire attendu"
+
+#, fuzzy
+#~ msgid "ignored trailing slash"
+#~ msgstr "ignore le slash inattendu"
+
+#~ msgid "'end script' expected"
+#~ msgstr "'end script' attendu"
+
+#, fuzzy
+#~ msgid "Unable to re-open control socket"
+#~ msgstr "Impossible d'établir le contrôle du socket : %s"
+
+#, fuzzy
+#~ msgid "%s waiting for unknown dependency: %s"
+#~ msgstr "%s attend une dépendance inconnue : %s"
+
+#, fuzzy
+#~ msgid "%s waiting for dependency: %s"
+#~ msgstr "%s attend une dépendance : %s"
 
 #, fuzzy
 #~ msgid "Unable to set descriptor non-blocking"

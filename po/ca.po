@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2007-01-06 20:26+0000\n"
+"POT-Creation-Date: 2007-02-05 22:52+0000\n"
 "PO-Revision-Date: 2006-09-18 16:07+0000\n"
 "Last-Translator: Jordi Mallach <jordi@canonical.com>\n"
 "Language-Team: Catalan <ca@li.org>\n"
@@ -70,7 +70,7 @@ msgstr ""
 msgid "Unhandled Error"
 msgstr "Error no gestionat"
 
-#: nih/io.c:1191
+#: nih/io.c:1203
 msgid "Error while reading from descriptor"
 msgstr "S'ha produït un error en llegir del descriptor"
 
@@ -116,84 +116,127 @@ msgstr "%s: l'opció és invàlida: --%s\n"
 msgid "%s: unexpected argument: --%s\n"
 msgstr "%s: no s'esperava l'argument: --%s\n"
 
-#: nih/option.c:484
+#: nih/option.c:488
 #, c-format
 msgid "%s: missing argument: %s\n"
 msgstr "%s: manca un argument: %s\n"
 
-#: nih/option.c:845
+#: nih/option.c:688
+#, fuzzy, c-format
+msgid "%s: illegal argument: %s\n"
+msgstr "%s: manca un argument: %s\n"
+
+#: nih/option.c:886
 msgid "Usage"
 msgstr "Forma d'ús"
 
-#: nih/option.c:849
+#: nih/option.c:890
 msgid "[OPTION]..."
 msgstr ""
 
-#: nih/option.c:898
+#: nih/option.c:939
 #, c-format
 msgid "Report bugs to <%s>\n"
 msgstr "Informeu-ne del errors a <%s>\n"
 
-#: nih/option.c:924
+#: nih/option.c:965
 #, c-format
 msgid "%s options:\n"
 msgstr "Opcions %s:\n"
 
-#: nih/option.c:926
+#: nih/option.c:967
 #, c-format
 msgid "Other options:\n"
 msgstr "Altres opcions:\n"
 
-#: nih/option.c:928
+#: nih/option.c:969
 #, c-format
 msgid "Options:\n"
 msgstr "Opcions:\n"
 
-#: upstart/job.c:50
+#: nih/watch.c:520
+msgid "Unable to watch directory"
+msgstr ""
+
+#: nih/errors.h:54
+msgid "File is too long"
+msgstr ""
+
+#: nih/errors.h:55
+#, fuzzy
+msgid "Expected token"
+msgstr "s'esperava una ordre"
+
+#: nih/errors.h:56
+#, fuzzy
+msgid "Unexpected token"
+msgstr "s'esperava una ordre"
+
+#: nih/errors.h:57
+msgid "Trailing slash in file"
+msgstr ""
+
+#: nih/errors.h:58
+msgid "Unterminated quoted string"
+msgstr ""
+
+#: nih/errors.h:59
+msgid "Unterminated block"
+msgstr ""
+
+#: nih/errors.h:60
+msgid "Unknown stanza"
+msgstr ""
+
+#: nih/errors.h:62
+msgid "Directory loop detected"
+msgstr ""
+
+#: upstart/enum.c:50
 msgid "stop"
 msgstr "atura"
 
-#: upstart/job.c:52
+#: upstart/enum.c:52
 msgid "start"
 msgstr "inicia"
 
-#: upstart/job.c:95
+#: upstart/enum.c:95
 msgid "waiting"
 msgstr "en espera"
 
-#: upstart/job.c:97
+#: upstart/enum.c:97
 msgid "starting"
 msgstr "iniciant-se"
 
-#: upstart/job.c:99
+#: upstart/enum.c:99
 msgid "running"
 msgstr "en execució"
 
-#: upstart/job.c:101
+#: upstart/enum.c:101
 msgid "stopping"
 msgstr "parant-se"
 
-#: upstart/job.c:103
+#: upstart/enum.c:103
 msgid "respawning"
 msgstr "reiniciant-se"
 
-#: upstart/job.c:152
+#: upstart/enum.c:152
 msgid "none"
 msgstr "cap"
 
-#: upstart/job.c:154
+#: upstart/enum.c:154
 msgid "spawned"
 msgstr "iniciat"
 
-#: upstart/job.c:156
+#: upstart/enum.c:156
 msgid "active"
 msgstr "actiu"
 
-#: upstart/job.c:158
+#: upstart/enum.c:158
 msgid "killed"
 msgstr "mort"
 
-#: upstart/message.c:561
+#: upstart/message.c:585
 #, fuzzy, c-format
 msgid "Error while handling control message: %s"
 msgstr "S'ha produït un error en llegir el missatge de control: %s"
@@ -211,227 +254,95 @@ msgstr "S'ha rebut un missatge invàlid"
 msgid "Unknown message received"
 msgstr "S'ha rebut un missatge invàlid"
 
-#: init/cfgfile.c:154
-#, c-format
-msgid "%s: unable to read: %s"
+#: init/cfgfile.c:230
+#, fuzzy
+msgid "unable to read"
 msgstr "%s: no es pot llegir: %s"
 
-#: init/cfgfile.c:199
+#: init/cfgfile.c:249
 #, c-format
 msgid "%s: 'exec' or 'script' must be specified"
 msgstr "%s: s'ha d'especificar «exec» o «script»"
 
-#: init/cfgfile.c:207
+#: init/cfgfile.c:257
 #, c-format
 msgid "%s: only one of 'exec' and 'script' may be specified"
 msgstr "%s: només es pot especificar «exec» o «script» a l'hora"
 
-#: init/cfgfile.c:215
+#: init/cfgfile.c:265
 #, c-format
 msgid "%s: 'respawn script' ignored unless 'respawn' specified"
 msgstr "%s: s'ignora «respawn script» si no s'especifica «respawn»"
 
-#: init/cfgfile.c:221
+#: init/cfgfile.c:271
 #, c-format
 msgid "%s: 'pid file' ignored unless 'respawn' specified"
 msgstr "%s: s'ignora «pid file» si no s'especifica «respawn»"
 
-#: init/cfgfile.c:227
+#: init/cfgfile.c:277
 #, c-format
 msgid "%s: 'pid binary' ignored unless 'respawn' specified"
 msgstr "%s: s'ignora «pid binary» si no s'especifica «respawn»"
 
-#: init/cfgfile.c:326
-msgid "expected job description"
-msgstr "s'esperava la descripció del treball"
-
-#: init/cfgfile.c:342
-msgid "expected author name"
-msgstr "s'esperava el nom de l'autor"
-
-#: init/cfgfile.c:358
-msgid "expected version string"
-msgstr "s'esperava una cadena de versió"
-
-#: init/cfgfile.c:369
-msgid "expected job name"
-msgstr "s'esperava un nom del treball"
-
-#: init/cfgfile.c:393 init/cfgfile.c:414 init/cfgfile.c:453
-msgid "expected event name"
-msgstr "s'esperava un nom de l'esdeveniment"
-
-#: init/cfgfile.c:424 init/cfgfile.c:463 init/cfgfile.c:546 init/cfgfile.c:619
-#: init/cfgfile.c:635 init/cfgfile.c:983
-msgid "ignored additional arguments"
-msgstr "s'ha ignorat els arguments addicionals"
-
-#: init/cfgfile.c:432 init/cfgfile.c:471
-msgid "expected 'on' or 'script'"
-msgstr ""
-
-#: init/cfgfile.c:493
-msgid "expected command"
-msgstr "s'esperava una ordre"
-
-#: init/cfgfile.c:563 init/cfgfile.c:578 init/cfgfile.c:684 init/cfgfile.c:714
-#: init/cfgfile.c:745 init/cfgfile.c:826 init/cfgfile.c:847 init/cfgfile.c:912
-#: init/cfgfile.c:926
-msgid "illegal value"
-msgstr "el valor és il·legal"
-
-#: init/cfgfile.c:568
-msgid "expected limit"
-msgstr "s'esperava un límit"
-
-#: init/cfgfile.c:583
-msgid "expected interval"
-msgstr "s'esperava un interval"
-
-#: init/cfgfile.c:662
-msgid "expected pid filename"
-msgstr "s'esperava un nom de fitxer de pid"
-
-#: init/cfgfile.c:673
-msgid "expected binary filename"
-msgstr "s'esperava un nom de fitxer binari"
-
-#: init/cfgfile.c:690 init/cfgfile.c:720
-msgid "expected timeout"
-msgstr "s'esperava un temps d'espera"
-
-#: init/cfgfile.c:694
-msgid "expected 'file', 'binary' or 'timeout'"
-msgstr "s'esperava «file», «binary» o «timeout»"
-
-#: init/cfgfile.c:724
-msgid "expected 'timeout'"
-msgstr "s'esperava «timeout»"
-
-#: init/cfgfile.c:735
-msgid "expected exit status"
-msgstr "s'esperava l'estat de sortida"
-
-#: init/cfgfile.c:779 init/cfgfile.c:784
-msgid "expected 'logged', 'output', 'owner' or 'none'"
-msgstr ""
-
-#: init/cfgfile.c:811
-msgid "expected variable setting"
-msgstr "s'esperava un paràmetre variable"
-
-#: init/cfgfile.c:832
-msgid "expected file creation mask"
-msgstr ""
-
-#: init/cfgfile.c:853
-msgid "expected nice level"
-msgstr "s'esperava en nivell de prioritat"
-
-#: init/cfgfile.c:898
-msgid "unknown limit type"
-msgstr "el tipus de límit és desconegut"
-
-#: init/cfgfile.c:903
-msgid "expected limit name"
-msgstr "s'esperava un nom de límit"
-
-#: init/cfgfile.c:917
-msgid "expected soft limit"
-msgstr "s'esperava un límit suau"
-
-#: init/cfgfile.c:931
-msgid "expected hard limit"
-msgstr "s'esperava un límit dur"
-
-#: init/cfgfile.c:956 init/cfgfile.c:971
-msgid "expected directory name"
-msgstr "s'esperava un nom de directori"
-
-#: init/cfgfile.c:977
-msgid "ignored unknown stanza"
-msgstr ""
-
-#: init/cfgfile.c:1329
-msgid "ignored trailing slash"
-msgstr "s'ha ignorat la barra final"
-
-#: init/cfgfile.c:1340
-msgid "unterminated quoted string"
-msgstr ""
-
-#: init/cfgfile.c:1453
-msgid "'end script' expected"
-msgstr "s'esperava «end script»"
-
-#: init/cfgfile.c:1605
+#: init/cfgfile.c:1630
 #, c-format
 msgid "Reading configuration from %s"
 msgstr "S'està llegint la configuració de %s"
 
-#: init/control.c:214
-#, fuzzy
-msgid "Unable to re-open control socket"
-msgstr "No es pot establir el sòcol de control: %s"
-
-#: init/control.c:215
-msgid "you may need to re-exec init"
+#: init/cfgfile.c:1662
+msgid "Unable to watch configuration directory"
 msgstr ""
 
-#: init/control.c:243
-msgid "Control socket closed unexpectedly"
-msgstr ""
-
-#: init/control.c:286
+#: init/control.c:202
 #, fuzzy, c-format
 msgid "Error on control socket: %s"
 msgstr "S'ha produït un error en llegir el missatge de control: %s"
 
-#: init/control.c:330
+#: init/control.c:248
 #, c-format
 msgid "Control request to start %s"
 msgstr "Petició de control per a iniciar %s"
 
-#: init/control.c:378
+#: init/control.c:299
 #, c-format
 msgid "Control request to stop %s"
 msgstr "Petició de control per a aturar %s"
 
-#: init/control.c:426
+#: init/control.c:350
 #, c-format
 msgid "Control request for state of %s"
 msgstr "Petició de control per a consultar l'estat de %s"
 
-#: init/control.c:458
+#: init/control.c:384
 msgid "Control request to list jobs"
 msgstr ""
 
-#: init/control.c:498
+#: init/control.c:428
 #, c-format
 msgid "Control request to queue event %s"
 msgstr ""
 
-#: init/control.c:522
+#: init/control.c:454
 #, c-format
 msgid "Control request to subscribe %d to jobs"
 msgstr "Petició de control per a subscriure %d als treballs"
 
-#: init/control.c:546
+#: init/control.c:480
 #, c-format
 msgid "Control request to unsubscribe %d from jobs"
 msgstr "Petició de control per a desubscriure %d dels treballs"
 
-#: init/control.c:570
+#: init/control.c:506
 #, c-format
 msgid "Control request to subscribe %d to events"
 msgstr ""
 
-#: init/control.c:594
+#: init/control.c:532
 #, c-format
 msgid "Control request to unsubscribe %d from events"
 msgstr ""
 
-#: init/control.c:622
+#: init/control.c:562
 #, c-format
 msgid "Control request to shutdown system for %s"
 msgstr ""
@@ -446,86 +357,76 @@ msgstr ""
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job.c:656
+#: init/job.c:647
 msgid "Failed to spawn process"
 msgstr "No s'ha pogut iniciar el procés"
 
-#: init/job.c:667
+#: init/job.c:658
 #, c-format
 msgid "Spawned %s process (%d)"
 msgstr "S'ha iniciat el procés %s (%d)"
 
-#: init/job.c:670
+#: init/job.c:661
 #, c-format
 msgid "Active %s process (%d)"
 msgstr "Procés %s actiu (%d)"
 
-#: init/job.c:700
+#: init/job.c:691
 #, c-format
 msgid "Sending TERM signal to %s process (%d)"
 msgstr ""
 
-#: init/job.c:708
+#: init/job.c:699
 #, c-format
 msgid "Failed to send TERM signal to %s process (%d): %s"
 msgstr "No s'ha pogut enviar el senyal TERM al procés %s (%d): %s"
 
-#: init/job.c:749
+#: init/job.c:740
 #, c-format
 msgid "Sending KILL signal to %s process (%d)"
 msgstr ""
 
-#: init/job.c:757
+#: init/job.c:748
 #, c-format
 msgid "Failed to send KILL signal to %s process (%d): %s"
 msgstr "No s'ha pogut enviar el senyal KILL al procés %s (%d): %s"
 
-#: init/job.c:809
+#: init/job.c:800
 #, c-format
 msgid "%s process (%d) killed by signal %d"
 msgstr "El procés %s (%d) ha estat mort pel senyal %d"
 
-#: init/job.c:812
+#: init/job.c:803
 #, c-format
 msgid "%s process (%d) terminated with status %d"
 msgstr "El procés %s (%d) ha finalitzat amb l'estat %d"
 
-#: init/job.c:815
+#: init/job.c:806
 #, c-format
 msgid "%s process (%d) exited normally"
 msgstr "El procés %s (%d) ha sortit normalment"
 
-#: init/job.c:848
+#: init/job.c:839
 #, c-format
 msgid "%s process ended, respawning"
 msgstr "El procés %s ha finalitzat, s'està reiniciant"
 
-#: init/job.c:903
+#: init/job.c:891
 #, c-format
 msgid "%s will be started"
 msgstr "S'iniciarà %s"
 
-#: init/job.c:931
-#, c-format
-msgid "%s waiting for unknown dependency: %s"
-msgstr "%s està esperant a una dependència desconeguda: %s"
-
-#: init/job.c:947
-#, c-format
-msgid "%s waiting for dependency: %s"
-msgstr "%s està esperant a una dependència: %s"
-
-#: init/job.c:1009
+#: init/job.c:933
 #, c-format
 msgid "%s will be stopped"
 msgstr "S'aturarà %s"
 
-#: init/job.c:1232
+#: init/job.c:1112
 #, c-format
 msgid "System is idle, generating %s event"
 msgstr ""
 
-#: init/job.c:1241
+#: init/job.c:1121
 #, c-format
 msgid "System has stalled, generating %s event"
 msgstr ""
@@ -541,7 +442,7 @@ msgid ""
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:127 util/initctl.c:524 compat/sysv/reboot.c:203
+#: init/main.c:127 util/initctl.c:199 compat/sysv/reboot.c:203
 #: compat/sysv/shutdown.c:312 compat/sysv/telinit.c:87
 msgid "Need to be root"
 msgstr "Es necessita ser root"
@@ -550,185 +451,188 @@ msgstr "Es necessita ser root"
 msgid "Not being executed as init"
 msgstr "No s'està executant com a init"
 
-#: init/main.c:216
+#: init/main.c:145
 #, fuzzy
 msgid "Unable to open control socket"
 msgstr "No es pot establir el sòcol de control: %s"
 
-#: init/main.c:227
-msgid "Unable to watch configuration directory"
+#: init/main.c:157
+#, fuzzy
+msgid "Error parsing configuration"
+msgstr "S'està llegint la configuració de %s"
+
+#: init/main.c:410
+#, c-format
+msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:372
-msgid "Caught segmentation fault, core dumped"
+#: init/main.c:414
+#, c-format
+msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:374
-msgid "Caught segmentation fault, unable to dump core"
-msgstr ""
-
-#: init/main.c:426
+#: init/main.c:468
 msgid "Event queue resumed"
 msgstr ""
 
-#: init/main.c:429
+#: init/main.c:471
 msgid "Event queue paused"
 msgstr ""
 
-#: init/main.c:455
+#: init/main.c:497
 #, c-format
 msgid "Re-executing %s"
 msgstr "S'està tornant a exiecutar %s"
 
-#: init/main.c:502
+#: init/main.c:552
 #, c-format
 msgid "Failed to re-execute %s: %s"
 msgstr "No s'ha pogut tornar a executar %s: %s"
 
-#: init/main.c:534
+#: init/main.c:582
 #, c-format
 msgid "Unable to read from state descriptor: %s"
 msgstr ""
 
-#: init/main.c:573
+#: init/main.c:621
 #, c-format
 msgid "Error after reading state: %s"
 msgstr ""
 
-#: init/main.c:595
+#: init/main.c:643
 #, c-format
 msgid "Unable to write to state descriptor: %s"
 msgstr ""
 
-#: init/main.c:604
+#: init/main.c:652
 #, c-format
 msgid "Error after writing state: %s"
 msgstr ""
 
-#: init/process.c:156
+#: init/process.c:159
 #, c-format
 msgid "Unable to execute \"%s\" for %s: %s"
 msgstr "No es pot executar «%s» per a %s: %s"
 
-#: init/process.c:313
+#: init/process.c:316
 #, c-format
 msgid "Unable to open logd socket: %s"
 msgstr ""
 
-#: init/process.c:334
+#: init/process.c:337
 #, c-format
 msgid "Unable to connect to logd: %s"
 msgstr ""
 
-#: init/process.c:346 init/process.c:354
+#: init/process.c:349 init/process.c:357
 #, c-format
 msgid "Unable to send name to logd: %s"
 msgstr ""
 
-#: init/process.c:387
+#: init/process.c:390
 #, c-format
 msgid "Failed to open console: %s"
 msgstr ""
 
-#: util/initctl.c:116
-#, c-format
-msgid "%s: missing job name\n"
-msgstr ""
-
-#: util/initctl.c:162 util/initctl.c:232 util/initctl.c:298 util/initctl.c:362
-#: util/initctl.c:426
-#, c-format
-msgid "Communication error: %s"
-msgstr ""
-
-#: util/initctl.c:269
+#: util/events.c:87
 #, c-format
 msgid "%s: missing event name\n"
 msgstr ""
 
-#: util/initctl.c:448
+#: util/events.c:120 util/events.c:185 util/jobs.c:143 util/jobs.c:204
+#: util/jobs.c:259
+#, c-format
+msgid "Communication error: %s"
+msgstr ""
+
+#: util/events.c:215
+#, c-format
+msgid "%s event"
+msgstr ""
+
+#: util/initctl.c:123
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:455
+#: util/initctl.c:130
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:463 util/initctl.c:468 util/initctl.c:473
+#: util/initctl.c:138 util/initctl.c:143 util/initctl.c:148
 msgid "JOB..."
 msgstr ""
 
-#: util/initctl.c:464
+#: util/initctl.c:139
 msgid "Start jobs."
 msgstr ""
 
-#: util/initctl.c:465
+#: util/initctl.c:140
 msgid "JOB is one or more job names that are to be started."
 msgstr ""
 
-#: util/initctl.c:469
+#: util/initctl.c:144
 msgid "Stop jobs."
 msgstr ""
 
-#: util/initctl.c:470
+#: util/initctl.c:145
 msgid "JOB is one or more job names that are to be stopped."
 msgstr ""
 
-#: util/initctl.c:474
+#: util/initctl.c:149
 msgid "Query status of jobs."
 msgstr ""
 
-#: util/initctl.c:475
+#: util/initctl.c:150
 msgid "JOB is one or more job names that are to be queried."
 msgstr ""
 
-#: util/initctl.c:479
+#: util/initctl.c:154
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:483 util/initctl.c:488 util/initctl.c:503
+#: util/initctl.c:158 util/initctl.c:163 util/initctl.c:178
 msgid "EVENT"
 msgstr ""
 
-#: util/initctl.c:484
+#: util/initctl.c:159
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:485
+#: util/initctl.c:160
 msgid "EVENT is the name of an event the init daemon should emit."
 msgstr ""
 
-#: util/initctl.c:494
+#: util/initctl.c:169
 msgid "Receive notification of job state changes."
 msgstr ""
 
-#: util/initctl.c:499
+#: util/initctl.c:174
 msgid "Receive notification of emitted events."
 msgstr ""
 
-#: util/initctl.c:504
+#: util/initctl.c:179
 msgid "Emit a shutdown event."
 msgstr ""
 
-#: util/initctl.c:505
+#: util/initctl.c:180
 msgid ""
 "EVENT is the name of an event the init daemon should emit after the shutdown "
 "event has been emitted."
 msgstr ""
 
-#: util/initctl.c:534 compat/sysv/shutdown.c:460 compat/sysv/telinit.c:133
+#: util/initctl.c:209 compat/sysv/shutdown.c:464 compat/sysv/telinit.c:133
 #, c-format
 msgid "Unable to establish control socket: %s"
 msgstr "No es pot establir el sòcol de control: %s"
 
-#: util/initctl.c:622
+#: util/jobs.c:98
 #, c-format
-msgid "unknown job: %s\n"
+msgid "%s: missing job name\n"
 msgstr ""
 
-#: util/initctl.c:666
+#: util/jobs.c:347
 #, c-format
-msgid "%s event"
+msgid "unknown job: %s"
 msgstr ""
 
 #: compat/sysv/reboot.c:140
@@ -960,41 +864,41 @@ msgstr ""
 msgid "Unable to save pid to %s"
 msgstr ""
 
-#: compat/sysv/shutdown.c:482 compat/sysv/telinit.c:143
+#: compat/sysv/shutdown.c:486 compat/sysv/telinit.c:143
 #, c-format
 msgid "Unable to send message: %s"
 msgstr "No es pot enviar el missatge: %s"
 
-#: compat/sysv/shutdown.c:506
+#: compat/sysv/shutdown.c:510
 msgid "Shutdown cancelled"
-msgstr ""
-
-#: compat/sysv/shutdown.c:582
-#, c-format
-msgid "The system is going down for %s in %d minutes!"
 msgstr ""
 
 #: compat/sysv/shutdown.c:586
 #, c-format
-msgid "The system is going down for %s IN ONE MINUTE!"
+msgid "The system is going down for %s in %d minutes!"
 msgstr ""
 
 #: compat/sysv/shutdown.c:590
 #, c-format
+msgid "The system is going down for %s IN ONE MINUTE!"
+msgstr ""
+
+#: compat/sysv/shutdown.c:594
+#, c-format
 msgid "The system is going down for %s NOW!"
 msgstr ""
 
-#: compat/sysv/shutdown.c:635
+#: compat/sysv/shutdown.c:639
 #, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr ""
 
-#: compat/sysv/shutdown.c:680
+#: compat/sysv/shutdown.c:684
 #, c-format
 msgid "Broadcast message from %s@%s"
 msgstr ""
 
-#: compat/sysv/shutdown.c:682
+#: compat/sysv/shutdown.c:686
 #, c-format
 msgid "(%s) at %d:%02d ..."
 msgstr ""
@@ -1007,43 +911,130 @@ msgstr ""
 msgid "RUNLEVEL should be one of 0123456S."
 msgstr ""
 
-#: logd/main.c:96
+#: logd/main.c:97
 msgid "Detach and run in the background"
 msgstr ""
 
-#: logd/main.c:112
+#: logd/main.c:113
 msgid "Log output of jobs to /var/log/boot."
 msgstr ""
 
-#: logd/main.c:114
+#: logd/main.c:115
 msgid ""
 "By default, logd does not detach from the console and remains in the "
 "foreground.  Use the --daemon option to have it detach."
 msgstr ""
 
-#: logd/main.c:123
+#: logd/main.c:124
 #, c-format
 msgid "%s: unexpected argument\n"
 msgstr "%s: s'ha trobat un argument inesperat\n"
 
-#: logd/main.c:134
+#: logd/main.c:135
 #, c-format
 msgid "Unable to open listening socket: %s"
 msgstr ""
 
-#: logd/main.c:244
+#: logd/main.c:148
+#, fuzzy
+msgid "Unable to become daemon"
+msgstr "No es pot enviar el missatge: %s"
+
+#: logd/main.c:254
 #, c-format
 msgid "Unable to accept connection: %s"
 msgstr ""
 
-#: logd/main.c:253
+#: logd/main.c:263
 msgid "Insufficient memory to accept child"
 msgstr ""
 
-#: logd/main.c:355 logd/main.c:372
+#: logd/main.c:365 logd/main.c:382
 #, c-format
 msgid "Error occurred while writing to log file: %s"
 msgstr ""
+
+#~ msgid "expected job description"
+#~ msgstr "s'esperava la descripció del treball"
+
+#~ msgid "expected author name"
+#~ msgstr "s'esperava el nom de l'autor"
+
+#~ msgid "expected version string"
+#~ msgstr "s'esperava una cadena de versió"
+
+#~ msgid "expected job name"
+#~ msgstr "s'esperava un nom del treball"
+
+#~ msgid "expected event name"
+#~ msgstr "s'esperava un nom de l'esdeveniment"
+
+#~ msgid "ignored additional arguments"
+#~ msgstr "s'ha ignorat els arguments addicionals"
+
+#~ msgid "illegal value"
+#~ msgstr "el valor és il·legal"
+
+#~ msgid "expected limit"
+#~ msgstr "s'esperava un límit"
+
+#~ msgid "expected interval"
+#~ msgstr "s'esperava un interval"
+
+#~ msgid "expected pid filename"
+#~ msgstr "s'esperava un nom de fitxer de pid"
+
+#~ msgid "expected binary filename"
+#~ msgstr "s'esperava un nom de fitxer binari"
+
+#~ msgid "expected timeout"
+#~ msgstr "s'esperava un temps d'espera"
+
+#~ msgid "expected 'file', 'binary' or 'timeout'"
+#~ msgstr "s'esperava «file», «binary» o «timeout»"
+
+#~ msgid "expected 'timeout'"
+#~ msgstr "s'esperava «timeout»"
+
+#~ msgid "expected exit status"
+#~ msgstr "s'esperava l'estat de sortida"
+
+#~ msgid "expected variable setting"
+#~ msgstr "s'esperava un paràmetre variable"
+
+#~ msgid "expected nice level"
+#~ msgstr "s'esperava en nivell de prioritat"
+
+#~ msgid "unknown limit type"
+#~ msgstr "el tipus de límit és desconegut"
+
+#~ msgid "expected limit name"
+#~ msgstr "s'esperava un nom de límit"
+
+#~ msgid "expected soft limit"
+#~ msgstr "s'esperava un límit suau"
+
+#~ msgid "expected hard limit"
+#~ msgstr "s'esperava un límit dur"
+
+#~ msgid "expected directory name"
+#~ msgstr "s'esperava un nom de directori"
+
+#~ msgid "ignored trailing slash"
+#~ msgstr "s'ha ignorat la barra final"
+
+#~ msgid "'end script' expected"
+#~ msgstr "s'esperava «end script»"
+
+#, fuzzy
+#~ msgid "Unable to re-open control socket"
+#~ msgstr "No es pot establir el sòcol de control: %s"
+
+#~ msgid "%s waiting for unknown dependency: %s"
+#~ msgstr "%s està esperant a una dependència desconeguda: %s"
+
+#~ msgid "%s waiting for dependency: %s"
+#~ msgstr "%s està esperant a una dependència: %s"
 
 #~ msgid "Error sending control message: %s"
 #~ msgstr "S'ha produït un error en enviar el missatge de control: %s"

@@ -1,3 +1,29 @@
+0.3.2  2007-02-06  "Could anybody have tampered with your luggage?"
+
+	* Fix leak of inotify file descriptor that could allow any process
+	  on the system to remove upstart's watch on its configuration
+	  directory.
+
+	* New "emits" configuration stanza, used to list events that are
+	  emitted by the job itself.  Intended for use by front-ends to
+	  draw event graphs and the like.
+
+	* Dropped "depends" configuration stanza and all related code.
+	  This will be replaced by the complex state mechanism.
+
+	* Rewritten IPC code to be significantly simpler, with the goal of
+	  having a stable interface once we hit the end of this milestone
+	  series.
+
+	* Rewritten configuration parser and inotify watch infrastructure
+	  to be more maintainable in future.
+
+	* Now supports systems where inotify is disabled.
+
+	* Duplicate configuration stanzas are no longer permitted.
+
+	* Bug fixes, especially concerning malloc failure.
+
 0.3.1  2006-12-13  "The Gathering"
 
 	* Compilation fixes
