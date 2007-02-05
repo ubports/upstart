@@ -1,3 +1,8 @@
+2007-02-05  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add nih/config.c, nih/watch.c; rename upstart/job.c
+	to upstart/enum.c; add init/notify.c; add util/events.c and util/jobs.c
+
 2007-01-06  Scott James Remnant  <scott@netsplit.com>
 
 	* ca.po, fr.po, sv.po: Update line numbers.

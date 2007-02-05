@@ -2,6 +2,7 @@
 nih/alloc.c
 nih/child.c
 nih/command.c
+nih/config.c
 nih/error.c
 nih/file.c
 nih/hash.c
@@ -13,10 +14,11 @@ nih/option.c
 nih/signal.c
 nih/string.c
 nih/timer.c
+nih/watch.c
 
 nih/errors.h
 
-upstart/job.c
+upstart/enum.c
 upstart/message.c
 upstart/wire.c
 
@@ -27,9 +29,12 @@ init/control.c
 init/event.c
 init/job.c
 init/main.c
+init/notify.c
 init/process.c
 
+util/events.c
 util/initctl.c
+util/jobs.c
 
 compat/sysv/reboot.c
 compat/sysv/runlevel.c
