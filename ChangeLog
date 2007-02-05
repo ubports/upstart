@@ -1,3 +1,13 @@
+2007-02-05  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): Exit with 255 so we don't clash
+	with anything that uses 1 as a normal exit code.  Note why we only
+	close 0..2 (everything else is FD_CLOEXEC).
+	* init/cfgfile.c (cfg_watch_dir): Mark the inotify watch descriptor
+	as FD_CLOEXEC.
+	* init/control.c (control_open): nih_io_set_cloexec can only ever
+	return EINVAL, so no point checking it.
+
 2007-02-04  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_control.c: Remove strange old code.

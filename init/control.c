@@ -124,10 +124,7 @@ control_open (void)
 	if (sock < 0)
 		return NULL;
 
-	if (nih_io_set_cloexec (sock) < 0) {
-		close (sock);
-		return NULL;
-	}
+	nih_io_set_cloexec (sock);
 
 	while (! (control_io = nih_io_reopen (NULL, sock, NIH_IO_MESSAGE,
 					      (NihIoReader)upstart_message_reader,

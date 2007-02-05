@@ -2,7 +2,7 @@
  *
  * process.c - job process handling
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -115,7 +115,10 @@ process_spawn (Job          *job,
 	/* We're now in the child process.
 	 *
 	 * First we close the standard file descriptors so we don't
-	 * inherit them directly from init but get to pick them ourselves
+	 * inherit them directly from init but get to pick them ourselves.
+	 *
+	 * Any other open descriptor will have had the FD_CLOEXEC flag set,
+	 * so will get automatically closed when we exec() later.
 	 */
 	for (i = 0; i < 3; i++)
 		close (i);
@@ -157,7 +160,7 @@ error:
 		   argv[0], job->name, err->message);
 	nih_free (err);
 
-	exit (1);
+	exit (255);
 }
 
 /**

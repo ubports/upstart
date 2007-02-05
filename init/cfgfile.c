@@ -1636,8 +1636,10 @@ cfg_watch_dir (const char *dirname)
 			       (NihCreateHandler)cfg_create_modify_handler,
 			       (NihModifyHandler)cfg_create_modify_handler,
 			       (NihDeleteHandler)cfg_delete_handler, NULL);
-	if (watch)
+	if (watch) {
+		nih_io_set_cloexec (watch->fd);
 		return 0;
+	}
 
 	/* Failed to watch with inotify, fall back to walking the directory
 	 * the old fashioned way.  If this fails, then there's obviously
