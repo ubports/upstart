@@ -1391,6 +1391,29 @@ test_start (void)
 	TEST_EQ (job->pid, 1);
 
 
+	/* Check that starting a job with a goal change event set clears
+	 * that event, freeing it, and sets it to NULL (manual start).
+	 */
+	TEST_FEATURE ("with existing goal change event");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->process_state = PROCESS_ACTIVE;
+	job->pid = 1;
+	job->goal_event = nih_new (job, Event);
+
+	was_called = 0;
+	nih_alloc_set_destructor (job->goal_event, destructor_called);
+
+	job_start (job);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_EQ (job->pid, 1);
+	TEST_EQ_P (job->goal_event, NULL);
+	TEST_TRUE (was_called);
+
+
 	/* Check that an attempt to start a job that's running and still
 	 * with a start goal does nothing.
 	 */
@@ -1405,6 +1428,7 @@ test_start (void)
 	TEST_EQ (job->state, JOB_RUNNING);
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 	TEST_EQ (job->pid, 1);
+
 
 	nih_list_free (&job->entry);
 }
@@ -1472,6 +1496,39 @@ test_stop (void)
 	TEST_EQ (job->state, JOB_STARTING);
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 	TEST_EQ (job->pid, pid);
+
+	TEST_EQ_P (job->kill_timer, NULL);
+
+	kill (pid, SIGTERM);
+	waitpid (pid, NULL, 0);
+
+
+	/* Check that stopping a job with a goal change event set clears
+	 * that event, freeing it, and sets it to NULL (manual stop).
+	 */
+	TEST_FEATURE ("with existing goal change event");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process_state = PROCESS_ACTIVE;
+
+	TEST_CHILD (job->pid) {
+		pause ();
+	}
+	pid = job->pid;
+
+	job->goal_event = nih_new (job, Event);
+
+	was_called = 0;
+	nih_alloc_set_destructor (job->goal_event, destructor_called);
+
+	job_stop (job);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STARTING);
+	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_EQ (job->pid, pid);
+	TEST_EQ_P (job->goal_event, NULL);
+	TEST_TRUE (was_called);
 
 	TEST_EQ_P (job->kill_timer, NULL);
 

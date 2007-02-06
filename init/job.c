@@ -893,6 +893,10 @@ job_start (Job *job)
 	nih_info (_("%s will be started"), job->name);
 	job->goal = JOB_START;
 
+	if (job->goal_event)
+		nih_free (job->goal_event);
+	job->goal_event = NULL;
+
 	/* The only state change we need to induce is one away from the
 	 * waiting state; anything else will be handled as the processes
 	 * naturally terminate -- now that the goal is reversed, we'll
@@ -934,6 +938,10 @@ job_stop (Job *job)
 
 	nih_info (_("%s will be stopped"), job->name);
 	job->goal = JOB_STOP;
+
+	if (job->goal_event)
+		nih_free (job->goal_event);
+	job->goal_event = NULL;
 
 	/* The only state change we need to induce is one away from an
 	 * active running process; anything else will be handled as the
