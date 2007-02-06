@@ -160,9 +160,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x01\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x01s\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -183,9 +183,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x02\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x02s\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -206,9 +206,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x03\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x03s\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -231,12 +231,12 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 47);
+		TEST_EQ (msg->data->len, 53);
 		TEST_EQ_MEM (msg->data->buf, ("upstart\n\0\0\0\x04"
-					      "\0\0\0\x04test\0\0\0\x01"
-					      "\0\0\0\x02\0\0\0\x02"
-					      "\0\0\x03\xe8\0\0\0\afoo bar"),
-			     47);
+					      "s\0\0\0\x04testi\0\0\0\x01"
+					      "i\0\0\0\x02i\0\0\0\x02"
+					      "i\0\0\x03\xe8s\0\0\0\afoo bar"),
+			     53);
 
 		nih_free (msg);
 	}
@@ -257,9 +257,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x05\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x05s\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -324,9 +324,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x08\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x08s\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -347,9 +347,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x09\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x09s\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -458,9 +458,9 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 21);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x0e\0\0\0\x04test", 20);
+			     "upstart\n\0\0\0\x0es\0\0\0\x04test", 21);
 
 		nih_free (msg);
 	}
@@ -617,7 +617,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x1"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -650,7 +650,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x2"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -683,7 +683,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x3"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -716,11 +716,11 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x04"
-						      "\0\0\0\x04test"
-						      "\0\0\0\x01\0\0\0\x02"
-						      "\0\0\0\x02\0\0\x03"
-						      "\xe8\0\0\0\afoo bar"),
-						     47));
+						      "s\0\0\0\04test"
+						      "i\0\0\0\01i\0\0\0\02"
+						      "i\0\0\0\02i\0\0\03\xe8"
+						      "s\0\0\0\afoo bar"),
+						     53));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -753,7 +753,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x5"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -852,7 +852,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x8"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -885,7 +885,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x9"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1050,7 +1050,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\xe"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1157,9 +1157,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null job to start");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\x1\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x1S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1209,9 +1207,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null job to stop");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\x2\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x2S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1261,9 +1257,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null job to query");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\x3\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x3S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1290,9 +1284,9 @@ test_handle (void)
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("upstart\n\0\0\0\x04"
-				      "\0\0\0\x04test"
-				      "\0\0\0\x01\0\0\0\x02"
-				      "\0\0\0\x02"), 32));
+				      "s\0\0\0\x04test"
+				      "i\0\0\0\x01i\0\0\0\x02"
+				      "i\0\0\0\x02"), 36));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1318,9 +1312,9 @@ test_handle (void)
 	TEST_FEATURE ("with null job status");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     ("upstart\n\0\0\0\x04\xff\xff\xff\xff"
-				      "\0\0\0\x01\0\0\0\x02\0\0\0\x02\0\0\x03"
-				      "\xe8\0\0\0\afoo bar"), 43));
+				     ("upstart\n\0\0\0\x04S"
+				      "i\0\0\0\x01i\0\0\0\x02i\0\0\0\x02"
+				      "i\0\0\x03\xe8s\0\0\0\afoo bar"), 45));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1370,9 +1364,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null unknown job");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\x5\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x5S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1422,9 +1414,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null event to queue");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\x8\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x8S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1474,9 +1464,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null event emitted");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\x9\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x9S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1526,9 +1514,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null shutdown emitted");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\xe\xff\xff\xff\xff",
-				     16));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xeS", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1581,7 +1567,7 @@ test_handle (void)
 	TEST_FEATURE ("with message of unexpected type");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\1\0\0\0\x4test", 20));
+				     "upstart\n\0\0\0\1s\0\0\0\x4test", 21));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1632,7 +1618,7 @@ test_handle (void)
 	TEST_FEATURE ("with wildcard message type");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\0\1\0\0\0\x4test", 20));
+				     "upstart\n\0\0\0\1s\0\0\0\x4test", 21));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1730,7 +1716,7 @@ test_handle_using (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x1"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1792,7 +1778,7 @@ test_reader (void)
 			msg = nih_io_message_new (io);
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\1"
-						      "\0\0\0\x4test"), 20));
+						      "s\0\0\0\x4test"), 21));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1839,9 +1825,8 @@ test_reader (void)
 
 			msg = nih_io_message_new (io);
 			assert0 (nih_io_buffer_push (msg->data,
-						     ("upstart\n\0\0\0\1"
-						      "\xff\xff\xff\xff"),
-						     16));
+						     "upstart\n\0\0\0\1S",
+						     13));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
