@@ -1120,6 +1120,7 @@ test_pop_pack (void)
 				      "i\0\0\0\x13s\0\0\0\x04te"), 22);
 
 	nih_free (str);
+	nih_free (array);
 
 
 	/* Check that we can read a series of different values from a
