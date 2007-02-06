@@ -80,7 +80,7 @@ typedef struct event {
  * Name of the event that we generate when the Control-Alt-Delete key
  * combination is pressed.
  **/
-#define CTRLALTDEL_EVENT "ctrlaltdel"
+#define CTRLALTDEL_EVENT "control-alt-delete"
 
 /**
  * KBDREQUEST_EVENT:
