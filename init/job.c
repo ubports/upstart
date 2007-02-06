@@ -163,6 +163,11 @@ job_new (const void *parent,
 
 	job->process_state = PROCESS_NONE;
 	job->pid = 0;
+
+	job->failed = FALSE;
+	job->failed_state = JOB_WAITING;
+	job->exit_status = 0;
+
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	job->kill_timer = NULL;
 

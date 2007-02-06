@@ -94,6 +94,9 @@
  * @goal_event: event that last changed @goal,
  * @process_state: what we're waiting for from the process,
  * @pid: current process id,
+ * @failed: whether the last process ran failed,
+ * @failed_state: state the job was in for the last failed process,
+ * @exit_status: exit status of the last failed process,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @kill_timer: timer to kill process,
  * @spawns_instance: job is always waiting and spawns instances,
@@ -148,6 +151,11 @@ typedef struct job {
 
 	ProcessState   process_state;
 	pid_t          pid;
+
+	int            failed;
+	JobState       failed_state;
+	int            exit_status;
+
 	time_t         kill_timeout;
 	NihTimer      *kill_timer;
 

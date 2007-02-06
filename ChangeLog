@@ -1,5 +1,8 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add failed, failed_state and exit_status members.
+	* init/job.c (job_new): Initialise new members.
+
 	* init/job.c (job_child_reaper): Convert signals to names when
 	outputting status messages.
 	* init/tests/test_job.c (test_child_reaper): Check that the signal
