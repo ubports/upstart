@@ -1,5 +1,12 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start_event, job_stop_event): Set the goal_event
+	member to a copy of the event we found.
+	(job_read_state): Use event_new instead of trying to do it by hand.
+	* init/tests/test_job.c (test_start_event, test_stop_event): Use 
+	CHECK_ALLOC_FAIL; and make sure the goal_event is set properly.
+	(test_start, test_stop, test_write_new): Use event_new here too
+
 	* init/job.c (job_write_state): Output a goal_event field containing
 	the event name or nothing for NULL.
 	(job_read_state): Parse the goal_event field

@@ -1399,7 +1399,7 @@ test_start (void)
 	job->state = JOB_STOPPING;
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1;
-	job->goal_event = nih_new (job, Event);
+	job->goal_event = event_new (job, "foo");
 
 	was_called = 0;
 	nih_alloc_set_destructor (job->goal_event, destructor_called);
@@ -1516,7 +1516,7 @@ test_stop (void)
 	}
 	pid = job->pid;
 
-	job->goal_event = nih_new (job, Event);
+	job->goal_event = event_new (job, "foo");
 
 	was_called = 0;
 	nih_alloc_set_destructor (job->goal_event, destructor_called);
@@ -1564,6 +1564,7 @@ test_start_event (void)
 	TEST_FUNCTION ("job_start_event");
 	job = job_new (NULL, "test");
 	job->command = "echo";
+	job->respawn_limit = 0;
 
 	event = event_new (job, "wibble");
 	nih_list_add (&job->start_events, &event->entry);
@@ -1574,11 +1575,16 @@ test_start_event (void)
 	 */
 	TEST_FEATURE ("with non-matching event");
 	event = event_new (NULL, "biscuit");
-	job_start_event (job, event);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
+	TEST_ALLOC_FAIL {
+		job_start_event (job, event);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		TEST_EQ_P (job->goal_event, NULL);
+	}
 
 	nih_free (event);
 
@@ -1588,14 +1594,31 @@ test_start_event (void)
 	 */
 	TEST_FEATURE ("with matching event");
 	event = event_new (NULL, "wibble");
-	job_start_event (job, event);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		if (job->goal_event)
+			nih_free (job->goal_event);
+		job->goal_event = NULL;
 
-	TEST_NE (job->pid, 0);
-	waitpid (job->pid, NULL, 0);
+		job_start_event (job, event);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job->pid, 0);
+		waitpid (job->pid, NULL, 0);
+
+		TEST_ALLOC_PARENT (job->goal_event, job);
+		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
+		TEST_LIST_EMPTY (&job->goal_event->entry);
+		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->name, 7);
+		TEST_EQ_STR (job->goal_event->name, "wibble");
+	}
 
 	nih_free (event);
 	nih_list_free (&job->entry);
@@ -1614,6 +1637,7 @@ test_stop_event (void)
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->process_state = PROCESS_ACTIVE;
+	job->respawn_limit = 0;
 
 	TEST_CHILD (job->pid) {
 		pause ();
@@ -1629,14 +1653,19 @@ test_stop_event (void)
 	 */
 	TEST_FEATURE ("with non-matching event");
 	event = event_new (NULL, "biscuit");
-	job_stop_event (job, event);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_ALLOC_FAIL {
+		job_stop_event (job, event);
 
-	TEST_EQ (job->pid, pid);
-	TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->pid, pid);
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		TEST_EQ_P (job->goal_event, NULL);
+	}
 
 	nih_free (event);
 
@@ -1646,18 +1675,40 @@ test_stop_event (void)
 	 */
 	TEST_FEATURE ("with matching event");
 	event = event_new (NULL, "wibble");
-	job_stop_event (job, event);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_KILLED);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		if (job->goal_event)
+			nih_free (job->goal_event);
+		job->goal_event = NULL;
 
-	TEST_EQ (job->pid, pid);
-	TEST_NE_P (job->kill_timer, NULL);
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
 
-	waitpid (job->pid, &status, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
+		job_stop_event (job, event);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+
+		TEST_EQ (job->pid, pid);
+		TEST_NE_P (job->kill_timer, NULL);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		TEST_ALLOC_PARENT (job->goal_event, job);
+		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
+		TEST_LIST_EMPTY (&job->goal_event->entry);
+		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->name, 7);
+		TEST_EQ_STR (job->goal_event->name, "wibble");
+	}
 
 	nih_free (event);
 	nih_list_free (&job->entry);
@@ -2047,8 +2098,7 @@ test_write_state (void)
 	job2->pid = 999;
 	job2->respawn_count = 0;
 	job2->respawn_time = 0;
-	job2->goal_event = nih_new (job2, Event);
-	job2->goal_event->name = nih_strdup (job2->goal_event, "wibble");
+	job2->goal_event = event_new (job2, "wibble");
 
 	output = tmpfile ();
 	job_write_state (output);

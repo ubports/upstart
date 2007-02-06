@@ -946,8 +946,15 @@ job_start_event (Job   *job,
 	NIH_LIST_FOREACH (&job->start_events, iter) {
 		Event *start_event = (Event *)iter;
 
-		if (event_match (event, start_event))
+		if (event_match (event, start_event)) {
+			if (job->goal_event)
+				nih_free (job->goal_event);
+
+			NIH_MUST (job->goal_event = event_new (
+					  job, event->name));
+
 			_job_start (job);
+		}
 	}
 }
 
@@ -1046,8 +1053,15 @@ job_stop_event (Job   *job,
 	NIH_LIST_FOREACH (&job->stop_events, iter) {
 		Event *stop_event = (Event *)iter;
 
-		if (event_match (event, stop_event))
+		if (event_match (event, stop_event)) {
+			if (job->goal_event)
+				nih_free (job->goal_event);
+
+			NIH_MUST (job->goal_event = event_new (
+					  job, event->name));
+
 			_job_stop (job);
+		}
 	}
 }
 
@@ -1285,10 +1299,7 @@ job_read_state (Job  *job,
 
 	} else if (! strcmp (buf, ".goal_event")) {
 		if (*ptr) {
-			NIH_MUST (job->goal_event = nih_new (job, Event));
-			nih_list_init (&job->goal_event->entry);
-			NIH_MUST (job->goal_event->name = nih_strdup (
-					  job->goal_event, ptr));
+			NIH_MUST (job->goal_event = event_new (job, ptr));
 		} else {
 			job->goal_event = NULL;
 		}
