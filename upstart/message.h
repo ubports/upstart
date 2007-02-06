@@ -99,6 +99,15 @@ typedef enum {
  * @pid: process id (pid_t),
  * @description: description of job (char *).
  *
+ * UPSTART_EVENT_QUEUE:
+ * UPSTART_EVENT:
+ * @name: name of event (char *),
+ * @args: arguments to event (char **),
+ * @env: environment for event (char **).
+ *
+ * UPSTART_SHUTDOWN:
+ * @name: name of event (char *).
+ *
  * All other types receive no further arguments.
  *
  * Returns: zero on success, negative value on raised error.

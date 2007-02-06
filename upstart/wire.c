@@ -112,11 +112,9 @@ upstart_pop_int (NihIoMessage *message,
 	if (message->data->buf[0] != 'i')
 		return -1;
 
-	nih_io_buffer_shrink (message->data, 1);
 
-
-	memcpy (&wire_value, message->data->buf, sizeof (wire_value));
-	nih_io_buffer_shrink (message->data, sizeof (wire_value));
+	memcpy (&wire_value, message->data->buf + 1, sizeof (wire_value));
+	nih_io_buffer_shrink (message->data, sizeof (wire_value) + 1);
 
 	wire_value = ntohl (wire_value);
 	if ((wire_value < INT_MIN) || (wire_value > INT_MAX))
@@ -190,11 +188,9 @@ upstart_pop_unsigned (NihIoMessage *message,
 	if (message->data->buf[0] != 'u')
 		return -1;
 
-	nih_io_buffer_shrink (message->data, 1);
 
-
-	memcpy (&wire_value, message->data->buf, sizeof (wire_value));
-	nih_io_buffer_shrink (message->data, sizeof (wire_value));
+	memcpy (&wire_value, message->data->buf + 1, sizeof (wire_value));
+	nih_io_buffer_shrink (message->data, sizeof (wire_value) + 1);
 
 	wire_value = ntohl (wire_value);
 	if (wire_value > UINT_MAX)
@@ -290,7 +286,7 @@ upstart_pop_string (NihIoMessage  *message,
 	/* Extract the type byte first, which tells us whether to return NULL
 	 * or read more items.
 	 */
-	if (message->data->len < (sizeof (wire_length) + 1))
+	if (message->data->len < 1)
 		return -1;
 
 	if (message->data->buf[0] == 'S') {
@@ -302,6 +298,9 @@ upstart_pop_string (NihIoMessage  *message,
 		return -1;
 	}
 
+
+	if (message->data->len < (sizeof (wire_length) + 1))
+		return -1;
 
 	memcpy (&wire_length, message->data->buf + 1, sizeof (wire_length));
 	length = ntohl (wire_length);

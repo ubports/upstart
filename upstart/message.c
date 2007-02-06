@@ -234,6 +234,10 @@ upstart_message_new (const void         *parent,
 		break;
 	case UPSTART_EVENT_QUEUE:
 	case UPSTART_EVENT:
+		if (upstart_push_packv (message, "saa", args))
+			goto error;
+
+		break;
 	case UPSTART_SHUTDOWN:
 		if (upstart_push_packv (message, "s", args))
 			goto error;
@@ -456,7 +460,28 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT:
+	case UPSTART_EVENT: {
+		char  *name = NULL;
+		char **args = NULL, **env = NULL;
+
+		if (upstart_pop_pack (message, parent, "saa",
+				      &name, &args, &env)) {
+			if (name)
+				nih_free (name);
+			if (args)
+				nih_free (args);
+			if (env)
+				nih_free (env);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, name, args, env);
+		break;
+	}
 	case UPSTART_SHUTDOWN: {
 		char *name = NULL;
 

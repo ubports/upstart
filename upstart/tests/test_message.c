@@ -32,6 +32,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -106,7 +107,8 @@ test_open (void)
 void
 test_new (void)
 {
-	NihIoMessage *msg;
+	NihIoMessage  *msg;
+	char         **args, **env;
 
 	TEST_FUNCTION ("upstart_message_new");
 
@@ -313,9 +315,17 @@ test_new (void)
 	 * the message buffer filled in correctly.
 	 */
 	TEST_FEATURE ("with UPSTART_EVENT_QUEUE message");
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "frodo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bilbo"));
+
+	env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_EVENT_QUEUE, "test");
+					   UPSTART_EVENT_QUEUE, "test",
+					   args, env);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -324,12 +334,17 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 21);
+		TEST_EQ (msg->data->len, 57);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x08s\0\0\0\x04test", 21);
+			     ("upstart\n\0\0\0\x08s\0\0\0\x04test"
+			      "as\0\0\0\05frodos\0\0\0\05bilboS"
+			      "as\0\0\0\07FOO=BARS"), 57);
 
 		nih_free (msg);
 	}
+
+	nih_free (args);
+	args = NULL;
 
 
 	/* Check that we can create an UPSTART_EVENT message and have
@@ -338,7 +353,8 @@ test_new (void)
 	TEST_FEATURE ("with UPSTART_EVENT message");
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_EVENT, "test");
+					   UPSTART_EVENT, "test",
+					   args, env);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -347,12 +363,15 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 21);
+		TEST_EQ (msg->data->len, 36);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x09s\0\0\0\x04test", 21);
+			     ("upstart\n\0\0\0\x09s\0\0\0\x04test"
+			      "Aas\0\0\0\07FOO=BARS"), 36);
 
 		nih_free (msg);
 	}
+
+	nih_free (env);
 
 
 	/* Check that we can create an UPSTART_WATCH_JOBS message and have
@@ -505,8 +524,6 @@ my_handler (void                *data,
 	case UPSTART_JOB_STOP:
 	case UPSTART_JOB_QUERY:
 	case UPSTART_JOB_UNKNOWN:
-	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT:
 	case UPSTART_SHUTDOWN: {
 		char *name;
 
@@ -519,6 +536,34 @@ my_handler (void                *data,
 		} else {
 			nih_free (name);
 		}
+
+		break;
+	}
+	case UPSTART_EVENT_QUEUE:
+	case UPSTART_EVENT: {
+		char *name, **argv, **env;
+
+		name = va_arg (args, char *);
+		argv = va_arg (args, char **);
+		env = va_arg (args, char **);
+
+		TEST_EQ_STR (name, "test");
+
+		TEST_ALLOC_SIZE (argv, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (argv[0], argv);
+		TEST_ALLOC_PARENT (argv[1], argv);
+		TEST_EQ_STR (argv[0], "foo");
+		TEST_EQ_STR (argv[1], "bar");
+		TEST_EQ_P (argv[2], NULL);
+
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (name);
+		nih_free (argv);
+		nih_free (env);
 
 		break;
 	}
@@ -850,9 +895,11 @@ test_handle (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     ("upstart\n\0\0\0\x8"
-						      "s\0\0\0\x4test"), 21));
+			assert0 (nih_io_buffer_push (
+					 msg->data,
+					 ("upstart\n\0\0\0\x8s\0\0\0\x4test"
+					  "as\0\0\0\03foos\0\0\0\03barS"
+					  "as\0\0\0\07FOO=BARS"), 53));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -883,9 +930,11 @@ test_handle (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     ("upstart\n\0\0\0\x9"
-						      "s\0\0\0\x4test"), 21));
+			assert0 (nih_io_buffer_push (
+					 msg->data,
+					 ("upstart\n\0\0\0\x9s\0\0\0\x4test"
+					  "as\0\0\0\03foos\0\0\0\03barS"
+					  "as\0\0\0\07FOO=BARS"), 53));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1385,11 +1434,12 @@ test_handle (void)
 
 
 	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
-	 * name of an event to queue is missing.
+	 * some of the fields of an event to queue is missing.
 	 */
 	TEST_FEATURE ("with incomplete event queue message");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x8", 12));
+	assert0 (nih_io_buffer_push (msg->data,
+				     "upstart\n\0\0\0\x8s\0\0\0\04testA", 22));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1414,7 +1464,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null event to queue");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x8S", 13));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x8SAA", 15));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1434,12 +1484,13 @@ test_handle (void)
 	nih_free (msg);
 
 
-	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
-	 * name of an event emitted is missing.
+	/* Check that the UPSTART_MESSAGE_INVALID error is raised if some of
+	 * the fields of an event emitted are missing.
 	 */
 	TEST_FEATURE ("with incomplete event message");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x9", 12));
+	assert0 (nih_io_buffer_push (msg->data,
+				     "upstart\n\0\0\0\x9s\0\0\0\04testA", 22));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1464,7 +1515,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with null event emitted");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x9S", 13));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x9SAA", 15));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 

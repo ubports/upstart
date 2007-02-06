@@ -1,5 +1,18 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_message.c (test_new, test_handle): Send
+	arguments and environment with the UPSTART_EVENT_QUEUE and
+	UPSTART_EVENT messages.
+	* upstart/wire.c (upstart_pop_int, upstart_pop_unsigned): Shrink
+	only once.
+	(upstart_pop_string): Check the length is at least one first, as
+	we may just have an 'S'.
+
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	The UPSTART_EVENT and UPSTART_EVENT_QUEUE messages gain new array
+	arguments containing the arguments and environment for the event.
+	* upstart/message.h: Document the new arguments.
+
 	* util/tests/test_events.c, util/tests/test_jobs.c: Update the
 	message format checks here too.
 
