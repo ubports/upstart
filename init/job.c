@@ -56,6 +56,8 @@
 static void job_run_process   (Job *job, char * const  argv[]);
 static void job_kill_timer    (Job *job, NihTimer *timer);
 static int  job_catch_runaway (Job *job);
+static void _job_start        (Job *job);
+static void _job_stop         (Job *job);
 
 
 /**
@@ -919,6 +921,60 @@ job_start (Job *job)
 
 	job_init ();
 
+	if (job->goal_event)
+		nih_free (job->goal_event);
+	job->goal_event = NULL;
+
+	_job_start (job);
+}
+
+/**
+ * job_start_event:
+ * @job: job to be started,
+ * @event: event to handle.
+ *
+ * Iterates the list of events that can cause @job to be started, and if
+ * @event is present, calls _job_start() to change the goal.
+ **/
+void
+job_start_event (Job   *job,
+		 Event *event)
+{
+	nih_assert (job != NULL);
+	nih_assert (event != NULL);
+
+	NIH_LIST_FOREACH (&job->start_events, iter) {
+		Event *start_event = (Event *)iter;
+
+		if (event_match (event, start_event))
+			_job_start (job);
+	}
+}
+
+/**
+ * _job_start:
+ * @job: job to be started.
+ *
+ * Changes the goal of @job from JOB_STOP to JOB_START and begins the
+ * process of actually starting the job by changing the state if
+ * necessary.
+ *
+ * The caller can infer the success of this function by checking the job
+ * state after the call.
+ *
+ * If @job is already active in some way (e.g. currently stopping), this
+ * ensures that the job will be cleanly restarted when possible.
+ *
+ * You should not call this function directly, instead call job_start()
+ * for a manual start or job_start_event() for an event-caused start.
+ *
+ * This function has no effect if the goal is already JOB_START.
+ **/
+static void
+_job_start (Job *job)
+{
+	nih_assert (job != NULL);
+
 	if (job->goal == JOB_START)
 		return;
 
@@ -927,10 +983,6 @@ job_start (Job *job)
 
 	nih_info (_("%s will be started"), job->name);
 	job->goal = JOB_START;
-
-	if (job->goal_event)
-		nih_free (job->goal_event);
-	job->goal_event = NULL;
 
 	/* The only state change we need to induce is one away from the
 	 * waiting state; anything else will be handled as the processes
@@ -944,6 +996,7 @@ job_start (Job *job)
 
 	job_change_state (job, job_next_state (job));
 }
+
 
 /**
  * job_stop:
@@ -968,15 +1021,65 @@ job_stop (Job *job)
 
 	job_init ();
 
+	if (job->goal_event)
+		nih_free (job->goal_event);
+	job->goal_event = NULL;
+
+	_job_stop (job);
+}
+
+/**
+ * job_stop_event:
+ * @job: job to be stopped,
+ * @event: event to handle.
+ *
+ * Iterates the list of events that can cause @job to be stopped, and if
+ * @event is present, calls _job_stop() to change the goal.
+ **/
+void
+job_stop_event (Job   *job,
+		Event *event)
+{
+	nih_assert (job != NULL);
+	nih_assert (event != NULL);
+
+	NIH_LIST_FOREACH (&job->stop_events, iter) {
+		Event *stop_event = (Event *)iter;
+
+		if (event_match (event, stop_event))
+			_job_stop (job);
+	}
+}
+
+/**
+ * _job_stop:
+ * @job: job to be stopped.
+ *
+ * Changes the goal of @job from JOB_START to JOB_STOP and begins the
+ * process of actually stopping the job by killing the active running
+ * process if necessary.
+ *
+ * The caller can infer the success of this function by checking the job
+ * state after the call.
+ *
+ * If @job is in the process of starting, this ensures that the job will
+ * be cleanly stopped when possible.
+ *
+ * You should not call this function directly, instead call job_stop()
+ * for a manual start or job_stop_event() for an event-caused stop.
+ *
+ * This function has no effect if the goal is already JOB_STOP.
+ **/
+static void
+_job_stop (Job *job)
+{
+	nih_assert (job != NULL);
+
 	if (job->goal == JOB_STOP)
 		return;
 
 	nih_info (_("%s will be stopped"), job->name);
 	job->goal = JOB_STOP;
-
-	if (job->goal_event)
-		nih_free (job->goal_event);
-	job->goal_event = NULL;
 
 	/* The only state change we need to induce is one away from an
 	 * active running process; anything else will be handled as the
@@ -992,52 +1095,6 @@ job_stop (Job *job)
 	job_kill_process (job);
 }
 
-
-/**
- * job_start_event:
- * @job: job to be started,
- * @event: event to handle.
- *
- * Iterates the list of events that can cause @job to be started, and if
- * @event is present, calls job_start() to change the goal.
- **/
-void
-job_start_event (Job   *job,
-		 Event *event)
-{
-	nih_assert (job != NULL);
-	nih_assert (event != NULL);
-
-	NIH_LIST_FOREACH (&job->start_events, iter) {
-		Event *start_event = (Event *)iter;
-
-		if (event_match (event, start_event))
-			job_start (job);
-	}
-}
-
-/**
- * job_stop_event:
- * @job: job to be stopped,
- * @event: event to handle.
- *
- * Iterates the list of events that can cause @job to be stopped, and if
- * @event is present, calls job_stop() to change the goal.
- **/
-void
-job_stop_event (Job   *job,
-		Event *event)
-{
-	nih_assert (job != NULL);
-	nih_assert (event != NULL);
-
-	NIH_LIST_FOREACH (&job->stop_events, iter) {
-		Event *stop_event = (Event *)iter;
-
-		if (event_match (event, stop_event))
-			job_stop (job);
-	}
-}
 
 /**
  * job_handle_event:
