@@ -1,5 +1,10 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* util/events.c (shutdown_action): Split out from emit, seeing as
+	these are going to be different from now on.
+	* util/events.h: Add prototype.
+	* util/tests/test_events.c (test_shutdown_action): Copy test cases.
+
 	* init/control.c (control_event_queue): Take the arguments and
 	environment from the event queue request; and reparent into the
 	event.

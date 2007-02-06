@@ -29,8 +29,9 @@
 
 NIH_BEGIN_EXTERN
 
-int emit_action   (NihCommand *command, char * const *args);
-int events_action (NihCommand *command, char * const *args);
+int emit_action     (NihCommand *command, char * const *args);
+int events_action   (NihCommand *command, char * const *args);
+int shutdown_action (NihCommand *command, char * const *args);
 
 NIH_END_EXTERN
 
