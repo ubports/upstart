@@ -25,6 +25,7 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>
+#include <nih/string.h>
 
 #include "event.h"
 
@@ -145,13 +146,15 @@ test_queue (void)
 void
 test_read_state (void)
 {
-	Event *event;
+	Event *event, *ptr;
 	char   buf[80];
+
+	TEST_FUNCTION ("event_read_state");
 
 	/* Check that an event can be created from a text state that contains
 	 * the name, and queued automatically.
 	 */
-	TEST_FUNCTION ("event_read_state");
+	TEST_FEATURE ("with event name");
 	TEST_ALLOC_FAIL {
 		sprintf (buf, "Event bang");
 		event = event_read_state (NULL, buf);
@@ -163,20 +166,71 @@ test_read_state (void)
 
 		nih_list_free (&event->entry);
 	}
+
+
+	/* Check that an event in the buffer can contain arguments, which
+	 * are appended to the event.
+	 */
+	TEST_FEATURE ("with argument to event");
+	event = event_queue ("foo");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".arg frodo");
+		ptr = event_read_state (event, buf);
+
+		TEST_EQ_P (ptr, event);
+		TEST_ALLOC_PARENT (event->args, event);
+		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (event->args[0], event->args);
+		TEST_EQ_STR (event->args[0], "frodo");
+		TEST_EQ_P (event->args[1], NULL);
+
+		nih_free (event->args);
+		event->args = NULL;
+	}
+
+
+	/* Check that an event in the buffer can contain environment, which
+	 * are appended to the event.
+	 */
+	TEST_FEATURE ("with environment for event");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".env FOO=BAR");
+		ptr = event_read_state (event, buf);
+
+		TEST_EQ_P (ptr, event);
+		TEST_ALLOC_PARENT (event->env, event);
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (event->env[0], event->env);
+		TEST_EQ_STR (event->env[0], "FOO=BAR");
+		TEST_EQ_P (event->env[1], NULL);
+
+		nih_free (event->env);
+		event->env = NULL;
+	}
+
+	nih_list_free (&event->entry);
 }
 
 void
 test_write_state (void)
 {
 	FILE  *output;
-	Event *event1, *event2;
+	Event *event1, *event2, *event3;
 
 	/* Check that the state of the event queue can be written out to
 	 * a file descriptor.
 	 */
 	TEST_FUNCTION ("event_write_state");
 	event1 = event_queue ("frodo");
+
 	event2 = event_queue ("bilbo");
+	NIH_MUST (nih_str_array_add (&event2->args, event2, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&event2->args, event2, NULL, "bar"));
+
+	event3 = event_queue ("drogo");
+	NIH_MUST (nih_str_array_add (&event3->args, event3, NULL, "baggins"));
+	NIH_MUST (nih_str_array_add (&event3->env, event3, NULL, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&event3->env, event3, NULL, "TEA=YES"));
 
 	output = tmpfile ();
 	event_write_state (output);
@@ -184,12 +238,19 @@ test_write_state (void)
 
 	TEST_FILE_EQ (output, "Event frodo\n");
 	TEST_FILE_EQ (output, "Event bilbo\n");
+	TEST_FILE_EQ (output, ".arg foo\n");
+	TEST_FILE_EQ (output, ".arg bar\n");
+	TEST_FILE_EQ (output, "Event drogo\n");
+	TEST_FILE_EQ (output, ".arg baggins\n");
+	TEST_FILE_EQ (output, ".env FOO=BAR\n");
+	TEST_FILE_EQ (output, ".env TEA=YES\n");
 	TEST_FILE_END (output);
 
 	fclose (output);
 
 	nih_list_free (&event1->entry);
 	nih_list_free (&event2->entry);
+	nih_list_free (&event3->entry);
 }
 
 

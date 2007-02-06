@@ -250,7 +250,13 @@ event_read_state (Event *event,
 		return event;
 	}
 
-	/* No attributes on events yet */
+	/* Otherwise handle the attributes */
+	if (! strcmp (buf, ".arg")) {
+		NIH_MUST (nih_str_array_add (&event->args, event, NULL, ptr));
+
+	} else if (! strcmp (buf, ".env")) {
+		NIH_MUST (nih_str_array_add (&event->env, event, NULL, ptr));
+	}
 
 	return event;
 }
@@ -260,16 +266,23 @@ event_read_state (Event *event,
  * @state: file to write to.
  *
  * This is the companion function to event_read_state(), it writes to @state
- * lines for each event in the queue.
+ * lines for each event in the queue, including the arguments and environment
+ * of the event.
  **/
 void
 event_write_state (FILE *state)
 {
+	char **ptr;
+
 	nih_assert (state != NULL);
 
 	NIH_LIST_FOREACH (events, iter) {
 		Event *event = (Event *)iter;
 
 		fprintf (state, "Event %s\n", event->name);
+		for (ptr = event->args; ptr && *ptr; ptr++)
+			fprintf (state, ".arg %s\n", *ptr);
+		for (ptr = event->env; ptr && *ptr; ptr++)
+			fprintf (state, ".env %s\n", *ptr);
 	}
 }
