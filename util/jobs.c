@@ -46,6 +46,7 @@
 
 
 /* Prototypes for static functions */
+static int do_job              (NihCommand *command, const char *job);
 static int handle_job_status   (void *data, pid_t pid, UpstartMessageType type,
 				const char *name, JobGoal goal, JobState state,
 				ProcessState process_state, pid_t process,
@@ -80,7 +81,8 @@ static UpstartMessage handlers[] = {
  *
  * Function invoked when the start, stop or status command is run.  The
  * arguments are expected to be a list of jobs that should have their status
- * changed.
+ * changed, if no arguments are given then the UPSTART_JOB environment
+ * variable is checked instead.
  *
  * Returns: zero on success, exit status on error.
  **/
@@ -90,50 +92,29 @@ start_action (NihCommand   *command,
 {
 	NihError     *err;
 	char * const *arg;
+	char         *this_job;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-	if (! args[0]) {
+	this_job = getenv ("UPSTART_JOB");
+
+	if (args[0]) {
+		/* Iterate job names */
+		for (arg = args; *arg; arg++) {
+			if (do_job (command, *arg) < 0)
+				goto error;
+		}
+
+	} else if (this_job) {
+		/* Fallback to current job (from environment). */
+		if (do_job (command, this_job) < 0)
+			goto error;
+
+	} else {
 		fprintf (stderr, _("%s: missing job name\n"), program_name);
 		nih_main_suggest_help ();
 		return 1;
-	}
-
-	/* Iterate job names */
-	for (arg = args; *arg; arg++) {
-		NihIoMessage *message, *reply;
-		size_t        len;
-
-		/* Build the message to send */
-		if (! strcmp (command->command, "start")) {
-			message = upstart_message_new (NULL, destination_pid,
-						       UPSTART_JOB_START,
-						       *arg);
-		} else if (! strcmp (command->command, "stop")) {
-			message = upstart_message_new (NULL, destination_pid,
-						       UPSTART_JOB_STOP, *arg);
-		} else if (! strcmp (command->command, "status")) {
-			message = upstart_message_new (NULL, destination_pid,
-						       UPSTART_JOB_QUERY,
-						       *arg);
-		} else {
-			nih_assert_not_reached ();
-		}
-
-		/* Send the message */
-		if (nih_io_message_send (message, control_sock) < 0)
-			goto error;
-
-		/* Wait for a single reply */
-		reply = nih_io_message_recv (message, control_sock, &len);
-		if (! reply)
-			goto error;
-
-		if (upstart_message_handle (reply, reply, handlers, NULL) < 0)
-			goto error;
-
-		nih_free (message);
 	}
 
 	return 0;
@@ -144,6 +125,65 @@ error:
 	nih_free (err);
 
 	return 1;
+}
+
+/**
+ * do_job:
+ * @command: command invoked for,
+ * @job: job to be changed.
+ *
+ * Either starts, stops or queries the status of @job, depending on
+ * @command; sending the message to the server and waiting for the status
+ * reply.
+ *
+ * Returns: zero on success, exit status on error.
+ **/
+static int
+do_job (NihCommand *command,
+	const char *job)
+{
+	NihIoMessage *message, *reply;
+	size_t        len;
+
+	nih_assert (command != NULL);
+	nih_assert (job != NULL);
+
+	/* Build the message to send */
+	if (! strcmp (command->command, "start")) {
+		message = upstart_message_new (NULL, destination_pid,
+					       UPSTART_JOB_START, job);
+	} else if (! strcmp (command->command, "stop")) {
+		message = upstart_message_new (NULL, destination_pid,
+					       UPSTART_JOB_STOP, job);
+	} else if (! strcmp (command->command, "status")) {
+		message = upstart_message_new (NULL, destination_pid,
+					       UPSTART_JOB_QUERY, job);
+	} else {
+		nih_assert_not_reached ();
+	}
+
+	/* Send the message */
+	if (nih_io_message_send (message, control_sock) < 0) {
+		nih_free (message);
+		return -1;
+	}
+
+	nih_free (message);
+
+
+	/* Wait for a single reply */
+	reply = nih_io_message_recv (NULL, control_sock, &len);
+	if (! reply)
+		return -1;
+
+	if (upstart_message_handle (reply, reply, handlers, NULL) < 0) {
+		nih_free (reply);
+		return -1;
+	}
+
+	nih_free (reply);
+
+	return 0;
 }
 
 

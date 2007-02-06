@@ -1,5 +1,11 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* util/jobs.c (start_action): Get the UPSTART_JOB environment variable
+	and use that if we don't have any arguments passed to us.
+	(do_job): Code split from the above function that handles a named job
+	* util/tests/test_jobs.c (test_start_action): Make sure UPSTART_JOB
+	is picked up.
+
 	* init/process.h: Add necessary attributes.
 
 	* init/process.c (process_setup_environment): Set the UPSTART_JOB

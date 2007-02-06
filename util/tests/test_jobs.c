@@ -49,201 +49,6 @@ int destination_pid = 0;
 extern int upstart_disable_safeties;
 
 
-#if 0
-void
-test_emit_action (void)
-{
-	NihCommand    cmd;
-	NihIoMessage *msg;
-	size_t        len;
-	FILE         *output;
-	char         *args[3];
-	int           ret, sock;
-
-
-	TEST_FUNCTION ("emit_action");
-	program_name = "test";
-
-	nih_error_push_context ();
-	nih_error_pop_context ();
-
-	output = tmpfile ();
-
-	control_sock = socket (PF_UNIX, SOCK_DGRAM, 0);
-	sock = upstart_open ();
-	destination_pid = getpid ();
-
-
-	/* Check that calling the emit action from the emit command results
-	 * in an event queue message being sent to the server.  Nothing
-	 * should be output as a result of this command.
-	 */
-	TEST_FEATURE ("with emit command");
-	cmd.command = "emit";
-	args[0] = "foo";
-	args[1] = NULL;
-
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = emit_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
-		TEST_DIVERT_STDOUT (output) {
-			ret = emit_action (&cmd, args);
-		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 19);
-		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\010\0\0\0\003foo", 19);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that calling the emit action from the trigger command results
-	 * in an event queue message being sent to the server.  Nothing
-	 * should be output as a result of this command.
-	 */
-	TEST_FEATURE ("with trigger command");
-	cmd.command = "trigger";
-	args[0] = "foo";
-	args[1] = NULL;
-
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = emit_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
-		TEST_DIVERT_STDOUT (output) {
-			ret = emit_action (&cmd, args);
-		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 19);
-		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\010\0\0\0\003foo", 19);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that calling the emit action from the shutdown command
-	 * results in a shutdown message being sent to the server.  Nothing
-	 * should be output as a result of this command.
-	 */
-	TEST_FEATURE ("with shutdown command");
-	cmd.command = "shutdown";
-	args[0] = "foo";
-	args[1] = NULL;
-
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = emit_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
-		TEST_DIVERT_STDOUT (output) {
-			ret = emit_action (&cmd, args);
-		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 19);
-		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\xe\0\0\0\003foo", 19);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that calling emits without any argument results in an error
-	 * being sent to stderr.
-	 */
-	TEST_FEATURE ("with missing argument");
-	args[0] = NULL;
-	TEST_DIVERT_STDERR (output) {
-		ret = emit_action (&cmd, args);
-	}
-	rewind (output);
-
-	TEST_NE (ret, 0);
-
-	TEST_FILE_EQ (output, "test: missing event name\n");
-	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
-	TEST_FILE_END (output);
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-
-	close (sock);
-	close (control_sock);
-}
-#endif
-
-
 void
 test_start_action (void)
 {
@@ -266,6 +71,8 @@ test_start_action (void)
 
 	sock = upstart_open ();
 	destination_pid = getpid ();
+
+	setenv ("UPSTART_JOB", "oops", TRUE);
 
 
 	/* Check that the start command sends the start job message to
@@ -518,6 +325,7 @@ test_start_action (void)
 	 * being sent to stderr.
 	 */
 	TEST_FEATURE ("with missing argument");
+	unsetenv ("UPSTART_JOB");
 	cmd.command = "start";
 	args[0] = NULL;
 	TEST_DIVERT_STDERR (output) {
@@ -529,6 +337,52 @@ test_start_action (void)
 
 	TEST_FILE_EQ (output, "test: missing job name\n");
 	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that it's ok to call start without any arguments if the
+	 * UPSTART_JOB environment variable is set, as that variable can
+	 * be used instead.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB in environment");
+	setenv ("UPSTART_JOB", "galen", TRUE);
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = start_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_JOB_START */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 21);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01\0\0\0\05galen", 21);
+
+	nih_free (msg);
+
+
+	/* Send back the status */
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "galen",
+				   JOB_START, JOB_RUNNING, PROCESS_ACTIVE,
+				   1000, "foo bar");
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_EQ (output,
+		      "test: galen (start) running, process 1000 active\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
