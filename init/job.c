@@ -344,6 +344,10 @@ job_change_state (Job      *job,
 					  job->name);
 
 				job->goal = JOB_STOP;
+				if (job->goal_event)
+					nih_free (job->goal_event);
+				job->goal_event = NULL;
+
 				state = job_next_state (job);
 				event = NULL;
 				break;
@@ -847,14 +851,21 @@ job_child_reaper (void  *data,
 		}
 
 		job->goal = JOB_STOP;
+		if (job->goal_event)
+			nih_free (job->goal_event);
+		job->goal_event = NULL;
 		break;
 	default:
 		/* If a script is killed or exits with a status other than
 		 * zero, it's considered a failure and prevents the process
 		 * from starting.
 		 */
-		if (killed || status)
+		if (killed || status) {
 			job->goal = JOB_STOP;
+			if (job->goal_event)
+				nih_free (job->goal_event);
+			job->goal_event = NULL;
+		}
 
 		break;
 	}

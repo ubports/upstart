@@ -604,6 +604,7 @@ test_change_state (void)
 	job->respawn_time = 0;
 	job->respawn_limit = 10;
 	job->respawn_interval = 100;
+	job->goal_event = event_new (job, "foo");
 
 	output = tmpfile ();
 	TEST_DIVERT_STDERR (output) {
@@ -611,6 +612,7 @@ test_change_state (void)
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
 			job->process_state = PROCESS_NONE;
+
 			job_change_state (job, JOB_RUNNING);
 
 			if (job->goal == JOB_START)
@@ -622,6 +624,8 @@ test_change_state (void)
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+	TEST_EQ_P (job->goal_event, NULL);
 
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/stop", dirname);
@@ -1254,11 +1258,22 @@ test_child_reaper (void)
 	 */
 	TEST_FEATURE ("with running task");
 	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+
+		TEST_ALLOC_SAFE {
+			job->goal_event = event_new (job, "foo");
+		}
+
 		job_child_reaper (NULL, 1, FALSE, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, NULL);
 
 		TEST_NE (job->pid, 1);
 
@@ -1303,21 +1318,29 @@ test_child_reaper (void)
 	 * terminates with a good error code, end up in the running state.
 	 */
 	TEST_FEATURE ("with starting task");
+	job->goal_event = event_new (job, "foo");
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+
 		job_child_reaper (NULL, 1, FALSE, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
+		TEST_NE_P (job->goal_event, NULL);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
 	}
+
+	nih_free (job->goal_event);
+	job->goal_event = NULL;
 
 
 	/* Check that we can reap a failing starting task of the job, which
@@ -1325,13 +1348,17 @@ test_child_reaper (void)
 	 * direction to the stopping state.  An error should be emitted.
 	 */
 	TEST_FEATURE ("with starting task failure");
+	output = tmpfile ();
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
 
-		output = tmpfile ();
+		TEST_ALLOC_SAFE {
+			job->goal_event = event_new (job, "foo");
+		}
+
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, FALSE, 1);
 		}
@@ -1340,6 +1367,8 @@ test_child_reaper (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, NULL);
 
 		TEST_NE (job->pid, 1);
 
@@ -1364,6 +1393,10 @@ test_child_reaper (void)
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
 
+		TEST_ALLOC_SAFE {
+			job->goal_event = event_new (job, "foo");
+		}
+
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, TRUE, SIGTERM);
 		}
@@ -1372,6 +1405,8 @@ test_child_reaper (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, NULL);
 
 		TEST_NE (job->pid, 1);
 
