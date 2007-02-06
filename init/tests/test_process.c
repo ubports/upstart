@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include <nih/macros.h>
+#include <nih/string.h>
 #include <nih/list.h>
 
 #include "job.h"
@@ -222,7 +223,8 @@ test_spawn (void)
 
 
 	/* Check that a job's environment includes the UPSTART_EVENT variable
-	 * if the goal_event member is set.
+	 * and any event environment if the goal_event member is set, but this
+	 * should not override those specified in the job.
 	 */
 	printf ("...with environment and goal event");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
@@ -230,6 +232,10 @@ test_spawn (void)
 
 	job = job_new (NULL, "test");
 	job->goal_event = event_new (job, "wibble");
+	NIH_MUST (nih_str_array_add (&job->goal_event->env, job->goal_event,
+				     NULL, "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&job->goal_event->env, job->goal_event,
+				     NULL, "TEA=YES"));
 	job->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
@@ -243,6 +249,7 @@ test_spawn (void)
 	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 	TEST_FILE_EQ (output, "UPSTART_EVENT=wibble\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "TEA=YES\n");
 	TEST_FILE_END (output);
 
 	fclose (output);

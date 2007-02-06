@@ -235,18 +235,28 @@ process_setup_environment (Job *job)
 		nih_return_system_error (-1);
 
 	if (path) {
-		setenv ("PATH", path, TRUE);
+		if (setenv ("PATH", path, TRUE) < 0)
+			nih_return_system_error (-1);
 		nih_free (path);
 	}
 
 	if (term) {
-		setenv ("TERM", term, TRUE);
+		if (setenv ("TERM", term, TRUE) < 0)
+			nih_return_system_error (-1);
 		nih_free (term);
 	}
 
-	setenv ("UPSTART_JOB", job->name, TRUE);
-	if (job->goal_event)
-		setenv ("UPSTART_EVENT", job->goal_event->name, TRUE);
+	if (setenv ("UPSTART_JOB", job->name, TRUE) < 0)
+		nih_return_system_error (-1);
+
+	if (job->goal_event) {
+		if (setenv ("UPSTART_EVENT", job->goal_event->name, TRUE) < 0)
+			nih_return_system_error (-1);
+
+		for (env = job->goal_event->env; env && *env; env++)
+			if (putenv (*env) < 0)
+				nih_return_system_error (-1);
+	}
 
 	for (env = job->env; env && *env; env++)
 		if (putenv (*env) < 0)

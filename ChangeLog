@@ -1,5 +1,12 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Copy environment
+	variables from the goal event into the job's process.
+	* init/tests/test_process.c (test_spawn): Make sure the environment
+	reaches the job, but doesn't override that in the job already.
+
+	* init/tests/test_job.c (test_start_event): 
+
 	* init/job.c (job_start_event, job_stop_event): Copy the arguments
 	and environment from the event into the goal event.
 
