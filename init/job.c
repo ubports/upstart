@@ -290,7 +290,7 @@ job_change_state (Job      *job,
 
 	while (job->state != state) {
 		JobState  old_state;
-		char     *event = NULL;
+		char     *event_name = NULL;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
@@ -309,9 +309,7 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
-			NIH_MUST (event = nih_sprintf (job, "%s/stopped",
-						       job->name));
-
+			event_name = JOB_STOPPED_EVENT;
 			break;
 		case JOB_STARTING:
 			nih_assert ((old_state == JOB_WAITING)
@@ -323,9 +321,7 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			NIH_MUST (event = nih_sprintf (job, "%s/start",
-						       job->name));
-
+			event_name = JOB_START_EVENT;
 			break;
 		case JOB_RUNNING:
 			nih_assert ((old_state == JOB_STARTING)
@@ -350,7 +346,6 @@ job_change_state (Job      *job,
 				job->goal_event = NULL;
 
 				state = job_next_state (job);
-				event = NULL;
 				break;
 			}
 
@@ -360,9 +355,7 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
-			NIH_MUST (event = nih_sprintf (job, "%s/started",
-						       job->name));
-
+			event_name = JOB_STARTED_EVENT;
 			break;
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
@@ -375,9 +368,7 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			NIH_MUST (event = nih_sprintf (job, "%s/stop",
-						       job->name));
-
+			event_name = JOB_STOP_EVENT;
 			break;
 		case JOB_RESPAWNING:
 			nih_assert (old_state == JOB_RUNNING);
@@ -388,17 +379,18 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			NIH_MUST (event = nih_sprintf (job, "%s/respawn",
-						       job->name));
-
 			break;
 		}
 
 		/* Notify subscribed processes and queue the event */
 		notify_job (job);
-		if (event) {
-			event_queue (event);
-			nih_free (event);
+
+		if (event_name) {
+			Event *event;
+
+			event = event_queue (event_name);
+			NIH_MUST (nih_str_array_add (&event->args, event,
+						     NULL, job->name));
 		}
 	}
 }

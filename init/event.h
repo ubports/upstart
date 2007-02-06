@@ -91,6 +91,37 @@ typedef struct event {
 #define KBDREQUEST_EVENT "kbdrequest"
 
 
+/**
+ * JOB_START_EVENT:
+ *
+ * Name of the event we generate when a job begins to be started.
+ **/
+#define JOB_START_EVENT "start"
+
+/**
+ * JOB_STARTED_EVENT:
+ *
+ * Name of the event we generate once a job has been started and is now
+ * running.
+ **/
+#define JOB_STARTED_EVENT "started"
+
+/**
+ * JOB_STOP_EVENT:
+ *
+ * Name of the event we generate when a job begins to be stopped.
+ **/
+#define JOB_STOP_EVENT "stop"
+
+/**
+ * JOB_STOPPED_EVENT:
+ *
+ * Name of the event we generate once a job has been stopped and is now
+ * waiting.
+ **/
+#define JOB_STOPPED_EVENT "stopped"
+
+
 NIH_BEGIN_EXTERN
 
 int paused;

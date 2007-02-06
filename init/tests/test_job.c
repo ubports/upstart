@@ -214,7 +214,7 @@ test_change_state (void)
 
 	/* Check that a job can move from waiting to starting, and that if
 	 * it has a start script, that is run and the job left in the starting
-	 * state.  The test/start event should be emitted.
+	 * state.  The start event should be emitted.
 	 */
 	TEST_FEATURE ("waiting to starting with script");
 	TEST_ALLOC_FAIL {
@@ -229,7 +229,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/start");
+		TEST_EQ_STR (event->name, "start");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -261,11 +263,15 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/started");
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/start");
+		TEST_EQ_STR (event->name, "start");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -296,7 +302,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/started");
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -310,8 +318,7 @@ test_change_state (void)
 
 
 	/* Check that a job in the starting state moves into the running state,
-	 * and if respawn is set, this causes both the started and job
-	 * event to be emitted.
+	 * and if respawn is set, this causes the started event to be emitted.
 	 */
 	TEST_FEATURE ("starting to running with respawn");
 	TEST_ALLOC_FAIL {
@@ -327,7 +334,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/started");
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -341,8 +350,8 @@ test_change_state (void)
 
 
 	/* Check that a job in the starting state can move into the running
-	 * state, and that a script instead of a command can be run.  Only
-	 * the started event should be emitted.
+	 * state, and that a script instead of a command can be run.
+	 * The started event should be emitted.
 	 */
 	TEST_FEATURE ("starting to running with script");
 	job->script = job->command;
@@ -361,7 +370,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/started");
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -389,10 +400,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RESPAWNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/respawn");
-		nih_list_free (&event->entry);
-
 		TEST_LIST_EMPTY (list);
 
 		waitpid (job->pid, NULL, 0);
@@ -405,7 +412,7 @@ test_change_state (void)
 
 	/* Check that a job in the running state can move straight through
 	 * the respawning state back into the running state if there's no
-	 * script; emitting the respawn then started events as it goes.
+	 * script; emitting the started events as it goes.
 	 */
 	TEST_FEATURE ("running to respawning without script");
 	nih_free (job->respawn_script);
@@ -423,11 +430,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/started");
-		nih_list_free (&event->entry);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/respawn");
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -441,8 +446,7 @@ test_change_state (void)
 
 
 	/* Check that a job in the running state can move into the stopping
-	 * state, running the script.  Both the job event and the stop event
-	 * should be emitted.
+	 * state, running the script.  The stop event should be emitted.
 	 */
 	TEST_FEATURE ("running to stopping with script");
 	TEST_ALLOC_FAIL {
@@ -457,7 +461,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/stop");
+		TEST_EQ_STR (event->name, "stop");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -471,8 +477,7 @@ test_change_state (void)
 
 
 	/* Check that a job in the running state can move into the stopping
-	 * state, running the script.  As it's marked respawn, only the
-	 * stop event should be emitted.
+	 * state, running the script.  The stop event should be emitted.
 	 */
 	TEST_FEATURE ("running to stopping with script and respawn");
 	TEST_ALLOC_FAIL {
@@ -488,7 +493,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/stop");
+		TEST_EQ_STR (event->name, "stop");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -521,11 +528,15 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_NONE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/stopped");
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/stop");
+		TEST_EQ_STR (event->name, "stop");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -550,7 +561,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_NONE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/stopped");
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -574,7 +587,9 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test/start");
+		TEST_EQ_STR (event->name, "start");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
