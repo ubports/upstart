@@ -183,6 +183,9 @@ test_pop_int (void)
 	TEST_LT (ret, 0);
 	TEST_EQ (value, -42);
 
+	TEST_EQ (msg->data->len, 3);
+	TEST_EQ_MEM (msg->data->buf, "i\0\0", 3);
+
 
 	/* Check that -1 is returned if there is not enough space for the
 	 * type. */
@@ -336,7 +339,7 @@ test_pop_unsigned (void)
 	ret = upstart_pop_unsigned (msg, &value);
 
 	TEST_LT (ret, 0);
-	TEST_EQ (value, 0xfedcba98);
+	TEST_EQ_U (value, 0xfedcba98);
 
 	TEST_EQ (msg->data->len, 4);
 	TEST_EQ_MEM (msg->data->buf, "xu\0\0", 4);
@@ -353,6 +356,9 @@ test_pop_unsigned (void)
 	TEST_LT (ret, 0);
 	TEST_EQ_U (value, 0xfedcba98);
 
+	TEST_EQ (msg->data->len, 3);
+	TEST_EQ_MEM (msg->data->buf, "u\0\0", 3);
+
 
 	/* Check that -1 is returned if there is not enough space for the
 	 * type.
@@ -363,7 +369,7 @@ test_pop_unsigned (void)
 	ret = upstart_pop_unsigned (msg, &value);
 
 	TEST_LT (ret, 0);
-	TEST_EQ (value, 0xfedcba98);
+	TEST_EQ_U (value, 0xfedcba98);
 
 
 	nih_free (msg);

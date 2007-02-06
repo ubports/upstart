@@ -1,5 +1,8 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/tests/test_wire.c (test_pop_int, test_pop_unsigned):
+	Make sure that insufficient space is non-destructive.
+
 	* upstart/wire.c (upstart_push_int, upstart_pop_int) 
 	(upstart_push_unsigned, upstart_pop_unsigned): Convert to array-style
 	type first format.
