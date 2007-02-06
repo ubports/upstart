@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <fnmatch.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -130,7 +131,9 @@ event_new (const void *parent,
  * @event1: first event,
  * @event2: second event.
  *
- * Compares @event1 and @event2 to see whether they are identical in name.
+ * Compares @event1 and @event2 to see whether they are identical in name,
+ * and whether @event1 contains at least the number of arguments given in
+ * @event2, and that each of those arguments matches as a glob.
  *
  * Returns: TRUE if the events match, FALSE otherwise.
  **/
@@ -138,11 +141,25 @@ int
 event_match (Event *event1,
 	     Event *event2)
 {
+	char **arg1, **arg2;
+
 	nih_assert (event1 != NULL);
 	nih_assert (event2 != NULL);
 
 	/* Names must match */
 	if (strcmp (event1->name, event2->name))
+		return FALSE;
+
+	/* Match arguments using the second argument as a glob */
+	for (arg1 = event1->args, arg2 = event2->args;
+	     *arg1 && *arg2; arg1++, arg2++)
+		if (fnmatch (*arg2, *arg1, 0))
+			return FALSE;
+
+	/* Must be at least the same number of arguments in event1 as
+	 * there are in event2
+	 */
+	if (*arg2)
 		return FALSE;
 
 	return TRUE;

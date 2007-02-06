@@ -1,5 +1,11 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_match): Match arguments using fnmatch() and
+	allow more arguments in event1 than event2 (but not the other way
+	around).
+	* init/tests/test_event.c (test_match): Check the new permitted
+	combinations.
+
 	* init/event.h (Event): Add args and env members to Event.
 	* init/event.c (event_new): Initialise args and env members to
 	zero-length arrays.

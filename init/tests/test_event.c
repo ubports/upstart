@@ -68,6 +68,8 @@ void
 test_match (void)
 {
 	Event *event1, *event2;
+	char  *args1[] = { "foo", "bar", "baz", NULL };
+	char  *args2[] = { "foo", "bar", "baz", NULL };
 
 	TEST_FUNCTION ("event_match");
 
@@ -83,6 +85,37 @@ test_match (void)
 	TEST_FEATURE ("with same name events");
 	nih_free (event2);
 	event2 = event_new (NULL, "foo");
+
+	TEST_TRUE (event_match (event1, event2));
+
+
+	/* Check that two events with the same arguments lists match. */
+	TEST_FEATURE ("with same argument lists");
+	event1->args = args1;
+	event2->args = args2;
+
+	TEST_TRUE (event_match (event1, event2));
+
+
+	/* Check that the argument list in event2 may be shorter. */
+	TEST_FEATURE ("with shorter list in event2");
+	args2[2] = NULL;
+
+	TEST_TRUE (event_match (event1, event2));
+
+
+	/* Check that the argument list in event1 may not be shorter. */
+	TEST_FEATURE ("with shorter list in event1");
+	args2[2] = args1[2];
+	args1[2] = NULL;
+
+	TEST_FALSE (event_match (event1, event2));
+
+
+	/* Check that the second events argument lists may be globs. */
+	TEST_FEATURE ("with globs in arguments");
+	args1[2] = args2[2];
+	args2[2] = "b?z*";
 
 	TEST_TRUE (event_match (event1, event2));
 
