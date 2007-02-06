@@ -209,6 +209,7 @@ test_change_state (void)
 	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
 	job->respawn_script = nih_sprintf (job, "touch %s/respawn", dirname);
 	job->command = nih_sprintf (job, "touch %s/run", dirname);
+	job->respawn_limit = 0;
 
 
 	/* Check that a job can move from waiting to starting, and that if
@@ -216,59 +217,66 @@ test_change_state (void)
 	 * state.  The test/start event should be emitted.
 	 */
 	TEST_FEATURE ("waiting to starting with script");
-	job->goal = JOB_START;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
 
-	job_change_state (job, JOB_STARTING);
+		job_change_state (job, JOB_STARTING);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/start");
-	nih_list_free (&event->entry);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/start");
+		nih_list_free (&event->entry);
 
-	TEST_LIST_EMPTY (list);
+		TEST_LIST_EMPTY (list);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/start", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/start", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
 
-	unlink (filename);
+		unlink (filename);
+	}
 
 
 	/* Check that a job can move directly from waiting to running if it
 	 * has no start script, emitting both the start and started events.
 	 */
 	TEST_FEATURE ("waiting to starting with no script");
-	job->goal = JOB_START;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
 	nih_free (job->start_script);
 	job->start_script = NULL;
-	job_change_state (job, JOB_STARTING);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/started");
-	nih_list_free (&event->entry);
+		job_change_state (job, JOB_STARTING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/start");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/started");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/start");
+		nih_list_free (&event->entry);
 
-	unlink (filename);
+		TEST_LIST_EMPTY (list);
+
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
+
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
 
 
@@ -276,26 +284,29 @@ test_change_state (void)
 	 * emitting the started event.
 	 */
 	TEST_FEATURE ("starting to running with command");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_RUNNING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_NONE;
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_change_state (job, JOB_RUNNING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/started");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/started");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (list);
 
-	unlink (filename);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the starting state moves into the running state,
@@ -303,31 +314,34 @@ test_change_state (void)
 	 * event to be emitted.
 	 */
 	TEST_FEATURE ("starting to running with respawn");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->respawn = TRUE;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_RUNNING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->respawn = TRUE;
+		job->process_state = PROCESS_NONE;
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_change_state (job, JOB_RUNNING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/started");
-	nih_list_free (&event->entry);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test");
+		nih_list_free (&event->entry);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/started");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (list);
 
-	unlink (filename);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the starting state can move into the running
@@ -335,29 +349,33 @@ test_change_state (void)
 	 * the started event should be emitted.
 	 */
 	TEST_FEATURE ("starting to running with script");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_NONE;
-	job->respawn = FALSE;
 	job->script = job->command;
 	job->command = NULL;
-	job_change_state (job, JOB_RUNNING);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_NONE;
+		job->respawn = FALSE;
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/started");
-	nih_list_free (&event->entry);
+		job_change_state (job, JOB_RUNNING);
 
-	TEST_LIST_EMPTY (list);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/started");
+		nih_list_free (&event->entry);
 
-	unlink (filename);
+		TEST_LIST_EMPTY (list);
+
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the running state can move into the respawning
@@ -365,26 +383,28 @@ test_change_state (void)
 	 * event being emitted.
 	 */
 	TEST_FEATURE ("running to respawning with script");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_RESPAWNING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
+		job_change_state (job, JOB_RESPAWNING);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RESPAWNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RESPAWNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/respawn");
-	nih_list_free (&event->entry);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/respawn");
+		nih_list_free (&event->entry);
 
-	TEST_LIST_EMPTY (list);
+		TEST_LIST_EMPTY (list);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/respawn", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/respawn", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
 
-	unlink (filename);
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the running state can move straight through
@@ -392,32 +412,36 @@ test_change_state (void)
 	 * script; emitting the respawn then started events as it goes.
 	 */
 	TEST_FEATURE ("running to respawning without script");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
 	nih_free (job->respawn_script);
 	job->respawn_script = NULL;
-	job_change_state (job, JOB_RESPAWNING);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/started");
-	nih_list_free (&event->entry);
+		job_change_state (job, JOB_RESPAWNING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/respawn");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/started");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/respawn");
+		nih_list_free (&event->entry);
 
-	unlink (filename);
+		TEST_LIST_EMPTY (list);
+
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the running state can move into the stopping
@@ -425,30 +449,33 @@ test_change_state (void)
 	 * should be emitted.
 	 */
 	TEST_FEATURE ("running to stopping with script");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_STOPPING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_change_state (job, JOB_STOPPING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/stop");
-	nih_list_free (&event->entry);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test");
+		nih_list_free (&event->entry);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/stop");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (list);
 
-	unlink (filename);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/stop", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the running state can move into the stopping
@@ -456,27 +483,30 @@ test_change_state (void)
 	 * stop event should be emitted.
 	 */
 	TEST_FEATURE ("running to stopping with script and respawn");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	job->respawn = TRUE;
-	job_change_state (job, JOB_STOPPING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
+		job->respawn = TRUE;
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_change_state (job, JOB_STOPPING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/stop");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/stop");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (list);
 
-	unlink (filename);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/stop", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job in the running state can move directly into the
@@ -484,26 +514,30 @@ test_change_state (void)
 	 * if there's no script.
 	 */
 	TEST_FEATURE ("running to stopping without script");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
 	nih_free (job->stop_script);
 	job->stop_script = NULL;
-	job_change_state (job, JOB_STOPPING);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/stopped");
-	nih_list_free (&event->entry);
+		job_change_state (job, JOB_STOPPING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/stop");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/stopped");
+		nih_list_free (&event->entry);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/stop");
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+	}
 
 	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
 
@@ -512,20 +546,23 @@ test_change_state (void)
 	 * state, emitting the stopped event as it goes.
 	 */
 	TEST_FEATURE ("stopping to waiting");
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_WAITING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_NONE;
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
+		job_change_state (job, JOB_WAITING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/stopped");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/stopped");
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+	}
 
 
 	/* Check that a job in the stopping state can move round into the
@@ -533,26 +570,29 @@ test_change_state (void)
 	 * start event.
 	 */
 	TEST_FEATURE ("stopping to starting");
-	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_STARTING);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_NONE;
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_change_state (job, JOB_STARTING);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "test/start");
-	nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_LIST_EMPTY (list);
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "test/start");
+		nih_list_free (&event->entry);
 
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/start", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (list);
 
-	unlink (filename);
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/start", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
 
 
 	/* Check that a job that tries to enter the running state from the
@@ -770,20 +810,25 @@ test_run_command (void)
 	 * finish and see that it has been run as expected.
 	 */
 	TEST_FEATURE ("with simple command");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->command = nih_sprintf (job, "touch %s", filename);
-	job_run_command (job, job->command);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->command = nih_sprintf (job, "touch %s", filename);
+		}
 
-	TEST_NE (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_run_command (job, job->command);
 
-	waitpid (job->pid, NULL, 0);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	unlink (filename);
-	nih_list_free (&job->entry);
+		waitpid (job->pid, NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+		nih_list_free (&job->entry);
+	}
 
 
 	/* Check that we can run a command that requires a shell to be
@@ -792,27 +837,33 @@ test_run_command (void)
 	 * check that a shell really was used.
 	 */
 	TEST_FEATURE ("with shell command");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->command = nih_sprintf (job, "echo $$ > %s", filename);
-	job_run_command (job, job->command);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->command = nih_sprintf (job, "echo $$ > %s",
+						    filename);
+		}
 
-	TEST_NE (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_run_command (job, job->command);
 
-	waitpid (job->pid, NULL, 0);
-	TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	/* Filename should contain the pid */
-	output = fopen (filename, "r");
-	sprintf (buf, "%d\n", job->pid);
-	TEST_FILE_EQ (output, buf);
-	TEST_FILE_END (output);
-	fclose (output);
-	unlink (filename);
+		waitpid (job->pid, NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
 
-	nih_list_free (&job->entry);
+		/* Filename should contain the pid */
+		output = fopen (filename, "r");
+		sprintf (buf, "%d\n", job->pid);
+		TEST_FILE_EQ (output, buf);
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
 }
 
 void
@@ -831,54 +882,67 @@ test_run_script (void)
 	 * command-line.
 	 */
 	TEST_FEATURE ("with small script");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->script = nih_sprintf (job, "exec > %s\necho $0\necho $@",
-				   filename);
-	job_run_script (job, job->script);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->script = nih_sprintf (job, ("exec > %s\n"
+							 "echo $0\necho $@"),
+						   filename);
+		}
 
-	TEST_NE (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_run_script (job, job->script);
 
-	waitpid (job->pid, &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 0);
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	output = fopen (filename, "r");
-	TEST_FILE_EQ (output, "/bin/sh\n");
-	TEST_FILE_EQ (output, "\n");
-	TEST_FILE_END (output);
-	fclose (output);
-	unlink (filename);
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
 
-	nih_list_free (&job->entry);
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
 
 
 	/* Check that shell scripts are run with the -e option set, so that
 	 * any failing command causes the entire script to fail.
 	 */
 	TEST_FEATURE ("with script that will fail");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->script = nih_sprintf (job, "exec > %s\ntest -d %s\necho oops",
-				   filename, filename);
-	job_run_script (job, job->script);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->script = nih_sprintf (job, ("exec > %s\n"
+							 "test -d %s\n"
+							 "echo oops"),
+						   filename, filename);
+		}
 
-	TEST_NE (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_run_script (job, job->script);
 
-	waitpid (job->pid, &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 1);
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	output = fopen (filename, "r");
-	TEST_FILE_END (output);
-	fclose (output);
-	unlink (filename);
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 1);
 
-	nih_list_free (&job->entry);
+		output = fopen (filename, "r");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
 
 
 	/* Check that a particularly long script is instead invoked by
@@ -886,54 +950,63 @@ test_run_script (void)
 	 * child process by an NihIo structure.
 	 */
 	TEST_FEATURE ("with long script");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->script = nih_alloc (job, 4096);
-	sprintf (job->script, "exec > %s\necho $0\necho $@\n", filename);
-	while (strlen (job->script) < 4000)
-		strcat (job->script, "# this just bulks it out a bit");
-	job_run_script (job, job->script);
-
-	TEST_NE (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	/* Loop until we've fed all of the data. */
-	first = TRUE;
-	for (;;) {
-		fd_set readfds, writefds, exceptfds;
-		int    nfds;
-
-		nfds = 0;
-		FD_ZERO (&readfds);
-		FD_ZERO (&writefds);
-		FD_ZERO (&exceptfds);
-
-		nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
-		if (! nfds) {
-			if (first)
-				TEST_FAILED ("expected to have data to feed.");
-			break;
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->script = nih_alloc (job, 4096);
+			sprintf (job->script, "exec > %s\necho $0\necho $@\n",
+				 filename);
+			while (strlen (job->script) < 4000)
+				strcat (job->script,
+					"# this just bulks it out a bit");
 		}
-		first = FALSE;
 
-		select (nfds, &readfds, &writefds, &exceptfds, NULL);
+		job_run_script (job, job->script);
 
-		nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		/* Loop until we've fed all of the data. */
+		first = TRUE;
+		for (;;) {
+			fd_set readfds, writefds, exceptfds;
+			int    nfds;
+
+			nfds = 0;
+			FD_ZERO (&readfds);
+			FD_ZERO (&writefds);
+			FD_ZERO (&exceptfds);
+
+			nih_io_select_fds (&nfds, &readfds,
+					   &writefds, &exceptfds);
+			if (! nfds) {
+				if (first)
+					TEST_FAILED ("expected to have "
+						     "data to feed.");
+				break;
+			}
+			first = FALSE;
+
+			select (nfds, &readfds, &writefds, &exceptfds, NULL);
+
+			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+		}
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ_N (output, "/dev/fd/");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
 	}
-
-	waitpid (job->pid, &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 0);
-
-	output = fopen (filename, "r");
-	TEST_FILE_EQ_N (output, "/dev/fd/");
-	TEST_FILE_EQ (output, "\n");
-	TEST_FILE_END (output);
-	fclose (output);
-	unlink (filename);
-
-	nih_list_free (&job->entry);
 }
 
 
@@ -950,9 +1023,8 @@ test_kill_process (void)
 	TEST_FUNCTION ("job_kill_process");
 	job = job_new (NULL, "test");
 	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
 	job->kill_timeout = 1000;
+	job->respawn_limit = 0;
 
 
 	/* Check that an easily killed process goes away with just a single
@@ -961,28 +1033,33 @@ test_kill_process (void)
 	 * to handle it if it doesn't get reaped.
 	 */
 	TEST_FEATURE ("with easily killed process");
-	TEST_CHILD (job->pid) {
-		pause ();
+	TEST_ALLOC_FAIL {
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_kill_process (job);
+		waitpid (pid, &status, 0);
+
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		TEST_EQ (job->pid, pid);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+		TEST_GE (job->kill_timer->due, time (NULL) + 950);
+		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+
+		nih_free (job->kill_timer);
+		job->kill_timer = NULL;
 	}
-	pid = job->pid;
-
-	job_kill_process (job);
-	waitpid (pid, &status, 0);
-
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-	TEST_EQ (job->pid, pid);
-	TEST_EQ (job->process_state, PROCESS_KILLED);
-
-	TEST_NE_P (job->kill_timer, NULL);
-	TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-	TEST_ALLOC_PARENT (job->kill_timer, job);
-	TEST_GE (job->kill_timer->due, time (NULL) + 950);
-	TEST_LE (job->kill_timer->due, time (NULL) + 1000);
-
-	nih_free (job->kill_timer);
-	job->kill_timer = NULL;
 
 
 	/* Check that a process that's hard to kill doesn't go away, but
@@ -990,50 +1067,52 @@ test_kill_process (void)
 	 * job has in fact died.
 	 */
 	TEST_FEATURE ("with hard to kill process");
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	TEST_CHILD (job->pid) {
-		struct sigaction act;
+	TEST_ALLOC_FAIL {
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		TEST_CHILD (job->pid) {
+			struct sigaction act;
 
-		act.sa_handler = SIG_IGN;
-		act.sa_flags = 0;
-		sigemptyset (&act.sa_mask);
-		sigaction (SIGTERM, &act, NULL);
+			act.sa_handler = SIG_IGN;
+			act.sa_flags = 0;
+			sigemptyset (&act.sa_mask);
+			sigaction (SIGTERM, &act, NULL);
 
-		for (;;)
-			pause ();
+			for (;;)
+				pause ();
+		}
+		pid = job->pid;
+
+		job_kill_process (job);
+
+		TEST_EQ (kill (pid, 0), 0);
+
+		TEST_EQ (job->pid, pid);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+		TEST_GE (job->kill_timer->due, time (NULL) + 950);
+		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+
+		/* Run the kill timer */
+		timer = job->kill_timer;
+		timer->callback (timer->data, timer);
+		nih_free (timer);
+
+		waitpid (pid, &status, 0);
+
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGKILL);
+
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		TEST_EQ (job->state, JOB_WAITING);
 	}
-	pid = job->pid;
-
-	job_kill_process (job);
-
-	TEST_EQ (kill (pid, 0), 0);
-
-	TEST_EQ (job->pid, pid);
-	TEST_EQ (job->process_state, PROCESS_KILLED);
-
-	TEST_NE_P (job->kill_timer, NULL);
-	TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-	TEST_ALLOC_PARENT (job->kill_timer, job);
-	TEST_GE (job->kill_timer->due, time (NULL) + 950);
-	TEST_LE (job->kill_timer->due, time (NULL) + 1000);
-
-	/* Run the kill timer */
-	timer = job->kill_timer;
-	timer->callback (timer->data, timer);
-	nih_free (timer);
-
-	waitpid (pid, &status, 0);
-
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGKILL);
-
-	TEST_EQ (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_NONE);
-
-	TEST_EQ_P (job->kill_timer, NULL);
-
-	TEST_EQ (job->state, JOB_WAITING);
 
 
 	/* Check that a process that's hard to kill doesn't go away, but
@@ -1043,56 +1122,61 @@ test_kill_process (void)
 	 */
 	TEST_FEATURE ("with hard to kill process and stop script");
 	TEST_FILENAME (filename);
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
 	job->stop_script = nih_sprintf (job, "touch %s", filename);
-	TEST_CHILD (job->pid) {
-		struct sigaction act;
 
-		act.sa_handler = SIG_IGN;
-		act.sa_flags = 0;
-		sigemptyset (&act.sa_mask);
-		sigaction (SIGTERM, &act, NULL);
+	TEST_ALLOC_FAIL {
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
 
-		for (;;)
-			pause ();
+		TEST_CHILD (job->pid) {
+			struct sigaction act;
+
+			act.sa_handler = SIG_IGN;
+			act.sa_flags = 0;
+			sigemptyset (&act.sa_mask);
+			sigaction (SIGTERM, &act, NULL);
+
+			for (;;)
+				pause ();
+		}
+		pid = job->pid;
+
+		job_kill_process (job);
+
+		TEST_EQ (kill (pid, 0), 0);
+
+		TEST_EQ (job->pid, pid);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+		TEST_GE (job->kill_timer->due, time (NULL) + 950);
+		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+
+		/* Run the kill timer */
+		timer = job->kill_timer;
+		timer->callback (timer->data, timer);
+		nih_free (timer);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		waitpid (pid, &status, 0);
+
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGKILL);
+
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
 	}
-	pid = job->pid;
 
-	job_kill_process (job);
-
-	TEST_EQ (kill (pid, 0), 0);
-
-	TEST_EQ (job->pid, pid);
-	TEST_EQ (job->process_state, PROCESS_KILLED);
-
-	TEST_NE_P (job->kill_timer, NULL);
-	TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-	TEST_ALLOC_PARENT (job->kill_timer, job);
-	TEST_GE (job->kill_timer->due, time (NULL) + 950);
-	TEST_LE (job->kill_timer->due, time (NULL) + 1000);
-
-	/* Run the kill timer */
-	timer = job->kill_timer;
-	timer->callback (timer->data, timer);
-	nih_free (timer);
-
-	TEST_EQ_P (job->kill_timer, NULL);
-
-	waitpid (pid, &status, 0);
-
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGKILL);
-
-	TEST_NE (job->pid, 0);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	waitpid (job->pid, NULL, 0);
-
-	TEST_EQ (stat (filename, &statbuf), 0);
-
-	unlink (filename);
 	nih_free (job->stop_script);
 	job->stop_script = NULL;
 
@@ -1101,20 +1185,22 @@ test_kill_process (void)
 	 * forgotten and the state transitioned immediately.
 	 */
 	TEST_FEATURE ("with already dead process");
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	TEST_CHILD (job->pid) {
-		exit (0);
+	TEST_ALLOC_FAIL {
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		TEST_CHILD (job->pid) {
+			exit (0);
+		}
+		waitpid (job->pid, NULL, 0);
+
+		job_kill_process (job);
+
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->kill_timer, NULL);
 	}
-	waitpid (job->pid, NULL, 0);
-
-	job_kill_process (job);
-
-	TEST_EQ (job->pid, 0);
-	TEST_EQ (job->process_state, PROCESS_NONE);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	TEST_EQ_P (job->kill_timer, NULL);
 
 
 	nih_list_free (&job->entry);
@@ -1148,15 +1234,18 @@ test_child_reaper (void)
 	job->command = "echo";
 	job->stop_script = "echo";
 	job->respawn_script = "echo";
+	job->respawn_limit = 0;
 
 
 	/* Check that the child reaper can be called with a pid that doesn't
 	 * match the job, and that the job state doesn't change.
 	 */
 	TEST_FEATURE ("with unknown pid");
-	job_child_reaper (NULL, 999, FALSE, 0);
+	TEST_ALLOC_FAIL {
+		job_child_reaper (NULL, 999, FALSE, 0);
 
-	TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->state, JOB_RUNNING);
+	}
 
 
 	/* Check that we can reap the running task of the job, which should
@@ -1164,15 +1253,17 @@ test_child_reaper (void)
 	 * stopping state.
 	 */
 	TEST_FEATURE ("with running task");
-	job_child_reaper (NULL, 1, FALSE, 0);
+	TEST_ALLOC_FAIL {
+		job_child_reaper (NULL, 1, FALSE, 0);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_NE (job->pid, 1);
+		TEST_NE (job->pid, 1);
 
-	waitpid (job->pid, NULL, 0);
+		waitpid (job->pid, NULL, 0);
+	}
 
 
 	/* Check that we can reap a running task of the job after it's been
@@ -1180,46 +1271,53 @@ test_child_reaper (void)
 	 * be cancelled and freed.
 	 */
 	TEST_FEATURE ("with kill timer");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
 
-	was_called = 0;
-	job->kill_timer = (void *) nih_strdup (job, "test");
-	nih_alloc_set_destructor (job->kill_timer, destructor_called);
+		TEST_ALLOC_SAFE {
+			was_called = 0;
+			job->kill_timer = (void *) nih_strdup (job, "test");
+			nih_alloc_set_destructor (job->kill_timer,
+						  destructor_called);
+		}
 
-	job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, FALSE, 0);
 
-	TEST_TRUE (was_called);
-	TEST_EQ_P (job->kill_timer, NULL);
+		TEST_TRUE (was_called);
+		TEST_EQ_P (job->kill_timer, NULL);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_NE (job->pid, 1);
+		TEST_NE (job->pid, 1);
 
-	waitpid (job->pid, NULL, 0);
+		waitpid (job->pid, NULL, 0);
+	}
 
 
 	/* Check that we can reap the starting task of the job, and if it
 	 * terminates with a good error code, end up in the running state.
 	 */
 	TEST_FEATURE ("with starting task");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
-	job_child_reaper (NULL, 1, FALSE, 0);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job_child_reaper (NULL, 1, FALSE, 0);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_NE (job->pid, 1);
+		TEST_NE (job->pid, 1);
 
-	waitpid (job->pid, NULL, 0);
+		waitpid (job->pid, NULL, 0);
+	}
 
 
 	/* Check that we can reap a failing starting task of the job, which
@@ -1227,30 +1325,32 @@ test_child_reaper (void)
 	 * direction to the stopping state.  An error should be emitted.
 	 */
 	TEST_FEATURE ("with starting task failure");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
 
-	output = tmpfile ();
-	TEST_DIVERT_STDERR (output) {
-		job_child_reaper (NULL, 1, FALSE, 1);
+		output = tmpfile ();
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) terminated "
+				       "with status 1\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
 	}
-	rewind (output);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job->pid, 1);
-
-	waitpid (job->pid, NULL, 0);
-
-	TEST_FILE_EQ (output, ("test: test process (1) terminated "
-			       "with status 1\n"));
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
 
 
 
@@ -1258,29 +1358,31 @@ test_child_reaper (void)
 	 * act as if it failed.  A different error should be output.
 	 */
 	TEST_FEATURE ("with starting task kill");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
 
-	TEST_DIVERT_STDERR (output) {
-		job_child_reaper (NULL, 1, TRUE, SIGTERM);
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGTERM);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) killed "
+				       "by signal 15\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
 	}
-	rewind (output);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job->pid, 1);
-
-	waitpid (job->pid, NULL, 0);
-
-	TEST_FILE_EQ (output, ("test: test process (1) killed "
-			       "by signal 15\n"));
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
 
 
 	/* Check that we can catch the running task failing, and if the job
@@ -1288,27 +1390,30 @@ test_child_reaper (void)
 	 * stopping the job.  This should also emit a warning.
 	 */
 	TEST_FEATURE ("with running task to respawn");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
-	job->respawn = TRUE;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->respawn = TRUE;
 
-	TEST_DIVERT_STDERR (output) {
-		job_child_reaper (NULL, 1, FALSE, 0);
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RESPAWNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, "test: test process ended, respawning\n");
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
 	}
-	rewind (output);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RESPAWNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job->pid, 1);
-
-	waitpid (job->pid, NULL, 0);
-
-	TEST_FILE_EQ (output, "test: test process ended, respawning\n");
-	TEST_FILE_END (output);
 
 	fclose (output);
 
@@ -1318,22 +1423,24 @@ test_child_reaper (void)
 	 * stop and transitioning into the stopping state.
 	 */
 	TEST_FEATURE ("with running task and normal exit");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
-	job->respawn = TRUE;
-	job->normalexit = exitcodes;
-	job->normalexit_len = 1;
-	job_child_reaper (NULL, 1, FALSE, 0);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->respawn = TRUE;
+		job->normalexit = exitcodes;
+		job->normalexit_len = 1;
+		job_child_reaper (NULL, 1, FALSE, 0);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_NE (job->pid, 1);
+		TEST_NE (job->pid, 1);
 
-	waitpid (job->pid, NULL, 0);
+		waitpid (job->pid, NULL, 0);
+	}
 
 
 	nih_list_free (&job->entry);
@@ -1351,10 +1458,6 @@ test_start (void)
 	program_name = "test";
 
 	job = job_new (NULL, "test");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
 	job->start_script = "echo";
 
 
@@ -1363,15 +1466,22 @@ test_start (void)
 	 * starting.
 	 */
 	TEST_FEATURE ("with waiting job");
-	job_start (job);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		job->pid = 0;
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_start (job);
 
-	TEST_NE (job->pid, 0);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	waitpid (job->pid, NULL, 0);
+		TEST_NE (job->pid, 0);
+
+		waitpid (job->pid, NULL, 0);
+	}
 
 
 	/* Check that an attempt to start a job that's in the process of
@@ -1379,55 +1489,65 @@ test_start (void)
 	 * state transition up to the normal process.
 	 */
 	TEST_FEATURE ("with stopping job");
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
-	job_start (job);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (job->pid, 1);
+		job_start (job);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+	}
 
 
 	/* Check that starting a job with a goal change event set clears
 	 * that event, freeing it, and sets it to NULL (manual start).
 	 */
 	TEST_FEATURE ("with existing goal change event");
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
-	job->goal_event = event_new (job, "foo");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		TEST_ALLOC_SAFE {
+			job->goal_event = event_new (job, "foo");
+		}
 
-	was_called = 0;
-	nih_alloc_set_destructor (job->goal_event, destructor_called);
+		was_called = 0;
+		nih_alloc_set_destructor (job->goal_event, destructor_called);
 
-	job_start (job);
+		job_start (job);
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (job->pid, 1);
-	TEST_EQ_P (job->goal_event, NULL);
-	TEST_TRUE (was_called);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_TRUE (was_called);
+	}
 
 
 	/* Check that an attempt to start a job that's running and still
 	 * with a start goal does nothing.
 	 */
 	TEST_FEATURE ("with running job");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1;
-	job_start (job);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
 
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (job->pid, 1);
+		job_start (job);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+	}
 
 
 	nih_list_free (&job->entry);
@@ -1442,14 +1562,6 @@ test_stop (void)
 
 	TEST_FUNCTION ("job_stop");
 	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-
-	TEST_CHILD (job->pid) {
-		pause ();
-	}
-	pid = job->pid;
 
 
 	/* Check that an attempt to stop a running job results in the goal
@@ -1457,23 +1569,34 @@ test_stop (void)
 	 * the child reaper.
 	 */
 	TEST_FEATURE ("with running job");
-	job_stop (job);
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_KILLED);
-	TEST_EQ (job->pid, pid);
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
 
-	TEST_NE_P (job->kill_timer, NULL);
-	TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-	TEST_ALLOC_PARENT (job->kill_timer, job);
+		job_stop (job);
 
-	nih_free (job->kill_timer);
-	job->kill_timer = NULL;
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+		TEST_EQ (job->pid, pid);
 
-	waitpid (pid, &status, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+
+		nih_free (job->kill_timer);
+		job->kill_timer = NULL;
+
+		waitpid (pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+	}
 
 
 	/* Check that an attempt to stop a starting job only results in the
@@ -1481,74 +1604,82 @@ test_stop (void)
 	 * instead left to terminate normally.
 	 */
 	TEST_FEATURE ("with starting job");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
 
-	TEST_CHILD (job->pid) {
-		pause ();
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_stop (job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, pid);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		kill (pid, SIGTERM);
+		waitpid (pid, NULL, 0);
 	}
-	pid = job->pid;
-
-	job_stop (job);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (job->pid, pid);
-
-	TEST_EQ_P (job->kill_timer, NULL);
-
-	kill (pid, SIGTERM);
-	waitpid (pid, NULL, 0);
 
 
 	/* Check that stopping a job with a goal change event set clears
 	 * that event, freeing it, and sets it to NULL (manual stop).
 	 */
 	TEST_FEATURE ("with existing goal change event");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
 
-	TEST_CHILD (job->pid) {
-		pause ();
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		TEST_ALLOC_SAFE {
+			job->goal_event = event_new (job, "foo");
+		}
+
+		was_called = 0;
+		nih_alloc_set_destructor (job->goal_event, destructor_called);
+
+		job_stop (job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, pid);
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_TRUE (was_called);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		kill (pid, SIGTERM);
+		waitpid (pid, NULL, 0);
 	}
-	pid = job->pid;
-
-	job->goal_event = event_new (job, "foo");
-
-	was_called = 0;
-	nih_alloc_set_destructor (job->goal_event, destructor_called);
-
-	job_stop (job);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (job->pid, pid);
-	TEST_EQ_P (job->goal_event, NULL);
-	TEST_TRUE (was_called);
-
-	TEST_EQ_P (job->kill_timer, NULL);
-
-	kill (pid, SIGTERM);
-	waitpid (pid, NULL, 0);
 
 
 	/* Check that an attempt to stop a waiting job does nothing. */
 	TEST_FEATURE ("with waiting job");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		job->pid = 0;
 
-	job_stop (job);
+		job_stop (job);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
-	TEST_EQ (job->pid, 0);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->pid, 0);
+	}
 
 
 	nih_list_free (&job->entry);
@@ -1726,106 +1857,115 @@ test_handle_event (void)
 	 * and restarts any that have it in both.
 	 */
 	TEST_FUNCTION ("job_handle_event");
-	job1 = job_new (NULL, "foo");
-	job1->goal = JOB_STOP;
-	job1->state = JOB_WAITING;
-	job1->process_state = PROCESS_NONE;
-	job1->command = "echo";
-	nih_list_add (&job1->start_events, &(event_new (job1, "poke")->entry));
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job1 = job_new (NULL, "foo");
+			job1->goal = JOB_STOP;
+			job1->state = JOB_WAITING;
+			job1->process_state = PROCESS_NONE;
+			job1->command = "echo";
+			nih_list_add (&job1->start_events,
+				      &(event_new (job1, "poke")->entry));
 
-	job2 = job_new (NULL, "bar");
-	job2->goal = JOB_START;
-	job2->state = JOB_RUNNING;
-	job2->process_state = PROCESS_ACTIVE;
-	nih_list_add (&job2->stop_events, &(event_new (job2, "poke")->entry));
+			job2 = job_new (NULL, "bar");
+			job2->goal = JOB_START;
+			job2->state = JOB_RUNNING;
+			job2->process_state = PROCESS_ACTIVE;
+			nih_list_add (&job2->stop_events,
+				      &(event_new (job2, "poke")->entry));
 
-	TEST_CHILD (job2->pid) {
-		pause ();
+			TEST_CHILD (job2->pid) {
+				pause ();
+			}
+
+			job3 = job_new (NULL, "baz");
+			job3->goal = JOB_START;
+			job3->state = JOB_RUNNING;
+			job3->process_state = PROCESS_ACTIVE;
+			nih_list_add (&job3->start_events,
+				      &(event_new (job3, "poke")->entry));
+			nih_list_add (&job3->stop_events,
+				      &(event_new (job3, "poke")->entry));
+
+			TEST_CHILD (job3->pid) {
+				pause ();
+			}
+
+			job4 = job_new (NULL, "frodo");
+			job4->goal = JOB_STOP;
+			job4->state = JOB_WAITING;
+			job4->process_state = PROCESS_NONE;
+			job4->command = "echo";
+
+			job5 = job_new (NULL, "bilbo");
+			job5->goal = JOB_START;
+			job5->state = JOB_RUNNING;
+			job5->process_state = PROCESS_ACTIVE;
+
+			TEST_CHILD (job5->pid) {
+				pause ();
+			}
+
+			event = event_new (NULL, "poke");
+		}
+
+		job_handle_event (event);
+
+		TEST_EQ (job1->goal, JOB_START);
+		TEST_EQ (job1->state, JOB_RUNNING);
+		TEST_EQ (job1->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job1->pid, 0);
+		kill (job1->pid, SIGTERM);
+		waitpid (job1->pid, NULL, 0);
+
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_RUNNING);
+		TEST_EQ (job2->process_state, PROCESS_KILLED);
+
+		TEST_NE (job2->pid, 0);
+		waitpid (job2->pid, &status, 0);
+
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+
+		TEST_EQ (job3->goal, JOB_START);
+		TEST_EQ (job3->state, JOB_RUNNING);
+		TEST_EQ (job3->process_state, PROCESS_KILLED);
+
+		TEST_NE (job3->pid, 0);
+		waitpid (job3->pid, &status, 0);
+
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+
+		TEST_EQ (job4->goal, JOB_STOP);
+		TEST_EQ (job4->state, JOB_WAITING);
+		TEST_EQ (job4->process_state, PROCESS_NONE);
+
+		TEST_EQ (job4->pid, 0);
+
+
+		TEST_EQ (job5->goal, JOB_START);
+		TEST_EQ (job5->state, JOB_RUNNING);
+		TEST_EQ (job5->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job5->pid, 0);
+		kill (job5->pid, SIGTERM);
+		waitpid (job5->pid, NULL, 0);
+
+
+		nih_free (event);
+
+		nih_list_free (&job1->entry);
+		nih_list_free (&job2->entry);
+		nih_list_free (&job3->entry);
+		nih_list_free (&job4->entry);
+		nih_list_free (&job5->entry);
 	}
-
-	job3 = job_new (NULL, "baz");
-	job3->goal = JOB_START;
-	job3->state = JOB_RUNNING;
-	job3->process_state = PROCESS_ACTIVE;
-	nih_list_add (&job3->start_events, &(event_new (job3, "poke")->entry));
-	nih_list_add (&job3->stop_events, &(event_new (job3, "poke")->entry));
-
-	TEST_CHILD (job3->pid) {
-		pause ();
-	}
-
-	job4 = job_new (NULL, "frodo");
-	job4->goal = JOB_STOP;
-	job4->state = JOB_WAITING;
-	job4->process_state = PROCESS_NONE;
-	job4->command = "echo";
-
-	job5 = job_new (NULL, "bilbo");
-	job5->goal = JOB_START;
-	job5->state = JOB_RUNNING;
-	job5->process_state = PROCESS_ACTIVE;
-
-	TEST_CHILD (job5->pid) {
-		pause ();
-	}
-
-	event = event_new (NULL, "poke");
-	job_handle_event (event);
-
-	TEST_EQ (job1->goal, JOB_START);
-	TEST_EQ (job1->state, JOB_RUNNING);
-	TEST_EQ (job1->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job1->pid, 0);
-	kill (job1->pid, SIGTERM);
-	waitpid (job1->pid, NULL, 0);
-
-
-	TEST_EQ (job2->goal, JOB_STOP);
-	TEST_EQ (job2->state, JOB_RUNNING);
-	TEST_EQ (job2->process_state, PROCESS_KILLED);
-
-	TEST_NE (job2->pid, 0);
-	waitpid (job2->pid, &status, 0);
-
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-
-	TEST_EQ (job3->goal, JOB_START);
-	TEST_EQ (job3->state, JOB_RUNNING);
-	TEST_EQ (job3->process_state, PROCESS_KILLED);
-
-	TEST_NE (job3->pid, 0);
-	waitpid (job3->pid, &status, 0);
-
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-
-	TEST_EQ (job4->goal, JOB_STOP);
-	TEST_EQ (job4->state, JOB_WAITING);
-	TEST_EQ (job4->process_state, PROCESS_NONE);
-
-	TEST_EQ (job4->pid, 0);
-
-
-	TEST_EQ (job5->goal, JOB_START);
-	TEST_EQ (job5->state, JOB_RUNNING);
-	TEST_EQ (job5->process_state, PROCESS_ACTIVE);
-
-	TEST_NE (job5->pid, 0);
-	kill (job5->pid, SIGTERM);
-	waitpid (job5->pid, NULL, 0);
-
-
-	nih_free (event);
-
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job3->entry);
-	nih_list_free (&job4->entry);
-	nih_list_free (&job5->entry);
 }
 
 void
@@ -1964,111 +2104,131 @@ test_read_state (void)
 
 	/* Check that a Job header allocates or returns a job of that name. */
 	TEST_FEATURE ("with header");
-	sprintf (buf, "Job test");
-	ptr = job_read_state (NULL, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, "Job test");
+		ptr = job_read_state (NULL, buf);
 
-	TEST_EQ_P (ptr, job);
+		TEST_EQ_P (ptr, job);
+	}
 
 
 	/* Check that the goal line sets the goal of the job. */
 	TEST_FEATURE ("with goal");
-	sprintf (buf, ".goal start");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal start");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->goal, JOB_START);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->goal, JOB_START);
+	}
 
 	/* Check that the state line sets the state of the job. */
 	TEST_FEATURE ("with state");
-	sprintf (buf, ".state stopping");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".state stopping");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->state, JOB_STOPPING);
+	}
 
 
 	/* Check that the process_state line sets the process state of
 	 * the job.
 	 */
 	TEST_FEATURE ("with process state");
-	sprintf (buf, ".process_state active");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".process_state active");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	}
 
 
 	/* Check that the pid line sets the process id of the job. */
 	TEST_FEATURE ("with pid");
-	sprintf (buf, ".pid 9128");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".pid 9128");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->pid, 9128);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->pid, 9128);
+	}
 
 
 	/* Check that a NULL goal_event is parsed. */
 	TEST_FEATURE ("with no goal event");
-	sprintf (buf, ".goal_event ");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal_event ");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->goal_event, NULL);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->goal_event, NULL);
+	}
 
 
 	/* Check that a non-NULL goal_event is parsed; creating an Event
 	 * structure and attaching it to the job.
 	 */
 	TEST_FEATURE ("with no goal event");
-	sprintf (buf, ".goal_event foo");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal_event foo");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_ALLOC_PARENT (job->goal_event, job);
-	TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
-	TEST_LIST_EMPTY (&job->goal_event->entry);
-	TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
-	TEST_ALLOC_SIZE (job->goal_event->name, 4);
-	TEST_EQ_STR (job->goal_event->name, "foo");
+		TEST_EQ_P (ptr, job);
+		TEST_ALLOC_PARENT (job->goal_event, job);
+		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
+		TEST_LIST_EMPTY (&job->goal_event->entry);
+		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->name, 4);
+		TEST_EQ_STR (job->goal_event->name, "foo");
+	}
 
 
 	/* Check that the kill_timer_due line results in a timer being
 	 * allocated with that amount of time left.
 	 */
 	TEST_FEATURE ("with kill timer due");
-	sprintf (buf, ".kill_timer_due %ld", time (NULL) + 10);
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".kill_timer_due %ld", time (NULL) + 10);
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_NE_P (job->kill_timer, NULL);
-	TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-	TEST_ALLOC_PARENT (job->kill_timer, job);
-	TEST_LE (job->kill_timer->due, time (NULL) + 10);
-	TEST_EQ_P (job->kill_timer->data, job);
+		TEST_EQ_P (ptr, job);
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+		TEST_LE (job->kill_timer->due, time (NULL) + 10);
+		TEST_EQ_P (job->kill_timer->data, job);
+	}
 
 
 	/* Check that the respawn count_line results in the respawn count
 	 * of the job being set.
 	 */
 	TEST_FEATURE ("with respawn count");
-	sprintf (buf, ".respawn_count 6");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".respawn_count 6");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->respawn_count, 6);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->respawn_count, 6);
+	}
 
 
 	/* Check that the respawn_time line results in the respawn time
 	 * of the job being set.
 	 */
 	TEST_FEATURE ("with respawn time");
-	sprintf (buf, ".respawn_time 91");
-	ptr = job_read_state (job, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".respawn_time 91");
+		ptr = job_read_state (job, buf);
 
-	TEST_EQ_P (ptr, job);
-	TEST_EQ (job->respawn_time, 91);
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->respawn_time, 91);
 
-	nih_list_free (&job->entry);
+		nih_list_free (&job->entry);
+	}
 }
 
 void

@@ -202,7 +202,8 @@ NIH_BEGIN_EXTERN
 
 NihList *   job_list            (void);
 
-Job *       job_new             (const void *parent, const char *name);
+Job *       job_new             (const void *parent, const char *name)
+	__attribute__ ((warn_unused_result, malloc));
 
 Job *       job_find_by_name    (const char *name);
 Job *       job_find_by_pid     (pid_t pid);
@@ -229,7 +230,8 @@ void        job_handle_event    (Event *event);
 void        job_detect_idle     (void);
 void        job_set_idle_event  (const char *name);
 
-Job *       job_read_state      (Job *job, char *buf);
+Job *       job_read_state      (Job *job, char *buf)
+	__attribute__ ((warn_unused_result, malloc));
 void        job_write_state     (FILE *state);
 
 NIH_END_EXTERN

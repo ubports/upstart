@@ -1,5 +1,9 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h: Add attributes to job_new and job_read_state.
+	* init/tests/test_job.c: Use CHECK_ALLOC_FAIL on the functions we
+	didn't get around to touching while we were in here.
+
 	* init/job.c (job_start_event, job_stop_event): Set the goal_event
 	member to a copy of the event we found.
 	(job_read_state): Use event_new instead of trying to do it by hand.
