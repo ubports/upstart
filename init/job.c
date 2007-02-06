@@ -320,6 +320,8 @@ job_change_state (Job      *job,
 			nih_assert ((old_state == JOB_WAITING)
 				    || (old_state == JOB_STOPPING));
 
+			job->failed = FALSE;
+
 			if (job->start_script) {
 				job_run_script (job, job->start_script);
 			} else {

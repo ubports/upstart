@@ -214,7 +214,8 @@ test_change_state (void)
 
 	/* Check that a job can move from waiting to starting, and that if
 	 * it has a start script, that is run and the job left in the starting
-	 * state.  The start event should be emitted.
+	 * state.  The start event should be emitted and any record of
+	 * a failed state cleared.
 	 */
 	TEST_FEATURE ("waiting to starting with script");
 	TEST_ALLOC_FAIL {
@@ -222,11 +223,17 @@ test_change_state (void)
 		job->state = JOB_WAITING;
 		job->process_state = PROCESS_NONE;
 
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
+
 		job_change_state (job, JOB_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "start");
