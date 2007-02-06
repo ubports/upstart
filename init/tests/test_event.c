@@ -133,14 +133,16 @@ test_queue (void)
 	 * be allocated with nih_alloc and placed in a list.
 	 */
 	TEST_FUNCTION ("event_queue");
-	event = event_queue ("test");
+	TEST_ALLOC_FAIL {
+		event = event_queue ("test");
 
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_LIST_NOT_EMPTY (&event->entry);
-	TEST_EQ_STR (event->name, "test");
-	TEST_ALLOC_PARENT (event->name, event);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+		TEST_EQ_STR (event->name, "test");
+		TEST_ALLOC_PARENT (event->name, event);
 
-	nih_list_free (&event->entry);
+		nih_list_free (&event->entry);
+	}
 }
 
 
@@ -154,15 +156,17 @@ test_read_state (void)
 	 * the name, and queued automatically.
 	 */
 	TEST_FUNCTION ("event_read_state");
-	sprintf (buf, "Event bang");
-	event = event_read_state (NULL, buf);
+	TEST_ALLOC_FAIL {
+		sprintf (buf, "Event bang");
+		event = event_read_state (NULL, buf);
 
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_LIST_NOT_EMPTY (&event->entry);
-	TEST_EQ_STR (event->name, "bang");
-	TEST_ALLOC_PARENT (event->name, event);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+		TEST_EQ_STR (event->name, "bang");
+		TEST_ALLOC_PARENT (event->name, event);
 
-	nih_list_free (&event->entry);
+		nih_list_free (&event->entry);
+	}
 }
 
 void
