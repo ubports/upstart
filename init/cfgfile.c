@@ -1265,9 +1265,11 @@ cfg_stanza_console (Job             *job,
 	if (! arg)
 		return -1;
 
-	if (job->console != CONSOLE_LOGGED)
+	if (job->console != CONSOLE_LOGGED) {
+		nih_free (arg);
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
+	}
 
 	if (! strcmp (arg, "logged")) {
 		job->console = CONSOLE_LOGGED;
@@ -1312,23 +1314,18 @@ cfg_stanza_env (Job             *job,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	char   *env, **e;
-	size_t  envc = 0;
+	char  *env;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	/* Count the number of array elements so we can increase the size */
-	for (e = job->env; e && *e; e++)
-		envc++;
-
 	env = nih_config_next_arg (job->env, file, len, pos, lineno);
 	if (! env)
 		return -1;
 
-	NIH_MUST (nih_str_array_add (&job->env, job, &envc, env));
+	NIH_MUST (nih_str_array_addp (&job->env, job, NULL, env));
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }
@@ -1367,9 +1364,11 @@ cfg_stanza_umask (Job             *job,
 	if (! arg)
 		return -1;
 
-	if (job->umask != JOB_DEFAULT_UMASK)
+	if (job->umask != JOB_DEFAULT_UMASK) {
+		nih_free (arg);
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
+	}
 
 	mask = strtoul (arg, &endptr, 8);
 	if (*endptr || (mask & ~0777)) {
@@ -1419,9 +1418,11 @@ cfg_stanza_nice (Job             *job,
 	if (! arg)
 		return -1;
 
-	if (job->nice)
+	if (job->nice) {
+		nih_free (arg);
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
+	}
 
 	nice = strtol (arg, &endptr, 10);
 	if (*endptr || (nice < -20) || (nice > 19)) {

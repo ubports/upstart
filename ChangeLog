@@ -1,5 +1,14 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_console): Fix a leak of the console
+	argument in the case of duplicated options.
+	(cfg_stanza_env): Drop the counting now nih_str_array_addp does it;
+	and be sure to use that function.
+	(cfg_stanza_umask): Fix leak of umask argument
+	(cfg_stanza_nice): Fix leak of nice argument
+	* init/tests/test_event.c (test_new): Call event_queue_run so init
+	is called outside of a TEST_ALLOC_FAIL block.
+
 	* init/event.c (event_new): Start off with NULL args and env, to
 	match job (saves a few bytes).
 	(event_match): Watch for NULL arguments!
