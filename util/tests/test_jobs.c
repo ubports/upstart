@@ -96,8 +96,8 @@ test_start_action (void)
 	/* Should receive UPSTART_JOB_START */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 19);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01\0\0\0\03foo", 19);
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01s\0\0\0\03foo", 20);
 
 	nih_free (msg);
 
@@ -143,8 +143,8 @@ test_start_action (void)
 	/* Should receive UPSTART_JOB_STOP */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 19);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\02\0\0\0\03foo", 19);
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\02s\0\0\0\03foo", 20);
 
 	nih_free (msg);
 
@@ -190,8 +190,8 @@ test_start_action (void)
 	/* Should receive UPSTART_JOB_QUERY */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 19);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03\0\0\0\03foo", 19);
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03s\0\0\0\03foo", 20);
 
 	nih_free (msg);
 
@@ -238,8 +238,8 @@ test_start_action (void)
 	/* Should receive UPSTART_JOB_QUERY */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 19);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03\0\0\0\03foo", 19);
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03s\0\0\0\03foo", 20);
 
 	nih_free (msg);
 
@@ -253,8 +253,8 @@ test_start_action (void)
 	/* Should receive another UPSTART_JOB_QUERY */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 19);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03\0\0\0\03bar", 19);
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03s\0\0\0\03bar", 20);
 
 	nih_free (msg);
 
@@ -299,8 +299,8 @@ test_start_action (void)
 	/* Should receive UPSTART_JOB_START */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 19);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01\0\0\0\03foo", 19);
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01s\0\0\0\03foo", 20);
 
 	nih_free (msg);
 
@@ -361,8 +361,8 @@ test_start_action (void)
 	/* Should receive UPSTART_JOB_START */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
-	TEST_EQ (msg->data->len, 21);
-	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01\0\0\0\05galen", 21);
+	TEST_EQ (msg->data->len, 22);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\01s\0\0\0\05galen", 22);
 
 	nih_free (msg);
 

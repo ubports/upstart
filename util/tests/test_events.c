@@ -112,9 +112,9 @@ test_emit_action (void)
 			assert (msg = nih_io_message_recv (NULL, sock, &len));
 		}
 
-		TEST_EQ (msg->data->len, 19);
+		TEST_EQ (msg->data->len, 20);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\010\0\0\0\003foo", 19);
+			     "upstart\n\0\0\0\010s\0\0\0\03foo", 20);
 
 		nih_free (msg);
 	}
@@ -160,9 +160,9 @@ test_emit_action (void)
 			assert (msg = nih_io_message_recv (NULL, sock, &len));
 		}
 
-		TEST_EQ (msg->data->len, 19);
+		TEST_EQ (msg->data->len, 20);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\010\0\0\0\003foo", 19);
+			     "upstart\n\0\0\0\010s\0\0\0\003foo", 20);
 
 		nih_free (msg);
 	}
@@ -208,9 +208,9 @@ test_emit_action (void)
 			assert (msg = nih_io_message_recv (NULL, sock, &len));
 		}
 
-		TEST_EQ (msg->data->len, 19);
+		TEST_EQ (msg->data->len, 20);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\xe\0\0\0\003foo", 19);
+			     "upstart\n\0\0\0\xes\0\0\0\03foo", 20);
 
 		nih_free (msg);
 	}
