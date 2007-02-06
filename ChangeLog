@@ -1,5 +1,8 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_new): Use nih_str_array_new.
+	* init/cfgfile.c (cfg_stanza_env): Rewrite to use nih_str_array.
+
 	* init/job.c (job_run_script): Check the error returned from
 	nih_io_reopen; don't just loop.  We only ever expect ENOMEM (the
 	other error, EBADF, is impossible).

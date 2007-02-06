@@ -1292,8 +1292,8 @@ cfg_stanza_env (Job             *job,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	char **new_env, *env;
-	int    envc = 0;
+	char   *env, **e;
+	size_t  envc = 0;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
@@ -1301,19 +1301,14 @@ cfg_stanza_env (Job             *job,
 	nih_assert (pos != NULL);
 
 	/* Count the number of array elements so we can increase the size */
-	for (new_env = job->env; new_env && *new_env; new_env++)
+	for (e = job->env; e && *e; e++)
 		envc++;
-
-	NIH_MUST (new_env = nih_realloc (job->env, job,
-					 sizeof (char *) * (envc + 2)));
-	job->env = new_env;
 
 	env = nih_config_next_arg (job->env, file, len, pos, lineno);
 	if (! env)
 		return -1;
 
-	job->env[envc++] = env;
-	job->env[envc] = NULL;
+	NIH_MUST (nih_str_array_add (&job->env, job, &envc, env));
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }
