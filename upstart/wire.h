@@ -44,6 +44,11 @@ int upstart_push_string   (NihIoMessage *message, const char *value)
 int upstart_pop_string    (NihIoMessage *message, const void *parent,
 			   char **value);
 
+int upstart_push_array    (NihIoMessage *message, char * const *value)
+	__attribute__ ((warn_unused_result));
+int upstart_pop_array     (NihIoMessage *message, const void *parent,
+			   char ***value);
+
 int upstart_push_header   (NihIoMessage *message, UpstartMessageType type)
 	__attribute__ ((warn_unused_result));
 int upstart_pop_header    (NihIoMessage *message, UpstartMessageType *type);

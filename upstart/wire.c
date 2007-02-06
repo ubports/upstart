@@ -31,6 +31,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/logging.h>
 #include <nih/io.h>
 
@@ -286,6 +287,121 @@ upstart_pop_string (NihIoMessage  *message,
 	(*value)[length] = '\0';
 
 	nih_io_buffer_shrink (message->data, length);
+
+	return 0;
+}
+
+
+/**
+ * upstart_push_array:
+ * @message: message to write to,
+ * @value: value to write.
+ *
+ * Write a NULL-terminated array of strings @value to the @message given.
+ *
+ * Arrays are transmitted across the wire as a single 'a' byte indicating
+ * an array, followed by one string for each of the elements and a
+ * terminating NULL string.
+ *
+ * @array may be NULL, in which case the special 'A' byte is transmitted
+ * instead followed by no strings.
+ *
+ * Failure to allocate memory can result in the buffer contents containing
+ * part of a message; if this happens, the entire message buffer should be
+ * discarded.
+ *
+ * Returns: zero on success, negative value if insufficient memory.
+ **/
+int
+upstart_push_array (NihIoMessage *message,
+		    char * const *value)
+{
+	char * const *elem;
+
+	nih_assert (message != NULL);
+
+	if (nih_io_buffer_push (message->data, value ? "a" : "A", 1) < 0)
+		return -1;
+
+	if (! value)
+		return 0;
+
+	for (elem = value; elem && *elem; elem++)
+		if (upstart_push_string (message, *elem) < 0)
+			return -1;
+
+	return upstart_push_string (message, NULL);
+}
+
+/**
+ * upstart_pop_array:
+ * @message: message to write to,
+ * @parent: parent of new string,
+ * @value: value to write.
+ *
+ * Read a NULL-terminated array of strings from the @message given, allocate
+ * the new array with nih_alloc and store it in the variable pointed to by
+ * @value, removing it from the message.
+ *
+ * Arrays are transmitted across the wire as a single 'a' byte indicating
+ * an array, followed by one string for each of the elements and a
+ * terminating NULL string.
+ *
+ * The special 'A' byte may transmitted instead followed by no strings,
+ * in which case @value is set to NULL.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned string will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+int
+upstart_pop_array (NihIoMessage   *message,
+		   const void     *parent,
+		   char         ***value)
+{
+	char   *elem;
+	size_t  len;
+
+	nih_assert (message != NULL);
+	nih_assert (value != NULL);
+
+	/* Extract the type byte first, which tells us whether to return NULL
+	 * or read more items.
+	 */
+	if (message->data->len < 1)
+		return -1;
+
+	if (message->data->buf[0] == 'A') {
+		nih_io_buffer_shrink (message->data, 1);
+
+		*value = NULL;
+		return 0;
+	} else if (message->data->buf[0] != 'a') {
+		return -1;
+	}
+
+	nih_io_buffer_shrink (message->data, 1);
+
+
+	/* Allocate the array and begin receiving strings. */
+	NIH_MUST (*value = nih_str_array_new (parent));
+	len = 0;
+
+	do {
+		if (upstart_pop_string (message, *value, &elem)) {
+			nih_free (*value);
+			*value = NULL;
+			return -1;
+		}
+
+		if (elem)
+			NIH_MUST (nih_str_array_addp (value, parent,
+						      &len, elem));
+	} while (elem);
 
 	return 0;
 }

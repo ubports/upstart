@@ -24,6 +24,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/io.h>
 
 #include <upstart/message.h>
@@ -516,6 +517,268 @@ test_pop_string (void)
 
 
 void
+test_push_array (void)
+{
+	NihIoMessage  *msg;
+	char         **array;
+	int            ret;
+
+	TEST_FUNCTION ("upstart_push_array");
+	msg = nih_io_message_new (NULL);
+
+
+	/* Check that we can write an array into an empty message that has
+	 * room; the array should show up as an 'a' record with each element
+	 * following as a string until we hit the end.
+	 */
+	TEST_FEATURE ("with space in empty buffer");
+	array = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "bar"));
+
+	TEST_ALLOC_FAIL {
+		msg->data->len = 0;
+		msg->data->size = 0;
+
+		ret = upstart_push_array (msg, array);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 19);
+		TEST_EQ_MEM (msg->data->buf, ("a\0\0\0\03foo\0\0\0\03bar"
+					      "\xff\xff\xff\xff"), 19);
+	}
+
+	nih_free (array);
+
+
+	/* Check that we can write an array into a message that already has
+	 * some thing in it, it should be appended and the buffer increased
+	 * in length to include both.
+	 */
+	TEST_FEATURE ("with space in used buffer");
+	array = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "frodo"));
+	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "bilbo"));
+
+	TEST_ALLOC_FAIL {
+		msg->data->len = 19;
+		msg->data->size = BUFSIZ;
+
+		ret = upstart_push_array (msg, array);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 42);
+		TEST_EQ_MEM (msg->data->buf,
+			     ("a\0\0\0\03foo\0\0\0\03bar\xff\xff\xff\xff"
+			      "a\0\0\0\05frodo\0\0\0\05bilbo\xff\xff\xff\xff"),
+			     42);
+	}
+
+	nih_free (array);
+
+
+	/* Check that we can write an empty array into the message. */
+	TEST_FEATURE ("with empty array");
+	array = nih_str_array_new (NULL);
+
+	TEST_ALLOC_FAIL {
+		msg->data->len = 42;
+		msg->data->size = BUFSIZ;
+
+		ret = upstart_push_array (msg, array);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 47);
+		TEST_EQ_MEM (msg->data->buf + 42, "a\xff\xff\xff\xff", 5);
+	}
+
+	nih_free (array);
+
+
+	/* Check that we can write NULL into the message. */
+	TEST_FEATURE ("with NULL array");
+	TEST_ALLOC_FAIL {
+		msg->data->len = 47;
+		msg->data->size = BUFSIZ;
+
+		ret = upstart_push_array (msg, NULL);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 48);
+		TEST_EQ_MEM (msg->data->buf + 47, "A", 1);
+	}
+
+
+	nih_free (msg);
+}
+
+void
+test_pop_array (void)
+{
+	NihIoMessage  *msg;
+	char         **value;
+	int            ret;
+
+	TEST_FUNCTION ("upstart_pop_array");
+	msg = nih_io_message_new (NULL);
+	assert0 (nih_io_buffer_push (msg->data,
+				     ("a\0\0\0\03foo\0\0\0\03bar"
+				      "\xff\xff\xff\xff"
+				      "a\0\0\0\05frodo\0\0\0\05bilbo"
+				      "\xff\xff\xff\xff"
+				      "a\xff\xff\xff\xff"
+				      "Axa\0\0\0\04te"), 56));
+
+
+	/* Check that we can read an array from the start of a message;
+	 * the array should be allocated with nih_alloc, and each string
+	 * copied from the start of the buffer, with a final NULL entry
+	 * appended.  It should then be removed from the message.
+	 */
+	TEST_FEATURE ("with array at start of buffer");
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_ALLOC_SIZE (value, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (value[0], value);
+	TEST_ALLOC_PARENT (value[1], value);
+	TEST_EQ_STR (value[0], "foo");
+	TEST_EQ_STR (value[1], "bar");
+	TEST_EQ_P (value[2], NULL);
+
+	TEST_EQ (msg->data->len, 37);
+	TEST_EQ_MEM (msg->data->buf,
+		     ("a\0\0\0\05frodo\0\0\0\05bilbo\xff\xff\xff\xff"
+		      "a\xff\xff\xff\xff"
+		      "Axa\0\0\0\04te"), 37);
+
+	nih_free (value);
+
+
+	/* Check that we can read an array from a position inside the
+	 * message, and then removed.
+	 */
+	TEST_FEATURE ("with array inside buffer");
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_ALLOC_SIZE (value, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (value[0], value);
+	TEST_ALLOC_PARENT (value[1], value);
+	TEST_EQ_STR (value[0], "frodo");
+	TEST_EQ_STR (value[1], "bilbo");
+	TEST_EQ_P (value[2], NULL);
+
+	TEST_EQ (msg->data->len, 14);
+	TEST_EQ_MEM (msg->data->buf, ("a\xff\xff\xff\xff"
+				      "Axa\0\0\0\04te"), 14);
+
+	nih_free (value);
+
+
+	/* Check that we can read the empty array from the message. */
+	TEST_FEATURE ("with empty array in buffer");
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_ALLOC_SIZE (value, sizeof (char *));
+	TEST_EQ_P (value[0], NULL);
+
+	TEST_EQ (msg->data->len, 9);
+	TEST_EQ_MEM (msg->data->buf, "Axa\0\0\0\04te", 9);
+
+	nih_free (value);
+
+
+	/* Check that we can read NULL from the message. */
+	TEST_FEATURE ("with NULL array in buffer");
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+	TEST_EQ (msg->data->len, 8);
+	TEST_EQ_MEM (msg->data->buf, "xa\0\0\0\04te", 8);
+
+
+	/* Check that -1 is returned if the type of the following item is
+	 * not an array.
+	 */
+	TEST_FEATURE ("with wrong type in buffer");
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+	TEST_EQ (msg->data->len, 8);
+	TEST_EQ_MEM (msg->data->buf, "xa\0\0\0\04te", 8);
+
+	nih_io_buffer_shrink (msg->data, 1);
+
+
+	/* Check that -1 is returned if there is enough space in the buffer
+	 * for the length of a component string, but not the string.
+	 */
+	TEST_FEATURE ("with insufficient space for element");
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+	TEST_EQ (msg->data->len, 2);
+	TEST_EQ_MEM (msg->data->buf, "te", 2);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for the length of the string.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer for element length");
+	strcpy (msg->data->buf, "a\0\0");
+	msg->data->len = 3;
+
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for the type.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer for type");
+	msg->data->len = 0;
+
+	ret = upstart_pop_array (msg, NULL, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+
+	nih_free (msg);
+}
+
+
+void
 test_push_header (void)
 {
 	NihIoMessage *msg;
@@ -795,6 +1058,8 @@ main (int   argc,
 	test_pop_unsigned ();
 	test_push_string ();
 	test_pop_string ();
+	test_push_array ();
+	test_pop_array ();
 	test_push_header ();
 	test_pop_header ();
 	test_push_pack ();
