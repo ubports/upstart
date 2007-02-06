@@ -1,5 +1,12 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_write_state): Output a goal_event field containing
+	the event name or nothing for NULL.
+	(job_read_state): Parse the goal_event field
+	* init/tests/test_job.c (test_write_state): Make sure the state is
+	written out properly.
+	(test_read_state): Make sure that the state is parsed correctly too.
+
 	* init/job.c (job_start, job_stop): Split all of the code except
 	the goal_event setting into two new static functions that this calls
 	(_job_start, _job_stop): New static functions

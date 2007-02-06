@@ -1283,6 +1283,16 @@ job_read_state (Job  *job,
 		if ((! *ptr) && (value > 1) && (value <= INT_MAX))
 			job->pid = value;
 
+	} else if (! strcmp (buf, ".goal_event")) {
+		if (*ptr) {
+			NIH_MUST (job->goal_event = nih_new (job, Event));
+			nih_list_init (&job->goal_event->entry);
+			NIH_MUST (job->goal_event->name = nih_strdup (
+					  job->goal_event, ptr));
+		} else {
+			job->goal_event = NULL;
+		}
+
 	} else if (! strcmp (buf, ".kill_timer_due")) {
 		time_t value;
 
@@ -1331,6 +1341,12 @@ job_write_state (FILE *state)
 		fprintf (state, ".process_state %s\n",
 			 process_state_name (job->process_state));
 		fprintf (state, ".pid %d\n", job->pid);
+		if (job->goal_event) {
+			fprintf (state, ".goal_event %s\n",
+				 job->goal_event->name);
+		} else {
+			fprintf (state, ".goal_event \n");
+		}
 		if (job->kill_timer)
 			fprintf (state, ".kill_timer_due %ld\n",
 				 job->kill_timer->due);

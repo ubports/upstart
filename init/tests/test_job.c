@@ -1956,6 +1956,31 @@ test_read_state (void)
 	TEST_EQ (job->pid, 9128);
 
 
+	/* Check that a NULL goal_event is parsed. */
+	TEST_FEATURE ("with no goal event");
+	sprintf (buf, ".goal_event ");
+	ptr = job_read_state (job, buf);
+
+	TEST_EQ_P (ptr, job);
+	TEST_EQ (job->goal_event, NULL);
+
+
+	/* Check that a non-NULL goal_event is parsed; creating an Event
+	 * structure and attaching it to the job.
+	 */
+	TEST_FEATURE ("with no goal event");
+	sprintf (buf, ".goal_event foo");
+	ptr = job_read_state (job, buf);
+
+	TEST_EQ_P (ptr, job);
+	TEST_ALLOC_PARENT (job->goal_event, job);
+	TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
+	TEST_LIST_EMPTY (&job->goal_event->entry);
+	TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
+	TEST_ALLOC_SIZE (job->goal_event->name, 4);
+	TEST_EQ_STR (job->goal_event->name, "foo");
+
+
 	/* Check that the kill_timer_due line results in a timer being
 	 * allocated with that amount of time left.
 	 */
@@ -2013,6 +2038,7 @@ test_write_state (void)
 	job1->pid = 1234;
 	job1->respawn_count = 3;
 	job1->respawn_time = 888;
+	job1->goal_event = NULL;
 
 	job2 = job_new (NULL, "bilbo");
 	job2->goal = JOB_STOP;
@@ -2021,6 +2047,8 @@ test_write_state (void)
 	job2->pid = 999;
 	job2->respawn_count = 0;
 	job2->respawn_time = 0;
+	job2->goal_event = nih_new (job2, Event);
+	job2->goal_event->name = nih_strdup (job2->goal_event, "wibble");
 
 	output = tmpfile ();
 	job_write_state (output);
@@ -2032,6 +2060,7 @@ test_write_state (void)
 	TEST_FILE_EQ (output, ".state running\n");
 	TEST_FILE_EQ (output, ".process_state spawned\n");
 	TEST_FILE_EQ (output, ".pid 1234\n");
+	TEST_FILE_EQ (output, ".goal_event \n");
 	TEST_FILE_EQ (output, ".respawn_count 3\n");
 	TEST_FILE_EQ (output, ".respawn_time 888\n");
 	TEST_FILE_EQ (output, "Job bilbo\n");
@@ -2039,6 +2068,7 @@ test_write_state (void)
 	TEST_FILE_EQ (output, ".state stopping\n");
 	TEST_FILE_EQ (output, ".process_state killed\n");
 	TEST_FILE_EQ (output, ".pid 999\n");
+	TEST_FILE_EQ (output, ".goal_event wibble\n");
 	TEST_FILE_EQ (output, ".respawn_count 0\n");
 	TEST_FILE_EQ (output, ".respawn_time 0\n");
 	TEST_FILE_END (output);
