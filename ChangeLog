@@ -1,5 +1,10 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_pop_header): Make the function
+	non-destructive in the face of errors.
+	* upstart/tests/test_wire.c (test_pop_header): Make sure that
+	invalid headers are non-destructive on error.
+
 	* upstart/tests/test_wire.c (test_pop_int, test_pop_unsigned):
 	Make sure that insufficient space is non-destructive.
 

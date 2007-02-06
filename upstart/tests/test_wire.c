@@ -951,18 +951,22 @@ test_pop_header (void)
 	TEST_LT (ret, 0);
 	TEST_EQ (value, -1);
 
-	TEST_EQ (msg->data->len, 2);
-	TEST_EQ_MEM (msg->data->buf, "\0\0", 2);
+	TEST_EQ (msg->data->len, 10);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0", 10);
 
 
 	/* Check that -1 is returned if there is not enough space in the
 	 * buffer for the magic string.
 	 */
 	TEST_FEATURE ("with insufficient space in buffer for magic");
+	msg->data->len = 5;
 	ret = upstart_pop_header (msg, &value);
 
 	TEST_LT (ret, 0);
 	TEST_EQ (value, -1);
+
+	TEST_EQ (msg->data->len, 5);
+	TEST_EQ_MEM (msg->data->buf, "upsta", 5);
 
 
 	/* Check that -1 is returned if the magic string doesn't match.
@@ -975,6 +979,9 @@ test_pop_header (void)
 
 	TEST_LT (ret, 0);
 	TEST_EQ (value, -1);
+
+	TEST_EQ (msg->data->len, 12);
+	TEST_EQ_MEM (msg->data->buf, "downstop\0\0\0\0", 12);
 
 
 	nih_free (msg);

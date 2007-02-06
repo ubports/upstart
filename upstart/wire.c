@@ -497,22 +497,18 @@ upstart_pop_header (NihIoMessage       *message,
 	nih_assert (message != NULL);
 	nih_assert (type != NULL);
 
-	if (message->data->len < strlen (MAGIC))
+	if (message->data->len < (strlen (MAGIC) + sizeof (wire_type)))
 		return -1;
 
 	if (memcmp (message->data->buf, MAGIC, strlen (MAGIC)))
 		return -1;
 
-	nih_io_buffer_shrink (message->data, strlen (MAGIC));
-
-
-	if (message->data->len < sizeof (wire_type))
-		return -1;
-
-	memcpy (&wire_type, message->data->buf, sizeof (wire_type));
-	nih_io_buffer_shrink (message->data, sizeof (wire_type));
-
+	memcpy (&wire_type, message->data->buf + strlen (MAGIC),
+		sizeof (wire_type));
 	*type = ntohl (wire_type);
+
+	nih_io_buffer_shrink (message->data,
+			      strlen (MAGIC) + sizeof (wire_type));
 
 	return 0;
 }
