@@ -491,7 +491,7 @@ cfg_stanza_emits (Job             *job,
  * @lineno: line number.
  *
  * Parse an on stanza from @file, extracting a single argument containing
- * an event that starts the job.
+ * an event that starts the job, followed by arguments for that event.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -516,11 +516,17 @@ cfg_stanza_on (Job             *job,
 		return -1;
 
 	NIH_MUST (event = event_new (job, name));
-	nih_list_add (&job->start_events, &event->entry);
-
 	nih_free (name);
 
-	return nih_config_skip_comment (file, len, pos, lineno);
+	event->args = nih_config_parse_args (event, file, len, pos, lineno);
+	if (! event->args) {
+		nih_free (event);
+		return -1;
+	}
+
+	nih_list_add (&job->start_events, &event->entry);
+
+	return 0;
 }
 
 /**
@@ -572,11 +578,18 @@ cfg_stanza_start (Job             *job,
 			return -1;
 
 		NIH_MUST (event = event_new (job, name));
-		nih_list_add (&job->start_events, &event->entry);
-
 		nih_free (name);
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		event->args = nih_config_parse_args (event, file, len,
+						     pos, lineno);
+		if (! event->args) {
+			nih_free (event);
+			return -1;
+		}
+
+		nih_list_add (&job->start_events, &event->entry);
+
+		return 0;
 
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);
@@ -653,11 +666,18 @@ cfg_stanza_stop (Job             *job,
 			return -1;
 
 		NIH_MUST (event = event_new (job, name));
-		nih_list_add (&job->stop_events, &event->entry);
-
 		nih_free (name);
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		event->args = nih_config_parse_args (event, file, len,
+						     pos, lineno);
+		if (! event->args) {
+			nih_free (event);
+			return -1;
+		}
+
+		nih_list_add (&job->stop_events, &event->entry);
+
+		return 0;
 
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);

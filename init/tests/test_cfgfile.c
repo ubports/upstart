@@ -723,6 +723,37 @@ test_stanza_on (void)
 	nih_list_free (&job->entry);
 
 
+	/* Check that all arguments are consumed, with additional arguments
+	 * after the first being treated as arguments for the event.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
 	/* Check that repeated on stanzas are permitted, each appending
 	 * to the last.
 	 */
@@ -806,28 +837,6 @@ test_stanza_on (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that an on stanza with an extra argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "on foo bar\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
 	fclose (output);
 	unlink (filename);
 }
@@ -865,6 +874,38 @@ test_stanza_start (void)
 	event = (Event *)job->start_events.next;
 	TEST_ALLOC_SIZE (event, sizeof (Event));
 	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that all arguments to the start on stanza are consumed,
+	 * with additional arguments after the first being treated as
+	 * arguments for the event.
+	 */
+	TEST_FEATURE ("with on and multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
 
 	nih_list_free (&job->entry);
 
@@ -1014,28 +1055,6 @@ test_stanza_start (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that a start on stanza with an extra argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start on foo bar\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
 	/* Check that a start script stanza with an extra argument results
 	 * in a syntax error.
 	 */
@@ -1095,6 +1114,38 @@ test_stanza_stop (void)
 	event = (Event *)job->stop_events.next;
 	TEST_ALLOC_SIZE (event, sizeof (Event));
 	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that all arguments to the stop on stanza are consumed,
+	 * with additional arguments after the first being treated as
+	 * arguments for the event.
+	 */
+	TEST_FEATURE ("with on and multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
 
 	nih_list_free (&job->entry);
 
@@ -1239,28 +1290,6 @@ test_stanza_stop (void)
 	TEST_EQ_P (job, NULL);
 
 	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a stop on stanza with an extra argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop on foo bar\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);

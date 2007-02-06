@@ -1,5 +1,11 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_on, cfg_stanza_start) 
+	(cfg_stanza_stop): Parse arguments to the on stanza and store them
+	directly in the event.
+	* init/tests/test_cfgfile.c (test_stanza_on, test_stanza_start) 
+	(test_stanza_stop): Make sure arguments are parsed into the event.
+
 	* init/event.c (event_new): Use nih_str_array_new.
 	* init/cfgfile.c (cfg_stanza_env): Rewrite to use nih_str_array.
 
