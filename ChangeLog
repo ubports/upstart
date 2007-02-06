@@ -1,5 +1,9 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_script): Check the error returned from
+	nih_io_reopen; don't just loop.  We only ever expect ENOMEM (the
+	other error, EBADF, is impossible).
+
 	* init/job.c (job_change_state): Reset the goal_event to NULL when
 	we catch a run-away job (as it's not stopping for the same event
 	it started with).
