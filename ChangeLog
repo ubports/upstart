@@ -1,5 +1,10 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_reaper): Convert signals to names when
+	outputting status messages.
+	* init/tests/test_job.c (test_child_reaper): Check that the signal
+	name gets converted over.
+
 	* init/event.h (CTRLALTDEL_EVENT): Now we've broken the shared
 	namespace of events and jobs, rename the control-alt-delete event
 	back to control-alt-delete.

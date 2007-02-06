@@ -814,8 +814,16 @@ job_child_reaper (void  *data,
 
 	/* Report the death */
 	if (killed) {
-		nih_warn (_("%s process (%d) killed by signal %d"),
-			  job->name, pid, status);
+		const char *sig;
+
+		sig = nih_signal_to_name (status);
+		if (sig) {
+			nih_warn (_("%s process (%d) killed by %s signal"),
+				  job->name, pid, sig);
+		} else {
+			nih_warn (_("%s process (%d) killed by signal %d"),
+				  job->name, pid, status);
+		}
 	} else if (status) {
 		nih_warn (_("%s process (%d) terminated with status %d"),
 			  job->name, pid, status);

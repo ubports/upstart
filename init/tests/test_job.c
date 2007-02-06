@@ -1533,7 +1533,7 @@ test_child_reaper (void)
 		waitpid (job->pid, NULL, 0);
 
 		TEST_FILE_EQ (output, ("test: test process (1) killed "
-				       "by signal 15\n"));
+				       "by TERM signal\n"));
 		TEST_FILE_END (output);
 
 		TEST_FILE_RESET (output);
