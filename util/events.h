@@ -29,7 +29,11 @@
 
 NIH_BEGIN_EXTERN
 
+char **emit_env;
+
 int emit_action     (NihCommand *command, char * const *args);
+int env_option      (NihOption *option, const char *arg);
+
 int events_action   (NihCommand *command, char * const *args);
 int shutdown_action (NihCommand *command, char * const *args);
 

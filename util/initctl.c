@@ -102,6 +102,9 @@ NihOption jobs_options[] = {
  * Command-line options accepted for the emit command.
  **/
 NihOption emit_options[] = {
+	{ 'e', NULL, "set environment variable in jobs changed by this event",
+	  NULL, "NAME[=VALUE]", &emit_env, env_option },
+
 	NIH_OPTION_LAST
 };
 
@@ -164,9 +167,16 @@ static NihCommand commands[] = {
 	  NULL,
 	  &job_commands, list_options, list_action },
 
-	{ "emit", N_("EVENT"),
+	{ "emit", N_("EVENT [ARG]..."),
 	  N_("Emit an event."),
-	  N_("EVENT is the name of an event the init daemon should emit."),
+	  N_("EVENT is the name of an event the init daemon should emit, "
+	     "which may have zero or more arguments specified by ARG.  These "
+	     "may be matched in the job definition, and are passed to any "
+	     "scripts run by the job.\n\n"
+	     "Events may also pass environment variables to the job scripts, "
+	     "defined using -e.  A value may be specified in the option, or "
+	     "if omitted, the value is taken from the environment or ignored "
+	     "if not present there."),
 	  &event_commands, emit_options, emit_action },
 
 	{ "trigger", N_("EVENT"),

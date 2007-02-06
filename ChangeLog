@@ -1,6 +1,15 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
-	* util/initctl.c: Give shutdown its own command and options.
+	* util/events.c (emit_action): Pass in extra arguments.
+	(env_option): Function to parse an option given an environment
+	variable.
+	* util/events.h: Add prototype.
+	* util/tests/test_events.c (test_emit_action): Make sure that the
+	emit action works with no arguments and with arguments.
+	(test_events_action): Send back events with the right number of args.
+	(test_env_option): Check the env option parser works.
+	* util/initctl.c: Give shutdown its own command and options, give
+	emit a new -e option.
 
 	* util/events.c (shutdown_action): Split out from emit, seeing as
 	these are going to be different from now on.

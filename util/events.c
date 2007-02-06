@@ -26,6 +26,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <nih/macros.h>
@@ -48,6 +49,14 @@
 /* Prototypes for static functions */
 static int handle_event (void *data, pid_t pid, UpstartMessageType type,
 			 const char *name);
+
+
+/**
+ * emit_env:
+ *
+ * Environment variables to emit along with the event.
+ **/
+char **emit_env = NULL;
 
 
 /**
@@ -89,17 +98,9 @@ emit_action (NihCommand   *command,
 		return 1;
 	}
 
-	if (! strcmp (command->command, "emit")) {
-		message = upstart_message_new (NULL, destination_pid,
-					       UPSTART_EVENT_QUEUE, args[0]);
-	} else if (! strcmp (command->command, "trigger")) {
-		message = upstart_message_new (NULL, destination_pid,
-					       UPSTART_EVENT_QUEUE, args[0]);
-	} else if (! strcmp (command->command, "shutdown")) {
-		message = upstart_message_new (NULL, destination_pid,
-					       UPSTART_SHUTDOWN, args[0]);
-	}
-
+	message = upstart_message_new (NULL, destination_pid,
+				       UPSTART_EVENT_QUEUE, args[0],
+				       args[1] ? &(args[1]) : NULL, NULL);
 	if (! message) {
 		nih_error_raise_system ();
 		goto error;
@@ -121,6 +122,51 @@ error:
 	nih_free (err);
 
 	return 1;
+}
+
+/**
+ * env_option:
+ * @option: NihOption invoked,
+ * @arg: argument to parse.
+ *
+ * This option setter is used to append @arg to the list of environment
+ * variables pointed to by the value member of option, which must be a
+ * pointer to a char **.
+ *
+ * If @arg does not contain an '=', the current value from the environment
+ * is taken instead.
+ *
+ * The arg_name member of @option must not be NULL.
+ *
+ * Returns: zero on success, non-zero on error.
+ **/
+int
+env_option (NihOption  *option,
+	    const char *arg)
+{
+	char ***value;
+
+	nih_assert (option != NULL);
+	nih_assert (option->value != NULL);
+	nih_assert (arg != NULL);
+
+	value = (char ***)option->value;
+
+	if (strchr (arg, '=')) {
+		NIH_MUST (nih_str_array_add (value, NULL, NULL, arg));
+	} else {
+		char *env, *new_arg;
+
+		env = getenv (arg);
+		if (env) {
+			NIH_MUST (new_arg = nih_sprintf (NULL, "%s=%s",
+							 arg, env));
+			NIH_MUST (nih_str_array_addp (value, NULL, NULL,
+						      new_arg));
+		}
+	}
+
+	return 0;
 }
 
 
