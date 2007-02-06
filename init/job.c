@@ -862,6 +862,41 @@ job_child_reaper (void  *data,
 
 
 /**
+ * job_catch_runaway
+ * @job: job respawning.
+ *
+ * This function ensures that a job doesn't enter a respawn loop by
+ * limiting the number of respawns in a particular time limit.
+ *
+ * Returns: TRUE if the job is respawning too fast, FALSE if not.
+ */
+static int
+job_catch_runaway (Job *job)
+{
+	nih_assert (job != NULL);
+
+	if (job->respawn_limit && job->respawn_interval) {
+		time_t interval;
+
+		/* Time since last respawn ... this goes very large if we
+		 * haven't done one, which is fine
+		 */
+		interval = time (NULL) - job->respawn_time;
+		if (interval < job->respawn_interval) {
+			job->respawn_count++;
+			if (job->respawn_count > job->respawn_limit)
+				return TRUE;
+		} else {
+			job->respawn_time = time (NULL);
+			job->respawn_count = 1;
+		}
+	}
+
+	return FALSE;
+}
+
+
+/**
  * job_start:
  * @job: job to be started.
  *
@@ -955,41 +990,6 @@ job_stop (Job *job)
 	}
 
 	job_kill_process (job);
-}
-
-
-/**
- * job_catch_runaway
- * @job: job respawning.
- *
- * This function ensures that a job doesn't enter a respawn loop by
- * limiting the number of respawns in a particular time limit.
- *
- * Returns: TRUE if the job is respawning too fast, FALSE if not.
- */
-static int
-job_catch_runaway (Job *job)
-{
-	nih_assert (job != NULL);
-
-	if (job->respawn_limit && job->respawn_interval) {
-		time_t interval;
-
-		/* Time since last respawn ... this goes very large if we
-		 * haven't done one, which is fine
-		 */
-		interval = time (NULL) - job->respawn_time;
-		if (interval < job->respawn_interval) {
-			job->respawn_count++;
-			if (job->respawn_count > job->respawn_limit)
-				return TRUE;
-		} else {
-			job->respawn_time = time (NULL);
-			job->respawn_count = 1;
-		}
-	}
-
-	return FALSE;
 }
 
 
