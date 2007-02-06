@@ -73,8 +73,6 @@ upstart_push_int (NihIoMessage *message,
 	int32_t wire_value;
 
 	nih_assert (message != NULL);
-	nih_assert (value >= INT32_MIN);
-	nih_assert (value <= INT32_MAX);
 
 	if (nih_io_buffer_push (message->data, "i", 1) < 0)
 		return -1;
@@ -153,7 +151,6 @@ upstart_push_unsigned (NihIoMessage *message,
 	uint32_t wire_value;
 
 	nih_assert (message != NULL);
-	nih_assert (value <= UINT32_MAX);
 
 	if (nih_io_buffer_push (message->data, "u", 1) < 0)
 		return -1;

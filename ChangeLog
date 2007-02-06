@@ -1,5 +1,8 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_push_int, upstart_push_unsigned):
+	Take out silly asserts; it must have room!
+
 	* upstart/wire.c (upstart_push_string, upstart_pop_string): Rewrite
 	to use a type like the rest of the functions; this removes the strange
 	length restriction and allows us to make the pop function
