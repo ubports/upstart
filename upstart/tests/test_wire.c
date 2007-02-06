@@ -58,8 +58,8 @@ test_push_int (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 4);
-		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a", 4);
+		TEST_EQ (msg->data->len, 5);
+		TEST_EQ_MEM (msg->data->buf, "i\0\0\0\x2a", 5);
 	}
 
 
@@ -69,7 +69,7 @@ test_push_int (void)
 	 */
 	TEST_FEATURE ("with space in used buffer");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 4;
+		msg->data->len = 5;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_int (msg, 1234567);
@@ -80,15 +80,15 @@ test_push_int (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 8);
-		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+		TEST_EQ (msg->data->len, 10);
+		TEST_EQ_MEM (msg->data->buf, "i\0\0\0\x2ai\0\x12\xd6\x87", 10);
 	}
 
 
 	/* Check that we can place a negative number into the iovec. */
 	TEST_FEATURE ("with negative number");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 8;
+		msg->data->len = 10;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_int (msg, -42);
@@ -99,8 +99,8 @@ test_push_int (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf + 8, "\xff\xff\xff\xd6", 4);
+		TEST_EQ (msg->data->len, 15);
+		TEST_EQ_MEM (msg->data->buf + 10, "i\xff\xff\xff\xd6", 5);
 	}
 
 
@@ -115,8 +115,9 @@ test_pop_int (void)
 
 	TEST_FUNCTION ("upstart_pop_int");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, ("\0\0\0\x2a\0\x12\xd6\x87"
-						 "\xff\xff\xff\xd6\0\0"), 14));
+	assert0 (nih_io_buffer_push (msg->data, ("i\0\0\0\x2ai\0\x12\xd6\x87"
+						 "i\xff\xff\xff\xd6xi\0\0"),
+				     19));
 
 
 	/* Check that we can read an integer from the start of a message;
@@ -129,8 +130,9 @@ test_pop_int (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ (value, 42);
 
-	TEST_EQ (msg->data->len, 10);
-	TEST_EQ_MEM (msg->data->buf, "\0\x12\xd6\x87\xff\xff\xff\xd6\0\0", 10);
+	TEST_EQ (msg->data->len, 14);
+	TEST_EQ_MEM (msg->data->buf, "i\0\x12\xd6\x87i\xff\xff\xff\xd6xi\0\0",
+		     14);
 
 
 	/* Check that we can read an integer from a position inside the
@@ -142,8 +144,8 @@ test_pop_int (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ (value, 1234567);
 
-	TEST_EQ (msg->data->len, 6);
-	TEST_EQ_MEM (msg->data->buf, "\xff\xff\xff\xd6\0\0", 6);
+	TEST_EQ (msg->data->len, 9);
+	TEST_EQ_MEM (msg->data->buf, "i\xff\xff\xff\xd6xi\0\0", 9);
 
 
 	/* Check that we can read a negative number from a message. */
@@ -153,14 +155,40 @@ test_pop_int (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ (value, -42);
 
-	TEST_EQ (msg->data->len, 2);
-	TEST_EQ_MEM (msg->data->buf, "\0\0", 2);
+	TEST_EQ (msg->data->len, 4);
+	TEST_EQ_MEM (msg->data->buf, "xi\0\0", 4);
+
+
+	/* Check that -1 is returned if the type in the buffer is not
+	 * correct.
+	 */
+	TEST_FEATURE ("with incorrect type in buffer");
+	ret = upstart_pop_int (msg, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (value, -42);
+
+	TEST_EQ (msg->data->len, 4);
+	TEST_EQ_MEM (msg->data->buf, "xi\0\0", 4);
+
+	nih_io_buffer_shrink (msg->data, 1);
 
 
 	/* Check that -1 is returned if there is not enough space in the
 	 * buffer for an integer.
 	 */
 	TEST_FEATURE ("with insufficient space in buffer");
+	ret = upstart_pop_int (msg, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (value, -42);
+
+
+	/* Check that -1 is returned if there is not enough space for the
+	 * type. */
+	TEST_FEATURE ("with insufficient space in buffer for type");
+	msg->data->len = 0;
+
 	ret = upstart_pop_int (msg, &value);
 
 	TEST_LT (ret, 0);
@@ -199,8 +227,8 @@ test_push_unsigned (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 4);
-		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a", 4);
+		TEST_EQ (msg->data->len, 5);
+		TEST_EQ_MEM (msg->data->buf, "u\0\0\0\x2a", 5);
 	}
 
 
@@ -210,7 +238,7 @@ test_push_unsigned (void)
 	 */
 	TEST_FEATURE ("with space in used buffer");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 4;
+		msg->data->len = 5;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_unsigned (msg, 1234567);
@@ -221,15 +249,15 @@ test_push_unsigned (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 8);
-		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x2a\0\x12\xd6\x87", 8);
+		TEST_EQ (msg->data->len, 10);
+		TEST_EQ_MEM (msg->data->buf, "u\0\0\0\x2au\0\x12\xd6\x87", 10);
 	}
 
 
 	/* Check that we can write a very large number into the message. */
 	TEST_FEATURE ("with very large number");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 8;
+		msg->data->len = 10;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_unsigned (msg, 0xfedcba98);
@@ -240,8 +268,8 @@ test_push_unsigned (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf + 8, "\xfe\xdc\xba\x98", 4);
+		TEST_EQ (msg->data->len, 15);
+		TEST_EQ_MEM (msg->data->buf + 10, "u\xfe\xdc\xba\x98", 5);
 	}
 
 
@@ -257,8 +285,9 @@ test_pop_unsigned (void)
 
 	TEST_FUNCTION ("upstart_pop_unsigned");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, ("\0\0\0\x2a\0\x12\xd6\x87"
-						 "\xfe\xdc\xba\x98\0\0"), 14));
+	assert0 (nih_io_buffer_push (msg->data, ("u\0\0\0\x2au\0\x12\xd6\x87"
+						 "u\xfe\xdc\xba\x98xu\0\0"),
+				     19));
 
 
 	/* Check that we can read an integer from the start of a message;
@@ -271,8 +300,9 @@ test_pop_unsigned (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ_U (value, 42);
 
-	TEST_EQ (msg->data->len, 10);
-	TEST_EQ_MEM (msg->data->buf, "\0\x12\xd6\x87\xfe\xdc\xba\x98\0\0", 10);
+	TEST_EQ (msg->data->len, 14);
+	TEST_EQ_MEM (msg->data->buf,
+		     "u\0\x12\xd6\x87u\xfe\xdc\xba\x98xu\0\0", 14);
 
 
 	/* Check that we can read an integer from a position inside the
@@ -284,8 +314,8 @@ test_pop_unsigned (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ_U (value, 1234567);
 
-	TEST_EQ (msg->data->len, 6);
-	TEST_EQ_MEM (msg->data->buf, "\xfe\xdc\xba\x98\0\0", 6);
+	TEST_EQ (msg->data->len, 9);
+	TEST_EQ_MEM (msg->data->buf, "u\xfe\xdc\xba\x98xu\0\0", 9);
 
 
 	/* Check that we can read a very large number from a message. */
@@ -295,8 +325,23 @@ test_pop_unsigned (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ_U (value, 0xfedcba98);
 
-	TEST_EQ (msg->data->len, 2);
-	TEST_EQ_MEM (msg->data->buf, "\0\0", 2);
+	TEST_EQ (msg->data->len, 4);
+	TEST_EQ_MEM (msg->data->buf, "xu\0\0", 4);
+
+
+	/* Check that -1 is returned if the type in the buffer is not
+	 * correct.
+	 */
+	TEST_FEATURE ("with incorrect type in buffer");
+	ret = upstart_pop_unsigned (msg, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (value, 0xfedcba98);
+
+	TEST_EQ (msg->data->len, 4);
+	TEST_EQ_MEM (msg->data->buf, "xu\0\0", 4);
+
+	nih_io_buffer_shrink (msg->data, 1);
 
 
 	/* Check that -1 is returned if there is not enough space in the
@@ -307,6 +352,18 @@ test_pop_unsigned (void)
 
 	TEST_LT (ret, 0);
 	TEST_EQ_U (value, 0xfedcba98);
+
+
+	/* Check that -1 is returned if there is not enough space for the
+	 * type.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer for type");
+	msg->data->len = 0;
+
+	ret = upstart_pop_unsigned (msg, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ (value, 0xfedcba98);
 
 
 	nih_free (msg);
@@ -951,12 +1008,12 @@ test_push_pack (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 47);
-		TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
+		TEST_EQ (msg->data->len, 50);
+		TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x64u\x98\x76\x54\x32"
 					      "\0\0\0\x0cstring value"
 					      "a\0\0\0\03foo\0\0\0\03bar"
 					      "\xff\xff\xff\xff"
-					      "\xff\xff\xff\xd6"), 47);
+					      "i\xff\xff\xff\xd6"), 50);
 	}
 
 	nih_free (array);
@@ -968,7 +1025,7 @@ test_push_pack (void)
 	 */
 	TEST_FEATURE ("with used buffer");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 47;
+		msg->data->len = 50;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_pack (msg, "ii", 98, 100);
@@ -979,13 +1036,13 @@ test_push_pack (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 55);
-		TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
+		TEST_EQ (msg->data->len, 60);
+		TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x64u\x98\x76\x54\x32"
 					      "\0\0\0\x0cstring value"
 					      "a\0\0\0\03foo\0\0\0\03bar"
 					      "\xff\xff\xff\xff"
-					      "\xff\xff\xff\xd6"
-					      "\0\0\0\x62\0\0\0\x64"), 55);
+					      "i\xff\xff\xff\xd6"
+					      "i\0\0\0\x62i\0\0\0\x64"), 60);
 	}
 
 	nih_free (msg);
@@ -1002,13 +1059,13 @@ test_pop_pack (void)
 	TEST_FUNCTION ("upstart_pop_pack");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     ("\0\0\0\x64\x98\x76\x54\x32"
+				     ("i\0\0\0\x64u\x98\x76\x54\x32"
 				      "\0\0\0\x0cstring value"
 				      "a\0\0\0\05frodo\0\0\0\05bilbo"
 				      "\xff\xff\xff\xff"
-				      "\xff\xff\xff\xd6"
-				      "\0\0\0\x62\0\0\0\x64"
-				      "\0\0\0\x13\0\0\0\x04te"), 69));
+				      "i\xff\xff\xff\xd6"
+				      "i\0\0\0\x62i\0\0\0\x64"
+				      "i\0\0\0\x13\0\0\0\x04te"), 75));
 
 
 	/* Check that we can read a series of different values in a single
@@ -1032,9 +1089,9 @@ test_pop_pack (void)
 	TEST_EQ_P (array[2], NULL);
 	TEST_EQ (int2, -42);
 
-	TEST_EQ (msg->data->len, 18);
-	TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x62\0\0\0\x64"
-				      "\0\0\0\x13\0\0\0\x04te"), 18);
+	TEST_EQ (msg->data->len, 21);
+	TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x62i\0\0\0\x64"
+				      "i\0\0\0\x13\0\0\0\x04te"), 21);
 
 	nih_free (str);
 
@@ -1049,8 +1106,8 @@ test_pop_pack (void)
 	TEST_EQ (int1, 98);
 	TEST_EQ (int2, 100);
 
-	TEST_EQ (msg->data->len, 10);
-	TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x13\0\0\0\x04te"), 10);
+	TEST_EQ (msg->data->len, 11);
+	TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x13\0\0\0\x04te"), 11);
 
 
 	/* Check that -1 is returned if there's not enough space in the

@@ -1,5 +1,16 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_push_int, upstart_pop_int) 
+	(upstart_push_unsigned, upstart_pop_unsigned): Convert to array-style
+	type first format.
+	(upstart_push_string, upstart_push_header): Write the length and
+	type fields out by hand so they don't get an 'i' prefix.
+	(upstart_pop_string, upstart_pop_header): Read the length and type
+	fields by hand so they don't get an 'i' prefix.
+	* upstart/tests/test_wire.c (test_push_int, test_pop_int) 
+	(test_push_unsigned, test_pop_unsigned): Update test cases to match.
+	(test_push_pack, test_pop_pack): Pack format was changed too.
+
 	* upstart/wire.c (upstart_push_packv, upstart_pop_packv): Add calls
 	to push and pop array.
 	* upstart/tests/test_wire.c (test_push_pack, test_pop_pack): Test

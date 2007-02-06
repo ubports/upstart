@@ -57,8 +57,8 @@
  *
  * Write an integer @value to the @message given.
  *
- * Integers are transmitted across the wire as signed 32-bit values,
- * in network byte order.
+ * Integers are transmitted across the wire as a single 'i' byte indicating
+ * an integer followed by a signed 32-bit value, in network byte order.
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -76,6 +76,9 @@ upstart_push_int (NihIoMessage *message,
 	nih_assert (value >= INT32_MIN);
 	nih_assert (value <= INT32_MAX);
 
+	if (nih_io_buffer_push (message->data, "i", 1) < 0)
+		return -1;
+
 	wire_value = ntohl (value);
 
 	return nih_io_buffer_push (message->data, (const char *)&wire_value,
@@ -90,8 +93,8 @@ upstart_push_int (NihIoMessage *message,
  * Read an integer value from the @message given, storing the value
  * in the integer pointed to by @value and removing it from the message.
  *
- * Integers are transmitted across the wire as signed 32-bit values,
- * in network byte order.
+ * Integers are transmitted across the wire as a single 'i' byte indicating
+ * an integer followed by a signed 32-bit value, in network byte order.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -104,8 +107,15 @@ upstart_pop_int (NihIoMessage *message,
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
 
-	if (message->data->len < sizeof (wire_value))
+	if (message->data->len < (sizeof (wire_value) + 1))
 		return -1;
+
+	/* Extract the type byte first. */
+	if (message->data->buf[0] != 'i')
+		return -1;
+
+	nih_io_buffer_shrink (message->data, 1);
+
 
 	memcpy (&wire_value, message->data->buf, sizeof (wire_value));
 	nih_io_buffer_shrink (message->data, sizeof (wire_value));
@@ -127,8 +137,8 @@ upstart_pop_int (NihIoMessage *message,
  *
  * Write an unsigned @value to the @message given.
  *
- * Unsigneds are transmitted across the wire as 32-bit values,
- * in network byte order.
+ * Unsigneds are transmitted across the wire as a single 'u' byte indicating
+ * an unsigned followed by a 32-bit value, in network byte order.
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -145,6 +155,9 @@ upstart_push_unsigned (NihIoMessage *message,
 	nih_assert (message != NULL);
 	nih_assert (value <= UINT32_MAX);
 
+	if (nih_io_buffer_push (message->data, "u", 1) < 0)
+		return -1;
+
 	wire_value = ntohl (value);
 
 	return nih_io_buffer_push (message->data, (const char *)&wire_value,
@@ -159,8 +172,8 @@ upstart_push_unsigned (NihIoMessage *message,
  * Read an unsigned value from the @message given, storing the value
  * in the variable pointed to by @value and removing it from the message.
  *
- * Unsigneds are transmitted across the wire as 32-bit values,
- * in network byte order.
+ * Unsigneds are transmitted across the wire as a single 'u' byte indicating
+ * an unsigned followed by a 32-bit value, in network byte order.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -173,8 +186,15 @@ upstart_pop_unsigned (NihIoMessage *message,
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
 
-	if (message->data->len < sizeof (wire_value))
+	if (message->data->len < (sizeof (wire_value) + 1))
 		return -1;
+
+	/* Extract the type byte first. */
+	if (message->data->buf[0] != 'u')
+		return -1;
+
+	nih_io_buffer_shrink (message->data, 1);
+
 
 	memcpy (&wire_value, message->data->buf, sizeof (wire_value));
 	nih_io_buffer_shrink (message->data, sizeof (wire_value));
@@ -214,14 +234,18 @@ int
 upstart_push_string (NihIoMessage *message,
 		     const char   *value)
 {
+	uint32_t wire_len;
+
 	nih_assert (message != NULL);
+
 	if (value) {
 		nih_assert (strlen (value) <= UINT32_MAX);
 		nih_assert (strlen (value) != 0xffffffff);
 	}
 
-	if (upstart_push_unsigned (message,
-				   value ? strlen (value) : 0xffffffff))
+	wire_len = ntohl (value ? strlen (value) : 0xffffffff);
+	if (nih_io_buffer_push (message->data, (const char *)&wire_len,
+				sizeof (wire_len)) < 0)
 		return -1;
 
 	if (! value)
@@ -261,7 +285,8 @@ upstart_pop_string (NihIoMessage  *message,
 		    const void    *parent,
 		    char         **value)
 {
-	size_t length;
+	uint32_t wire_length;
+	size_t   length;
 
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
@@ -269,8 +294,13 @@ upstart_pop_string (NihIoMessage  *message,
 	/* Extract the length first, this can be the special 0xffffffff
 	 * in which case we just set the string to NULL and return.
 	 */
-	if (upstart_pop_unsigned (message, (unsigned int *)&length))
+	if (message->data->len < sizeof (wire_length))
 		return -1;
+
+	memcpy (&wire_length, message->data->buf, sizeof (wire_length));
+	nih_io_buffer_shrink (message->data, sizeof (wire_length));
+
+	length = ntohl (wire_length);
 
 	if (length == 0xffffffff) {
 		*value = NULL;
@@ -428,12 +458,16 @@ int
 upstart_push_header (NihIoMessage       *message,
 		     UpstartMessageType  type)
 {
+	int32_t wire_type;
+
 	nih_assert (message != NULL);
 
 	if (nih_io_buffer_push (message->data, MAGIC, strlen (MAGIC)))
 		return -1;
 
-	if (upstart_push_int (message, type))
+	wire_type = ntohl (type);
+	if (nih_io_buffer_push (message->data, (const char *)&wire_type,
+				sizeof (wire_type)) < 0)
 		return -1;
 
 	return 0;
@@ -458,6 +492,8 @@ int
 upstart_pop_header (NihIoMessage       *message,
 		    UpstartMessageType *type)
 {
+	int32_t wire_type;
+
 	nih_assert (message != NULL);
 	nih_assert (type != NULL);
 
@@ -470,8 +506,13 @@ upstart_pop_header (NihIoMessage       *message,
 	nih_io_buffer_shrink (message->data, strlen (MAGIC));
 
 
-	if (upstart_pop_int (message, (int *)type))
+	if (message->data->len < sizeof (wire_type))
 		return -1;
+
+	memcpy (&wire_type, message->data->buf, sizeof (wire_type));
+	nih_io_buffer_shrink (message->data, sizeof (wire_type));
+
+	*type = ntohl (wire_type);
 
 	return 0;
 }
