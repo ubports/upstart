@@ -1,5 +1,10 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_new): Start off with NULL args and env, to
+	match job (saves a few bytes).
+	(event_match): Watch for NULL arguments!
+	* init/tests/test_event.c (test_new): Check for NULL not alloc'd
+
 	* init/cfgfile.c (cfg_stanza_on, cfg_stanza_start) 
 	(cfg_stanza_stop): Parse arguments to the on stanza and store them
 	directly in the event.

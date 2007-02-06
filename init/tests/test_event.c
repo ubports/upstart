@@ -52,13 +52,8 @@ test_new (void)
 		TEST_EQ_STR (event->name, "test");
 		TEST_ALLOC_PARENT (event->name, event);
 
-		TEST_ALLOC_SIZE (event->args, sizeof (char *));
-		TEST_ALLOC_PARENT (event->args, event);
-		TEST_EQ_P (event->args[0], NULL);
-
-		TEST_ALLOC_SIZE (event->env, sizeof (char *));
-		TEST_ALLOC_PARENT (event->env, event);
-		TEST_EQ_P (event->env[0], NULL);
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
 
 		nih_list_free (&event->entry);
 	}

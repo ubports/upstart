@@ -109,17 +109,8 @@ event_new (const void *parent,
 		return NULL;
 	}
 
-	event->args = nih_str_array_new (event);
-	if (! event->args) {
-		nih_free (event);
-		return NULL;
-	}
-
-	event->env = nih_str_array_new (event);
-	if (! event->env) {
-		nih_free (event);
-		return NULL;
-	}
+	event->args = NULL;
+	event->env = NULL;
 
 	return event;
 }
@@ -150,14 +141,14 @@ event_match (Event *event1,
 
 	/* Match arguments using the second argument as a glob */
 	for (arg1 = event1->args, arg2 = event2->args;
-	     *arg1 && *arg2; arg1++, arg2++)
+	     arg1 && arg2 && *arg1 && *arg2; arg1++, arg2++)
 		if (fnmatch (*arg2, *arg1, 0))
 			return FALSE;
 
 	/* Must be at least the same number of arguments in event1 as
 	 * there are in event2
 	 */
-	if (*arg2)
+	if (arg2 && *arg2)
 		return FALSE;
 
 	return TRUE;
