@@ -486,9 +486,10 @@ upstart_pop_header (NihIoMessage       *message,
  * Write a set of values, as determined by @pack, to the @message given.
  *
  * @pack is a string that indicates the types of @args.
- *  i - int          (written with upstart_push_int)
- *  u - unsigned int (written with upstart_push_unsigned)
- *  s - const char * (written with upstart_push_string)
+ *  i - int            (written with upstart_push_int)
+ *  u - unsigned int   (written with upstart_push_unsigned)
+ *  s - const char *   (written with upstart_push_string)
+ *  a - char * const * (written with upstart_push_array)
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -524,6 +525,10 @@ upstart_push_packv (NihIoMessage *message,
 			ret = upstart_push_string (
 				message, va_arg (args_copy, const char *));
 			break;
+		case 'a':
+			ret = upstart_push_array (
+				message, va_arg (args_copy, char * const *));
+			break;
 		default:
 			nih_assert_not_reached ();
 		}
@@ -546,6 +551,7 @@ upstart_push_packv (NihIoMessage *message,
  *  i - int          - written with upstart_push_int()
  *  u - unsigned int - written with upstart_push_unsigned()
  *  s - const char * - written with upstart_push_string()
+ *  a - char * const * (written with upstart_push_array)
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -585,6 +591,7 @@ upstart_push_pack (NihIoMessage *message,
  *  i - int *          - read with upstart_pop_int()
  *  u - unsigned int * - read with upstart_pop_unsigned()
  *  s - char **        - read with upstart_pop_string()
+ *  a - char ***       - read with upstart_pop_array()
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -623,6 +630,10 @@ upstart_pop_packv (NihIoMessage *message,
 			ret = upstart_pop_string (
 				message, parent, va_arg (args_copy, char **));
 			break;
+		case 'a':
+			ret = upstart_pop_array (
+				message, parent, va_arg (args_copy, char ***));
+			break;
 		default:
 			nih_assert_not_reached ();
 		}
@@ -647,6 +658,7 @@ upstart_pop_packv (NihIoMessage *message,
  *  i - int *          - read with upstart_pop_int()
  *  u - unsigned int * - read with upstart_pop_unsigned()
  *  s - char **        - read with upstart_pop_string()
+ *  a - char ***       - read with upstart_pop_array()
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent

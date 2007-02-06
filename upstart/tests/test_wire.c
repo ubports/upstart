@@ -921,8 +921,9 @@ test_pop_header (void)
 void
 test_push_pack (void)
 {
-	NihIoMessage *msg;
-	int           ret;
+	NihIoMessage  *msg;
+	char         **array;
+	int            ret;
 
 	TEST_FUNCTION ("upstart_push_pack");
 	msg = nih_io_message_new (NULL);
@@ -933,12 +934,16 @@ test_push_pack (void)
 	 * message in order.
 	 */
 	TEST_FEATURE ("with empty buffer");
+	array = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "bar"));
+
 	TEST_ALLOC_FAIL {
 		msg->data->len = 0;
 		msg->data->size = 0;
 
-		ret = upstart_push_pack (msg, "iusi", 100, 0x98765432,
-					 "string value", -42);
+		ret = upstart_push_pack (msg, "iusai", 100, 0x98765432,
+					 "string value", array, -42);
 
 		if (test_alloc_failed) {
 			TEST_LT (ret, 0);
@@ -946,11 +951,15 @@ test_push_pack (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 28);
+		TEST_EQ (msg->data->len, 47);
 		TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
 					      "\0\0\0\x0cstring value"
-					      "\xff\xff\xff\xd6"), 28);
+					      "a\0\0\0\03foo\0\0\0\03bar"
+					      "\xff\xff\xff\xff"
+					      "\xff\xff\xff\xd6"), 47);
 	}
+
+	nih_free (array);
 
 
 	/* Check that we can write a series of different values onto the
@@ -959,7 +968,7 @@ test_push_pack (void)
 	 */
 	TEST_FEATURE ("with used buffer");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 28;
+		msg->data->len = 47;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_pack (msg, "ii", 98, 100);
@@ -970,11 +979,13 @@ test_push_pack (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 36);
+		TEST_EQ (msg->data->len, 55);
 		TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x64\x98\x76\x54\x32"
 					      "\0\0\0\x0cstring value"
+					      "a\0\0\0\03foo\0\0\0\03bar"
+					      "\xff\xff\xff\xff"
 					      "\xff\xff\xff\xd6"
-					      "\0\0\0\x62\0\0\0\x64"), 36);
+					      "\0\0\0\x62\0\0\0\x64"), 55);
 	}
 
 	nih_free (msg);
@@ -984,7 +995,7 @@ void
 test_pop_pack (void)
 {
 	NihIoMessage  *msg;
-	char          *str;
+	char          *str, **array;
 	unsigned int   uint;
 	int            ret, int1, int2;
 
@@ -993,16 +1004,19 @@ test_pop_pack (void)
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("\0\0\0\x64\x98\x76\x54\x32"
 				      "\0\0\0\x0cstring value"
+				      "a\0\0\0\05frodo\0\0\0\05bilbo"
+				      "\xff\xff\xff\xff"
 				      "\xff\xff\xff\xd6"
 				      "\0\0\0\x62\0\0\0\x64"
-				      "\0\0\0\x13\0\0\0\x04te"), 46));
+				      "\0\0\0\x13\0\0\0\x04te"), 69));
 
 
 	/* Check that we can read a series of different values in a single
 	 * function call, removing them all from the buffer.
 	 */
 	TEST_FEATURE ("with variables at start of buffer");
-	ret = upstart_pop_pack (msg, NULL, "iusi", &int1, &uint, &str, &int2);
+	ret = upstart_pop_pack (msg, NULL, "iusai", &int1, &uint,
+				&str, &array, &int2);
 
 	TEST_EQ (ret, 0);
 	TEST_EQ (int1, 100);
@@ -1010,6 +1024,12 @@ test_pop_pack (void)
 	TEST_ALLOC_SIZE (str, 13);
 	TEST_EQ (str[12], '\0');
 	TEST_EQ_STR (str, "string value");
+	TEST_ALLOC_SIZE (array, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (array[0], array);
+	TEST_ALLOC_PARENT (array[1], array);
+	TEST_EQ_STR (array[0], "frodo");
+	TEST_EQ_STR (array[1], "bilbo");
+	TEST_EQ_P (array[2], NULL);
 	TEST_EQ (int2, -42);
 
 	TEST_EQ (msg->data->len, 18);

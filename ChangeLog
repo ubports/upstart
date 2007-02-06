@@ -1,5 +1,10 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_push_packv, upstart_pop_packv): Add calls
+	to push and pop array.
+	* upstart/tests/test_wire.c (test_push_pack, test_pop_pack): Test
+	support for arrays.
+
 	* upstart/wire.c (upstart_push_array, upstart_pop_array): Implement
 	new array functions; note that these use a newer format that allows
 	us to transmit NULL without needing to limit the size of the array.
