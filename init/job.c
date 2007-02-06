@@ -966,11 +966,23 @@ job_start_event (Job   *job,
 		Event *start_event = (Event *)iter;
 
 		if (event_match (event, start_event)) {
+			char **ptr;
+
 			if (job->goal_event)
 				nih_free (job->goal_event);
 
 			NIH_MUST (job->goal_event = event_new (
 					  job, event->name));
+			for (ptr = event->args; ptr && *ptr; ptr++)
+				NIH_MUST (nih_str_array_add (
+						  &job->goal_event->args,
+						  job->goal_event, NULL,
+						  *ptr));
+			for (ptr = event->env; ptr && *ptr; ptr++)
+				NIH_MUST (nih_str_array_add (
+						  &job->goal_event->env,
+						  job->goal_event, NULL,
+						  *ptr));
 
 			_job_start (job);
 		}
@@ -1073,11 +1085,23 @@ job_stop_event (Job   *job,
 		Event *stop_event = (Event *)iter;
 
 		if (event_match (event, stop_event)) {
+			char **ptr;
+
 			if (job->goal_event)
 				nih_free (job->goal_event);
 
 			NIH_MUST (job->goal_event = event_new (
 					  job, event->name));
+			for (ptr = event->args; ptr && *ptr; ptr++)
+				NIH_MUST (nih_str_array_add (
+						  &job->goal_event->args,
+						  job->goal_event, NULL,
+						  *ptr));
+			for (ptr = event->env; ptr && *ptr; ptr++)
+				NIH_MUST (nih_str_array_add (
+						  &job->goal_event->env,
+						  job->goal_event, NULL,
+						  *ptr));
 
 			_job_stop (job);
 		}

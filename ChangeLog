@@ -1,5 +1,8 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start_event, job_stop_event): Copy the arguments
+	and environment from the event into the goal event.
+
 	* init/job.c (job_read_state, job_write_state): Read and write
 	arguments and environment for goal event.
 	* init/tests/test_job.c (test_read_state, test_write_state): Test

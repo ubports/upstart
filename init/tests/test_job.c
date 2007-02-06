@@ -1787,6 +1787,76 @@ test_start_event (void)
 	}
 
 	nih_free (event);
+
+
+	/* Check that if we start a job with a matching event that has
+	 * arguments and/or environment, they are copied into the goal
+	 * event.
+	 */
+	TEST_FEATURE ("with arguments and environment for event");
+	event = (Event *)job->start_events.next;
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "b?z*"));
+
+	event = event_new (NULL, "wibble");
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "baz"));
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "TEA=YES"));
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		if (job->goal_event)
+			nih_free (job->goal_event);
+		job->goal_event = NULL;
+
+		job_start_event (job, event);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job->pid, 0);
+		waitpid (job->pid, NULL, 0);
+
+		TEST_ALLOC_PARENT (job->goal_event, job);
+		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
+		TEST_LIST_EMPTY (&job->goal_event->entry);
+		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->name, 7);
+		TEST_EQ_STR (job->goal_event->name, "wibble");
+
+		TEST_ALLOC_PARENT (job->goal_event->args, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->args, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->goal_event->args[0],
+				   job->goal_event->args);
+		TEST_ALLOC_PARENT (job->goal_event->args[1],
+				   job->goal_event->args);
+		TEST_ALLOC_PARENT (job->goal_event->args[2],
+				   job->goal_event->args);
+		TEST_EQ_STR (job->goal_event->args[0], "foo");
+		TEST_EQ_STR (job->goal_event->args[1], "bar");
+		TEST_EQ_STR (job->goal_event->args[2], "baz");
+		TEST_EQ_P (job->goal_event->args[3], NULL);
+
+		TEST_ALLOC_PARENT (job->goal_event->env, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->env, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (job->goal_event->env[0],
+				   job->goal_event->env);
+		TEST_ALLOC_PARENT (job->goal_event->env[1],
+				   job->goal_event->env);
+		TEST_EQ_STR (job->goal_event->env[0], "FOO=BAR");
+		TEST_EQ_STR (job->goal_event->env[1], "TEA=YES");
+		TEST_EQ_P (job->goal_event->env[2], NULL);
+	}
+
+	nih_free (event);
+
+
 	nih_list_free (&job->entry);
 }
 
