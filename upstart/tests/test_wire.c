@@ -404,8 +404,8 @@ test_push_string (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 9);
-		TEST_EQ_MEM (msg->data->buf, "\0\0\0\x05hello", 9);
+		TEST_EQ (msg->data->len, 10);
+		TEST_EQ_MEM (msg->data->buf, "s\0\0\0\x05hello", 10);
 	}
 
 
@@ -415,7 +415,7 @@ test_push_string (void)
 	 */
 	TEST_FEATURE ("with space in used buffer");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 9;
+		msg->data->len = 10;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_string (msg, "goodbye");
@@ -426,16 +426,16 @@ test_push_string (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 20);
+		TEST_EQ (msg->data->len, 22);
 		TEST_EQ_MEM (msg->data->buf,
-			     "\0\0\0\x05hello\0\0\0\x07goodbye", 20);
+			     "s\0\0\0\x05hellos\0\0\0\x07goodbye", 22);
 	}
 
 
 	/* Check that we can write the empty string into the message. */
 	TEST_FEATURE ("with empty string");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 20;
+		msg->data->len = 22;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_string (msg, "");
@@ -446,15 +446,15 @@ test_push_string (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 24);
-		TEST_EQ_MEM (msg->data->buf + 20, "\0\0\0\0", 4);
+		TEST_EQ (msg->data->len, 27);
+		TEST_EQ_MEM (msg->data->buf + 22, "s\0\0\0\0", 5);
 	}
 
 
 	/* Check that we can write NULL into the message. */
 	TEST_FEATURE ("with NULL string");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 24;
+		msg->data->len = 27;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_string (msg, NULL);
@@ -466,7 +466,7 @@ test_push_string (void)
 
 		TEST_EQ (ret, 0);
 		TEST_EQ (msg->data->len, 28);
-		TEST_EQ_MEM (msg->data->buf + 24, "\xff\xff\xff\xff", 4);
+		TEST_EQ_MEM (msg->data->buf + 27, "S", 1);
 	}
 
 
@@ -483,9 +483,8 @@ test_pop_string (void)
 	TEST_FUNCTION ("upstart_pop_string");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     ("\0\0\0\x05hello\0\0\0\x07goodbye"
-				      "\0\0\0\0\xff\xff\xff\xff"
-				      "\0\0\0\x04te"), 34));
+				     ("s\0\0\0\x05hellos\0\0\0\x07goodbye"
+				      "s\0\0\0\0Sxs\0\0\0\x04te"), 36));
 
 
 	/* Check that we can read a string from the start of a message;
@@ -501,10 +500,9 @@ test_pop_string (void)
 	TEST_EQ (value[5], '\0');
 	TEST_EQ_STR (value, "hello");
 
-	TEST_EQ (msg->data->len, 25);
-	TEST_EQ_MEM (msg->data->buf, ("\0\0\0\x07goodbye"
-				      "\0\0\0\0\xff\xff\xff\xff"
-				      "\0\0\0\x04te"), 25);
+	TEST_EQ (msg->data->len, 26);
+	TEST_EQ_MEM (msg->data->buf, ("s\0\0\0\x07goodbye"
+				      "s\0\0\0\0Sxs\0\0\0\x04te"), 26);
 
 	nih_free (value);
 
@@ -522,7 +520,7 @@ test_pop_string (void)
 
 	TEST_EQ (msg->data->len, 14);
 	TEST_EQ_MEM (msg->data->buf,
-		     "\0\0\0\0\xff\xff\xff\xff\0\0\0\x04te", 14);
+		     "s\0\0\0\0Sxs\0\0\0\x04te", 14);
 
 	nih_free (value);
 
@@ -535,8 +533,8 @@ test_pop_string (void)
 	TEST_ALLOC_SIZE (value, 1);
 	TEST_EQ (value[0], '\0');
 
-	TEST_EQ (msg->data->len, 10);
-	TEST_EQ_MEM (msg->data->buf, "\xff\xff\xff\xff\0\0\0\x04te", 10);
+	TEST_EQ (msg->data->len, 9);
+	TEST_EQ_MEM (msg->data->buf, "Sxs\0\0\0\x04te", 9);
 
 	nih_free (value);
 
@@ -548,8 +546,21 @@ test_pop_string (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ_P (value, NULL);
 
-	TEST_EQ (msg->data->len, 6);
-	TEST_EQ_MEM (msg->data->buf, "\0\0\0\x04te", 6);
+	TEST_EQ (msg->data->len, 8);
+	TEST_EQ_MEM (msg->data->buf, "xs\0\0\0\x04te", 8);
+
+
+	/* Check that -1 is returned if the type in the buffer is wrong. */
+	TEST_FEATURE ("with incorrect type in buffer");
+	ret = upstart_pop_string (msg, NULL, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+	TEST_EQ (msg->data->len, 8);
+	TEST_EQ_MEM (msg->data->buf, "xs\0\0\0\x04te", 8);
+
+	nih_io_buffer_shrink (msg->data, 1);
 
 
 	/* Check that -1 is returned if there is enough space in the buffer
@@ -561,14 +572,29 @@ test_pop_string (void)
 	TEST_LT (ret, 0);
 	TEST_EQ_P (value, NULL);
 
-	TEST_EQ (msg->data->len, 2);
-	TEST_EQ_MEM (msg->data->buf, "te", 2);
+	TEST_EQ (msg->data->len, 7);
+	TEST_EQ_MEM (msg->data->buf, "s\0\0\0\x04te", 7);
 
 
 	/* Check that -1 is returned if there is not enough space in the
 	 * buffer for the length of the string.
 	 */
 	TEST_FEATURE ("with insufficient space in buffer for length");
+	ret = upstart_pop_string (msg, NULL, &value);
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (value, NULL);
+
+	TEST_EQ (msg->data->len, 7);
+	TEST_EQ_MEM (msg->data->buf, "s\0\0\0\x04te", 7);
+
+
+	/* Check that -1 is returned if there is not enough space in the
+	 * buffer for the type.
+	 */
+	TEST_FEATURE ("with insufficient space in buffer for type");
+	msg->data->len = 0;
+
 	ret = upstart_pop_string (msg, NULL, &value);
 
 	TEST_LT (ret, 0);
@@ -611,9 +637,9 @@ test_push_array (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 19);
-		TEST_EQ_MEM (msg->data->buf, ("a\0\0\0\03foo\0\0\0\03bar"
-					      "\xff\xff\xff\xff"), 19);
+		TEST_EQ (msg->data->len, 18);
+		TEST_EQ_MEM (msg->data->buf,
+			     "as\0\0\0\03foos\0\0\0\03barS", 18);
 	}
 
 	nih_free (array);
@@ -629,7 +655,32 @@ test_push_array (void)
 	NIH_MUST (nih_str_array_add (&array, NULL, NULL, "bilbo"));
 
 	TEST_ALLOC_FAIL {
-		msg->data->len = 19;
+		msg->data->len = 18;
+		msg->data->size = BUFSIZ;
+
+		ret = upstart_push_array (msg, array);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (msg->data->len, 40);
+		TEST_EQ_MEM (msg->data->buf,
+			     ("as\0\0\0\03foos\0\0\0\03barS"
+			      "as\0\0\0\05frodos\0\0\0\05bilboS"), 40);
+	}
+
+	nih_free (array);
+
+
+	/* Check that we can write an empty array into the message. */
+	TEST_FEATURE ("with empty array");
+	array = nih_str_array_new (NULL);
+
+	TEST_ALLOC_FAIL {
+		msg->data->len = 40;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_array (msg, array);
@@ -641,33 +692,7 @@ test_push_array (void)
 
 		TEST_EQ (ret, 0);
 		TEST_EQ (msg->data->len, 42);
-		TEST_EQ_MEM (msg->data->buf,
-			     ("a\0\0\0\03foo\0\0\0\03bar\xff\xff\xff\xff"
-			      "a\0\0\0\05frodo\0\0\0\05bilbo\xff\xff\xff\xff"),
-			     42);
-	}
-
-	nih_free (array);
-
-
-	/* Check that we can write an empty array into the message. */
-	TEST_FEATURE ("with empty array");
-	array = nih_str_array_new (NULL);
-
-	TEST_ALLOC_FAIL {
-		msg->data->len = 42;
-		msg->data->size = BUFSIZ;
-
-		ret = upstart_push_array (msg, array);
-
-		if (test_alloc_failed) {
-			TEST_LT (ret, 0);
-			continue;
-		}
-
-		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 47);
-		TEST_EQ_MEM (msg->data->buf + 42, "a\xff\xff\xff\xff", 5);
+		TEST_EQ_MEM (msg->data->buf + 40, "aS", 2);
 	}
 
 	nih_free (array);
@@ -676,7 +701,7 @@ test_push_array (void)
 	/* Check that we can write NULL into the message. */
 	TEST_FEATURE ("with NULL array");
 	TEST_ALLOC_FAIL {
-		msg->data->len = 47;
+		msg->data->len = 42;
 		msg->data->size = BUFSIZ;
 
 		ret = upstart_push_array (msg, NULL);
@@ -687,8 +712,8 @@ test_push_array (void)
 		}
 
 		TEST_EQ (ret, 0);
-		TEST_EQ (msg->data->len, 48);
-		TEST_EQ_MEM (msg->data->buf + 47, "A", 1);
+		TEST_EQ (msg->data->len, 43);
+		TEST_EQ_MEM (msg->data->buf + 42, "A", 1);
 	}
 
 
@@ -705,12 +730,9 @@ test_pop_array (void)
 	TEST_FUNCTION ("upstart_pop_array");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     ("a\0\0\0\03foo\0\0\0\03bar"
-				      "\xff\xff\xff\xff"
-				      "a\0\0\0\05frodo\0\0\0\05bilbo"
-				      "\xff\xff\xff\xff"
-				      "a\xff\xff\xff\xff"
-				      "Axa\0\0\0\04te"), 56));
+				     ("as\0\0\0\03foos\0\0\0\03barS"
+				      "as\0\0\0\05frodos\0\0\0\05bilboS"
+				      "aSAxas\0\0\0\04te"), 52));
 
 
 	/* Check that we can read an array from the start of a message;
@@ -729,11 +751,9 @@ test_pop_array (void)
 	TEST_EQ_STR (value[1], "bar");
 	TEST_EQ_P (value[2], NULL);
 
-	TEST_EQ (msg->data->len, 37);
+	TEST_EQ (msg->data->len, 34);
 	TEST_EQ_MEM (msg->data->buf,
-		     ("a\0\0\0\05frodo\0\0\0\05bilbo\xff\xff\xff\xff"
-		      "a\xff\xff\xff\xff"
-		      "Axa\0\0\0\04te"), 37);
+		     "as\0\0\0\05frodos\0\0\0\05bilboSaSAxas\0\0\0\04te", 34);
 
 	nih_free (value);
 
@@ -752,9 +772,8 @@ test_pop_array (void)
 	TEST_EQ_STR (value[1], "bilbo");
 	TEST_EQ_P (value[2], NULL);
 
-	TEST_EQ (msg->data->len, 14);
-	TEST_EQ_MEM (msg->data->buf, ("a\xff\xff\xff\xff"
-				      "Axa\0\0\0\04te"), 14);
+	TEST_EQ (msg->data->len, 12);
+	TEST_EQ_MEM (msg->data->buf, "aSAxas\0\0\0\04te", 12);
 
 	nih_free (value);
 
@@ -767,8 +786,8 @@ test_pop_array (void)
 	TEST_ALLOC_SIZE (value, sizeof (char *));
 	TEST_EQ_P (value[0], NULL);
 
-	TEST_EQ (msg->data->len, 9);
-	TEST_EQ_MEM (msg->data->buf, "Axa\0\0\0\04te", 9);
+	TEST_EQ (msg->data->len, 10);
+	TEST_EQ_MEM (msg->data->buf, "Axas\0\0\0\04te", 10);
 
 	nih_free (value);
 
@@ -780,8 +799,8 @@ test_pop_array (void)
 	TEST_EQ (ret, 0);
 	TEST_EQ_P (value, NULL);
 
-	TEST_EQ (msg->data->len, 8);
-	TEST_EQ_MEM (msg->data->buf, "xa\0\0\0\04te", 8);
+	TEST_EQ (msg->data->len, 9);
+	TEST_EQ_MEM (msg->data->buf, "xas\0\0\0\04te", 9);
 
 
 	/* Check that -1 is returned if the type of the following item is
@@ -793,8 +812,8 @@ test_pop_array (void)
 	TEST_LT (ret, 0);
 	TEST_EQ_P (value, NULL);
 
-	TEST_EQ (msg->data->len, 8);
-	TEST_EQ_MEM (msg->data->buf, "xa\0\0\0\04te", 8);
+	TEST_EQ (msg->data->len, 9);
+	TEST_EQ_MEM (msg->data->buf, "xas\0\0\0\04te", 9);
 
 	nih_io_buffer_shrink (msg->data, 1);
 
@@ -807,9 +826,6 @@ test_pop_array (void)
 
 	TEST_LT (ret, 0);
 	TEST_EQ_P (value, NULL);
-
-	TEST_EQ (msg->data->len, 2);
-	TEST_EQ_MEM (msg->data->buf, "te", 2);
 
 
 	/* Check that -1 is returned if there is not enough space in the
@@ -1023,9 +1039,8 @@ test_push_pack (void)
 		TEST_EQ (ret, 0);
 		TEST_EQ (msg->data->len, 50);
 		TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x64u\x98\x76\x54\x32"
-					      "\0\0\0\x0cstring value"
-					      "a\0\0\0\03foo\0\0\0\03bar"
-					      "\xff\xff\xff\xff"
+					      "s\0\0\0\x0cstring value"
+					      "as\0\0\0\03foos\0\0\0\03barS"
 					      "i\xff\xff\xff\xd6"), 50);
 	}
 
@@ -1051,9 +1066,8 @@ test_push_pack (void)
 		TEST_EQ (ret, 0);
 		TEST_EQ (msg->data->len, 60);
 		TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x64u\x98\x76\x54\x32"
-					      "\0\0\0\x0cstring value"
-					      "a\0\0\0\03foo\0\0\0\03bar"
-					      "\xff\xff\xff\xff"
+					      "s\0\0\0\x0cstring value"
+					      "as\0\0\0\03foos\0\0\0\03barS"
 					      "i\xff\xff\xff\xd6"
 					      "i\0\0\0\x62i\0\0\0\x64"), 60);
 	}
@@ -1073,12 +1087,11 @@ test_pop_pack (void)
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("i\0\0\0\x64u\x98\x76\x54\x32"
-				      "\0\0\0\x0cstring value"
-				      "a\0\0\0\05frodo\0\0\0\05bilbo"
-				      "\xff\xff\xff\xff"
+				      "s\0\0\0\x0cstring value"
+				      "as\0\0\0\05frodos\0\0\0\05bilboS"
 				      "i\xff\xff\xff\xd6"
 				      "i\0\0\0\x62i\0\0\0\x64"
-				      "i\0\0\0\x13\0\0\0\x04te"), 75));
+				      "i\0\0\0\x13s\0\0\0\x04te"), 76));
 
 
 	/* Check that we can read a series of different values in a single
@@ -1102,9 +1115,9 @@ test_pop_pack (void)
 	TEST_EQ_P (array[2], NULL);
 	TEST_EQ (int2, -42);
 
-	TEST_EQ (msg->data->len, 21);
+	TEST_EQ (msg->data->len, 22);
 	TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x62i\0\0\0\x64"
-				      "i\0\0\0\x13\0\0\0\x04te"), 21);
+				      "i\0\0\0\x13s\0\0\0\x04te"), 22);
 
 	nih_free (str);
 
@@ -1119,8 +1132,8 @@ test_pop_pack (void)
 	TEST_EQ (int1, 98);
 	TEST_EQ (int2, 100);
 
-	TEST_EQ (msg->data->len, 11);
-	TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x13\0\0\0\x04te"), 11);
+	TEST_EQ (msg->data->len, 12);
+	TEST_EQ_MEM (msg->data->buf, ("i\0\0\0\x13s\0\0\0\x04te"), 12);
 
 
 	/* Check that -1 is returned if there's not enough space in the

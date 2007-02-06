@@ -216,13 +216,14 @@ upstart_pop_unsigned (NihIoMessage *message,
  *
  * Write a string @value to the @message given.
  *
- * Strings are transmitted across the wire as an unsigned 32-bit value
- * containing the length, followed by that number of bytes containing the
- * string itself, without any NULL terminator.
+ * Strings are transmitted across the wire as a single 's' byte indicating
+ * a string followed by an unsigned 32-bit value containing the length and
+ * that number of bytes containing the string itself, without any NULL
+ * terminator.
  *
  * @value may be an empty string, in which case a zero length is sent
  * with no following bytes; it may also be NULL in which case the special
- * length 0xffffffff is sent followed by no bytes.
+ * 'S' byte is used instead followed by no length or bytes.
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -238,18 +239,16 @@ upstart_push_string (NihIoMessage *message,
 
 	nih_assert (message != NULL);
 
-	if (value) {
-		nih_assert (strlen (value) <= UINT32_MAX);
-		nih_assert (strlen (value) != 0xffffffff);
-	}
+	if (nih_io_buffer_push (message->data, value ? "s" : "S", 1) < 0)
+		return -1;
+
+	if (! value)
+		return 0;
 
 	wire_len = ntohl (value ? strlen (value) : 0xffffffff);
 	if (nih_io_buffer_push (message->data, (const char *)&wire_len,
 				sizeof (wire_len)) < 0)
 		return -1;
-
-	if (! value)
-		return 0;
 
 	return nih_io_buffer_push (message->data, value, strlen (value));
 }
@@ -291,32 +290,35 @@ upstart_pop_string (NihIoMessage  *message,
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
 
-	/* Extract the length first, this can be the special 0xffffffff
-	 * in which case we just set the string to NULL and return.
+	/* Extract the type byte first, which tells us whether to return NULL
+	 * or read more items.
 	 */
-	if (message->data->len < sizeof (wire_length))
+	if (message->data->len < (sizeof (wire_length) + 1))
 		return -1;
 
-	memcpy (&wire_length, message->data->buf, sizeof (wire_length));
-	nih_io_buffer_shrink (message->data, sizeof (wire_length));
+	if (message->data->buf[0] == 'S') {
+		nih_io_buffer_shrink (message->data, 1);
 
-	length = ntohl (wire_length);
-
-	if (length == 0xffffffff) {
 		*value = NULL;
 		return 0;
+	} else if (message->data->buf[0] != 's') {
+		return -1;
 	}
 
 
+	memcpy (&wire_length, message->data->buf + 1, sizeof (wire_length));
+	length = ntohl (wire_length);
+
 	/* Allocate the string and copy it out of the buffer */
-	if (message->data->len < length)
+	if (message->data->len < (sizeof (wire_length) + length + 1))
 		return -1;
 
 	NIH_MUST (*value = nih_alloc (parent, length + 1));
-	memcpy (*value, message->data->buf, length);
+	memcpy (*value, message->data->buf + sizeof (wire_length) + 1, length);
 	(*value)[length] = '\0';
 
-	nih_io_buffer_shrink (message->data, length);
+	nih_io_buffer_shrink (message->data,
+			      sizeof (wire_length) + length + 1);
 
 	return 0;
 }

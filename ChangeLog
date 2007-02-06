@@ -1,5 +1,16 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/wire.c (upstart_push_string, upstart_pop_string): Rewrite
+	to use a type like the rest of the functions; this removes the strange
+	length restriction and allows us to make the pop function
+	non-destructive.
+	* upstart/tests/test_wire.c (test_push_string): Update.
+	(test_pop_string): Update, adding in non-destructive, wrong type
+	and insufficient space for type test cases.
+	(test_push_array, test_pop_array): These needed updated too,
+	changing the string format changed the array format.
+	(test_push_pack, test_pop_pack): And obviously the pack format changed.
+
 	* upstart/wire.c (upstart_pop_header): Make the function
 	non-destructive in the face of errors.
 	* upstart/tests/test_wire.c (test_pop_header): Make sure that
