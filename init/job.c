@@ -507,7 +507,8 @@ void
 job_run_command (Job        *job,
 		 const char *command)
 {
-	char **argv;
+	char   **argv;
+	size_t   argc;
 
 	nih_assert (job != NULL);
 	nih_assert (command != NULL);
@@ -516,12 +517,14 @@ job_run_command (Job        *job,
 	if (strpbrk (command, "~`!$^&*()=|\\{}[];\"'<>?")) {
 		char *cmd;
 
-		NIH_MUST (argv = nih_alloc (NULL, sizeof (char *) * 4));
-		NIH_MUST (cmd = nih_sprintf (argv, "exec %s", command));
-		argv[0] = SHELL;
-		argv[1] = "-c";
-		argv[2] = cmd;
-		argv[3] = NULL;
+		NIH_MUST (cmd = nih_sprintf (NULL, "exec %s", command));
+
+		argc = 0;
+		NIH_MUST (argv = nih_str_array_new (NULL));
+
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-c"));
+		NIH_MUST (nih_str_array_addp (&argv, NULL, &argc, cmd));
 	} else {
 		NIH_MUST (argv = nih_str_split (NULL, command, " ", TRUE));
 	}
@@ -558,12 +561,15 @@ void
 job_run_script (Job        *job,
 		const char *script)
 {
-	struct stat statbuf;
-
-	char *argv[5];
+	struct stat   statbuf;
+	char        **argv;
+	size_t        argc;
 
 	nih_assert (job != NULL);
 	nih_assert (script != NULL);
+
+	argc = 0;
+	NIH_MUST (argv = nih_str_array_new (NULL));
 
 	/* Normally we just pass the script to the shell using the -c
 	 * option, however there's a limit to the length of a command line
@@ -577,7 +583,7 @@ job_run_script (Job        *job,
 	if ((strlen (script) > 1024)
 	    && (stat (DEV_FD, &statbuf) == 0) && (S_ISDIR (statbuf.st_mode))) {
 		NihIo *io;
-		char  *cmd;
+		char  *cmd, **arg;
 		int    fds[2];
 
 		/* Close the writing end when the child is exec'd */
@@ -591,15 +597,18 @@ job_run_script (Job        *job,
 
 		NIH_MUST (cmd = nih_sprintf (NULL, "%s/%d", DEV_FD, fds[0]));
 
-		argv[0] = SHELL;
-		argv[1] = "-e";
-		argv[2] = cmd;
-		argv[3] = NULL;
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
+		NIH_MUST (nih_str_array_addp (&argv, NULL, &argc, cmd));
+
+		if (job->goal_event)
+			for (arg = job->goal_event->args; arg && *arg; arg++)
+				NIH_MUST (nih_str_array_add (&argv, NULL,
+							     &argc, *arg));
 
 		job_run_process (job, argv);
 
 		/* Clean up and close the reading end (we don't need it) */
-		nih_free (argv[2]);
 		close (fds[0]);
 
 		/* Put the entire script into an NihIo send buffer and
@@ -619,15 +628,27 @@ job_run_script (Job        *job,
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
 	} else {
+		char **arg;
+
 		/* Pass the script using -c */
-		argv[0] = SHELL;
-		argv[1] = "-e";
-		argv[2] = "-c";
-		argv[3] = (char *)script;
-		argv[4] = NULL;
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-c"));
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, script));
+
+		if (job->goal_event) {
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, SHELL));
+
+			for (arg = job->goal_event->args; arg && *arg; arg++)
+				NIH_MUST (nih_str_array_add (&argv, NULL,
+							     &argc, *arg));
+		}
 
 		job_run_process (job, argv);
 	}
+
+	nih_free (argv);
 }
 
 /**

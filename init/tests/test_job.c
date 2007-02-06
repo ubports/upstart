@@ -949,6 +949,48 @@ test_run_script (void)
 	}
 
 
+	/* Check that a small shell script will have arguments from the
+	 * goal event passed to it, if one exists.
+	 */
+	TEST_FEATURE ("with small script and goal event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->script = nih_sprintf (job, ("exec > %s\n"
+							 "echo $0\necho $@"),
+						   filename);
+
+			job->goal_event = event_new (job, "test");
+			NIH_MUST (nih_str_array_add (&job->goal_event->args,
+						     job->goal_event, NULL,
+						     "foo"));
+			NIH_MUST (nih_str_array_add (&job->goal_event->args,
+						     job->goal_event, NULL,
+						     "bar"));
+		}
+
+		job_run_script (job, job->script);
+
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_EQ (output, "foo bar\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a particularly long script is instead invoked by
 	 * using the /dev/fd feature, with the shell script fed to the
 	 * child process by an NihIo structure.
@@ -1005,6 +1047,77 @@ test_run_script (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ_N (output, "/dev/fd/");
 		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a long shell script will have arguments from the
+	 * goal event passed to it, if one exists.
+	 */
+	TEST_FEATURE ("with long script and goal event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->script = nih_alloc (job, 4096);
+			sprintf (job->script, "exec > %s\necho $0\necho $@\n",
+				 filename);
+			while (strlen (job->script) < 4000)
+				strcat (job->script,
+					"# this just bulks it out a bit");
+
+			job->goal_event = event_new (job, "test");
+			NIH_MUST (nih_str_array_add (&job->goal_event->args,
+						     job->goal_event, NULL,
+						     "foo"));
+			NIH_MUST (nih_str_array_add (&job->goal_event->args,
+						     job->goal_event, NULL,
+						     "bar"));
+		}
+
+		job_run_script (job, job->script);
+
+		TEST_NE (job->pid, 0);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		/* Loop until we've fed all of the data. */
+		first = TRUE;
+		for (;;) {
+			fd_set readfds, writefds, exceptfds;
+			int    nfds;
+
+			nfds = 0;
+			FD_ZERO (&readfds);
+			FD_ZERO (&writefds);
+			FD_ZERO (&exceptfds);
+
+			nih_io_select_fds (&nfds, &readfds,
+					   &writefds, &exceptfds);
+			if (! nfds) {
+				if (first)
+					TEST_FAILED ("expected to have "
+						     "data to feed.");
+				break;
+			}
+			first = FALSE;
+
+			select (nfds, &readfds, &writefds, &exceptfds, NULL);
+
+			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+		}
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ_N (output, "/dev/fd/");
+		TEST_FILE_EQ (output, "foo bar\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);

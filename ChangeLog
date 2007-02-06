@@ -1,5 +1,12 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_script): Build up the argument list, appending
+	those from the goal event if one is set.
+	(job_run_command): Use nih_str_array_add to build up the arguments,
+	but don't append those from the goal event (use script).
+	* init/tests/test_job.c (test_run_script): Make sure the arguments get
+	passed to the running shell scripts.
+
 	* init/job.c (job_run_script): Only use the /dev/fd trick if we can
 	actually stat /dev/fd; also don't hardcode that path ...
 	* init/paths.h (DEV_FD): Add here.
