@@ -1,5 +1,9 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_script): Only use the /dev/fd trick if we can
+	actually stat /dev/fd; also don't hardcode that path ...
+	* init/paths.h (DEV_FD): Add here.
+
 	* init/process.c (process_setup_environment): Copy environment
 	variables from the goal event into the job's process.
 	* init/tests/test_process.c (test_spawn): Make sure the environment

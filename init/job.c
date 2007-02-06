@@ -25,6 +25,8 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 
@@ -556,6 +558,8 @@ void
 job_run_script (Job        *job,
 		const char *script)
 {
+	struct stat statbuf;
+
 	char *argv[5];
 
 	nih_assert (job != NULL);
@@ -570,7 +574,8 @@ job_run_script (Job        *job,
 	 * the pipe buffer may not be big enough either, so we use NihIo
 	 * to do it all asynchronously in the background.
 	 */
-	if (strlen (script) > 1024) {
+	if ((strlen (script) > 1024)
+	    && (stat (DEV_FD, &statbuf) == 0) && (S_ISDIR (statbuf.st_mode))) {
 		NihIo *io;
 		char  *cmd;
 		int    fds[2];
@@ -584,7 +589,7 @@ job_run_script (Job        *job,
 		 * of passing that yet
 		 */
 
-		NIH_MUST (cmd = nih_sprintf (NULL, "/dev/fd/%d", fds[0]));
+		NIH_MUST (cmd = nih_sprintf (NULL, "%s/%d", DEV_FD, fds[0]));
 
 		argv[0] = SHELL;
 		argv[1] = "-e";
