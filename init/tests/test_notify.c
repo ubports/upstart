@@ -226,11 +226,25 @@ static int
 check_event (void               *data,
 	     pid_t               pid,
 	     UpstartMessageType  type,
-	     const char         *name)
+	     const char         *name,
+	     char * const       *args,
+	     char * const       *env)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_EVENT);
 	TEST_EQ_STR (name, "snarf");
+
+	TEST_ALLOC_SIZE (args, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (args[0], args);
+	TEST_ALLOC_PARENT (args[1], args);
+	TEST_EQ_STR (args[0], "foo");
+	TEST_EQ_STR (args[1], "bar");
+	TEST_EQ_P (args[2], NULL);
+
+	TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
+	TEST_ALLOC_PARENT (env[0], env);
+	TEST_EQ_STR (env[0], "FOO=BAR");
+	TEST_EQ_P (env[1], NULL);
 
 	return 0;
 }
@@ -277,6 +291,11 @@ test_event (void)
 	sub = notify_subscribe (pid, NOTIFY_EVENTS, TRUE);
 
 	event = event_new (NULL, "snarf");
+	event->args = nih_str_array_new (event);
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
+	event->env = nih_str_array_new (event);
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
 	notify_event (event);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);

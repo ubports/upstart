@@ -189,7 +189,9 @@ notify_event (Event *event)
 
 		NIH_MUST (message = upstart_message_new (control_io, sub->pid,
 							 UPSTART_EVENT,
-							 event->name));
+							 event->name,
+							 event->args,
+							 event->env));
 		nih_io_send_message (control_io, message);
 	}
 }
