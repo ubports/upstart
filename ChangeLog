@@ -1,5 +1,11 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_event_queue): Take the arguments and
+	environment from the event queue request; and reparent into the
+	event.
+	* init/tests/test_control.c (test_event_queue): Check that arguments
+	and environment are copied across properly.
+
 	* init/notify.c (notify_event): Pass in the arguments and environment
 	for the event.
 	* init/tests/test_notify.c (check_event): Check for event arguments

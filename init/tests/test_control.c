@@ -825,15 +825,27 @@ test_event_queue (void)
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
+		NihIoMessage  *message;
+		char         **args, **env;
+		int            sock;
 
 		sock = upstart_open ();
 
+		args = nih_str_array_new (NULL);
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+
+		env = nih_str_array_new (NULL);
+		NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+
 		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_EVENT_QUEUE, "snarf");
+					       UPSTART_EVENT_QUEUE, "snarf",
+					       args, env);
 		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
+
+		nih_free (args);
+		nih_free (env);
 
 		exit (0);
 	}
@@ -846,6 +858,19 @@ test_event_queue (void)
 
 	event = (Event *)list->prev;
 	TEST_EQ_STR (event->name, "snarf");
+
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_P (event->args[2], NULL);
+
+	TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
+	TEST_ALLOC_PARENT (event->env[0], event->env);
+	TEST_EQ_STR (event->env[0], "FOO=BAR");
+	TEST_EQ_P (event->env[1], NULL);
+
 	nih_list_free (&event->entry);
 
 	control_close ();

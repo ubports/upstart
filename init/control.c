@@ -54,7 +54,8 @@ static int  control_job_query      (void *data, pid_t pid,
 static int  control_job_list       (void *data,  pid_t pid,
 				    UpstartMessageType type);
 static int  control_event_queue    (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name);
+				    UpstartMessageType type, const char *name,
+				    char **args, char **env);
 static int  control_watch_jobs     (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_jobs   (void *data, pid_t pid,
@@ -408,7 +409,9 @@ control_job_list (void               *data,
  * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
- * @name: name of event to queue.
+ * @name: name of event to queue,
+ * @args: optional arguments for event,
+ * @env: optional environment for event.
  *
  * This function is called when another process on the system requests that
  * we queue the event @name.  It receives no reply.
@@ -416,18 +419,32 @@ control_job_list (void               *data,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-control_event_queue (void               *data,
-		     pid_t               pid,
-		     UpstartMessageType  type,
-		     const char         *name)
+control_event_queue (void                *data,
+		     pid_t                pid,
+		     UpstartMessageType   type,
+		     const char          *name,
+		     char               **args,
+		     char               **env)
 {
+	Event *event;
+
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_EVENT_QUEUE);
 	nih_assert (name != NULL);
 
 	nih_info (_("Control request to queue event %s"), name);
 
-	event_queue (name);
+	event = event_queue (name);
+
+	if (args) {
+		event->args = args;
+		nih_alloc_reparent (event->args, event);
+	}
+
+	if (env) {
+		event->env = env;
+		nih_alloc_reparent (event->env, event);
+	}
 
 	return 0;
 }
