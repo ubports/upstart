@@ -91,6 +91,7 @@
  * @start_events: list of events that can start this job,
  * @stop_events; list of events that can stop this job.
  * @emits: list of additional events that this job can emit,
+ * @goal_event: event that last changed @goal,
  * @process_state: what we're waiting for from the process,
  * @pid: current process id,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
@@ -142,6 +143,8 @@ typedef struct job {
 	NihList        start_events;
 	NihList        stop_events;
 	NihList        emits;
+
+	Event         *goal_event;
 
 	ProcessState   process_state;
 	pid_t          pid;

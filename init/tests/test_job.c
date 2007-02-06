@@ -57,33 +57,43 @@ test_new (void)
 	 * and have sensible defaults.
 	 */
 	TEST_FUNCTION ("job_new");
-	job = job_new (NULL, "test");
+	job_list ();
+	TEST_ALLOC_FAIL {
+		job = job_new (NULL, "test");
 
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->entry);
-	TEST_LIST_EMPTY (&job->start_events);
-	TEST_LIST_EMPTY (&job->stop_events);
-	TEST_LIST_EMPTY (&job->emits);
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+			continue;
+		}
 
-	TEST_EQ_STR (job->name, "test");
-	TEST_ALLOC_PARENT (job->name, job);
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&job->entry);
+		TEST_LIST_EMPTY (&job->start_events);
+		TEST_LIST_EMPTY (&job->stop_events);
+		TEST_LIST_EMPTY (&job->emits);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ_P (job->goal_event, NULL);
 
-	TEST_EQ (job->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
-	TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
-	TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
-	TEST_EQ (job->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
+		TEST_EQ_STR (job->name, "test");
+		TEST_ALLOC_PARENT (job->name, job);
 
-	TEST_EQ (job->console, CONSOLE_LOGGED);
-	TEST_EQ (job->umask, JOB_DEFAULT_UMASK);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
 
-	for (i = 0; i < RLIMIT_NLIMITS; i++)
-		TEST_EQ_P (job->limits[i], NULL);
+		TEST_EQ (job->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
+		TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
+		TEST_EQ (job->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
 
-	nih_list_free (&job->entry);
+		TEST_EQ (job->console, CONSOLE_LOGGED);
+		TEST_EQ (job->umask, JOB_DEFAULT_UMASK);
+
+		for (i = 0; i < RLIMIT_NLIMITS; i++)
+			TEST_EQ_P (job->limits[i], NULL);
+
+		nih_list_free (&job->entry);
+	}
 }
 
 void

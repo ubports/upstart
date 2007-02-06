@@ -155,6 +155,8 @@ job_new (const void *parent,
 	nih_list_init (&job->stop_events);
 	nih_list_init (&job->emits);
 
+	job->goal_event = NULL;
+
 	job->process_state = PROCESS_NONE;
 	job->pid = 0;
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;

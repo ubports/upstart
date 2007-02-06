@@ -1,3 +1,10 @@
+2007-02-06  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.h (Job): Add a new goal_event member
+	* init/job.c (job_new): Initialise the goal_event member to NULL.
+	* init/tests/test_job.c (test_new): Check with TEST_ALLOC_FAIL;
+	also make sure goal_event is initialised to NULL.
+
 2007-02-05  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.3.3
