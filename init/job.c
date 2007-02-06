@@ -291,7 +291,6 @@ job_change_state (Job      *job,
 	while (job->state != state) {
 		JobState  old_state;
 		char     *event = NULL;
-		int       job_event = FALSE;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
@@ -361,13 +360,6 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
-			/* Send the job event if we're a service that is now
-			 * running.
-			 */
-			if (job->process_state == PROCESS_ACTIVE)
-				if (job->respawn)
-					job_event = TRUE;
-
 			NIH_MUST (event = nih_sprintf (job, "%s/started",
 						       job->name));
 
@@ -385,12 +377,6 @@ job_change_state (Job      *job,
 
 			NIH_MUST (event = nih_sprintf (job, "%s/stop",
 						       job->name));
-
-			/* Send the job event if we're a task that's just
-			 * finished
-			 */
-			if (! job->respawn)
-				job_event = TRUE;
 
 			break;
 		case JOB_RESPAWNING:
@@ -414,9 +400,6 @@ job_change_state (Job      *job,
 			event_queue (event);
 			nih_free (event);
 		}
-
-		if (job_event)
-			event_queue (job->name);
 	}
 }
 

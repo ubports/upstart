@@ -327,10 +327,6 @@ test_change_state (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test");
-		nih_list_free (&event->entry);
-
-		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "test/started");
 		nih_list_free (&event->entry);
 
@@ -459,10 +455,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "test");
-		nih_list_free (&event->entry);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "test/stop");
