@@ -1,5 +1,11 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Set the UPSTART_JOB
+	environment variable from the job, and the UPSTART_EVENT environment
+	variable from the job's goal_event member (if set).
+	* init/tests/test_process.c (test_spawn): Make sure we get the
+	environment in the job.
+
 	* init/job.h: Add attributes to job_new and job_read_state.
 	* init/tests/test_job.c: Use CHECK_ALLOC_FAIL on the functions we
 	didn't get around to touching while we were in here.

@@ -244,6 +244,10 @@ process_setup_environment (Job *job)
 		nih_free (term);
 	}
 
+	setenv ("UPSTART_JOB", job->name, TRUE);
+	if (job->goal_event)
+		setenv ("UPSTART_EVENT", job->goal_event->name, TRUE);
+
 	for (env = job->env; env && *env; env++)
 		if (putenv (*env) < 0)
 			nih_return_system_error (-1);

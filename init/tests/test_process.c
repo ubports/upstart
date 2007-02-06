@@ -36,6 +36,7 @@
 #include <nih/list.h>
 
 #include "job.h"
+#include "event.h"
 #include "process.h"
 
 
@@ -210,6 +211,37 @@ test_spawn (void)
 
 	TEST_FILE_EQ_N (output, "PATH=");
 	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_END (output);
+
+	fclose (output);
+	unlink (filename);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a job's environment includes the UPSTART_EVENT variable
+	 * if the goal_event member is set.
+	 */
+	printf ("...with environment and goal event");
+	sprintf (function, "%d", TEST_ENVIRONMENT);
+	putenv ("BAR=baz");
+
+	job = job_new (NULL, "test");
+	job->goal_event = event_new (job, "wibble");
+	job->env = env;
+	env[0] = "FOO=bar";
+	env[1] = NULL;
+	pid = process_spawn (job, args);
+
+	waitpid (pid, NULL, 0);
+	output = fopen (filename, "r");
+
+	TEST_FILE_EQ_N (output, "PATH=");
+	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+	TEST_FILE_EQ (output, "UPSTART_EVENT=wibble\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
 	TEST_FILE_END (output);
 
