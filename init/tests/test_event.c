@@ -2,7 +2,7 @@
  *
  * test_event.c - test suite for init/event.c
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -39,14 +39,29 @@ test_new (void)
 	 * any kind of list.
 	 */
 	TEST_FUNCTION ("event_new");
-	event = event_new (NULL, "test");
+	TEST_ALLOC_FAIL {
+		event = event_new (NULL, "test");
 
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_LIST_EMPTY (&event->entry);
-	TEST_EQ_STR (event->name, "test");
-	TEST_ALLOC_PARENT (event->name, event);
+		if (test_alloc_failed) {
+			TEST_EQ_P (event, NULL);
+			continue;
+		}
 
-	nih_list_free (&event->entry);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_EMPTY (&event->entry);
+		TEST_EQ_STR (event->name, "test");
+		TEST_ALLOC_PARENT (event->name, event);
+
+		TEST_ALLOC_SIZE (event->args, sizeof (char *));
+		TEST_ALLOC_PARENT (event->args, event);
+		TEST_EQ_P (event->args[0], NULL);
+
+		TEST_ALLOC_SIZE (event->env, sizeof (char *));
+		TEST_ALLOC_PARENT (event->env, event);
+		TEST_EQ_P (event->env[0], NULL);
+
+		nih_list_free (&event->entry);
+	}
 }
 
 void

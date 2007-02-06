@@ -108,6 +108,20 @@ event_new (const void *parent,
 		return NULL;
 	}
 
+	event->args = nih_alloc (event, sizeof (char *));
+	if (! event->args) {
+		nih_free (event);
+		return NULL;
+	}
+	event->args[0] = NULL;
+
+	event->env = nih_alloc (event, sizeof (char *));
+	if (! event->env) {
+		nih_free (event);
+		return NULL;
+	}
+	event->env[0] = NULL;
+
 	return event;
 }
 

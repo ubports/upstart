@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,9 @@
 /**
  * Event:
  * @entry: list header,
- * @name: string name of the event.
+ * @name: string name of the event,
+ * @args: NULL-terminated list of arguments,
+ * @env: NULL-terminated list of environment variables.
  *
  * Events occur whenever something, somewhere changes state.  They are
  * placed in the event queue and can cause jobs to change their goal to
@@ -42,9 +44,11 @@
  * makes no attempt to track it.
  **/
 typedef struct event {
-	NihList  entry;
+	NihList   entry;
 
-	char    *name;
+	char     *name;
+	char    **args;
+	char    **env;
 } Event;
 
 
