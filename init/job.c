@@ -1323,6 +1323,18 @@ job_read_state (Job  *job,
 			job->goal_event = NULL;
 		}
 
+	} else if (! strcmp (buf, ".goal_event_arg")) {
+		if (job->goal_event)
+			NIH_MUST (nih_str_array_add (&job->goal_event->args,
+						     job->goal_event, NULL,
+						     ptr));
+
+	} else if (! strcmp (buf, ".goal_event_env")) {
+		if (job->goal_event)
+			NIH_MUST (nih_str_array_add (&job->goal_event->env,
+						     job->goal_event, NULL,
+						     ptr));
+
 	} else if (! strcmp (buf, ".kill_timer_due")) {
 		time_t value;
 
@@ -1372,8 +1384,14 @@ job_write_state (FILE *state)
 			 process_state_name (job->process_state));
 		fprintf (state, ".pid %d\n", job->pid);
 		if (job->goal_event) {
+			char **ptr;
+
 			fprintf (state, ".goal_event %s\n",
 				 job->goal_event->name);
+			for (ptr = job->goal_event->args; ptr && *ptr; ptr++)
+				fprintf (state, ".goal_event_arg %s\n", *ptr);
+			for (ptr = job->goal_event->env; ptr && *ptr; ptr++)
+				fprintf (state, ".goal_event_env %s\n", *ptr);
 		} else {
 			fprintf (state, ".goal_event \n");
 		}

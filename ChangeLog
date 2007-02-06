@@ -1,5 +1,10 @@
 2007-02-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_read_state, job_write_state): Read and write
+	arguments and environment for goal event.
+	* init/tests/test_job.c (test_read_state, test_write_state): Test
+	with arguments and environment to the goal event.
+
 	* init/event.c (event_read_state, event_write_state): Read and write
 	the arguments and environment of the event.
 	* init/tests/test_event.c (test_read_state, test_write_state): Make

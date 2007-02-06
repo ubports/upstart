@@ -2206,7 +2206,7 @@ test_read_state (void)
 	/* Check that a non-NULL goal_event is parsed; creating an Event
 	 * structure and attaching it to the job.
 	 */
-	TEST_FEATURE ("with no goal event");
+	TEST_FEATURE ("with goal event");
 	TEST_ALLOC_FAIL {
 		sprintf (buf, ".goal_event foo");
 		ptr = job_read_state (job, buf);
@@ -2218,6 +2218,73 @@ test_read_state (void)
 		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
 		TEST_ALLOC_SIZE (job->goal_event->name, 4);
 		TEST_EQ_STR (job->goal_event->name, "foo");
+	}
+
+
+	/* Check that an argument to the goal event can be parsed and
+	 * attached to that event.
+	 */
+	TEST_FEATURE ("with argument to goal event");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal_event_arg foo");
+		ptr = job_read_state (job, buf);
+
+		TEST_EQ_P (ptr, job);
+		TEST_ALLOC_PARENT (job->goal_event->args, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->args, sizeof (char *) * 2);
+		TEST_EQ_STR (job->goal_event->args[0], "foo");
+		TEST_EQ_P (job->goal_event->args[1], NULL);
+
+		nih_free (job->goal_event->args);
+		job->goal_event->args = NULL;
+	}
+
+
+	/* Check that environment for the goal event can be parsed and
+	 * attached to that event.
+	 */
+	TEST_FEATURE ("with environment for goal event");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal_event_env FOO=BAR");
+		ptr = job_read_state (job, buf);
+
+		TEST_EQ_P (ptr, job);
+		TEST_ALLOC_PARENT (job->goal_event->env, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->env, sizeof (char *) * 2);
+		TEST_EQ_STR (job->goal_event->env[0], "FOO=BAR");
+		TEST_EQ_P (job->goal_event->env[1], NULL);
+
+		nih_free (job->goal_event->env);
+		job->goal_event->env = NULL;
+	}
+
+
+	/* Check that a goal event argument is ignored if there's no goal
+	 * event.
+	 */
+	TEST_FEATURE ("with argument to non-existant goal event");
+	nih_free (job->goal_event);
+	job->goal_event = NULL;
+
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal_event_arg foo");
+		ptr = job_read_state (job, buf);
+
+		TEST_EQ_P (ptr, job);
+		TEST_EQ_P (job->goal_event, NULL);
+	}
+
+
+	/* Check that a goal event environment is ignored if there's no goal
+	 * event.
+	 */
+	TEST_FEATURE ("with environment for non-existant goal event");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".goal_event_env foo");
+		ptr = job_read_state (job, buf);
+
+		TEST_EQ_P (ptr, job);
+		TEST_EQ_P (job->goal_event, NULL);
 	}
 
 
@@ -2294,6 +2361,14 @@ test_write_state (void)
 	job2->respawn_count = 0;
 	job2->respawn_time = 0;
 	job2->goal_event = event_new (job2, "wibble");
+	NIH_MUST (nih_str_array_add (&job2->goal_event->args, job2->goal_event,
+				     NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&job2->goal_event->args, job2->goal_event,
+				     NULL, "bar"));
+	NIH_MUST (nih_str_array_add (&job2->goal_event->env, job2->goal_event,
+				     NULL, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&job2->goal_event->env, job2->goal_event,
+				     NULL, "TEA=YES"));
 
 	output = tmpfile ();
 	job_write_state (output);
@@ -2314,6 +2389,10 @@ test_write_state (void)
 	TEST_FILE_EQ (output, ".process_state killed\n");
 	TEST_FILE_EQ (output, ".pid 999\n");
 	TEST_FILE_EQ (output, ".goal_event wibble\n");
+	TEST_FILE_EQ (output, ".goal_event_arg foo\n");
+	TEST_FILE_EQ (output, ".goal_event_arg bar\n");
+	TEST_FILE_EQ (output, ".goal_event_env FOO=BAR\n");
+	TEST_FILE_EQ (output, ".goal_event_env TEA=YES\n");
 	TEST_FILE_EQ (output, ".respawn_count 0\n");
 	TEST_FILE_EQ (output, ".respawn_time 0\n");
 	TEST_FILE_END (output);
