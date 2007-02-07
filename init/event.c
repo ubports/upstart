@@ -26,6 +26,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fnmatch.h>
 
@@ -53,6 +54,15 @@ static void event_finished (EventEmission *emission);
  **/
 int paused = FALSE;
 
+
+/**
+ * emission_id
+ *
+ * This counter is used to assign unique emission ids and is incremented
+ * each time we use it.  After a while (4 billion events) it'll wrap over,
+ * so always check an id isn't taken.
+ **/
+static uint32_t emission_id = 0;
 
 /**
  * events:
@@ -189,8 +199,7 @@ event_emit (const char       *name,
 	    EventEmissionCb   callback,
 	    void             *data)
 {
-	EventEmission   *emission;
-	static uint32_t  id = 0;
+	EventEmission *emission;
 
 	nih_assert (name != NULL);
 	nih_assert (strlen (name) > 0);
@@ -203,10 +212,10 @@ event_emit (const char       *name,
 	 * (in practice, we shouldn't reach 4 billion events, but better
 	 * safe than sorry.
 	 */
-	while (event_emit_find_by_id (id))
-		id++;
+	while (event_emit_find_by_id (emission_id))
+		emission_id++;
 
-	emission->id = id++;
+	emission->id = emission_id++;
 	emission->progress = EVENT_PENDING;
 
 	emission->jobs = 0;
@@ -413,7 +422,7 @@ event_finished (EventEmission *emission)
 
 /**
  * event_read_state:
- * @event: event to update,
+ * @emission: event emission to update,
  * @buf: serialised state.
  *
  * Parse the serialised state and update the event queue if we recognise
@@ -423,9 +432,9 @@ event_finished (EventEmission *emission)
  *
  * @event may be NULL if @buf begins "Event "
  **/
-Event *
-event_read_state (Event *event,
-		  char  *buf)
+EventEmission *
+event_read_state (EventEmission *emission,
+		  char          *buf)
 {
 	char *ptr;
 
@@ -436,28 +445,56 @@ event_read_state (Event *event,
 	if (ptr) {
 		*(ptr++) = '\0';
 	} else {
-		return event;
+		return emission;
 	}
 
 	/* Handle the case where we don't have a event yet first */
-	if (! event) {
-		if (strcmp (buf, "Event"))
-			return event;
+	if (! emission) {
+		if (! strcmp (buf, "Emission")) {
+			uint32_t value;
 
-		/* Add a new event record */
-		event = (Event *)event_queue (ptr);
-		return event;
+			value = strtoul (ptr, &ptr, 10);
+			if (! *ptr)
+				emission_id = value;
+
+			return NULL;
+
+		} else if (strcmp (buf, "Event"))
+			return emission;
+
+		/* Add a new event emission record.  Arguments, environment,
+		 * callback, etc. will be filled in as we go.
+		 */
+		emission = event_emit (ptr, NULL, NULL, NULL, NULL);
+		return emission;
 	}
 
 	/* Otherwise handle the attributes */
 	if (! strcmp (buf, ".arg")) {
-		NIH_MUST (nih_str_array_add (&event->args, event, NULL, ptr));
+		NIH_MUST (nih_str_array_add (&emission->event.args, emission,
+					     NULL, ptr));
 
 	} else if (! strcmp (buf, ".env")) {
-		NIH_MUST (nih_str_array_add (&event->env, event, NULL, ptr));
+		NIH_MUST (nih_str_array_add (&emission->event.env, emission,
+					     NULL, ptr));
+
+	} else if (! strcmp (buf, ".id")) {
+		uint32_t value;
+
+		value = strtoul (ptr, &ptr, 10);
+		if (! *ptr)
+			emission->id = value;
+
+	} else if (! strcmp (buf, ".failed")) {
+		if (! strcmp (ptr, "TRUE")) {
+			emission->failed = TRUE;
+		} else if (! strcmp (ptr, "FALSE")) {
+			emission->failed = FALSE;
+		}
+
 	}
 
-	return event;
+	return emission;
 }
 
 /**
@@ -476,12 +513,18 @@ event_write_state (FILE *state)
 	nih_assert (state != NULL);
 
 	NIH_LIST_FOREACH (events, iter) {
-		Event *event = (Event *)iter;
+		EventEmission *emission = (EventEmission *)iter;
 
-		fprintf (state, "Event %s\n", event->name);
-		for (ptr = event->args; ptr && *ptr; ptr++)
+		fprintf (state, "Event %s\n", emission->event.name);
+		for (ptr = emission->event.args; ptr && *ptr; ptr++)
 			fprintf (state, ".arg %s\n", *ptr);
-		for (ptr = event->env; ptr && *ptr; ptr++)
+		for (ptr = emission->event.env; ptr && *ptr; ptr++)
 			fprintf (state, ".env %s\n", *ptr);
+
+		fprintf (state, ".id %zu\n", emission->id);
+		fprintf (state, ".failed %s\n",
+			 emission->failed ? "TRUE" : "FALSE");
 	}
+
+	fprintf (state, "Emission %d\n", emission_id);
 }

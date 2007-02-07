@@ -203,7 +203,7 @@ void           event_emit_finished   (EventEmission *emission);
 
 void           event_poll            (void);
 
-Event *        event_read_state      (Event *event, char *buf);
+EventEmission *event_read_state      (EventEmission *emission, char *buf);
 void           event_write_state     (FILE *state);
 
 NIH_END_EXTERN

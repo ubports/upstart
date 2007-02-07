@@ -509,8 +509,8 @@ test_poll (void)
 void
 test_read_state (void)
 {
-	Event *event, *ptr;
-	char   buf[80];
+	EventEmission *em, *ptr;
+	char           buf[80];
 
 	TEST_FUNCTION ("event_read_state");
 
@@ -520,14 +520,14 @@ test_read_state (void)
 	TEST_FEATURE ("with event name");
 	TEST_ALLOC_FAIL {
 		sprintf (buf, "Event bang");
-		event = event_read_state (NULL, buf);
+		em = event_read_state (NULL, buf);
 
-		TEST_ALLOC_SIZE (event, sizeof (EventEmission));
-		TEST_LIST_NOT_EMPTY (&event->entry);
-		TEST_EQ_STR (event->name, "bang");
-		TEST_ALLOC_PARENT (event->name, event);
+		TEST_ALLOC_SIZE (em, sizeof (EventEmission));
+		TEST_LIST_NOT_EMPTY (&em->event.entry);
+		TEST_EQ_STR (em->event.name, "bang");
+		TEST_ALLOC_PARENT (em->event.name, em);
 
-		nih_list_free (&event->entry);
+		nih_list_free (&em->event.entry);
 	}
 
 
@@ -535,20 +535,20 @@ test_read_state (void)
 	 * are appended to the event.
 	 */
 	TEST_FEATURE ("with argument to event");
-	event = (Event *)event_queue ("foo");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
 	TEST_ALLOC_FAIL {
 		sprintf (buf, ".arg frodo");
-		ptr = event_read_state (event, buf);
+		ptr = event_read_state (em, buf);
 
-		TEST_EQ_P (ptr, event);
-		TEST_ALLOC_PARENT (event->args, event);
-		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 2);
-		TEST_ALLOC_PARENT (event->args[0], event->args);
-		TEST_EQ_STR (event->args[0], "frodo");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_P (ptr, em);
+		TEST_ALLOC_PARENT (em->event.args, em);
+		TEST_ALLOC_SIZE (em->event.args, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (em->event.args[0], em->event.args);
+		TEST_EQ_STR (em->event.args[0], "frodo");
+		TEST_EQ_P (em->event.args[1], NULL);
 
-		nih_free (event->args);
-		event->args = NULL;
+		nih_free (em->event.args);
+		em->event.args = NULL;
 	}
 
 
@@ -558,62 +558,132 @@ test_read_state (void)
 	TEST_FEATURE ("with environment for event");
 	TEST_ALLOC_FAIL {
 		sprintf (buf, ".env FOO=BAR");
-		ptr = event_read_state (event, buf);
+		ptr = event_read_state (em, buf);
 
-		TEST_EQ_P (ptr, event);
-		TEST_ALLOC_PARENT (event->env, event);
-		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
-		TEST_ALLOC_PARENT (event->env[0], event->env);
-		TEST_EQ_STR (event->env[0], "FOO=BAR");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_P (ptr, em);
+		TEST_ALLOC_PARENT (em->event.env, em);
+		TEST_ALLOC_SIZE (em->event.env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (em->event.env[0], em->event.env);
+		TEST_EQ_STR (em->event.env[0], "FOO=BAR");
+		TEST_EQ_P (em->event.env[1], NULL);
 
-		nih_free (event->env);
-		event->env = NULL;
+		nih_free (em->event.env);
+		em->event.env = NULL;
 	}
 
-	nih_list_free (&event->entry);
+
+	/* Check that the id of the emission can be received. */
+	TEST_FEATURE ("with emission id");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".id 42");
+		ptr = event_read_state (em, buf);
+
+		TEST_EQ_P (ptr, em);
+		TEST_EQ (em->id, 42);
+	}
+
+
+	/* Check that the failed status of the event can be received. */
+	TEST_FEATURE ("with failed emission");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".failed TRUE");
+		ptr = event_read_state (em, buf);
+
+		TEST_EQ_P (ptr, em);
+		TEST_EQ (em->failed, TRUE);
+	}
+
+
+	/* Check that a negative failed status of the event can be received. */
+	TEST_FEATURE ("with non-failed emission");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".failed FALSE");
+		ptr = event_read_state (em, buf);
+
+		TEST_EQ_P (ptr, em);
+		TEST_EQ (em->failed, FALSE);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	/* Check that next emission id can be reiceved, and that is used
+	 * for the next event.
+	 */
+	TEST_FEATURE ("with next emission id");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, "Emission 809120");
+		em = event_read_state (NULL, buf);
+
+		TEST_EQ_P (em, NULL);
+
+		TEST_ALLOC_SAFE {
+			em = event_emit ("test", NULL, NULL, NULL, NULL);
+		}
+
+		TEST_EQ (em->id, 809120);
+		nih_list_free (&em->event.entry);
+	}
 }
 
 void
 test_write_state (void)
 {
-	FILE  *output;
-	Event *event1, *event2, *event3;
+	FILE           *output;
+	EventEmission  *em1, *em2, *em3;
+	char          **args, **env;
 
 	/* Check that the state of the event queue can be written out to
 	 * a file descriptor.
 	 */
 	TEST_FUNCTION ("event_write_state");
-	event1 = (Event *)event_queue ("frodo");
+	em1 = event_emit ("frodo", NULL, NULL, NULL, NULL);
+	em1->id = 100;
+	em3->failed = FALSE;
 
-	event2 = (Event *)event_queue ("bilbo");
-	NIH_MUST (nih_str_array_add (&event2->args, event2, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&event2->args, event2, NULL, "bar"));
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	em2 = event_emit ("bilbo", args, NULL, NULL, NULL);
+	em2->id = 101;
+	em2->failed = TRUE;
 
-	event3 = (Event *)event_queue ("drogo");
-	NIH_MUST (nih_str_array_add (&event3->args, event3, NULL, "baggins"));
-	NIH_MUST (nih_str_array_add (&event3->env, event3, NULL, "FOO=BAR"));
-	NIH_MUST (nih_str_array_add (&event3->env, event3, NULL, "TEA=YES"));
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "baggins"));
+
+	env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "TEA=YES"));
+	em3 = event_emit ("drogo", args, env, NULL, NULL);
+	em3->id = 102;
+	em3->failed = FALSE;
 
 	output = tmpfile ();
 	event_write_state (output);
 	rewind (output);
 
 	TEST_FILE_EQ (output, "Event frodo\n");
+	TEST_FILE_EQ (output, ".id 100\n");
+	TEST_FILE_EQ (output, ".failed FALSE\n");
 	TEST_FILE_EQ (output, "Event bilbo\n");
 	TEST_FILE_EQ (output, ".arg foo\n");
 	TEST_FILE_EQ (output, ".arg bar\n");
+	TEST_FILE_EQ (output, ".id 101\n");
+	TEST_FILE_EQ (output, ".failed TRUE\n");
 	TEST_FILE_EQ (output, "Event drogo\n");
 	TEST_FILE_EQ (output, ".arg baggins\n");
 	TEST_FILE_EQ (output, ".env FOO=BAR\n");
 	TEST_FILE_EQ (output, ".env TEA=YES\n");
+	TEST_FILE_EQ (output, ".id 102\n");
+	TEST_FILE_EQ (output, ".failed FALSE\n");
+	TEST_FILE_EQ_N (output, "Emission ");
 	TEST_FILE_END (output);
 
 	fclose (output);
 
-	nih_list_free (&event1->entry);
-	nih_list_free (&event2->entry);
-	nih_list_free (&event3->entry);
+	nih_list_free (&em1->event.entry);
+	nih_list_free (&em2->event.entry);
+	nih_list_free (&em3->event.entry);
 }
 
 

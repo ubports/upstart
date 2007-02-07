@@ -561,10 +561,10 @@ error:
 static void
 read_state (int fd)
 {
-	Job   *job = NULL;
-	Event *event = NULL;
-	FILE  *state;
-	char   buf[80];
+	Job           *job = NULL;
+	EventEmission *emission = NULL;
+	FILE          *state;
+	char           buf[80];
 
 	nih_debug ("Reading state");
 
@@ -593,18 +593,22 @@ read_state (int fd)
 
 		if (! strncmp (buf, "Job ", 4)) {
 			job = job_read_state (NULL, buf);
-			event = NULL;
-		} else if (! strncmp (buf, "Event ", 5)) {
-			event = event_read_state (NULL, buf);
+			emission = NULL;
+		} else if (! strncmp (buf, "Event ", 6)) {
+			emission = event_read_state (NULL, buf);
+			job = NULL;
+		} else if (! strncmp (buf, "Emission ", 9)) {
+			event_read_state (NULL, buf);
+			emission = NULL;
 			job = NULL;
 		} else if (buf[0] == '.') {
 			if (job) {
 				job = job_read_state (job, buf);
-			} else if (event) {
-				event = event_read_state (event, buf);
+			} else if (emission) {
+				emission = event_read_state (emission, buf);
 			}
 		} else {
-			event = NULL;
+			emission = NULL;
 			job = NULL;
 		}
 	}
