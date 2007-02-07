@@ -937,7 +937,7 @@ job_child_reaper (void  *data,
 		  int    status)
 {
 	Job *job;
-	int  failed = FALSE;
+	int  failed = FALSE, stop = FALSE;
 
 	nih_assert (data == NULL);
 	nih_assert (pid > 0);
@@ -1020,7 +1020,7 @@ job_child_reaper (void  *data,
 		}
 
 		/* Otherwise whether it's failed or not, it's going away */
-		job_change_goal (job, JOB_STOP, NULL);
+		stop = TRUE;
 		break;
 	default:
 		/* If a script is killed or exits with a status other than
@@ -1029,22 +1029,36 @@ job_child_reaper (void  *data,
 		 */
 		if (killed || status) {
 			failed = TRUE;
-
-			job_change_goal (job, JOB_STOP, NULL);
+			stop = TRUE;
 		}
 
 		break;
 	}
 
-	/* Mark the job as failed, this information ends up in the stop and
-	 * stopped events for others to see.
+	/* Mark the job as failed; this information shows up as arguments
+	 * and environment to the stop and stopped events generated for the
+	 * job.
+	 *
+	 * In addition, mark the goal event as failed as well; this is
+	 * reported to the emitted of the event, and also causes a failed
+	 * event to be generated.
 	 */
 	if (failed) {
 		job->failed = TRUE;
 		job->failed_state = job->state;
 		job->exit_status = status;
+
+		if (job->goal_event)
+			job->goal_event->failed = TRUE;
 	}
 
+	/* Change the goal to stop; since we're in a non-rest state, this
+	 * has no side-effects to the state.
+	 */
+	if (stop)
+		job_change_goal (job, JOB_STOP, NULL);
+
+	/* We've reached a gateway point, switch to the next state. */
 	job_change_state (job, job_next_state (job));
 }
 

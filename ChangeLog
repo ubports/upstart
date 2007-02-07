@@ -1,5 +1,8 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_reaper): Make sure that the
+	event is marked failed properly
+
 	* init/job.c (job_start_event, job_stop_event): There's no reason
 	for these to exist as seperate functions anymore, especially since
 	we want to eventually have some kind of match table.

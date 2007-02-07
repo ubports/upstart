@@ -1776,6 +1776,7 @@ test_child_reaper (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 		job->goal_event = em;
+		em->failed = FALSE;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
@@ -1788,6 +1789,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
 
@@ -1853,6 +1855,7 @@ test_child_reaper (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 		job->goal_event = em;
+		em->failed = FALSE;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
@@ -1864,7 +1867,8 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_NE_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
 
@@ -1878,7 +1882,7 @@ test_child_reaper (void)
 	/* Check that we can reap a failing starting task of the job, which
 	 * changes the goal to stop and transitions a state change in that
 	 * direction to the stopping state.  An error should be emitted
-	 * and the job should be marked as failed.
+	 * and the job and event should be marked as failed.
 	 */
 	TEST_FEATURE ("with starting task failure");
 	output = tmpfile ();
@@ -1893,6 +1897,7 @@ test_child_reaper (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 		job->goal_event = em;
+		em->failed = FALSE;
 
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, FALSE, 1);
@@ -1908,6 +1913,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 1);
 
 		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
 
@@ -1940,6 +1946,7 @@ test_child_reaper (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 		job->goal_event = em;
+		em->failed = FALSE;
 
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, TRUE, SIGTERM);
@@ -1955,6 +1962,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, SIGTERM | 0x80);
 
 		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
 
@@ -2016,6 +2024,8 @@ test_child_reaper (void)
 	 * stop and transitioning into the stopping state.
 	 */
 	TEST_FEATURE ("with running task and normal exit");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -2024,6 +2034,8 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
 		job->respawn = TRUE;
 		job->normalexit = exitcodes;
 		job->normalexit_len = 1;
@@ -2041,6 +2053,9 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, FALSE);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
@@ -2052,11 +2067,16 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
 
 	/* Check that a running task that fails with an exit status not
 	 * listed in normalexit causes the job to be marked as failed.
 	 */
 	TEST_FEATURE ("with running task and abnormal exit");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -2065,6 +2085,8 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
 		job->normalexit_len = 2;
@@ -2082,6 +2104,9 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_RUNNING);
 		TEST_EQ (job->exit_status, 99);
 
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, TRUE);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
@@ -2093,12 +2118,17 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
 
 	/* Check that a running task that fails with an exit status
 	 * listed in normalexit does not cause the job to be marked as
 	 * failed, but instead just stops it normally.
 	 */
 	TEST_FEATURE ("with running task and normal exit");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -2107,6 +2137,8 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
 		job->normalexit_len = 2;
@@ -2124,6 +2156,9 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, FALSE);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
@@ -2135,12 +2170,17 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
 
 	/* Check that a running task that fails with an signal
 	 * listed in normalexit does not cause the job to be marked as
 	 * failed, but instead just stops it normally.
 	 */
 	TEST_FEATURE ("with running task and normal signal");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -2149,6 +2189,8 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
 		job->normalexit_len = 2;
@@ -2166,6 +2208,9 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, FALSE);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
@@ -2177,11 +2222,16 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
 
 	/* A running task exiting with the zero exit code is considered
 	 * a normal termination if not marked respawn.
 	 */
 	TEST_FEATURE ("with running task and zero exit");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -2190,6 +2240,8 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
 		job->normalexit_len = 2;
@@ -2204,10 +2256,16 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, FALSE);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
 	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
 
 
 	fclose (output);
