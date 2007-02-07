@@ -48,7 +48,8 @@
 
 /* Prototypes for static functions */
 static int handle_event (void *data, pid_t pid, UpstartMessageType type,
-			 const char *name);
+			 const char *name, char * const *args,
+			 char * const *env);
 
 
 /**
@@ -292,25 +293,49 @@ error:
  * @data: data pointer,
  * @pid: origin of message,
  * @type: message type,
- * @name: name of event.
+ * @name: name of event,
+ * @args: arguments to event,
+ * @env: environment for event.
  *
  * Function called on receipt of a message notifying us of an event
  * emission.
  *
- * Builds a single-line string describing the event and outputs it.
+ * Builds a single-line string describing the event and its arguments,
+ * followed by one line for each environment variable.
  *
  * Returns: zero on success, negative value on error.
  **/
 static int handle_event (void               *data,
 			 pid_t               pid,
 			 UpstartMessageType  type,
-			 const char         *name)
+			 const char         *name,
+			 char * const *      args,
+			 char * const *      env)
 {
+	char         *msg;
+	char * const *ptr;
+
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_EVENT);
 	nih_assert (name != NULL);
 
-	nih_message (_("%s event"), name);
+	NIH_MUST (msg = nih_strdup (NULL, name));
+	for (ptr = args; ptr && *ptr; ptr++) {
+		char *new_msg;
+
+		NIH_MUST (new_msg = nih_realloc (msg, NULL, (strlen (msg)
+							     + strlen (*ptr)
+							     + 2)));
+		msg = new_msg;
+		strcat (msg, " ");
+		strcat (msg, *ptr);
+	}
+
+	nih_message ("%s", msg);
+	nih_free (msg);
+
+	for (ptr = env; ptr && *ptr; ptr++)
+		nih_message ("    %s", *ptr);
 
 	return 0;
 }

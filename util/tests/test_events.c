@@ -31,6 +31,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/main.h>
 #include <nih/io.h>
 #include <nih/logging.h>
@@ -286,7 +287,7 @@ test_events_action (void)
 	size_t        len;
 	FILE         *output;
 	pid_t         pid;
-	char         *args[3];
+	char         *args[3], **argv, **env;
 	int           ret, sock, status;
 
 
@@ -335,8 +336,15 @@ test_events_action (void)
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
+	argv = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&argv, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&argv, NULL, NULL, "bar"));
+
+	env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT, "frodo",
-				   NULL, NULL);
+				   argv, env);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -353,8 +361,9 @@ test_events_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "test: wibble event\n");
-	TEST_FILE_EQ (output, "test: frodo event\n");
+	TEST_FILE_EQ (output, "test: wibble\n");
+	TEST_FILE_EQ (output, "test: frodo foo bar\n");
+	TEST_FILE_EQ (output, "test:     FOO=BAR\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 

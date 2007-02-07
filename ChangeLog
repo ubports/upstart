@@ -1,5 +1,10 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* util/events.c (handle_event): Build up multiple lines to describe
+	the event, including its arguments and environment.
+	* util/tests/test_events.c (test_events_action): Check the new output
+	format is right.
+
 	* init/main.c (main): Take out inadvertantly leaked debugging code;
 	sorry about that.
 
