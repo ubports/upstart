@@ -209,11 +209,6 @@ main (int   argc,
 	setenv ("PATH", PATH, TRUE);
 
 
-	nih_debug ("attach gdb to %d now", getpid ());
-	sleep (5);
-	nih_debug ("too late");
-
-
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
