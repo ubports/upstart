@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <sys/resource.h>
 
 #include <stdio.h>
@@ -57,6 +58,7 @@
 /* Prototypes for static functions */
 static void job_run_process   (Job *job, char * const  argv[]);
 static void job_kill_timer    (Job *job, NihTimer *timer);
+static void job_failed_event  (Job *job, Event *event);
 static int  job_catch_runaway (Job *job);
 static void _job_start        (Job *job);
 static void _job_stop         (Job *job);
@@ -398,6 +400,9 @@ job_change_state (Job      *job,
 			event = event_queue (event_name);
 			NIH_MUST (nih_str_array_add (&event->args, event,
 						     NULL, job->name));
+			if ((job->state == JOB_WAITING)
+			    || (job->state == JOB_STOPPING))
+				job_failed_event (job, event);
 		}
 	}
 }
@@ -464,6 +469,67 @@ job_next_state (Job *job)
 	default:
 		return job->state;
 	}
+}
+
+
+/**
+ * job_failed_event:
+ * @job: job generating the event,
+ * @event: event generated.
+ *
+ * Adds arguments and environment to @event to indicate whether the job
+ * is stopping normally or due to failure, and if failure, what failed.
+ *
+ * Failed events have an extra "failed" argument, which is followed by the
+ * name of a script if that is what failed.  They contain either an
+ * EXIT_STATUS or EXIT_SIGNAL environment variable detailing the failure.
+ *
+ * Normal events have an "ok" argument instead.
+ **/
+static void
+job_failed_event (Job   *job,
+		  Event *event)
+{
+	char *env;
+
+	nih_assert (job != NULL);
+	nih_assert (event != NULL);
+
+	if (! job->failed) {
+		NIH_MUST (nih_str_array_add (&event->args, event, NULL, "ok"));
+		return;
+	}
+
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "failed"));
+
+	if (job->failed_state == JOB_STARTING) {
+		NIH_MUST (nih_str_array_add (&event->args, event,
+					     NULL, "start"));
+	} else if (job->failed_state == JOB_STOPPING) {
+		NIH_MUST (nih_str_array_add (&event->args, event,
+					     NULL, "stop"));
+	} else {
+		NIH_MUST (nih_str_array_add (&event->args, event,
+					     NULL, "main"));
+	}
+
+	if (job->exit_status & 0x80) {
+		const char *sig;
+
+		sig = nih_signal_to_name (job->exit_status & 0x7f);
+		if (sig) {
+			NIH_MUST (env = nih_sprintf (NULL, "EXIT_SIGNAL=%s",
+						     sig));
+		} else {
+			NIH_MUST (env = nih_sprintf (NULL, "EXIT_SIGNAL=%d",
+						     job->exit_status & 0x7f));
+		}
+	} else {
+		NIH_MUST (env = nih_sprintf (NULL, "EXIT_STATUS=%d",
+					     job->exit_status));
+	}
+
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, env));
 }
 
 

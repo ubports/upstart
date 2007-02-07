@@ -262,6 +262,7 @@ test_change_state (void)
 		job->goal = JOB_START;
 		job->state = JOB_WAITING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_STARTING);
 
@@ -301,38 +302,7 @@ test_change_state (void)
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
-
-		job_change_state (job, JOB_RUNNING);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-	}
-
-
-	/* Check that a job in the starting state moves into the running state,
-	 * and if respawn is set, this causes the started event to be emitted.
-	 */
-	TEST_FEATURE ("starting to running with respawn");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->respawn = TRUE;
-		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_RUNNING);
 
@@ -363,12 +333,13 @@ test_change_state (void)
 	TEST_FEATURE ("starting to running with script");
 	job->script = job->command;
 	job->command = NULL;
+	job->respawn = FALSE;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
-		job->respawn = FALSE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_RUNNING);
 
@@ -401,6 +372,8 @@ test_change_state (void)
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
+
 		job_change_state (job, JOB_RESPAWNING);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -429,6 +402,7 @@ test_change_state (void)
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_RESPAWNING);
 
@@ -453,13 +427,15 @@ test_change_state (void)
 
 
 	/* Check that a job in the running state can move into the stopping
-	 * state, running the script.  The stop event should be emitted.
+	 * state, running the script.  The stop event should be emitted
+	 * with no indication of failure.
 	 */
 	TEST_FEATURE ("running to stopping with script");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -470,7 +446,8 @@ test_change_state (void)
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "stop");
 		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->args[1], "ok");
+		TEST_EQ_P (event->args[2], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -484,14 +461,17 @@ test_change_state (void)
 
 
 	/* Check that a job in the running state can move into the stopping
-	 * state, running the script.  The stop event should be emitted.
+	 * state, running the script.  The stop event should be emitted
+	 * with an indication of what failed.
 	 */
-	TEST_FEATURE ("running to stopping with script and respawn");
+	TEST_FEATURE ("running to stopping with script and failed state");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_NONE;
-		job->respawn = TRUE;
+		job->failed = TRUE;
+		job->failed_state = JOB_START;
+		job->exit_status = SIGSEGV | 0x80;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -502,7 +482,11 @@ test_change_state (void)
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "stop");
 		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "start");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -527,6 +511,7 @@ test_change_state (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -537,13 +522,58 @@ test_change_state (void)
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "stopped");
 		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->args[1], "ok");
+		TEST_EQ_P (event->args[2], NULL);
 		nih_list_free (&event->entry);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "stop");
 		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->args[1], "ok");
+		TEST_EQ_P (event->args[2], NULL);
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+	}
+
+
+	/* Check that a job in the running state can move directly into the
+	 * waiting state, emitting the stop and stopped events as it goes,
+	 * if there's no script.
+	 */
+	TEST_FEATURE ("running to stopping without script and failure");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_NONE;
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "main");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[1], NULL);
+		nih_list_free (&event->entry);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "stop");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "main");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -560,6 +590,7 @@ test_change_state (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_WAITING);
 
@@ -570,7 +601,41 @@ test_change_state (void)
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "stopped");
 		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->args[1], "ok");
+		TEST_EQ_P (event->args[2], NULL);
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+	}
+
+
+	/* Check that a job in the stopping state can move into the waiting
+	 * state, emitting the stopped event as it goes; which should include
+	 * failed state information.
+	 */
+	TEST_FEATURE ("stopping to waiting with failed state");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_NONE;
+		job->failed = TRUE;
+		job->failed_state = JOB_STOPPING;
+		job->exit_status = 32 | 0x80;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "stop");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "EXIT_SIGNAL=32");
+		TEST_EQ_P (event->env[1], NULL);
 		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (list);
@@ -586,6 +651,7 @@ test_change_state (void)
 		job->goal = JOB_START;
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
 
 		job_change_state (job, JOB_STARTING);
 
@@ -614,6 +680,7 @@ test_change_state (void)
 	 * message should be emitted.
 	 */
 	TEST_FEATURE ("starting to running too fast");
+	job->failed = FALSE;
 	job->respawn_count = 0;
 	job->respawn_time = 0;
 	job->respawn_limit = 10;
@@ -661,6 +728,7 @@ test_change_state (void)
 	 * message should be emitted.
 	 */
 	TEST_FEATURE ("running to respawning too fast");
+	job->failed = FALSE;
 	job->respawn_count = 0;
 	job->respawn_time = 0;
 	job->respawn_limit = 10;
