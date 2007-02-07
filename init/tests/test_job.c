@@ -183,13 +183,14 @@ test_find_by_pid (void)
 void
 test_change_state (void)
 {
-	FILE        *output;
-	Job         *job;
-	Event       *event;
-	NihList     *list;
-	struct stat  statbuf;
-	char         dirname[PATH_MAX], filename[PATH_MAX];
-	int          i;
+	FILE          *output;
+	Job           *job;
+	Event         *event;
+	EventEmission *em;
+	NihList       *list;
+	struct stat    statbuf;
+	char           dirname[PATH_MAX], filename[PATH_MAX];
+	int            i;
 
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
@@ -685,7 +686,9 @@ test_change_state (void)
 	job->respawn_time = 0;
 	job->respawn_limit = 10;
 	job->respawn_interval = 100;
-	job->goal_event = event_new (job, "foo");
+
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	job->goal_event = em;
 
 	output = tmpfile ();
 	TEST_DIVERT_STDERR (output) {
@@ -719,6 +722,8 @@ test_change_state (void)
 
 	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
 	TEST_FILE_RESET (output);
+
+	nih_list_free (&em->event.entry);
 
 	event_queue_run ();
 
@@ -955,10 +960,11 @@ test_run_command (void)
 void
 test_run_script (void)
 {
-	Job  *job;
-	FILE *output;
-	char  filename[PATH_MAX];
-	int   status, first;
+	Job           *job;
+	EventEmission *em;
+	FILE          *output;
+	char           filename[PATH_MAX], **args;
+	int            status, first;
 
 	TEST_FUNCTION ("job_run_script");
 	TEST_FILENAME (filename);
@@ -1035,6 +1041,11 @@ test_run_script (void)
 	 * goal event passed to it, if one exists.
 	 */
 	TEST_FEATURE ("with small script and goal event");
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	em = event_emit ("test", args, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
@@ -1044,13 +1055,7 @@ test_run_script (void)
 							 "echo $0\necho $@"),
 						   filename);
 
-			job->goal_event = event_new (job, "test");
-			NIH_MUST (nih_str_array_add (&job->goal_event->args,
-						     job->goal_event, NULL,
-						     "foo"));
-			NIH_MUST (nih_str_array_add (&job->goal_event->args,
-						     job->goal_event, NULL,
-						     "bar"));
+			job->goal_event = em;
 		}
 
 		job_run_script (job, job->script);
@@ -1071,6 +1076,8 @@ test_run_script (void)
 
 		nih_list_free (&job->entry);
 	}
+
+	nih_list_free (&em->event.entry);
 
 
 	/* Check that a particularly long script is instead invoked by
@@ -1141,6 +1148,11 @@ test_run_script (void)
 	 * goal event passed to it, if one exists.
 	 */
 	TEST_FEATURE ("with long script and goal event");
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	em = event_emit ("test", args, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
@@ -1153,13 +1165,7 @@ test_run_script (void)
 				strcat (job->script,
 					"# this just bulks it out a bit");
 
-			job->goal_event = event_new (job, "test");
-			NIH_MUST (nih_str_array_add (&job->goal_event->args,
-						     job->goal_event, NULL,
-						     "foo"));
-			NIH_MUST (nih_str_array_add (&job->goal_event->args,
-						     job->goal_event, NULL,
-						     "bar"));
+			job->goal_event = em;
 		}
 
 		job_run_script (job, job->script);
@@ -1206,6 +1212,8 @@ test_run_script (void)
 
 		nih_list_free (&job->entry);
 	}
+
+	nih_list_free (&em->event.entry);
 }
 
 
@@ -1418,9 +1426,10 @@ destructor_called (void *ptr)
 void
 test_child_reaper (void)
 {
-	Job  *job;
-	FILE *output;
-	int   exitcodes[2] = { 100, SIGINT | 0x80 };
+	Job           *job;
+	EventEmission *em;
+	FILE          *output;
+	int            exitcodes[2] = { 100, SIGINT | 0x80 };
 
 	TEST_FUNCTION ("job_child_reaper");
 	program_name = "test";
@@ -1452,6 +1461,8 @@ test_child_reaper (void)
 	 * stopping state.
 	 */
 	TEST_FEATURE ("with running task");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -1460,10 +1471,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		TEST_ALLOC_SAFE {
-			job->goal_event = event_new (job, "foo");
-		}
+		job->goal_event = em;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
@@ -1481,6 +1489,9 @@ test_child_reaper (void)
 
 		waitpid (job->pid, NULL, 0);
 	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
 
 
 	/* Check that we can reap a running task of the job after it's been
@@ -1527,7 +1538,7 @@ test_child_reaper (void)
 	 * terminates with a good error code, end up in the running state.
 	 */
 	TEST_FEATURE ("with starting task");
-	job->goal_event = event_new (job, "foo");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -1537,6 +1548,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
+		job->goal_event = em;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
@@ -1555,7 +1567,7 @@ test_child_reaper (void)
 		waitpid (job->pid, NULL, 0);
 	}
 
-	nih_free (job->goal_event);
+	nih_list_free (&em->event.entry);
 	job->goal_event = NULL;
 
 
@@ -1566,6 +1578,8 @@ test_child_reaper (void)
 	 */
 	TEST_FEATURE ("with starting task failure");
 	output = tmpfile ();
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
@@ -1574,10 +1588,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		TEST_ALLOC_SAFE {
-			job->goal_event = event_new (job, "foo");
-		}
+		job->goal_event = em;
 
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, FALSE, 1);
@@ -1605,6 +1616,8 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
 
 
 	/* Check that we can reap a killed starting task, which should
@@ -1612,6 +1625,8 @@ test_child_reaper (void)
 	 * the failed exit status should contain the signal and the high bit.
 	 */
 	TEST_FEATURE ("with starting task kill");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
@@ -1620,10 +1635,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		TEST_ALLOC_SAFE {
-			job->goal_event = event_new (job, "foo");
-		}
+		job->goal_event = em;
 
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, TRUE, SIGTERM);
@@ -1650,6 +1662,9 @@ test_child_reaper (void)
 
 		TEST_FILE_RESET (output);
 	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
 
 
 	/* Check that we can catch the running task failing, and if the job
@@ -1902,7 +1917,8 @@ test_child_reaper (void)
 void
 test_start (void)
 {
-	Job *job;
+	EventEmission *em;
+	Job           *job;
 
 	TEST_FUNCTION ("job_start");
 	program_name = "test";
@@ -1954,21 +1970,20 @@ test_start (void)
 	}
 
 
-	/* Check that starting a job with a goal change event set clears
-	 * that event, freeing it, and sets it to NULL (manual start).
+	/* Check that starting a job with a goal change event set
+	 * unreferences the goal event and sets it to NULL in the job.
 	 */
 	TEST_FEATURE ("with existing goal change event");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
-		TEST_ALLOC_SAFE {
-			job->goal_event = event_new (job, "foo");
-		}
-
-		was_called = 0;
-		nih_alloc_set_destructor (job->goal_event, destructor_called);
+		job->goal_event = em;
+		em->progress = EVENT_HANDLING;
+		em->jobs = 1;
 
 		job_start (job);
 
@@ -1976,9 +1991,15 @@ test_start (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, 1);
+
 		TEST_EQ_P (job->goal_event, NULL);
-		TEST_TRUE (was_called);
+
+		TEST_EQ (em->jobs, 0);
+		TEST_EQ (em->progress, EVENT_FINISHED);
 	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
 
 
 	/* Check that an attempt to start a job that's running and still
@@ -2006,9 +2027,10 @@ test_start (void)
 void
 test_stop (void)
 {
-	Job   *job;
-	pid_t  pid;
-	int    status;
+	EventEmission *em;
+	Job           *job;
+	pid_t          pid;
+	int            status;
 
 	TEST_FUNCTION ("job_stop");
 	job = job_new (NULL, "test");
@@ -2078,26 +2100,24 @@ test_stop (void)
 	}
 
 
-	/* Check that stopping a job with a goal change event set clears
-	 * that event, freeing it, and sets it to NULL (manual stop).
+	/* Check that stopping a job with a goal change event set
+	 * unreferences the event and sets it to NULL.
 	 */
 	TEST_FEATURE ("with existing goal change event");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
+		job->goal_event = em;
+		em->jobs = 1;
+		em->progress = EVENT_HANDLING;
 
 		TEST_CHILD (job->pid) {
 			pause ();
 		}
 		pid = job->pid;
-
-		TEST_ALLOC_SAFE {
-			job->goal_event = event_new (job, "foo");
-		}
-
-		was_called = 0;
-		nih_alloc_set_destructor (job->goal_event, destructor_called);
 
 		job_stop (job);
 
@@ -2106,13 +2126,18 @@ test_stop (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, pid);
 		TEST_EQ_P (job->goal_event, NULL);
-		TEST_TRUE (was_called);
+
+		TEST_EQ (em->jobs, 0);
+		TEST_EQ (em->progress, EVENT_FINISHED);
 
 		TEST_EQ_P (job->kill_timer, NULL);
 
 		kill (pid, SIGTERM);
 		waitpid (pid, NULL, 0);
 	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
 
 
 	/* Check that an attempt to stop a waiting job does nothing. */
@@ -2142,7 +2167,6 @@ test_start_event (void)
 	Job            *job;
 	Event          *event;
 	EventEmission  *em;
-	char          **args, **env;
 
 	TEST_FUNCTION ("job_start_event");
 	job = job_new (NULL, "test");
@@ -2160,6 +2184,8 @@ test_start_event (void)
 	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
 		job_start_event (job, em);
 
 		TEST_EQ (job->goal, JOB_STOP);
@@ -2167,6 +2193,7 @@ test_start_event (void)
 		TEST_EQ (job->process_state, PROCESS_NONE);
 
 		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->jobs, 0);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -2179,11 +2206,11 @@ test_start_event (void)
 	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 		job->process_state = PROCESS_NONE;
-		if (job->goal_event)
-			nih_free (job->goal_event);
 		job->goal_event = NULL;
 
 		job_start_event (job, em);
@@ -2195,84 +2222,8 @@ test_start_event (void)
 		TEST_NE (job->pid, 0);
 		waitpid (job->pid, NULL, 0);
 
-		TEST_ALLOC_PARENT (job->goal_event, job);
-		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
-		TEST_LIST_EMPTY (&job->goal_event->entry);
-		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->name, 7);
-		TEST_EQ_STR (job->goal_event->name, "wibble");
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	/* Check that if we start a job with a matching event that has
-	 * arguments and/or environment, they are copied into the goal
-	 * event.
-	 */
-	TEST_FEATURE ("with arguments and environment for event");
-	event = (Event *)job->start_events.next;
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "b?z*"));
-
-	args = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "baz"));
-
-	env = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
-	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "TEA=YES"));
-
-	em = event_emit ("wibble", args, env, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
-		if (job->goal_event)
-			nih_free (job->goal_event);
-		job->goal_event = NULL;
-
-		job_start_event (job, em);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_NE (job->pid, 0);
-		waitpid (job->pid, NULL, 0);
-
-		TEST_ALLOC_PARENT (job->goal_event, job);
-		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
-		TEST_LIST_EMPTY (&job->goal_event->entry);
-		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->name, 7);
-		TEST_EQ_STR (job->goal_event->name, "wibble");
-
-		TEST_ALLOC_PARENT (job->goal_event->args, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->args, sizeof (char *) * 4);
-		TEST_ALLOC_PARENT (job->goal_event->args[0],
-				   job->goal_event->args);
-		TEST_ALLOC_PARENT (job->goal_event->args[1],
-				   job->goal_event->args);
-		TEST_ALLOC_PARENT (job->goal_event->args[2],
-				   job->goal_event->args);
-		TEST_EQ_STR (job->goal_event->args[0], "foo");
-		TEST_EQ_STR (job->goal_event->args[1], "bar");
-		TEST_EQ_STR (job->goal_event->args[2], "baz");
-		TEST_EQ_P (job->goal_event->args[3], NULL);
-
-		TEST_ALLOC_PARENT (job->goal_event->env, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->env, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (job->goal_event->env[0],
-				   job->goal_event->env);
-		TEST_ALLOC_PARENT (job->goal_event->env[1],
-				   job->goal_event->env);
-		TEST_EQ_STR (job->goal_event->env[0], "FOO=BAR");
-		TEST_EQ_STR (job->goal_event->env[1], "TEA=YES");
-		TEST_EQ_P (job->goal_event->env[2], NULL);
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->jobs, 1);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -2286,7 +2237,6 @@ test_stop_event (void)
 	Job            *job;
 	Event          *event;
 	EventEmission  *em;
-	char          **args, **env;
 	pid_t           pid;
 	int             status;
 
@@ -2313,6 +2263,8 @@ test_stop_event (void)
 	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
 		job_stop_event (job, em);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -2323,6 +2275,7 @@ test_stop_event (void)
 		TEST_EQ_P (job->kill_timer, NULL);
 
 		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->jobs, 0);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -2335,11 +2288,11 @@ test_stop_event (void)
 	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_ACTIVE;
-		if (job->goal_event)
-			nih_free (job->goal_event);
 		job->goal_event = NULL;
 
 		TEST_CHILD (job->pid) {
@@ -2360,93 +2313,8 @@ test_stop_event (void)
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
-		TEST_ALLOC_PARENT (job->goal_event, job);
-		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
-		TEST_LIST_EMPTY (&job->goal_event->entry);
-		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->name, 7);
-		TEST_EQ_STR (job->goal_event->name, "wibble");
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	/* Check that if we start a job with a matching event that has
-	 * arguments and/or environment, they are copied into the goal
-	 * event.
-	 */
-	TEST_FEATURE ("with arguments and environment for event");
-	event = (Event *)job->stop_events.next;
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "b?z*"));
-
-	args = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "baz"));
-
-	env = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
-	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "TEA=YES"));
-
-	em = event_emit ("wibble", args, env, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-		if (job->goal_event)
-			nih_free (job->goal_event);
-		job->goal_event = NULL;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
-
-		job_stop_event (job, em);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
-
-		TEST_EQ (job->pid, pid);
-		TEST_NE_P (job->kill_timer, NULL);
-
-		waitpid (job->pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
-
-		TEST_ALLOC_PARENT (job->goal_event, job);
-		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
-		TEST_LIST_EMPTY (&job->goal_event->entry);
-		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->name, 7);
-		TEST_EQ_STR (job->goal_event->name, "wibble");
-
-		TEST_ALLOC_PARENT (job->goal_event->args, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->args, sizeof (char *) * 4);
-		TEST_ALLOC_PARENT (job->goal_event->args[0],
-				   job->goal_event->args);
-		TEST_ALLOC_PARENT (job->goal_event->args[1],
-				   job->goal_event->args);
-		TEST_ALLOC_PARENT (job->goal_event->args[2],
-				   job->goal_event->args);
-		TEST_EQ_STR (job->goal_event->args[0], "foo");
-		TEST_EQ_STR (job->goal_event->args[1], "bar");
-		TEST_EQ_STR (job->goal_event->args[2], "baz");
-		TEST_EQ_P (job->goal_event->args[3], NULL);
-
-		TEST_ALLOC_PARENT (job->goal_event->env, job->goal_event);
-		TEST_ALLOC_SIZE (job->goal_event->env, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (job->goal_event->env[0],
-				   job->goal_event->env);
-		TEST_ALLOC_PARENT (job->goal_event->env[1],
-				   job->goal_event->env);
-		TEST_EQ_STR (job->goal_event->env[0], "FOO=BAR");
-		TEST_EQ_STR (job->goal_event->env[1], "TEA=YES");
-		TEST_EQ_P (job->goal_event->env[2], NULL);
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->jobs, 1);
 	}
 
 	nih_list_free (&em->event.entry);

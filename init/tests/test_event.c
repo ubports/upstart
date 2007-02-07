@@ -345,7 +345,6 @@ test_poll (void)
 	nih_list_add (&job->start_events, &event->entry);
 
 	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
-	em1->jobs++; /* FIXME hack until we fix goal_event stuff */
 
 	event_poll ();
 
@@ -461,9 +460,10 @@ test_poll (void)
 
 	waitpid (job->pid, NULL, 0);
 
-	TEST_EQ_STR (job->goal_event->name, "test/failed");
+	TEST_EQ_STR (job->goal_event->event.name, "test/failed");
 
-	/* FIXME will need to finish that emission and call poll again */
+	event_emit_finished (job->goal_event);
+	event_poll ();
 
 	nih_list_free (&job->entry);
 

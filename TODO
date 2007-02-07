@@ -13,16 +13,38 @@ High Priority:
 
  * sort out the message types into groups, etc.
 
+ * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
+   we encounter any problems write the error code to this pipe and die.
+   Then from above, we can read this pipe to determine whether the job
+   failed before or after the exec.  (Might be a cleaner way to do this).
+
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)
 
- * if environment variables don't have an = in them, copy that variable
+ * If environment variables don't have an = in them, copy that variable
    from init's environment (default PATH, TERM)
 
- * use execve, not putenv/setenv!
+ * putenv/setenv is quite undesirable, in fact, process_setup_environment
+   is just getting messy!
 
 
 Medium Priority:
+
+ * Iterating through every Job's start and stop events is messy; we should
+   have some kind of match lookup table to make it easier.
+
+ * The jobs list should be a hash table.
+
+ * If we can't KILL things, we shouldn't ignore that, we should treat
+   that as a failure and adjust the job again so it still shows up as
+   running
+
+ * force option?  ensures things are KILLed and failure to KILL
+   ignored?
+
+ * we may need to KILL scripts, e.g. post-start
+
+ * scripts should also have a timeout
 
 
 Low Priority:
@@ -68,14 +90,3 @@ Future Features:
    stats?
 
  * Actions: "reload" and optional replacements for "stop", "start", etc.
-
- * we may need to KILL scripts, e.g. post-start
-
- * If we can't KILL things, we shouldn't ignore that, we should treat
-   that as a failure and adjust the job again so it still shows up as
-   running
-
- * force option?  ensures things are KILLed and failure to KILL
-   ignored?
-
- * scripts should also have a timeout

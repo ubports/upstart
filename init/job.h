@@ -147,7 +147,7 @@ typedef struct job {
 	NihList        stop_events;
 	NihList        emits;
 
-	Event         *goal_event;
+	EventEmission *goal_event;
 
 	ProcessState   process_state;
 	pid_t          pid;

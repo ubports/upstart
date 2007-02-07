@@ -1,5 +1,25 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_new, test_change_state) 
+	(test_run_script, test_start, test_stop): 
+
+	* init/job.h (Job): goal_event is now an EventEmission, and is
+	a direct pointer to the one in the events queue, rather than a copy.
+	* init/process.c (process_setup_environment): Reference the event
+	name and environment through the goal event, not directly.
+	* init/job.c (job_run_script): Reference the event name and
+	environment through the goal event, not directly.
+	(job_change_state, job_child_reaper): Replace direct setting of the
+	job goal with a call to job_stop; the process state is always
+	PROCESS_NONE in all three cases, so this is completely safe.
+	(_job_start, _job_stop): Merge these two functions together into
+	(job_change_goal): which behaves a lot more like job_change_state,
+	except that it doesn't loop.  This handles the changing of the
+	emission.
+	(job_start, job_start_event, job_stop, job_stop_event): Simplify
+	these functions, now they just call job_change_goal passing in
+	the emission pointer (or NULL).
+
 	* init/main.c, init/job.c, init/job.h, init/event.c, init/event.h,
 	init/tests/test_job.c, init/tests/test_event.c: Remove state
 	serialisation code for the time being; maintaining it is getting

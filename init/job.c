@@ -60,8 +60,8 @@ static void job_run_process   (Job *job, char * const  argv[]);
 static void job_kill_timer    (Job *job, NihTimer *timer);
 static void job_failed_event  (Job *job, Event *event);
 static int  job_catch_runaway (Job *job);
-static void _job_start        (Job *job);
-static void _job_stop         (Job *job);
+static void job_change_goal   (Job *job, JobGoal goal,
+			       EventEmission *emission);
 
 
 /**
@@ -349,11 +349,7 @@ job_change_state (Job      *job,
 				nih_warn (_("%s respawning too fast, stopped"),
 					  job->name);
 
-				job->goal = JOB_STOP;
-				if (job->goal_event)
-					nih_free (job->goal_event);
-				job->goal_event = NULL;
-
+				job_stop (job);
 				state = job_next_state (job);
 				break;
 			}
@@ -650,7 +646,8 @@ job_run_script (Job        *job,
 		NIH_MUST (nih_str_array_addp (&argv, NULL, &argc, cmd));
 
 		if (job->goal_event)
-			for (arg = job->goal_event->args; arg && *arg; arg++)
+			for (arg = job->goal_event->event.args;
+			     arg && *arg; arg++)
 				NIH_MUST (nih_str_array_add (&argv, NULL,
 							     &argc, *arg));
 
@@ -688,7 +685,8 @@ job_run_script (Job        *job,
 			NIH_MUST (nih_str_array_add (&argv, NULL,
 						     &argc, SHELL));
 
-			for (arg = job->goal_event->args; arg && *arg; arg++)
+			for (arg = job->goal_event->event.args;
+			     arg && *arg; arg++)
 				NIH_MUST (nih_str_array_add (&argv, NULL,
 							     &argc, *arg));
 		}
@@ -957,11 +955,7 @@ job_child_reaper (void  *data,
 		}
 
 		/* Otherwise whether it's failed or not, it's going away */
-		job->goal = JOB_STOP;
-		if (job->goal_event)
-			nih_free (job->goal_event);
-		job->goal_event = NULL;
-
+		job_stop (job);
 		break;
 	default:
 		/* If a script is killed or exits with a status other than
@@ -971,10 +965,7 @@ job_child_reaper (void  *data,
 		if (killed || status) {
 			failed = TRUE;
 
-			job->goal = JOB_STOP;
-			if (job->goal_event)
-				nih_free (job->goal_event);
-			job->goal_event = NULL;
+			job_stop (job);
 		}
 
 		break;
@@ -1051,11 +1042,7 @@ job_start (Job *job)
 
 	job_init ();
 
-	if (job->goal_event)
-		nih_free (job->goal_event);
-	job->goal_event = NULL;
-
-	_job_start (job);
+	job_change_goal (job, JOB_START, NULL);
 }
 
 /**
@@ -1076,76 +1063,10 @@ job_start_event (Job           *job,
 	NIH_LIST_FOREACH (&job->start_events, iter) {
 		Event *start_event = (Event *)iter;
 
-		if (event_match (&emission->event, start_event)) {
-			char **ptr;
-
-			if (job->goal_event)
-				nih_free (job->goal_event);
-
-			NIH_MUST (job->goal_event = event_new (
-					  job, emission->event.name));
-			for (ptr = emission->event.args; ptr && *ptr; ptr++)
-				NIH_MUST (nih_str_array_add (
-						  &job->goal_event->args,
-						  job->goal_event, NULL,
-						  *ptr));
-			for (ptr = emission->event.env; ptr && *ptr; ptr++)
-				NIH_MUST (nih_str_array_add (
-						  &job->goal_event->env,
-						  job->goal_event, NULL,
-						  *ptr));
-
-			_job_start (job);
-		}
+		if (event_match (&emission->event, start_event))
+			job_change_goal (job, JOB_START, emission);
 	}
 }
-
-/**
- * _job_start:
- * @job: job to be started.
- *
- * Changes the goal of @job from JOB_STOP to JOB_START and begins the
- * process of actually starting the job by changing the state if
- * necessary.
- *
- * The caller can infer the success of this function by checking the job
- * state after the call.
- *
- * If @job is already active in some way (e.g. currently stopping), this
- * ensures that the job will be cleanly restarted when possible.
- *
- * You should not call this function directly, instead call job_start()
- * for a manual start or job_start_event() for an event-caused start.
- *
- * This function has no effect if the goal is already JOB_START.
- **/
-static void
-_job_start (Job *job)
-{
-	nih_assert (job != NULL);
-
-	if (job->goal == JOB_START)
-		return;
-
-	/* FIXME
-	 * instance jobs need to be duplicated */
-
-	nih_info (_("%s will be started"), job->name);
-	job->goal = JOB_START;
-
-	/* The only state change we need to induce is one away from the
-	 * waiting state; anything else will be handled as the processes
-	 * naturally terminate -- now that the goal is reversed, we'll
-	 * go the other way.
-	 */
-	if (job->state != JOB_WAITING) {
-		notify_job (job);
-		return;
-	}
-
-	job_change_state (job, job_next_state (job));
-}
-
 
 /**
  * job_stop:
@@ -1170,11 +1091,7 @@ job_stop (Job *job)
 
 	job_init ();
 
-	if (job->goal_event)
-		nih_free (job->goal_event);
-	job->goal_event = NULL;
-
-	_job_stop (job);
+	job_change_goal (job, JOB_STOP, NULL);
 }
 
 /**
@@ -1195,74 +1112,10 @@ job_stop_event (Job           *job,
 	NIH_LIST_FOREACH (&job->stop_events, iter) {
 		Event *stop_event = (Event *)iter;
 
-		if (event_match (&emission->event, stop_event)) {
-			char **ptr;
-
-			if (job->goal_event)
-				nih_free (job->goal_event);
-
-			NIH_MUST (job->goal_event = event_new (
-					  job, emission->event.name));
-			for (ptr = emission->event.args; ptr && *ptr; ptr++)
-				NIH_MUST (nih_str_array_add (
-						  &job->goal_event->args,
-						  job->goal_event, NULL,
-						  *ptr));
-			for (ptr = emission->event.env; ptr && *ptr; ptr++)
-				NIH_MUST (nih_str_array_add (
-						  &job->goal_event->env,
-						  job->goal_event, NULL,
-						  *ptr));
-
-			_job_stop (job);
-		}
+		if (event_match (&emission->event, stop_event))
+			job_change_goal (job, JOB_STOP, emission);
 	}
 }
-
-/**
- * _job_stop:
- * @job: job to be stopped.
- *
- * Changes the goal of @job from JOB_START to JOB_STOP and begins the
- * process of actually stopping the job by killing the active running
- * process if necessary.
- *
- * The caller can infer the success of this function by checking the job
- * state after the call.
- *
- * If @job is in the process of starting, this ensures that the job will
- * be cleanly stopped when possible.
- *
- * You should not call this function directly, instead call job_stop()
- * for a manual start or job_stop_event() for an event-caused stop.
- *
- * This function has no effect if the goal is already JOB_STOP.
- **/
-static void
-_job_stop (Job *job)
-{
-	nih_assert (job != NULL);
-
-	if (job->goal == JOB_STOP)
-		return;
-
-	nih_info (_("%s will be stopped"), job->name);
-	job->goal = JOB_STOP;
-
-	/* The only state change we need to induce is one away from an
-	 * active running process; anything else will be handled as the
-	 * processes naturally terminate -- now that the goal is reversed,
-	 * we'll go the other way.
-	 */
-	if ((job->state != JOB_RUNNING)
-	    || (job->process_state != PROCESS_ACTIVE)) {
-		notify_job (job);
-		return;
-	}
-
-	job_kill_process (job);
-}
-
 
 /**
  * job_handle_event:
@@ -1293,6 +1146,73 @@ job_handle_event (EventEmission *emission)
 		 */
 		job_stop_event (job, emission);
 		job_start_event (job, emission);
+	}
+}
+
+
+/**
+ * job_change_goal:
+ * @job: job to change goal of,
+ * @goal: goal to change to,
+ * @emission: event emission causing change.
+ *
+ * This function changes the current goal of a @job to the new @goal given,
+ * performing any necessary state changes or actions (such as killing
+ * the running process) to correctly enter the new goal.
+ *
+ * @emission is stored in the Job's goal_event member, and may be NULL.
+ * Any previous goal_event is unreferenced and allowed to finish handling
+ * if it has no further references.
+ **/
+static void
+job_change_goal (Job           *job,
+		 JobGoal        goal,
+		 EventEmission *emission)
+{
+	nih_assert (job != NULL);
+
+	if (job->goal == goal)
+		return;
+
+	nih_info (_("%s goal changed from %s to %s"), job->name,
+		  job_goal_name (job->goal), job_goal_name (goal));
+	job->goal = goal;
+
+	/* Switch over the goal event, dereferencing the current one and
+	 * referencing the new one.
+	 */
+	if (job->goal_event) {
+		job->goal_event->jobs--;
+		event_emit_finished (job->goal_event);
+	}
+
+	job->goal_event = emission;
+	if (job->goal_event)
+		job->goal_event->jobs++;
+
+	notify_job (job);
+
+	/* We only need to inducate state changes from the natural
+	 * rest states of waiting, or an active running process.
+	 * Anything else will be handled as the processes naturally
+	 * terminate, the next state they select will be based on
+	 * the new goal.
+	 */
+	switch (job->goal) {
+	case JOB_START:
+		/* FIXME
+		 * instance jobs need to be duplicated */
+
+		if (job->state == JOB_WAITING)
+			job_change_state (job, job_next_state (job));
+
+		break;
+	case JOB_STOP:
+		if ((job->state == JOB_RUNNING)
+		    && (job->process_state == PROCESS_ACTIVE))
+			job_kill_process (job);
+
+		break;
 	}
 }
 
