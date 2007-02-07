@@ -40,6 +40,7 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+#include <upstart/enum.h>
 #include <upstart/message.h>
 #include <upstart/wire.h>
 #include <upstart/errors.h>
@@ -232,14 +233,28 @@ upstart_message_new (const void         *parent,
 			goto error;
 
 		break;
-	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT:
+	case UPSTART_SHUTDOWN:
+		if (upstart_push_packv (message, "s", args))
+			goto error;
+
+		break;
+	case UPSTART_EVENT_EMIT:
 		if (upstart_push_packv (message, "saa", args))
 			goto error;
 
 		break;
-	case UPSTART_SHUTDOWN:
-		if (upstart_push_packv (message, "s", args))
+	case UPSTART_EVENT:
+		if (upstart_push_packv (message, "usaa", args))
+			goto error;
+
+		break;
+	case UPSTART_EVENT_JOB_STATUS:
+		if (upstart_push_packv (message, "usiii", args))
+			goto error;
+
+		break;
+	case UPSTART_EVENT_FINISHED:
+		if (upstart_push_packv (message, "uisaa", args))
 			goto error;
 
 		break;
@@ -459,10 +474,24 @@ upstart_message_handle (const void     *parent,
 			       process_state, pid, description);
 		break;
 	}
-	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT: {
-		char  *name = NULL;
-		char **args = NULL, **env = NULL;
+	case UPSTART_SHUTDOWN: {
+		char *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "s", &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, name);
+		break;
+	}
+	case UPSTART_EVENT_EMIT: {
+		char *name = NULL, **args = NULL, **env = NULL;
 
 		if (upstart_pop_pack (message, parent, "saa",
 				      &name, &args, &env)) {
@@ -482,10 +511,37 @@ upstart_message_handle (const void     *parent,
 		ret = handler (data, cred.pid, type, name, args, env);
 		break;
 	}
-	case UPSTART_SHUTDOWN: {
-		char *name = NULL;
+	case UPSTART_EVENT: {
+		uint32_t  id;
+		char     *name = NULL, **args = NULL, **env = NULL;
 
-		if (upstart_pop_pack (message, parent, "s", &name)) {
+		if (upstart_pop_pack (message, parent, "usaa",
+				      &id, &name, &args, &env)) {
+			if (name)
+				nih_free (name);
+			if (args)
+				nih_free (args);
+			if (env)
+				nih_free (env);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name, args, env);
+		break;
+	}
+	case UPSTART_EVENT_JOB_STATUS: {
+		uint32_t  id;
+		char     *name = NULL;
+		JobGoal   goal;
+		JobState  state;
+		pid_t     pid;
+
+		if (upstart_pop_pack (message, parent, "usiii",
+				      &id, &name, &goal, &state, &pid)) {
 			if (name)
 				nih_free (name);
 
@@ -495,7 +551,32 @@ upstart_message_handle (const void     *parent,
 		if (! name)
 			goto invalid;
 
-		ret = handler (data, cred.pid, type, name);
+		ret = handler (data, cred.pid, type, id, name, goal, state,
+			       pid);
+		break;
+	}
+	case UPSTART_EVENT_FINISHED: {
+		uint32_t  id;
+		int       failed;
+		char     *name = NULL, **args = NULL, **env = NULL;
+
+		if (upstart_pop_pack (message, parent, "uisaa",
+				      &id, &failed, &name, &args, &env)) {
+			if (name)
+				nih_free (name);
+			if (args)
+				nih_free (args);
+			if (env)
+				nih_free (env);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, failed,
+			       name, args, env);
 		break;
 	}
 	default:

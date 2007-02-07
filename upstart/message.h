@@ -58,9 +58,8 @@ typedef enum {
 	UPSTART_JOB_LIST,
 	UPSTART_JOB_LIST_END,
 
-	/* Event messages and responses */
-	UPSTART_EVENT_QUEUE,
-	UPSTART_EVENT,
+	UPSTART_HISTORIC_1,
+	UPSTART_HISTORIC_2,
 
 	/* Watches */
 	UPSTART_WATCH_JOBS,
@@ -70,6 +69,25 @@ typedef enum {
 
 	/* Special commands */
 	UPSTART_SHUTDOWN,
+
+	/* Event requests and responses.
+	 *
+	 * Clients sent UPSTART_EVENT_EMIT to cause a new event to be
+	 * placed in the queue.  When the event is handled, they receive
+	 * the UPSTART_EVENT response which will include the unique id of
+	 * the event.
+	 *
+	 * For each effect of the event, the client will receive an
+	 * UPSTART_EVENT_JOB_STATUS message, which also includes the unique
+	 * id of the event as well as details of the job changed.
+	 *
+	 * Finally once the event has been handled, the client will receive
+	 * an UPSTART_EVENT_FINISHED event.
+	 */
+	UPSTART_EVENT_EMIT        = 0x0200,
+	UPSTART_EVENT             = 0x0210,
+	UPSTART_EVENT_JOB_STATUS  = 0x0211,
+	UPSTART_EVENT_FINISHED    = 0x0212,
 } UpstartMessageType;
 
 
@@ -99,14 +117,34 @@ typedef enum {
  * @pid: process id (pid_t),
  * @description: description of job (char *).
  *
- * UPSTART_EVENT_QUEUE:
- * UPSTART_EVENT:
+ * UPSTART_SHUTDOWN:
+ * @name: name of event (char *).
+ *
+ *
+ * UPSTART_EVENT_EMIT:
  * @name: name of event (char *),
  * @args: arguments to event (char **),
  * @env: environment for event (char **).
  *
- * UPSTART_SHUTDOWN:
- * @name: name of event (char *).
+ * UPSTART_EVENT:
+ * @id: unique id of event (unsigned),
+ * @name: name of event (char *),
+ * @args: arguments to event (char **),
+ * @env: environment for event (char **).
+ *
+ * UPSTART_EVENT_JOB_STATUS:
+ * @id: unique id of event (unsigned),
+ * @name: name of job (char *),
+ * @goal: updated goal (JobGoal),
+ * @state: updated state (JobState),
+ * @pid: updated process id (pid_t).
+ *
+ * UPSTART_EVENT_FINISHED:
+ * @id: unique id of event (unsigned),
+ * @failed: whether the event failed (int),
+ * @name: name of event (char *),
+ * @args: arguments to event (char **),
+ * @env: environment for event (char **).
  *
  * All other types receive no further arguments.
  *
