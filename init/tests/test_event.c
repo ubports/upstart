@@ -133,6 +133,7 @@ test_emit (void)
 {
 	EventEmission  *emission;
 	char          **args, **env;
+	uint32_t        last_id = -1;
 
 	/* Check that we can request an event emission; the structure should
 	 * be allocated with nih_alloc(), placed in a list and all of the
@@ -157,6 +158,10 @@ test_emit (void)
 
 		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
 		TEST_LIST_NOT_EMPTY (&emission->event.entry);
+
+		TEST_NE (emission->id, last_id);
+		last_id = emission->id;
+
 		TEST_EQ (emission->jobs, 0);
 		TEST_EQ (emission->failed, FALSE);
 		TEST_EQ_P (emission->callback, my_emission_cb);
@@ -173,6 +178,37 @@ test_emit (void)
 
 		nih_list_free (&emission->event.entry);
 	}
+}
+
+void
+test_emit_find_by_id (void)
+{
+	EventEmission *emission, *ret;
+	uint32_t       id;
+
+	TEST_FUNCTION ("event_emit_find_by_id");
+
+	/* Check that we can locate an emission in the pending queue by
+	 * its id, and have it returned.
+	 */
+	TEST_FEATURE ("with id in pending queue");
+	emission = event_emit ("test", NULL, NULL, my_emission_cb, &emission);
+
+	ret = event_emit_find_by_id (emission->id);
+
+	TEST_EQ_P (ret, emission);
+
+	/* FIXME check handling queue when we have it */
+
+	id = emission->id;
+	nih_list_free (&emission->event.entry);
+
+
+	/* Check that we get NULL if the id isn't in either queue. */
+	TEST_FEATURE ("with id not in either queue");
+	ret = event_emit_find_by_id (id);
+
+	TEST_EQ_P (ret, NULL);
 }
 
 
@@ -316,6 +352,7 @@ main (int   argc,
 	test_new ();
 	test_match ();
 	test_emit ();
+	test_emit_find_by_id ();
 	test_queue ();
 	test_read_state ();
 	test_write_state ();

@@ -170,20 +170,22 @@ NIH_BEGIN_EXTERN
 int paused;
 
 
-Event *        event_new         (const void *parent, const char *name)
+Event *        event_new             (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-int            event_match       (Event *event1, Event *event2);
+int            event_match           (Event *event1, Event *event2);
 
-EventEmission *event_emit (const char *name, char **args, char **env,
-			   EventEmissionCb callback, void *data)
+EventEmission *event_emit            (const char *name, char **args,
+				      char **env, EventEmissionCb callback,
+				      void *data)
 	__attribute__ ((malloc));
+EventEmission *event_emit_find_by_id (uint32_t id);
 
-Event *        event_queue       (const char *name);
-void           event_queue_run   (void);
+Event *        event_queue           (const char *name);
+void           event_queue_run       (void);
 
-Event *        event_read_state  (Event *event, char *buf);
-void           event_write_state (FILE *state);
+Event *        event_read_state      (Event *event, char *buf);
+void           event_write_state     (FILE *state);
 
 NIH_END_EXTERN
 

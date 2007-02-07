@@ -1,5 +1,12 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_emit_find_by_id): Locate an event emission
+	by its id in either the pending or handling queue.
+	* init/event.h: Add prototype
+	* init/tests/test_event.c (test_emit): Make sure that the emission
+	id is unique each time.
+	(test_emit_find_by_id): Test the function.
+
 	* init/event.c (event_emit): New function to replace event_queue();
 	returns an EventEmission structure with the details filled in as
 	given.

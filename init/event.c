@@ -201,14 +201,26 @@ event_emit (const char       *name,
 	nih_assert (name != NULL);
 	nih_assert (strlen (name) > 0);
 
+	event_init ();
+
 	NIH_MUST (emission = nih_new (NULL, EventEmission));
 
+	/* Use incrementing ids, skipping any that are still in use
+	 * (in practice, we shouldn't reach 4 billion events, but better
+	 * safe than sorry.
+	 */
+	while (event_emit_find_by_id (id))
+		id++;
 	emission->id = id++;
+
 	emission->jobs = 0;
 	emission->failed = FALSE;
+
 	emission->callback = callback;
 	emission->data = data;
 
+
+	/* Fill in the event details */
 	NIH_MUST (emission->event.name = nih_strdup (emission, name));
 
 	emission->event.args = args;
@@ -220,6 +232,7 @@ event_emit (const char       *name,
 		nih_alloc_reparent (emission->event.env, emission);
 
 
+	/* Place it in the pending list */
 	nih_list_init (&emission->event.entry);
 	nih_alloc_set_destructor (emission,
 				  (NihDestructor)nih_list_destructor);
@@ -227,6 +240,39 @@ event_emit (const char       *name,
 	nih_list_add (pending, &emission->event.entry);
 
 	return emission;
+}
+
+/**
+ * event_emit_find_by_id:
+ * @id: id to find.
+ *
+ * Finds the event emission with the given id in either the pending or
+ * handling queues.
+ *
+ * Returns: emission found or NULL if not found.
+ **/
+EventEmission *
+event_emit_find_by_id (uint32_t id)
+{
+	EventEmission *emission;
+
+	event_init ();
+
+	NIH_LIST_FOREACH (pending, iter) {
+		emission = (EventEmission *)iter;
+
+		if (emission->id == id)
+			return emission;
+	}
+
+	NIH_LIST_FOREACH (handling, iter) {
+		emission = (EventEmission *)iter;
+
+		if (emission->id == id)
+			return emission;
+	}
+
+	return NULL;
 }
 
 
