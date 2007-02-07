@@ -1,5 +1,12 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Clear the goal event whenever we
+	reach the final rest state of a job (waiting for all jobs, running
+	for services).
+	* init/tests/test_job.c (test_change_state): Check that the goal
+	event goes away at the right times.
+	* TODO: Update.
+
 	* init/tests/test_job.c (test_child_reaper): Make sure that the
 	event is marked failed properly
 

@@ -381,6 +381,13 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
+			if (job->goal_event) {
+				job->goal_event->jobs--;
+				event_emit_finished (job->goal_event);
+
+				job->goal_event = NULL;
+			}
+
 			event_name = JOB_STOPPED_EVENT;
 			break;
 		case JOB_STARTING:
@@ -423,6 +430,17 @@ job_change_state (Job      *job,
 				job_run_script (job, job->script);
 			} else if (job->command) {
 				job_run_command (job, job->command);
+			}
+
+			/* Clear the goal event if we're marked to be
+			 * respawned; since our goal is to be running, not
+			 * to get back to waiting again.
+			 */
+			if (job->respawn && job->goal_event) {
+				job->goal_event->jobs--;
+				event_emit_finished (job->goal_event);
+
+				job->goal_event = NULL;
 			}
 
 			event_name = JOB_STARTED_EVENT;

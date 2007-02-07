@@ -502,12 +502,13 @@ test_change_state (void)
 	mkdir (dirname, 0700);
 
 	/* This is a naughty way of getting a pointer to the event queue
-	 * list head...
+	 * list head...  we keep hold of the emitted event, but remove it
+	 * from the list (so it doesn't affect our "events emitted" check)
 	 */
 	event_poll ();
 	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
 	list = em->event.entry.prev;
-	nih_list_free (&em->event.entry);
+	nih_list_remove (&em->event.entry);
 
 	job = job_new (NULL, "test");
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
@@ -557,7 +558,9 @@ test_change_state (void)
 
 
 	/* Check that a job can move directly from waiting to running if it
-	 * has no start script, emitting both the start and started events.
+	 * has no start script, emitting both the start and started events;
+	 * since the job is not marked respawn, this should not clear the
+	 * goal event.
 	 */
 	TEST_FEATURE ("waiting to starting with no script");
 	nih_free (job->start_script);
@@ -569,11 +572,67 @@ test_change_state (void)
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
 
+		job->goal_event = em;
+		em->jobs = 1;
+
 		job_change_state (job, JOB_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->jobs, 1);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
+		nih_list_free (&event->entry);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "start");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
+
+	job->goal_event = NULL;
+
+
+	/* Check that a job can move directly from waiting to running if it
+	 * has no start script, emitting both the start and started events;
+	 * and as the job is marked respawn, the goal event should be cleared
+	 * too.
+	 */
+	TEST_FEATURE ("waiting to starting with no script and respawn");
+	job->respawn = TRUE;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
+
+		job->goal_event = em;
+		em->jobs = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->jobs, 0);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "started");
@@ -597,10 +656,13 @@ test_change_state (void)
 	}
 
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
+	job->respawn = FALSE;
+	job->goal_event = NULL;
 
 
 	/* Check that a job in the starting state moves into the running state,
-	 * emitting the started event.
+	 * emitting the started event; since this is not marked respawn, this
+	 * should not clear the goal event.
 	 */
 	TEST_FEATURE ("starting to running with command");
 	TEST_ALLOC_FAIL {
@@ -608,12 +670,17 @@ test_change_state (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
+		job->goal_event = em;
+		em->jobs = 1;
 
 		job_change_state (job, JOB_RUNNING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->jobs, 1);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "started");
@@ -630,27 +697,76 @@ test_change_state (void)
 		unlink (filename);
 	}
 
+	job->goal_event = NULL;
+
+
+	/* Check that a job in the starting state moves into the running state,
+	 * emitting the started event; and because it is marked respawn, the
+	 * goal event is cleared.
+	 */
+	TEST_FEATURE ("starting to running with respawn");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_NONE;
+		job->failed = FALSE;
+		job->respawn = TRUE;
+		job->goal_event = em;
+		em->jobs = 1;
+
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->jobs, 0);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+
+		waitpid (job->pid, NULL, 0);
+		sprintf (filename, "%s/run", dirname);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+	}
+
+	job->respawn = FALSE;
+	job->goal_event = NULL;
+
 
 	/* Check that a job in the starting state can move into the running
 	 * state, and that a script instead of a command can be run.
-	 * The started event should be emitted.
+	 * The started event should be emitted, and since this isn't marked
+	 * respawn, the goal event should be left alone.
 	 */
 	TEST_FEATURE ("starting to running with script");
 	job->script = job->command;
 	job->command = NULL;
-	job->respawn = FALSE;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
+		job->goal_event = em;
+		em->jobs = 1;
 
 		job_change_state (job, JOB_RUNNING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->jobs, 1);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "started");
@@ -666,6 +782,8 @@ test_change_state (void)
 
 		unlink (filename);
 	}
+
+	job->goal_event = NULL;
 
 
 	/* Check that a job in the running state can move into the respawning
@@ -888,7 +1006,8 @@ test_change_state (void)
 
 
 	/* Check that a job in the stopping state can move into the waiting
-	 * state, emitting the stopped event as it goes.
+	 * state, emitting the stopped event as it goes and clearing the
+	 * goal event.
 	 */
 	TEST_FEATURE ("stopping to waiting");
 	TEST_ALLOC_FAIL {
@@ -896,12 +1015,17 @@ test_change_state (void)
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
+		job->goal_event = em;
+		em->jobs = 1;
 
 		job_change_state (job, JOB_WAITING);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->jobs, 0);
 
 		event = (Event *)list->prev;
 		TEST_EQ_STR (event->name, "stopped");
@@ -912,6 +1036,8 @@ test_change_state (void)
 
 		TEST_LIST_EMPTY (list);
 	}
+
+	job->goal_event = NULL;
 
 
 	/* Check that a job in the stopping state can move into the waiting
@@ -991,8 +1117,8 @@ test_change_state (void)
 	job->respawn_limit = 10;
 	job->respawn_interval = 100;
 
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
 	job->goal_event = em;
+	em->jobs = 1;
 
 	output = tmpfile ();
 	TEST_DIVERT_STDERR (output) {
@@ -1014,6 +1140,7 @@ test_change_state (void)
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 	TEST_EQ_P (job->goal_event, NULL);
+	TEST_EQ (em->jobs, 0);
 
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/stop", dirname);
@@ -1026,8 +1153,6 @@ test_change_state (void)
 
 	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
 	TEST_FILE_RESET (output);
-
-	nih_list_free (&em->event.entry);
 
 	event_poll ();
 
@@ -1075,6 +1200,7 @@ test_change_state (void)
 	rmdir (dirname);
 
 	nih_list_free (&job->entry);
+	nih_list_free (&em->event.entry);
 }
 
 void
