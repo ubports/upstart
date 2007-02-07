@@ -1,5 +1,14 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start_event, job_stop_event): There's no reason
+	for these to exist as seperate functions anymore, especially since
+	we want to eventually have some kind of match table.
+	(job_handle_event): Perform the iterations and match calls here
+	instead, since we just call job_change_goal now.
+	* init/job.h: Remove prototypes.
+	* init/tests/test_job.c (test_start_event, test_stop_event): Fold into
+	(test_handle_event): which now handles all the cases.
+
 	* init/job.c (job_detect_idle): Call event_emit
 	* init/main.c (main, cad_handler, kbd_handler): Call event_emit
 	instead of event_queue.

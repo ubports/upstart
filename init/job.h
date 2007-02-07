@@ -229,8 +229,6 @@ void        job_kill_process    (Job *job);
 
 void        job_child_reaper    (void *ptr, pid_t pid, int killed, int status);
 
-void        job_start_event     (Job *job, EventEmission *emission);
-void        job_stop_event      (Job *job, EventEmission *emission);
 void        job_handle_event    (EventEmission *emission);
 
 void        job_detect_idle     (void);

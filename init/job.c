@@ -1085,52 +1085,6 @@ job_catch_runaway (Job *job)
 
 
 /**
- * job_start_event:
- * @job: job to be started,
- * @emission: event emission to be handled.
- *
- * Iterates the list of events that can cause @job to be started, and if
- * the @emission event is present, calls _job_start() to change the goal.
- **/
-void
-job_start_event (Job           *job,
-		 EventEmission *emission)
-{
-	nih_assert (job != NULL);
-	nih_assert (emission != NULL);
-
-	NIH_LIST_FOREACH (&job->start_events, iter) {
-		Event *start_event = (Event *)iter;
-
-		if (event_match (&emission->event, start_event))
-			job_change_goal (job, JOB_START, emission);
-	}
-}
-
-/**
- * job_stop_event:
- * @job: job to be stopped,
- * @emission: event emission to be handled.
- *
- * Iterates the list of events that can cause @job to be stopped, and if
- * the @emission event is present, calls _job_stop() to change the goal.
- **/
-void
-job_stop_event (Job           *job,
-		EventEmission *emission)
-{
-	nih_assert (job != NULL);
-	nih_assert (emission != NULL);
-
-	NIH_LIST_FOREACH (&job->stop_events, iter) {
-		Event *stop_event = (Event *)iter;
-
-		if (event_match (&emission->event, stop_event))
-			job_change_goal (job, JOB_STOP, emission);
-	}
-}
-
-/**
  * job_handle_event:
  * @emission: event emission to be handled.
  *
@@ -1157,8 +1111,19 @@ job_handle_event (EventEmission *emission)
 		 * a process's start and stop scripts to be run without the
 		 * actual process)
 		 */
-		job_stop_event (job, emission);
-		job_start_event (job, emission);
+		NIH_LIST_FOREACH (&job->stop_events, iter) {
+			Event *stop_event = (Event *)iter;
+
+			if (event_match (&emission->event, stop_event))
+				job_change_goal (job, JOB_STOP, emission);
+		}
+
+		NIH_LIST_FOREACH (&job->start_events, iter) {
+			Event *start_event = (Event *)iter;
+
+			if (event_match (&emission->event, start_event))
+				job_change_goal (job, JOB_START, emission);
+		}
 	}
 }
 

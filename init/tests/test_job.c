@@ -2219,287 +2219,125 @@ test_child_reaper (void)
 
 
 void
-test_start_event (void)
-{
-	Job            *job;
-	Event          *event;
-	EventEmission  *em;
-
-	TEST_FUNCTION ("job_start_event");
-	job = job_new (NULL, "test");
-	job->command = "echo";
-	job->respawn_limit = 0;
-
-	event = event_new (job, "wibble");
-	nih_list_add (&job->start_events, &event->entry);
-
-
-	/* Check that we can't start a job with an event that doesn't match
-	 * any in the start events list.
-	 */
-	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job_start_event (job, em);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
-
-		TEST_EQ_P (job->goal_event, NULL);
-		TEST_EQ (em->jobs, 0);
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	/* Check that we can start a job with an event that matches, which
-	 * results in job_start being called.
-	 */
-	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
-		job->goal_event = NULL;
-
-		job_start_event (job, em);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_NE (job->pid, 0);
-		waitpid (job->pid, NULL, 0);
-
-		TEST_EQ_P (job->goal_event, em);
-		TEST_EQ (em->jobs, 1);
-	}
-
-	nih_list_free (&em->event.entry);
-
-	nih_list_free (&job->entry);
-}
-
-void
-test_stop_event (void)
-{
-	Job            *job;
-	Event          *event;
-	EventEmission  *em;
-	pid_t           pid;
-	int             status;
-
-	TEST_FUNCTION ("job_stop_event");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->respawn_limit = 0;
-
-	TEST_CHILD (job->pid) {
-		pause ();
-	}
-	pid = job->pid;
-
-	event = event_new (job, "wibble");
-	nih_list_add (&job->stop_events, &event->entry);
-
-
-	/* Check that we can't stop a job with an event that doesn't match
-	 * any in the stop events list.
-	 */
-	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job_stop_event (job, em);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_EQ (job->pid, pid);
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		TEST_EQ_P (job->goal_event, NULL);
-		TEST_EQ (em->jobs, 0);
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	/* Check that we can stop a job with an event that matches, which
-	 * results in job_stop being called.
-	 */
-	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-		job->goal_event = NULL;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
-
-		job_stop_event (job, em);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
-
-		TEST_EQ (job->pid, pid);
-		TEST_NE_P (job->kill_timer, NULL);
-
-		waitpid (job->pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
-
-		TEST_EQ_P (job->goal_event, em);
-		TEST_EQ (em->jobs, 1);
-	}
-
-	nih_list_free (&em->event.entry);
-
-	nih_list_free (&job->entry);
-}
-
-void
 test_handle_event (void)
 {
-	EventEmission *em;
-	Job           *job1, *job2, *job3, *job4, *job5;
-	int            status;
+	Job            *job1, *job2;
+	Event          *event;
+	EventEmission  *em;
+	int             status;
 
-	/* Check that an event starts all jobs that have it in their start
-	 * events list, stops all jobs that have it in their stop events list
-	 * and restarts any that have it in both.
-	 */
 	TEST_FUNCTION ("job_handle_event");
+	job1 = job_new (NULL, "foo");
+	job1->command = "echo";
+	job1->respawn_limit = 0;
+
+	event = event_new (job1, "wibble");
+	nih_list_add (&job1->start_events, &event->entry);
+
+	job2 = job_new (NULL, "bar");
+	job2->command = "echo";
+	job2->respawn_limit = 0;
+
+	event = event_new (job2, "wibble");
+	nih_list_add (&job2->stop_events, &event->entry);
+
+
+	/* Check that a non matching event has no effect on either job,
+	 * and doesn't result in the emission being given any jobs.
+	 */
+	TEST_FEATURE ("with non-matching event");
+	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
+
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job1 = job_new (NULL, "foo");
-			job1->goal = JOB_STOP;
-			job1->state = JOB_WAITING;
-			job1->process_state = PROCESS_NONE;
-			job1->command = "echo";
-			nih_list_add (&job1->start_events,
-				      &(event_new (job1, "poke")->entry));
+		em->jobs = 0;
 
-			job2 = job_new (NULL, "bar");
-			job2->goal = JOB_START;
-			job2->state = JOB_RUNNING;
-			job2->process_state = PROCESS_ACTIVE;
-			nih_list_add (&job2->stop_events,
-				      &(event_new (job2, "poke")->entry));
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->process_state = PROCESS_NONE;
+		job1->pid = -1;
+		job1->goal_event = NULL;
 
-			TEST_CHILD (job2->pid) {
-				pause ();
-			}
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->process_state = PROCESS_ACTIVE;
+		job2->goal_event = NULL;
 
-			job3 = job_new (NULL, "baz");
-			job3->goal = JOB_START;
-			job3->state = JOB_RUNNING;
-			job3->process_state = PROCESS_ACTIVE;
-			nih_list_add (&job3->start_events,
-				      &(event_new (job3, "poke")->entry));
-			nih_list_add (&job3->stop_events,
-				      &(event_new (job3, "poke")->entry));
-
-			TEST_CHILD (job3->pid) {
-				pause ();
-			}
-
-			job4 = job_new (NULL, "frodo");
-			job4->goal = JOB_STOP;
-			job4->state = JOB_WAITING;
-			job4->process_state = PROCESS_NONE;
-			job4->command = "echo";
-
-			job5 = job_new (NULL, "bilbo");
-			job5->goal = JOB_START;
-			job5->state = JOB_RUNNING;
-			job5->process_state = PROCESS_ACTIVE;
-
-			TEST_CHILD (job5->pid) {
-				pause ();
-			}
-
-			em = event_emit ("poke", NULL, NULL, NULL, NULL);
+		TEST_CHILD (job2->pid) {
+			pause ();
 		}
 
 		job_handle_event (em);
 
+		TEST_EQ (em->jobs, 0);
+
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_WAITING);
+		TEST_EQ (job1->process_state, PROCESS_NONE);
+		TEST_EQ_P (job1->goal_event, NULL);
+
+		TEST_EQ (job2->goal, JOB_START);
+		TEST_EQ (job2->state, JOB_RUNNING);
+		TEST_EQ (job2->process_state, PROCESS_ACTIVE);
+		TEST_EQ_P (job1->goal_event, NULL);
+
+		kill (job2->pid, SIGTERM);
+		waitpid (job2->pid, NULL, 0);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	/* Check that a matching event results in the jobs being started or
+	 * stopped as appropriate.
+	 */
+	TEST_FEATURE ("with matching event");
+	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->process_state = PROCESS_NONE;
+		job1->pid = -1;
+		job1->goal_event = NULL;
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->process_state = PROCESS_ACTIVE;
+		job2->goal_event = NULL;
+
+		TEST_CHILD (job2->pid) {
+			pause ();
+		}
+
+		job_handle_event (em);
+
+		TEST_EQ (em->jobs, 2);
+
 		TEST_EQ (job1->goal, JOB_START);
 		TEST_EQ (job1->state, JOB_RUNNING);
 		TEST_EQ (job1->process_state, PROCESS_ACTIVE);
+		TEST_EQ_P (job1->goal_event, em);
 
 		TEST_NE (job1->pid, 0);
-		kill (job1->pid, SIGTERM);
 		waitpid (job1->pid, NULL, 0);
-
 
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_RUNNING);
 		TEST_EQ (job2->process_state, PROCESS_KILLED);
+		TEST_EQ_P (job2->goal_event, em);
 
-		TEST_NE (job2->pid, 0);
 		waitpid (job2->pid, &status, 0);
-
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
-
-
-		TEST_EQ (job3->goal, JOB_START);
-		TEST_EQ (job3->state, JOB_RUNNING);
-		TEST_EQ (job3->process_state, PROCESS_KILLED);
-
-		TEST_NE (job3->pid, 0);
-		waitpid (job3->pid, &status, 0);
-
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
-
-
-		TEST_EQ (job4->goal, JOB_STOP);
-		TEST_EQ (job4->state, JOB_WAITING);
-		TEST_EQ (job4->process_state, PROCESS_NONE);
-
-		TEST_EQ (job4->pid, 0);
-
-
-		TEST_EQ (job5->goal, JOB_START);
-		TEST_EQ (job5->state, JOB_RUNNING);
-		TEST_EQ (job5->process_state, PROCESS_ACTIVE);
-
-		TEST_NE (job5->pid, 0);
-		kill (job5->pid, SIGTERM);
-		waitpid (job5->pid, NULL, 0);
-
-
-		nih_list_free (&em->event.entry);
-
-		nih_list_free (&job1->entry);
-		nih_list_free (&job2->entry);
-		nih_list_free (&job3->entry);
-		nih_list_free (&job4->entry);
-		nih_list_free (&job5->entry);
 	}
+
+	nih_list_free (&em->event.entry);
+	event_poll ();
+
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
 }
 
 void
@@ -2920,8 +2758,6 @@ main (int   argc,
 	test_run_script ();
 	test_kill_process ();
 	test_child_reaper ();
-	test_start_event ();
-	test_stop_event ();
 	test_handle_event ();
 	test_detect_idle ();
 #if 0
