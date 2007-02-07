@@ -506,6 +506,7 @@ test_poll (void)
 }
 
 
+#if 0
 void
 test_read_state (void)
 {
@@ -702,6 +703,7 @@ test_write_state (void)
 	nih_list_free (&em2->event.entry);
 	nih_list_free (&em3->event.entry);
 }
+#endif
 
 
 int
@@ -714,8 +716,10 @@ main (int   argc,
 	test_emit_find_by_id ();
 	test_emit_finished ();
 	test_poll ();
+#if 0
 	test_read_state ();
 	test_write_state ();
+#endif
 
 	return 0;
 }

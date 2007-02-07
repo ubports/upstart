@@ -1,5 +1,11 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c, init/job.c, init/job.h, init/event.c, init/event.h,
+	init/tests/test_job.c, init/tests/test_event.c: Remove state
+	serialisation code for the time being; maintaining it is getting
+	increasingly harder, and it introduces some major bugs.  It will
+	get rewritten shortly.
+
 	* init/event.c (event_pending): Pass the emission directly to
 	job_handle_event now.
 	* init/job.c (job_handle_event, job_start_event, job_stop_event):

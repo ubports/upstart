@@ -238,9 +238,11 @@ void        job_handle_event    (EventEmission *emission);
 void        job_detect_idle     (void);
 void        job_set_idle_event  (const char *name);
 
+#if 0
 Job *       job_read_state      (Job *job, char *buf)
 	__attribute__ ((warn_unused_result, malloc));
 void        job_write_state     (FILE *state);
+#endif
 
 NIH_END_EXTERN
 

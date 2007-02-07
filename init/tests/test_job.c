@@ -2701,6 +2701,7 @@ test_detect_idle (void)
 }
 
 
+#if 0
 void
 test_read_state (void)
 {
@@ -2976,6 +2977,7 @@ test_write_state (void)
 
 	fclose (output);
 }
+#endif
 
 
 int
@@ -2997,8 +2999,10 @@ main (int   argc,
 	test_stop_event ();
 	test_handle_event ();
 	test_detect_idle ();
+#if 0
 	test_read_state ();
 	test_write_state ();
+#endif
 
 	return 0;
 }

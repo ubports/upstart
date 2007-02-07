@@ -74,9 +74,11 @@ static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
+#if 0
 static void term_handler    (const char *prog, NihSignal *signal);
 static void read_state      (int fd);
 static void write_state     (int fd);
+#endif
 
 
 /**
@@ -94,7 +96,9 @@ static int restart = FALSE;
  * Command-line options we accept.
  **/
 static NihOption options[] = {
+#if 0
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+#endif
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -244,10 +248,12 @@ main (int   argc,
 		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
 						  kbd_handler, NULL));
 
+#if 0
 	/* SIGTERM instructs us to re-exec ourselves */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
 					  (NihSignalHandler)term_handler,
 					  argv[0]));
+#endif
 
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
@@ -287,8 +293,10 @@ main (int   argc,
 	} else {
 		sigset_t mask;
 
+#if 0
 		/* State file descriptor is fixed */
 		read_state (STATE_FD);
+#endif
 
 		/* We're ok to receive signals again */
 		sigemptyset (&mask);
@@ -466,6 +474,7 @@ stop_handler (void      *data,
 }
 
 
+#if 0
 /**
  * term_handler:
  * @argv0: program to run,
@@ -647,3 +656,4 @@ write_state (int fd)
 		nih_warn (_("Error after writing state: %s"),
 			  strerror (errno));
 }
+#endif

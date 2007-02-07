@@ -203,9 +203,11 @@ void           event_emit_finished   (EventEmission *emission);
 
 void           event_poll            (void);
 
+#if 0
 EventEmission *event_read_state      (EventEmission *emission, char *buf)
 	__attribute__ ((warn_unused_result, malloc));
 void           event_write_state     (FILE *state);
+#endif
 
 NIH_END_EXTERN
 

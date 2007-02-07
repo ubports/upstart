@@ -421,6 +421,7 @@ event_finished (EventEmission *emission)
 }
 
 
+#if 0
 /**
  * event_read_state:
  * @emission: event emission to update,
@@ -537,3 +538,4 @@ event_write_state (FILE *state)
 
 	fprintf (state, "Emission %d\n", emission_id);
 }
+#endif

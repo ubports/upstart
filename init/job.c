@@ -1384,6 +1384,7 @@ job_set_idle_event (const char *name)
 }
 
 
+#if 0
 /**
  * job_read_state:
  * @job: job to update,
@@ -1541,3 +1542,4 @@ job_write_state (FILE *state)
 		fprintf (state, ".respawn_time %ld\n", job->respawn_time);
 	}
 }
+#endif
