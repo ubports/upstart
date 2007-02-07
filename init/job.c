@@ -529,7 +529,7 @@ job_failed_event (Job   *job,
 					     job->exit_status));
 	}
 
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, env));
+	NIH_MUST (nih_str_array_addp (&event->env, event, NULL, env));
 }
 
 
