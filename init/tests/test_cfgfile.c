@@ -2743,6 +2743,29 @@ test_stanza_normalexit (void)
 	nih_list_free (&job->entry);
 
 
+	/* Check that an argument in a normalexit stanza may be a signal name,
+	 * in which case the number or'd with 0x80 is added to the normalexit
+	 * array.
+	 */
+	TEST_FEATURE ("with single argument containing signal name");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit INT\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 1);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], SIGINT | 0x80);
+
+	nih_list_free (&job->entry);
+
+
 	/* Check that a normalexit stanza with multiple arguments results in
 	 * all of the given exit codes being added to the array, which should
 	 * have been increased in size.
@@ -2750,33 +2773,7 @@ test_stanza_normalexit (void)
 	TEST_FEATURE ("with multiple arguments");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit 99 100 101\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_EQ (job->normalexit_len, 3);
-	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
-	TEST_ALLOC_PARENT (job->normalexit, job);
-
-	TEST_EQ (job->normalexit[0], 99);
-	TEST_EQ (job->normalexit[1], 100);
-	TEST_EQ (job->normalexit[2], 101);
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that repeated normalexit stanzas are permitted, each
-	 * appending to the array.
-	 */
-	TEST_FEATURE ("with multiple stanzas");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit 99\n");
-	fprintf (jf, "normalexit 100 101\n");
-	fprintf (jf, "normalexit 900\n");
+	fprintf (jf, "normalexit 99 100 101 SIGTERM\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
@@ -2790,7 +2787,36 @@ test_stanza_normalexit (void)
 	TEST_EQ (job->normalexit[0], 99);
 	TEST_EQ (job->normalexit[1], 100);
 	TEST_EQ (job->normalexit[2], 101);
-	TEST_EQ (job->normalexit[3], 900);
+	TEST_EQ (job->normalexit[3], SIGTERM | 0x80);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated normalexit stanzas are permitted, each
+	 * appending to the array.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normalexit 99\n");
+	fprintf (jf, "normalexit 100 101\n");
+	fprintf (jf, "normalexit QUIT\n");
+	fprintf (jf, "normalexit 900\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 5);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+	TEST_EQ (job->normalexit[1], 100);
+	TEST_EQ (job->normalexit[2], 101);
+	TEST_EQ (job->normalexit[3], SIGQUIT | 0x80);
+	TEST_EQ (job->normalexit[4], 900);
 
 	nih_list_free (&job->entry);
 

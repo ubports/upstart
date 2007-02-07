@@ -1,5 +1,10 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_normalexit): Allow signal names in the
+	arguments, which are added to the normalexit array or'd with 0x80
+	* init/tests/test_cfgfile.c (test_stanza_normalexit): Check that we
+	can now parse signal names correctly.
+
 	* init/job.c (job_failed_event): Change add to addp to fix leak.
 
 	* init/job.c (job_failed_event): Function to turn an event into one

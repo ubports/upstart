@@ -43,6 +43,7 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/timer.h>
+#include <nih/signal.h>
 #include <nih/watch.h>
 #include <nih/config.h>
 #include <nih/logging.h>
@@ -1183,11 +1184,11 @@ cfg_stanza_kill (Job             *job,
  * @lineno: line number.
  *
  * Parse a normalexit stanza from @file.  This stanza expects one or more
- * arguments giving exit codes that the main process can return and be
- * considered to have been stopped normally.
+ * arguments giving signal names or exit codes that the main process can
+ * return and be considered to have been stopped normally.
  *
  * Arguments are stored in the normalexit array, and the normalexit_len
- * value updated.
+ * value updated.  Signals have 0x80 or'd with their value.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1207,18 +1208,24 @@ cfg_stanza_normalexit (Job             *job,
 	do {
 		unsigned long  status;
 		char          *arg, *endptr;
-		int           *new_ne;
+		int           *new_ne, signum;
 
 		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
 		if (! arg)
 			return -1;
 
-		status = strtoul (arg, &endptr, 10);
-		if (*endptr || (status > INT_MAX)) {
-			nih_free (arg);
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
+		signum = nih_signal_from_name (arg);
+		if (signum < 0) {
+			status = strtoul (arg, &endptr, 10);
+			if (*endptr || (status > INT_MAX)) {
+				nih_free (arg);
+				nih_return_error (-1, CFG_ILLEGAL_VALUE,
+						  _(CFG_ILLEGAL_VALUE_STR));
+			}
+		} else {
+			status = signum | 0x80;
 		}
+
 		nih_free (arg);
 
 		NIH_MUST (new_ne = nih_realloc (job->normalexit, job,
