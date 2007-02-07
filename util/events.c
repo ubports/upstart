@@ -101,7 +101,7 @@ emit_action (NihCommand   *command,
 
 	message = upstart_message_new (NULL, destination_pid,
 				       UPSTART_EVENT_QUEUE, args[0],
-				       args[1] ? &(args[1]) : NULL, NULL);
+				       args[1] ? &(args[1]) : NULL, emit_env);
 	if (! message) {
 		nih_error_raise_system ();
 		goto error;

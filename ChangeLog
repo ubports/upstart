@@ -1,5 +1,11 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* util/events.c (emit_action): Actually pass the emit_env array
+	* util/tests/test_events.c (test_emit_action): Make sure it does.
+
+	* util/initctl.c (main): Catch nih_command_parser() returning a
+	negative value to indicate an internal error, and always exit 1.
+
 	* util/events.c (handle_event): Build up multiple lines to describe
 	the event, including its arguments and environment.
 	* util/tests/test_events.c (test_events_action): Check the new output

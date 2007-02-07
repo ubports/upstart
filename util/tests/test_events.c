@@ -125,7 +125,7 @@ test_emit_action (void)
 	/* Check that providing multiple arguments results in the surplus
 	 * being used as arguments to the event itself.
 	 */
-	TEST_FEATURE ("with additional command");
+	TEST_FEATURE ("with additional arguments");
 	cmd.command = "emit";
 	args[0] = "foo";
 	args[1] = "frodo";
@@ -170,6 +170,64 @@ test_emit_action (void)
 
 		nih_free (msg);
 	}
+
+
+	/* Check that providing multiple arguments results in the surplus
+	 * being used as arguments to the event itself, and that the
+	 * environment in emit_env is used.
+	 */
+	TEST_FEATURE ("with additional arguments and environment");
+	cmd.command = "emit";
+	args[0] = "foo";
+	args[1] = "frodo";
+	args[2] = "bilbo";
+	args[3] = NULL;
+
+	emit_env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&emit_env, NULL, NULL, "FOO=BAR"));
+
+	TEST_ALLOC_FAIL {
+		if (test_alloc_failed) {
+			TEST_DIVERT_STDERR (output) {
+				ret = emit_action (&cmd, args);
+			}
+			rewind (output);
+
+			TEST_NE (ret, 0);
+
+			TEST_FILE_EQ (output, ("test: Communication error: "
+					       "Cannot allocate memory\n"));
+			TEST_FILE_END (output);
+
+			TEST_FILE_RESET (output);
+			continue;
+		}
+
+		TEST_DIVERT_STDOUT (output) {
+			ret = emit_action (&cmd, args);
+		}
+		rewind (output);
+
+		TEST_EQ (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_ALLOC_SAFE {
+			assert (msg = nih_io_message_recv (NULL, sock, &len));
+		}
+
+		TEST_EQ (msg->data->len, 56);
+		TEST_EQ_MEM (msg->data->buf,
+			     ("upstart\n\0\0\0\010s\0\0\0\003foo"
+			      "as\0\0\0\05frodos\0\0\0\05bilboS"
+			      "as\0\0\0\07FOO=BARS"), 56);
+
+		nih_free (msg);
+	}
+
+	nih_free (emit_env);
+	emit_env = NULL;
 
 
 	/* Check that calling emit without any argument results in an error

@@ -231,6 +231,8 @@ main (int   argc,
 	}
 
 	ret = nih_command_parser (NULL, argc, argv, options, commands);
+	if (ret < 0)
+		exit (1);
 
 	return ret;
 }
