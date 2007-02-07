@@ -22,12 +22,24 @@
 
 #include <nih/test.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <nih/macros.h>
 #include <nih/alloc.h>
-#include <nih/list.h>
 #include <nih/string.h>
+#include <nih/list.h>
+#include <nih/io.h>
 
+#include <upstart/message.h>
+
+#include "job.h"
 #include "event.h"
+#include "control.h"
+#include "notify.h"
+
+
+extern int upstart_disable_safeties;
 
 
 void
@@ -122,10 +134,13 @@ test_match (void)
 }
 
 
+static int emission_called = 0;
+
 static void
 my_emission_cb (void          *data,
 		EventEmission *emission)
 {
+	emission_called++;
 }
 
 void
@@ -243,25 +258,251 @@ test_emit_finished (void)
 }
 
 
-void
-test_queue (void)
+static int destructor_called = 0;
+
+static int
+my_destructor (void *ptr)
 {
-	Event *event;
+	destructor_called++;
 
-	/* Check that an event can be queued, the structure returned should
-	 * be allocated with nih_alloc and placed in a list.
+	return 0;
+}
+
+static int
+check_event (void               *data,
+	     pid_t               pid,
+	     UpstartMessageType  type,
+	     const char         *name,
+	     char * const       *args,
+	     char * const       *env)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ_P (args, NULL);
+	TEST_EQ_P (env, NULL);
+
+	return 0;
+}
+
+void
+test_poll (void)
+{
+	EventEmission      *em1;
+	NihList            *events;
+	Job                *job;
+	Event              *event;
+	NihIo              *io;
+	NotifySubscription *sub;
+	int                 wait_fd, status;
+	pid_t               pid;
+
+	TEST_FUNCTION ("event_poll");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job_list ();
+
+	/* Naughty way of getting the list */
+	event_poll ();
+	em1 = event_emit ("test", NULL, NULL, NULL, NULL);
+	events = em1->event.entry.next;
+	nih_list_free (&em1->event.entry);
+
+
+	/* Check that a pending event in the queue is handled, with any
+	 * subscribed processes being notified of the event and any
+	 * jobs started or stopped as a result.
 	 */
-	TEST_FUNCTION ("event_queue");
-	TEST_ALLOC_FAIL {
-		event = event_queue ("test");
+	TEST_FEATURE ("with pending event");
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
 
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_LIST_NOT_EMPTY (&event->entry);
-		TEST_EQ_STR (event->name, "test");
-		TEST_ALLOC_PARENT (event->name, event);
+		sock = upstart_open ();
 
-		nih_list_free (&event->entry);
+		TEST_CHILD_RELEASE (wait_fd);
+
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event,
+						       NULL));
+
+		nih_free (message);
+
+		exit (0);
 	}
+
+	sub = notify_subscribe (pid, NOTIFY_EVENTS, TRUE);
+
+	job = job_new (NULL, "test");
+	job->command = nih_strdup (job, "echo");
+
+	event = event_new (job, "test");
+	nih_list_add (&job->start_events, &event->entry);
+
+	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1->jobs++; /* FIXME hack until we fix goal_event stuff */
+
+	event_poll ();
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ (em1->progress, EVENT_HANDLING);
+	TEST_EQ (em1->jobs, 1);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_NE (job->pid, -1);
+
+	waitpid (job->pid, NULL, 0);
+
+	nih_list_free (&sub->entry);
+	nih_list_free (&job->entry);
+	nih_list_free (&em1->event.entry);
+
+	control_close ();
+
+
+	/* Check that having a handling event in the queue doesn't cause
+	 * any problem.
+	 */
+	TEST_FEATURE ("with handling event");
+	TEST_ALLOC_FAIL {
+		em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+		em1->progress = EVENT_HANDLING;
+
+		event_poll ();
+
+		TEST_LIST_NOT_EMPTY (&em1->event.entry);
+		nih_list_free (&em1->event.entry);
+	}
+
+
+	/* Check that events in the finished state are consumed, leaving
+	 * the list empty.  The callback for the event should be run and
+	 * the event should be freed.
+	 */
+	TEST_FEATURE ("with finished event");
+	TEST_ALLOC_FAIL {
+		em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+		event_emit_finished (em1);
+
+		destructor_called = 0;
+		nih_alloc_set_destructor (em1, my_destructor);
+
+		emission_called = 0;
+
+		event_poll ();
+
+		TEST_TRUE (emission_called);
+		TEST_TRUE (destructor_called);
+	}
+
+
+	/* Check that a pending event which doesn't cause any jobs to be
+	 * changed goes straight into the finished state, thus getting
+	 * the callback called and destroyed.
+	 */
+	TEST_FEATURE ("with no-op pending event");
+	TEST_ALLOC_FAIL {
+		em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+
+		destructor_called = 0;
+		nih_alloc_set_destructor (em1, my_destructor);
+
+		emission_called = 0;
+
+		event_poll ();
+
+		TEST_TRUE (emission_called);
+		TEST_TRUE (destructor_called);
+	}
+
+
+	/* Check that a failed event causes another event to be emitted
+	 * that has "/failed" appended on the end.  We can obtain the
+	 * failed event emission by hooking a job on it, and using the
+	 * goal event.
+	 */
+	TEST_FEATURE ("with failed event");
+	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1->failed = TRUE;
+	em1->progress = EVENT_FINISHED;
+
+	job = job_new (NULL, "test");
+	job->command = nih_strdup (job, "echo");
+
+	event = event_new (job, "test/failed");
+	nih_list_add (&job->start_events, &event->entry);
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (em1, my_destructor);
+
+	emission_called = 0;
+
+	event_poll ();
+
+	TEST_TRUE (emission_called);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_EQ (job->process_state, PROCESS_ACTIVE);
+	TEST_NE (job->pid, -1);
+
+	waitpid (job->pid, NULL, 0);
+
+	TEST_EQ_STR (job->goal_event->name, "test/failed");
+
+	/* FIXME will need to finish that emission and call poll again */
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that failed events do not, themselves, emit new failed
+	 * events (otherwise we could be there all night :p)
+	 */
+	TEST_FEATURE ("with failed failed event");
+	em1 = event_emit ("test/failed", NULL, NULL, my_emission_cb, &em1);
+	em1->failed = TRUE;
+	em1->progress = EVENT_FINISHED;
+
+	job = job_new (NULL, "test");
+	job->command = nih_strdup (job, "echo");
+
+	event = event_new (job, "test/failed");
+	nih_list_add (&job->start_events, &event->entry);
+
+	event = event_new (job, "test/failed/failed");
+	nih_list_add (&job->start_events, &event->entry);
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (em1, my_destructor);
+
+	emission_called = 0;
+
+	event_poll ();
+
+	TEST_TRUE (emission_called);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_WAITING);
+	TEST_EQ (job->process_state, PROCESS_NONE);
+
+	nih_list_free (&job->entry);
+
+
+	upstart_disable_safeties = FALSE;
 }
 
 
@@ -281,7 +522,7 @@ test_read_state (void)
 		sprintf (buf, "Event bang");
 		event = event_read_state (NULL, buf);
 
-		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_ALLOC_SIZE (event, sizeof (EventEmission));
 		TEST_LIST_NOT_EMPTY (&event->entry);
 		TEST_EQ_STR (event->name, "bang");
 		TEST_ALLOC_PARENT (event->name, event);
@@ -294,7 +535,7 @@ test_read_state (void)
 	 * are appended to the event.
 	 */
 	TEST_FEATURE ("with argument to event");
-	event = event_queue ("foo");
+	event = (Event *)event_queue ("foo");
 	TEST_ALLOC_FAIL {
 		sprintf (buf, ".arg frodo");
 		ptr = event_read_state (event, buf);
@@ -343,13 +584,13 @@ test_write_state (void)
 	 * a file descriptor.
 	 */
 	TEST_FUNCTION ("event_write_state");
-	event1 = event_queue ("frodo");
+	event1 = (Event *)event_queue ("frodo");
 
-	event2 = event_queue ("bilbo");
+	event2 = (Event *)event_queue ("bilbo");
 	NIH_MUST (nih_str_array_add (&event2->args, event2, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&event2->args, event2, NULL, "bar"));
 
-	event3 = event_queue ("drogo");
+	event3 = (Event *)event_queue ("drogo");
 	NIH_MUST (nih_str_array_add (&event3->args, event3, NULL, "baggins"));
 	NIH_MUST (nih_str_array_add (&event3->env, event3, NULL, "FOO=BAR"));
 	NIH_MUST (nih_str_array_add (&event3->env, event3, NULL, "TEA=YES"));
@@ -385,7 +626,7 @@ main (int   argc,
 	test_emit ();
 	test_emit_find_by_id ();
 	test_emit_finished ();
-	test_queue ();
+	test_poll ();
 	test_read_state ();
 	test_write_state ();
 

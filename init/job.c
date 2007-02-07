@@ -397,7 +397,7 @@ job_change_state (Job      *job,
 		if (event_name) {
 			Event *event;
 
-			event = event_queue (event_name);
+			event = (Event *)event_queue (event_name);
 			NIH_MUST (nih_str_array_add (&event->args, event,
 						     NULL, job->name));
 			if ((job->state == JOB_WAITING)

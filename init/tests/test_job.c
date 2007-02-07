@@ -200,7 +200,7 @@ test_change_state (void)
 	 * list head...
 	 */
 	event_queue_run ();
-	event = event_queue ("wibble");
+	event = (Event *)event_queue ("wibble");
 	list = event->entry.prev;
 	nih_list_free (&event->entry);
 
@@ -2501,7 +2501,7 @@ test_detect_idle (void)
 	 * list head...
 	 */
 	event_queue_run ();
-	event = event_queue ("wibble");
+	event = (Event *)event_queue ("wibble");
 	list = event->entry.prev;
 	nih_list_free (&event->entry);
 

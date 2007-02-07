@@ -1,5 +1,24 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_poll): Add the new function that replaces
+	event_queue_run(); handles the new-style event emission structures
+	in the list and only returns when there are no non-handling events.
+	(event_pending, event_finished): Handling of particular event states
+	during poll; split out for readability.
+	(event_queue, event_queue_run): Drop these obsolete functions.
+	(event_read_state): Force type from event_queue.
+	* init/event.h: Add event_poll prototype; remove prototypes of old
+	functions, replacing with #defines for now so things still compile.
+	* init/tests/test_event.c (test_queue): Drop tests.
+	(test_read_state, test_write_state): Force type from event_queue
+	Change type we check size of.
+	(test_poll): Pretty thoroughly test the new poll function.
+	* init/job.c (job_change_state): Force type from event_queue
+	* init/control.c (control_event_queue): Force type from event queue
+	* init/tests/test_job.c (test_detect_idle): Force type from event_queue
+	* init/tests/test_control.c (test_event_queue, test_shutdown):
+	Force type from event_queue
+
 	* init/event.c: Revert to a single list of events with an enum
 	(event_emit): Set the progress to pending initially.
 	(event_emit_find_by_id): Simplify now it just checks one list

@@ -181,6 +181,9 @@ struct event_emission {
 #define JOB_STOPPED_EVENT "stopped"
 
 
+#define event_queue(_n) (event_emit ((_n), NULL, NULL, NULL, NULL))
+#define event_queue_run event_poll
+
 NIH_BEGIN_EXTERN
 
 int paused;
@@ -198,8 +201,7 @@ EventEmission *event_emit            (const char *name, char **args,
 EventEmission *event_emit_find_by_id (uint32_t id);
 void           event_emit_finished   (EventEmission *emission);
 
-Event *        event_queue           (const char *name);
-void           event_queue_run       (void);
+void           event_poll            (void);
 
 Event *        event_read_state      (Event *event, char *buf);
 void           event_write_state     (FILE *state);

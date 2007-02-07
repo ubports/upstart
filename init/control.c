@@ -434,7 +434,7 @@ control_event_queue (void                *data,
 
 	nih_info (_("Control request to queue event %s"), name);
 
-	event = event_queue (name);
+	event = (Event *)event_queue (name);
 
 	if (args) {
 		event->args = args;

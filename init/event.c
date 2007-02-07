@@ -41,6 +41,11 @@
 #include "notify.h"
 
 
+/* Prototypes for static functions */
+static void event_pending  (EventEmission *emission);
+static void event_finished (EventEmission *emission);
+
+
 /**
  * paused:
  *
@@ -280,7 +285,110 @@ event_emit_finished (EventEmission *emission)
 	emission->progress = EVENT_FINISHED;
 }
 
-#if 0
+
+/**
+ * event_poll:
+ *
+ * This function is used to process the list of events; any in the pending
+ * state are moved into the handling state and job states changed.  Any in
+ * the finished state have their callbacks called, and are cleaned up.
+ *
+ * This function will only return once the events list is empty, or all
+ * events are in the handling state; so any time an event queues another,
+ * it will be processed immediately.
+ *
+ * Normally this function is used as a main loop callback.
+ **/
+void
+event_poll (void)
+{
+	int poll_again;
+
+	if (paused)
+		return;
+
+	event_init ();
+
+	do {
+		poll_again = FALSE;
+
+		NIH_LIST_FOREACH_SAFE (events, iter) {
+			EventEmission *emission = (EventEmission *)iter;
+
+			/* Ignore events that we're handling, there's nothing
+			 * we can do to hurry them.
+			 *
+			 * Decide whether to poll again based on the state
+			 * before handling the event; that way we always loop
+			 * at least once more after finding a pending or
+			 * finished event, in case they added new events as
+			 * a side effect that we missed.
+			 */
+			switch (emission->progress) {
+			case EVENT_PENDING:
+				event_pending (emission);
+				poll_again = TRUE;
+				break;
+			case EVENT_HANDLING:
+				break;
+			case EVENT_FINISHED:
+				event_finished (emission);
+				poll_again = TRUE;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	} while (poll_again);
+}
+
+/**
+ * event_pending:
+ * @emission: pending event.
+ *
+ * This function is called for each event in the list that is in the pending
+ * state.  Subscribers to emitted events are notified, and the event is
+ * passed to the job system to start or stop any.
+ *
+ * The event is marked as handling; if no jobs took it, then it is
+ * immediately finished.
+ **/
+static void
+event_pending (EventEmission *emission)
+{
+	nih_assert (emission != NULL);
+	nih_assert (emission->progress == EVENT_PENDING);
+
+	nih_debug ("Handling %s event", emission->event.name);
+	emission->progress = EVENT_HANDLING;
+
+	notify_event (&emission->event);
+	job_handle_event (&emission->event);
+
+	/* Make sure we don't hang on to events with no jobs.
+	 * (note that the progress might already be finished if all the jobs
+	 *  quickly skipped through their states and released it).
+	 */
+	event_emit_finished (emission);
+}
+
+/**
+ * event_finished:
+ * @emission: finished event.
+ *
+ * This function is called for each event in the list that is in the finished
+ * state.  The callback function, if set, is called.  Then, if the event
+ * failed, a new pending failed event is queued.  Finally the emission is
+ * freed and removed from the list.
+ **/
+static void
+event_finished (EventEmission *emission)
+{
+	nih_assert (emission != NULL);
+	nih_assert (emission->progress == EVENT_FINISHED);
+
+	nih_debug ("Finished %s event", emission->event.name);
+
 	if (emission->callback)
 		emission->callback (emission->data, emission);
 
@@ -300,63 +408,6 @@ event_emit_finished (EventEmission *emission)
 	}
 
 	nih_list_free (&emission->event.entry);
-#endif
-
-
-/**
- * event_queue:
- * @name: name of event to queue.
- *
- * Queues an event called @name, which will be handled in the main loop
- * when @event_queue_run is called.
- *
- * Returns: event structure in the queue.
- **/
-Event *
-event_queue (const char *name)
-{
-	Event *event;
-
-	nih_assert (name != NULL);
-	nih_assert (strlen (name) > 0);
-
-	event_init ();
-
-	nih_debug ("Queued %s event", name);
-
-	NIH_MUST (event = event_new (NULL, name));
-	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destructor);
-	nih_list_add (events, &event->entry);
-
-	return event;
-}
-
-/**
- * event_queue_run:
- *
- * This callback is called once during each iteration of the main loop.
- * It consumes all events in the queue and ensures that subscribed processes
- * are notified of them and jobs listening for them are handled.
- **/
-void
-event_queue_run (void)
-{
-	if (paused)
-		return;
-
-	event_init ();
-
-	while (! NIH_LIST_EMPTY (events)) {
-		NIH_LIST_FOREACH_SAFE (events, iter) {
-			Event *event = (Event *)iter;
-
-			nih_debug ("Handling %s event", event->name);
-			notify_event (event);
-			job_handle_event (event);
-
-			nih_list_free (&event->entry);
-		}
-	}
 }
 
 
@@ -394,7 +445,7 @@ event_read_state (Event *event,
 			return event;
 
 		/* Add a new event record */
-		NIH_MUST (event = event_queue (ptr));
+		event = (Event *)event_queue (ptr);
 		return event;
 	}
 

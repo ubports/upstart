@@ -819,7 +819,7 @@ test_event_queue (void)
 	 * list head...
 	 */
 	event_queue_run ();
-	event = event_queue ("wibble");
+	event = (Event *)event_queue ("wibble");
 	list = event->entry.prev;
 	nih_list_free (&event->entry);
 
@@ -1228,7 +1228,7 @@ test_shutdown (void)
 	 * list head...
 	 */
 	event_queue_run ();
-	event = event_queue ("wibble");
+	event = (Event *)event_queue ("wibble");
 	list = event->entry.prev;
 	nih_list_free (&event->entry);
 
