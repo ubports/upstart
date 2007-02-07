@@ -583,6 +583,17 @@ test_read_state (void)
 	}
 
 
+	/* Check that the emission progress can be received. */
+	TEST_FEATURE ("with emission progress");
+	TEST_ALLOC_FAIL {
+		sprintf (buf, ".progress 2");
+		ptr = event_read_state (em, buf);
+
+		TEST_EQ_P (ptr, em);
+		TEST_EQ (em->progress, EVENT_FINISHED);
+	}
+
+
 	/* Check that the failed status of the event can be received. */
 	TEST_FEATURE ("with failed emission");
 	TEST_ALLOC_FAIL {
@@ -639,13 +650,15 @@ test_write_state (void)
 	TEST_FUNCTION ("event_write_state");
 	em1 = event_emit ("frodo", NULL, NULL, NULL, NULL);
 	em1->id = 100;
-	em3->failed = FALSE;
+	em1->progress = EVENT_HANDLING;
+	em1->failed = FALSE;
 
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
 	em2 = event_emit ("bilbo", args, NULL, NULL, NULL);
 	em2->id = 101;
+	em2->progress = EVENT_PENDING;
 	em2->failed = TRUE;
 
 	args = nih_str_array_new (NULL);
@@ -656,6 +669,7 @@ test_write_state (void)
 	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "TEA=YES"));
 	em3 = event_emit ("drogo", args, env, NULL, NULL);
 	em3->id = 102;
+	em3->progress = EVENT_FINISHED;
 	em3->failed = FALSE;
 
 	output = tmpfile ();
@@ -664,17 +678,20 @@ test_write_state (void)
 
 	TEST_FILE_EQ (output, "Event frodo\n");
 	TEST_FILE_EQ (output, ".id 100\n");
+	TEST_FILE_EQ (output, ".progress 1\n");
 	TEST_FILE_EQ (output, ".failed FALSE\n");
 	TEST_FILE_EQ (output, "Event bilbo\n");
 	TEST_FILE_EQ (output, ".arg foo\n");
 	TEST_FILE_EQ (output, ".arg bar\n");
 	TEST_FILE_EQ (output, ".id 101\n");
+	TEST_FILE_EQ (output, ".progress 0\n");
 	TEST_FILE_EQ (output, ".failed TRUE\n");
 	TEST_FILE_EQ (output, "Event drogo\n");
 	TEST_FILE_EQ (output, ".arg baggins\n");
 	TEST_FILE_EQ (output, ".env FOO=BAR\n");
 	TEST_FILE_EQ (output, ".env TEA=YES\n");
 	TEST_FILE_EQ (output, ".id 102\n");
+	TEST_FILE_EQ (output, ".progress 2\n");
 	TEST_FILE_EQ (output, ".failed FALSE\n");
 	TEST_FILE_EQ_N (output, "Emission ");
 	TEST_FILE_END (output);

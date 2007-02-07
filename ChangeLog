@@ -1,5 +1,10 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event.c (test_read_state, test_write_state): Check
+	the passing of the progress information.
+	* init/event.c (event_read_state, event_write_state): Add progress
+	field to the serialisation (oops).
+
 	* init/event.h: Add missing attribute for event_read_state.
 	* init/cfgfile.h: Add missing attributes.
 	* init/main.c (read_state): Don't discard return value.

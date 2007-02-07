@@ -26,6 +26,7 @@
 
 
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fnmatch.h>
@@ -485,6 +486,13 @@ event_read_state (EventEmission *emission,
 		if (! *ptr)
 			emission->id = value;
 
+	} else if (! strcmp (buf, ".progress")) {
+		long value;
+
+		value = strtol (ptr, &ptr, 10);
+		if ((! *ptr) && (value >= 0) && (value < INT_MAX))
+			emission->progress = value;
+
 	} else if (! strcmp (buf, ".failed")) {
 		if (! strcmp (ptr, "TRUE")) {
 			emission->failed = TRUE;
@@ -522,6 +530,7 @@ event_write_state (FILE *state)
 			fprintf (state, ".env %s\n", *ptr);
 
 		fprintf (state, ".id %zu\n", emission->id);
+		fprintf (state, ".progress %d\n", emission->progress);
 		fprintf (state, ".failed %s\n",
 			 emission->failed ? "TRUE" : "FALSE");
 	}
