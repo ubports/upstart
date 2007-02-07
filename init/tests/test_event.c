@@ -162,6 +162,7 @@ test_emit (void)
 		TEST_NE (emission->id, last_id);
 		last_id = emission->id;
 
+		TEST_EQ (emission->progress, EVENT_PENDING);
 		TEST_EQ (emission->jobs, 0);
 		TEST_EQ (emission->failed, FALSE);
 		TEST_EQ_P (emission->callback, my_emission_cb);
@@ -198,8 +199,6 @@ test_emit_find_by_id (void)
 
 	TEST_EQ_P (ret, emission);
 
-	/* FIXME check handling queue when we have it */
-
 	id = emission->id;
 	nih_list_free (&emission->event.entry);
 
@@ -209,6 +208,38 @@ test_emit_find_by_id (void)
 	ret = event_emit_find_by_id (id);
 
 	TEST_EQ_P (ret, NULL);
+}
+
+void
+test_emit_finished (void)
+{
+	EventEmission *emission;
+
+	TEST_FUNCTION ("event_emit_finished");
+	emission = event_emit ("test", NULL, NULL, NULL, NULL);
+	emission->progress = EVENT_HANDLING;
+
+	/* Check that if an event has jobs remaining, the progress isn't
+	 * changed.
+	 */
+	TEST_FEATURE ("with remaining jobs");
+	emission->jobs = 1;
+	event_emit_finished (emission);
+
+	TEST_EQ (emission->progress, EVENT_HANDLING);
+
+
+	/* Check that if an event has no jobs remaining, the progress is
+	 * changed to finished.
+	 */
+	TEST_FEATURE ("with no remaining jobs");
+	emission->jobs = 0;
+	event_emit_finished (emission);
+
+	TEST_EQ (emission->progress, EVENT_FINISHED);
+
+
+	nih_list_free (&emission->event.entry);
 }
 
 
@@ -353,6 +384,7 @@ main (int   argc,
 	test_match ();
 	test_emit ();
 	test_emit_find_by_id ();
+	test_emit_finished ();
 	test_queue ();
 	test_read_state ();
 	test_write_state ();

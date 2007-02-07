@@ -50,35 +50,24 @@ int paused = FALSE;
 
 
 /**
- * pending:
+ * events:
  *
- * This list holds the list of events queued to be handled; each item
- * is an EventEmission structure.
+ * This list holds the list of events in the process of pending, being
+ * handled or awaiting cleanup; each item is an EventEmission structure.
  **/
-static NihList *pending = NULL;
-
-/**
- * handling:
- *
- * This list holds the list of events that are currently being handled;
- * each item is an EventEmission structure.
- **/
-static NihList *handling = NULL;
+static NihList *events = NULL;
 
 
 /**
  * event_init:
  *
- * Initialise the event queue list.
+ * Initialise the event list.
  **/
 static inline void
 event_init (void)
 {
-	if (! pending)
-		NIH_MUST (pending = nih_list_new (NULL));
-
-	if (! handling)
-		NIH_MUST (handling = nih_list_new (NULL));
+	if (! events)
+		NIH_MUST (events = nih_list_new (NULL));
 }
 
 
@@ -211,7 +200,9 @@ event_emit (const char       *name,
 	 */
 	while (event_emit_find_by_id (id))
 		id++;
+
 	emission->id = id++;
+	emission->progress = EVENT_PENDING;
 
 	emission->jobs = 0;
 	emission->failed = FALSE;
@@ -237,7 +228,8 @@ event_emit (const char       *name,
 	nih_alloc_set_destructor (emission,
 				  (NihDestructor)nih_list_destructor);
 
-	nih_list_add (pending, &emission->event.entry);
+	nih_debug ("Pending %s event", name);
+	nih_list_add (events, &emission->event.entry);
 
 	return emission;
 }
@@ -246,8 +238,8 @@ event_emit (const char       *name,
  * event_emit_find_by_id:
  * @id: id to find.
  *
- * Finds the event emission with the given id in either the pending or
- * handling queues.
+ * Finds the event emission with the given id in the list of events
+ * currently being dealt with.
  *
  * Returns: emission found or NULL if not found.
  **/
@@ -258,14 +250,7 @@ event_emit_find_by_id (uint32_t id)
 
 	event_init ();
 
-	NIH_LIST_FOREACH (pending, iter) {
-		emission = (EventEmission *)iter;
-
-		if (emission->id == id)
-			return emission;
-	}
-
-	NIH_LIST_FOREACH (handling, iter) {
+	NIH_LIST_FOREACH (events, iter) {
 		emission = (EventEmission *)iter;
 
 		if (emission->id == id)
@@ -274,6 +259,48 @@ event_emit_find_by_id (uint32_t id)
 
 	return NULL;
 }
+
+/**
+ * event_emit_finished:
+ * @emission: emission that has finished.
+ *
+ * This function should be called after a job has released the @emission
+ * and decremented the jobs member.  If the jobs member has reached zero,
+ * this moves the event into the finshed state so it can be cleaned up
+ * when the queue is next run.
+ **/
+void
+event_emit_finished (EventEmission *emission)
+{
+	nih_assert (emission != NULL);
+
+	if (emission->jobs)
+		return;
+
+	emission->progress = EVENT_FINISHED;
+}
+
+#if 0
+	if (emission->callback)
+		emission->callback (emission->data, emission);
+
+	if (emission->failed) {
+		char *name;
+
+		name = strrchr (emission->event.name, '/');
+		if ((! name) || strcmp (name, "/failed")) {
+			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
+						      emission->event.name));
+
+			event_emit (name, emission->event.args,
+				    emission->event.env, NULL, NULL);
+
+			nih_free (name);
+		}
+	}
+
+	nih_list_free (&emission->event.entry);
+#endif
 
 
 /**
@@ -299,7 +326,7 @@ event_queue (const char *name)
 
 	NIH_MUST (event = event_new (NULL, name));
 	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destructor);
-	nih_list_add (pending, &event->entry);
+	nih_list_add (events, &event->entry);
 
 	return event;
 }
@@ -319,8 +346,8 @@ event_queue_run (void)
 
 	event_init ();
 
-	while (! NIH_LIST_EMPTY (pending)) {
-		NIH_LIST_FOREACH_SAFE (pending, iter) {
+	while (! NIH_LIST_EMPTY (events)) {
+		NIH_LIST_FOREACH_SAFE (events, iter) {
 			Event *event = (Event *)iter;
 
 			nih_debug ("Handling %s event", event->name);
@@ -397,7 +424,7 @@ event_write_state (FILE *state)
 
 	nih_assert (state != NULL);
 
-	NIH_LIST_FOREACH (pending, iter) {
+	NIH_LIST_FOREACH (events, iter) {
 		Event *event = (Event *)iter;
 
 		fprintf (state, "Event %s\n", event->name);

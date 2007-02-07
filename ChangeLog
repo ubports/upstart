@@ -1,5 +1,18 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c: Revert to a single list of events with an enum
+	(event_emit): Set the progress to pending initially.
+	(event_emit_find_by_id): Simplify now it just checks one list
+	(event_emit_finished): Function for jobs to call once they've done
+	with an event; just sets the progress to finished for the event
+	queue to pick up.
+	* init/tests/test_event.c (test_emit_finished): Check it.
+
+	* init/event.h: Add prototype.
+	(EventProgress): Add new enum	
+	(EventEmission): And add progress member to this structure
+	* init/tests/test_event.c (test_emit): Make sure the event is pending
+
 	* init/event.c (event_emit_find_by_id): Locate an event emission
 	by its id in either the pending or handling queue.
 	* init/event.h: Add prototype

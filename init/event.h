@@ -43,6 +43,20 @@ typedef void (*EventEmissionCb) (void *data, EventEmission *emission);
 
 
 /**
+ * EventProgress:
+ *
+ * This is used to record the progress of an event emission, starting at
+ * being pending, then being handled and finally waiting for the callback
+ * to be called and any cleanup performed.
+ **/
+typedef enum {
+	EVENT_PENDING,
+	EVENT_HANDLING,
+	EVENT_FINISHED
+} EventProgress;
+
+
+/**
  * Event:
  * @entry: list header,
  * @name: string name of the event,
@@ -70,6 +84,7 @@ typedef struct event {
  * EventEmission:
  * @event: event being emitted,
  * @id: unique id assigned to each emission,
+ * @progress: progress of emission,
  * @jobs: number of jobs holding this event,
  * @failed: whether this event has failed,
  * @callback: callback once emission has completed,
@@ -86,6 +101,7 @@ typedef struct event {
 struct event_emission {
 	Event            event;
 	uint32_t         id;
+	EventProgress    progress;
 
 	int              jobs;
 	int              failed;
@@ -180,6 +196,7 @@ EventEmission *event_emit            (const char *name, char **args,
 				      void *data)
 	__attribute__ ((malloc));
 EventEmission *event_emit_find_by_id (uint32_t id);
+void           event_emit_finished   (EventEmission *emission);
 
 Event *        event_queue           (const char *name);
 void           event_queue_run       (void);
