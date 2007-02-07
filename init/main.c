@@ -598,8 +598,7 @@ read_state (int fd)
 			emission = event_read_state (NULL, buf);
 			job = NULL;
 		} else if (! strncmp (buf, "Emission ", 9)) {
-			event_read_state (NULL, buf);
-			emission = NULL;
+			emission = event_read_state (NULL, buf);
 			job = NULL;
 		} else if (buf[0] == '.') {
 			if (job) {

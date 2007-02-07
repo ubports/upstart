@@ -1,28 +1,17 @@
 Code Cleanup:
 
- * Ensure all functions that call an allocating function are tested with
-   TEST_ALLOC_FAIL
-
- * Ensure all functions that allocate and return memory have the
-   warn_unused_result and malloc attributes
-
- * Ensure all functions that return a raised error have the warn_unused_result
-   attribute.
-
- * Functions that only return a status to indicate a non-raised error do not
-   need attributes (it's ok to ignore the error)
-
  * cfg_watch_dir needs testing
-
- * event_queue_run needs testing
 
 
 High Priority:
 
- * sort out the message types into groups, etc.
+ * Serialisation is turning out to be quite a tricky topic.  We're not
+   serialising subscriptions, the outgoing message queue, event emission
+   callbacks, etc.  There must be a better way of doing this!
 
- * add a new information exchange message and use that for reexec, move
-   all the reexec stuff into one place
+ * Re-exec'ing init will disconnect anything on the control socket.
+
+ * sort out the message types into groups, etc.
 
  * Configuration files can be deleted, need to do something with the
    job at that point (stop it and delete it)

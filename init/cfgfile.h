@@ -39,9 +39,11 @@
 NIH_BEGIN_EXTERN
 
 Job *cfg_read_job  (const void *parent, const char *filename,
-		    const char *jobname);
+		    const char *jobname)
+	__attribute__ ((malloc));
 
-int  cfg_watch_dir (const char *dirname);
+int  cfg_watch_dir (const char *dirname)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 
