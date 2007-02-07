@@ -247,7 +247,7 @@ control_job_start (void               *data,
 	}
 
 	nih_info (_("Control request to start %s"), job->name);
-	job_start (job);
+	job_change_goal (job, JOB_START, NULL);
 
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
@@ -298,7 +298,7 @@ control_job_stop (void               *data,
 	}
 
 	nih_info (_("Control request to stop %s"), job->name);
-	job_stop (job);
+	job_change_goal (job, JOB_STOP, NULL);
 
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,

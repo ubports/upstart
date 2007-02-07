@@ -1,7 +1,17 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start, job_stop): Drop these functions; call
+	job_change_goal instead (which is now public).
+	(job_change_state, job_child_reaper): Call job_change_goal instead.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_start, test_stop): Merge into new
+	(test_change_goal): function.
+	* init/main.c (main): Call job_change_goal instead of job_start.
+	* init/control.c (control_job_start, control_job_stop): Call
+	job_change_goal instead.
+
 	* init/tests/test_job.c (test_new, test_change_state) 
-	(test_run_script, test_start, test_stop): 
+	(test_run_script, test_start, test_stop, test_start_event): 
 
 	* init/job.h (Job): goal_event is now an EventEmission, and is
 	a direct pointer to the one in the events queue, rather than a copy.

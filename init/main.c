@@ -277,7 +277,7 @@ main (int   argc,
 		 */
 		logd = job_find_by_name ("logd");
 		if (logd) {
-			job_start (logd);
+			job_change_goal (logd, JOB_START, NULL);
 			if (logd->state == JOB_RUNNING) {
 				/* Hang around until logd signals that it's
 				 * listening ... but not too long

@@ -60,8 +60,6 @@ static void job_run_process   (Job *job, char * const  argv[]);
 static void job_kill_timer    (Job *job, NihTimer *timer);
 static void job_failed_event  (Job *job, Event *event);
 static int  job_catch_runaway (Job *job);
-static void job_change_goal   (Job *job, JobGoal goal,
-			       EventEmission *emission);
 
 
 /**
@@ -270,6 +268,73 @@ job_find_by_pid (pid_t pid)
 
 
 /**
+ * job_change_goal:
+ * @job: job to change goal of,
+ * @goal: goal to change to,
+ * @emission: event emission causing change.
+ *
+ * This function changes the current goal of a @job to the new @goal given,
+ * performing any necessary state changes or actions (such as killing
+ * the running process) to correctly enter the new goal.
+ *
+ * @emission is stored in the Job's goal_event member, and may be NULL.
+ * Any previous goal_event is unreferenced and allowed to finish handling
+ * if it has no further references.
+ **/
+void
+job_change_goal (Job           *job,
+		 JobGoal        goal,
+		 EventEmission *emission)
+{
+	nih_assert (job != NULL);
+
+	if (job->goal == goal)
+		return;
+
+	nih_info (_("%s goal changed from %s to %s"), job->name,
+		  job_goal_name (job->goal), job_goal_name (goal));
+	job->goal = goal;
+
+	/* Switch over the goal event, dereferencing the current one and
+	 * referencing the new one.
+	 */
+	if (job->goal_event) {
+		job->goal_event->jobs--;
+		event_emit_finished (job->goal_event);
+	}
+
+	job->goal_event = emission;
+	if (job->goal_event)
+		job->goal_event->jobs++;
+
+	notify_job (job);
+
+	/* We only need to inducate state changes from the natural
+	 * rest states of waiting, or an active running process.
+	 * Anything else will be handled as the processes naturally
+	 * terminate, the next state they select will be based on
+	 * the new goal.
+	 */
+	switch (job->goal) {
+	case JOB_START:
+		/* FIXME
+		 * instance jobs need to be duplicated */
+
+		if (job->state == JOB_WAITING)
+			job_change_state (job, job_next_state (job));
+
+		break;
+	case JOB_STOP:
+		if ((job->state == JOB_RUNNING)
+		    && (job->process_state == PROCESS_ACTIVE))
+			job_kill_process (job);
+
+		break;
+	}
+}
+
+
+/**
  * job_change_state:
  * @job: job to change state of,
  * @state: state to change to.
@@ -349,7 +414,7 @@ job_change_state (Job      *job,
 				nih_warn (_("%s respawning too fast, stopped"),
 					  job->name);
 
-				job_stop (job);
+				job_change_goal (job, JOB_STOP, NULL);
 				state = job_next_state (job);
 				break;
 			}
@@ -955,7 +1020,7 @@ job_child_reaper (void  *data,
 		}
 
 		/* Otherwise whether it's failed or not, it's going away */
-		job_stop (job);
+		job_change_goal (job, JOB_STOP, NULL);
 		break;
 	default:
 		/* If a script is killed or exits with a status other than
@@ -965,7 +1030,7 @@ job_child_reaper (void  *data,
 		if (killed || status) {
 			failed = TRUE;
 
-			job_stop (job);
+			job_change_goal (job, JOB_STOP, NULL);
 		}
 
 		break;
@@ -1020,32 +1085,6 @@ job_catch_runaway (Job *job)
 
 
 /**
- * job_start:
- * @job: job to be started.
- *
- * Changes the goal of @job from JOB_STOP to JOB_START and begins the
- * process of actually starting the job by changing the state if
- * necessary.
- *
- * The caller can infer the success of this function by checking the job
- * state after the call.
- *
- * If @job is already active in some way (e.g. currently stopping), this
- * ensures that the job will be cleanly restarted when possible.
- *
- * This function has no effect if the goal is already JOB_START.
- **/
-void
-job_start (Job *job)
-{
-	nih_assert (job != NULL);
-
-	job_init ();
-
-	job_change_goal (job, JOB_START, NULL);
-}
-
-/**
  * job_start_event:
  * @job: job to be started,
  * @emission: event emission to be handled.
@@ -1066,32 +1105,6 @@ job_start_event (Job           *job,
 		if (event_match (&emission->event, start_event))
 			job_change_goal (job, JOB_START, emission);
 	}
-}
-
-/**
- * job_stop:
- * @job: job to be stopped.
- *
- * Changes the goal of @job from JOB_START to JOB_STOP and begins the
- * process of actually stopping the job by killing the active running
- * process if necessary.
- *
- * The caller can infer the success of this function by checking the job
- * state after the call.
- *
- * If @job is in the process of starting, this ensures that the job will
- * be cleanly stopped when possible.
- *
- * This function has no effect if the goal is already JOB_STOP.
- **/
-void
-job_stop (Job *job)
-{
-	nih_assert (job != NULL);
-
-	job_init ();
-
-	job_change_goal (job, JOB_STOP, NULL);
 }
 
 /**
@@ -1146,73 +1159,6 @@ job_handle_event (EventEmission *emission)
 		 */
 		job_stop_event (job, emission);
 		job_start_event (job, emission);
-	}
-}
-
-
-/**
- * job_change_goal:
- * @job: job to change goal of,
- * @goal: goal to change to,
- * @emission: event emission causing change.
- *
- * This function changes the current goal of a @job to the new @goal given,
- * performing any necessary state changes or actions (such as killing
- * the running process) to correctly enter the new goal.
- *
- * @emission is stored in the Job's goal_event member, and may be NULL.
- * Any previous goal_event is unreferenced and allowed to finish handling
- * if it has no further references.
- **/
-static void
-job_change_goal (Job           *job,
-		 JobGoal        goal,
-		 EventEmission *emission)
-{
-	nih_assert (job != NULL);
-
-	if (job->goal == goal)
-		return;
-
-	nih_info (_("%s goal changed from %s to %s"), job->name,
-		  job_goal_name (job->goal), job_goal_name (goal));
-	job->goal = goal;
-
-	/* Switch over the goal event, dereferencing the current one and
-	 * referencing the new one.
-	 */
-	if (job->goal_event) {
-		job->goal_event->jobs--;
-		event_emit_finished (job->goal_event);
-	}
-
-	job->goal_event = emission;
-	if (job->goal_event)
-		job->goal_event->jobs++;
-
-	notify_job (job);
-
-	/* We only need to inducate state changes from the natural
-	 * rest states of waiting, or an active running process.
-	 * Anything else will be handled as the processes naturally
-	 * terminate, the next state they select will be based on
-	 * the new goal.
-	 */
-	switch (job->goal) {
-	case JOB_START:
-		/* FIXME
-		 * instance jobs need to be duplicated */
-
-		if (job->state == JOB_WAITING)
-			job_change_state (job, job_next_state (job));
-
-		break;
-	case JOB_STOP:
-		if ((job->state == JOB_RUNNING)
-		    && (job->process_state == PROCESS_ACTIVE))
-			job_kill_process (job);
-
-		break;
 	}
 }
 

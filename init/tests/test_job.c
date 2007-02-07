@@ -181,6 +181,310 @@ test_find_by_pid (void)
 
 
 void
+test_change_goal (void)
+{
+	EventEmission *em;
+	Job           *job;
+	int            status;
+	pid_t          pid;
+
+	TEST_FUNCTION ("job_change_goal");
+	program_name = "test";
+
+	job = job_new (NULL, "test");
+	job->start_script = "echo";
+	job->stop_script = "echo";
+
+
+	/* Check that an attempt to start a waiting job results in the
+	 * goal being changed to start, and the state transitioned to
+	 * starting.
+	 */
+	TEST_FEATURE ("with waiting job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		job->pid = 0;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_NE (job->pid, 0);
+
+		waitpid (job->pid, NULL, 0);
+	}
+
+
+	/* Check that an attempt to start a job that's in the process of
+	 * stopping changes only the goal, and leaves the rest of the
+	 * state transition up to the normal process.
+	 */
+	TEST_FEATURE ("with stopping job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+	}
+
+
+	/* Check that starting a job with a goal change event set
+	 * unreferences the goal event and sets it to NULL in the job.
+	 */
+	TEST_FEATURE ("with existing goal change event");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->goal_event = em;
+		em->progress = EVENT_HANDLING;
+		em->jobs = 1;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+
+		TEST_EQ_P (job->goal_event, NULL);
+
+		TEST_EQ (em->jobs, 0);
+		TEST_EQ (em->progress, EVENT_FINISHED);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that start a job with a goal change event passed
+	 * references that event and sets the goal event in the job.
+	 */
+	TEST_FEATURE ("with new goal change event");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->goal_event = NULL;
+		em->jobs = 0;
+
+		job_change_goal (job, JOB_START, em);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+
+		TEST_EQ_P (job->goal_event, em);
+
+		TEST_EQ (em->jobs, 1);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that an attempt to start a job that's running and still
+	 * with a start goal does nothing.
+	 */
+	TEST_FEATURE ("with running job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
+	}
+
+
+	/* Check that an attempt to stop a running job results in the goal
+	 * being changed, the job killed and the state left to be changed by
+	 * the child reaper.
+	 */
+	TEST_FEATURE ("with running job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+		TEST_EQ (job->pid, pid);
+
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+
+		nih_free (job->kill_timer);
+		job->kill_timer = NULL;
+
+		waitpid (pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+	}
+
+
+	/* Check that an attempt to stop a starting job only results in the
+	 * goal being changed, the starting process should not be killed and
+	 * instead left to terminate normally.
+	 */
+	TEST_FEATURE ("with starting job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
+
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, pid);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		kill (pid, SIGTERM);
+		waitpid (pid, NULL, 0);
+	}
+
+
+	/* Check that stopping a job with a goal change event set
+	 * unreferences the event and sets it to NULL.
+	 */
+	TEST_FEATURE ("with existing goal change event");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
+		job->goal_event = em;
+		em->jobs = 1;
+		em->progress = EVENT_HANDLING;
+
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, pid);
+		TEST_EQ_P (job->goal_event, NULL);
+
+		TEST_EQ (em->jobs, 0);
+		TEST_EQ (em->progress, EVENT_FINISHED);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		kill (pid, SIGTERM);
+		waitpid (pid, NULL, 0);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that stopping a job passing a goal change event
+	 * references that event and sets the job's goal event.
+	 */
+	TEST_FEATURE ("with existing goal change event");
+	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_ACTIVE;
+		job->goal_event = NULL;
+		em->jobs = 0;
+
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_change_goal (job, JOB_STOP, em);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, pid);
+
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->jobs, 1);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		kill (pid, SIGTERM);
+		waitpid (pid, NULL, 0);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that an attempt to stop a waiting job does nothing. */
+	TEST_FEATURE ("with waiting job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->process_state = PROCESS_NONE;
+		job->pid = 0;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->pid, 0);
+	}
+
+
+	nih_list_free (&job->entry);
+	event_poll ();
+}
+
+
+void
 test_change_state (void)
 {
 	FILE          *output;
@@ -1915,253 +2219,6 @@ test_child_reaper (void)
 
 
 void
-test_start (void)
-{
-	EventEmission *em;
-	Job           *job;
-
-	TEST_FUNCTION ("job_start");
-	program_name = "test";
-
-	job = job_new (NULL, "test");
-	job->start_script = "echo";
-
-
-	/* Check that an attempt to start a waiting job results in the
-	 * goal being changed to start, and the state transitioned to
-	 * starting.
-	 */
-	TEST_FEATURE ("with waiting job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
-		job->pid = 0;
-
-		job_start (job);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_NE (job->pid, 0);
-
-		waitpid (job->pid, NULL, 0);
-	}
-
-
-	/* Check that an attempt to start a job that's in the process of
-	 * stopping changes only the goal, and leaves the rest of the
-	 * state transition up to the normal process.
-	 */
-	TEST_FEATURE ("with stopping job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_ACTIVE;
-		job->pid = 1;
-
-		job_start (job);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, 1);
-	}
-
-
-	/* Check that starting a job with a goal change event set
-	 * unreferences the goal event and sets it to NULL in the job.
-	 */
-	TEST_FEATURE ("with existing goal change event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_ACTIVE;
-		job->pid = 1;
-		job->goal_event = em;
-		em->progress = EVENT_HANDLING;
-		em->jobs = 1;
-
-		job_start (job);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, 1);
-
-		TEST_EQ_P (job->goal_event, NULL);
-
-		TEST_EQ (em->jobs, 0);
-		TEST_EQ (em->progress, EVENT_FINISHED);
-	}
-
-	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
-
-
-	/* Check that an attempt to start a job that's running and still
-	 * with a start goal does nothing.
-	 */
-	TEST_FEATURE ("with running job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-		job->pid = 1;
-
-		job_start (job);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, 1);
-	}
-
-
-	nih_list_free (&job->entry);
-}
-
-void
-test_stop (void)
-{
-	EventEmission *em;
-	Job           *job;
-	pid_t          pid;
-	int            status;
-
-	TEST_FUNCTION ("job_stop");
-	job = job_new (NULL, "test");
-
-
-	/* Check that an attempt to stop a running job results in the goal
-	 * being changed, the job killed and the state left to be changed by
-	 * the child reaper.
-	 */
-	TEST_FEATURE ("with running job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
-
-		job_stop (job);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
-		TEST_EQ (job->pid, pid);
-
-		TEST_NE_P (job->kill_timer, NULL);
-		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-		TEST_ALLOC_PARENT (job->kill_timer, job);
-
-		nih_free (job->kill_timer);
-		job->kill_timer = NULL;
-
-		waitpid (pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
-	}
-
-
-	/* Check that an attempt to stop a starting job only results in the
-	 * goal being changed, the starting process should not be killed and
-	 * instead left to terminate normally.
-	 */
-	TEST_FEATURE ("with starting job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_ACTIVE;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
-
-		job_stop (job);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, pid);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		kill (pid, SIGTERM);
-		waitpid (pid, NULL, 0);
-	}
-
-
-	/* Check that stopping a job with a goal change event set
-	 * unreferences the event and sets it to NULL.
-	 */
-	TEST_FEATURE ("with existing goal change event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_ACTIVE;
-		job->goal_event = em;
-		em->jobs = 1;
-		em->progress = EVENT_HANDLING;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
-
-		job_stop (job);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, pid);
-		TEST_EQ_P (job->goal_event, NULL);
-
-		TEST_EQ (em->jobs, 0);
-		TEST_EQ (em->progress, EVENT_FINISHED);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		kill (pid, SIGTERM);
-		waitpid (pid, NULL, 0);
-	}
-
-	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
-
-
-	/* Check that an attempt to stop a waiting job does nothing. */
-	TEST_FEATURE ("with waiting job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
-		job->pid = 0;
-
-		job_stop (job);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
-		TEST_EQ (job->pid, 0);
-	}
-
-
-	nih_list_free (&job->entry);
-}
-
-
-void
 test_start_event (void)
 {
 	Job            *job;
@@ -2855,14 +2912,13 @@ main (int   argc,
 	test_new ();
 	test_find_by_name ();
 	test_find_by_pid ();
+	test_change_goal ();
 	test_change_state ();
 	test_next_state ();
 	test_run_command ();
 	test_run_script ();
 	test_kill_process ();
 	test_child_reaper ();
-	test_start ();
-	test_stop ();
 	test_start_event ();
 	test_stop_event ();
 	test_handle_event ();
