@@ -1420,7 +1420,7 @@ test_child_reaper (void)
 {
 	Job  *job;
 	FILE *output;
-	int   exitcodes[1] = { 0 };
+	int   exitcodes[2] = { 100, SIGINT | 0x80 };
 
 	TEST_FUNCTION ("job_child_reaper");
 	program_name = "test";
@@ -1457,6 +1457,9 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
 		TEST_ALLOC_SAFE {
 			job->goal_event = event_new (job, "foo");
@@ -1467,6 +1470,10 @@ test_child_reaper (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 
 		TEST_EQ_P (job->goal_event, NULL);
 
@@ -1486,6 +1493,9 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
 		TEST_ALLOC_SAFE {
 			was_called = 0;
@@ -1502,6 +1512,10 @@ test_child_reaper (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 
 		TEST_NE (job->pid, 1);
 
@@ -1520,12 +1534,19 @@ test_child_reaper (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 
 		TEST_NE_P (job->goal_event, NULL);
 
@@ -1540,7 +1561,8 @@ test_child_reaper (void)
 
 	/* Check that we can reap a failing starting task of the job, which
 	 * changes the goal to stop and transitions a state change in that
-	 * direction to the stopping state.  An error should be emitted.
+	 * direction to the stopping state.  An error should be emitted
+	 * and the job should be marked as failed.
 	 */
 	TEST_FEATURE ("with starting task failure");
 	output = tmpfile ();
@@ -1549,6 +1571,9 @@ test_child_reaper (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
 		TEST_ALLOC_SAFE {
 			job->goal_event = event_new (job, "foo");
@@ -1562,6 +1587,10 @@ test_child_reaper (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_STARTING);
+		TEST_EQ (job->exit_status, 1);
 
 		TEST_EQ_P (job->goal_event, NULL);
 
@@ -1579,7 +1608,8 @@ test_child_reaper (void)
 
 
 	/* Check that we can reap a killed starting task, which should
-	 * act as if it failed.  A different error should be output.
+	 * act as if it failed.  A different error should be output and
+	 * the failed exit status should contain the signal and the high bit.
 	 */
 	TEST_FEATURE ("with starting task kill");
 	TEST_ALLOC_FAIL {
@@ -1587,6 +1617,9 @@ test_child_reaper (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
 		TEST_ALLOC_SAFE {
 			job->goal_event = event_new (job, "foo");
@@ -1600,6 +1633,10 @@ test_child_reaper (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_STARTING);
+		TEST_EQ (job->exit_status, SIGTERM | 0x80);
 
 		TEST_EQ_P (job->goal_event, NULL);
 
@@ -1617,7 +1654,8 @@ test_child_reaper (void)
 
 	/* Check that we can catch the running task failing, and if the job
 	 * is to be respawned, go into the respawning state instead of
-	 * stopping the job.  This should also emit a warning.
+	 * stopping the job.  This should also emit a warning, but should
+	 * not set the failed state since we're dealing with it.
 	 */
 	TEST_FEATURE ("with running task to respawn");
 	TEST_ALLOC_FAIL {
@@ -1626,6 +1664,9 @@ test_child_reaper (void)
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
 		job->respawn = TRUE;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, FALSE, 0);
@@ -1638,14 +1679,17 @@ test_child_reaper (void)
 
 		TEST_NE (job->pid, 1);
 
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
 		waitpid (job->pid, NULL, 0);
 
-		TEST_FILE_EQ (output, "test: test process ended, respawning\n");
+		TEST_FILE_EQ (output,
+			      "test: test process ended, respawning\n");
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 	}
-
-	fclose (output);
 
 
 	/* Check that we can catch a running task exiting with a "normal"
@@ -1658,20 +1702,196 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 		job->respawn = TRUE;
 		job->normalexit = exitcodes;
 		job->normalexit_len = 1;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 100);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) terminated "
+				       "with status 100\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+	}
+
+
+	/* Check that a running task that fails with an exit status not
+	 * listed in normalexit causes the job to be marked as failed.
+	 */
+	TEST_FEATURE ("with running task and abnormal exit");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->respawn = FALSE;
+		job->normalexit = exitcodes;
+		job->normalexit_len = 2;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 99);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 99);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) terminated "
+				       "with status 99\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+	}
+
+
+	/* Check that a running task that fails with an exit status
+	 * listed in normalexit does not cause the job to be marked as
+	 * failed, but instead just stops it normally.
+	 */
+	TEST_FEATURE ("with running task and normal exit");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->respawn = FALSE;
+		job->normalexit = exitcodes;
+		job->normalexit_len = 2;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 100);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) terminated "
+				       "with status 100\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+	}
+
+
+	/* Check that a running task that fails with an signal
+	 * listed in normalexit does not cause the job to be marked as
+	 * failed, but instead just stops it normally.
+	 */
+	TEST_FEATURE ("with running task and normal signal");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->respawn = FALSE;
+		job->normalexit = exitcodes;
+		job->normalexit_len = 2;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGINT);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) killed "
+				       "by INT signal\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+	}
+
+
+	/* A running task exiting with the zero exit code is considered
+	 * a normal termination if not marked respawn.
+	 */
+	TEST_FEATURE ("with running task and zero exit");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->respawn = FALSE;
+		job->normalexit = exitcodes;
+		job->normalexit_len = 2;
+
 		job_child_reaper (NULL, 1, FALSE, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
 	}
 
+
+	fclose (output);
 
 	nih_list_free (&job->entry);
 

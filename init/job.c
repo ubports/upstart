@@ -874,6 +874,7 @@ job_child_reaper (void  *data,
 		  int    status)
 {
 	Job *job;
+	int  failed = FALSE;
 
 	nih_assert (data == NULL);
 	nih_assert (pid > 0);
@@ -897,6 +898,9 @@ job_child_reaper (void  *data,
 			nih_warn (_("%s process (%d) killed by signal %d"),
 				  job->name, pid, status);
 		}
+
+		/* Mark it as a signal */
+		status |= 0x80;
 	} else if (status) {
 		nih_warn (_("%s process (%d) terminated with status %d"),
 			  job->name, pid, status);
@@ -918,39 +922,55 @@ job_child_reaper (void  *data,
 		job->kill_timer = NULL;
 	}
 
+
 	switch (job->state) {
 	case JOB_RUNNING:
-		/* Check whether we should respawn the process
+		/* Check the list of normal exit codes; if the exit status
+		 * or signal appears in that list, then we don't consider
+		 * the job to have failed.
 		 *
-		 * If a list of "normal" exit codes is provided, this is
-		 * the list of exit codes that _prevent_ a respawn
+		 * An exit status of zero is only implied to be normal if
+		 * the job isn't marked to be respawned.
 		 */
-		if ((job->respawn) && (job->goal == JOB_START)) {
+		if (killed || status || job->respawn) {
 			size_t i;
 
-			for (i = 0; i < job->normalexit_len; i++)
-				if ((! killed) &&
-				    (job->normalexit[i] == status))
+			failed = TRUE;
+			for (i = 0; i < job->normalexit_len; i++) {
+				if (job->normalexit[i] == status) {
+					failed = FALSE;
 					break;
-
-			if (i == job->normalexit_len) {
-				nih_warn (_("%s process ended, respawning"),
-					  job->name);
-				break;
+				}
 			}
 		}
 
+		/* We may be able to respawn the failed process, in which
+		 * case we don't need to bother anything else; respawning
+		 * is simply a matter of not touching anything.
+		 */
+		if (failed && job->respawn && (job->goal == JOB_START)) {
+			nih_warn (_("%s process ended, respawning"),
+				  job->name);
+
+			failed = FALSE;
+			break;
+		}
+
+		/* Otherwise whether it's failed or not, it's going away */
 		job->goal = JOB_STOP;
 		if (job->goal_event)
 			nih_free (job->goal_event);
 		job->goal_event = NULL;
+
 		break;
 	default:
 		/* If a script is killed or exits with a status other than
-		 * zero, it's considered a failure and prevents the process
-		 * from starting.
+		 * zero, it's always considered a failure.  It also always
+		 * results in the job being sent back to stop.
 		 */
 		if (killed || status) {
+			failed = TRUE;
+
 			job->goal = JOB_STOP;
 			if (job->goal_event)
 				nih_free (job->goal_event);
@@ -958,6 +978,15 @@ job_child_reaper (void  *data,
 		}
 
 		break;
+	}
+
+	/* Mark the job as failed, this information ends up in the stop and
+	 * stopped events for others to see.
+	 */
+	if (failed) {
+		job->failed = TRUE;
+		job->failed_state = job->state;
+		job->exit_status = status;
 	}
 
 	job_change_state (job, job_next_state (job));
