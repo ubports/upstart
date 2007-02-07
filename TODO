@@ -2,6 +2,8 @@ Code Cleanup:
 
  * cfg_watch_dir needs testing
 
+ * prints too many errors if fork fails
+
 
 High Priority:
 

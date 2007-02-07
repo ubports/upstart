@@ -52,7 +52,7 @@ test_new (void)
 	 * any kind of list.
 	 */
 	TEST_FUNCTION ("event_new");
-	event_queue_run ();
+	event_poll ();
 	TEST_ALLOC_FAIL {
 		event = event_new (NULL, "test");
 

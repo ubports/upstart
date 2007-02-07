@@ -504,10 +504,10 @@ test_change_state (void)
 	/* This is a naughty way of getting a pointer to the event queue
 	 * list head...
 	 */
-	event_queue_run ();
-	event = (Event *)event_queue ("wibble");
-	list = event->entry.prev;
-	nih_list_free (&event->entry);
+	event_poll ();
+	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
+	list = em->event.entry.prev;
+	nih_list_free (&em->event.entry);
 
 	job = job_new (NULL, "test");
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
@@ -1029,7 +1029,7 @@ test_change_state (void)
 
 	nih_list_free (&em->event.entry);
 
-	event_queue_run ();
+	event_poll ();
 
 
 	/* Check that a job entering the respawning state from the running
@@ -1068,7 +1068,7 @@ test_change_state (void)
 
 	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
 
-	event_queue_run ();
+	event_poll ();
 
 
 	fclose (output);
@@ -2214,7 +2214,7 @@ test_child_reaper (void)
 
 	nih_list_free (&job->entry);
 
-	event_queue_run ();
+	event_poll ();
 }
 
 
@@ -2505,19 +2505,20 @@ test_handle_event (void)
 void
 test_detect_idle (void)
 {
-	Job     *job1, *job2;
-	Event   *event;
-	NihList *list;
+	Job           *job1, *job2;
+	Event         *event;
+	EventEmission *em;
+	NihList       *list;
 
 	TEST_FUNCTION ("job_detect_idle");
 
 	/* This is a naughty way of getting a pointer to the event queue
 	 * list head...
 	 */
-	event_queue_run ();
-	event = (Event *)event_queue ("wibble");
-	list = event->entry.prev;
-	nih_list_free (&event->entry);
+	event_poll ();
+	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
+	list = em->event.entry.prev;
+	nih_list_free (&em->event.entry);
 
 	job1 = job_new (NULL, "foo");
 	job1->goal = JOB_STOP;

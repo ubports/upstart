@@ -1214,7 +1214,7 @@ job_detect_idle (void)
 		nih_info (_("System is idle, generating %s event"),
 			  idle_event);
 
-		event_queue (idle_event);
+		event_emit (idle_event, NULL, NULL, NULL, NULL);
 		nih_free (idle_event);
 		idle_event = NULL;
 
@@ -1222,7 +1222,7 @@ job_detect_idle (void)
 	} else if (stalled && can_stall) {
 		nih_info (_("System has stalled, generating %s event"),
 			  STALLED_EVENT);
-		event_queue (STALLED_EVENT);
+		event_emit (STALLED_EVENT, NULL, NULL, NULL, NULL);
 
 		nih_main_loop_interrupt ();
 	}

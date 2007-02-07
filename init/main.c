@@ -289,7 +289,7 @@ main (int   argc,
 			}
 		}
 
-		event_queue (STARTUP_EVENT);
+		event_emit (STARTUP_EVENT, NULL, NULL, NULL, NULL);
 	} else {
 		sigset_t mask;
 
@@ -430,7 +430,7 @@ static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue (CTRLALTDEL_EVENT);
+	event_emit (CTRLALTDEL_EVENT, NULL, NULL, NULL, NULL);
 }
 
 /**
@@ -446,7 +446,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue (KBDREQUEST_EVENT);
+	event_emit (KBDREQUEST_EVENT, NULL, NULL, NULL, NULL);
 }
 
 /**

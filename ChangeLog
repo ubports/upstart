@@ -1,5 +1,13 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_detect_idle): Call event_emit
+	* init/main.c (main, cad_handler, kbd_handler): Call event_emit
+	instead of event_queue.
+	* init/tests/test_event.c (test_new): Call event_poll
+	* init/tests/test_job.c (test_change_state, test_child_reaper) 
+	(test_detect_idle, test_change_state): Update to use newer event API.
+	* TODO: Update.
+
 	* init/job.c (job_start, job_stop): Drop these functions; call
 	job_change_goal instead (which is now public).
 	(job_change_state, job_child_reaper): Call job_change_goal instead.
