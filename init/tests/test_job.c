@@ -2139,8 +2139,10 @@ test_stop (void)
 void
 test_start_event (void)
 {
-	Event *event;
-	Job   *job;
+	Job            *job;
+	Event          *event;
+	EventEmission  *em;
+	char          **args, **env;
 
 	TEST_FUNCTION ("job_start_event");
 	job = job_new (NULL, "test");
@@ -2155,10 +2157,10 @@ test_start_event (void)
 	 * any in the start events list.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	event = event_new (NULL, "biscuit");
+	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
-		job_start_event (job, event);
+		job_start_event (job, em);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -2167,14 +2169,14 @@ test_start_event (void)
 		TEST_EQ_P (job->goal_event, NULL);
 	}
 
-	nih_free (event);
+	nih_list_free (&em->event.entry);
 
 
 	/* Check that we can start a job with an event that matches, which
 	 * results in job_start being called.
 	 */
 	TEST_FEATURE ("with matching event");
-	event = event_new (NULL, "wibble");
+	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
@@ -2184,7 +2186,7 @@ test_start_event (void)
 			nih_free (job->goal_event);
 		job->goal_event = NULL;
 
-		job_start_event (job, event);
+		job_start_event (job, em);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -2201,7 +2203,7 @@ test_start_event (void)
 		TEST_EQ_STR (job->goal_event->name, "wibble");
 	}
 
-	nih_free (event);
+	nih_list_free (&em->event.entry);
 
 
 	/* Check that if we start a job with a matching event that has
@@ -2214,12 +2216,16 @@ test_start_event (void)
 	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
 	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "b?z*"));
 
-	event = event_new (NULL, "wibble");
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "baz"));
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "TEA=YES"));
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "baz"));
+
+	env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "TEA=YES"));
+
+	em = event_emit ("wibble", args, env, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
@@ -2229,7 +2235,7 @@ test_start_event (void)
 			nih_free (job->goal_event);
 		job->goal_event = NULL;
 
-		job_start_event (job, event);
+		job_start_event (job, em);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -2269,8 +2275,7 @@ test_start_event (void)
 		TEST_EQ_P (job->goal_event->env[2], NULL);
 	}
 
-	nih_free (event);
-
+	nih_list_free (&em->event.entry);
 
 	nih_list_free (&job->entry);
 }
@@ -2278,10 +2283,12 @@ test_start_event (void)
 void
 test_stop_event (void)
 {
-	Event *event;
-	Job   *job;
-	pid_t  pid;
-	int    status;
+	Job            *job;
+	Event          *event;
+	EventEmission  *em;
+	char          **args, **env;
+	pid_t           pid;
+	int             status;
 
 	TEST_FUNCTION ("job_stop_event");
 	job = job_new (NULL, "test");
@@ -2303,10 +2310,10 @@ test_stop_event (void)
 	 * any in the stop events list.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	event = event_new (NULL, "biscuit");
+	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
-		job_stop_event (job, event);
+		job_stop_event (job, em);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -2318,14 +2325,14 @@ test_stop_event (void)
 		TEST_EQ_P (job->goal_event, NULL);
 	}
 
-	nih_free (event);
+	nih_list_free (&em->event.entry);
 
 
 	/* Check that we can stop a job with an event that matches, which
 	 * results in job_stop being called.
 	 */
 	TEST_FEATURE ("with matching event");
-	event = event_new (NULL, "wibble");
+	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2340,7 +2347,7 @@ test_stop_event (void)
 		}
 		pid = job->pid;
 
-		job_stop_event (job, event);
+		job_stop_event (job, em);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -2361,16 +2368,98 @@ test_stop_event (void)
 		TEST_EQ_STR (job->goal_event->name, "wibble");
 	}
 
-	nih_free (event);
+	nih_list_free (&em->event.entry);
+
+
+	/* Check that if we start a job with a matching event that has
+	 * arguments and/or environment, they are copied into the goal
+	 * event.
+	 */
+	TEST_FEATURE ("with arguments and environment for event");
+	event = (Event *)job->stop_events.next;
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "b?z*"));
+
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "baz"));
+
+	env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "TEA=YES"));
+
+	em = event_emit ("wibble", args, env, NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_ACTIVE;
+		if (job->goal_event)
+			nih_free (job->goal_event);
+		job->goal_event = NULL;
+
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job_stop_event (job, em);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_KILLED);
+
+		TEST_EQ (job->pid, pid);
+		TEST_NE_P (job->kill_timer, NULL);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		TEST_ALLOC_PARENT (job->goal_event, job);
+		TEST_ALLOC_SIZE (job->goal_event, sizeof (Event));
+		TEST_LIST_EMPTY (&job->goal_event->entry);
+		TEST_ALLOC_PARENT (job->goal_event->name, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->name, 7);
+		TEST_EQ_STR (job->goal_event->name, "wibble");
+
+		TEST_ALLOC_PARENT (job->goal_event->args, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->args, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->goal_event->args[0],
+				   job->goal_event->args);
+		TEST_ALLOC_PARENT (job->goal_event->args[1],
+				   job->goal_event->args);
+		TEST_ALLOC_PARENT (job->goal_event->args[2],
+				   job->goal_event->args);
+		TEST_EQ_STR (job->goal_event->args[0], "foo");
+		TEST_EQ_STR (job->goal_event->args[1], "bar");
+		TEST_EQ_STR (job->goal_event->args[2], "baz");
+		TEST_EQ_P (job->goal_event->args[3], NULL);
+
+		TEST_ALLOC_PARENT (job->goal_event->env, job->goal_event);
+		TEST_ALLOC_SIZE (job->goal_event->env, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (job->goal_event->env[0],
+				   job->goal_event->env);
+		TEST_ALLOC_PARENT (job->goal_event->env[1],
+				   job->goal_event->env);
+		TEST_EQ_STR (job->goal_event->env[0], "FOO=BAR");
+		TEST_EQ_STR (job->goal_event->env[1], "TEA=YES");
+		TEST_EQ_P (job->goal_event->env[2], NULL);
+	}
+
+	nih_list_free (&em->event.entry);
+
 	nih_list_free (&job->entry);
 }
 
 void
 test_handle_event (void)
 {
-	Event *event;
-	Job   *job1, *job2, *job3, *job4, *job5;
-	int    status;
+	EventEmission *em;
+	Job           *job1, *job2, *job3, *job4, *job5;
+	int            status;
 
 	/* Check that an event starts all jobs that have it in their start
 	 * events list, stops all jobs that have it in their stop events list
@@ -2426,10 +2515,10 @@ test_handle_event (void)
 				pause ();
 			}
 
-			event = event_new (NULL, "poke");
+			em = event_emit ("poke", NULL, NULL, NULL, NULL);
 		}
 
-		job_handle_event (event);
+		job_handle_event (em);
 
 		TEST_EQ (job1->goal, JOB_START);
 		TEST_EQ (job1->state, JOB_RUNNING);
@@ -2478,7 +2567,7 @@ test_handle_event (void)
 		waitpid (job5->pid, NULL, 0);
 
 
-		nih_free (event);
+		nih_list_free (&em->event.entry);
 
 		nih_list_free (&job1->entry);
 		nih_list_free (&job2->entry);

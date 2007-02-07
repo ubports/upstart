@@ -231,9 +231,9 @@ void        job_stop            (Job *job);
 
 void        job_release_depends (Job *job);
 
-void        job_start_event     (Job *job, Event *event);
-void        job_stop_event      (Job *job, Event *event);
-void        job_handle_event    (Event *event);
+void        job_start_event     (Job *job, EventEmission *emission);
+void        job_stop_event      (Job *job, EventEmission *emission);
+void        job_handle_event    (EventEmission *emission);
 
 void        job_detect_idle     (void);
 void        job_set_idle_event  (const char *name);

@@ -373,7 +373,7 @@ event_pending (EventEmission *emission)
 	emission->progress = EVENT_HANDLING;
 
 	notify_event (&emission->event);
-	job_handle_event (&emission->event);
+	job_handle_event (emission);
 
 	/* Make sure we don't hang on to events with no jobs.
 	 * (note that the progress might already be finished if all the jobs

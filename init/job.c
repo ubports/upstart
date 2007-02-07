@@ -1061,35 +1061,35 @@ job_start (Job *job)
 /**
  * job_start_event:
  * @job: job to be started,
- * @event: event to handle.
+ * @emission: event emission to be handled.
  *
  * Iterates the list of events that can cause @job to be started, and if
- * @event is present, calls _job_start() to change the goal.
+ * the @emission event is present, calls _job_start() to change the goal.
  **/
 void
-job_start_event (Job   *job,
-		 Event *event)
+job_start_event (Job           *job,
+		 EventEmission *emission)
 {
 	nih_assert (job != NULL);
-	nih_assert (event != NULL);
+	nih_assert (emission != NULL);
 
 	NIH_LIST_FOREACH (&job->start_events, iter) {
 		Event *start_event = (Event *)iter;
 
-		if (event_match (event, start_event)) {
+		if (event_match (&emission->event, start_event)) {
 			char **ptr;
 
 			if (job->goal_event)
 				nih_free (job->goal_event);
 
 			NIH_MUST (job->goal_event = event_new (
-					  job, event->name));
-			for (ptr = event->args; ptr && *ptr; ptr++)
+					  job, emission->event.name));
+			for (ptr = emission->event.args; ptr && *ptr; ptr++)
 				NIH_MUST (nih_str_array_add (
 						  &job->goal_event->args,
 						  job->goal_event, NULL,
 						  *ptr));
-			for (ptr = event->env; ptr && *ptr; ptr++)
+			for (ptr = emission->event.env; ptr && *ptr; ptr++)
 				NIH_MUST (nih_str_array_add (
 						  &job->goal_event->env,
 						  job->goal_event, NULL,
@@ -1180,35 +1180,35 @@ job_stop (Job *job)
 /**
  * job_stop_event:
  * @job: job to be stopped,
- * @event: event to handle.
+ * @emission: event emission to be handled.
  *
  * Iterates the list of events that can cause @job to be stopped, and if
- * @event is present, calls _job_stop() to change the goal.
+ * the @emission event is present, calls _job_stop() to change the goal.
  **/
 void
-job_stop_event (Job   *job,
-		Event *event)
+job_stop_event (Job           *job,
+		EventEmission *emission)
 {
 	nih_assert (job != NULL);
-	nih_assert (event != NULL);
+	nih_assert (emission != NULL);
 
 	NIH_LIST_FOREACH (&job->stop_events, iter) {
 		Event *stop_event = (Event *)iter;
 
-		if (event_match (event, stop_event)) {
+		if (event_match (&emission->event, stop_event)) {
 			char **ptr;
 
 			if (job->goal_event)
 				nih_free (job->goal_event);
 
 			NIH_MUST (job->goal_event = event_new (
-					  job, event->name));
-			for (ptr = event->args; ptr && *ptr; ptr++)
+					  job, emission->event.name));
+			for (ptr = emission->event.args; ptr && *ptr; ptr++)
 				NIH_MUST (nih_str_array_add (
 						  &job->goal_event->args,
 						  job->goal_event, NULL,
 						  *ptr));
-			for (ptr = event->env; ptr && *ptr; ptr++)
+			for (ptr = emission->event.env; ptr && *ptr; ptr++)
 				NIH_MUST (nih_str_array_add (
 						  &job->goal_event->env,
 						  job->goal_event, NULL,
@@ -1266,15 +1266,16 @@ _job_stop (Job *job)
 
 /**
  * job_handle_event:
- * @event: event to be handled.
+ * @emission: event emission to be handled.
  *
- * This function is called whenever an event occurs.  It iterates the list
- * of jobs and stops or starts any necessary.
+ * This function is called whenever the emission of an event reaches the
+ * handling state.  It iterates the list of jobs and stops or starts any
+ * necessary.
  **/
 void
-job_handle_event (Event *event)
+job_handle_event (EventEmission *emission)
 {
-	nih_assert (event != NULL);
+	nih_assert (emission != NULL);
 
 	job_init ();
 
@@ -1290,8 +1291,8 @@ job_handle_event (Event *event)
 		 * a process's start and stop scripts to be run without the
 		 * actual process)
 		 */
-		job_stop_event (job, event);
-		job_start_event (job, event);
+		job_stop_event (job, emission);
+		job_start_event (job, emission);
 	}
 }
 

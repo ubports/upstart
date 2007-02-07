@@ -1,5 +1,14 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_pending): Pass the emission directly to
+	job_handle_event now.
+	* init/job.c (job_handle_event, job_start_event, job_stop_event):
+	Deal with event emissions rather than just plain events, the change
+	so far doesn't do anything else other than take the structure change.
+	* init/job.h: Change prototypes.
+	* init/tests/test_job.c (test_start_event, test_stop_event)
+	(test_handle_event): Update tests to use emissions.
+
 	* init/tests/test_event.c (test_read_state, test_write_state): Check
 	the passing of the progress information.
 	* init/event.c (event_read_state, event_write_state): Add progress
