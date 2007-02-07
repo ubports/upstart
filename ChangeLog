@@ -1,5 +1,7 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Call event_poll instead of event_queue_run.
+
 	* init/event.c (event_poll): Add the new function that replaces
 	event_queue_run(); handles the new-style event emission structures
 	in the list and only returns when there are no non-handling events.

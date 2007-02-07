@@ -254,7 +254,7 @@ main (int   argc,
 
 	/* Process the event queue and check the jobs for idleness
 	 * every time through the main loop */
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_queue_run,
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
 					  NULL));
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle,
 					  NULL));
@@ -295,11 +295,8 @@ main (int   argc,
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
 
-	/* Run the event queue once, and detect anything idle */
-	event_queue_run ();
-	job_detect_idle ();
-
-	/* Go! */
+	/* Run through the loop at least once */
+	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
 	return ret;
