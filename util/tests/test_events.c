@@ -419,9 +419,9 @@ test_events_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "test: wibble\n");
-	TEST_FILE_EQ (output, "test: frodo foo bar\n");
-	TEST_FILE_EQ (output, "test:     FOO=BAR\n");
+	TEST_FILE_EQ (output, "wibble\n");
+	TEST_FILE_EQ (output, "frodo foo bar\n");
+	TEST_FILE_EQ (output, "    FOO=BAR\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 

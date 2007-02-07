@@ -116,8 +116,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output,
-		      "test: foo (start) running, process 1000 active\n");
+	TEST_FILE_EQ (output, "foo (start) running, process 1000 active\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -163,8 +162,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output,
-		      "test: foo (stop) stopping, process 1000 killed\n");
+	TEST_FILE_EQ (output, "foo (stop) stopping, process 1000 killed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -210,8 +208,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output,
-		      "test: foo (stop) waiting\n");
+	TEST_FILE_EQ (output, "foo (stop) waiting\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -272,8 +269,8 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "test: foo (stop) waiting\n");
-	TEST_FILE_EQ (output, "test: bar (start) running, process spawned\n");
+	TEST_FILE_EQ (output, "foo (stop) waiting\n");
+	TEST_FILE_EQ (output, "bar (start) running, process spawned\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -381,8 +378,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output,
-		      "test: galen (start) running, process 1000 active\n");
+	TEST_FILE_EQ (output, "galen (start) running, process 1000 active\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -478,14 +474,10 @@ test_list_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output,
-		      "test: frodo (start) running, process 1000 active\n");
-	TEST_FILE_EQ (output,
-		      "test: bilbo (stop) stopping, process 1000 killed\n");
-	TEST_FILE_EQ (output,
-		      "test: merry (stop) stopping, process none\n");
-	TEST_FILE_EQ (output,
-		      "test: pippin (stop) waiting\n");
+	TEST_FILE_EQ (output, "frodo (start) running, process 1000 active\n");
+	TEST_FILE_EQ (output, "bilbo (stop) stopping, process 1000 killed\n");
+	TEST_FILE_EQ (output, "merry (stop) stopping, process none\n");
+	TEST_FILE_EQ (output, "pippin (stop) waiting\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -591,14 +583,10 @@ test_jobs_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output,
-		      "test: frodo (start) running, process 1000 active\n");
-	TEST_FILE_EQ (output,
-		      "test: frodo (stop) stopping, process 1000 killed\n");
-	TEST_FILE_EQ (output,
-		      "test: frodo (stop) stopping, process none\n");
-	TEST_FILE_EQ (output,
-		      "test: frodo (stop) waiting\n");
+	TEST_FILE_EQ (output, "frodo (start) running, process 1000 active\n");
+	TEST_FILE_EQ (output, "frodo (stop) stopping, process 1000 killed\n");
+	TEST_FILE_EQ (output, "frodo (stop) stopping, process none\n");
+	TEST_FILE_EQ (output, "frodo (stop) waiting\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
