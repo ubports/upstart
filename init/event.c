@@ -50,12 +50,20 @@ int paused = FALSE;
 
 
 /**
- * events:
+ * pending:
  *
  * This list holds the list of events queued to be handled; each item
- * is an Event structure.
+ * is an EventEmission structure.
  **/
-static NihList *events = NULL;
+static NihList *pending = NULL;
+
+/**
+ * handling:
+ *
+ * This list holds the list of events that are currently being handled;
+ * each item is an EventEmission structure.
+ **/
+static NihList *handling = NULL;
 
 
 /**
@@ -66,8 +74,11 @@ static NihList *events = NULL;
 static inline void
 event_init (void)
 {
-	if (! events)
-		NIH_MUST (events = nih_list_new (NULL));
+	if (! pending)
+		NIH_MUST (pending = nih_list_new (NULL));
+
+	if (! handling)
+		NIH_MUST (handling = nih_list_new (NULL));
 }
 
 
@@ -178,7 +189,7 @@ event_queue (const char *name)
 
 	NIH_MUST (event = event_new (NULL, name));
 	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destructor);
-	nih_list_add (events, &event->entry);
+	nih_list_add (pending, &event->entry);
 
 	return event;
 }
@@ -198,8 +209,8 @@ event_queue_run (void)
 
 	event_init ();
 
-	while (! NIH_LIST_EMPTY (events)) {
-		NIH_LIST_FOREACH_SAFE (events, iter) {
+	while (! NIH_LIST_EMPTY (pending)) {
+		NIH_LIST_FOREACH_SAFE (pending, iter) {
 			Event *event = (Event *)iter;
 
 			nih_debug ("Handling %s event", event->name);
@@ -276,7 +287,7 @@ event_write_state (FILE *state)
 
 	nih_assert (state != NULL);
 
-	NIH_LIST_FOREACH (events, iter) {
+	NIH_LIST_FOREACH (pending, iter) {
 		Event *event = (Event *)iter;
 
 		fprintf (state, "Event %s\n", event->name);

@@ -29,19 +29,34 @@
 
 
 /**
+ * EventEmissionCb:
+ * @data: pointer given when registered,
+ * @emission: EventEmission structure.
+ *
+ * The event emission callback is given when an event is registered for
+ * emission, and is called once the event has deemed to be completed.
+ * Once the callback returns, @emission is automatically freed; and
+ * a failed event generated if necessary.
+ **/
+typedef struct event_emission EventEmission;
+typedef void (*EventEmissionCb) (void *data, EventEmission *emission);
+
+
+/**
  * Event:
  * @entry: list header,
  * @name: string name of the event,
  * @args: NULL-terminated list of arguments,
  * @env: NULL-terminated list of environment variables.
  *
- * Events occur whenever something, somewhere changes state.  They are
- * placed in the event queue and can cause jobs to change their goal to
- * start or stop.
+ * Events are one of the core concepts of upstart; they occur whenever
+ * something, somewhere changes state.  They are idenitied by a unique
+ * @name string, and can carry further information in the form of @args
+ * and @env; both of which are passed to any jobs whose goal is changed
+ * by this event.
  *
- * Once processed, they are forgotten about.  The state is stored by the
- * event generator (the job state machine or external process) and upstart
- * makes no attempt to track it.
+ * This structure represents an event, and is used both for the events
+ * themselves and to match events.
  **/
 typedef struct event {
 	NihList   entry;
@@ -50,6 +65,34 @@ typedef struct event {
 	char    **args;
 	char    **env;
 } Event;
+
+/**
+ * EventEmission:
+ * @event: event being emitted,
+ * @id: unique id assigned to each emission,
+ * @jobs: number of jobs holding this event,
+ * @failed: whether this event has failed,
+ * @callback: callback once emission has completed,
+ * @data: data to pass to @callback.
+ *
+ * Events aren't useful on their own; in order to change the state of jobs
+ * they need to be first placed in the event queue, then emitted and only
+ * freed and forgotten once all jobs changed have reached their goal state.
+ *
+ * This process is known as emission, and this structure holds all the
+ * information on the emission of a single event; including the event
+ * itself.
+ **/
+struct event_emission {
+	Event            event;
+	uint32_t         id;
+
+	int              jobs;
+	int              failed;
+
+	EventEmissionCb  callback;
+	void            *data;
+};
 
 
 /**

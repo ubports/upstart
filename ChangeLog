@@ -1,5 +1,11 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_init): Rename the single events queue to
+	pending and add a new handling list.
+
+	* init/event.h (EventEmission, EventEmissionCb): Add a new emission
+	structure that wraps an event, for use in the queue.
+
 	* util/tests/test_events.c (test_events_action): Update test now
 	that nih_message is more sensible.
 	* util/tests/test_jobs.c (test_start_action, test_list_action) 
