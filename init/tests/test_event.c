@@ -121,6 +121,61 @@ test_match (void)
 	nih_free (event1);
 }
 
+
+static void
+my_emission_cb (void          *data,
+		EventEmission *emission)
+{
+}
+
+void
+test_emit (void)
+{
+	EventEmission  *emission;
+	char          **args, **env;
+
+	/* Check that we can request an event emission; the structure should
+	 * be allocated with nih_alloc(), placed in a list and all of the
+	 * details filled in.
+	 */
+	TEST_FUNCTION ("event_emit");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			args = nih_str_array_new (NULL);
+			NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+						     "foo"));
+			NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+						     "bar"));
+
+			env = nih_str_array_new (NULL);
+			NIH_MUST (nih_str_array_add (&env, NULL, NULL,
+						     "FOO=BAR"));
+		}
+
+		emission = event_emit ("test", args, env,
+				       my_emission_cb, &emission);
+
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_LIST_NOT_EMPTY (&emission->event.entry);
+		TEST_EQ (emission->jobs, 0);
+		TEST_EQ (emission->failed, FALSE);
+		TEST_EQ_P (emission->callback, my_emission_cb);
+		TEST_EQ_P (emission->data, &emission);
+
+		TEST_EQ_STR (emission->event.name, "test");
+		TEST_ALLOC_PARENT (emission->event.name, emission);
+
+		TEST_EQ_P (emission->event.args, args);
+		TEST_ALLOC_PARENT (emission->event.args, emission);
+
+		TEST_EQ_P (emission->event.env, env);
+		TEST_ALLOC_PARENT (emission->event.env, emission);
+
+		nih_list_free (&emission->event.entry);
+	}
+}
+
+
 void
 test_queue (void)
 {
@@ -260,6 +315,7 @@ main (int   argc,
 {
 	test_new ();
 	test_match ();
+	test_emit ();
 	test_queue ();
 	test_read_state ();
 	test_write_state ();

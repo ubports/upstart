@@ -1,5 +1,10 @@
 2007-02-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_emit): New function to replace event_queue();
+	returns an EventEmission structure with the details filled in as
+	given.
+	* init/event.h: Add prototype.
+
 	* init/event.c (event_init): Rename the single events queue to
 	pending and add a new handling list.
 

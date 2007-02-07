@@ -167,6 +167,70 @@ event_match (Event *event1,
 
 
 /**
+ * event_emit:
+ * @name: name of event to emit,
+ * @args: arguments to event,
+ * @env: environment for event,
+ * @callback: function to call once handled,
+ * @data: pointer to pass to @callback.
+ *
+ * Allocates an EventEmission structure for the event details given and
+ * appends it to the queue of events pending emission.
+ *
+ * Both @args and @env are optional, and may be NULL; if they are given,
+ * then the array itself it reparented to belong to the emission structure
+ * and should not be modified.
+ *
+ * When the event reaches the top of the queue, it is taken off and placed
+ * into the handling queue.  It is not removed from that queue until there
+ * are no longer any jobs referencing the event.  At that point, @callback
+ * is called, before the event is freed.
+ *
+ * Returns: new EventEmission structure in the pending queue.
+ **/
+EventEmission *
+event_emit (const char       *name,
+	    char            **args,
+	    char            **env,
+	    EventEmissionCb   callback,
+	    void             *data)
+{
+	EventEmission   *emission;
+	static uint32_t  id = 0;
+
+	nih_assert (name != NULL);
+	nih_assert (strlen (name) > 0);
+
+	NIH_MUST (emission = nih_new (NULL, EventEmission));
+
+	emission->id = id++;
+	emission->jobs = 0;
+	emission->failed = FALSE;
+	emission->callback = callback;
+	emission->data = data;
+
+	NIH_MUST (emission->event.name = nih_strdup (emission, name));
+
+	emission->event.args = args;
+	if (emission->event.args)
+		nih_alloc_reparent (emission->event.args, emission);
+
+	emission->event.env = env;
+	if (emission->event.env)
+		nih_alloc_reparent (emission->event.env, emission);
+
+
+	nih_list_init (&emission->event.entry);
+	nih_alloc_set_destructor (emission,
+				  (NihDestructor)nih_list_destructor);
+
+	nih_list_add (pending, &emission->event.entry);
+
+	return emission;
+}
+
+
+/**
  * event_queue:
  * @name: name of event to queue.
  *
