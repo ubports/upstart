@@ -257,12 +257,6 @@ cfg_read_job (const void *parent,
 		return NULL;
 	}
 
-	/* respawn script makes no sense unless respawn */
-	if (job->respawn_script && (! job->respawn)) {
-		nih_warn (_("%s: 'respawn script' ignored unless 'respawn' specified"),
-			  filename);
-	}
-
 	/* pid file makes no sense unless respawn */
 	if (job->pid_file && (! job->respawn)) {
 		nih_warn (_("%s: 'pid file' ignored unless 'respawn' specified"),
@@ -810,11 +804,10 @@ cfg_stanza_daemon (Job             *job,
  *
  * Parse a respawn stanza from @file.  This stanza is reasonably
  * complex; it may be called without arguments, in which case it sets
- * the job to be respawned, it may be called wiith a second argument
- * that specifies whether to set a respawn script or set the respawn
- * rate limit and finally it may be called with a command to be
- * executed, in which case it sets the command and respawn flag
- * together.
+ * the job to be respawned, it may be called with a second argument
+ * that specifies we want to set the respawn rate limit and finally it
+ * may be called with a command to be executed, in which case it sets
+ * the command and respawn flag together.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -856,28 +849,7 @@ cfg_stanza_respawn (Job             *job,
 	if (! arg)
 		return -1;
 
-	if (! strcmp (arg, "script")) {
-		nih_free (arg);
-		*pos = arg_pos;
-		if (lineno)
-			*lineno = arg_lineno;
-
-		if (nih_config_skip_comment (file, len, pos, lineno) < 0)
-			return -1;
-
-		if (job->respawn_script)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
-
-		job->respawn_script = nih_config_parse_block (job, file, len,
-							      pos, lineno,
-							      "script");
-		if (! job->respawn_script)
-			return -1;
-
-		return 0;
-
-	} else if (! strcmp (arg, "limit")) {
+	if (! strcmp (arg, "limit")) {
 		char *endptr;
 
 		nih_free (arg);

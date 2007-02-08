@@ -1,5 +1,10 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job): Drop check for useless respawn script
+	(cfg_stanza_respawn): Drop handling of "respawn script"
+	* init/tests/test_cfgfile.c (test_stanza_respawn): Drop the checks
+	for "respawn script"
+
 	* init/job.h: Move things about a bit more; remove respawn_script
 	since that state is going away.
 	* init/job.c (job_new): Drop initialisation of process_state.

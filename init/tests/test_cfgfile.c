@@ -214,7 +214,6 @@ test_read_job (void)
 	TEST_FEATURE ("with respawn options and not respawn");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "respawn script\n");
 	fprintf (jf, "do something\n");
 	fprintf (jf, "end script\n");
 	fprintf (jf, "pid file /var/run/foo.pid\n");
@@ -226,8 +225,6 @@ test_read_job (void)
 	}
 	rewind (output);
 
-	TEST_ERROR_EQ (output,
-		       " 'respawn script' ignored unless 'respawn' specified\n");
 	TEST_ERROR_EQ (output,
 		       " 'pid file' ignored unless 'respawn' specified\n");
 	TEST_ERROR_EQ (output,
@@ -1569,28 +1566,6 @@ test_stanza_respawn (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a respawn stanza with a script argument begins a
-	 * block which is stored in the respawn_script member of the job.
-	 */
-	TEST_FEATURE ("with script and block");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
-	fprintf (jf, "respawn script\n");
-	fprintf (jf, "    echo\n");
-	fprintf (jf, "end script\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_ALLOC_PARENT (job->respawn_script, job);
-	TEST_EQ_STR (job->respawn_script, "echo\n");
-
-	nih_list_free (&job->entry);
-
-
 	/* Check that a respawn stanza with the limit argument and numeric
 	 * rate and timeout results in it being stored in the job.
 	 */
@@ -1840,34 +1815,6 @@ test_stanza_respawn (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that multiple respawn script stanzas results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with script and multiple blocks");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
-	fprintf (jf, "respawn script\n");
-	fprintf (jf, "    echo\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "respawn script\n");
-	fprintf (jf, "    ls\n");
-	fprintf (jf, "end script\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "7: Duplicate value\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
 	/* Check that duplicate respawn limit stanzas results in a
 	 * syntax error.
 	 */
@@ -1892,32 +1839,10 @@ test_stanza_respawn (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that a respawn script stanza with an extra argument results
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn script foo\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
 	/* Check that a respawn limit stanza with an extra argument results
 	 * in a syntax error.
 	 */
-	TEST_FEATURE ("with extra argument");
+	TEST_FEATURE ("with extra argument to limit");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
 	fprintf (jf, "respawn limit 0 1 foo\n");
