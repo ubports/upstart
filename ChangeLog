@@ -1,5 +1,16 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/enum.h (JobState): Change the job states to the new set
+	of states that we've planned.
+	(ProcessState): Drop process state entirely; this information is now
+	contained in the single JobState field.
+	* upstart/enum.c (job_state_name, job_state_from_name): Update
+	strings to match the new state names.
+	(process_state_name, process_state_from_name): Drop these functions.
+	* upstart/tests/test_enum.c (test_state_name) 
+	(test_state_from_name): Update test cases to match new names.
+	(test_process_state_name, test_process_state_from_name): Drop.
+
 	* init/main.c (main): Remove the logd hack for now.
 	* init/job.c (job_new): Change the default console to none for now.
 	* init/tests/test_job.c (test_new): Update test.

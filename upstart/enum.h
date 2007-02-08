@@ -29,18 +29,7 @@
  *
  * There are two ultimate goals for any job, either it should be stopped
  * or it should be started.  In order to achieve these goals, we may need
- * to go through a number of different states, and even the processes
- * involved may need to go through different states.
- *
- * A typical example might be changing the goal of a process that is active
- * in the running state from start to stop; the actual activities and state
- * changes for that are:
- * - send process the TERM signal, set process state to killed
- * - wait for process to die, possibly send KILL signal
- * - change state to stopping, spawn the stop script and set process state
- *   to active
- * - wait for script to terminate
- * - change state to waiting and process state to none
+ * to go through a number of different states (defined by JobState).
  **/
 typedef enum {
 	JOB_STOP,
@@ -51,38 +40,25 @@ typedef enum {
  * JobState:
  *
  * This is used to identify the current actual state of a job, suggesting
- * which process (start, stop and respawn scripts or the binary itself)
- * is spawning, running or terminating.
+ * which process (pre-start, post-start, pre-stop, post-stop or the binary
+ * itself) is running, or which interim state we are in.
  *
  * This is combined with the job's goal decide what to do with the
- * processes (spawn or kill) and which states to move into when changes in
- * process state (pid obtained or death) occur.
+ * processes and which states to move into when changes in process state
+ * (pid obtained or death) occur.
  **/
 typedef enum {
 	JOB_WAITING,
 	JOB_STARTING,
+	JOB_PRE_START,
+	JOB_SPAWNED,
+	JOB_POST_START,
 	JOB_RUNNING,
+	JOB_PRE_STOP,
 	JOB_STOPPING,
-	JOB_RESPAWNING
+	JOB_KILLED,
+	JOB_POST_STOP
 } JobState;
-
-/**
- * ProcessState:
- *
- * This is used to identify the current state of the process associated with
- * a job, whether one exists and whether it has been spawned but the pid not
- * yet obtained, whether it is actively running or whether it is in the
- * process of being killed.
- *
- * This is used during state changes to decide what action to take against
- * the running process.
- **/
-typedef enum {
-	PROCESS_NONE,
-	PROCESS_SPAWNED,
-	PROCESS_ACTIVE,
-	PROCESS_KILLED
-} ProcessState;
 
 /**
  * ConsoleType:
@@ -109,10 +85,6 @@ JobGoal      job_goal_from_name      (const char *goal);
 const char * job_state_name          (JobState state)
 	__attribute__ ((const));
 JobState     job_state_from_name     (const char *state);
-
-const char * process_state_name      (ProcessState state)
-	__attribute__ ((const));
-ProcessState process_state_from_name (const char *state);
 
 NIH_END_EXTERN
 

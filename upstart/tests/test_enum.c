@@ -105,11 +105,39 @@ test_state_name (void)
 	TEST_EQ_STR (name, "starting");
 
 
+	/* Check that the JOB_PRE_START state returns the right string. */
+	TEST_FEATURE ("with pre-start state");
+	name = job_state_name (JOB_PRE_START);
+
+	TEST_EQ_STR (name, "pre-start");
+
+
+	/* Check that the JOB_SPAWNED state returns the right string. */
+	TEST_FEATURE ("with spawned state");
+	name = job_state_name (JOB_SPAWNED);
+
+	TEST_EQ_STR (name, "spawned");
+
+
+	/* Check that the JOB_POST_START state returns the right string. */
+	TEST_FEATURE ("with post-start state");
+	name = job_state_name (JOB_POST_START);
+
+	TEST_EQ_STR (name, "post-start");
+
+
 	/* Check that the JOB_RUNNING state returns the right string. */
 	TEST_FEATURE ("with running state");
 	name = job_state_name (JOB_RUNNING);
 
 	TEST_EQ_STR (name, "running");
+
+
+	/* Check that the JOB_PRE_STOP state returns the right string. */
+	TEST_FEATURE ("with pre-stop state");
+	name = job_state_name (JOB_PRE_STOP);
+
+	TEST_EQ_STR (name, "pre-stop");
 
 
 	/* Check that the JOB_STOPPING state returns the right string. */
@@ -119,11 +147,18 @@ test_state_name (void)
 	TEST_EQ_STR (name, "stopping");
 
 
-	/* Check that the JOB_RESPAWNING state returns the right string. */
-	TEST_FEATURE ("with respawning state");
-	name = job_state_name (JOB_RESPAWNING);
+	/* Check that the JOB_KILLED state returns the right string. */
+	TEST_FEATURE ("with killed state");
+	name = job_state_name (JOB_KILLED);
 
-	TEST_EQ_STR (name, "respawning");
+	TEST_EQ_STR (name, "killed");
+
+
+	/* Check that the JOB_POST_STOP state returns the right string. */
+	TEST_FEATURE ("with post-stop state");
+	name = job_state_name (JOB_POST_STOP);
+
+	TEST_EQ_STR (name, "post-stop");
 
 
 	/* Check that an invalid state returns NULL. */
@@ -154,11 +189,39 @@ test_state_from_name (void)
 	TEST_EQ (state, JOB_STARTING);
 
 
+	/* Check that JOB_PRE_START is returned for the right string. */
+	TEST_FEATURE ("with pre-start state");
+	state = job_state_from_name ("pre-start");
+
+	TEST_EQ (state, JOB_PRE_START);
+
+
+	/* Check that JOB_SPAWNED is returned for the right string. */
+	TEST_FEATURE ("with spawned state");
+	state = job_state_from_name ("spawned");
+
+	TEST_EQ (state, JOB_SPAWNED);
+
+
+	/* Check that JOB_POST_START is returned for the right string. */
+	TEST_FEATURE ("with post-start state");
+	state = job_state_from_name ("post-start");
+
+	TEST_EQ (state, JOB_POST_START);
+
+
 	/* Check that JOB_RUNNING is returned for the right string. */
 	TEST_FEATURE ("with running state");
 	state = job_state_from_name ("running");
 
 	TEST_EQ (state, JOB_RUNNING);
+
+
+	/* Check that JOB_PRE_STOP is returned for the right string. */
+	TEST_FEATURE ("with pre-stop state");
+	state = job_state_from_name ("pre-stop");
+
+	TEST_EQ (state, JOB_PRE_STOP);
 
 
 	/* Check that JOB_STOPPING is returned for the right string. */
@@ -168,101 +231,23 @@ test_state_from_name (void)
 	TEST_EQ (state, JOB_STOPPING);
 
 
-	/* Check that JOB_RESPAWNING is returned for the right string. */
-	TEST_FEATURE ("with respawning state");
-	state = job_state_from_name ("respawning");
+	/* Check that JOB_KILLED is returned for the right string. */
+	TEST_FEATURE ("with killed state");
+	state = job_state_from_name ("killed");
 
-	TEST_EQ (state, JOB_RESPAWNING);
+	TEST_EQ (state, JOB_KILLED);
+
+
+	/* Check that JOB_POST_STOP is returned for the right string. */
+	TEST_FEATURE ("with post-stop state");
+	state = job_state_from_name ("post-stop");
+
+	TEST_EQ (state, JOB_POST_STOP);
 
 
 	/* Check that -1 is returned for an invalid string. */
 	TEST_FEATURE ("with invalid state");
 	state = job_state_from_name ("wibble");
-
-	TEST_EQ (state, -1);
-}
-
-
-void
-test_process_state_name (void)
-{
-	const char *name;
-
-	TEST_FUNCTION ("process_state_name");
-
-	/* Check that the PROCESS_NONE state returns the right string. */
-	TEST_FEATURE ("with none state");
-	name = process_state_name (PROCESS_NONE);
-
-	TEST_EQ_STR (name, "none");
-
-
-	/* Check that the PROCESS_SPAWNED state returns the right string. */
-	TEST_FEATURE ("with spawned state");
-	name = process_state_name (PROCESS_SPAWNED);
-
-	TEST_EQ_STR (name, "spawned");
-
-
-	/* Check that the PROCESS_ACTIVE state returns the right string. */
-	TEST_FEATURE ("with active state");
-	name = process_state_name (PROCESS_ACTIVE);
-
-	TEST_EQ_STR (name, "active");
-
-
-	/* Check that the PROCESS_KILLED state returns the right string. */
-	TEST_FEATURE ("with killed state");
-	name = process_state_name (PROCESS_KILLED);
-
-	TEST_EQ_STR (name, "killed");
-
-
-	/* Check that an invalid state returns NULL. */
-	TEST_FEATURE ("with invalid state");
-	name = process_state_name (1234);
-
-	TEST_EQ_P (name, NULL);
-}
-
-void
-test_process_state_from_name (void)
-{
-	ProcessState state;
-
-	TEST_FUNCTION ("process_state_from_name");
-
-	/* Check that PROCESS_NONE is returned for the right string. */
-	TEST_FEATURE ("with none state");
-	state = process_state_from_name ("none");
-
-	TEST_EQ (state, PROCESS_NONE);
-
-
-	/* Check that PROCESS_SPAWNED is returned for the right string. */
-	TEST_FEATURE ("with spawned state");
-	state = process_state_from_name ("spawned");
-
-	TEST_EQ (state, PROCESS_SPAWNED);
-
-
-	/* Check that PROCESS_ACTIVE is returned for the right string. */
-	TEST_FEATURE ("with active state");
-	state = process_state_from_name ("active");
-
-	TEST_EQ (state, PROCESS_ACTIVE);
-
-
-	/* Check that PROCESS_KILLED is returned for the right string. */
-	TEST_FEATURE ("with killed state");
-	state = process_state_from_name ("killed");
-
-	TEST_EQ (state, PROCESS_KILLED);
-
-
-	/* Check that -1 is returned for an invalid string. */
-	TEST_FEATURE ("with invalid state");
-	state = process_state_from_name ("wibble");
 
 	TEST_EQ (state, -1);
 }
@@ -276,8 +261,6 @@ main (int   argc,
 	test_goal_from_name ();
 	test_state_name ();
 	test_state_from_name ();
-	test_process_state_name ();
-	test_process_state_from_name ();
 
 	return 0;
 }

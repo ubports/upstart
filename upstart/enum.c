@@ -95,12 +95,22 @@ job_state_name (JobState state)
 		return N_("waiting");
 	case JOB_STARTING:
 		return N_("starting");
+	case JOB_PRE_START:
+		return N_("pre-start");
+	case JOB_SPAWNED:
+		return N_("spawned");
+	case JOB_POST_START:
+		return N_("post-start");
 	case JOB_RUNNING:
 		return N_("running");
+	case JOB_PRE_STOP:
+		return N_("pre-stop");
 	case JOB_STOPPING:
 		return N_("stopping");
-	case JOB_RESPAWNING:
-		return N_("respawning");
+	case JOB_KILLED:
+		return N_("killed");
+	case JOB_POST_STOP:
+		return N_("post-stop");
 	default:
 		return NULL;
 	}
@@ -123,65 +133,22 @@ job_state_from_name (const char *state)
 		return JOB_WAITING;
 	} else if (! strcmp (state, "starting")) {
 		return JOB_STARTING;
+	} else if (! strcmp (state, "pre-start")) {
+		return JOB_PRE_START;
+	} else if (! strcmp (state, "spawned")) {
+		return JOB_SPAWNED;
+	} else if (! strcmp (state, "post-start")) {
+		return JOB_POST_START;
 	} else if (! strcmp (state, "running")) {
 		return JOB_RUNNING;
+	} else if (! strcmp (state, "pre-stop")) {
+		return JOB_PRE_STOP;
 	} else if (! strcmp (state, "stopping")) {
 		return JOB_STOPPING;
-	} else if (! strcmp (state, "respawning")) {
-		return JOB_RESPAWNING;
-	} else {
-		return -1;
-	}
-}
-
-
-/**
- * process_state_name:
- * @state: state to convert.
- *
- * Converts an enumerated process state into the string used for the status
- * and for logging purposes.
- *
- * Returns: static string or NULL if state not known.
- **/
-const char *
-process_state_name (ProcessState state)
-{
-	switch (state) {
-	case PROCESS_NONE:
-		return N_("none");
-	case PROCESS_SPAWNED:
-		return N_("spawned");
-	case PROCESS_ACTIVE:
-		return N_("active");
-	case PROCESS_KILLED:
-		return N_("killed");
-	default:
-		return NULL;
-	}
-}
-
-/**
- * process_state_from_name:
- * @state: state to convert.
- *
- * Converts a process state string into the enumeration.
- *
- * Returns: enumerated process state or -1 if not known.
- **/
-ProcessState
-process_state_from_name (const char *state)
-{
-	nih_assert (state != NULL);
-
-	if (! strcmp (state, "none")) {
-		return PROCESS_NONE;
-	} else if (! strcmp (state, "spawned")) {
-		return PROCESS_SPAWNED;
-	} else if (! strcmp (state, "active")) {
-		return PROCESS_ACTIVE;
 	} else if (! strcmp (state, "killed")) {
-		return PROCESS_KILLED;
+		return JOB_KILLED;
+	} else if (! strcmp (state, "post-stop")) {
+		return JOB_POST_STOP;
 	} else {
 		return -1;
 	}
