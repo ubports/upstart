@@ -76,8 +76,6 @@ static void kbd_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
 #if 0
 static void term_handler    (const char *prog, NihSignal *signal);
-static void read_state      (int fd);
-static void write_state     (int fd);
 #endif
 
 
@@ -557,103 +555,5 @@ error:
 	close (fds[1]);
 
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-}
-
-/**
- * read_state:
- * @fd: file descriptor to read from.
- *
- * Read event and job state from @fd, which is a trivial line-based
- * protocol that we can keep the same without too much difficultly.  It's
- * tempting to use the control sockets for this, but they break too often.
- **/
-static void
-read_state (int fd)
-{
-	Job           *job = NULL;
-	EventEmission *emission = NULL;
-	FILE          *state;
-	char           buf[80];
-
-	nih_debug ("Reading state");
-
-	/* Use stdio as it's a light-weight thing that won't change */
-	state = fdopen (fd, "r");
-	if (! state) {
-		nih_warn (_("Unable to read from state descriptor: %s"),
-			  strerror (errno));
-		return;
-	}
-
-	/* It's just a series of simple lines; if one begins Job then it
-	 * indicates the start of a Job description, otherwise if it
-	 * begins Event then it's the start of an Event description.
-	 *
-	 * Lines beginning "." are assumed to belong to the current job
-	 * or event.
-	 */
-	while (fgets (buf, sizeof (buf), state)) {
-		char *ptr;
-
-		/* Strip newline */
-		ptr = strchr (buf, '\n');
-		if (ptr)
-			*ptr = '\0';
-
-		if (! strncmp (buf, "Job ", 4)) {
-			job = job_read_state (NULL, buf);
-			emission = NULL;
-		} else if (! strncmp (buf, "Event ", 6)) {
-			emission = event_read_state (NULL, buf);
-			job = NULL;
-		} else if (! strncmp (buf, "Emission ", 9)) {
-			emission = event_read_state (NULL, buf);
-			job = NULL;
-		} else if (buf[0] == '.') {
-			if (job) {
-				job = job_read_state (job, buf);
-			} else if (emission) {
-				emission = event_read_state (emission, buf);
-			}
-		} else {
-			emission = NULL;
-			job = NULL;
-		}
-	}
-
-	if (fclose (state))
-		nih_warn (_("Error after reading state: %s"),
-			  strerror (errno));
-
-	nih_debug ("State read from parent");
-}
-
-/**
- * write_state:
- * @fd: file descriptor to write to.
- *
- * Write event and job state to @fd, which is a trivial line-based
- * protocol that we can keep the same without too much difficultly.  It's
- * tempting to use the control sockets for this, but they break too often.
- **/
-static void
-write_state (int fd)
-{
-	FILE  *state;
-
-	/* Use stdio as it's a light-weight thing that won't change */
-	state = fdopen (fd, "w");
-	if (! state) {
-		nih_warn (_("Unable to write to state descriptor: %s"),
-			  strerror (errno));
-		return;
-	}
-
-	event_write_state (state);
-	job_write_state (state);
-
-	if (fclose (state))
-		nih_warn (_("Error after writing state: %s"),
-			  strerror (errno));
 }
 #endif
