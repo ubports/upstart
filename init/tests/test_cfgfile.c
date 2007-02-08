@@ -170,25 +170,19 @@ test_read_job (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a job may not be missing both exec and script.
-	 * Doing this causes no job to be returned.
+	/* Check that a job may have both exec and script missing.
 	 */
 	TEST_FEATURE ("with missing exec and script");
 	jf = fopen (filename, "w");
-	fprintf (jf, "description buggy");
+	fprintf (jf, "description state");
 	fclose (jf);
 
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
+	job = cfg_read_job (NULL, filename, "test");
 	rewind (output);
 
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, " 'exec' or 'script' must be specified\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_EQ_P (job->command, NULL);
+	TEST_EQ_P (job->script, NULL);
 
 
 	/* Check that a job may not supply both exec and script.

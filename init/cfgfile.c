@@ -249,14 +249,6 @@ cfg_read_job (const void *parent,
 	 * warnings
 	 */
 
-	/* Must have one command or script */
-	if ((job->script == NULL) && (job->command == NULL)) {
-		nih_error (_("%s: 'exec' or 'script' must be specified"),
-			   filename);
-		nih_list_free (&job->entry);
-		return NULL;
-	}
-
 	/* Must not have both command and script */
 	if ((job->script != NULL) && (job->command != NULL)) {
 		nih_error (_("%s: only one of 'exec' and 'script' may be specified"),

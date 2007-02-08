@@ -785,6 +785,46 @@ test_change_state (void)
 	job->cause = NULL;
 
 
+	/* Check that a job in the starting state moves into the running state,
+	 * emitting the started event; even if there is no script or command
+	 * for it.  It should not leave this state until forced.
+	 */
+	TEST_FEATURE ("starting to running with no command or script");
+	nih_free (job->script);
+	job->script = NULL;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process_state = PROCESS_NONE;
+		job->pid = 0;
+		job->failed = FALSE;
+		job->cause = em;
+		em->jobs = 1;
+
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->jobs, 1);
+
+		event = (Event *)list->prev;
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
+		nih_list_free (&event->entry);
+
+		TEST_LIST_EMPTY (list);
+	}
+
+	job->cause = NULL;
+	job->command = nih_sprintf (job, "touch %s/run", dirname);
+
+
 	/* Check that a job in the running state can move into the respawning
 	 * state, resulting in the respawn script being run and the respawn
 	 * event being emitted.

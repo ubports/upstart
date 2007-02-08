@@ -414,14 +414,6 @@ job_change_state (Job      *job,
 			nih_assert ((old_state == JOB_STARTING)
 				    || (old_state == JOB_RESPAWNING));
 
-			/* Must have either a script, or a command,
-			 * but not both or neither.
-			 */
-			nih_assert (   ((job->script == NULL)
-				        && (job->command != NULL))
-				    || ((job->script != NULL)
-					&& (job->command == NULL)));
-
 			/* Catch run-away respawns */
 			if (job_catch_runaway (job)) {
 				nih_warn (_("%s respawning too fast, stopped"),

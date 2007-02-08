@@ -1,5 +1,16 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job): Remove the restriction that there
+	must be either an 'exec' or 'script' for a job; jobs without either
+	define states others can use.
+	* init/tests/test_cfgfile.c (test_read_job): Convert the test to
+	a "must work".
+	* init/job.c (job_change_state): Remove restriction that we must
+	have either a script or a command; having neither should just wedge
+	the job at the running rest state.  Note that there's no way to get
+	it out yet, because we don't force that particular state change.
+	* init/tests/test_job.c (test_change_state): Make sure that works.
+
 	* init/job.c (job_change_cause): Put the knowledge about how to
 	change the cause into a separate function, since it's slightly
 	tricky.
