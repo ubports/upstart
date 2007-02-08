@@ -88,15 +88,15 @@
  * @version: version of the job; intended for humans,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
- * @start_events: list of events that can start this job,
- * @stop_events; list of events that can stop this job.
- * @emits: list of additional events that this job can emit,
- * @goal_event: event that last changed @goal,
+ * @cause: cause of last goal change,
  * @process_state: what we're waiting for from the process,
  * @pid: current process id,
  * @failed: whether the last process ran failed,
  * @failed_state: state the job was in for the last failed process,
  * @exit_status: exit status of the last failed process,
+ * @start_events: list of events that can start this job,
+ * @stop_events; list of events that can stop this job.
+ * @emits: list of additional events that this job can emit,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @kill_timer: timer to kill process,
  * @spawns_instance: job is always waiting and spawns instances,
@@ -144,11 +144,7 @@ typedef struct job {
 	JobGoal        goal;
 	JobState       state;
 
-	NihList        start_events;
-	NihList        stop_events;
-	NihList        emits;
-
-	EventEmission *goal_event;
+	EventEmission *cause;
 
 	ProcessState   process_state;
 	pid_t          pid;
@@ -156,6 +152,10 @@ typedef struct job {
 	int            failed;
 	JobState       failed_state;
 	int            exit_status;
+
+	NihList        start_events;
+	NihList        stop_events;
+	NihList        emits;
 
 	time_t         kill_timeout;
 	NihTimer      *kill_timer;

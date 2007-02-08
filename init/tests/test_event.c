@@ -464,7 +464,7 @@ test_poll (void)
 	/* Check that a failed event causes another event to be emitted
 	 * that has "/failed" appended on the end.  We can obtain the
 	 * failed event emission by hooking a job on it, and using the
-	 * goal event.
+	 * cause.
 	 */
 	TEST_FEATURE ("with failed event");
 	em1 = event_emit ("test", NULL, NULL);
@@ -491,9 +491,9 @@ test_poll (void)
 
 	waitpid (job->pid, NULL, 0);
 
-	TEST_EQ_STR (job->goal_event->event.name, "test/failed");
+	TEST_EQ_STR (job->cause->event.name, "test/failed");
 
-	event_emit_finished (job->goal_event);
+	event_emit_finished (job->cause);
 	event_poll ();
 
 	nih_list_free (&job->entry);

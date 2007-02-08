@@ -227,7 +227,7 @@ notify_unsubscribe (pid_t pid)
  * @job: job that changed state,
  *
  * Called when a job's state changes.  Notifies subscribed processes with
- * an UPSTART_JOB_STATUS message, and if the goal event is set, also
+ * an UPSTART_JOB_STATUS message, and if the cause is set, also
  * sends notification to subscribed process for that event with an
  * UPSTART_EVENT_JOB_STATUS message.
  **/
@@ -260,10 +260,10 @@ notify_job (Job *job)
 		nih_io_send_message (control_io, message);
 	}
 
-	if (! job->goal_event)
+	if (! job->cause)
 		return;
 
-	/* And then to processes subscribed for the goal event; only
+	/* And then to processes subscribed for the cause event; only
 	 * send to those specifically subscribed, not to global.
 	 */
 	NIH_LIST_FOREACH (subscriptions, iter) {
@@ -273,13 +273,13 @@ notify_job (Job *job)
 		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		if (sub->emission != job->goal_event)
+		if (sub->emission != job->cause)
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid,
 				  UPSTART_EVENT_JOB_STATUS,
-				  job->goal_event->id, job->name, job->goal,
+				  job->cause->id, job->name, job->goal,
 				  job->state, job->pid));
 		nih_io_send_message (control_io, message);
 	}

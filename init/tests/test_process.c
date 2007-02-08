@@ -224,10 +224,10 @@ test_spawn (void)
 
 
 	/* Check that a job's environment includes the UPSTART_EVENT variable
-	 * and any event environment if the goal_event member is set, but this
+	 * and any event environment if the cause member is set, but this
 	 * should not override those specified in the job.
 	 */
-	TEST_FEATURE ("with environment and goal event");
+	TEST_FEATURE ("with environment and cause");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
@@ -237,7 +237,7 @@ test_spawn (void)
 	em = event_emit ("wibble", NULL, em_env);
 
 	job = job_new (NULL, "test");
-	job->goal_event = em;
+	job->cause = em;
 	job->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;

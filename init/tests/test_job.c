@@ -72,7 +72,7 @@ test_new (void)
 		TEST_LIST_EMPTY (&job->stop_events);
 		TEST_LIST_EMPTY (&job->emits);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 
 		TEST_EQ_STR (job->name, "test");
 		TEST_ALLOC_PARENT (job->name, job);
@@ -239,10 +239,10 @@ test_change_goal (void)
 	}
 
 
-	/* Check that starting a job with a goal change event set
-	 * unreferences the goal event and sets it to NULL in the job.
+	/* Check that starting a job with a cause set unreferences it
+	 * and sets it to NULL in the job.
 	 */
-	TEST_FEATURE ("with existing goal change event");
+	TEST_FEATURE ("with existing cause");
 	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
@@ -250,7 +250,7 @@ test_change_goal (void)
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
-		job->goal_event = em;
+		job->cause = em;
 		em->progress = EVENT_HANDLING;
 		em->jobs = 1;
 
@@ -261,20 +261,20 @@ test_change_goal (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, 1);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 
 		TEST_EQ (em->jobs, 0);
 		TEST_EQ (em->progress, EVENT_FINISHED);
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
-	/* Check that start a job with a goal change event passed
-	 * references that event and sets the goal event in the job.
+	/* Check that start a job with a cause passed references that event
+	 * and sets the cause in the job.
 	 */
-	TEST_FEATURE ("with new goal change event");
+	TEST_FEATURE ("with new cause");
 	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
@@ -282,7 +282,7 @@ test_change_goal (void)
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
-		job->goal_event = NULL;
+		job->cause = NULL;
 		em->jobs = 0;
 
 		job_change_goal (job, JOB_START, em);
@@ -292,13 +292,13 @@ test_change_goal (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, 1);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 
 		TEST_EQ (em->jobs, 1);
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that an attempt to start a job that's running and still
@@ -384,17 +384,17 @@ test_change_goal (void)
 	}
 
 
-	/* Check that stopping a job with a goal change event set
-	 * unreferences the event and sets it to NULL.
+	/* Check that stopping a job with a cause event set unreferences the
+	 * event and sets it to NULL.
 	 */
-	TEST_FEATURE ("with existing goal change event");
+	TEST_FEATURE ("with existing cause");
 	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 		em->progress = EVENT_HANDLING;
 
@@ -409,7 +409,7 @@ test_change_goal (void)
 		TEST_EQ (job->state, JOB_STARTING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, pid);
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 
 		TEST_EQ (em->jobs, 0);
 		TEST_EQ (em->progress, EVENT_FINISHED);
@@ -421,20 +421,20 @@ test_change_goal (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
-	/* Check that stopping a job passing a goal change event
-	 * references that event and sets the job's goal event.
+	/* Check that stopping a job passing a cause references that event
+	 * and sets the job's cause.
 	 */
-	TEST_FEATURE ("with existing goal change event");
+	TEST_FEATURE ("with existing cause");
 	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_ACTIVE;
-		job->goal_event = NULL;
+		job->cause = NULL;
 		em->jobs = 0;
 
 		TEST_CHILD (job->pid) {
@@ -449,7 +449,7 @@ test_change_goal (void)
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, pid);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->jobs, 1);
 
 		TEST_EQ_P (job->kill_timer, NULL);
@@ -459,7 +459,7 @@ test_change_goal (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that an attempt to stop a waiting job does nothing. */
@@ -559,8 +559,7 @@ test_change_state (void)
 
 	/* Check that a job can move directly from waiting to running if it
 	 * has no start script, emitting both the start and started events;
-	 * since the job is not a service, this should not clear the
-	 * goal event.
+	 * since the job is not a service, this should not clear the cause.
 	 */
 	TEST_FEATURE ("waiting to starting with no script");
 	nih_free (job->start_script);
@@ -572,7 +571,7 @@ test_change_state (void)
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
 
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 
 		job_change_state (job, JOB_STARTING);
@@ -581,7 +580,7 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->jobs, 1);
 
 		event = (Event *)list->prev;
@@ -605,13 +604,12 @@ test_change_state (void)
 		unlink (filename);
 	}
 
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a job can move directly from waiting to running if it
 	 * has no start script, emitting both the start and started events;
-	 * and as the job is a service, the goal event should be cleared
-	 * too.
+	 * and as the job is a service, the cause should be cleared too.
 	 */
 	TEST_FEATURE ("waiting to starting with no script for service");
 	job->service = TRUE;
@@ -622,7 +620,7 @@ test_change_state (void)
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
 
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 
 		job_change_state (job, JOB_STARTING);
@@ -631,7 +629,7 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->jobs, 0);
 
 		event = (Event *)list->prev;
@@ -657,12 +655,12 @@ test_change_state (void)
 
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
 	job->service = FALSE;
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a job in the starting state moves into the running state,
 	 * emitting the started event; since this is not a service, this
-	 * should not clear the goal event.
+	 * should not clear the cause.
 	 */
 	TEST_FEATURE ("starting to running with command");
 	TEST_ALLOC_FAIL {
@@ -670,7 +668,7 @@ test_change_state (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 
 		job_change_state (job, JOB_RUNNING);
@@ -679,7 +677,7 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->jobs, 1);
 
 		event = (Event *)list->prev;
@@ -697,12 +695,12 @@ test_change_state (void)
 		unlink (filename);
 	}
 
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a job in the starting state moves into the running state,
 	 * emitting the started event; and because it is a service, the
-	 * goal event is cleared.
+	 * cause is cleared.
 	 */
 	TEST_FEATURE ("starting to running for service");
 	job->service = TRUE;
@@ -712,7 +710,7 @@ test_change_state (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 
 		job_change_state (job, JOB_RUNNING);
@@ -721,7 +719,7 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->jobs, 0);
 
 		event = (Event *)list->prev;
@@ -740,13 +738,13 @@ test_change_state (void)
 	}
 
 	job->service = FALSE;
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a job in the starting state can move into the running
 	 * state, and that a script instead of a command can be run.
 	 * The started event should be emitted, and since this isn't a
-	 * service, the goal event should be left alone.
+	 * service, the cause should be left alone.
 	 */
 	TEST_FEATURE ("starting to running with script");
 	job->script = job->command;
@@ -757,7 +755,7 @@ test_change_state (void)
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 
 		job_change_state (job, JOB_RUNNING);
@@ -766,7 +764,7 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->jobs, 1);
 
 		event = (Event *)list->prev;
@@ -784,7 +782,7 @@ test_change_state (void)
 		unlink (filename);
 	}
 
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a job in the running state can move into the respawning
@@ -1008,7 +1006,7 @@ test_change_state (void)
 
 	/* Check that a job in the stopping state can move into the waiting
 	 * state, emitting the stopped event as it goes and clearing the
-	 * goal event.
+	 * cause.
 	 */
 	TEST_FEATURE ("stopping to waiting");
 	TEST_ALLOC_FAIL {
@@ -1016,7 +1014,7 @@ test_change_state (void)
 		job->state = JOB_STOPPING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
-		job->goal_event = em;
+		job->cause = em;
 		em->jobs = 1;
 
 		job_change_state (job, JOB_WAITING);
@@ -1025,7 +1023,7 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process_state, PROCESS_NONE);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->jobs, 0);
 
 		event = (Event *)list->prev;
@@ -1038,7 +1036,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (list);
 	}
 
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a job in the stopping state can move into the waiting
@@ -1109,7 +1107,7 @@ test_change_state (void)
 
 	/* Check that a job that tries to enter the running state from the
 	 * starting state too fast results in it being stopped.  An error
-	 * message should be emitted; but the goal event shouldn't be
+	 * message should be emitted; but the cause shouldn't be
 	 * cleared since this is a caught failure.
 	 */
 	TEST_FEATURE ("starting to running too fast");
@@ -1119,7 +1117,7 @@ test_change_state (void)
 	job->respawn_limit = 10;
 	job->respawn_interval = 100;
 
-	job->goal_event = em;
+	job->cause = em;
 	em->jobs = 1;
 
 	output = tmpfile ();
@@ -1141,7 +1139,7 @@ test_change_state (void)
 	TEST_EQ (job->state, JOB_STOPPING);
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_EQ_P (job->goal_event, em);
+	TEST_EQ_P (job->cause, em);
 	TEST_EQ (em->jobs, 1);
 
 	waitpid (job->pid, NULL, 0);
@@ -1156,7 +1154,7 @@ test_change_state (void)
 	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
 	TEST_FILE_RESET (output);
 
-	job->goal_event = NULL;
+	job->cause = NULL;
 	event_poll ();
 
 
@@ -1471,9 +1469,9 @@ test_run_script (void)
 
 
 	/* Check that a small shell script will have arguments from the
-	 * goal event passed to it, if one exists.
+	 * cause passed to it, if one exists.
 	 */
-	TEST_FEATURE ("with small script and goal event");
+	TEST_FEATURE ("with small script and cause");
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
@@ -1488,7 +1486,7 @@ test_run_script (void)
 							 "echo $0\necho $@"),
 						   filename);
 
-			job->goal_event = em;
+			job->cause = em;
 		}
 
 		job_run_script (job, job->script);
@@ -1578,9 +1576,9 @@ test_run_script (void)
 
 
 	/* Check that a long shell script will have arguments from the
-	 * goal event passed to it, if one exists.
+	 * cause passed to it, if one exists.
 	 */
-	TEST_FEATURE ("with long script and goal event");
+	TEST_FEATURE ("with long script and cause");
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
@@ -1598,7 +1596,7 @@ test_run_script (void)
 				strcat (job->script,
 					"# this just bulks it out a bit");
 
-			job->goal_event = em;
+			job->cause = em;
 		}
 
 		job_run_script (job, job->script);
@@ -1895,7 +1893,7 @@ test_child_reaper (void)
 
 	/* Check that we can reap the running task of the job, which should
 	 * set the goal to stop and transition a state change into the
-	 * stopping state.  This should not alter the goal event.
+	 * stopping state.  This should not alter the cause.
 	 */
 	TEST_FEATURE ("with running task");
 	em = event_emit ("foo", NULL, NULL);
@@ -1908,7 +1906,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
@@ -1921,7 +1919,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -1930,7 +1928,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that we can reap a running task of the job after it's been
@@ -1987,7 +1985,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
@@ -2000,7 +1998,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2009,7 +2007,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that we can reap a failing starting task of the job, which
@@ -2029,7 +2027,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 
 		TEST_DIVERT_STDERR (output) {
@@ -2045,7 +2043,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_STARTING);
 		TEST_EQ (job->exit_status, 1);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
@@ -2060,7 +2058,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that we can reap a killed starting task, which should
@@ -2078,7 +2076,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 
 		TEST_DIVERT_STDERR (output) {
@@ -2094,7 +2092,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_STARTING);
 		TEST_EQ (job->exit_status, SIGTERM | 0x80);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
@@ -2109,7 +2107,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that we can catch the running task failing, and if the job
@@ -2167,7 +2165,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 		job->respawn = TRUE;
 		job->normalexit = exitcodes;
@@ -2186,7 +2184,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2201,7 +2199,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a running task that fails with an exit status not
@@ -2218,7 +2216,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
@@ -2237,7 +2235,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_RUNNING);
 		TEST_EQ (job->exit_status, 99);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
@@ -2252,7 +2250,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a running task that fails doesn't mark the job or
@@ -2270,7 +2268,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
@@ -2289,7 +2287,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2304,7 +2302,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a running task that fails with an exit status
@@ -2322,7 +2320,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
@@ -2341,7 +2339,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2356,7 +2354,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a running task that fails with an signal
@@ -2374,7 +2372,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
@@ -2393,7 +2391,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2408,7 +2406,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* A running task exiting with the zero exit code is considered
@@ -2425,7 +2423,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 		job->respawn = FALSE;
 		job->normalexit = exitcodes;
@@ -2441,7 +2439,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2450,7 +2448,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that we can reap the stopping task of the job, and end up
@@ -2467,7 +2465,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
@@ -2480,14 +2478,14 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_EQ (job->pid, 0);
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that we can reap a failing stopping task of the job, which
@@ -2504,7 +2502,7 @@ test_child_reaper (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = FALSE;
 
 		TEST_DIVERT_STDERR (output) {
@@ -2520,7 +2518,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_STOPPING);
 		TEST_EQ (job->exit_status, 1);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->pid, 0);
@@ -2533,7 +2531,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	/* Check that a failing stopping task doesn't overwrite the record
@@ -2550,7 +2548,7 @@ test_child_reaper (void)
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = SIGSEGV | 0x80;
-		job->goal_event = em;
+		job->cause = em;
 		em->failed = TRUE;
 
 		TEST_DIVERT_STDERR (output) {
@@ -2566,7 +2564,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_RUNNING);
 		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->pid, 0);
@@ -2579,7 +2577,7 @@ test_child_reaper (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	job->goal_event = NULL;
+	job->cause = NULL;
 
 
 	fclose (output);
@@ -2627,12 +2625,12 @@ test_handle_event (void)
 		job1->state = JOB_WAITING;
 		job1->process_state = PROCESS_NONE;
 		job1->pid = -1;
-		job1->goal_event = NULL;
+		job1->cause = NULL;
 
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
 		job2->process_state = PROCESS_ACTIVE;
-		job2->goal_event = NULL;
+		job2->cause = NULL;
 
 		TEST_CHILD (job2->pid) {
 			pause ();
@@ -2645,12 +2643,12 @@ test_handle_event (void)
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_WAITING);
 		TEST_EQ (job1->process_state, PROCESS_NONE);
-		TEST_EQ_P (job1->goal_event, NULL);
+		TEST_EQ_P (job1->cause, NULL);
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_RUNNING);
 		TEST_EQ (job2->process_state, PROCESS_ACTIVE);
-		TEST_EQ_P (job1->goal_event, NULL);
+		TEST_EQ_P (job2->cause, NULL);
 
 		kill (job2->pid, SIGTERM);
 		waitpid (job2->pid, NULL, 0);
@@ -2672,12 +2670,12 @@ test_handle_event (void)
 		job1->state = JOB_WAITING;
 		job1->process_state = PROCESS_NONE;
 		job1->pid = -1;
-		job1->goal_event = NULL;
+		job1->cause = NULL;
 
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
 		job2->process_state = PROCESS_ACTIVE;
-		job2->goal_event = NULL;
+		job2->cause = NULL;
 
 		TEST_CHILD (job2->pid) {
 			pause ();
@@ -2690,7 +2688,7 @@ test_handle_event (void)
 		TEST_EQ (job1->goal, JOB_START);
 		TEST_EQ (job1->state, JOB_RUNNING);
 		TEST_EQ (job1->process_state, PROCESS_ACTIVE);
-		TEST_EQ_P (job1->goal_event, em);
+		TEST_EQ_P (job1->cause, em);
 
 		TEST_NE (job1->pid, 0);
 		waitpid (job1->pid, NULL, 0);
@@ -2698,7 +2696,7 @@ test_handle_event (void)
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_RUNNING);
 		TEST_EQ (job2->process_state, PROCESS_KILLED);
-		TEST_EQ_P (job2->goal_event, em);
+		TEST_EQ_P (job2->cause, em);
 
 		waitpid (job2->pid, &status, 0);
 		TEST_TRUE (WIFSIGNALED (status));

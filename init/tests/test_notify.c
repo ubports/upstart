@@ -344,10 +344,10 @@ test_job (void)
 
 
 	/* Check that a job status change also notifies any processes
-	 * subscribed to its goal event, with the slightly different
+	 * subscribed to its cause event, with the slightly different
 	 * event job status message that includes the event id.
 	 */
-	TEST_FEATURE ("with subscription to goal event");
+	TEST_FEATURE ("with subscription to cause event");
 	job = job_new (NULL, "test");
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
@@ -358,7 +358,7 @@ test_job (void)
 	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
 
-	job->goal_event = emission;
+	job->cause = emission;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {

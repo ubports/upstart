@@ -147,11 +147,11 @@ job_new (const void *parent,
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
+	job->cause = NULL;
+
 	nih_list_init (&job->start_events);
 	nih_list_init (&job->stop_events);
 	nih_list_init (&job->emits);
-
-	job->goal_event = NULL;
 
 	job->process_state = PROCESS_NONE;
 	job->pid = 0;
@@ -270,8 +270,8 @@ job_find_by_pid (pid_t pid)
  * performing any necessary state changes or actions (such as killing
  * the running process) to correctly enter the new goal.
  *
- * @emission is stored in the Job's goal_event member, and may be NULL.
- * Any previous goal_event is unreferenced and allowed to finish handling
+ * @emission is stored in the Job's cause member, and may be NULL.
+ * Any previous cause is unreferenced and allowed to finish handling
  * if it has no further references.
  **/
 void
@@ -288,18 +288,18 @@ job_change_goal (Job           *job,
 		  job_goal_name (job->goal), job_goal_name (goal));
 	job->goal = goal;
 
-	/* Switch over the goal event, dereferencing the current one and
+	/* Switch over the cause, dereferencing the current one and
 	 * referencing the new one.
 	 */
-	if (job->goal_event != emission) {
-		if (job->goal_event) {
-			job->goal_event->jobs--;
-			event_emit_finished (job->goal_event);
+	if (job->cause != emission) {
+		if (job->cause) {
+			job->cause->jobs--;
+			event_emit_finished (job->cause);
 		}
 
-		job->goal_event = emission;
-		if (job->goal_event)
-			job->goal_event->jobs++;
+		job->cause = emission;
+		if (job->cause)
+			job->cause->jobs++;
 	}
 
 	notify_job (job);
@@ -376,11 +376,11 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
-			if (job->goal_event) {
-				job->goal_event->jobs--;
-				event_emit_finished (job->goal_event);
+			if (job->cause) {
+				job->cause->jobs--;
+				event_emit_finished (job->cause);
 
-				job->goal_event = NULL;
+				job->cause = NULL;
 			}
 
 			event_name = JOB_STOPPED_EVENT;
@@ -416,8 +416,7 @@ job_change_state (Job      *job,
 				nih_warn (_("%s respawning too fast, stopped"),
 					  job->name);
 
-				job_change_goal (job, JOB_STOP,
-						 job->goal_event);
+				job_change_goal (job, JOB_STOP, job->cause);
 				state = job_next_state (job);
 				break;
 			}
@@ -428,15 +427,14 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
-			/* Clear the goal event if we're a service
-			 * since our goal is to be running, not
-			 * to get back to waiting again.
+			/* Clear the cause if we're a service since our goal
+			 * is to be running, not to get back to waiting again.
 			 */
-			if (job->service && job->goal_event) {
-				job->goal_event->jobs--;
-				event_emit_finished (job->goal_event);
+			if (job->service && job->cause) {
+				job->cause->jobs--;
+				event_emit_finished (job->cause);
 
-				job->goal_event = NULL;
+				job->cause = NULL;
 			}
 
 			event_name = JOB_STARTED_EVENT;
@@ -725,9 +723,8 @@ job_run_script (Job        *job,
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
 		NIH_MUST (nih_str_array_addp (&argv, NULL, &argc, cmd));
 
-		if (job->goal_event)
-			for (arg = job->goal_event->event.args;
-			     arg && *arg; arg++)
+		if (job->cause)
+			for (arg = job->cause->event.args; arg && *arg; arg++)
 				NIH_MUST (nih_str_array_add (&argv, NULL,
 							     &argc, *arg));
 
@@ -761,12 +758,11 @@ job_run_script (Job        *job,
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-c"));
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, script));
 
-		if (job->goal_event) {
+		if (job->cause) {
 			NIH_MUST (nih_str_array_add (&argv, NULL,
 						     &argc, SHELL));
 
-			for (arg = job->goal_event->event.args;
-			     arg && *arg; arg++)
+			for (arg = job->cause->event.args; arg && *arg; arg++)
 				NIH_MUST (nih_str_array_add (&argv, NULL,
 							     &argc, *arg));
 		}
@@ -1056,7 +1052,7 @@ job_child_reaper (void  *data,
 	 * and environment to the stop and stopped events generated for the
 	 * job.
 	 *
-	 * In addition, mark the goal event as failed as well; this is
+	 * In addition, mark the cause event failed as well; this is
 	 * reported to the emitted of the event, and also causes a failed
 	 * event to be generated.
 	 *
@@ -1069,15 +1065,15 @@ job_child_reaper (void  *data,
 		job->failed_state = job->state;
 		job->exit_status = status;
 
-		if (job->goal_event)
-			job->goal_event->failed = TRUE;
+		if (job->cause)
+			job->cause->failed = TRUE;
 	}
 
 	/* Change the goal to stop; since we're in a non-rest state, this
 	 * has no side-effects to the state.
 	 */
 	if (stop)
-		job_change_goal (job, JOB_STOP, job->goal_event);
+		job_change_goal (job, JOB_STOP, job->cause);
 
 	/* We've reached a gateway point, switch to the next state. */
 	job_change_state (job, job_next_state (job));

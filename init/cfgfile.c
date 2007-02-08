@@ -294,7 +294,7 @@ cfg_read_job (const void *parent,
 
 		job->goal = old_job->goal;
 		job->state = old_job->state;
-		job->goal_event = old_job->goal_event;
+		job->cause = old_job->cause;
 		job->process_state = old_job->process_state;
 		job->pid = old_job->pid;
 		job->failed = old_job->failed;

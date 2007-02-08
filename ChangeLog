@@ -1,5 +1,13 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Rename goal_event to cause, also shuffle things
+	around so that the state is mostly together.
+	* init/job.c, init/process.c, init/notify.c, init/cfgfile.c: Update
+	references (and comments) to match the new name.
+	* init/tests/test_job.c, init/tests/test_event.c,
+	init/tests/test_process.c, init/tests/test_cfgfile.c,
+	init/tests/test_notify.c: Likewise.
+
 	* init/job.c (job_child_reaper): Don't change the goal event; the
 	state changes will handle this.
 	(job_change_goal): Only dereference/reference the goal event if we're
