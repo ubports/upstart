@@ -1,5 +1,14 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_start, control_job_stop) 
+	(control_job_query, control_job_list): Drop process state and
+	description from the job status messages we send back.
+	* init/tests/test_control.c (test_error_handler) 
+	(check_job_started, test_job_start, check_job_stopped) 
+	(check_job_stopping, test_job_query, check_job_starting) 
+	(test_job_list, test_watch_jobs, test_unwatch_jobs): Remove
+	process_state and description, and update usage of job states.
+
 	* init/notify.c (notify_job): Don't include process state or
 	description in the job status message anymore.
 	* init/tests/test_notify.c (check_job_status, test_job): Update tests

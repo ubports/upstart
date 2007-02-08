@@ -211,10 +211,8 @@ test_error_handler (void)
 	upstart_disable_safeties = TRUE;
 
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
+	job->state = JOB_KILLED;
 	job->pid = 1000;
 
 	fflush (stdout);
@@ -267,18 +265,14 @@ check_job_started (void               *data,
 		   const char         *name,
 		   JobGoal             goal,
 		   JobState            state,
-		   ProcessState        process_state,
-		   pid_t               process,
-		   const char         *description)
+		   pid_t               process)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_RUNNING);
-	TEST_EQ (process_state, PROCESS_ACTIVE);
-	TEST_GT (process, 0);
-	TEST_EQ_STR (description, "a test job");
+	TEST_EQ (state, JOB_STARTING);
+	TEST_EQ (process, 0);
 
 	return 0;
 }
@@ -315,10 +309,9 @@ test_job_start (void)
 	 */
 	TEST_FEATURE ("with known job");
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
+	job->pid = 0;
 	job->command = "echo";
 
 	fflush (stdout);
@@ -356,11 +349,8 @@ test_job_start (void)
 		exit (1);
 
 	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_GT (job->pid, 0);
-
-	waitpid (job->pid, NULL, 0);
+	TEST_EQ (job->state, JOB_STARTING);
+	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&job->entry);
 
@@ -414,18 +404,14 @@ check_job_stopped (void               *data,
 		   const char         *name,
 		   JobGoal             goal,
 		   JobState            state,
-		   ProcessState        process_state,
-		   pid_t               process,
-		   const char         *description)
+		   pid_t               process)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_RUNNING);
-	TEST_EQ (process_state, PROCESS_KILLED);
+	TEST_EQ (state, JOB_STOPPING);
 	TEST_GT (process, 0);
-	TEST_EQ_STR (description, "a test job");
 
 	return 0;
 }
@@ -449,10 +435,8 @@ test_job_stop (void)
 	 */
 	TEST_FEATURE ("with known job");
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
 	TEST_CHILD (job->pid) {
 		pause ();
 	}
@@ -491,8 +475,7 @@ test_job_stop (void)
 		exit (1);
 
 	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_KILLED);
+	TEST_EQ (job->state, JOB_STOPPING);
 	TEST_GT (job->pid, 0);
 
 	waitpid (job->pid, &status, 0);
@@ -546,24 +529,20 @@ test_job_stop (void)
 }
 
 static int
-check_job_stopping (void               *data,
-		    pid_t               pid,
-		    UpstartMessageType  type,
-		    const char         *name,
-		    JobGoal             goal,
-		    JobState            state,
-		    ProcessState        process_state,
-		    pid_t               process,
-		    const char         *description)
+check_job_status (void               *data,
+		  pid_t               pid,
+		  UpstartMessageType  type,
+		  const char         *name,
+		  JobGoal             goal,
+		  JobState            state,
+		  pid_t               process)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_STOPPING);
-	TEST_EQ (process_state, PROCESS_ACTIVE);
+	TEST_EQ (state, JOB_KILLED);
 	TEST_EQ (process, 1000);
-	TEST_EQ_STR (description, "a test job");
 
 	return 0;
 }
@@ -586,10 +565,8 @@ test_job_query (void)
 	 */
 	TEST_FEATURE ("with known job");
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
+	job->state = JOB_KILLED;
 	job->pid = 1000;
 
 	fflush (stdout);
@@ -612,7 +589,7 @@ test_job_query (void)
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert (upstart_message_handle_using (
 				message, message,
-				(UpstartMessageHandler)check_job_stopping,
+				(UpstartMessageHandler)check_job_status,
 				NULL) == 0);
 		nih_free (message);
 
@@ -627,7 +604,6 @@ test_job_query (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 	TEST_EQ (job->pid, 1000);
 
 	nih_list_free (&job->entry);
@@ -676,29 +652,6 @@ test_job_query (void)
 }
 
 static int
-check_job_starting (void               *data,
-		    pid_t               pid,
-		    UpstartMessageType  type,
-		    const char         *name,
-		    JobGoal             goal,
-		    JobState            state,
-		    ProcessState        process_state,
-		    pid_t               process,
-		    const char         *description)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-	TEST_EQ_STR (name, "frodo");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_STARTING);
-	TEST_EQ (process_state, PROCESS_ACTIVE);
-	TEST_EQ (process, 1000);
-	TEST_EQ_STR (description, "baggins");
-
-	return 0;
-}
-
-static int
 check_job_list_end (void               *data,
 		    pid_t               pid,
 		    UpstartMessageType  type)
@@ -726,17 +679,13 @@ test_job_list (void)
 	upstart_disable_safeties = TRUE;
 
 	job1 = job_new (NULL, "test");
-	job1->description = nih_strdup (job1, "a test job");
 	job1->goal = JOB_START;
-	job1->state = JOB_STOPPING;
-	job1->process_state = PROCESS_ACTIVE;
-	job1->pid = 1000;
+	job1->state = JOB_STARTING;
+	job1->pid = 0;
 
 	job2 = job_new (NULL, "frodo");
-	job2->description = nih_strdup (job2, "baggins");
 	job2->goal = JOB_STOP;
-	job2->state = JOB_STARTING;
-	job2->process_state = PROCESS_ACTIVE;
+	job2->state = JOB_KILLED;
 	job2->pid = 1000;
 
 	fflush (stdout);
@@ -759,7 +708,7 @@ test_job_list (void)
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert (upstart_message_handle_using (
 				message, message,
-				(UpstartMessageHandler)check_job_stopping,
+				(UpstartMessageHandler)check_job_started,
 				NULL) == 0);
 		nih_free (message);
 
@@ -767,7 +716,7 @@ test_job_list (void)
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert (upstart_message_handle_using (
 				message, message,
-				(UpstartMessageHandler)check_job_starting,
+				(UpstartMessageHandler)check_job_stopped,
 				NULL) == 0);
 		nih_free (message);
 
@@ -813,11 +762,9 @@ test_watch_jobs (void)
 	upstart_disable_safeties = TRUE;
 
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
+	job->state = JOB_STARTING;
+	job->pid = 0;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -839,7 +786,7 @@ test_watch_jobs (void)
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert (upstart_message_handle_using (
 				message, message,
-				(UpstartMessageHandler)check_job_stopping,
+				(UpstartMessageHandler)check_job_started,
 				NULL) == 0);
 		nih_free (message);
 
@@ -884,10 +831,8 @@ test_unwatch_jobs (void)
 	upstart_disable_safeties = TRUE;
 
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
-	job->goal = JOB_START;
+	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 
 	fflush (stdout);
@@ -912,7 +857,7 @@ test_unwatch_jobs (void)
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert (upstart_message_handle_using (
 				message, message,
-				(UpstartMessageHandler)check_job_stopping,
+				(UpstartMessageHandler)check_job_stopped,
 				NULL) == 0);
 		nih_free (message);
 

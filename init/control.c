@@ -247,8 +247,7 @@ control_job_start (void               *data,
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
 					       job->goal, job->state,
-					       job->process_state, job->pid,
-					       job->description));
+					       job->pid));
 	nih_io_send_message (control_io, reply);
 
 	return 0;
@@ -298,8 +297,7 @@ control_job_stop (void               *data,
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
 					       job->goal, job->state,
-					       job->process_state, job->pid,
-					       job->description));
+					       job->pid));
 	nih_io_send_message (control_io, reply);
 
 	return 0;
@@ -348,8 +346,7 @@ control_job_query (void               *data,
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
 					       job->goal, job->state,
-					       job->process_state, job->pid,
-					       job->description));
+					       job->pid));
 	nih_io_send_message (control_io, reply);
 
 	return 0;
@@ -385,10 +382,7 @@ control_job_list (void               *data,
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
 						       UPSTART_JOB_STATUS,
 						       job->name, job->goal,
-						       job->state,
-						       job->process_state,
-						       job->pid,
-						       job->description));
+						       job->state, job->pid));
 		nih_io_send_message (control_io, reply);
 	}
 
