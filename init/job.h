@@ -154,6 +154,9 @@ typedef struct job {
 	NihList        stop_events;
 	NihList        emits;
 
+	int           *normalexit;
+	size_t         normalexit_len;
+
 	time_t         kill_timeout;
 	NihTimer      *kill_timer;
 
@@ -166,8 +169,6 @@ typedef struct job {
 	time_t         respawn_interval;
 	int            respawn_count;
 	time_t         respawn_time;
-	int           *normalexit;
-	size_t         normalexit_len;
 
 	int            daemon;
 	char          *pid_file;
@@ -179,7 +180,6 @@ typedef struct job {
 	char          *script;
 	char          *start_script;
 	char          *stop_script;
-	char          *respawn_script;
 
 	ConsoleType    console;
 	char         **env;

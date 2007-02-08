@@ -68,29 +68,65 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->entry);
+
+		TEST_ALLOC_PARENT (job->name, job);
+		TEST_EQ_STR (job->name, "test");
+		TEST_EQ_P (job->description, NULL);
+		TEST_EQ_P (job->author, NULL);
+		TEST_EQ_P (job->version, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
 		TEST_LIST_EMPTY (&job->start_events);
 		TEST_LIST_EMPTY (&job->stop_events);
 		TEST_LIST_EMPTY (&job->emits);
 
-		TEST_EQ_P (job->cause, NULL);
-
-		TEST_EQ_STR (job->name, "test");
-		TEST_ALLOC_PARENT (job->name, job);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ_P (job->normalexit, NULL);
+		TEST_EQ (job->normalexit_len, 0);
 
 		TEST_EQ (job->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
-		TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		TEST_EQ (job->spawns_instance, FALSE);
+		TEST_EQ (job->is_instance, FALSE);
+
+		TEST_EQ (job->service, FALSE);
+		TEST_EQ (job->respawn, FALSE);
 		TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
 		TEST_EQ (job->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
+		TEST_EQ (job->respawn_count, 0);
+		TEST_EQ (job->respawn_time, 0);
+
+		TEST_EQ (job->daemon, FALSE);
+		TEST_EQ_P (job->pid_file, NULL);
+		TEST_EQ_P (job->pid_binary, NULL);
+		TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ_P (job->pid_timer, NULL);
+
+		TEST_EQ_P (job->command, NULL);
+		TEST_EQ_P (job->script, NULL);
+		TEST_EQ_P (job->start_script, NULL);
+		TEST_EQ_P (job->stop_script, NULL);
 
 		TEST_EQ (job->console, CONSOLE_NONE);
+		TEST_EQ_P (job->env, NULL);
+
 		TEST_EQ (job->umask, JOB_DEFAULT_UMASK);
+		TEST_EQ (job->nice, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)
 			TEST_EQ_P (job->limits[i], NULL);
+
+		TEST_EQ_P (job->chroot, NULL);
+		TEST_EQ_P (job->chdir, NULL);
 
 		nih_list_free (&job->entry);
 	}

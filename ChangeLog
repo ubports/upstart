@@ -1,5 +1,10 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h: Move things about a bit more; remove respawn_script
+	since that state is going away.
+	* init/job.c (job_new): Drop initialisation of process_state.
+	* init/tests/test_job.c (test_new): Improve the tests.
+
 	* init/main.c (STATE_FD): Remove this define, not used anymore.
 
 	* init/tests/test_event.c (test_poll): Update the event checking

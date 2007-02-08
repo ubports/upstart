@@ -147,19 +147,20 @@ job_new (const void *parent,
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
+	job->pid = 0;
 
 	job->cause = NULL;
+
+	job->failed = FALSE;
+	job->failed_state = JOB_WAITING;
+	job->exit_status = 0;
 
 	nih_list_init (&job->start_events);
 	nih_list_init (&job->stop_events);
 	nih_list_init (&job->emits);
 
-	job->process_state = PROCESS_NONE;
-	job->pid = 0;
-
-	job->failed = FALSE;
-	job->failed_state = JOB_WAITING;
-	job->exit_status = 0;
+	job->normalexit = NULL;
+	job->normalexit_len = 0;
 
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	job->kill_timer = NULL;
@@ -173,8 +174,6 @@ job_new (const void *parent,
 	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
 	job->respawn_count = 0;
 	job->respawn_time = 0;
-	job->normalexit = NULL;
-	job->normalexit_len = 0;
 
 	job->daemon = FALSE;
 	job->pid_file = NULL;
@@ -186,7 +185,6 @@ job_new (const void *parent,
 	job->script = NULL;
 	job->start_script = NULL;
 	job->stop_script = NULL;
-	job->respawn_script = NULL;
 
 	job->console = CONSOLE_NONE;
 	job->env = NULL;
