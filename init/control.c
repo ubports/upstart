@@ -63,6 +63,9 @@ static int  control_unwatch_events (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_shutdown       (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name);
+static int  control_event_emit     (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name,
+				    char **args, char **env);
 
 
 /**
@@ -97,6 +100,8 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_unwatch_events },
 	{ -1, UPSTART_SHUTDOWN,
 	  (UpstartMessageHandler)control_shutdown },
+	{ -1, UPSTART_EVENT_EMIT,
+	  (UpstartMessageHandler)control_event_emit },
 
 	UPSTART_MESSAGE_LAST
 };
@@ -537,6 +542,50 @@ control_shutdown (void               *data,
 
 	event_emit (SHUTDOWN_EVENT, NULL, NULL);
 	job_set_idle_event (name);
+
+	return 0;
+}
+
+/**
+ * control_event_emit:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of event to emit,
+ * @args: optional arguments to event,
+ * @end: optional environment for event.
+ *
+ * This function is called when another process on the system requests that
+ * we emit a @name event, with the optional @args and @env supplied.
+ *
+ * We queue the pending event and subscribe the process to receive
+ * notification when the event is being handled, all changes the event makes
+ * and notification when the event has finished; including whether it
+ * succeeded or failed.
+ *
+ * If given, @args and @env are re-parented to belong to the event emitted.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_event_emit (void                *data,
+		    pid_t                pid,
+		    UpstartMessageType   type,
+		    const char          *name,
+		    char               **args,
+		    char               **env)
+{
+	EventEmission *emission;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_EVENT_EMIT);
+	nih_assert (name != NULL);
+
+	nih_info (_("Control request to emit %s event"), name);
+
+	emission = event_emit (name, args, env);
+
+	notify_subscribe_event (emission, pid, emission);
 
 	return 0;
 }

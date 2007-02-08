@@ -1180,6 +1180,81 @@ test_shutdown (void)
 	upstart_disable_safeties = FALSE;
 }
 
+void
+test_event_emit (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	EventEmission      *em;
+	NotifySubscription *sub;
+	NihList            *list;
+
+	/* Check that we can handle a message from a child process requesting
+	 * that an event be emitted.  We don't send an immediate reply,
+	 * however we should be able to find the event in the queue and see
+	 * that there's a subscription on it.
+	 */
+	TEST_FUNCTION ("control_event_emit");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	/* This is a naughty way of getting a pointer to the event queue
+	 * list head...
+	 */
+	event_poll ();
+	em = event_emit ("wibble", NULL, NULL);
+	list = em->event.entry.prev;
+	nih_list_free (&em->event.entry);
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage  *message;
+		char         **args, **env;
+		int            sock;
+
+		sock = upstart_open ();
+
+		args = nih_str_array_new (NULL);
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+
+		env = nih_str_array_new (NULL);
+		NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_EVENT_EMIT, "wibble",
+					       args, env);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	em = (EventEmission *)list->prev;
+	TEST_EQ_STR (em->event.name, "wibble");
+	TEST_EQ_STR (em->event.args[0], "foo");
+	TEST_EQ_STR (em->event.args[1], "bar");
+	TEST_EQ_P (em->event.args[2], NULL);
+	TEST_EQ_STR (em->event.env[0], "FOO=BAR");
+	TEST_EQ_P (em->event.env[1], NULL);
+
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, em);
+	TEST_NE_P (sub, NULL);
+
+	nih_list_free (&em->event.entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
 
 int
 main (int   argc,
@@ -1197,6 +1272,7 @@ main (int   argc,
 	test_watch_events ();
 	test_unwatch_events ();
 	test_shutdown ();
+	test_event_emit ();
 
 	return 0;
 }

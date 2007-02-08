@@ -1,5 +1,10 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_event_emit): New function to handle the
+	new-style emit message.
+	* init/tests/test_control.c (test_event_emit): Make sure the new
+	message function behaves.
+
 	* init/event.c, init/job.c, init/main.c, init/tests/test_event.c,
 	init/tests/test_job.c: Completely drop the serialisation code, it's
 	getting out of date and in the way.
