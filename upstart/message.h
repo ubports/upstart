@@ -110,9 +110,7 @@ typedef enum {
  * @name: name of job (char *),
  * @goal: current goal (JobGoal),
  * @state: state of job (JobState),
- * @process_state: state of current process (ProcessState),
- * @pid: process id (pid_t),
- * @description: description of job (char *).
+ * @pid: process id (pid_t).
  *
  *
  * UPSTART_EVENT_EMIT:

@@ -1,5 +1,13 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: Remove process_state and description from the
+	job status event (we already had the foresight to not put them in
+	the event job status event).
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Update handling of the messages to reduce the arguments.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Update the tests for the new job status message.
+
 	* upstart/enum.h (JobState): Change the job states to the new set
 	of states that we've planned.
 	(ProcessState): Drop process state entirely; this information is now

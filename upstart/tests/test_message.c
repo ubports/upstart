@@ -223,8 +223,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
 					   UPSTART_JOB_STATUS, "test",
-					   JOB_START, JOB_RUNNING,
-					   PROCESS_ACTIVE, 1000, "foo bar");
+					   JOB_START, JOB_RUNNING, 1000);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -233,15 +232,13 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 53);
+		TEST_EQ (msg->data->len, 36);
 		TEST_EQ_MEM (msg->data->buf, ("upstart\n\0\0\0\x04"
 					      "s\0\0\0\x04testi\0\0\0\x01"
-					      "i\0\0\0\x02i\0\0\0\x02"
-					      "i\0\0\x03\xe8s\0\0\0\afoo bar"),
-			     53);
+					      "i\0\0\0\x05i\0\0\x03\xe8"), 36);
 
 		nih_free (msg);
-	}
+}
 
 
 	/* Check that we can create an UPSTART_JOB_UNKNOWN message and have
@@ -492,7 +489,7 @@ test_new (void)
 		TEST_EQ (msg->data->len, 41);
 		TEST_EQ_MEM (msg->data->buf,
 			     ("upstart\n\0\0\x02\x11u\xde\xaf\xbe\xef"
-			      "s\0\0\0\x04testi\0\0\0\x01i\0\0\0\x02"
+			      "s\0\0\0\x04testi\0\0\0\x01i\0\0\0\x05"
 			      "i\0\0\x03\xe8"), 41);
 
 		nih_free (msg);
@@ -590,25 +587,20 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
-		char *name, *description;
-		int   goal, state, process_state, pid;
+		char *name;
+		int   goal, state, pid;
 
 		name = va_arg (args, char *);
 		goal = va_arg (args, int);
 		state = va_arg (args, int);
-		process_state = va_arg (args, int);
 		pid = va_arg (args, int);
-		description = va_arg (args, char *);
 
 		TEST_EQ_STR (name, "test");
 		TEST_EQ (goal, JOB_START);
 		TEST_EQ (state, JOB_RUNNING);
-		TEST_EQ (process_state, PROCESS_ACTIVE);
 		TEST_EQ (pid, 1000);
-		TEST_EQ_STR (description, "foo bar");
 
 		nih_free (name);
-		nih_free (description);
 
 		break;
 	}
@@ -897,10 +889,8 @@ test_handle (void)
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x04"
 						      "s\0\0\0\04test"
-						      "i\0\0\0\01i\0\0\0\02"
-						      "i\0\0\0\02i\0\0\03\xe8"
-						      "s\0\0\0\afoo bar"),
-						     53));
+						      "i\0\0\0\01i\0\0\0\05"
+						      "i\0\0\03\xe8"), 36));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1237,7 +1227,7 @@ test_handle (void)
 						     ("upstart\n\0\0\x02\x11"
 						      "u\xde\xaf\xbe\xef"
 						      "s\0\0\0\04test"
-						      "i\0\0\0\01i\0\0\0\02"
+						      "i\0\0\0\01i\0\0\0\05"
 						      "i\0\0\03\xe8"), 41));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
@@ -1508,10 +1498,8 @@ test_handle (void)
 	TEST_FEATURE ("with incomplete job status message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     ("upstart\n\0\0\0\x04"
-				      "s\0\0\0\x04test"
-				      "i\0\0\0\x01i\0\0\0\x02"
-				      "i\0\0\0\x02"), 36));
+				     ("upstart\n\0\0\0\x04s\0\0\0\x04test"
+				      "i\0\0\0\x01i\0\0\0\x05"), 31));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1537,9 +1525,8 @@ test_handle (void)
 	TEST_FEATURE ("with null job status");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     ("upstart\n\0\0\0\x04S"
-				      "i\0\0\0\x01i\0\0\0\x02i\0\0\0\x02"
-				      "i\0\0\x03\xe8s\0\0\0\afoo bar"), 45));
+				     ("upstart\n\0\0\0\x04Si\0\0\0\x01"
+				      "i\0\0\0\x05i\0\0\x03\xe8s"), 28));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
