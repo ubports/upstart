@@ -1,5 +1,11 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_cause): Put the knowledge about how to
+	change the cause into a separate function, since it's slightly
+	tricky.
+	(job_change_goal, job_change_state): Set the cause using the above
+	function.
+
 	* init/job.h (Job): Rename goal_event to cause, also shuffle things
 	around so that the state is mostly together.
 	* init/job.c, init/process.c, init/notify.c, init/cfgfile.c: Update

@@ -56,6 +56,7 @@
 
 
 /* Prototypes for static functions */
+static void job_change_cause  (Job *job, EventEmission *emission);
 static void job_run_process   (Job *job, char * const  argv[]);
 static void job_kill_timer    (Job *job, NihTimer *timer);
 static void job_failed_event  (Job *job, Event *event);
@@ -286,22 +287,9 @@ job_change_goal (Job           *job,
 
 	nih_info (_("%s goal changed from %s to %s"), job->name,
 		  job_goal_name (job->goal), job_goal_name (goal));
+
 	job->goal = goal;
-
-	/* Switch over the cause, dereferencing the current one and
-	 * referencing the new one.
-	 */
-	if (job->cause != emission) {
-		if (job->cause) {
-			job->cause->jobs--;
-			event_emit_finished (job->cause);
-		}
-
-		job->cause = emission;
-		if (job->cause)
-			job->cause->jobs++;
-	}
-
+	job_change_cause (job, emission);
 	notify_job (job);
 
 	/* We only need to inducate state changes from the natural
@@ -326,6 +314,34 @@ job_change_goal (Job           *job,
 
 		break;
 	}
+}
+
+/**
+ * job_change_cause:
+ * @job: job to change,
+ * @emission: emission to set.
+ *
+ * Updates the reference to the emission that's causing @job to be started
+ * or stopped to @emission, which may be NULL or even the same as the current
+ * one.
+ **/
+static void
+job_change_cause (Job           *job,
+		  EventEmission *emission)
+{
+	nih_assert (job != NULL);
+
+	if (job->cause == emission)
+		return;
+
+	if (job->cause) {
+		job->cause->jobs--;
+		event_emit_finished (job->cause);
+	}
+
+	job->cause = emission;
+	if (job->cause)
+		job->cause->jobs++;
 }
 
 
@@ -376,12 +392,7 @@ job_change_state (Job      *job,
 			/* FIXME
 			 * instances need to be cleaned up */
 
-			if (job->cause) {
-				job->cause->jobs--;
-				event_emit_finished (job->cause);
-
-				job->cause = NULL;
-			}
+			job_change_cause (job, NULL);
 
 			event_name = JOB_STOPPED_EVENT;
 			break;
@@ -430,12 +441,8 @@ job_change_state (Job      *job,
 			/* Clear the cause if we're a service since our goal
 			 * is to be running, not to get back to waiting again.
 			 */
-			if (job->service && job->cause) {
-				job->cause->jobs--;
-				event_emit_finished (job->cause);
-
-				job->cause = NULL;
-			}
+			if (job->service)
+				job_change_cause (job, NULL);
 
 			event_name = JOB_STARTED_EVENT;
 			break;
