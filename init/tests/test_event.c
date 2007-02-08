@@ -370,11 +370,8 @@ test_poll (void)
 	TEST_EQ (em1->jobs, 1);
 
 	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_NE (job->pid, -1);
-
-	waitpid (job->pid, NULL, 0);
+	TEST_EQ (job->state, JOB_STARTING);
+	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&sub->entry);
 	nih_list_free (&job->entry);
@@ -485,11 +482,8 @@ test_poll (void)
 	TEST_TRUE (destructor_called);
 
 	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_NE (job->pid, -1);
-
-	waitpid (job->pid, NULL, 0);
+	TEST_EQ (job->state, JOB_STARTING);
+	TEST_EQ (job->pid, 0);
 
 	TEST_EQ_STR (job->cause->event.name, "test/failed");
 
@@ -525,7 +519,7 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process_state, PROCESS_NONE);
+	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&job->entry);
 
