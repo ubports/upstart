@@ -7,6 +7,8 @@ Code Cleanup:
 
 High Priority:
 
+ * config file re-parsing drops the goal event
+
  * Add a "service" stanza that "respawn" implies.
 
  * Serialisation is turning out to be quite a tricky topic.  We're not

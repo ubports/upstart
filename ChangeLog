@@ -1,5 +1,7 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	Rewrite the notification subsystem quite significantly; now we
 	have individual functions to subscribe to different types of
 	notification, and can even subscribe to individual jobs or events.
