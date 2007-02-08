@@ -1,5 +1,17 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_service): Parser for service stanza.
+	* init/tests/test_cfgfile.c (test_stanza_service): Test the service
+	stanza.
+	(test_stanza_respawn): Check that respawn implies service.
+	* TODO: Update.
+
+	* init/job.h (Job): Add a new service member.
+	* init/job.c (job_new): Service starts off as false.
+	(job_change_state): Check service instead of respawn.
+	* init/tests/test_job.c (test_change_state): Check with service
+	instead of respawn, since that's what we really mean.
+
 	* init/cfgfile.c (cfg_read_job): Copy a whole bunch more state
 	into the newly parsed job.
 	* init/job.c (job_run_process): Only output the first error.

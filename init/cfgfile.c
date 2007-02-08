@@ -88,6 +88,9 @@ static int   cfg_stanza_daemon         (Job *job, NihConfigStanza *stanza,
 static int   cfg_stanza_respawn        (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
+static int   cfg_stanza_service	       (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
 static int   cfg_stanza_script         (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
@@ -155,6 +158,7 @@ static NihConfigStanza stanzas[] = {
 	{ "exec",        (NihConfigHandler)cfg_stanza_exec        },
 	{ "daemon",      (NihConfigHandler)cfg_stanza_daemon      },
 	{ "respawn",     (NihConfigHandler)cfg_stanza_respawn     },
+	{ "service",     (NihConfigHandler)cfg_stanza_service     },
 	{ "script",      (NihConfigHandler)cfg_stanza_script      },
 	{ "instance",    (NihConfigHandler)cfg_stanza_instance    },
 	{ "pid",         (NihConfigHandler)cfg_stanza_pid         },
@@ -846,6 +850,7 @@ cfg_stanza_respawn (Job             *job,
 					  _(CFG_DUPLICATE_VALUE_STR));
 
 		job->respawn = TRUE;
+		job->service = TRUE;
 
 		return nih_config_skip_comment (file, len, pos, lineno);
 	}
@@ -932,6 +937,7 @@ cfg_stanza_respawn (Job             *job,
 					  _(CFG_DUPLICATE_VALUE_STR));
 
 		job->respawn = TRUE;
+		job->service = TRUE;
 
 		job->command = nih_config_parse_command (job, file, len,
 							 pos, lineno);
@@ -940,6 +946,42 @@ cfg_stanza_respawn (Job             *job,
 
 		return 0;
 	}
+}
+
+/**
+ * cfg_stanza_service:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a service stanza from @file.  This sets the service flag for the
+ * job, and takes no further arguments.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_service (Job             *job,
+		    NihConfigStanza *stanza,
+		    const char      *file,
+		    size_t           len,
+		    size_t          *pos,
+		    size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->service && (! job->respawn))
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->service = TRUE;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
 }
 
 /**

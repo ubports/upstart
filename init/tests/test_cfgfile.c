@@ -1534,8 +1534,8 @@ test_stanza_respawn (void)
 	TEST_FILENAME (filename);
 
 
-	/* Check that a respawn stanza sets the job's respawn flag and
-	 * doesn't clear the command set by exec.
+	/* Check that a respawn stanza sets the job's respawn and service
+	 * flags, and doesn't clear the command set by exec.
 	 */
 	TEST_FEATURE ("with no argument");
 	jf = fopen (filename, "w");
@@ -1548,6 +1548,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
 	TEST_TRUE (job->respawn);
+	TEST_TRUE (job->service);
 
 	TEST_ALLOC_PARENT (job->command, job);
 	TEST_EQ_STR (job->command, "/sbin/daemon");
@@ -1568,6 +1569,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
 	TEST_TRUE (job->respawn);
+	TEST_TRUE (job->service);
 
 	TEST_ALLOC_PARENT (job->command, job);
 	TEST_EQ_STR (job->command, "/sbin/daemon -d \"foo\"");
@@ -1940,6 +1942,111 @@ test_stanza_respawn (void)
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_service (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_service");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a service stanza without any arguments sets the job's
+	 * service flag.
+	 */
+	TEST_FEATURE ("with no arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "service\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->service);
+
+	TEST_ALLOC_PARENT (job->command, job);
+	TEST_EQ_STR (job->command, "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a service stanza with arguments results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "service foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the service stanza results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "service\n");
+	fprintf (jf, "service\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that we can specify the service and respawn stanzas.
+	 */
+	TEST_FEATURE ("with no arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "respawn /sbin/daemon\n");
+	fprintf (jf, "service\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->respawn);
+	TEST_TRUE (job->service);
+
+	TEST_ALLOC_PARENT (job->command, job);
+	TEST_EQ_STR (job->command, "/sbin/daemon");
+
+	nih_list_free (&job->entry);
 
 
 	fclose (output);
@@ -4347,6 +4454,7 @@ main (int   argc,
 	test_stanza_exec ();
 	test_stanza_daemon ();
 	test_stanza_respawn ();
+	test_stanza_service ();
 	test_stanza_script ();
 	test_stanza_instance ();
 	test_stanza_pid ();

@@ -559,7 +559,7 @@ test_change_state (void)
 
 	/* Check that a job can move directly from waiting to running if it
 	 * has no start script, emitting both the start and started events;
-	 * since the job is not marked respawn, this should not clear the
+	 * since the job is not a service, this should not clear the
 	 * goal event.
 	 */
 	TEST_FEATURE ("waiting to starting with no script");
@@ -610,11 +610,11 @@ test_change_state (void)
 
 	/* Check that a job can move directly from waiting to running if it
 	 * has no start script, emitting both the start and started events;
-	 * and as the job is marked respawn, the goal event should be cleared
+	 * and as the job is a service, the goal event should be cleared
 	 * too.
 	 */
-	TEST_FEATURE ("waiting to starting with no script and respawn");
-	job->respawn = TRUE;
+	TEST_FEATURE ("waiting to starting with no script for service");
+	job->service = TRUE;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -656,12 +656,12 @@ test_change_state (void)
 	}
 
 	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
-	job->respawn = FALSE;
+	job->service = FALSE;
 	job->goal_event = NULL;
 
 
 	/* Check that a job in the starting state moves into the running state,
-	 * emitting the started event; since this is not marked respawn, this
+	 * emitting the started event; since this is not a service, this
 	 * should not clear the goal event.
 	 */
 	TEST_FEATURE ("starting to running with command");
@@ -701,16 +701,17 @@ test_change_state (void)
 
 
 	/* Check that a job in the starting state moves into the running state,
-	 * emitting the started event; and because it is marked respawn, the
+	 * emitting the started event; and because it is a service, the
 	 * goal event is cleared.
 	 */
-	TEST_FEATURE ("starting to running with respawn");
+	TEST_FEATURE ("starting to running for service");
+	job->service = TRUE;
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->process_state = PROCESS_NONE;
 		job->failed = FALSE;
-		job->respawn = TRUE;
 		job->goal_event = em;
 		em->jobs = 1;
 
@@ -738,14 +739,14 @@ test_change_state (void)
 		unlink (filename);
 	}
 
-	job->respawn = FALSE;
+	job->service = FALSE;
 	job->goal_event = NULL;
 
 
 	/* Check that a job in the starting state can move into the running
 	 * state, and that a script instead of a command can be run.
-	 * The started event should be emitted, and since this isn't marked
-	 * respawn, the goal event should be left alone.
+	 * The started event should be emitted, and since this isn't a
+	 * service, the goal event should be left alone.
 	 */
 	TEST_FEATURE ("starting to running with script");
 	job->script = job->command;

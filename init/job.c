@@ -171,10 +171,11 @@ job_new (const void *parent,
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	job->kill_timer = NULL;
 
-	job->spawns_instance = 0;
-	job->is_instance = 0;
+	job->spawns_instance = FALSE;
+	job->is_instance = FALSE;
 
-	job->respawn = 0;
+	job->service = FALSE;
+	job->respawn = FALSE;
 	job->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
 	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
 	job->respawn_count = 0;
@@ -182,7 +183,7 @@ job_new (const void *parent,
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
 
-	job->daemon = 0;
+	job->daemon = FALSE;
 	job->pid_file = NULL;
 	job->pid_binary = NULL;
 	job->pid_timeout = JOB_DEFAULT_PID_TIMEOUT;
@@ -432,11 +433,11 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
-			/* Clear the goal event if we're marked to be
-			 * respawned; since our goal is to be running, not
+			/* Clear the goal event if we're a service
+			 * since our goal is to be running, not
 			 * to get back to waiting again.
 			 */
-			if (job->respawn && job->goal_event) {
+			if (job->service && job->goal_event) {
 				job->goal_event->jobs--;
 				event_emit_finished (job->goal_event);
 

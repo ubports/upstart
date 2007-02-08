@@ -101,6 +101,7 @@
  * @kill_timer: timer to kill process,
  * @spawns_instance: job is always waiting and spawns instances,
  * @is_instance: job should be cleaned up instead of waiting,
+ * @service: job has reached its goal when running,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -162,6 +163,7 @@ typedef struct job {
 	int            spawns_instance;
 	int            is_instance;
 
+	int            service;
 	int            respawn;
 	int            respawn_limit;
 	time_t         respawn_interval;
