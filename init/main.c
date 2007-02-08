@@ -263,25 +263,6 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		Job *logd;
-
-		/* FIXME this is a bit of a hack, should have a list of
-		 * essential services or something
-		 */
-		logd = job_find_by_name ("logd");
-		if (logd) {
-			job_change_goal (logd, JOB_START, NULL);
-			if (logd->state == JOB_RUNNING) {
-				/* Hang around until logd signals that it's
-				 * listening ... but not too long
-				 */
-				alarm (5);
-				waitpid (logd->pid, NULL, WUNTRACED);
-				kill (logd->pid, SIGCONT);
-				alarm (0);
-			}
-		}
-
 		event_emit (STARTUP_EVENT, NULL, NULL);
 	} else {
 		sigset_t mask;

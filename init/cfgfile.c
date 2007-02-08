@@ -1312,11 +1312,13 @@ cfg_stanza_console (Job             *job,
 	if (! arg)
 		return -1;
 
+	/*
 	if (job->console != CONSOLE_LOGGED) {
 		nih_free (arg);
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 	}
+	*/
 
 	if (! strcmp (arg, "logged")) {
 		job->console = CONSOLE_LOGGED;

@@ -3161,6 +3161,7 @@ test_stanza_console (void)
 	TEST_FILE_RESET (output);
 
 
+#if 0
 	/* Check that duplicate occurances of the console stanza result
 	 * in a syntax error.
 	 */
@@ -3182,6 +3183,8 @@ test_stanza_console (void)
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
+#endif
+
 
 	fclose (output);
 	unlink (filename);

@@ -1,5 +1,12 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Remove the logd hack for now.
+	* init/job.c (job_new): Change the default console to none for now.
+	* init/tests/test_job.c (test_new): Update test.
+	* init/cfgfile.c (cfg_stanza_console): Can't guard against duplicates
+	for a while.
+	* init/tests/test_cfgfile.c (test_stanza_console): Comment out dup test
+
 	* init/cfgfile.c (cfg_read_job): Remove the restriction that there
 	must be either an 'exec' or 'script' for a job; jobs without either
 	define states others can use.

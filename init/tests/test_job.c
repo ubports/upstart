@@ -86,7 +86,7 @@ test_new (void)
 		TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
 		TEST_EQ (job->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
 
-		TEST_EQ (job->console, CONSOLE_LOGGED);
+		TEST_EQ (job->console, CONSOLE_NONE);
 		TEST_EQ (job->umask, JOB_DEFAULT_UMASK);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)

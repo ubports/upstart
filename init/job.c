@@ -188,7 +188,7 @@ job_new (const void *parent,
 	job->stop_script = NULL;
 	job->respawn_script = NULL;
 
-	job->console = CONSOLE_LOGGED;
+	job->console = CONSOLE_NONE;
 	job->env = NULL;
 
 	job->umask = JOB_DEFAULT_UMASK;
