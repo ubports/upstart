@@ -1,5 +1,8 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_notify.c (check_job_status, test_job): Correct
+	state usage to match a possible state.
+
 	* init/control.c (control_job_start, control_job_stop) 
 	(control_job_query, control_job_list): Drop process state and
 	description from the job status messages we send back.

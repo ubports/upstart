@@ -251,7 +251,7 @@ check_job_status (void               *data,
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_STOPPING);
+	TEST_EQ (state, JOB_SPAWNED);
 	TEST_EQ (process, 1000);
 
 	return 0;
@@ -272,7 +272,7 @@ check_event_job_status (void               *data,
 	TEST_EQ_U (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_STOPPING);
+	TEST_EQ (state, JOB_SPAWNED);
 	TEST_EQ (process, 1000);
 
 	return 0;
@@ -299,7 +299,7 @@ test_job (void)
 	job = job_new (NULL, "test");
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
+	job->state = JOB_SPAWNED;
 	job->pid = 1000;
 
 	fflush (stdout);
@@ -346,7 +346,7 @@ test_job (void)
 	job = job_new (NULL, "test");
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
+	job->state = JOB_SPAWNED;
 	job->pid = 1000;
 
 	emission = event_emit ("test", NULL, NULL);
