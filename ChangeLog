@@ -1,5 +1,9 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/shutdown.c (shutdown_now): Emit an ordinary runlevel
+	change event now; including the INIT_HALT environment variable
+	* compat/sysv/man/shutdown.8: Update the manual
+
 	* compat/sysv/telinit.c: Now just sends out a runlevel event with
 	an argument giving the new runlevel.
 	* compat/sysv/man/telinit.8: Update description of the command.

@@ -86,7 +86,7 @@
 
 
 /* Prototypes for static functions */
-static int   event_setter      (NihOption *option, const char *arg);
+static int   runlevel_setter   (NihOption *option, const char *arg);
 static void  shutdown_now      (void)
 	__attribute__ ((noreturn));
 static void  cancel_callback   (void *data, NihSignal *signal)
@@ -99,11 +99,25 @@ static void  sysvinit_shutdown (void);
 
 
 /**
- * event:
+ * runlevel:
  *
- * Event to send after the shutdown event.
+ * Runlevel to switch to.
  **/
-static char *event = NULL;
+static const char *runlevel = NULL;
+
+/**
+ * init_halt:
+ *
+ * Value of init_halt environment variable for event.
+ **/
+static const char *init_halt = NULL;
+
+/**
+ * what:
+ *
+ * What are we shutting down into (for the message).
+ **/
+static const char *what = NULL;
 
 /**
  * cancel:
@@ -142,13 +156,13 @@ static int delay = 0;
  **/
 static NihOption options[] = {
 	{ 'r', NULL, N_("reboot after shutdown"),
-	  NULL, NULL, &event, event_setter },
+	  NULL, NULL, &runlevel, runlevel_setter },
 	{ 'h', NULL, N_("halt or power off after shutdown"),
-	  NULL, NULL, &event, event_setter },
+	  NULL, NULL, &runlevel, runlevel_setter },
 	{ 'H', NULL, N_("halt after shutdown (implies -h)"),
-	  NULL, NULL, &event, event_setter },
+	  NULL, NULL, &runlevel, runlevel_setter },
 	{ 'P', NULL, N_("power off after shutdown (implies -h)"),
-	  NULL, NULL, &event, event_setter },
+	  NULL, NULL, &runlevel, runlevel_setter },
 	{ 'c', NULL, N_("cancel a running shutdown"),
 	  NULL, NULL, &cancel, NULL },
 	{ 'k', NULL, N_("only send warnings, don't shutdown"),
@@ -212,9 +226,14 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
-	/* If the event wasn't given explicitly, set it to maintenance */
-	if (! event)
-		NIH_MUST (event = nih_strdup (NULL, "maintenance"));
+	/* If the runlevel wasn't given explicitly, set it to 1 so we go
+	 * down into single-user mode.
+	 */
+	if (! runlevel) {
+		runlevel = "1";
+		init_halt = NULL;
+		what = "maintenance";
+	}
 
 
 	/* When may be specified with -g, or must be first argument */
@@ -400,17 +419,17 @@ main (int   argc,
 
 
 /**
- * event_setter:
+ * runlevel_setter:
  * @option: option found in arguments,
  * @arg: always NULL.
  *
  * This function is called whenever one of the -r, -h, -H or -P options
- * is found in the argument list.  It changes the event to that implied
+ * is found in the argument list.  It changes the runlevel to that implied
  * by the option.
  **/
 static int
-event_setter (NihOption  *option,
-	      const char *arg)
+runlevel_setter (NihOption  *option,
+		 const char *arg)
 {
 	char **value;
 
@@ -420,21 +439,26 @@ event_setter (NihOption  *option,
 
 	value = (char **)option->value;
 
-	if (*value)
-		nih_free (*value);
-
 	switch (option->option) {
 	case 'r':
-		NIH_MUST (*value = nih_strdup (NULL, "reboot"));
+		*value = "6";
+		init_halt = NULL;
+		what = "reboot";
 		break;
 	case 'h':
-		NIH_MUST (*value = nih_strdup (NULL, "halt"));
+		*value = "0";
+		init_halt = NULL;
+		what = "halt";
 		break;
 	case 'H':
-		NIH_MUST (*value = nih_strdup (NULL, "system-halt"));
+		*value = "0";
+		init_halt = "HALT";
+		what = "halt";
 		break;
 	case 'P':
-		NIH_MUST (*value = nih_strdup (NULL, "power-off"));
+		*value = "0";
+		init_halt = "POWEROFF";
+		what = "power off";
 		break;
 	}
 
@@ -452,8 +476,9 @@ event_setter (NihOption  *option,
 static void
 shutdown_now (void)
 {
-	NihIoMessage *message;
-	int           sock;
+	NihIoMessage  *message;
+	char         **args, **env;
+	int            sock;
 
 	/* Connect to the daemon */
 	sock = upstart_open ();
@@ -467,8 +492,23 @@ shutdown_now (void)
 	}
 
 	/* Build the message to send */
+	NIH_MUST (args = nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, runlevel));
+
+	if (init_halt) {
+		char *e;
+
+		NIH_MUST (e = nih_sprintf (NULL, "INIT_HALT=%s", init_halt));
+
+		NIH_MUST (env = nih_str_array_new (NULL));
+		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, e));
+	} else {
+		env = NULL;
+	}
+
 	NIH_MUST (message = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-						 UPSTART_SHUTDOWN, event));
+						 UPSTART_EVENT_EMIT,
+						 "runlevel", args, env));
 
 	/* Send the message */
 	if (nih_io_message_send (message, sock) < 0) {
@@ -585,15 +625,15 @@ warning_message (const char *message)
 	if (delay > 1) {
 		banner = nih_sprintf (NULL, _("The system is going down for "
 					      "%s in %d minutes!"),
-				      event, delay);
+				      what, delay);
 	} else if (delay) {
 		banner = nih_sprintf (NULL, _("The system is going down for "
 					      "%s IN ONE MINUTE!"),
-				      event);
+				      what);
 	} else {
 		banner = nih_sprintf (NULL, _("The system is going down for "
 					      "%s NOW!"),
-				      event);
+				      what);
 	}
 
 	if (! banner)
@@ -764,13 +804,7 @@ sysvinit_shutdown (void)
 	request.cmd = 1;
 
 	/* Select a runlevel based on the event name */
-	if (! strcmp (event, "maintenance")) {
-		request.runlevel = '1';
-	} else if (! strcmp (event, "reboot")) {
-		request.runlevel = '6';
-	} else {
-		request.runlevel = '0';
-	}
+	request.runlevel = runlevel[0];
 
 
 	/* Break syscalls with SIGALRM */
