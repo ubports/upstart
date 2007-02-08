@@ -1,5 +1,8 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/event.d/logd.in: Stop on the new runlevel events, not the
+	shutdown event.
+
 	* compat/sysv/shutdown.c (shutdown_now): Emit an ordinary runlevel
 	change event now; including the INIT_HALT environment variable
 	* compat/sysv/man/shutdown.8: Update the manual
