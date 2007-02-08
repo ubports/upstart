@@ -88,9 +88,8 @@
  * @version: version of the job; intended for humans,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
- * @cause: cause of last goal change,
- * @process_state: what we're waiting for from the process,
  * @pid: current process id,
+ * @cause: cause of last goal change,
  * @failed: whether the last process ran failed,
  * @failed_state: state the job was in for the last failed process,
  * @exit_status: exit status of the last failed process,
@@ -143,11 +142,9 @@ typedef struct job {
 
 	JobGoal        goal;
 	JobState       state;
+	pid_t          pid;
 
 	EventEmission *cause;
-
-	ProcessState   process_state;
-	pid_t          pid;
 
 	int            failed;
 	JobState       failed_state;
