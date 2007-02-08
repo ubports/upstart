@@ -1056,8 +1056,12 @@ job_child_reaper (void  *data,
 	 * In addition, mark the goal event as failed as well; this is
 	 * reported to the emitted of the event, and also causes a failed
 	 * event to be generated.
+	 *
+	 * Never overwrite an existing failure record, and ignore failure
+	 * of the running job if the goal is stop.
 	 */
-	if (failed) {
+	if (failed && (! job->failed)
+	    && ((job->goal != JOB_STOP) || (job->state != JOB_RUNNING))) {
 		job->failed = TRUE;
 		job->failed_state = job->state;
 		job->exit_status = status;

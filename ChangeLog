@@ -1,5 +1,11 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_reaper): Correct some problems with job and
+	event failure; we now don't overwrite an existing failure record,
+	and don't record failure if the main process failed and the goal was
+	stop; since we likely caused it.
+	* init/tests/test_job.c (test_child_reaper): More test cases.
+
 	* logd/event.d/logd.in: Stop on the new runlevel events, not the
 	shutdown event.
 

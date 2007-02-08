@@ -2249,6 +2249,58 @@ test_child_reaper (void)
 	job->goal_event = NULL;
 
 
+	/* Check that a running task that fails doesn't mark the job or
+	 * event as failed if the goal was already to stop the job (since
+	 * it's probably failed because of the TERM or KILL signal).
+	 */
+	TEST_FEATURE ("with running task being killed");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process_state = PROCESS_KILLED;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
+		job->respawn = FALSE;
+		job->normalexit = exitcodes;
+		job->normalexit_len = 2;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGTERM);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ_P (job->goal_event, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_NE (job->pid, 1);
+
+		waitpid (job->pid, NULL, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) killed "
+				       "by TERM signal\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
 	/* Check that a running task that fails with an exit status
 	 * listed in normalexit does not cause the job to be marked as
 	 * failed, but instead just stops it normally.
@@ -2389,6 +2441,135 @@ test_child_reaper (void)
 		TEST_NE (job->pid, 1);
 
 		waitpid (job->pid, NULL, 0);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that we can reap the stopping task of the job, and end up
+	 * in the waiting state.
+	 */
+	TEST_FEATURE ("with stopping task");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->pid, 0);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that we can reap a failing stopping task of the job, which
+	 * should get marked as failed if the job hasn't been already.
+	 */
+	TEST_FEATURE ("with stopping task failure");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+		job->goal_event = em;
+		em->failed = FALSE;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_STOPPING);
+		TEST_EQ (job->exit_status, 1);
+
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->pid, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) terminated "
+				       "with status 1\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->goal_event = NULL;
+
+
+	/* Check that a failing stopping task doesn't overwrite the record
+	 * of a failing earlier task.
+	 */
+	TEST_FEATURE ("with stopping task failure after failure");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process_state = PROCESS_ACTIVE;
+		job->pid = 1;
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = SIGSEGV | 0x80;
+		job->goal_event = em;
+		em->failed = TRUE;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process_state, PROCESS_NONE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+
+		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->pid, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (1) terminated "
+				       "with status 1\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
 	}
 
 	nih_list_free (&em->event.entry);
