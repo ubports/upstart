@@ -1,5 +1,8 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/telinit.c: Update call to event_emit; we'll revisit
+	this shortly when we get rid of the shutdown event.
+
 	* util/events.c (handle_event): Add new id field (but ignore it)
 	Functio
 	(handle_event_job_status): New function to handle the new event.

@@ -99,7 +99,7 @@ main (int   argc,
 					      args[0][0]));
 		NIH_MUST (message = upstart_message_new (
 				  NULL, UPSTART_INIT_DAEMON,
-				  UPSTART_EVENT_QUEUE, name));
+				  UPSTART_EVENT_EMIT, name, NULL, NULL));
 		nih_free (name);
 		break;
 	case '0':
