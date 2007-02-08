@@ -1,5 +1,9 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job): Drop the copying of the process_state
+	member, since it doesn't exist anymore.
+	* init/tests/test_cfgfile.c (test_read_job): Drop the check too.
+
 	* init/job.h (Job): Drop the process_state member.
 
 	* util/jobs.c (handle_job_status): Drop the process_state and

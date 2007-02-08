@@ -113,7 +113,6 @@ test_read_job (void)
 
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 
 	job->cause = (EventEmission *)&job;
@@ -144,11 +143,9 @@ test_read_job (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_EQ (job->pid, 1000);
 
 	TEST_EQ_P (job->cause, (EventEmission *)&job);
-
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-	TEST_EQ (job->pid, 1000);
 
 	TEST_EQ (job->failed, TRUE);
 	TEST_EQ (job->failed_state, JOB_RUNNING);
