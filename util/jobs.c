@@ -49,8 +49,7 @@
 static int do_job              (NihCommand *command, const char *job);
 static int handle_job_status   (void *data, pid_t pid, UpstartMessageType type,
 				const char *name, JobGoal goal, JobState state,
-				ProcessState process_state, pid_t process,
-				const char *description);
+				pid_t process);
 static int handle_job_unknown  (void *data, pid_t pid, UpstartMessageType type,
 				const char *name);
 static int handle_job_list_end (void *data, pid_t pid,
@@ -311,9 +310,7 @@ error:
  * @name: name of job,
  * @goal: current goal,
  * @state: state of job,
- * @process_state: state of current process,
- * @pid: process id,
- * @description: description of job.
+ * @pid: process id.
  *
  * Function called on receipt of a message containing the status of a job,
  * either as a result of changing the goal, querying the state or as part
@@ -329,34 +326,22 @@ static int handle_job_status (void               *data,
 			      const char         *name,
 			      JobGoal             goal,
 			      JobState            state,
-			      ProcessState        process_state,
-			      pid_t               process,
-			      const char         *description)
+			      pid_t               process)
 {
-	char *extra;
+	const char *format;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_STATUS);
 	nih_assert (name != NULL);
 
-	if (state == JOB_WAITING) {
-		NIH_MUST (extra = nih_strdup (NULL, ""));
-
-	} else if ((process_state == PROCESS_SPAWNED)
-		   || (process_state == PROCESS_NONE)) {
-		NIH_MUST (extra = nih_sprintf (
-				  NULL, ", process %s",
-				  process_state_name (process_state)));
+	if (process > 0) {
+		format = _("%s (%s) %s, process %d");
 	} else {
-		NIH_MUST (extra = nih_sprintf (
-				  NULL, ", process %d %s", process,
-				  process_state_name (process_state)));
+		format = _("%s (%s) %s");
 	}
 
-	nih_message ("%s (%s) %s%s", name, job_goal_name (goal),
-		     job_state_name (state), extra);
-
-	nih_free (extra);
+	nih_message (format, name, job_goal_name (goal),
+		     job_state_name (state), process);
 
 	return 0;
 }

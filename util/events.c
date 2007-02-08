@@ -363,20 +363,20 @@ static int handle_event_job_status (void               *data,
 				    JobState            state,
 				    pid_t               process)
 {
-	char *extra = NULL;
+	const char *format;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_EVENT_JOB_STATUS);
 	nih_assert (name != NULL);
 
-	if (process > 0)
-		NIH_MUST (extra = nih_sprintf (NULL, ", process %d", process));
+	if (process > 0) {
+		format = _("%s (%s) %s, process %d");
+	} else {
+		format = _("%s (%s) %s");
+	}
 
-	nih_message ("%s (%s) %s%s", name, job_goal_name (goal),
-		     job_state_name (state), extra ? extra : "");
-
-	if (extra)
-		nih_free (extra);
+	nih_message (format, name, job_goal_name (goal),
+		     job_state_name (state), process);
 
 	return 0;
 }

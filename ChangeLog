@@ -1,5 +1,12 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/jobs.c (handle_job_status): Drop the process_state and
+	description arguments; output a process id only if it's greater
+	than zero.
+	* util/tests/test_jobs.c (test_start_action, test_list_action) 
+	(test_jobs_action): Update tests to use newer states and arguments.
+	* util/events.c (handle_event_job_status): Simplify in the same way
+
 	* upstart/message.h: Remove process_state and description from the
 	job status event (we already had the foresight to not put them in
 	the event job status event).
