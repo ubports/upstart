@@ -819,6 +819,8 @@ job_run_process (Job          *job,
 			nih_warn ("%s: %s", _("Failed to spawn process"),
 				  err->message);
 		nih_free (err);
+
+		error = TRUE;
 	}
 
 	/* Update the job details */

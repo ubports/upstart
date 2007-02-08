@@ -290,8 +290,14 @@ cfg_read_job (const void *parent,
 
 		job->goal = old_job->goal;
 		job->state = old_job->state;
+		job->goal_event = old_job->goal_event;
 		job->process_state = old_job->process_state;
 		job->pid = old_job->pid;
+		job->failed = old_job->failed;
+		job->failed_state = old_job->failed_state;
+		job->exit_status = old_job->exit_status;
+		job->respawn_count = old_job->respawn_count;
+		job->respawn_time = old_job->respawn_time;
 
 		now = time (NULL);
 

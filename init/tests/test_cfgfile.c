@@ -116,6 +116,15 @@ test_read_job (void)
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 
+	job->goal_event = (EventEmission *)&job;
+
+	job->failed = TRUE;
+	job->failed_state = JOB_RUNNING;
+	job->exit_status = 2;
+
+	job->respawn_count = 20;
+	job->respawn_time = 1000;
+
 	job->kill_timer = nih_timer_add_timeout (job, 1000, my_timer, job);
 	job->pid_timer = nih_timer_add_timeout (job, 500, my_timer, job);
 
@@ -137,6 +146,15 @@ test_read_job (void)
 	TEST_EQ (job->state, JOB_RUNNING);
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 	TEST_EQ (job->pid, 1000);
+
+	TEST_EQ_P (job->goal_event, (EventEmission *)&job);
+
+	TEST_EQ (job->failed, TRUE);
+	TEST_EQ (job->failed_state, JOB_RUNNING);
+	TEST_EQ (job->exit_status, 2);
+
+	TEST_EQ (job->respawn_count, 20);
+	TEST_EQ (job->respawn_time, 1000);
 
 	TEST_ALLOC_PARENT (job->kill_timer, job);
 	TEST_LE (job->kill_timer->due, time (NULL) + 1000);

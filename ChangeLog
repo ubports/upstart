@@ -1,5 +1,12 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job): Copy a whole bunch more state
+	into the newly parsed job.
+	* init/job.c (job_run_process): Only output the first error.
+	* init/tests/test_cfgfile.c (test_read_job): Make sure important
+	things are copied.
+	* TODO: Update.
+
 	* init/main.c: Restore a much simplified version of the term
 	handler that doesn't try and copy across any state.
 

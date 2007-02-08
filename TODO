@@ -2,12 +2,8 @@ Code Cleanup:
 
  * cfg_watch_dir needs testing
 
- * prints too many errors if fork fails
-
 
 High Priority:
-
- * config file re-parsing drops the goal event
 
  * Add a "service" stanza that "respawn" implies.
 
