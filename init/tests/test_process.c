@@ -105,7 +105,7 @@ test_spawn (void)
 	EventEmission *em;
 	pid_t          pid;
 
-	printf ("Testing process_spawn()\n");
+	TEST_FUNCTION ("process_spawn");
 	TEST_FILENAME (filename);
 
 	args[0] = argv0;
@@ -117,7 +117,7 @@ test_spawn (void)
 	 * process and then read from the file written to check that the
 	 * process tree is what we expect it to look like.
 	 */
-	printf ("...with simple job\n");
+	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
 	job = job_new (NULL, "test");
@@ -152,7 +152,7 @@ test_spawn (void)
 	/* Check that a job spawned with no console has the file descriptors
 	 * bound to the /dev/null device.
 	 */
-	printf ("...with no console\n");
+	TEST_FEATURE ("with no console");
 	sprintf (function, "%d", TEST_CONSOLE);
 
 	job = job_new (NULL, "test");
@@ -176,7 +176,7 @@ test_spawn (void)
 	/* Check that a job with an alternate working directory is run from
 	 * that directory.
 	 */
-	printf ("...with working directory\n");
+	TEST_FEATURE ("with working directory");
 	sprintf (function, "%d", TEST_PWD);
 
 	job = job_new (NULL, "test");
@@ -198,7 +198,7 @@ test_spawn (void)
 	/* Check that a job is run in a consistent environment containing
 	 * only approved variables, or those set within the job.
 	 */
-	printf ("...with environment\n");
+	TEST_FEATURE ("with environment");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
@@ -227,7 +227,7 @@ test_spawn (void)
 	 * and any event environment if the goal_event member is set, but this
 	 * should not override those specified in the job.
 	 */
-	printf ("...with environment and goal event");
+	TEST_FEATURE ("with environment and goal event");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
@@ -269,13 +269,13 @@ test_kill (void)
 	pid_t  pid;
 	int    ret, status;
 
-	printf ("Testing process_kill()\n");
+	TEST_FUNCTION ("process_kill");
 	job = job_new (NULL, "test");
 
 	/* Check that when we normally kill the process, the TERM signal
 	 * is sent to it.
 	 */
-	printf ("...with TERM signal\n");
+	TEST_FEATURE ("with TERM signal");
 	TEST_CHILD (pid) {
 		pause ();
 	}
@@ -291,7 +291,7 @@ test_kill (void)
 	/* Check that when we force the kill, the KILL signal is sent
 	 * instead.
 	 */
-	printf ("...with KILL signal\n");
+	TEST_FEATURE ("with KILL signal");
 	TEST_CHILD (pid) {
 		pause ();
 	}
