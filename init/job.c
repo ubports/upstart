@@ -474,14 +474,15 @@ job_change_state (Job      *job,
 		notify_job (job);
 
 		if (event_name) {
-			Event *event;
+			EventEmission *emission;
 
-			event = (Event *)event_queue (event_name);
-			NIH_MUST (nih_str_array_add (&event->args, event,
+			emission = event_emit (event_name, NULL, NULL);
+			NIH_MUST (nih_str_array_add (&emission->event.args,
+						     emission,
 						     NULL, job->name));
 			if ((job->state == JOB_WAITING)
 			    || (job->state == JOB_STOPPING))
-				job_failed_event (job, event);
+				job_failed_event (job, &emission->event);
 		}
 	}
 }
@@ -1211,7 +1212,7 @@ job_detect_idle (void)
 		nih_info (_("System is idle, generating %s event"),
 			  idle_event);
 
-		event_emit (idle_event, NULL, NULL, NULL, NULL);
+		event_emit (idle_event, NULL, NULL);
 		nih_free (idle_event);
 		idle_event = NULL;
 
@@ -1219,7 +1220,7 @@ job_detect_idle (void)
 	} else if (stalled && can_stall) {
 		nih_info (_("System has stalled, generating %s event"),
 			  STALLED_EVENT);
-		event_emit (STALLED_EVENT, NULL, NULL, NULL, NULL);
+		event_emit (STALLED_EVENT, NULL, NULL);
 
 		nih_main_loop_interrupt ();
 	}

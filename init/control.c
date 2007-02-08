@@ -535,7 +535,7 @@ control_shutdown (void               *data,
 
 	nih_info (_("Control request to shutdown system for %s"), name);
 
-	event_queue (SHUTDOWN_EVENT);
+	event_emit (SHUTDOWN_EVENT, NULL, NULL);
 	job_set_idle_event (name);
 
 	return 0;

@@ -243,7 +243,7 @@ test_change_goal (void)
 	 * unreferences the goal event and sets it to NULL in the job.
 	 */
 	TEST_FEATURE ("with existing goal change event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
@@ -275,7 +275,7 @@ test_change_goal (void)
 	 * references that event and sets the goal event in the job.
 	 */
 	TEST_FEATURE ("with new goal change event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
@@ -388,7 +388,7 @@ test_change_goal (void)
 	 * unreferences the event and sets it to NULL.
 	 */
 	TEST_FEATURE ("with existing goal change event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -428,7 +428,7 @@ test_change_goal (void)
 	 * references that event and sets the job's goal event.
 	 */
 	TEST_FEATURE ("with existing goal change event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -506,7 +506,7 @@ test_change_state (void)
 	 * from the list (so it doesn't affect our "events emitted" check)
 	 */
 	event_poll ();
-	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
+	em = event_emit ("wibble", NULL, NULL);
 	list = em->event.entry.prev;
 	nih_list_remove (&em->event.entry);
 
@@ -1474,7 +1474,7 @@ test_run_script (void)
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	em = event_emit ("test", args, NULL, NULL, NULL);
+	em = event_emit ("test", args, NULL);
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -1581,7 +1581,7 @@ test_run_script (void)
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	em = event_emit ("test", args, NULL, NULL, NULL);
+	em = event_emit ("test", args, NULL);
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -1891,7 +1891,7 @@ test_child_reaper (void)
 	 * stopping state.
 	 */
 	TEST_FEATURE ("with running task");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -1970,7 +1970,7 @@ test_child_reaper (void)
 	 * terminates with a good error code, end up in the running state.
 	 */
 	TEST_FEATURE ("with starting task");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2012,7 +2012,7 @@ test_child_reaper (void)
 	 */
 	TEST_FEATURE ("with starting task failure");
 	output = tmpfile ();
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2061,7 +2061,7 @@ test_child_reaper (void)
 	 * the failed exit status should contain the signal and the high bit.
 	 */
 	TEST_FEATURE ("with starting task kill");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2150,7 +2150,7 @@ test_child_reaper (void)
 	 * stop and transitioning into the stopping state.
 	 */
 	TEST_FEATURE ("with running task and normal exit");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2201,7 +2201,7 @@ test_child_reaper (void)
 	 * listed in normalexit causes the job to be marked as failed.
 	 */
 	TEST_FEATURE ("with running task and abnormal exit");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2253,7 +2253,7 @@ test_child_reaper (void)
 	 * failed, but instead just stops it normally.
 	 */
 	TEST_FEATURE ("with running task and normal exit");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2305,7 +2305,7 @@ test_child_reaper (void)
 	 * failed, but instead just stops it normally.
 	 */
 	TEST_FEATURE ("with running task and normal signal");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2356,7 +2356,7 @@ test_child_reaper (void)
 	 * a normal termination if not marked respawn.
 	 */
 	TEST_FEATURE ("with running task and zero exit");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -2430,7 +2430,7 @@ test_handle_event (void)
 	 * and doesn't result in the emission being given any jobs.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL, NULL, NULL);
+	em = event_emit ("biscuit", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		em->jobs = 0;
@@ -2475,7 +2475,7 @@ test_handle_event (void)
 	 * stopped as appropriate.
 	 */
 	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
+	em = event_emit ("wibble", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		em->jobs = 0;
@@ -2538,7 +2538,7 @@ test_detect_idle (void)
 	 * list head...
 	 */
 	event_poll ();
-	em = event_emit ("wibble", NULL, NULL, NULL, NULL);
+	em = event_emit ("wibble", NULL, NULL);
 	list = em->event.entry.prev;
 	nih_list_free (&em->event.entry);
 

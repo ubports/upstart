@@ -134,15 +134,6 @@ test_match (void)
 }
 
 
-static int emission_called = 0;
-
-static void
-my_emission_cb (void          *data,
-		EventEmission *emission)
-{
-	emission_called++;
-}
-
 void
 test_emit (void)
 {
@@ -168,8 +159,7 @@ test_emit (void)
 						     "FOO=BAR"));
 		}
 
-		emission = event_emit ("test", args, env,
-				       my_emission_cb, &emission);
+		emission = event_emit ("test", args, env);
 
 		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
 		TEST_LIST_NOT_EMPTY (&emission->event.entry);
@@ -180,8 +170,6 @@ test_emit (void)
 		TEST_EQ (emission->progress, EVENT_PENDING);
 		TEST_EQ (emission->jobs, 0);
 		TEST_EQ (emission->failed, FALSE);
-		TEST_EQ_P (emission->callback, my_emission_cb);
-		TEST_EQ_P (emission->data, &emission);
 
 		TEST_EQ_STR (emission->event.name, "test");
 		TEST_ALLOC_PARENT (emission->event.name, emission);
@@ -208,7 +196,7 @@ test_emit_find_by_id (void)
 	 * its id, and have it returned.
 	 */
 	TEST_FEATURE ("with id in pending queue");
-	emission = event_emit ("test", NULL, NULL, my_emission_cb, &emission);
+	emission = event_emit ("test", NULL, NULL);
 
 	ret = event_emit_find_by_id (emission->id);
 
@@ -231,7 +219,7 @@ test_emit_finished (void)
 	EventEmission *emission;
 
 	TEST_FUNCTION ("event_emit_finished");
-	emission = event_emit ("test", NULL, NULL, NULL, NULL);
+	emission = event_emit ("test", NULL, NULL);
 	emission->progress = EVENT_HANDLING;
 
 	/* Check that if an event has jobs remaining, the progress isn't
@@ -328,7 +316,7 @@ test_poll (void)
 
 	/* Naughty way of getting the list */
 	event_poll ();
-	em1 = event_emit ("test", NULL, NULL, NULL, NULL);
+	em1 = event_emit ("test", NULL, NULL);
 	events = em1->event.entry.next;
 	nih_list_free (&em1->event.entry);
 
@@ -365,7 +353,7 @@ test_poll (void)
 	event = event_new (job, "test");
 	nih_list_add (&job->start_events, &event->entry);
 
-	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1 = event_emit ("test", NULL, NULL);
 	em1->id = 0xdeafbeef;
 
 	sub = notify_subscribe_event (NULL, pid, em1);
@@ -398,7 +386,7 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with handling event");
 	TEST_ALLOC_FAIL {
-		em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+		em1 = event_emit ("test", NULL, NULL);
 		em1->progress = EVENT_HANDLING;
 
 		event_poll ();
@@ -409,9 +397,8 @@ test_poll (void)
 
 
 	/* Check that events in the finished state are consumed, leaving
-	 * the list empty.  Subscribed processes should be notified and
-	 * the callback for the event should be run and the event should
-	 * be freed.
+	 * the list empty.  Subscribed processes should be notified and the
+	 * event should be freed.
 	 */
 	TEST_FEATURE ("with finished event");
 	fflush (stdout);
@@ -435,16 +422,14 @@ test_poll (void)
 		exit (0);
 	}
 
-	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1 = event_emit ("test", NULL, NULL);
 	em1->id = 0xdeafbeef;
+	event_emit_finished (em1);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (em1, my_destructor);
 
 	sub = notify_subscribe_event (NULL, pid, em1);
-
-	emission_called = 0;
-	event_emit_finished (em1);
 
 	event_poll ();
 
@@ -454,7 +439,6 @@ test_poll (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_TRUE (emission_called);
 	TEST_TRUE (destructor_called);
 
 	nih_list_free (&sub->entry);
@@ -462,20 +446,17 @@ test_poll (void)
 
 	/* Check that a pending event which doesn't cause any jobs to be
 	 * changed goes straight into the finished state, thus getting
-	 * the callback called and destroyed.
+	 * destroyed.
 	 */
 	TEST_FEATURE ("with no-op pending event");
 	TEST_ALLOC_FAIL {
-		em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+		em1 = event_emit ("test", NULL, NULL);
 
 		destructor_called = 0;
 		nih_alloc_set_destructor (em1, my_destructor);
 
-		emission_called = 0;
-
 		event_poll ();
 
-		TEST_TRUE (emission_called);
 		TEST_TRUE (destructor_called);
 	}
 
@@ -486,7 +467,7 @@ test_poll (void)
 	 * goal event.
 	 */
 	TEST_FEATURE ("with failed event");
-	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1 = event_emit ("test", NULL, NULL);
 	em1->failed = TRUE;
 	em1->progress = EVENT_FINISHED;
 
@@ -499,11 +480,8 @@ test_poll (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (em1, my_destructor);
 
-	emission_called = 0;
-
 	event_poll ();
 
-	TEST_TRUE (emission_called);
 	TEST_TRUE (destructor_called);
 
 	TEST_EQ (job->goal, JOB_START);
@@ -525,7 +503,7 @@ test_poll (void)
 	 * events (otherwise we could be there all night :p)
 	 */
 	TEST_FEATURE ("with failed failed event");
-	em1 = event_emit ("test/failed", NULL, NULL, my_emission_cb, &em1);
+	em1 = event_emit ("test/failed", NULL, NULL);
 	em1->failed = TRUE;
 	em1->progress = EVENT_FINISHED;
 
@@ -541,11 +519,8 @@ test_poll (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (em1, my_destructor);
 
-	emission_called = 0;
-
 	event_poll ();
 
-	TEST_TRUE (emission_called);
 	TEST_TRUE (destructor_called);
 
 	TEST_EQ (job->goal, JOB_STOP);
@@ -590,7 +565,7 @@ test_read_state (void)
 	 * are appended to the event.
 	 */
 	TEST_FEATURE ("with argument to event");
-	em = event_emit ("foo", NULL, NULL, NULL, NULL);
+	em = event_emit ("foo", NULL, NULL);
 	TEST_ALLOC_FAIL {
 		sprintf (buf, ".arg frodo");
 		ptr = event_read_state (em, buf);
@@ -684,7 +659,7 @@ test_read_state (void)
 		TEST_EQ_P (em, NULL);
 
 		TEST_ALLOC_SAFE {
-			em = event_emit ("test", NULL, NULL, NULL, NULL);
+			em = event_emit ("test", NULL, NULL);
 		}
 
 		TEST_EQ (em->id, 809120);

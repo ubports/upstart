@@ -175,9 +175,7 @@ event_match (Event *event1,
  * event_emit:
  * @name: name of event to emit,
  * @args: arguments to event,
- * @env: environment for event,
- * @callback: function to call once handled,
- * @data: pointer to pass to @callback.
+ * @env: environment for event.
  *
  * Allocates an EventEmission structure for the event details given and
  * appends it to the queue of events pending emission.
@@ -188,17 +186,14 @@ event_match (Event *event1,
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
- * are no longer any jobs referencing the event.  At that point, @callback
- * is called, before the event is freed.
+ * are no longer any jobs referencing the event.
  *
  * Returns: new EventEmission structure in the pending queue.
  **/
 EventEmission *
 event_emit (const char       *name,
 	    char            **args,
-	    char            **env,
-	    EventEmissionCb   callback,
-	    void             *data)
+	    char            **env)
 {
 	EventEmission *emission;
 
@@ -221,9 +216,6 @@ event_emit (const char       *name,
 
 	emission->jobs = 0;
 	emission->failed = FALSE;
-
-	emission->callback = callback;
-	emission->data = data;
 
 
 	/* Fill in the event details */
@@ -300,8 +292,9 @@ event_emit_finished (EventEmission *emission)
  * event_poll:
  *
  * This function is used to process the list of events; any in the pending
- * state are moved into the handling state and job states changed.  Any in
- * the finished state have their callbacks called, and are cleaned up.
+ * state are moved into the handling state and job states changed.  Any
+ * in the finished state are cleaned up, with subscribers and jobs notified
+ * that the event has completed.
  *
  * This function will only return once the events list is empty, or all
  * events are in the handling state; so any time an event queues another,
@@ -387,9 +380,9 @@ event_pending (EventEmission *emission)
  * @emission: finished event.
  *
  * This function is called for each event in the list that is in the finished
- * state.  The callback function, if set, is called.  Then, if the event
- * failed, a new pending failed event is queued.  Finally the emission is
- * freed and removed from the list.
+ * state.  Subscribers and jobs are notified, then, if the event failed, a
+ * new pending failed event is queued.  Finally the emission is freed and
+ * removed from the list.
  **/
 static void
 event_finished (EventEmission *emission)
@@ -401,9 +394,6 @@ event_finished (EventEmission *emission)
 
 	notify_event_finished (emission);
 
-	if (emission->callback)
-		emission->callback (emission->data, emission);
-
 	if (emission->failed) {
 		char *name;
 
@@ -413,7 +403,7 @@ event_finished (EventEmission *emission)
 						      emission->event.name));
 
 			event_emit (name, emission->event.args,
-				    emission->event.env, NULL, NULL);
+				    emission->event.env);
 
 			nih_free (name);
 		}
@@ -466,7 +456,7 @@ event_read_state (EventEmission *emission,
 		} else if (strcmp (buf, "Event"))
 			return emission;
 
-		/* Add a new event emission record.  Arguments, environment,
+		/* Add a new event emission record.
 		 * callback, etc. will be filled in as we go.
 		 */
 		emission = event_emit (ptr, NULL, NULL, NULL, NULL);

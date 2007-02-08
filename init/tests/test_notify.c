@@ -104,7 +104,7 @@ test_subscribe_event (void)
 	 * details filled out correctly.
 	 */
 	TEST_FEATURE ("with subscription to emission");
-	emission = event_emit ("test", NULL, NULL, NULL, NULL);
+	emission = event_emit ("test", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		sub = notify_subscribe_event (NULL, 1000, emission);
@@ -355,7 +355,7 @@ test_job (void)
 	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 
-	emission = event_emit ("test", NULL, NULL, NULL, NULL);
+	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
 
 	job->goal_event = emission;
@@ -478,7 +478,7 @@ test_event (void)
 	env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
 
-	emission = event_emit ("snarf", args, env, NULL, NULL);
+	emission = event_emit ("snarf", args, env);
 	emission->id = 0xdeafbeef;
 
 	sub = notify_subscribe_event (NULL, pid, emission);
@@ -578,7 +578,7 @@ test_event_finished (void)
 	env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
 
-	emission = event_emit ("snarf", args, env, NULL, NULL);
+	emission = event_emit ("snarf", args, env);
 	emission->id = 0xdeafbeef;
 	emission->failed = FALSE;
 

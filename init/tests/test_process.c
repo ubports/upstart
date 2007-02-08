@@ -234,7 +234,7 @@ test_spawn (void)
 	em_env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&em_env, NULL, NULL, "FOO=APPLE"));
 	NIH_MUST (nih_str_array_add (&em_env, NULL, NULL, "TEA=YES"));
-	em = event_emit ("wibble", NULL, em_env, NULL, NULL);
+	em = event_emit ("wibble", NULL, em_env);
 
 	job = job_new (NULL, "test");
 	job->goal_event = em;

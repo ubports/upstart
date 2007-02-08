@@ -1,5 +1,33 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h: Remove compatibility macros.
+	(EventEmission): Drop the callback function; it was too error prone
+	to try and do it this way, and we only ever wanted to release a job
+	anyway as control requests are better handled through the notify
+	interface.
+	(EventEmissionCb): Drop unused typedef.
+	* init/event.c (event_emit): Drop callback argument.
+	(event_finished): Don't call the callback
+	* init/tests/test_event.c: Update to avoid callbacks.
+	* init/job.c (job_change_state): Convert to using event_emit and
+	EventEmission.
+	(job_detect_idle): Drop extra arguments to event_emit.
+	* init/main.c (main, cad_handler, kbd_handler): Drop extra arguments
+	to event_emit.
+	* init/control.c (control_shutdown): Use event_emit instead of
+	event_queue.
+	* init/tests/test_control.c (test_shutdown): Convert to using
+	EventEmission.
+	(test_watch_events, test_unwatch_events): Drop extra arguments to
+	event_emit.
+	* init/tests/test_notify.c (test_subscribe_event, test_job) 
+	(test_event, test_event_finished): Drop extra arguments to event_emit
+	* init/tests/test_job.c (test_change_goal, test_change_state) 
+	(test_run_script, test_child_reaper, test_detect_idle): Drop
+	extra arguments to event_emit.
+	* init/tests/test_process.c (test_spawn): Drop extra arguments to
+	event_emit.
+
 	* TODO: Update.
 
 	Rewrite the notification subsystem quite significantly; now we

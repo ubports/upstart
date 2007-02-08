@@ -1021,7 +1021,7 @@ test_watch_events (void)
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
 
-	emission = event_emit ("snarf", NULL, NULL, NULL, NULL);
+	emission = event_emit ("snarf", NULL, NULL);
 	emission->id = 0xdeafbeef;
 	notify_event (emission);
 
@@ -1098,7 +1098,7 @@ test_unwatch_events (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (sub, my_destructor);
 
-	emission = event_emit ("snarf", NULL, NULL, NULL, NULL);
+	emission = event_emit ("snarf", NULL, NULL);
 	emission->id = 0xdeafbeef;
 	notify_event (emission);
 
@@ -1122,11 +1122,11 @@ test_unwatch_events (void)
 void
 test_shutdown (void)
 {
-	NihIo   *io;
-	pid_t    pid;
-	int      wait_fd, status;
-	Event   *event;
-	NihList *list;
+	NihIo         *io;
+	pid_t          pid;
+	int            wait_fd, status;
+	EventEmission *em;
+	NihList       *list;
 
 	/* Check that we can handle a message from a child process requesting
 	 * that the computer be shutdown.  The child won't get a reply, but we
@@ -1140,10 +1140,10 @@ test_shutdown (void)
 	/* This is a naughty way of getting a pointer to the event queue
 	 * list head...
 	 */
-	event_queue_run ();
-	event = (Event *)event_queue ("wibble");
-	list = event->entry.prev;
-	nih_list_free (&event->entry);
+	event_poll ();
+	em = event_emit ("wibble", NULL, NULL);
+	list = em->event.entry.prev;
+	nih_list_free (&em->event.entry);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -1166,15 +1166,15 @@ test_shutdown (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "shutdown");
-	nih_list_free (&event->entry);
+	em = (EventEmission *)list->prev;
+	TEST_EQ_STR (em->event.name, "shutdown");
+	nih_list_free (&em->event.entry);
 
 	job_detect_idle ();
 
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "kaboom");
-	nih_list_free (&event->entry);
+	em = (EventEmission *)list->prev;
+	TEST_EQ_STR (em->event.name, "kaboom");
+	nih_list_free (&em->event.entry);
 
 	control_close ();
 	upstart_disable_safeties = FALSE;

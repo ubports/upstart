@@ -29,20 +29,6 @@
 
 
 /**
- * EventEmissionCb:
- * @data: pointer given when registered,
- * @emission: EventEmission structure.
- *
- * The event emission callback is given when an event is registered for
- * emission, and is called once the event has deemed to be completed.
- * Once the callback returns, @emission is automatically freed; and
- * a failed event generated if necessary.
- **/
-typedef struct event_emission EventEmission;
-typedef void (*EventEmissionCb) (void *data, EventEmission *emission);
-
-
-/**
  * EventProgress:
  *
  * This is used to record the progress of an event emission, starting at
@@ -86,9 +72,7 @@ typedef struct event {
  * @id: unique id assigned to each emission,
  * @progress: progress of emission,
  * @jobs: number of jobs holding this event,
- * @failed: whether this event has failed,
- * @callback: callback once emission has completed,
- * @data: data to pass to @callback.
+ * @failed: whether this event has failed.
  *
  * Events aren't useful on their own; in order to change the state of jobs
  * they need to be first placed in the event queue, then emitted and only
@@ -98,17 +82,14 @@ typedef struct event {
  * information on the emission of a single event; including the event
  * itself.
  **/
-struct event_emission {
+typedef struct event_emission {
 	Event            event;
 	uint32_t         id;
 	EventProgress    progress;
 
 	int              jobs;
 	int              failed;
-
-	EventEmissionCb  callback;
-	void            *data;
-};
+} EventEmission;
 
 
 /**
@@ -181,9 +162,6 @@ struct event_emission {
 #define JOB_STOPPED_EVENT "stopped"
 
 
-#define event_queue(_n) (event_emit ((_n), NULL, NULL, NULL, NULL))
-#define event_queue_run event_poll
-
 NIH_BEGIN_EXTERN
 
 int paused;
@@ -194,9 +172,8 @@ Event *        event_new             (const void *parent, const char *name)
 
 int            event_match           (Event *event1, Event *event2);
 
-EventEmission *event_emit            (const char *name, char **args,
-				      char **env, EventEmissionCb callback,
-				      void *data)
+EventEmission *event_emit            (const char *name,
+				      char **args, char **env)
 	__attribute__ ((malloc));
 EventEmission *event_emit_find_by_id (uint32_t id);
 void           event_emit_finished   (EventEmission *emission);
