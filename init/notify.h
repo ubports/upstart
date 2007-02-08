@@ -30,42 +30,59 @@
 
 
 /**
- * NotifyEvents:
+ * NotifyEvent:
  *
- * Events we notify subscribed processes of, used as a bitmask in the
- * Subscription structure.
+ * Types of changes we notify subscribed process about.
  **/
 typedef enum {
-	NOTIFY_NONE   = 00,
-	NOTIFY_JOBS   = 01,
-	NOTIFY_EVENTS = 02
-} NotifyEvents;
+	NOTIFY_JOB,
+	NOTIFY_EVENT
+} NotifyEvent;
 
 
 /**
  * NotifySubscription:
  * @entry: list header,
  * @pid: subscribed process,
- * @notify: notify events subscribed to.
+ * @type: event subscribed to,
+ * @job: job being watched,
+ * @emission: event emission being watched.
  *
  * This structure is used to allow processes to subscribe to notification
- * of changes in event level or job status.  @notify is a bitmask of which
- * of the two events (or both) to receive, it is never allowed to be zero
- * as that's an unsubscription.
+ * of events or changes to job status.  @notify specifies which of @job
+ * or @emission to look at, this can be NULL to indicate that all jobs
+ * or events are interesting.
  **/
 typedef struct notify_subscription {
 	NihList      entry;
 	pid_t        pid;
-	NotifyEvents notify;
+	NotifyEvent  type;
+
+	union {
+		Job           *job;
+		EventEmission *emission;
+	};
 } NotifySubscription;
 
 
 NIH_BEGIN_EXTERN
 
-NotifySubscription *notify_subscribe (pid_t pid, NotifyEvents notify, int set);
+NotifySubscription *notify_subscribe_job     (const void *parent, pid_t pid,
+					      Job *job)
+	__attribute__ ((malloc));
 
-void                notify_job       (Job *job);
-void                notify_event     (Event *event);
+NotifySubscription *notify_subscribe_event   (const void *parent, pid_t pid,
+					      EventEmission *emission)
+	__attribute__ ((malloc));
+
+void                notify_unsubscribe       (pid_t pid);
+
+NotifySubscription *notify_subscription_find (pid_t pid, NotifyEvent type,
+					      const void *ptr);
+
+void                notify_job               (Job *job);
+void                notify_event             (EventEmission *emission);
+void                notify_event_finished    (EventEmission *emission);
 
 NIH_END_EXTERN
 

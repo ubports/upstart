@@ -372,7 +372,7 @@ event_pending (EventEmission *emission)
 	nih_debug ("Handling %s event", emission->event.name);
 	emission->progress = EVENT_HANDLING;
 
-	notify_event (&emission->event);
+	notify_event (emission);
 	job_handle_event (emission);
 
 	/* Make sure we don't hang on to events with no jobs.
@@ -398,6 +398,8 @@ event_finished (EventEmission *emission)
 	nih_assert (emission->progress == EVENT_FINISHED);
 
 	nih_debug ("Finished %s event", emission->event.name);
+
+	notify_event_finished (emission);
 
 	if (emission->callback)
 		emission->callback (emission->data, emission);

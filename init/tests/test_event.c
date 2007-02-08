@@ -272,12 +272,35 @@ static int
 check_event (void               *data,
 	     pid_t               pid,
 	     UpstartMessageType  type,
+	     uint32_t            id,
 	     const char         *name,
 	     char * const       *args,
 	     char * const       *env)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_EVENT);
+	TEST_EQ_U (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ_P (args, NULL);
+	TEST_EQ_P (env, NULL);
+
+	return 0;
+}
+
+static int
+check_event_finished (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type,
+		      uint32_t            id,
+		      int                 failed,
+		      const char         *name,
+		      char * const       *args,
+		      char * const       *env)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT_FINISHED);
+	TEST_EQ_U (id, 0xdeafbeef);
+	TEST_EQ (failed, FALSE);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ_P (args, NULL);
 	TEST_EQ_P (env, NULL);
@@ -336,8 +359,6 @@ test_poll (void)
 		exit (0);
 	}
 
-	sub = notify_subscribe (pid, NOTIFY_EVENTS, TRUE);
-
 	job = job_new (NULL, "test");
 	job->command = nih_strdup (job, "echo");
 
@@ -345,6 +366,9 @@ test_poll (void)
 	nih_list_add (&job->start_events, &event->entry);
 
 	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1->id = 0xdeafbeef;
+
+	sub = notify_subscribe_event (NULL, pid, em1);
 
 	event_poll ();
 
@@ -368,8 +392,6 @@ test_poll (void)
 	nih_list_free (&job->entry);
 	nih_list_free (&em1->event.entry);
 
-	control_close ();
-
 
 	/* Check that having a handling event in the queue doesn't cause
 	 * any problem.
@@ -387,24 +409,55 @@ test_poll (void)
 
 
 	/* Check that events in the finished state are consumed, leaving
-	 * the list empty.  The callback for the event should be run and
-	 * the event should be freed.
+	 * the list empty.  Subscribed processes should be notified and
+	 * the callback for the event should be run and the event should
+	 * be freed.
 	 */
 	TEST_FEATURE ("with finished event");
-	TEST_ALLOC_FAIL {
-		em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
-		event_emit_finished (em1);
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
 
-		destructor_called = 0;
-		nih_alloc_set_destructor (em1, my_destructor);
+		sock = upstart_open ();
 
-		emission_called = 0;
+		TEST_CHILD_RELEASE (wait_fd);
 
-		event_poll ();
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event_finished,
+						       NULL));
 
-		TEST_TRUE (emission_called);
-		TEST_TRUE (destructor_called);
+		nih_free (message);
+
+		exit (0);
 	}
+
+	em1 = event_emit ("test", NULL, NULL, my_emission_cb, &em1);
+	em1->id = 0xdeafbeef;
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (em1, my_destructor);
+
+	sub = notify_subscribe_event (NULL, pid, em1);
+
+	emission_called = 0;
+	event_emit_finished (em1);
+
+	event_poll ();
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_TRUE (emission_called);
+	TEST_TRUE (destructor_called);
+
+	nih_list_free (&sub->entry);
 
 
 	/* Check that a pending event which doesn't cause any jobs to be
@@ -502,6 +555,7 @@ test_poll (void)
 	nih_list_free (&job->entry);
 
 
+	control_close ();
 	upstart_disable_safeties = FALSE;
 }
 

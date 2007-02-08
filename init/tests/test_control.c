@@ -234,12 +234,11 @@ test_error_handler (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
+	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
 	TEST_NE_P (sub, NULL);
 
-	TEST_EQ (sub->pid, pid);
-	TEST_EQ (sub->notify, NOTIFY_JOBS);
+	destructor_called = 0;
+	nih_alloc_set_destructor (sub, my_destructor);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -249,9 +248,7 @@ test_error_handler (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
-	TEST_EQ_P (sub, NULL);
+	TEST_TRUE (destructor_called);
 
 	TEST_LIST_EMPTY (io->send_q);
 
@@ -799,85 +796,6 @@ test_job_list (void)
 }
 
 void
-test_event_queue (void)
-{
-	NihIo   *io;
-	pid_t    pid;
-	int      wait_fd, status;
-	Event   *event;
-	NihList *list;
-
-	/* Check that we can handle a message from a child process requesting
-	 * that an event be queued.  The child won't get a reply, but we
-	 * should be able to see the event in the queue in the parent.
-	 */
-	TEST_FUNCTION ("control_event_queue");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* This is a naughty way of getting a pointer to the event queue
-	 * list head...
-	 */
-	event_queue_run ();
-	event = (Event *)event_queue ("wibble");
-	list = event->entry.prev;
-	nih_list_free (&event->entry);
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage  *message;
-		char         **args, **env;
-		int            sock;
-
-		sock = upstart_open ();
-
-		args = nih_str_array_new (NULL);
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-
-		env = nih_str_array_new (NULL);
-		NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_EVENT_QUEUE, "snarf",
-					       args, env);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		nih_free (args);
-		nih_free (env);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "snarf");
-
-	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 3);
-	TEST_ALLOC_PARENT (event->args[0], event->args);
-	TEST_ALLOC_PARENT (event->args[1], event->args);
-	TEST_EQ_STR (event->args[0], "foo");
-	TEST_EQ_STR (event->args[1], "bar");
-	TEST_EQ_P (event->args[2], NULL);
-
-	TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
-	TEST_ALLOC_PARENT (event->env[0], event->env);
-	TEST_EQ_STR (event->env[0], "FOO=BAR");
-	TEST_EQ_P (event->env[1], NULL);
-
-	nih_list_free (&event->entry);
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
 test_watch_jobs (void)
 {
 	NihIo              *io;
@@ -930,12 +848,8 @@ test_watch_jobs (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
+	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
 	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (sub->pid, pid);
-	TEST_EQ (sub->notify, NOTIFY_JOBS);
 
 	notify_job (job);
 
@@ -1013,12 +927,11 @@ test_unwatch_jobs (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
+	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
 	TEST_NE_P (sub, NULL);
 
-	TEST_EQ (sub->pid, pid);
-	TEST_EQ (sub->notify, NOTIFY_JOBS);
+	destructor_called = 0;
+	nih_alloc_set_destructor (sub, my_destructor);
 
 	notify_job (job);
 
@@ -1030,9 +943,7 @@ test_unwatch_jobs (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
-	TEST_EQ_P (sub, NULL);
+	TEST_TRUE (destructor_called);
 
 	nih_list_free (&job->entry);
 
@@ -1042,14 +953,21 @@ test_unwatch_jobs (void)
 }
 
 static int
-check_event (void               *data,
-	     pid_t               pid,
-	     UpstartMessageType  type,
-	     const char         *name)
+check_event (void                *data,
+	     pid_t                pid,
+	     UpstartMessageType   type,
+	     uint32_t             id,
+	     const char          *name,
+	     char * const       **args,
+	     char * const       **env)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_EVENT);
+
+	TEST_EQ_U (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "snarf");
+	TEST_EQ_P (args, NULL);
+	TEST_EQ_P (env, NULL);
 
 	return 0;
 }
@@ -1060,7 +978,7 @@ test_watch_events (void)
 	NihIo              *io;
 	pid_t               pid;
 	int                 wait_fd, status;
-	Event              *event;
+	EventEmission      *emission;
 	NotifySubscription *sub;
 
 	/* Check that we can handle a message from a child process asking us
@@ -1100,15 +1018,12 @@ test_watch_events (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
 
-	TEST_EQ (sub->pid, pid);
-	TEST_EQ (sub->notify, NOTIFY_EVENTS);
-
-	event = event_new (NULL, "snarf");
-	notify_event (event);
+	emission = event_emit ("snarf", NULL, NULL, NULL, NULL);
+	emission->id = 0xdeafbeef;
+	notify_event (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
@@ -1116,7 +1031,7 @@ test_watch_events (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	nih_list_free (&event->entry);
+	nih_list_free (&emission->event.entry);
 	nih_list_free (&sub->entry);
 
 
@@ -1130,7 +1045,7 @@ test_unwatch_events (void)
 	NihIo              *io;
 	pid_t               pid;
 	int                 wait_fd, status;
-	Event              *event;
+	EventEmission      *emission;
 	NotifySubscription *sub;
 
 	/* Check that we can handle a message from a child process asking us
@@ -1177,15 +1092,15 @@ test_unwatch_events (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
-
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
 
-	TEST_EQ (sub->pid, pid);
-	TEST_EQ (sub->notify, NOTIFY_EVENTS);
+	destructor_called = 0;
+	nih_alloc_set_destructor (sub, my_destructor);
 
-	event = event_new (NULL, "snarf");
-	notify_event (event);
+	emission = event_emit ("snarf", NULL, NULL, NULL, NULL);
+	emission->id = 0xdeafbeef;
+	notify_event (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
@@ -1195,11 +1110,9 @@ test_unwatch_events (void)
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscribe (pid, NOTIFY_NONE, FALSE);
+	TEST_TRUE (destructor_called);
 
-	TEST_EQ_P (sub, NULL);
-
-	nih_list_free (&event->entry);
+	nih_list_free (&emission->event.entry);
 
 
 	control_close ();
@@ -1279,7 +1192,6 @@ main (int   argc,
 	test_job_stop ();
 	test_job_query ();
 	test_job_list ();
-	test_event_queue ();
 	test_watch_jobs ();
 	test_unwatch_jobs ();
 	test_watch_events ();

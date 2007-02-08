@@ -1,5 +1,41 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	Rewrite the notification subsystem quite significantly; now we
+	have individual functions to subscribe to different types of
+	notification, and can even subscribe to individual jobs or events.
+
+	* init/notify.c (notify_subscribe_job, notify_subscribe_event) 
+	(notify_unsubscribe): New subscription and unsubscription functions
+	that assume one record per subscription, not process.
+	(notify_subscription_find): Function to find a subscription.
+	(notify_job): Send a message to anything subscribed to the goal event
+	as well.
+	(notify_event): Use EventEmission and include the id in the event.
+	(notify_event_finished): New function, sends a finished message and
+	includes both the id and whether the event failed.
+	* init/notify.h (NotifySubscribe): New notify structure that is
+	once per subscription, rather than per-process; and allows
+	subscription to individual jobs or events.
+	* init/tests/test_notify.c (test_subscribe_job) 
+	(test_subscribe_event, test_unsubscribe): Test the new subscription
+	functions, replacing the old
+	(test_subscribe): tests.
+	(test_subscription_find): Check finding works
+	(check_event, test_event): Update to use emissions, and check that the
+	id is correct.
+	(test_event_finished): Check this one works too
+	(check_event_job_status, test_job): Make sure processes subscribed
+	via the goal event are notified too.
+	* init/event.c (event_pending): Pass the emission directly.
+	(event_finished): Notify subscribers that the event has finished.
+	* init/control.c (control_error_handler): Call notify_unsubscribe
+	(control_watch_jobs, control_unwatch_jobs, control_watch_events) 
+	(control_unwatch_events): Update to the new subscription API.
+	* init/tests/test_control.c (test_error_handler): Use new API
+	(test_watch_jobs, test_unwatch_jobs, test_watch_events)
+	(test_unwatch_events): Also update these to the new API; use a
+	destructor to make sure the subscription is freed.
+
 	* init/tests/test_process.c: Don't use printf, use TEST_FUNCTION
 
 2007-02-07  Scott James Remnant  <scott@netsplit.com>

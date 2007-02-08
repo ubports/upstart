@@ -53,9 +53,6 @@ static int  control_job_query      (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name);
 static int  control_job_list       (void *data,  pid_t pid,
 				    UpstartMessageType type);
-static int  control_event_queue    (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name,
-				    char **args, char **env);
 static int  control_watch_jobs     (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_jobs   (void *data, pid_t pid,
@@ -90,8 +87,6 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_job_query },
 	{ -1, UPSTART_JOB_LIST,
 	  (UpstartMessageHandler)control_job_list },
-	{ -1, UPSTART_EVENT_QUEUE,
-	  (UpstartMessageHandler)control_event_queue },
 	{ -1, UPSTART_WATCH_JOBS,
 	  (UpstartMessageHandler)control_watch_jobs },
 	{ -1, UPSTART_UNWATCH_JOBS,
@@ -193,8 +188,7 @@ control_error_handler (void  *data,
 		 */
 		message = (NihIoMessage *)io->send_q->next;
 
-		notify_subscribe ((pid_t)message->int_data,
-				  NOTIFY_JOBS | NOTIFY_EVENTS, FALSE);
+		notify_unsubscribe ((pid_t)message->int_data);
 
 		nih_list_free (&message->entry);
 		break;
@@ -405,51 +399,6 @@ control_job_list (void               *data,
 }
 
 /**
- * control_event_queue:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of event to queue,
- * @args: optional arguments for event,
- * @env: optional environment for event.
- *
- * This function is called when another process on the system requests that
- * we queue the event @name.  It receives no reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_event_queue (void                *data,
-		     pid_t                pid,
-		     UpstartMessageType   type,
-		     const char          *name,
-		     char               **args,
-		     char               **env)
-{
-	Event *event;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_EVENT_QUEUE);
-	nih_assert (name != NULL);
-
-	nih_info (_("Control request to queue event %s"), name);
-
-	event = (Event *)event_queue (name);
-
-	if (args) {
-		event->args = args;
-		nih_alloc_reparent (event->args, event);
-	}
-
-	if (env) {
-		event->env = env;
-		nih_alloc_reparent (event->env, event);
-	}
-
-	return 0;
-}
-
-/**
  * control_watch_jobs:
  * @data: data pointer,
  * @pid: origin process id,
@@ -470,7 +419,7 @@ control_watch_jobs (void               *data,
 
 	nih_info (_("Control request to subscribe %d to jobs"), pid);
 
-	notify_subscribe (pid, NOTIFY_JOBS, TRUE);
+	notify_subscribe_job (NULL, pid, NULL);
 
 	return 0;
 }
@@ -491,12 +440,16 @@ control_unwatch_jobs (void               *data,
 		      pid_t               pid,
 		      UpstartMessageType  type)
 {
+	NotifySubscription *sub;
+
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_UNWATCH_JOBS);
 
 	nih_info (_("Control request to unsubscribe %d from jobs"), pid);
 
-	notify_subscribe (pid, NOTIFY_JOBS, FALSE);
+	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
+	if (sub)
+		nih_list_free (&sub->entry);
 
 	return 0;
 }
@@ -522,7 +475,7 @@ control_watch_events (void               *data,
 
 	nih_info (_("Control request to subscribe %d to events"), pid);
 
-	notify_subscribe (pid, NOTIFY_EVENTS, TRUE);
+	notify_subscribe_event (NULL, pid, NULL);
 
 	return 0;
 }
@@ -543,12 +496,16 @@ control_unwatch_events (void               *data,
 			pid_t               pid,
 			UpstartMessageType  type)
 {
+	NotifySubscription *sub;
+
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_UNWATCH_EVENTS);
 
 	nih_info (_("Control request to unsubscribe %d from events"), pid);
 
-	notify_subscribe (pid, NOTIFY_EVENTS, FALSE);
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
+	if (sub)
+		nih_list_free (&sub->entry);
 
 	return 0;
 }

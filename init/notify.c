@@ -65,23 +65,32 @@ notify_init (void)
 
 
 /**
- * notify_subscribe:
+ * notify_subscribe_job:
+ * @parent: parent of block,
  * @pid: process id to send to,
- * @notify: notify events mask to change,
- * @set: TRUE to add events, FALSE to remove.
+ * @job: job to watch.
  *
- * Adjusts the subscription of process @pid by adding the events listed
- * in @notify if @set is TRUE or removing if @set is FALSE.  Removing
- * all subscribed events removes the subscription.
+ * Adjusts the subscription of process @pid by adding a subscription to
+ * all changes to @job, which may be NULL to indicate that all job changes
+ * should be sent.
  *
- * The current subscription can be found by passing NOTIFY_NONE.
+ * The subscription is allocated with nih_alloc() and stored in a linked
+ * list, with a destructor set to remove it should the object be freed.
+ * Removing the subscription from the list will cease notification to the
+ * client.
  *
- * Returns: subscription record on success, NULL on removal of subscription.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: new EventSubscription object.
  **/
 NotifySubscription *
-notify_subscribe (pid_t        pid,
-		  NotifyEvents notify,
-		  int          set)
+notify_subscribe_job (const void *parent,
+		      pid_t       pid,
+		      Job        *job)
 {
 	NotifySubscription *sub;
 
@@ -89,42 +98,127 @@ notify_subscribe (pid_t        pid,
 
 	notify_init ();
 
-	/* Amend existing subscription record */
-	NIH_LIST_FOREACH (subscriptions, iter) {
-		sub = (NotifySubscription *)iter;
-
-		if (sub->pid != pid)
-			continue;
-
-		if (set) {
-			sub->notify |= notify;
-		} else {
-			sub->notify &= ~notify;
-		}
-
-		if (sub->notify) {
-			return sub;
-		} else {
-			nih_list_free (&sub->entry);
-			return NULL;
-		}
-	}
-
-	/* Not adding anything, and no existing record */
-	if ((! set) || (! notify))
-		return NULL;
-
-	/* Create new subscription record */
-	NIH_MUST (sub = nih_new (NULL, NotifySubscription));
-
+	NIH_MUST (sub = nih_new (parent, NotifySubscription));
 	nih_list_init (&sub->entry);
 
 	sub->pid = pid;
-	sub->notify = notify;
+	sub->type = NOTIFY_JOB;
+	sub->job = job;
+
+	nih_alloc_set_destructor (sub, (NihDestructor)nih_list_destructor);
 
 	nih_list_add (subscriptions, &sub->entry);
 
 	return sub;
+}
+
+/**
+ * notify_subscribe_event:
+ * @parent: parent of block,
+ * @pid: process id to send to,
+ * @emission: event emission to watch.
+ *
+ * Adjusts the subscription of process @pid by adding a subscription to
+ * all changes caused by @emission, which may be NULL to indicate that
+ * emission notification of events should be sent.
+ *
+ * The subscription is allocated with nih_alloc() and stored in a linked
+ * list, with a destructor set to remove it should the object be freed.
+ * Removing the subscription from the list will cease notification to the
+ * client.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: new EventSubscription object.
+ **/
+NotifySubscription *
+notify_subscribe_event (const void    *parent,
+			pid_t          pid,
+			EventEmission *emission)
+{
+	NotifySubscription *sub;
+
+	nih_assert (pid > 0);
+
+	notify_init ();
+
+	NIH_MUST (sub = nih_new (parent, NotifySubscription));
+	nih_list_init (&sub->entry);
+
+	sub->pid = pid;
+	sub->type = NOTIFY_EVENT;
+	sub->emission = emission;
+
+	nih_alloc_set_destructor (sub, (NihDestructor)nih_list_destructor);
+
+	nih_list_add (subscriptions, &sub->entry);
+
+	return sub;
+}
+
+/**
+ * notify_subscription_find:
+ * @pid: process id subscribed,
+ * @type: type of subscription,
+ * @ptr: Job or EventEmission, depending on @type.
+ *
+ * Finds the first subscription exactly matching the given details.
+ *
+ * Returns: subscription found or NULL if not found.
+ **/
+NotifySubscription *
+notify_subscription_find (pid_t        pid,
+			  NotifyEvent  type,
+			  const void  *ptr)
+{
+	nih_assert (pid > 0);
+
+	notify_init ();
+
+	NIH_LIST_FOREACH_SAFE (subscriptions, iter) {
+		NotifySubscription *sub = (NotifySubscription *)iter;
+
+		if ((sub->pid != pid) || (sub->type != type))
+			continue;
+
+		if ((sub->type == NOTIFY_JOB) && (sub->job != ptr))
+			continue;
+
+		if ((sub->type == NOTIFY_EVENT) && (sub->emission != ptr))
+			continue;
+
+		return sub;
+	}
+
+	return NULL;
+}
+
+/**
+ * notify_unsubscribe:
+ * @pid: process id to remove.
+ *
+ * Removes all subscriptions for process @pid, normally because we have
+ * received a connection refused indication for it.  Individual subscriptions
+ * can be removed using the pointer returned when the subscription was made,
+ * or found with notify_subscription_find().
+ **/
+void
+notify_unsubscribe (pid_t pid)
+{
+	nih_assert (pid > 0);
+
+	notify_init ();
+
+	NIH_LIST_FOREACH_SAFE (subscriptions, iter) {
+		NotifySubscription *sub = (NotifySubscription *)iter;
+
+		if (sub->pid == pid)
+			nih_list_free (&sub->entry);
+	}
 }
 
 
@@ -133,7 +227,9 @@ notify_subscribe (pid_t        pid,
  * @job: job that changed state,
  *
  * Called when a job's state changes.  Notifies subscribed processes with
- * an UPSTART_JOB_STATUS message.
+ * an UPSTART_JOB_STATUS message, and if the goal event is set, also
+ * sends notification to subscribed process for that event with an
+ * UPSTART_EVENT_JOB_STATUS message.
  **/
 void
 notify_job (Job *job)
@@ -145,35 +241,61 @@ notify_job (Job *job)
 	if (! control_io)
 		return;
 
+	/* First send to processes subscribed for the job. */
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
 		NihIoMessage       *message;
 
-		if (! (sub->notify & NOTIFY_JOBS))
+		if (sub->type != NOTIFY_JOB)
 			continue;
 
-		NIH_MUST (message = upstart_message_new (control_io, sub->pid,
-							 UPSTART_JOB_STATUS,
-							 job->name, job->goal,
-							 job->state,
-							 job->process_state,
-							 job->pid,
-							 job->description));
+		if (sub->job && (sub->job != job))
+			continue;
+
+		NIH_MUST (message = upstart_message_new (
+				  control_io, sub->pid, UPSTART_JOB_STATUS,
+				  job->name, job->goal, job->state,
+				  job->process_state, job->pid,
+				  job->description));
+		nih_io_send_message (control_io, message);
+	}
+
+	if (! job->goal_event)
+		return;
+
+	/* And then to processes subscribed for the goal event; only
+	 * send to those specifically subscribed, not to global.
+	 */
+	NIH_LIST_FOREACH (subscriptions, iter) {
+		NotifySubscription *sub = (NotifySubscription *)iter;
+		NihIoMessage       *message;
+
+		if (sub->type != NOTIFY_EVENT)
+			continue;
+
+		if (sub->emission != job->goal_event)
+			continue;
+
+		NIH_MUST (message = upstart_message_new (
+				  control_io, sub->pid,
+				  UPSTART_EVENT_JOB_STATUS,
+				  job->goal_event->id, job->name, job->goal,
+				  job->state, job->pid));
 		nih_io_send_message (control_io, message);
 	}
 }
 
 /**
  * notify_event:
- * @event: event emitted.
+ * @emission: event emission now being handled.
  *
- * Called when an event is emitted.  Notifies subscribed processes with
- * an UPSTART_EVENT message.
+ * Called when an event begins being handled.  Notifies subscribed processes
+ * with an UPSTART_EVENT message.
  **/
 void
-notify_event (Event *event)
+notify_event (EventEmission *emission)
 {
-	nih_assert (event != NULL);
+	nih_assert (emission != NULL);
 
 	notify_init ();
 
@@ -184,14 +306,52 @@ notify_event (Event *event)
 		NotifySubscription *sub = (NotifySubscription *)iter;
 		NihIoMessage       *message;
 
-		if (! (sub->notify & NOTIFY_EVENTS))
+		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		NIH_MUST (message = upstart_message_new (control_io, sub->pid,
-							 UPSTART_EVENT,
-							 event->name,
-							 event->args,
-							 event->env));
+		if (sub->emission && (sub->emission != emission))
+			continue;
+
+		NIH_MUST (message = upstart_message_new (
+				  control_io, sub->pid, UPSTART_EVENT,
+				  emission->id, emission->event.name,
+				  emission->event.args, emission->event.env));
+		nih_io_send_message (control_io, message);
+	}
+}
+
+/**
+ * notify_event_finished:
+ * @emission: event emission now finished.
+ *
+ * Called when an event emission has finished.  Notifies subscribed processes
+ * with an UPSTART_EVENT_FINISHED message.
+ **/
+void
+notify_event_finished (EventEmission *emission)
+{
+	nih_assert (emission != NULL);
+
+	notify_init ();
+
+	if (! control_io)
+		return;
+
+	NIH_LIST_FOREACH (subscriptions, iter) {
+		NotifySubscription *sub = (NotifySubscription *)iter;
+		NihIoMessage       *message;
+
+		if (sub->type != NOTIFY_EVENT)
+			continue;
+
+		if (sub->emission && (sub->emission != emission))
+			continue;
+
+		NIH_MUST (message = upstart_message_new (
+				  control_io, sub->pid, UPSTART_EVENT_FINISHED,
+				  emission->id, emission->failed,
+				  emission->event.name,
+				  emission->event.args, emission->event.env));
 		nih_io_send_message (control_io, message);
 	}
 }
