@@ -74,9 +74,7 @@ static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
-#if 0
 static void term_handler    (const char *prog, NihSignal *signal);
-#endif
 
 
 /**
@@ -94,9 +92,7 @@ static int restart = FALSE;
  * Command-line options we accept.
  **/
 static NihOption options[] = {
-#if 0
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
-#endif
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -246,12 +242,10 @@ main (int   argc,
 		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
 						  kbd_handler, NULL));
 
-#if 0
 	/* SIGTERM instructs us to re-exec ourselves */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
 					  (NihSignalHandler)term_handler,
 					  argv[0]));
-#endif
 
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
@@ -290,11 +284,6 @@ main (int   argc,
 		event_emit (STARTUP_EVENT, NULL, NULL);
 	} else {
 		sigset_t mask;
-
-#if 0
-		/* State file descriptor is fixed */
-		read_state (STATE_FD);
-#endif
 
 		/* We're ok to receive signals again */
 		sigemptyset (&mask);
@@ -472,7 +461,6 @@ stop_handler (void      *data,
 }
 
 
-#if 0
 /**
  * term_handler:
  * @argv0: program to run,
@@ -487,8 +475,6 @@ term_handler (const char *argv0,
 {
 	NihError *err;
 	sigset_t  mask, oldmask;
-	int       fds[2] = { -1, -1 };
-	pid_t     pid;
 
 	nih_assert (argv0 != NULL);
 	nih_assert (signal != NULL);
@@ -504,56 +490,13 @@ term_handler (const char *argv0,
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
-	/* Create pipe */
-	if (pipe (fds) < 0) {
-		nih_error_raise_system ();
-		goto error;
-	}
-
-	/* Fork a child that can send the state to the new init process */
-	pid = fork ();
-	if (pid < 0) {
-		nih_error_raise_system ();
-		goto error;
-	} else if (pid == 0) {
-		close (fds[0]);
-
-		/* Close the control socket so the new init process won't
-		 * get EADDRINUSE when it tries to open it.
-		 */
-		control_close ();
-		write (fds[1], "\n", 1);
-
-		write_state (fds[1]);
-		exit (0);
-	} else {
-		char buf[1];
-
-		/* Make sure the child is ready to send its state */
-		read (fds[0], buf, sizeof (buf));
-
-		if (dup2 (fds[0], STATE_FD) < 0) {
-			nih_error_raise_system ();
-			goto error;
-		}
-
-		close (fds[0]);
-		close (fds[1]);
-		fds[0] = fds[1] = -1;
-	}
-
 	/* Argument list */
 	execl (argv0, argv0, "--restart", NULL);
 	nih_error_raise_system ();
 
-error:
 	err = nih_error_get ();
 	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
 	nih_free (err);
 
-	close (fds[0]);
-	close (fds[1]);
-
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }
-#endif
