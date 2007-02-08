@@ -1,5 +1,7 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (STATE_FD): Remove this define, not used anymore.
+
 	* init/tests/test_event.c (test_poll): Update the event checking
 	to match what's likely to happen.
 

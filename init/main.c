@@ -60,14 +60,6 @@
 #include "paths.h"
 
 
-/**
- * STATE_FD:
- *
- * File descriptor we read our state from.
- **/
-#define STATE_FD 101
-
-
 /* Prototypes for static functions */
 static void reset_console   (void);
 static void crash_handler   (int signum);
