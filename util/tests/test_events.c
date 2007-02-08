@@ -38,6 +38,7 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
+#include <upstart/enum.h>
 #include <upstart/message.h>
 
 #include <util/events.h>
@@ -57,7 +58,8 @@ test_emit_action (void)
 	size_t        len;
 	FILE         *output;
 	char         *args[4];
-	int           ret, sock;
+	pid_t         pid;
+	int           ret, sock, status;
 
 
 	TEST_FUNCTION ("emit_action");
@@ -68,58 +70,144 @@ test_emit_action (void)
 
 	output = tmpfile ();
 
-	control_sock = socket (PF_UNIX, SOCK_DGRAM, 0);
 	sock = upstart_open ();
 	destination_pid = getpid ();
 
 
 	/* Check that calling the emit action from the emit command results
-	 * in an event queue message being sent to the server with no
-	 * arguments or environment attached.  Nothing should be output as
-	 * a result of this command.
+	 * in an event emit message being sent to the server with no
+	 * arguments or environment attached.
+	 *
+	 * The command should output the event information when handling
+	 * begins, along with a summary of each job changed by it.
 	 */
 	TEST_FEATURE ("with single argument");
 	cmd.command = "emit";
 	args[0] = "foo";
 	args[1] = NULL;
 
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = emit_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
+	TEST_CHILD (pid) {
 		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
 			ret = emit_action (&cmd, args);
+			exit (ret);
 		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 22);
-		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\010s\0\0\0\03fooAA", 22);
-
-		nih_free (msg);
 	}
+
+	/* Should receive UPSTART_EVENT_EMIT */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 22);
+	TEST_EQ_MEM (msg->data->buf,
+		     "upstart\n\0\0\x02\x00s\0\0\0\03fooAA", 22);
+
+	nih_free (msg);
+
+	/* Send back a couple of messages */
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT,
+				   0xdeafbeef, "foo", NULL, NULL);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
+				   -1);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
+				   1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_FINISHED,
+				   0xdeafbeef, FALSE, "foo", NULL, NULL);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	/* The child should have exited on its own */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_EQ (output, "foo\n");
+	TEST_FILE_EQ (output, "test (start) waiting\n");
+	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that the exit status is not zero if the event failed, and
+	 * a warning is output to stderr.
+	 */
+	TEST_FEATURE ("with failed event");
+	cmd.command = "emit";
+	args[0] = "foo";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			fflush (stderr);
+			dup2 (fileno (stdout), fileno (stderr));
+
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = emit_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_EVENT_EMIT */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 22);
+	TEST_EQ_MEM (msg->data->buf,
+		     "upstart\n\0\0\x02\x00s\0\0\0\03fooAA", 22);
+
+	nih_free (msg);
+
+	/* Send back a couple of messages */
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT,
+				   0xdeafbeef, "foo", NULL, NULL);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
+				   -1);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
+				   1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_FINISHED,
+				   0xdeafbeef, TRUE, "foo", NULL, NULL);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	/* The child should have exited on its own */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 1);
+
+	TEST_FILE_EQ (output, "foo\n");
+	TEST_FILE_EQ (output, "test (start) waiting\n");
+	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "test: foo event failed\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
 
 
 	/* Check that providing multiple arguments results in the surplus
@@ -132,44 +220,61 @@ test_emit_action (void)
 	args[2] = "bilbo";
 	args[3] = NULL;
 
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = emit_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
+	TEST_CHILD (pid) {
 		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
 			ret = emit_action (&cmd, args);
+			exit (ret);
 		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 43);
-		TEST_EQ_MEM (msg->data->buf,
-			     ("upstart\n\0\0\0\010s\0\0\0\003foo"
-			      "as\0\0\0\05frodos\0\0\0\05bilboSA"), 43);
-
-		nih_free (msg);
 	}
+
+	/* Should receive UPSTART_EVENT_EMIT */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 43);
+	TEST_EQ_MEM (msg->data->buf,
+		     ("upstart\n\0\0\x02\x00s\0\0\0\003foo"
+		      "as\0\0\0\05frodos\0\0\0\05bilboSA"), 43);
+
+	nih_free (msg);
+
+	/* Send back a couple of messages */
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT,
+				   0xdeafbeef, "foo", &(args[1]), NULL);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
+				   -1);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
+				   1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_FINISHED,
+				   0xdeafbeef, FALSE, "foo", &(args[1]), NULL);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	/* The child should have exited on its own */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_EQ (output, "foo frodo bilbo\n");
+	TEST_FILE_EQ (output, "test (start) waiting\n");
+	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
 
 
 	/* Check that providing multiple arguments results in the surplus
@@ -186,48 +291,67 @@ test_emit_action (void)
 	emit_env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&emit_env, NULL, NULL, "FOO=BAR"));
 
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = emit_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
+	TEST_CHILD (pid) {
 		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
 			ret = emit_action (&cmd, args);
+			exit (ret);
 		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 56);
-		TEST_EQ_MEM (msg->data->buf,
-			     ("upstart\n\0\0\0\010s\0\0\0\003foo"
-			      "as\0\0\0\05frodos\0\0\0\05bilboS"
-			      "as\0\0\0\07FOO=BARS"), 56);
-
-		nih_free (msg);
 	}
+
+	/* Should receive UPSTART_EVENT_EMIT */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 56);
+	TEST_EQ_MEM (msg->data->buf,
+		     ("upstart\n\0\0\x02\x00s\0\0\0\003foo"
+		      "as\0\0\0\05frodos\0\0\0\05bilboS"
+		      "as\0\0\0\07FOO=BARS"), 56);
+
+	nih_free (msg);
+
+	/* Send back a couple of messages */
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT,
+				   0xdeafbeef, "foo", &(args[1]), emit_env);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
+				   -1);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
+				   1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_FINISHED,
+				   0xdeafbeef, FALSE, "foo",
+				   &(args[1]), emit_env);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
 
 	nih_free (emit_env);
 	emit_env = NULL;
+
+	/* The child should have exited on its own */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_EQ (output, "foo frodo bilbo\n");
+	TEST_FILE_EQ (output, "    FOO=BAR\n");
+	TEST_FILE_EQ (output, "test (start) waiting\n");
+	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
 
 
 	/* Check that calling emit without any argument results in an error
@@ -389,8 +513,8 @@ test_events_action (void)
 
 
 	/* Send back a couple of events */
-	msg = upstart_message_new (NULL, pid, UPSTART_EVENT, "wibble",
-				   NULL, NULL);
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT,
+				   0xdeafbeef, "wibble", NULL, NULL);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -401,8 +525,8 @@ test_events_action (void)
 	env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
 
-	msg = upstart_message_new (NULL, pid, UPSTART_EVENT, "frodo",
-				   argv, env);
+	msg = upstart_message_new (NULL, pid, UPSTART_EVENT,
+				   0xdeafbeef, "frodo", argv, env);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 

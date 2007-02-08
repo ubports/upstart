@@ -46,10 +46,24 @@
 #include <util/events.h>
 
 
+/* Returns values from handle_event_finished */
+#define EVENT_FAILED 1
+#define EVENT_OK     2
+
+
 /* Prototypes for static functions */
-static int handle_event (void *data, pid_t pid, UpstartMessageType type,
-			 const char *name, char * const *args,
-			 char * const *env);
+static int handle_event            (void *data, pid_t pid,
+				    UpstartMessageType type, uint32_t id,
+				    const char *name, char * const *args,
+				    char * const *env);
+static int handle_event_job_status (void *data, pid_t pid,
+				    UpstartMessageType type, uint32_t id,
+				    const char *name, JobGoal goal,
+				    JobState state, pid_t process);
+static int handle_event_finished   (void *data, pid_t pid,
+				    UpstartMessageType type, uint32_t id,
+				    int failed, const char *name,
+				    char * const *args, char * const *env);
 
 
 /**
@@ -68,6 +82,10 @@ char **emit_env = NULL;
 static UpstartMessage handlers[] = {
 	{ -1, UPSTART_EVENT,
 	  (UpstartMessageHandler)handle_event },
+	{ -1, UPSTART_EVENT_JOB_STATUS,
+	  (UpstartMessageHandler)handle_event_job_status },
+	{ -1, UPSTART_EVENT_FINISHED,
+	  (UpstartMessageHandler)handle_event_finished },
 
 	UPSTART_MESSAGE_LAST
 };
@@ -79,7 +97,10 @@ static UpstartMessage handlers[] = {
  * @args: arguments passed.
  *
  * Function invoked when the emit or shutdown command is run.  An event name
- * is expected.
+ * is expected, followed by optional arguments for the event.  We also use
+ * the @emit_env variable, set by -e, to set the environment for the event.
+ *
+ * This does not return until the event has finished being emitted.
  *
  * Returns: zero on success, exit status on error.
  **/
@@ -100,7 +121,7 @@ emit_action (NihCommand   *command,
 	}
 
 	message = upstart_message_new (NULL, destination_pid,
-				       UPSTART_EVENT_QUEUE, args[0],
+				       UPSTART_EVENT_EMIT, args[0],
 				       args[1] ? &(args[1]) : NULL, emit_env);
 	if (! message) {
 		nih_error_raise_system ();
@@ -114,6 +135,31 @@ emit_action (NihCommand   *command,
 	}
 
 	nih_free (message);
+
+	/* Receive replies until we get the one indicating that the event
+	 * has finished.
+	 */
+	for (;;) {
+		NihIoMessage *reply;
+		size_t        len;
+		int           ret;
+
+		reply = nih_io_message_recv (NULL, control_sock, &len);
+		if (! reply)
+			goto error;
+
+		ret = upstart_message_handle (reply, reply, handlers, NULL);
+		nih_free (reply);
+
+		if (ret < 0) {
+			goto error;
+		} else if (ret == EVENT_FAILED) {
+			return 1;
+		} else if (ret == EVENT_OK) {
+			return 0;
+		}
+	}
+
 
 	return 0;
 
@@ -293,6 +339,7 @@ error:
  * @data: data pointer,
  * @pid: origin of message,
  * @type: message type,
+ * @id: id of event,
  * @name: name of event,
  * @args: arguments to event,
  * @env: environment for event.
@@ -308,6 +355,7 @@ error:
 static int handle_event (void               *data,
 			 pid_t               pid,
 			 UpstartMessageType  type,
+			 uint32_t            id,
 			 const char         *name,
 			 char * const *      args,
 			 char * const *      env)
@@ -338,4 +386,88 @@ static int handle_event (void               *data,
 		nih_message ("    %s", *ptr);
 
 	return 0;
+}
+
+/**
+ * handle_event_job_status:
+ * @data: data pointer,
+ * @pid: origin of message,
+ * @type: message type,
+ * @id: id of associated event,
+ * @name: name of job,
+ * @goal: current goal,
+ * @state: state of job,
+ * @pid: process id.
+ *
+ * Function called on receipt of a message containing the status of a job
+ * changed by an event we've emitted.
+ *
+ * Builds a single-line string describing the message and outputs it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int handle_event_job_status (void               *data,
+				    pid_t               pid,
+				    UpstartMessageType  type,
+				    uint32_t            id,
+				    const char         *name,
+				    JobGoal             goal,
+				    JobState            state,
+				    pid_t               process)
+{
+	char *extra = NULL;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_EVENT_JOB_STATUS);
+	nih_assert (name != NULL);
+
+	if (process > 0)
+		NIH_MUST (extra = nih_sprintf (NULL, ", process %d", process));
+
+	nih_message ("%s (%s) %s%s", name, job_goal_name (goal),
+		     job_state_name (state), extra ? extra : "");
+
+	if (extra)
+		nih_free (extra);
+
+	return 0;
+}
+
+/**
+ * handle_event_finished:
+ * @data: data pointer,
+ * @pid: origin of message,
+ * @type: message type.
+ * @id: id of event,
+ * @failed: whether the event failed,
+ * @name: name of event,
+ * @args: arguments to event,
+ * @env: environment for event.
+ *
+ * Function called on receipt of a message indicating that an event we're
+ * watching has finished.  @failed indicates whether any job started or
+ * stopped by this event failed; we use that to generate a return code.
+ *
+ * Returns: EVENT_FAILED if @failed is TRUE, otherwise EVENT_OK.
+ **/
+static int handle_event_finished (void               *data,
+				  pid_t               pid,
+				  UpstartMessageType  type,
+				  uint32_t            id,
+				  int                 failed,
+				  const char         *name,
+				  char * const *      args,
+				  char * const *      env)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_EVENT_FINISHED);
+	nih_assert (name != NULL);
+
+	if (failed) {
+		nih_warn (_("%s event failed"), name);
+
+		return EVENT_FAILED;
+	} else {
+		return EVENT_OK;
+	}
 }
