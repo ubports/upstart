@@ -1170,12 +1170,6 @@ test_shutdown (void)
 	TEST_EQ_STR (em->event.name, "shutdown");
 	nih_list_free (&em->event.entry);
 
-	job_detect_idle ();
-
-	em = (EventEmission *)list->prev;
-	TEST_EQ_STR (em->event.name, "kaboom");
-	nih_list_free (&em->event.entry);
-
 	control_close ();
 	upstart_disable_safeties = FALSE;
 }

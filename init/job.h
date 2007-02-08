@@ -233,14 +233,7 @@ void        job_child_reaper    (void *ptr, pid_t pid, int killed, int status);
 
 void        job_handle_event    (EventEmission *emission);
 
-void        job_detect_idle     (void);
-void        job_set_idle_event  (const char *name);
-
-#if 0
-Job *       job_read_state      (Job *job, char *buf)
-	__attribute__ ((warn_unused_result, malloc));
-void        job_write_state     (FILE *state);
-#endif
+void        job_detect_stalled  (void);
 
 NIH_END_EXTERN
 

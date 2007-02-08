@@ -250,11 +250,12 @@ main (int   argc,
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
 
-	/* Process the event queue and check the jobs for idleness
-	 * every time through the main loop */
+	/* Process the event queue and check the jobs to make sure we
+	 * haven't stalled, every time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
 					  NULL));
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle,
+	NIH_MUST (nih_main_loop_add_func (NULL,
+					  (NihMainLoopCb)job_detect_stalled,
 					  NULL));
 
 
@@ -443,7 +444,7 @@ kbd_handler (void      *data,
  *
  * This is called when we receive the STOP, TSTP or CONT signals; we
  * adjust the paused variable appropriately so that the event queue and
- * job idle detection is not run.
+ * job stalled detection is not run.
  **/
 static void
 stop_handler (void      *data,

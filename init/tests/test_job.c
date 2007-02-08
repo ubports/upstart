@@ -2526,14 +2526,14 @@ test_handle_event (void)
 }
 
 void
-test_detect_idle (void)
+test_detect_stalled (void)
 {
 	Job           *job1, *job2;
 	Event         *event;
 	EventEmission *em;
 	NihList       *list;
 
-	TEST_FUNCTION ("job_detect_idle");
+	TEST_FUNCTION ("job_detect_stalled");
 
 	/* This is a naughty way of getting a pointer to the event queue
 	 * list head...
@@ -2558,19 +2558,18 @@ test_detect_idle (void)
 	 * if there's no handled for it.
 	 */
 	TEST_FEATURE ("with stalled state and no handler");
-	job_detect_idle ();
+	job_detect_stalled ();
 
 	TEST_LIST_EMPTY (list);
 
 
-	/* Check that we can detect the stalled event, when all jobs are
-	 * stopped, which results in the stalled event being queued but
-	 * not the idle event.
+	/* Check that we can detect the stalled state, when all jobs are
+	 * stopped, which results in the stalled event being queued.
 	 */
 	TEST_FEATURE ("with stalled state");
 	event = event_new (job1, "stalled");
 	nih_list_add (&job1->start_events, &event->entry);
-	job_detect_idle ();
+	job_detect_stalled ();
 
 	event = (Event *)list->prev;
 	TEST_EQ_STR (event->name, "stalled");
@@ -2579,71 +2578,48 @@ test_detect_idle (void)
 	TEST_LIST_EMPTY (list);
 
 
-	/* Check that we don't detect either state if one of the jobs
-	 * is just waiting.
+	/* Check that we don't detect the stalled state if one of the jobs
+	 * is waiting to be started.
 	 */
 	TEST_FEATURE ("with waiting job");
 	job1->goal = JOB_START;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
+	job_detect_stalled ();
 
 	TEST_LIST_EMPTY (list);
 
 
-	/* Check that we don't detect either state if one of the jobs
+	/* Check that we don't detect the stalled state if one of the jobs
 	 * is starting.
 	 */
 	TEST_FEATURE ("with starting job");
 	job1->state = JOB_STARTING;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
+	job_detect_stalled ();
 
 	TEST_LIST_EMPTY (list);
 
 
-	/* Check that we detect the idle state if the jobs are either
-	 * stopped and waiting or starting and running.
+	/* Check that we don't detect the stalled state if one of the jobs
+	 * is running.
 	 */
 	TEST_FEATURE ("with running job");
 	job1->state = JOB_RUNNING;
 	job1->process_state = PROCESS_ACTIVE;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
-
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "reboot");
-	nih_list_free (&event->entry);
+	job_detect_stalled ();
 
 	TEST_LIST_EMPTY (list);
 
 
-	/* Check that we don't detect either state if one of the jobs is
-	 * waiting.
+	/* Check that we don't detect the stalled if one of the jobs is
+	 * stopping.
 	 */
 	TEST_FEATURE ("with stopping job");
 	job1->goal = JOB_STOP;
 	job1->state = JOB_STOPPING;
 	job1->process_state = PROCESS_NONE;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
+	job_detect_stalled ();
 
 	TEST_LIST_EMPTY (list);
 
-
-	/* Check that if both a stalled handler and idle event are set,
-	 * only the idle event is issued when we're really stalled.
-	 */
-	TEST_FEATURE ("with stalled state and idle event");
-	job1->state = JOB_WAITING;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
-
-	/* Idle event should have been queued */
-	event = (Event *)list->prev;
-	TEST_EQ_STR (event->name, "reboot");
-	nih_list_free (&event->entry);
-
-	TEST_LIST_EMPTY (list);
 
 	nih_list_free (&job1->entry);
 	nih_list_free (&job2->entry);
@@ -2665,7 +2641,7 @@ main (int   argc,
 	test_kill_process ();
 	test_child_reaper ();
 	test_handle_event ();
-	test_detect_idle ();
+	test_detect_stalled ();
 
 	return 0;
 }

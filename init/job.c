@@ -70,14 +70,6 @@ static int  job_catch_runaway (Job *job);
  **/
 static NihList *jobs = NULL;
 
-/**
- * idle_event:
- *
- * Event to be triggered once when the system is idle with no jobs changing
- * state.
- **/
-static char *idle_event = NULL;
-
 
 /**
  * job_init:
@@ -1165,22 +1157,19 @@ job_handle_event (EventEmission *emission)
 
 
 /**
- * job_detect_idle:
+ * job_detect_stalled:
  * @data: unused,
  * @func: loop function.
  *
  * This function is called each time through the main loop to detect whether
- * the system is stalled (nothing is running) or idle (nothing is changing
- * state).
- *
- * For the former it will generate the stalled event so that the system may
- * take action (e.g. opening a shell), and for the latter it will generate
- * the idle event set (usually none).
+ * the system is stalled, a state in which all jobs are dormant.  If we
+ * detect this, we generate the stalled event so that the system may take
+ * action (e.g. opening a shell).
  **/
 void
-job_detect_idle (void)
+job_detect_stalled (void)
 {
-	int stalled = TRUE, idle = TRUE, can_stall = FALSE;
+	int stalled = TRUE, can_stall = FALSE;
 
 	if (paused)
 		return;
@@ -1198,54 +1187,15 @@ job_detect_idle (void)
 				can_stall = TRUE;
 		}
 
-
-		if (job->goal == JOB_STOP) {
-			if (job->state != JOB_WAITING)
-				stalled = idle = FALSE;
-		} else {
+		if ((job->goal != JOB_STOP) || (job->state != JOB_WAITING))
 			stalled = FALSE;
-
-			if ((job->state != JOB_RUNNING)
-			    || (job->process_state != PROCESS_ACTIVE))
-				idle = FALSE;
-		}
 	}
 
-	if (idle && idle_event) {
-		nih_info (_("System is idle, generating %s event"),
-			  idle_event);
-
-		event_emit (idle_event, NULL, NULL);
-		nih_free (idle_event);
-		idle_event = NULL;
-
-		nih_main_loop_interrupt ();
-	} else if (stalled && can_stall) {
+	if (stalled && can_stall) {
 		nih_info (_("System has stalled, generating %s event"),
 			  STALLED_EVENT);
 		event_emit (STALLED_EVENT, NULL, NULL);
 
 		nih_main_loop_interrupt ();
 	}
-}
-
-/**
- * job_set_idle_event:
- * @name: event name to trigger when idle.
- *
- * This function is used to indicate that an event should be triggered
- * when the system is idle, which occurs when all jobs are either stopped
- * and waiting or starting and running.
- *
- * This event is only triggered once.
- **/
-void
-job_set_idle_event (const char *name)
-{
-	nih_assert (name != NULL);
-
-	if (idle_event)
-		nih_free (idle_event);
-
-	NIH_MUST (idle_event = nih_strdup (NULL, name));
 }

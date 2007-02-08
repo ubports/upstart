@@ -51,7 +51,8 @@ static void event_finished (EventEmission *emission);
 /**
  * paused:
  *
- * Do not process the event queue or detect idle jobs while this is TRUE.
+ * Do not process the event queue or detect a stalled system
+ * while this is TRUE.
  **/
 int paused = FALSE;
 

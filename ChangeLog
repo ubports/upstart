@@ -1,5 +1,16 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_detect_idle): Rename to job_detect_stalled
+	(job_detect_stalled): Remove the idle state detection
+	(job_set_idle_event): Idle event has been removed.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_detect_idle): Rename to
+	(test_detect_stalled): and remove idle detection tests.
+	* init/main.c (main): Replace job_detect_idle with job_detect_stalled
+	* init/control.c (control_shutdown): Don't set the idle event.
+	* init/tests/test_control.c (test_shutdown): Don't detect the idle
+	event (and thus the second event)
+
 	* init/cfgfile.c (cfg_stanza_service): Parser for service stanza.
 	* init/tests/test_cfgfile.c (test_stanza_service): Test the service
 	stanza.
