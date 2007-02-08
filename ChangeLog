@@ -1,5 +1,19 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: Remove the UPSTART_SHUTDOWN message.
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Remove handling for the shutdown message.
+	* upstart/tests/test_message.c (test_new, test_handle): Remove
+	tests against the shutdown message.
+	* init/control.c (control_shutdown): Remove the shutdown command
+	from the server.
+	* init/tests/test_control.c (test_shutdown): Remove tests for it.
+	* init/event.h: Remove the shutdown event.
+	* util/initctl.c: Remove the shutdown command reference.
+	* util/events.c (shutdown_action): Remove the command.
+	* util/events.h: Update.
+	* util/tests/test_events.c (test_shutdown_action): Remove tests.
+
 	* init/job.c (job_detect_idle): Rename to job_detect_stalled
 	(job_detect_stalled): Remove the idle state detection
 	(job_set_idle_event): Idle event has been removed.

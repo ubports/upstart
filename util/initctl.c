@@ -117,15 +117,6 @@ NihOption events_options[] = {
 	NIH_OPTION_LAST
 };
 
-/**
- * shutdown_options:
- *
- * Command-line options accepted for shutdown command.
- **/
-NihOption shutdown_options[] = {
-	NIH_OPTION_LAST
-};
-
 
 /**
  * job_group:
@@ -193,12 +184,6 @@ static NihCommand commands[] = {
 	  N_("Receive notification of emitted events."),
 	  NULL,
 	  &event_commands, events_options, events_action },
-
-	{ "shutdown", N_("EVENT"),
-	  N_("Emit a shutdown event."),
-	  N_("EVENT is the name of an event the init daemon should emit "
-	     "after the shutdown event has been emitted."),
-	  &event_commands, shutdown_options, shutdown_action },
 
 	NIH_COMMAND_LAST
 };

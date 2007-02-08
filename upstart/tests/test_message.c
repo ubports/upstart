@@ -399,29 +399,6 @@ test_new (void)
 	}
 
 
-	/* Check that we can create an UPSTART_SHUTDOWN message and have
-	 * the message buffer filled in correctly.
-	 */
-	TEST_FEATURE ("with UPSTART_SHUTDOWN message");
-	TEST_ALLOC_FAIL {
-		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_SHUTDOWN, "test");
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (msg, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
-
-		TEST_EQ (msg->data->len, 21);
-		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\x0es\0\0\0\x04test", 21);
-
-		nih_free (msg);
-	}
-
-
 	/* Check that we can create an UPSTART_EVENT_EMIT message and have
 	 * the message buffer filled in correctly.
 	 */
@@ -597,8 +574,7 @@ my_handler (void                *data,
 	case UPSTART_JOB_START:
 	case UPSTART_JOB_STOP:
 	case UPSTART_JOB_QUERY:
-	case UPSTART_JOB_UNKNOWN:
-	case UPSTART_SHUTDOWN: {
+	case UPSTART_JOB_UNKNOWN: {
 		char *name;
 
 		name = va_arg (args, char *);
@@ -1179,39 +1155,6 @@ test_handle (void)
 	}
 
 
-	/* Check that we call the handler function for an UPSTART_SHUTDOWN
-	 * message.
-	 */
-	TEST_FEATURE ("with UPSTART_SHUTDOWN message");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     ("upstart\n\0\0\0\xe"
-						      "s\0\0\0\x4test"), 21));
-			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
-							     SCM_CREDENTIALS,
-							     sizeof (cred),
-							     &cred));
-		}
-
-		handler_called = FALSE;
-		last_data = NULL;
-		last_pid = -1;
-		last_type = -1;
-
-		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-		TEST_EQ (ret, 0);
-		TEST_TRUE (handler_called);
-		TEST_EQ_P (last_data, &ret);
-		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_SHUTDOWN);
-
-		nih_free (msg);
-	}
-
-
 	/* Check that we call the handler function for an UPSTART_EVENT_EMIT
 	 * message.
 	 */
@@ -1647,56 +1590,6 @@ test_handle (void)
 	TEST_FEATURE ("with null unknown job");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\x5S", 13));
-	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-					     sizeof (cred), &cred));
-
-	handler_called = FALSE;
-
-	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-	TEST_LT (ret, 0);
-	TEST_FALSE (handler_called);
-
-	err = nih_error_get ();
-
-	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
-
-	nih_free (err);
-
-	nih_free (msg);
-
-
-	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
-	 * name of a shutdown event is missing.
-	 */
-	TEST_FEATURE ("with incomplete shutdown message");
-	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xe", 12));
-	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
-					     sizeof (cred), &cred));
-
-	handler_called = FALSE;
-
-	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-	TEST_LT (ret, 0);
-	TEST_FALSE (handler_called);
-
-	err = nih_error_get ();
-
-	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
-
-	nih_free (err);
-
-	nih_free (msg);
-
-
-	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
-	 * name of a shutdown event is NULL.
-	 */
-	TEST_FEATURE ("with null shutdown emitted");
-	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\0\xeS", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 

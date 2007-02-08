@@ -556,103 +556,6 @@ test_events_action (void)
 }
 
 
-void
-test_shutdown_action (void)
-{
-	NihCommand    cmd;
-	NihIoMessage *msg;
-	size_t        len;
-	FILE         *output;
-	char         *args[3];
-	int           ret, sock;
-
-
-	TEST_FUNCTION ("shutdown_action");
-	program_name = "test";
-
-	nih_error_push_context ();
-	nih_error_pop_context ();
-
-	output = tmpfile ();
-
-	control_sock = socket (PF_UNIX, SOCK_DGRAM, 0);
-	sock = upstart_open ();
-	destination_pid = getpid ();
-
-
-	/* Check that calling the shutdown action results in a shutdown
-	 * message being sent to the server.  Nothing should be output
-	 * as a result of this command.
-	 */
-	TEST_FEATURE ("with argument");
-	cmd.command = "shutdown";
-	args[0] = "foo";
-	args[1] = NULL;
-
-	TEST_ALLOC_FAIL {
-		if (test_alloc_failed) {
-			TEST_DIVERT_STDERR (output) {
-				ret = shutdown_action (&cmd, args);
-			}
-			rewind (output);
-
-			TEST_NE (ret, 0);
-
-			TEST_FILE_EQ (output, ("test: Communication error: "
-					       "Cannot allocate memory\n"));
-			TEST_FILE_END (output);
-
-			TEST_FILE_RESET (output);
-			continue;
-		}
-
-		TEST_DIVERT_STDOUT (output) {
-			ret = shutdown_action (&cmd, args);
-		}
-		rewind (output);
-
-		TEST_EQ (ret, 0);
-
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		TEST_ALLOC_SAFE {
-			assert (msg = nih_io_message_recv (NULL, sock, &len));
-		}
-
-		TEST_EQ (msg->data->len, 20);
-		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\0\xes\0\0\0\03foo", 20);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that calling shutdown without any argument results in an error
-	 * being sent to stderr.
-	 */
-	TEST_FEATURE ("with missing argument");
-	args[0] = NULL;
-	TEST_DIVERT_STDERR (output) {
-		ret = shutdown_action (&cmd, args);
-	}
-	rewind (output);
-
-	TEST_NE (ret, 0);
-
-	TEST_FILE_EQ (output, "test: missing event name\n");
-	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
-	TEST_FILE_END (output);
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-
-	close (sock);
-	close (control_sock);
-}
-
-
 int
 main (int   argc,
       char *argv[])
@@ -660,7 +563,6 @@ main (int   argc,
 	test_emit_action ();
 	test_env_option ();
 	test_events_action ();
-	test_shutdown_action ();
 
 	return 0;
 }

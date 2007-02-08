@@ -1120,61 +1120,6 @@ test_unwatch_events (void)
 }
 
 void
-test_shutdown (void)
-{
-	NihIo         *io;
-	pid_t          pid;
-	int            wait_fd, status;
-	EventEmission *em;
-	NihList       *list;
-
-	/* Check that we can handle a message from a child process requesting
-	 * that the computer be shutdown.  The child won't get a reply, but we
-	 * should be able to see the shutdown event in the queue in the parent
-	 * and run the idle function to get the second event.
-	 */
-	TEST_FUNCTION ("control_shutdown");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* This is a naughty way of getting a pointer to the event queue
-	 * list head...
-	 */
-	event_poll ();
-	em = event_emit ("wibble", NULL, NULL);
-	list = em->event.entry.prev;
-	nih_list_free (&em->event.entry);
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_SHUTDOWN, "kaboom");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	em = (EventEmission *)list->prev;
-	TEST_EQ_STR (em->event.name, "shutdown");
-	nih_list_free (&em->event.entry);
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
 test_event_emit (void)
 {
 	NihIo              *io;
@@ -1265,7 +1210,6 @@ main (int   argc,
 	test_unwatch_jobs ();
 	test_watch_events ();
 	test_unwatch_events ();
-	test_shutdown ();
 	test_event_emit ();
 
 	return 0;

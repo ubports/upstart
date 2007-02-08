@@ -67,9 +67,6 @@ typedef enum {
 	UPSTART_WATCH_EVENTS,
 	UPSTART_UNWATCH_EVENTS,
 
-	/* Special commands */
-	UPSTART_SHUTDOWN,
-
 	/* Event requests and responses.
 	 *
 	 * Clients sent UPSTART_EVENT_EMIT to cause a new event to be
@@ -116,9 +113,6 @@ typedef enum {
  * @process_state: state of current process (ProcessState),
  * @pid: process id (pid_t),
  * @description: description of job (char *).
- *
- * UPSTART_SHUTDOWN:
- * @name: name of event (char *).
  *
  *
  * UPSTART_EVENT_EMIT:

@@ -61,8 +61,6 @@ static int  control_watch_events   (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_events (void *data, pid_t pid,
 				    UpstartMessageType type);
-static int  control_shutdown       (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name);
 static int  control_event_emit     (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name,
 				    char **args, char **env);
@@ -98,8 +96,6 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_watch_events },
 	{ -1, UPSTART_UNWATCH_EVENTS,
 	  (UpstartMessageHandler)control_unwatch_events },
-	{ -1, UPSTART_SHUTDOWN,
-	  (UpstartMessageHandler)control_shutdown },
 	{ -1, UPSTART_EVENT_EMIT,
 	  (UpstartMessageHandler)control_event_emit },
 
@@ -511,36 +507,6 @@ control_unwatch_events (void               *data,
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	if (sub)
 		nih_list_free (&sub->entry);
-
-	return 0;
-}
-
-/**
- * control_shutdown:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of shutdown event to queue.
- *
- * This function is called when another process on the system requests that
- * we shutdown the system, issuing the @name event after the shutdown event.
- * It receives no reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_shutdown (void               *data,
-		  pid_t               pid,
-		  UpstartMessageType  type,
-		  const char         *name)
-{
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_SHUTDOWN);
-	nih_assert (name != NULL);
-
-	nih_info (_("Control request to shutdown system for %s"), name);
-
-	event_emit (SHUTDOWN_EVENT, NULL, NULL);
 
 	return 0;
 }

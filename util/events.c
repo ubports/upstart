@@ -96,7 +96,7 @@ static UpstartMessage handlers[] = {
  * @command: command invoked for,
  * @args: arguments passed.
  *
- * Function invoked when the emit or shutdown command is run.  An event name
+ * Function invoked when the emit command is run.  An event name
  * is expected, followed by optional arguments for the event.  We also use
  * the @emit_env variable, set by -e, to set the environment for the event.
  *
@@ -270,58 +270,6 @@ events_action (NihCommand   *command,
 
 		nih_free (reply);
 	}
-
-	return 0;
-
-error:
-	err = nih_error_get ();
-	nih_error (_("Communication error: %s"), err->message);
-	nih_free (err);
-
-	return 1;
-}
-
-
-/**
- * shutdown_action:
- * @command: command invoked for,
- * @args: arguments passed.
- *
- * Function invoked when the shutdown command is run.  An event name
- * is expected.
- *
- * Returns: zero on success, exit status on error.
- **/
-int
-shutdown_action (NihCommand   *command,
-		 char * const *args)
-{
-	NihIoMessage *message;
-	NihError     *err;
-
-	nih_assert (command != NULL);
-	nih_assert (args != NULL);
-
-	if (! args[0]) {
-		fprintf (stderr, _("%s: missing event name\n"), program_name);
-		nih_main_suggest_help ();
-		return 1;
-	}
-
-	message = upstart_message_new (NULL, destination_pid,
-				       UPSTART_SHUTDOWN, args[0]);
-	if (! message) {
-		nih_error_raise_system ();
-		goto error;
-	}
-
-	/* Send the message */
-	if (nih_io_message_send (message, control_sock) < 0) {
-		nih_free (message);
-		goto error;
-	}
-
-	nih_free (message);
 
 	return 0;
 
