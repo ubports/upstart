@@ -1,5 +1,9 @@
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/telinit.c: Now just sends out a runlevel event with
+	an argument giving the new runlevel.
+	* compat/sysv/man/telinit.8: Update description of the command.
+
 	* upstart/message.h: Remove the UPSTART_SHUTDOWN message.
 	* upstart/message.c (upstart_message_new, upstart_message_handle):
 	Remove handling for the shutdown message.

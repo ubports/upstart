@@ -1,4 +1,4 @@
-.TH init 8 "October 2006" "Upstart"
+.TH init 8 "February 2007" "Upstart"
 .\"
 .SH NAME
 telinit \- change runlevel
@@ -35,16 +35,8 @@ Upstart has no notion of runlevels itself, this and the
 tool are provided to emulate their behaviour.
 
 When invoked it generates a
-.I runlevel-X
-event, where
-.I X
-is the
-.I RUNLEVEL
-given.  For runlevels
-.BR 0 ", " 6 ", " 1 " and " S
-these are preceeded by a
-.I shutdown
-event.
+.I runlevel
+event, with an argument containing the new runlevel.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.
@@ -53,7 +45,7 @@ Written by Scott James Remnant.
 Report bugs at https://launchpad.net/products/upstart/+bugs
 .\"
 .SH COPYRIGHT
-Copyright \(co 2006 Canonical Ltd.
+Copyright \(co 2007 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

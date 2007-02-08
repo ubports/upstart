@@ -58,7 +58,7 @@ int
 main (int   argc,
       char *argv[])
 {
-	char         **args, *name;
+	char         **args;
 	NihIoMessage  *message;
 	int            sock;
 
@@ -74,12 +74,16 @@ main (int   argc,
 		exit (1);
 
 	/* First argument must be a single character we know */
-	if ((! args[0]) || (! strchr ("0123456SsQqabcUu", args[0][0]))) {
+	if ((! args[0]) || (! strchr ("0123456SsQqabcUu", args[0][0]))
+	    || args[0][1]) {
 		fprintf (stderr, _("%s: illegal runlevel: %s\n"),
 			 program_name, args[0]);
 		nih_main_suggest_help ();
 		exit (1);
 	}
+
+	/* Ignore further arguments */
+	args[1] = NULL;
 
 	/* Check we're root */
 	setuid (geteuid ());
@@ -91,32 +95,23 @@ main (int   argc,
 
 	/* Build the message */
 	switch (args[0][0]) {
+	case '0':
+	case '1':
 	case '2':
 	case '3':
 	case '4':
 	case '5':
-		NIH_MUST (name = nih_sprintf (NULL, "runlevel-%c",
-					      args[0][0]));
-		NIH_MUST (message = upstart_message_new (
-				  NULL, UPSTART_INIT_DAEMON,
-				  UPSTART_EVENT_EMIT, name, NULL, NULL));
-		nih_free (name);
-		break;
-	case '0':
-	case '1':
 	case '6':
-		NIH_MUST (name = nih_sprintf (NULL, "runlevel-%c",
-					      args[0][0]));
 		NIH_MUST (message = upstart_message_new (
 				  NULL, UPSTART_INIT_DAEMON,
-				  UPSTART_SHUTDOWN, name));
-		nih_free (name);
+				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
 		break;
 	case 'S':
 	case 's':
+		args[0][0] = 'S';
 		NIH_MUST (message = upstart_message_new (
 				  NULL, UPSTART_INIT_DAEMON,
-				  UPSTART_SHUTDOWN, "runlevel-S"));
+				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
 		break;
 	default:
 		/* Ignore other arguments */
