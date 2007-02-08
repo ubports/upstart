@@ -291,14 +291,16 @@ job_change_goal (Job           *job,
 	/* Switch over the goal event, dereferencing the current one and
 	 * referencing the new one.
 	 */
-	if (job->goal_event) {
-		job->goal_event->jobs--;
-		event_emit_finished (job->goal_event);
-	}
+	if (job->goal_event != emission) {
+		if (job->goal_event) {
+			job->goal_event->jobs--;
+			event_emit_finished (job->goal_event);
+		}
 
-	job->goal_event = emission;
-	if (job->goal_event)
-		job->goal_event->jobs++;
+		job->goal_event = emission;
+		if (job->goal_event)
+			job->goal_event->jobs++;
+	}
 
 	notify_job (job);
 
@@ -414,7 +416,8 @@ job_change_state (Job      *job,
 				nih_warn (_("%s respawning too fast, stopped"),
 					  job->name);
 
-				job_change_goal (job, JOB_STOP, NULL);
+				job_change_goal (job, JOB_STOP,
+						 job->goal_event);
 				state = job_next_state (job);
 				break;
 			}
@@ -1074,7 +1077,7 @@ job_child_reaper (void  *data,
 	 * has no side-effects to the state.
 	 */
 	if (stop)
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, job->goal_event);
 
 	/* We've reached a gateway point, switch to the next state. */
 	job_change_state (job, job_next_state (job));

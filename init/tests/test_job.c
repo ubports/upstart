@@ -1109,7 +1109,8 @@ test_change_state (void)
 
 	/* Check that a job that tries to enter the running state from the
 	 * starting state too fast results in it being stopped.  An error
-	 * message should be emitted.
+	 * message should be emitted; but the goal event shouldn't be
+	 * cleared since this is a caught failure.
 	 */
 	TEST_FEATURE ("starting to running too fast");
 	job->failed = FALSE;
@@ -1140,8 +1141,8 @@ test_change_state (void)
 	TEST_EQ (job->state, JOB_STOPPING);
 	TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
-	TEST_EQ_P (job->goal_event, NULL);
-	TEST_EQ (em->jobs, 0);
+	TEST_EQ_P (job->goal_event, em);
+	TEST_EQ (em->jobs, 1);
 
 	waitpid (job->pid, NULL, 0);
 	sprintf (filename, "%s/stop", dirname);
@@ -1155,6 +1156,7 @@ test_change_state (void)
 	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
 	TEST_FILE_RESET (output);
 
+	job->goal_event = NULL;
 	event_poll ();
 
 
@@ -1706,15 +1708,19 @@ test_kill_process (void)
 	 */
 	TEST_FEATURE ("with hard to kill process");
 	TEST_ALLOC_FAIL {
+		int wait_fd;
+
 		job->state = JOB_RUNNING;
 		job->process_state = PROCESS_ACTIVE;
-		TEST_CHILD (job->pid) {
+		TEST_CHILD_WAIT (job->pid, wait_fd) {
 			struct sigaction act;
 
 			act.sa_handler = SIG_IGN;
 			act.sa_flags = 0;
 			sigemptyset (&act.sa_mask);
 			sigaction (SIGTERM, &act, NULL);
+
+			TEST_CHILD_RELEASE (wait_fd);
 
 			for (;;)
 				pause ();
@@ -1889,7 +1895,7 @@ test_child_reaper (void)
 
 	/* Check that we can reap the running task of the job, which should
 	 * set the goal to stop and transition a state change into the
-	 * stopping state.
+	 * stopping state.  This should not alter the goal event.
 	 */
 	TEST_FEATURE ("with running task");
 	em = event_emit ("foo", NULL, NULL);
@@ -1915,7 +1921,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2039,7 +2045,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_STARTING);
 		TEST_EQ (job->exit_status, 1);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
@@ -2088,7 +2094,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_STARTING);
 		TEST_EQ (job->exit_status, SIGTERM | 0x80);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
@@ -2180,7 +2186,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2231,7 +2237,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_RUNNING);
 		TEST_EQ (job->exit_status, 99);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_NE (job->pid, 1);
@@ -2335,7 +2341,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2387,7 +2393,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
@@ -2435,7 +2441,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->goal_event, NULL);
+		TEST_EQ_P (job->goal_event, em);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_NE (job->pid, 1);
