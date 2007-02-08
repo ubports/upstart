@@ -245,18 +245,14 @@ check_job_status (void               *data,
 		  const char         *name,
 		  JobGoal             goal,
 		  JobState            state,
-		  ProcessState        process_state,
-		  pid_t               process,
-		  const char         *description)
+		  pid_t               process)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_STOPPING);
-	TEST_EQ (process_state, PROCESS_ACTIVE);
 	TEST_EQ (process, 1000);
-	TEST_EQ_STR (description, "a test job");
 
 	return 0;
 }
@@ -304,7 +300,6 @@ test_job (void)
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 
 	fflush (stdout);
@@ -352,7 +347,6 @@ test_job (void)
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
 	job->pid = 1000;
 
 	emission = event_emit ("test", NULL, NULL);
