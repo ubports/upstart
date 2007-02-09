@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_state): Fix a couple of array
+	index problems.
+
 	* init/tests/test_job.c (test_change_state): Why set that which
 	does not change?
 

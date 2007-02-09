@@ -1242,7 +1242,7 @@ test_change_state (void)
 		TEST_EQ_STR (emission->event.args[0], "test");
 		TEST_EQ_STR (emission->event.args[1], "failed");
 		TEST_EQ_STR (emission->event.args[2], "running");
-		TEST_EQ_P (emission->event.args[2], NULL);
+		TEST_EQ_P (emission->event.args[3], NULL);
 		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
 		TEST_EQ_P (emission->event.env[2], NULL);
 		nih_list_free (&emission->event.entry);
@@ -1387,7 +1387,7 @@ test_change_state (void)
 		TEST_EQ_STR (emission->event.args[2], "running");
 		TEST_EQ_P (emission->event.args[3], NULL);
 		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.args[1], NULL);
+		TEST_EQ_P (emission->event.env[1], NULL);
 		nih_list_free (&emission->event.entry);
 
 		TEST_LIST_EMPTY (events);
