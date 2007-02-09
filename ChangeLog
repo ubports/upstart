@@ -1,5 +1,10 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_limit): Support the word "unlimited" in
+	limit arguments for both the soft and hard values.
+	* init/tests/test_cfgfile.c (test_stanza_limit): Make sure that we
+	can make limits be unlimited.
+
 	* init/event.c (event_copy): Function to copy an event structure.
 	* init/event.h: Add prototype.
 	* init/tests/test_event.c (test_copy): Make sure we copy the event

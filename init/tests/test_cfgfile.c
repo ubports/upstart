@@ -3916,6 +3916,46 @@ test_stanza_limit (void)
 	nih_list_free (&job->entry);
 
 
+	/* Check that the hard resource limit can be set to unlimited with
+	 * a special argument of that name
+	 */
+	TEST_FEATURE ("with unlimited hard limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 unlimited\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, RLIM_INFINITY);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the soft resource limit can be set to unlimited with
+	 * a special argument of that name
+	 */
+	TEST_FEATURE ("with unlimited soft limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core unlimited 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, RLIM_INFINITY);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
 	/* Check that a limit stanza with the soft argument but no hard value
 	 * results in a syntax error.
 	 */

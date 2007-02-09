@@ -1538,12 +1538,16 @@ cfg_stanza_limit (Job             *job,
 	if (! arg)
 		return -1;
 
-	job->limits[resource]->rlim_cur = strtoul (arg, &endptr, 10);
-	if (*endptr) {
-		nih_free (arg);
+	if (strcmp (arg, "unlimited")) {
+		job->limits[resource]->rlim_cur = strtoul (arg, &endptr, 10);
+		if (*endptr) {
+			nih_free (arg);
 
-		nih_return_error (-1, CFG_ILLEGAL_VALUE,
-				  _(CFG_ILLEGAL_VALUE_STR));
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+	} else {
+		job->limits[resource]->rlim_cur = RLIM_INFINITY;
 	}
 	nih_free (arg);
 
@@ -1552,12 +1556,16 @@ cfg_stanza_limit (Job             *job,
 	if (! arg)
 		return -1;
 
-	job->limits[resource]->rlim_max = strtoul (arg, &endptr, 10);
-	if (*endptr) {
-		nih_free (arg);
+	if (strcmp (arg, "unlimited")) {
+		job->limits[resource]->rlim_max = strtoul (arg, &endptr, 10);
+		if (*endptr) {
+			nih_free (arg);
 
-		nih_return_error (-1, CFG_ILLEGAL_VALUE,
-				  _(CFG_ILLEGAL_VALUE_STR));
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+	} else {
+		job->limits[resource]->rlim_max = RLIM_INFINITY;
 	}
 	nih_free (arg);
 
