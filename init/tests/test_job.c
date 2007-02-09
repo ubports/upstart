@@ -2212,10 +2212,10 @@ test_child_reaper (void)
 		TEST_EQ_P (job->kill_timer, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
