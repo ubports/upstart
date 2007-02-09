@@ -465,8 +465,28 @@ job_change_goal (Job           *job,
 	if (job->goal == goal)
 		return;
 
+	/* Deleted jobs cannot have their goal changed */
 	if (job->state == JOB_DELETED)
 		return;
+
+	/* Instance jobs may only have their goal changed to start; when
+	 * we do that, we spawn off a new instance and change that goal
+	 * instead.
+	 */
+	if (job->instance && (! job->instance_of)) {
+		Job *instance;
+
+		if (goal != JOB_START)
+			return;
+
+		NIH_MUST (instance = job_copy (NULL, job));
+		instance->instance_of = job;
+		instance->delete = TRUE;
+
+		job_change_goal (instance, goal, emission);
+		return;
+	}
+
 
 	nih_info (_("%s goal changed from %s to %s"), job->name,
 		  job_goal_name (job->goal), job_goal_name (goal));
@@ -481,8 +501,6 @@ job_change_goal (Job           *job,
 	 *
 	 * The exceptions are the natural rest sates of waiting and a
 	 * running process; these need induction to get them moving.
-	 *
-	 * FIXME also we need to kill running post-start or pre-stop scripts.
 	 */
 	switch (job->goal) {
 	case JOB_START:

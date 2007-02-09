@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_goal): Check that starting
+	an instance job actually starts a new instance of it.
+
 	* init/cfgfile.c (cfg_stanza_limit): Support the word "unlimited" in
 	limit arguments for both the soft and hard values.
 	* init/tests/test_cfgfile.c (test_stanza_limit): Make sure that we

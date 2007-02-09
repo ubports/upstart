@@ -822,6 +822,58 @@ test_change_goal (void)
 	}
 
 
+	/* Check that an attempt to start a waiting instance job doesn't
+	 * change the job itself, but starts another job that is a new
+	 * instance of the first which is placed into the starting state.
+	 *
+	 * The new instance should reference the first, and should also
+	 * be marked to be deleted when stopped.
+	 */
+	TEST_FEATURE ("with waiting instance job");
+	job->instance = TRUE;
+
+	TEST_ALLOC_FAIL {
+		NihList *iter;
+		Job     *instance;
+
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->pid = 0;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->pid, 0);
+
+		/* Now find the instance; there should be only one */
+		instance = NULL;
+		for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+		     iter = nih_hash_search (jobs, job->name, iter)) {
+			Job *i_job = (Job *)iter;
+
+			if (i_job->instance_of == job) {
+				TEST_EQ_P (instance, NULL);
+				instance = i_job;
+			}
+		}
+
+		TEST_NE_P (instance, NULL);
+
+		TEST_EQ_STR (instance->name, job->name);
+		TEST_EQ_P (instance->instance_of, job);
+		TEST_EQ (instance->delete, TRUE);
+
+		TEST_EQ (instance->goal, JOB_START);
+		TEST_EQ (instance->state, JOB_STARTING);
+		TEST_EQ (instance->pid, 0);
+
+		nih_list_free (&instance->entry);
+	}
+
+	job->instance = FALSE;
+
+
 	nih_list_free (&job->entry);
 	event_poll ();
 }
