@@ -80,6 +80,7 @@ test_new (void)
 		TEST_EQ (job->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_state, JOB_WAITING);

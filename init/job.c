@@ -150,6 +150,7 @@ job_new (const void *parent,
 	job->pid = 0;
 
 	job->cause = NULL;
+	job->blocker = NULL;
 
 	job->failed = FALSE;
 	job->failed_state = JOB_WAITING;

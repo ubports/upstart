@@ -90,6 +90,7 @@
  * @state: actual state of the job,
  * @pid: current process id,
  * @cause: cause of last goal change,
+ * @blocker: emitted event we're waiting to finish,
  * @failed: whether the last process ran failed,
  * @failed_state: state the job was in for the last failed process,
  * @exit_status: exit status of the last failed process,
@@ -145,6 +146,7 @@ typedef struct job {
 	pid_t          pid;
 
 	EventEmission *cause;
+	EventEmission *blocker;
 
 	int            failed;
 	JobState       failed_state;
