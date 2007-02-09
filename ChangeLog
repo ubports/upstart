@@ -1,5 +1,13 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_kill_process): Poll the event queue
+	after each test to get rid of the allocated events and make valgrind
+	happy.
+	* init/tests/test_control.c (test_job_start, test_job_stop)
+	(test_event_emit): Poll the event queue after each test to get rid
+	of the allocated events, as they make valgrind complain.
+	(test_event_emit): Free args and env when done.
+
 	* init/job.h (JobName): Drop obsolete structure
 	(JobProcess): Add a new structure to represent a single process
 	within the job, instead of using two variables to pick either the

@@ -2511,6 +2511,8 @@ test_kill_process (void)
 
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
+
+		event_poll ();
 	}
 
 
@@ -2567,6 +2569,8 @@ test_kill_process (void)
 		TEST_EQ (WTERMSIG (status), SIGKILL);
 
 		TEST_EQ_P (job->kill_timer, NULL);
+
+		event_poll ();
 	}
 
 
@@ -2590,11 +2594,12 @@ test_kill_process (void)
 		TEST_EQ (job->pid, 0);
 
 		TEST_EQ_P (job->kill_timer, NULL);
+
+		event_poll ();
 	}
 
 
 	nih_list_free (&job->entry);
-	event_poll ();
 }
 
 

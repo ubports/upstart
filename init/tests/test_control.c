@@ -394,6 +394,7 @@ test_job_start (void)
 	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&job->entry);
+	event_poll ();
 
 
 	/* Check that we can handle starting of an instance job, we'll get
@@ -490,6 +491,7 @@ test_job_start (void)
 	nih_list_free (&instance->entry);
 
 	nih_list_free (&job->entry);
+	event_poll ();
 
 
 	/* Check that if we ask to start an unknown job, we get an unknown
@@ -529,9 +531,10 @@ test_job_start (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
+	event_poll ();
+
 
 	control_close ();
-	event_poll ();
 	upstart_disable_safeties = FALSE;
 }
 
@@ -631,6 +634,7 @@ test_job_stop (void)
 	TEST_EQ (WTERMSIG (status), SIGTERM);
 
 	nih_list_free (&job->entry);
+	event_poll ();
 
 
 	/* Check that we can handle a message from a child process asking us
@@ -720,6 +724,7 @@ test_job_stop (void)
 	nih_list_free (&i1->entry);
 	nih_list_free (&i2->entry);
 	nih_list_free (&job->entry);
+	event_poll ();
 
 
 	/* Check that if we ask to start an unknown job, we get an unknown
@@ -759,9 +764,10 @@ test_job_stop (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
+	event_poll ();
+
 
 	control_close ();
-	event_poll ();
 	upstart_disable_safeties = FALSE;
 }
 
@@ -1428,6 +1434,9 @@ test_event_emit (void)
 		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
+		nih_free (args);
+		nih_free (env);
+
 		exit (0);
 	}
 
@@ -1449,6 +1458,7 @@ test_event_emit (void)
 	TEST_NE_P (sub, NULL);
 
 	nih_list_free (&em->event.entry);
+	event_poll ();
 
 
 	control_close ();
