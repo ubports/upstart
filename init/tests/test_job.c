@@ -2135,6 +2135,10 @@ test_child_reaper (void)
 	 */
 	TEST_FEATURE ("with unknown pid");
 	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid = 1;
+
 		job_child_reaper (NULL, 999, FALSE, 0);
 
 		TEST_EQ (job->goal, JOB_START);
