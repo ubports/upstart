@@ -1102,67 +1102,77 @@ job_child_reaper (void  *data,
 			  job->name, pid);
 	}
 
-	/* FIXME we may be in SPAWNED here, in which case we don't want
-	 * to do all this!
-	 */
-
-	job->pid = 0;
-	job->process_state = PROCESS_NONE;
-
 	/* Cancel any timer trying to kill the job */
 	if (job->kill_timer) {
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
 	}
 
+	job->pid = 0;
+
 
 	switch (job->state) {
-	case JOB_RUNNING:
-		/* Check the list of normal exit codes; if the exit status
-		 * or signal appears in that list, then we don't consider
-		 * the job to have failed.
-		 *
-		 * An exit status of zero is only implied to be normal if
-		 * the job isn't marked to be respawned.
-		 */
-		if (killed || status || job->respawn) {
-			size_t i;
-
-			failed = TRUE;
-			for (i = 0; i < job->normalexit_len; i++) {
-				if (job->normalexit[i] == status) {
-					failed = FALSE;
-					break;
-				}
-			}
-		}
-
-		/* We may be able to respawn the failed process, in which
-		 * case we don't need to bother anything else; respawning
-		 * is simply a matter of not touching anything.
-		 */
-		if (failed && job->respawn && (job->goal == JOB_START)) {
-			nih_warn (_("%s process ended, respawning"),
-				  job->name);
-
-			failed = FALSE;
-			break;
-		}
-
-		/* Otherwise whether it's failed or not, it's going away */
-		stop = TRUE;
-		break;
-	default:
-		/* If a script is killed or exits with a status other than
-		 * zero, it's always considered a failure.  It also always
-		 * results in the job being sent back to stop.
+	case JOB_PRE_START:
+	case JOB_POST_STOP:
+		/* If the pre-start or post-stop scripts are killed or exit
+		 * with a status other than zero, it's always considered a
+		 * failure since we don't know what state the job might be in.
 		 */
 		if (killed || status) {
 			failed = TRUE;
 			stop = TRUE;
 		}
-
 		break;
+	case JOB_POST_START:
+	case JOB_PRE_STOP:
+		/* Ignore failure from the post-start or pre-stop scripts,
+		 * if they want us to stop or prevent the start of the job,
+		 * they will have changed the goal.
+		 */
+	case JOB_SPAWNED:
+	case JOB_RUNNING:
+	case JOB_STOPPING:
+	case JOB_KILLED:
+		/* We don't assume that because the primary process was
+		 * killed or exited with a non-zero status, it failed.
+		 * Instead we check the normalexit list to see whether
+		 * the exit signal or status is in that list, and only
+		 * if not, do we consider it failed.
+		 *
+		 * For jobs that can be respawned, a zero exit status is
+		 * also a failure unless listed.
+		 *
+		 * If the job is already to be stopped, we never consider
+		 * it to be failed since we probably caused the termination.
+		 */
+		if ((job->goal != JOB_STOP)
+		    && (killed || status || job->respawn))
+		{
+			failed = TRUE;
+			for (size_t i = 0; i < job->normalexit_len; i++) {
+				if (job->normalexit[i] == status) {
+					failed = FALSE;
+					break;
+				}
+			}
+
+			/* We might be able to respawn the failed job;
+			 * that's a simple matter of doing nothing.
+			 */
+			if (failed && job->respawn) {
+				nih_warn (_("%s process ended, respawning"),
+					  job->name);
+				break;
+			}
+		}
+
+		/* Otherwise whether it's failed or not, we should
+		 * stop the job now.
+		 */
+		stop = TRUE;
+		break;
+	default:
+		nih_assert_not_reached ();
 	}
 
 	/* Mark the job as failed; this information shows up as arguments
@@ -1172,12 +1182,8 @@ job_child_reaper (void  *data,
 	 * In addition, mark the cause event failed as well; this is
 	 * reported to the emitted of the event, and also causes a failed
 	 * event to be generated.
-	 *
-	 * Never overwrite an existing failure record, and ignore failure
-	 * of the running job if the goal is stop.
 	 */
-	if (failed && (! job->failed)
-	    && ((job->goal != JOB_STOP) || (job->state != JOB_RUNNING))) {
+	if (failed && (! job->failed)) {
 		job->failed = TRUE;
 		job->failed_state = job->state;
 		job->exit_status = status;
@@ -1186,13 +1192,13 @@ job_child_reaper (void  *data,
 			job->cause->failed = TRUE;
 	}
 
-	/* Change the goal to stop; since we're in a non-rest state, this
-	 * has no side-effects to the state.
+	/* Change the goal to stop.  Since at this point we have no process
+	 * and are not in the waiting state, there will be no unexpected
+	 * side-effects.
 	 */
 	if (stop)
 		job_change_goal (job, JOB_STOP, job->cause);
 
-	/* We've reached a gateway point, switch to the next state. */
 	job_change_state (job, job_next_state (job));
 }
 

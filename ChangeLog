@@ -1,5 +1,10 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_reaper): Update the reaping of the child
+	processes; there's a much larger state range for the main process
+	now, so that needs to be taken into account.
+	* init/tests/test_job.c (test_child_reaper): New test cases.
+
 	* init/job.c (job_next_state): Encapsulate the slightly odd three
 	exit states of running in this function, otherwise we'll end up
 	special-casing it in places I'd rather not think about.
