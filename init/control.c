@@ -229,6 +229,7 @@ control_job_start (void               *data,
 {
 	NihIoMessage *reply;
 	Job          *job;
+	NihList      *iter;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_START);
@@ -250,6 +251,27 @@ control_job_start (void               *data,
 					       UPSTART_JOB_STATUS, job->name,
 					       job->goal, job->state,
 					       job->pid));
+	nih_io_send_message (control_io, reply);
+
+	/* Also return all instances */
+	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+	     iter = nih_hash_search (jobs, job->name, iter)) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       instance->name,
+						       instance->goal,
+						       instance->state,
+						       instance->pid));
+		nih_io_send_message (control_io, reply);
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
 	nih_io_send_message (control_io, reply);
 
 	return 0;
@@ -279,6 +301,7 @@ control_job_stop (void               *data,
 {
 	NihIoMessage *reply;
 	Job          *job;
+	NihList      *iter;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_STOP);
@@ -300,6 +323,27 @@ control_job_stop (void               *data,
 					       UPSTART_JOB_STATUS, job->name,
 					       job->goal, job->state,
 					       job->pid));
+	nih_io_send_message (control_io, reply);
+
+	/* Also return all instances */
+	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+	     iter = nih_hash_search (jobs, job->name, iter)) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       instance->name,
+						       instance->goal,
+						       instance->state,
+						       instance->pid));
+		nih_io_send_message (control_io, reply);
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
 	nih_io_send_message (control_io, reply);
 
 	return 0;
@@ -329,6 +373,7 @@ control_job_query (void               *data,
 {
 	NihIoMessage *reply;
 	Job          *job;
+	NihList      *iter;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_QUERY);
@@ -349,6 +394,27 @@ control_job_query (void               *data,
 					       UPSTART_JOB_STATUS, job->name,
 					       job->goal, job->state,
 					       job->pid));
+	nih_io_send_message (control_io, reply);
+
+	/* Also return all instances */
+	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+	     iter = nih_hash_search (jobs, job->name, iter)) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       instance->name,
+						       instance->goal,
+						       instance->state,
+						       instance->pid));
+		nih_io_send_message (control_io, reply);
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
 	nih_io_send_message (control_io, reply);
 
 	return 0;

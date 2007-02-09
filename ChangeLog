@@ -1,5 +1,12 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_status, control_job_stop)
+	(control_job_query): Reply with information about all instances of
+	the job.
+	* init/tests/test_control.c (test_job_status, test_job_stop)
+	(test_job_query): Make sure we get the list end even for a single job;
+	and make sure we get details of all instances attached to the job.
+
 	* init/tests/test_job.c (test_change_goal): Check that starting
 	an instance job actually starts a new instance of it.
 
