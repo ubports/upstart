@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_reaper): Process will always
+	be zero on return from reaper.
+
 	* init/tests/test_job.c (test_child_reaper): Killed doesn't go past
 	stopping; it goes to waiting, which will clear the cause.
 

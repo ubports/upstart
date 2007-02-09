@@ -2373,9 +2373,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_GT (job->pid, 1);
-
-		waitpid (job->pid, NULL, 0);
+		TEST_EQ (job->pid, 0);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_state, JOB_WAITING);
