@@ -49,10 +49,6 @@ Medium Priority:
 
 Low Priority:
 
- * consider renaming daemon to "forks" or similar?
-
- * ban using respawn/daemon as a shortcut?
-
  * replace logd raise/wait/kill interlock with a pipe-based one?
 
  * replace logd with something else that's more standard in the system,
