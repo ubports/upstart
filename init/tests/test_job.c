@@ -461,6 +461,7 @@ test_change_state (void)
 	NihList       *events;
 	struct stat    statbuf;
 	char           dirname[PATH_MAX], filename[PATH_MAX], *tmp;
+	pid_t          pid;
 	int            status;
 
 	TEST_FUNCTION ("job_change_state");
@@ -1083,6 +1084,103 @@ test_change_state (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job with an active process can move from stopping
+	 * to killed, the process should be sent the TERM signal and a
+	 * kill timer put in place to check up on it.
+	 */
+	TEST_FEATURE ("stopping to killed");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		TEST_CHILD (job->pid) {
+			pause ();
+		}
+		pid = job->pid;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_KILLED);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->pid, pid);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_NE_P (job->kill_timer, NULL);
+
+		nih_list_free (&job->kill_timer->entry);
+		job->kill_timer = NULL;
+	}
+
+
+	/* Check that a job with no running process can move from stopping
+	 * to killed, skipping over that state and ending up in post-stop
+	 * instead.
+	 */
+	TEST_FEATURE ("stopping to killed without process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_KILLED);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+		TEST_NE (job->pid, 0);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/stop");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ_P (job->kill_timer, NULL);
 	}
 
 
