@@ -1,5 +1,9 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_goal): Minor tweak to the logic; we may
+	have just made the job an instance, that should still let us stop
+	the one underneath.
+
 	* TODO: Update.
 
 	* util/jobs.c (do_job): Always expect a list of replies.

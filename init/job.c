@@ -473,7 +473,9 @@ job_change_goal (Job           *job,
 	 * we do that, we spawn off a new instance and change that goal
 	 * instead.
 	 */
-	if (job->instance && (! job->instance_of)) {
+	if (job->instance && (job->instance_of == NULL)
+	    && (goal == JOB_START))
+	{
 		Job *instance;
 
 		if (goal != JOB_START)
