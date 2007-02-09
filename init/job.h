@@ -29,6 +29,7 @@
 
 #include <nih/macros.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/timer.h>
 #include <nih/main.h>
 
@@ -131,7 +132,7 @@
  * by the init daemon; as tasks and services are fundamentally identical,
  * except for the handling when the main process terminates, they are both
  * collated together in this structure and only differ in the value of the
- * @respawn member.
+ * @service member.
  **/
 typedef struct job {
 	NihList        entry;
@@ -209,7 +210,7 @@ typedef struct job_name {
 
 NIH_BEGIN_EXTERN
 
-NihList *jobs;
+NihHash *jobs;
 
 
 void     job_init                  (void);

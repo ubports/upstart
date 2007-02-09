@@ -1,5 +1,17 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (jobs): Store jobs in a hash table.
+	(job_new): Add to hash table, not to a list.
+	(job_handle_event, job_handle_event_finished, job_detect_stalled) 
+	(job_free_deleted): Iterate across the hash table, rather than list.
+	(job_find_by_name): Use nih_hash_lookup, we keep this function because
+	we'll add "is instance or not" smarts soon!
+	(job_find_by_pid): Iterate across the entire hash table.
+	* init/tests/test_job.c (test_find_by_name): Drop test since this
+	function is now gone.
+	(test_free_deleted): Can't assume things are in a line now.
+	* init/control.c (control_job_list): Iterate the hash table.
+
 	* init/event.c: Don't hide the events list anymore
 	* init/event.h: Publish it and the init function.
 	* init/job.c: Don't hide the jobs list anymore.

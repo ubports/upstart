@@ -40,6 +40,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/timer.h>
 #include <nih/io.h>
 #include <nih/logging.h>
@@ -66,22 +67,23 @@ static void job_kill_timer    (Job *job, NihTimer *timer);
 /**
  * jobs:
  *
- * This list holds the list of known jobs, each entry is of the Job
- * structure.  No particular order is maintained.
+ * This hash table holds the list of known jobs indexed by their name.
+ * Each entry is a Job structure; multiple entries with the same name may
+ * exist since some may be instances of others.
  **/
-NihList *jobs = NULL;
+NihHash *jobs = NULL;
 
 
 /**
  * job_init:
  *
- * Initialise the list of jobs.
+ * Initialise the jobs hash table.
  **/
 void
 job_init (void)
 {
 	if (! jobs)
-		NIH_MUST (jobs = nih_list_new (NULL));
+		NIH_MUST (jobs = nih_hash_new (NULL, 0, nih_hash_string_key));
 }
 
 
@@ -186,7 +188,7 @@ job_new (const void *parent,
 	job->chroot = NULL;
 	job->chdir = NULL;
 
-	nih_list_add (jobs, &job->entry);
+	nih_hash_add (jobs, &job->entry);
 
 	return job;
 }
@@ -196,34 +198,25 @@ job_new (const void *parent,
  * job_find_by_name:
  * @name: name of job.
  *
- * Finds the job with the given @name in the list of known jobs.
+ * Finds the job with the given @name in the jobs hash table.
  *
  * Returns: job found or NULL if not known.
  **/
 Job *
 job_find_by_name (const char *name)
 {
-	Job *job;
-
 	nih_assert (name != NULL);
 
 	job_init ();
 
-	NIH_LIST_FOREACH (jobs, iter) {
-		job = (Job *)iter;
-
-		if (! strcmp (job->name, name))
-			return job;
-	}
-
-	return NULL;
+	return (Job *)nih_hash_lookup (jobs, name);
 }
 
 /**
  * job_find_by_pid:
  * @pid: process id of job.
  *
- * Finds the job with a process of the given @pid in the list of known jobs.
+ * Finds the job with a process of the given @pid in the jobs hash table.
  *
  * Returns: job found or NULL if not known.
  **/
@@ -236,7 +229,7 @@ job_find_by_pid (pid_t pid)
 
 	job_init ();
 
-	NIH_LIST_FOREACH (jobs, iter) {
+	NIH_HASH_FOREACH (jobs, iter) {
 		job = (Job *)iter;
 
 		if (job->pid == pid)
@@ -1218,7 +1211,7 @@ job_handle_event (EventEmission *emission)
 
 	job_init ();
 
-	NIH_LIST_FOREACH_SAFE (jobs, iter) {
+	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
 		/* We stop first so that if an event is listed both as a
@@ -1262,7 +1255,7 @@ job_handle_event_finished (EventEmission *emission)
 
 	job_init ();
 
-	NIH_LIST_FOREACH_SAFE (jobs, iter) {
+	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
 		if (job->blocked != emission)
@@ -1290,7 +1283,7 @@ job_detect_stalled (void)
 	if (paused)
 		return;
 
-	NIH_LIST_FOREACH (jobs, iter) {
+	NIH_HASH_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
 
 		/* Check the start events to make sure that at least one
@@ -1329,7 +1322,7 @@ job_detect_stalled (void)
 void
 job_free_deleted (void)
 {
-	NIH_LIST_FOREACH_SAFE (jobs, iter) {
+	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
 		if (job->state != JOB_DELETED)

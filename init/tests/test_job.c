@@ -38,6 +38,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/io.h>
 #include <nih/main.h>
 
@@ -53,7 +54,7 @@ test_new (void)
 	int  i;
 
 	/* Check that we can create a new job structure; the structure
-	 * should be allocated with nih_alloc, placed in the jobs list
+	 * should be allocated with nih_alloc, placed in the jobs hash
 	 * and have sensible defaults.
 	 */
 	TEST_FUNCTION ("job_new");
@@ -134,42 +135,6 @@ test_new (void)
 }
 
 void
-test_find_by_name (void)
-{
-	Job *job1, *job2, *job3, *ptr;
-
-	TEST_FUNCTION ("job_find_by_name");
-	job1 = job_new (NULL, "foo");
-	job2 = job_new (NULL, "bar");
-	job3 = job_new (NULL, "baz");
-
-	/* Check that we can find a job that exists by its name. */
-	TEST_FEATURE ("with name we expect to find");
-	ptr = job_find_by_name ("bar");
-
-	TEST_EQ_P (ptr, job2);
-
-
-	/* Check that we get NULL if the job doesn't exist. */
-	TEST_FEATURE ("with name we do not expect to find");
-	ptr = job_find_by_name ("frodo");
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that we get NULL if the job list is empty, and nothing
-	 * bad happens.
-	 */
-	TEST_FEATURE ("with empty job list");
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
-	ptr = job_find_by_name ("bar");
-
-	TEST_EQ_P (ptr, NULL);
-}
-
-void
 test_find_by_pid (void)
 {
 	Job *job1, *job2, *job3, *ptr;
@@ -197,10 +162,10 @@ test_find_by_pid (void)
 	TEST_EQ_P (ptr, NULL);
 
 
-	/* Check that we get NULL if there are jobs in the list, but none
+	/* Check that we get NULL if there are jobs in the hash, but none
 	 * have pids.
 	 */
-	TEST_FEATURE ("with no pids in job list");
+	TEST_FEATURE ("with no pids in job table");
 	nih_list_free (&job3->entry);
 	nih_list_free (&job1->entry);
 	ptr = job_find_by_pid (20);
@@ -208,8 +173,8 @@ test_find_by_pid (void)
 	TEST_EQ_P (ptr, NULL);
 
 
-	/* Check that we get NULL if there are no jobs in the list. */
-	TEST_FEATURE ("with empty job list");
+	/* Check that we get NULL if there are no jobs in the hash. */
+	TEST_FEATURE ("with empty job table");
 	nih_list_free (&job2->entry);
 	ptr = job_find_by_pid (20);
 
@@ -3156,7 +3121,6 @@ test_free_deleted ()
 	job_free_deleted ();
 
 	TEST_EQ (destructor_called, 1);
-	TEST_EQ_P (job1->entry.next, &job3->entry);
 
 
 	/* Check that if there are no jobs to be deleted, nothing happens. */
@@ -3178,7 +3142,6 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
-	test_find_by_name ();
 	test_find_by_pid ();
 	test_change_goal ();
 	test_change_state ();

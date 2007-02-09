@@ -32,6 +32,8 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -359,7 +361,7 @@ control_job_query (void               *data,
  * @type: message type received.
  *
  * This function is called when another process on the system queries the
- * list of known jobs.  It receives a job status reply for each known job
+ * table of known jobs.  It receives a job status reply for each known job
  * followed by the list end message.
  *
  * Returns: zero on success, negative value on raised error.
@@ -378,7 +380,7 @@ control_job_list (void               *data,
 
 	job_init ();
 
-	NIH_LIST_FOREACH (jobs, iter) {
+	NIH_HASH_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
 
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
