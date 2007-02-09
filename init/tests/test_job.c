@@ -75,6 +75,8 @@ test_new (void)
 		TEST_EQ_P (job->author, NULL);
 		TEST_EQ_P (job->version, NULL);
 
+		TEST_EQ (job->delete, FALSE);
+
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->pid, 0);
@@ -96,9 +98,7 @@ test_new (void)
 		TEST_EQ (job->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
 		TEST_EQ_P (job->kill_timer, NULL);
 
-		TEST_EQ (job->spawns_instance, FALSE);
-		TEST_EQ (job->is_instance, FALSE);
-
+		TEST_EQ (job->instance, FALSE);
 		TEST_EQ (job->service, FALSE);
 		TEST_EQ (job->respawn, FALSE);
 		TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);

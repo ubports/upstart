@@ -999,7 +999,7 @@ cfg_stanza_script (Job             *job,
  * @lineno: line number.
  *
  * Parse an instance stanza from @file, this expects no arguments and
- * simply sets the spawns instance flag in the job.
+ * simply sets the instance flag in the job.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1016,11 +1016,11 @@ cfg_stanza_instance (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->spawns_instance)
+	if (job->instance)
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
-	job->spawns_instance = TRUE;
+	job->instance = TRUE;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }

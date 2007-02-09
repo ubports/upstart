@@ -2069,8 +2069,7 @@ test_stanza_instance (void)
 	TEST_FILENAME (filename);
 
 
-	/* Check that an instance stanza sets the job's spawn instance
-	 * flag.
+	/* Check that an instance stanza sets the job's instance flag.
 	 */
 	TEST_FEATURE ("with no argument");
 	jf = fopen (filename, "w");
@@ -2082,7 +2081,7 @@ test_stanza_instance (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_TRUE (job->spawns_instance);
+	TEST_TRUE (job->instance);
 
 	nih_list_free (&job->entry);
 

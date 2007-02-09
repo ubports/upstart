@@ -1,5 +1,12 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h: Rename is_instance to delete and spawns_instance to
+	just instance.
+	* init/job.c (job_new): Update.
+	* init/tests/test_job.c (test_new): Update.
+	* init/cfgfile.c (cfg_stanza_instance): Update.
+	* init/tests/test_cfgfile.c (test_stanza_instance): Update.
+
 	* init/event.h: Correct the event names.
 
 	* init/job.h: Add blocker event member.

@@ -145,6 +145,8 @@ job_new (const void *parent,
 	job->author = NULL;
 	job->version = NULL;
 
+	job->delete = FALSE;
+
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->pid = 0;
@@ -166,9 +168,7 @@ job_new (const void *parent,
 	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	job->kill_timer = NULL;
 
-	job->spawns_instance = FALSE;
-	job->is_instance = FALSE;
-
+	job->instance = FALSE;
 	job->service = FALSE;
 	job->respawn = FALSE;
 	job->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;

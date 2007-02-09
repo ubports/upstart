@@ -141,6 +141,8 @@ typedef struct job {
 	char          *author;
 	char          *version;
 
+	int            delete;
+
 	JobGoal        goal;
 	JobState       state;
 	pid_t          pid;
@@ -162,9 +164,7 @@ typedef struct job {
 	time_t         kill_timeout;
 	NihTimer      *kill_timer;
 
-	int            spawns_instance;
-	int            is_instance;
-
+	int            instance;
 	int            service;
 	int            respawn;
 	int            respawn_limit;
