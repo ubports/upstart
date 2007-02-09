@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_delete_handler): Handle deleted jobs; mark
+	the job as deleted, and if it's dormant, invoke a state change.
+
 	* upstart/enum.h: Add a new JOB_DELETED state.
 	* upstart/enum.c (job_state_name, job_state_from_name): Add the new
 	state to the string functions.

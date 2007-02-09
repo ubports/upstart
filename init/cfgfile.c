@@ -1755,6 +1755,8 @@ cfg_create_modify_handler (void        *data,
 
 	NIH_MUST (name = cfg_job_name (NULL, watch->path, path));
 
+	nih_debug ("%s job definition changed", name);
+
 	cfg_read_job (NULL, path, name);
 
 	nih_free (name);
@@ -1774,10 +1776,25 @@ cfg_delete_handler (void       *data,
 		    NihWatch   *watch,
 		    const char *path)
 {
+	Job  *job;
+	char *name;
+
 	nih_assert (watch != NULL);
 	nih_assert (path != NULL);
 
-	nih_debug ("Delete of %s (ignored)", path);
+	NIH_MUST (name = cfg_job_name (NULL, watch->path, path));
+
+	nih_debug ("%s job definition deleted", name);
+
+	job = job_find_by_name (name);
+	if (job) {
+		job->delete = TRUE;
+
+		if ((job->goal == JOB_STOP) && (job->state == JOB_WAITING))
+			job_change_state (job, job_next_state (job));
+	}
+
+	nih_free (name);
 }
 
 /**
