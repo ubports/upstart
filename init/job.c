@@ -199,18 +199,26 @@ job_new (const void *parent,
  * job_find_by_name:
  * @name: name of job.
  *
- * Finds the job with the given @name in the jobs hash table.
+ * Finds the job with the given @name in the jobs hash table.  This will
+ * not return instance jobs, instead preferring to return the job that they
+ * are actually an instance of.
  *
  * Returns: job found or NULL if not known.
  **/
 Job *
 job_find_by_name (const char *name)
 {
+	Job *job;
+
 	nih_assert (name != NULL);
 
 	job_init ();
 
-	return (Job *)nih_hash_lookup (jobs, name);
+	job = (Job *)nih_hash_lookup (jobs, name);
+	if (job && job->instance_of)
+		return job->instance_of;
+
+	return job;
 }
 
 /**

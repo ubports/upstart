@@ -136,6 +136,50 @@ test_new (void)
 }
 
 void
+test_find_by_name (void)
+{
+	Job *job1, *job2, *job3, *ptr;
+
+	TEST_FUNCTION ("job_find_by_name");
+	job1 = job_new (NULL, "foo");
+	job2 = job_new (NULL, "bar");
+	job3 = job_new (NULL, "baz");
+
+	/* Check that we can find a job that exists by its name. */
+	TEST_FEATURE ("with name we expect to find");
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ_P (ptr, job2);
+
+
+	/* Check that we get NULL if the job doesn't exist. */
+	TEST_FEATURE ("with name we do not expect to find");
+	ptr = job_find_by_name ("frodo");
+
+	TEST_EQ_P (ptr, NULL);
+
+
+	/* Check that if an entry is an instance, we get the real job. */
+	TEST_FEATURE ("with instance");
+	job2->instance_of = job1;
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ (ptr, job1);
+
+
+	/* Check that we get NULL if the job list is empty, and nothing
+	 * bad happens.
+	 */
+	TEST_FEATURE ("with empty job list");
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ_P (ptr, NULL);
+}
+
+void
 test_find_by_pid (void)
 {
 	Job *job1, *job2, *job3, *ptr;
@@ -3143,6 +3187,7 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
+	test_find_by_name ();
 	test_find_by_pid ();
 	test_change_goal ();
 	test_change_state ();
