@@ -2081,7 +2081,7 @@ test_kill_process (void)
 	TEST_FEATURE ("with already dead process");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
+		job->state = JOB_KILLED;
 		TEST_CHILD (job->pid) {
 			exit (0);
 		}

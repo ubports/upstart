@@ -1,5 +1,7 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_kill_process): Fix violated assertion
+
 	* init/tests/test_job.c (test_change_state): This should be failed
 	because nothing cleared it.
 
