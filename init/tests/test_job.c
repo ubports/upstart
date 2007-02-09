@@ -249,6 +249,28 @@ test_change_goal (void)
 	}
 
 
+	/* Check that an attempt to start a job waiting to be deleted
+	 * results in the goal being changed to start, but the state not
+	 * being changed.
+	 */
+	TEST_FEATURE ("with waiting deleted job");
+	job->delete = TRUE;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+		job->pid = 0;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->pid, 0);
+	}
+
+	job->delete = FALSE;
+
+
 	/* Check that an attempt to start a job that's in the process of
 	 * stopping changes only the goal, and leaves the rest of the
 	 * state transition up to the normal process.
@@ -1267,6 +1289,7 @@ test_change_state (void)
 		job->state = JOB_POST_STOP;
 		job->pid = 0;
 
+		cause->jobs = 2;
 		job->cause = cause;
 		job->blocked = NULL;
 
@@ -1282,6 +1305,8 @@ test_change_state (void)
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
 
 		emission = (EventEmission *)events->next;
 		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
@@ -2105,12 +2130,12 @@ test_kill_process (void)
 }
 
 
-static int was_called = 0;
+static int destructor_called = 0;
 
 static int
-destructor_called (void *ptr)
+my_destructor (void *ptr)
 {
-	was_called++;
+	destructor_called++;
 	return 0;
 }
 
@@ -2202,15 +2227,15 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_ALLOC_SAFE {
-			was_called = 0;
+			destructor_called = 0;
 			job->kill_timer = (void *) nih_strdup (job, "test");
 			nih_alloc_set_destructor (job->kill_timer,
-						  destructor_called);
+						  my_destructor);
 		}
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
-		TEST_TRUE (was_called);
+		TEST_TRUE (destructor_called);
 		TEST_EQ_P (job->kill_timer, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);

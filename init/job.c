@@ -302,7 +302,7 @@ job_change_goal (Job           *job,
 	 */
 	switch (job->goal) {
 	case JOB_START:
-		if (job->state == JOB_WAITING)
+		if ((job->state == JOB_WAITING) && (! job->delete))
 			job_change_state (job, job_next_state (job));
 
 		break;

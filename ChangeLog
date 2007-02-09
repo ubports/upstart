@@ -1,5 +1,10 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_goal): Don't try and start a job if it's
+	marked to be deleted and is just waiting for cleanup.
+	* init/tests/test_job.c (test_change_state): Make sure that the cause
+	is released when we reach waiting.
+
 	* init/tests/test_cfgfile.c (test_read_job): Make sure that a deleted
 	job gets resurrected.
 
