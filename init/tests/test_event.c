@@ -415,7 +415,9 @@ test_poll (void)
 	}
 
 	job = job_new (NULL, "test");
-	job->command = nih_strdup (job, "echo");
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	event = event_new (job, "test");
 	nih_list_add (&job->start_events, &event->entry);
@@ -496,7 +498,9 @@ test_poll (void)
 	job->state = JOB_STARTING;
 	job->pid = 0;
 	job->blocked = em1;
-	job->command = nih_strdup (job, "echo");
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	event_emit_finished (em1);
 
@@ -556,7 +560,9 @@ test_poll (void)
 	em1->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
-	job->command = nih_strdup (job, "echo");
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	event = event_new (job, "test/failed");
 	nih_list_add (&job->start_events, &event->entry);
@@ -591,7 +597,9 @@ test_poll (void)
 	em1->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
-	job->command = nih_strdup (job, "echo");
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	event = event_new (job, "test/failed");
 	nih_list_add (&job->start_events, &event->entry);

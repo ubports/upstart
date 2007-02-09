@@ -56,10 +56,18 @@
 #include "paths.h"
 
 
+/**
+ * SHELL_CHARS:
+ *
+ * This is the list of characters that, if encountered in a process, cause
+ * it to always be run with a shell.
+ **/
+#define SHELL_CHARS "~`!$^&*()=|\\{}[];\"'<>?"
+
+
 /* Prototypes for static functions */
 static void job_change_cause  (Job *job, EventEmission *emission);
 static void job_emit_event    (Job *job);
-static void job_run_process   (Job *job, char * const argv[]);
 static int  job_catch_runaway (Job *job);
 static void job_kill_timer    (Job *job, NihTimer *timer);
 
@@ -172,10 +180,9 @@ job_new (const void *parent,
 	job->pid_timeout = JOB_DEFAULT_PID_TIMEOUT;
 	job->pid_timer = NULL;
 
-	job->command = NULL;
-	job->script = NULL;
-	job->start_script = NULL;
-	job->stop_script = NULL;
+	job->process = NULL;
+	job->pre_start = NULL;
+	job->post_stop = NULL;
 
 	job->console = CONSOLE_NONE;
 	job->env = NULL;
@@ -311,29 +318,42 @@ job_copy (const void *parent,
 
 	job->pid_timeout = old_job->pid_timeout;
 
-	if (old_job->command) {
-		job->command = nih_strdup (job, old_job->command);
-		if (! job->command)
+	if (old_job->process) {
+		job->process = nih_new (job, JobProcess);
+		if (! job->process)
+			goto error;
+
+		job->process->script = old_job->process->script;
+		job->process->command = nih_strdup (job->process,
+						    old_job->process->command);
+		if (! job->process->command)
 			goto error;
 	}
 
-	if (old_job->script) {
-		job->script = nih_strdup (job, old_job->script);
-		if (! job->script)
+	if (old_job->pre_start) {
+		job->pre_start = nih_new (job, JobProcess);
+		if (! job->pre_start)
+			goto error;
+
+		job->pre_start->script = old_job->pre_start->script;
+		job->pre_start->command = nih_strdup (job->pre_start,
+						      old_job->pre_start->command);
+		if (! job->pre_start->command)
 			goto error;
 	}
 
-	if (old_job->start_script) {
-		job->start_script = nih_strdup (job, old_job->start_script);
-		if (! job->start_script)
+	if (old_job->post_stop) {
+		job->post_stop = nih_new (job, JobProcess);
+		if (! job->post_stop)
+			goto error;
+
+		job->post_stop->script = old_job->post_stop->script;
+		job->post_stop->command = nih_strdup (job->post_stop,
+						      old_job->post_stop->command);
+		if (! job->post_stop->command)
 			goto error;
 	}
 
-	if (old_job->stop_script) {
-		job->stop_script = nih_strdup (job, old_job->stop_script);
-		if (! job->stop_script)
-			goto error;
-	}
 
 	job->console = old_job->console;
 
@@ -622,8 +642,8 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
-			if (job->start_script) {
-				job_run_script (job, job->start_script);
+			if (job->pre_start) {
+				job_run_process (job, job->pre_start);
 			} else {
 				state = job_next_state (job);
 			}
@@ -634,13 +654,11 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
-			if (job->script) {
-				job_run_script (job, job->script);
-			} else if (job->command) {
-				job_run_command (job, job->command);
-			}
+			if (job->process)
+				job_run_process (job, job->process);
 
-			state = job_next_state (job);
+			if (! job->daemon)
+				state = job_next_state (job);
 
 			break;
 		case JOB_POST_START:
@@ -695,8 +713,8 @@ job_change_state (Job      *job,
 			nih_assert (job->pid == 0);
 			nih_assert (old_state == JOB_KILLED);
 
-			if (job->stop_script) {
-				job_run_script (job, job->stop_script);
+			if (job->post_stop) {
+				job_run_process (job, job->post_stop);
 			} else {
 				state = job_next_state (job);
 			}
@@ -919,7 +937,6 @@ job_emit_event (Job *job)
 		job->blocked = emission;
 }
 
-
 /**
  * job_catch_runaway
  * @job: job being started.
@@ -956,64 +973,22 @@ job_catch_runaway (Job *job)
 	return FALSE;
 }
 
-/**
- * job_run_command:
- * @job: job to run process for,
- * @command: command and arguments to be run.
- *
- * This function splits @command into whitespace separated program name
- * and arguments and calls job_run_process() with the result.
- *
- * As a bonus, if @command contains any special shell characters such
- * as variables, redirection, or even just quotes; it arranges for the
- * command to instead be run by the shell so we don't need any complex
- * argument parsing of our own.
- *
- * No error is returned from this function because it will block until
- * the process_spawn() calls succeeds, that can only fail for temporary
- * reasons (such as a lack of process ids) which would cause problems
- * carrying on anyway.
- **/
-void
-job_run_command (Job        *job,
-		 const char *command)
-{
-	char   **argv;
-	size_t   argc;
-
-	nih_assert (job != NULL);
-	nih_assert (command != NULL);
-
-	/* Use the shell for non-simple commands */
-	if (strpbrk (command, "~`!$^&*()=|\\{}[];\"'<>?")) {
-		char *cmd;
-
-		NIH_MUST (cmd = nih_sprintf (NULL, "exec %s", command));
-
-		argc = 0;
-		NIH_MUST (argv = nih_str_array_new (NULL));
-
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-c"));
-		NIH_MUST (nih_str_array_addp (&argv, NULL, &argc, cmd));
-	} else {
-		NIH_MUST (argv = nih_str_split (NULL, command, " ", TRUE));
-	}
-
-	job_run_process (job, argv);
-
-	nih_free (argv);
-}
 
 /**
- * job_run_script:
- * @job: job to run process for,
- * @script: shell script to be run.
+ * job_run_process:
+ * @job: job context for process to be run in,
+ * @process: process details.
  *
- * This function takes the shell script code stored verbatim in @script
- * and arranges for it to be run by the system shell.
+ * This function uses the information in @process to spawn a new process
+ * for the @job, and store the pid of that process in the appropriate place.
  *
- * If @script is reasonably small (less than 1KB) it is passed to the
+ * The process is normally executed using the system shell, unless the
+ * script member of @process is FALSE and there are no typical shell
+ * characters within the command member, in which case it is executed
+ * directly using exec after splitting on whitespace.
+ *
+ * When exectued with the shell, if the command (which may be an entire
+ * script) is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
  * to read commands from one of the special /dev/fd/NN devices and NihIo
  * used to feed the script into that device.  A pointer to the NihIo object
@@ -1029,55 +1004,116 @@ job_run_command (Job        *job,
  * carrying on anyway.
  **/
 void
-job_run_script (Job        *job,
-		const char *script)
+job_run_process (Job        *job,
+		 JobProcess *process)
 {
-	struct stat   statbuf;
-	char        **argv;
-	size_t        argc;
+	char   **argv, *script = NULL;
+	size_t   argc;
+	pid_t    pid;
+	int      error = FALSE, fds[2];
 
 	nih_assert (job != NULL);
-	nih_assert (script != NULL);
+	nih_assert (job->pid == 0);
+	nih_assert (process != NULL);
+	nih_assert (process->command != NULL);
 
-	argc = 0;
-	NIH_MUST (argv = nih_str_array_new (NULL));
-
-	/* Normally we just pass the script to the shell using the -c
-	 * option, however there's a limit to the length of a command line
-	 * (about 4KB) and that just looks bad in ps as well.
-	 *
-	 * So as an alternative we use the magic /dev/fd/NN devices and
-	 * give the shell a script to run by piping it down.  Of course,
-	 * the pipe buffer may not be big enough either, so we use NihIo
-	 * to do it all asynchronously in the background.
+	/* We run the process using a shell if it says it wants to be run
+	 * as such, or if it contains any shell-like characters; since that's
+	 * the best way to deal with things like variables.
 	 */
-	if ((strlen (script) > 1024)
-	    && (stat (DEV_FD, &statbuf) == 0) && (S_ISDIR (statbuf.st_mode))) {
-		NihIo *io;
-		char  *cmd, **arg;
-		int    fds[2];
+	if ((process->script) || strpbrk (process->command, SHELL_CHARS)) {
+		struct stat   statbuf;
+		char        **arg;
 
-		/* Close the writing end when the child is exec'd */
-		NIH_MUST (pipe (fds) == 0);
-		nih_io_set_cloexec (fds[1]);
-
-		/* FIXME actually always want it to be /dev/fd/3 and
-		 * dup2() in the child to make it that way ... no way
-		 * of passing that yet
-		 */
-
-		NIH_MUST (cmd = nih_sprintf (NULL, "%s/%d", DEV_FD, fds[0]));
+		argc = 0;
+		NIH_MUST (argv = nih_str_array_new (NULL));
 
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
-		NIH_MUST (nih_str_array_addp (&argv, NULL, &argc, cmd));
 
+		/* If the process wasn't originally marked to be run through
+		 * a shell, prepend exec to the script so that the shell
+		 * gets out of the way after parsing.
+		 */
+		if (process->script) {
+			NIH_MUST (script = nih_strdup (NULL,
+						       process->command));
+		} else {
+			NIH_MUST (script = nih_sprintf (NULL, "exec %s",
+							process->command));
+		}
+
+		/* If the script is very large, we consider piping it using
+		 * /dev/fd/NNN; we can only do that if /dev/fd exists,
+		 * of course.
+		 */
+		if ((strlen (script) > 1024)
+		    && (stat (DEV_FD, &statbuf) == 0)
+		    && (S_ISDIR (statbuf.st_mode)))
+		{
+			char *cmd;
+
+			/* Close the writing end when the child is exec'd */
+			NIH_MUST (pipe (fds) == 0);
+			nih_io_set_cloexec (fds[1]);
+
+			/* FIXME actually always want it to be /dev/fd/3 and
+			 * dup2() in the child to make it that way ... no way
+			 * of passing that yet
+			 */
+			NIH_MUST (cmd = nih_sprintf (argv, "%s/%d",
+						     DEV_FD, fds[0]));
+			NIH_MUST (nih_str_array_addp (&argv, NULL,
+						      &argc, cmd));
+		} else {
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, "-c"));
+			NIH_MUST (nih_str_array_addp (&argv, NULL,
+						      &argc, script));
+
+			/* Next argument is argv[0]; just pass the shell */
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, SHELL));
+
+			script = NULL;
+		}
+
+		/* Append arguments from the cause event if set. */
 		if (job->cause)
 			for (arg = job->cause->event.args; arg && *arg; arg++)
 				NIH_MUST (nih_str_array_add (&argv, NULL,
 							     &argc, *arg));
+	} else {
+		/* Split the command on whitespace to produce a list of
+		 * arguments that we can exec directly.
+		 */
+		NIH_MUST (argv = nih_str_split (NULL, process->command,
+						" \t\r\n", TRUE));
+	}
 
-		job_run_process (job, argv);
+
+	/* Spawn the process, repeat until fork() works */
+	while ((pid = process_spawn (job, argv)) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (! error)
+			nih_warn ("%s: %s", _("Failed to spawn process"),
+				  err->message);
+		nih_free (err);
+
+		error = TRUE;
+	}
+
+	nih_free (argv);
+
+	job->pid = pid;
+	nih_info (_("Active %s process (%d)"), job->name, job->pid);
+
+
+	/* Feed the script to the child process */
+	if (script) {
+		NihIo *io;
 
 		/* Clean up and close the reading end (we don't need it) */
 		close (fds[0]);
@@ -1098,73 +1134,9 @@ job_run_script (Job        *job,
 
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
-	} else {
-		char **arg;
 
-		/* Pass the script using -c */
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-c"));
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, script));
-
-		if (job->cause) {
-			NIH_MUST (nih_str_array_add (&argv, NULL,
-						     &argc, SHELL));
-
-			for (arg = job->cause->event.args; arg && *arg; arg++)
-				NIH_MUST (nih_str_array_add (&argv, NULL,
-							     &argc, *arg));
-		}
-
-		job_run_process (job, argv);
+		nih_free (script);
 	}
-
-	nih_free (argv);
-}
-
-/**
- * job_run_process:
- * @job: job to run process for,
- * @argv: NULL-terminated list of arguments for the process.
- *
- * This function spawns a new process for @job storing the pid and new
- * process state back in that object.  This can only be called when there
- * is not already a process for the job.
- *
- * The caller should have already prepared the arguments, the list is
- * passed directly to process_spawn().
- *
- * No error is returned from this function because it will block until
- * the process_spawn() calls succeeds, that can only fail for temporary
- * reasons (such as a lack of process ids) which would cause problems
- * carrying on anyway.
- **/
-static void
-job_run_process (Job          *job,
-		 char * const  argv[])
-{
-	pid_t pid;
-	int   error = FALSE;
-
-	nih_assert (job != NULL);
-	nih_assert (job->pid == 0);
-
-	/* Run the process, repeat until fork() works */
-	while ((pid = process_spawn (job, argv)) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		if (! error)
-			nih_warn ("%s: %s", _("Failed to spawn process"),
-				  err->message);
-		nih_free (err);
-
-		error = TRUE;
-	}
-
-	nih_info (_("Active %s process (%d)"), job->name, pid);
-
-	job->pid = pid;
 }
 
 

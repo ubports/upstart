@@ -1,5 +1,28 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobName): Drop obsolete structure
+	(JobProcess): Add a new structure to represent a single process
+	within the job, instead of using two variables to pick either the
+	script or command.
+	(Job): Change command and script to a single JobProcess called process;
+	change start_script and stop_script to a JobProcess called pre_start
+	and post_stop respectively.
+	* init/job.c (job_new): Initialise new members to NULL.
+	(job_copy): Copy the process structures across, including contents.
+	(job_change_state): Call job_run_process passing in the structure;
+	rather than fiddling with if statements.
+	(job_run_script, job_run_command, job_run_process): Combine all of
+	these three functions into a single new job_run_process function.
+	* init/tests/test_job.c (test_new, test_copy, test_change_goal) 
+	(test_change_state, test_child_reaper) 
+	(test_handle_event_finished): Change to using JobProcess for when
+	we need to construct a command.
+	(test_run_script, test_run_command): Merge into single new
+	(test_run_process) function.
+	* init/tests/test_event.c (test_poll): Replace command with process.
+	* init/tests/test_control.c (test_job_start): Change to using
+	JobProcess to specify the command.
+
 	* init/main.c (main): Run job_free_deleted each time through the
 	main loop.
 

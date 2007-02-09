@@ -343,7 +343,9 @@ test_job_start (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->pid = 0;
-	job->command = "echo";
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -405,7 +407,9 @@ test_job_start (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->pid = 0;
-	job->command = "echo";
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {

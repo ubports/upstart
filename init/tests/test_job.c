@@ -114,10 +114,9 @@ test_new (void)
 		TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
 		TEST_EQ_P (job->pid_timer, NULL);
 
-		TEST_EQ_P (job->command, NULL);
-		TEST_EQ_P (job->script, NULL);
-		TEST_EQ_P (job->start_script, NULL);
-		TEST_EQ_P (job->stop_script, NULL);
+		TEST_EQ_P (job->process, NULL);
+		TEST_EQ_P (job->pre_start, NULL);
+		TEST_EQ_P (job->post_stop, NULL);
 
 		TEST_EQ (job->console, CONSOLE_NONE);
 		TEST_EQ_P (job->env, NULL);
@@ -205,10 +204,9 @@ test_copy (void)
 		TEST_EQ (copy->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
 		TEST_EQ_P (copy->pid_timer, NULL);
 
-		TEST_EQ_P (copy->command, NULL);
-		TEST_EQ_P (copy->script, NULL);
-		TEST_EQ_P (copy->start_script, NULL);
-		TEST_EQ_P (copy->stop_script, NULL);
+		TEST_EQ_P (copy->process, NULL);
+		TEST_EQ_P (copy->pre_start, NULL);
+		TEST_EQ_P (copy->post_stop, NULL);
 
 		TEST_EQ (copy->console, CONSOLE_NONE);
 		TEST_EQ_P (copy->env, NULL);
@@ -289,10 +287,19 @@ test_copy (void)
 	job->pid_timeout = 30;
 	job->pid_timer = (void *)-1;
 
-	job->command = nih_strdup (job, "/usr/sbin/daemon");
-	job->script = nih_strdup (job, "echo foo");
-	job->start_script = nih_strdup (job, "mkdir /var/run/daemon");
-	job->stop_script = nih_strdup (job, "rm -rf /var/run/daemon");
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = nih_strdup (job->process, "/usr/sbin/daemon");
+
+	job->pre_start = nih_new (job, JobProcess);
+	job->pre_start->script = TRUE;
+	job->pre_start->command = nih_strdup (job->pre_start,
+					      "mkdir /var/run/daemon\n");
+
+	job->post_stop = nih_new (job, JobProcess);
+	job->post_stop->script = TRUE;
+	job->post_stop->command = nih_strdup (job->post_stop,
+					      "rm -rf /var/run/daemon\n");
 
 	job->console = CONSOLE_OUTPUT;
 
@@ -422,14 +429,25 @@ test_copy (void)
 		TEST_EQ (copy->pid_timeout, job->pid_timeout);
 		TEST_EQ_P (copy->pid_timer, NULL);
 
-		TEST_ALLOC_PARENT (copy->command, copy);
-		TEST_EQ_STR (copy->command, job->command);
-		TEST_ALLOC_PARENT (copy->script, copy);
-		TEST_EQ_STR (copy->script, job->script);
-		TEST_ALLOC_PARENT (copy->stop_script, copy);
-		TEST_EQ_STR (copy->start_script, job->start_script);
-		TEST_ALLOC_PARENT (copy->stop_script, copy);
-		TEST_EQ_STR (copy->stop_script, job->stop_script);
+		TEST_ALLOC_PARENT (copy->process, copy);
+		TEST_ALLOC_SIZE (copy->process, sizeof (JobProcess));
+		TEST_EQ (copy->process->script, FALSE);
+		TEST_ALLOC_PARENT (copy->process->command, copy->process);
+		TEST_EQ_STR (copy->process->command, job->process->command);
+
+		TEST_ALLOC_PARENT (copy->pre_start, copy);
+		TEST_ALLOC_SIZE (copy->pre_start, sizeof (JobProcess));
+		TEST_EQ (copy->pre_start->script, TRUE);
+		TEST_ALLOC_PARENT (copy->pre_start->command, copy->pre_start);
+		TEST_EQ_STR (copy->pre_start->command,
+			     job->pre_start->command);
+
+		TEST_ALLOC_PARENT (copy->post_stop, copy);
+		TEST_ALLOC_SIZE (copy->post_stop, sizeof (JobProcess));
+		TEST_EQ (copy->post_stop->script, TRUE);
+		TEST_ALLOC_PARENT (copy->post_stop->command, copy->post_stop);
+		TEST_EQ_STR (copy->post_stop->command,
+			     job->post_stop->command);
 
 		TEST_EQ (copy->console, job->console);
 		TEST_ALLOC_PARENT (copy->env, copy);
@@ -568,8 +586,12 @@ test_change_goal (void)
 	program_name = "test";
 
 	job = job_new (NULL, "test");
-	job->start_script = "echo";
-	job->stop_script = "echo";
+	job->pre_start = nih_new (job, JobProcess);
+	job->pre_start->script = FALSE;
+	job->pre_start->command = "echo";
+	job->post_stop = nih_new (job, JobProcess);
+	job->post_stop->script = FALSE;
+	job->post_stop->command = "echo";
 
 
 	/* Check that an attempt to start a waiting job results in the
@@ -886,7 +908,8 @@ test_change_state (void)
 	Job           *job;
 	EventEmission *cause, *emission;
 	struct stat    statbuf;
-	char           dirname[PATH_MAX], filename[PATH_MAX], *tmp;
+	char           dirname[PATH_MAX], filename[PATH_MAX];
+	JobProcess    *tmp;
 	pid_t          pid;
 	int            status;
 
@@ -898,9 +921,18 @@ test_change_state (void)
 	mkdir (dirname, 0700);
 
 	job = job_new (NULL, "test");
-	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
-	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
-	job->command = nih_sprintf (job, "touch %s/run", dirname);
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = nih_sprintf (job->process,
+					     "touch %s/run", dirname);
+	job->pre_start = nih_new (job, JobProcess);
+	job->pre_start->script = FALSE;
+	job->pre_start->command = nih_sprintf (job->pre_start,
+					       "touch %s/start", dirname);
+	job->post_stop = nih_new (job, JobProcess);
+	job->post_stop->script = FALSE;
+	job->post_stop->command = nih_sprintf (job->post_stop,
+					       "touch %s/stop", dirname);
 	job->respawn_limit = 0;
 
 	event_init ();
@@ -1061,8 +1093,8 @@ test_change_state (void)
 	 * we should get a started event emitted.
 	 */
 	TEST_FEATURE ("starting to pre-start without process");
-	tmp = job->start_script;
-	job->start_script = NULL;
+	tmp = job->pre_start;
+	job->pre_start = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -1108,7 +1140,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->start_script = tmp;
+	job->pre_start = tmp;
 
 
 	/* Check that a job with a main process can move from pre-start to
@@ -1167,8 +1199,8 @@ test_change_state (void)
 	 * started event emitted.
 	 */
 	TEST_FEATURE ("pre-start to spawned without process");
-	tmp = job->command;
-	job->command = NULL;
+	tmp = job->process;
+	job->process = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -1205,7 +1237,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->command = tmp;
+	job->process = tmp;
 
 
 	/* Check that a task can move from post-start to running, which will
@@ -1614,8 +1646,8 @@ test_change_state (void)
 	 * we should get a stopped event emitted, and the cause forgotten.
 	 */
 	TEST_FEATURE ("killed to post-stop without process");
-	tmp = job->stop_script;
-	job->stop_script = NULL;
+	tmp = job->post_stop;
+	job->post_stop = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
@@ -1649,7 +1681,7 @@ test_change_state (void)
 		TEST_EQ_STR (emission->event.args[2], "running");
 		TEST_EQ_P (emission->event.args[3], NULL);
 		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[2], NULL);
+		TEST_EQ_P (emission->event.env[1], NULL);
 		nih_list_free (&emission->event.entry);
 
 		TEST_LIST_EMPTY (events);
@@ -1659,7 +1691,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 1);
 	}
 
-	job->stop_script = tmp;
+	job->post_stop = tmp;
 
 
 	/* Check that a job can move from post-stop to waiting.  This
@@ -2107,14 +2139,16 @@ test_next_state (void)
 
 
 void
-test_run_command (void)
+test_run_process (void)
 {
-	Job         *job;
-	FILE        *output;
-	struct stat  statbuf;
-	char         filename[PATH_MAX], buf[80];
+	Job           *job;
+	EventEmission *em;
+	FILE          *output;
+	struct stat    statbuf;
+	char           filename[PATH_MAX], buf[80], **args;
+	int            status, first;
 
-	TEST_FUNCTION ("job_run_command");
+	TEST_FUNCTION ("job_run_process");
 	TEST_FILENAME (filename);
 
 	/* Check that we can run a simple command, and have the process id
@@ -2127,10 +2161,13 @@ test_run_command (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->command = nih_sprintf (job, "touch %s", filename);
+			job->process = nih_new (job, JobProcess);
+			job->process->script = FALSE;
+			job->process->command = nih_sprintf (
+				job->process, "touch %s", filename);
 		}
 
-		job_run_command (job, job->command);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2153,11 +2190,13 @@ test_run_command (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->command = nih_sprintf (job, "echo $$ > %s",
-						    filename);
+			job->process = nih_new (job, JobProcess);
+			job->process->script = FALSE;
+			job->process->command = nih_sprintf (
+				job->process, "echo $$ > %s", filename);
 		}
 
-		job_run_command (job, job->command);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2174,19 +2213,6 @@ test_run_command (void)
 
 		nih_list_free (&job->entry);
 	}
-}
-
-void
-test_run_script (void)
-{
-	Job           *job;
-	EventEmission *em;
-	FILE          *output;
-	char           filename[PATH_MAX], **args;
-	int            status, first;
-
-	TEST_FUNCTION ("job_run_script");
-	TEST_FILENAME (filename);
 
 	/* Check that we can run a small shell script, and that it's run
 	 * by using the shell directly and passing the script in on the
@@ -2198,12 +2224,14 @@ test_run_script (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->script = nih_sprintf (job, ("exec > %s\n"
-							 "echo $0\necho $@"),
-						   filename);
+			job->process = nih_new (job, JobProcess);
+			job->process->script = TRUE;
+			job->process->command = nih_sprintf (
+				job->process, ("exec > %s\necho $0\necho $@"),
+				filename);
 		}
 
-		job_run_script (job, job->script);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2231,13 +2259,15 @@ test_run_script (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->script = nih_sprintf (job, ("exec > %s\n"
-							 "test -d %s\n"
-							 "echo oops"),
-						   filename, filename);
+			job->process = nih_new (job, JobProcess);
+			job->process->script = TRUE;
+			job->process->command = nih_sprintf (
+				job->process,
+				"exec > %s\ntest -d %s\necho oops",
+				filename, filename);
 		}
 
-		job_run_script (job, job->script);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2268,14 +2298,15 @@ test_run_script (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->script = nih_sprintf (job, ("exec > %s\n"
-							 "echo $0\necho $@"),
-						   filename);
-
 			job->cause = em;
+			job->process = nih_new (job, JobProcess);
+			job->process->script = TRUE;
+			job->process->command = nih_sprintf (
+				job->process, "exec > %s\necho $0\necho $@",
+				filename);
 		}
 
-		job_run_script (job, job->script);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2306,15 +2337,17 @@ test_run_script (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->script = nih_alloc (job, 4096);
-			sprintf (job->script, "exec > %s\necho $0\necho $@\n",
-				 filename);
-			while (strlen (job->script) < 4000)
-				strcat (job->script,
+			job->process = nih_new (job, JobProcess);
+			job->process->script = TRUE;
+			job->process->command = nih_alloc (job->process, 4096);
+			sprintf (job->process->command,
+				 "exec > %s\necho $0\necho $@\n", filename);
+			while (strlen (job->process->command) < 4000)
+				strcat (job->process->command,
 					"# this just bulks it out a bit");
 		}
 
-		job_run_script (job, job->script);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2373,17 +2406,18 @@ test_run_script (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->script = nih_alloc (job, 4096);
-			sprintf (job->script, "exec > %s\necho $0\necho $@\n",
-				 filename);
-			while (strlen (job->script) < 4000)
-				strcat (job->script,
-					"# this just bulks it out a bit");
-
 			job->cause = em;
+			job->process = nih_new (job, JobProcess);
+			job->process->script = TRUE;
+			job->process->command = nih_alloc (job->process, 4096);
+			sprintf (job->process->command,
+				 "exec > %s\necho $0\necho $@\n", filename);
+			while (strlen (job->process->command) < 4000)
+				strcat (job->process->command,
+					"# this just bulks it out a bit");
 		}
 
-		job_run_script (job, job->script);
+		job_run_process (job, job->process);
 
 		TEST_NE (job->pid, 0);
 
@@ -2586,7 +2620,9 @@ test_child_reaper (void)
 	output = tmpfile ();
 
 	job = job_new (NULL, "test");
-	job->command = "echo";
+	job->process = nih_new (job, JobProcess);
+	job->process->script = FALSE;
+	job->process->command = "echo";
 
 	em = event_emit ("foo", NULL, NULL);
 
@@ -3327,16 +3363,24 @@ test_handle_event_finished (void)
 	TEST_FUNCTION ("job_handle_event_finished");
 	job1 = job_new (NULL, "foo");
 	job1->respawn_limit = 0;
-	job1->start_script = "echo";
-	job1->stop_script = "echo";
+	job1->pre_start = nih_new (job1, JobProcess);
+	job1->pre_start->script = FALSE;
+	job1->pre_start->command = "echo";
+	job1->post_stop = nih_new (job1, JobProcess);
+	job1->post_stop->script = FALSE;
+	job1->post_stop->command = "echo";
 
 	event = event_new (job1, "wibble");
 	nih_list_add (&job1->start_events, &event->entry);
 
 	job2 = job_new (NULL, "bar");
 	job2->respawn_limit = 0;
-	job2->start_script = "echo";
-	job2->stop_script = "echo";
+	job2->pre_start = nih_new (job2, JobProcess);
+	job2->pre_start->script = FALSE;
+	job2->pre_start->command = "echo";
+	job2->post_stop = nih_new (job2, JobProcess);
+	job2->post_stop->script = FALSE;
+	job2->post_stop->command = "echo";
 
 	event = event_new (job2, "wibble");
 	nih_list_add (&job2->stop_events, &event->entry);
@@ -3576,8 +3620,7 @@ main (int   argc,
 	test_change_goal ();
 	test_change_state ();
 	test_next_state ();
-	test_run_command ();
-	test_run_script ();
+	test_run_process ();
 	test_kill_process ();
 	test_child_reaper ();
 	test_handle_event ();

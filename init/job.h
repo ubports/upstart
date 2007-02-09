@@ -78,7 +78,21 @@
 #define JOB_DEFAULT_UMASK 022
 
 
-
+/**
+ * JobProcess:
+ * @script: whether a shell will be required,
+ * @command: command or script to be run.
+ *
+ * This structure represents an individual process within the job that
+ * can be run.  When @script is FALSE, @command is checked for shell
+ * characters; if there are none, it is split on whitespace and executed
+ * directly using exec().  If there are shell characters, or @script is
+ * TRUE, @command is executed using a shell.
+ **/
+typedef struct job_process {
+	int   script;
+	char *command;
+} JobProcess;
 
 /**
  * Job:
@@ -116,10 +130,9 @@
  * @pid_binary: obtain pid by locating this binary,
  * @pid_timeout: time to wait before giving up obtaining pid,
  * @pid_timer: timer for pid location,
- * @command: command to be run as the primary process,
- * @script: script to run instead of @command,
- * @start_script: script to run before @command is started,
- * @stop_script: script to run after @command is stopped,
+ * @process: primary process to be run,
+ * @pre_start: process to be run before job is started,
+ * @post_stop: process to be run after job is stopped,
  * @respawn_script: script to run between @command respawns,
  * @console: how to arrange the job's stdin/out/err file descriptors,
  * @env: NULL-terminated list of environment strings to set,
@@ -182,10 +195,9 @@ struct job {
 	time_t         pid_timeout;
 	NihTimer      *pid_timer;
 
-	char          *command;
-	char          *script;
-	char          *start_script;
-	char          *stop_script;
+	JobProcess    *process;
+	JobProcess    *pre_start;
+	JobProcess    *post_stop;
 
 	ConsoleType    console;
 	char         **env;
@@ -196,19 +208,6 @@ struct job {
 	char          *chroot;
 	char          *chdir;
 };
-
-/**
- * JobName:
- * @entry: list header,
- * @name: name of job.
- *
- * This structure is used to form lists of job names, for example in the
- * depends list of an ordinary Job.
- **/
-typedef struct job_name {
-	NihList  entry;
-	char    *name;
-} JobName;
 
 
 NIH_BEGIN_EXTERN
@@ -232,8 +231,7 @@ void     job_change_goal           (Job *job, JobGoal goal,
 void     job_change_state          (Job *job, JobState state);
 JobState job_next_state            (Job *job);
 
-void     job_run_command           (Job *job, const char *command);
-void     job_run_script            (Job *job, const char *script);
+void     job_run_process           (Job *job, JobProcess *process);
 
 void     job_kill_process          (Job *job);
 
