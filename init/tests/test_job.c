@@ -249,26 +249,21 @@ test_change_goal (void)
 	}
 
 
-	/* Check that an attempt to start a job waiting to be deleted
-	 * results in the goal being changed to start, but the state not
-	 * being changed.
+	/* Check that an attempt to start a deleted job results in nothing
+	 * happening at all.
 	 */
-	TEST_FEATURE ("with waiting deleted job");
-	job->delete = TRUE;
-
+	TEST_FEATURE ("with deleted job");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
+		job->state = JOB_DELETED;
 		job->pid = 0;
 
 		job_change_goal (job, JOB_START, NULL);
 
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
 		TEST_EQ (job->pid, 0);
 	}
-
-	job->delete = FALSE;
 
 
 	/* Check that an attempt to start a job that's in the process of
@@ -1433,6 +1428,56 @@ test_change_state (void)
 	job->respawn_count = 0;
 
 
+	/* Check that a deleted job can move from post-stop to waiting,
+	 * going through that state and ending up in deleted.
+	 */
+	TEST_FEATURE ("post-stop to waiting for deleted job");
+	job->delete = TRUE;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+		job->pid = 0;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 1);
+	}
+
+	job->delete = FALSE;
+
+
 	fclose (output);
 	rmdir (dirname);
 
@@ -1451,13 +1496,14 @@ test_next_state (void)
 	job = job_new (NULL, "test");
 
 	/* Check that the next state if we're stopping a waiting job is
-	 * waiting.
+	 * deleted.  The only place this can happen is from the job loop
+	 * if job->delete is TRUE; so this is the logical next state.
 	 */
 	TEST_FEATURE ("with waiting job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
-	TEST_EQ (job_next_state (job), JOB_WAITING);
+	TEST_EQ (job_next_state (job), JOB_DELETED);
 
 
 	/* Check that the next state if we're starting a waiting job is
@@ -3086,6 +3132,59 @@ test_detect_stalled (void)
 	event_poll ();
 }
 
+void
+test_free_deleted ()
+{
+	Job *job1, *job2, *job3;
+
+	TEST_FUNCTION ("job_free_deleted");
+	job1 = job_new (NULL, "frodo");
+	job1->delete = TRUE;
+	job1->goal = JOB_START;
+	job1->state = JOB_RUNNING;
+	job1->pid = 1;
+
+	job2 = job_new (NULL, "bilbo");
+	job2->delete = TRUE;
+	job2->goal = JOB_STOP;
+	job2->state = JOB_DELETED;
+	job2->pid = 0;
+
+	job3 = job_new (NULL, "drogo");
+	job3->goal = JOB_STOP;
+	job3->state = JOB_STOPPING;
+	job3->pid = 0;
+
+	nih_alloc_set_destructor (job1, my_destructor);
+	nih_alloc_set_destructor (job2, my_destructor);
+	nih_alloc_set_destructor (job3, my_destructor);
+
+
+	/* Check that only those jobs in the deleted state are removed from
+	 * the list and freed.
+	 */
+	TEST_FEATURE ("with single deleted job");
+	destructor_called = 0;
+
+	job_free_deleted ();
+
+	TEST_EQ (destructor_called, 1);
+	TEST_EQ_P (job1->entry.next, &job3->entry);
+
+
+	/* Check that if there are no jobs to be deleted, nothing happens. */
+	TEST_FEATURE ("with no deleted jobs");
+	destructor_called = 0;
+
+	job_free_deleted ();
+
+	TEST_EQ (destructor_called, 0);
+
+
+	nih_list_free (&job1->entry);
+	nih_list_free (&job3->entry);
+}
+
 
 int
 main (int   argc,
@@ -3104,6 +3203,7 @@ main (int   argc,
 	test_handle_event ();
 	test_handle_event_finished ();
 	test_detect_stalled ();
+	test_free_deleted ();
 
 	return 0;
 }

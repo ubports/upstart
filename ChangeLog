@@ -1,5 +1,26 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/enum.h: Add a new JOB_DELETED state.
+	* upstart/enum.c (job_state_name, job_state_from_name): Add the new
+	state to the string functions.
+	* upstart/tests/test_enum.c (test_state_name) 
+	(test_state_from_name): Check the enum works.
+	* init/job.c (job_change_goal): New decision; we can start a waiting
+	job if it's marked delete (it might be a new instance) -- we'll use
+	the new deleted state to decide that we shouldn't.
+	(job_change_state): Once we reach waiting, if the job is to be deleted,
+	move to the next state.
+	(job_next_state): The next state for a waiting job if the goal is stop
+	is deleted.  We should never call job_next_state () for a deleted job.
+	(job_free_deleted): Very simple function, just detects
+	deleted jobs and frees them.
+	* init/job.h: Add prototype for new function.
+	* init/tests/test_job.c (test_change_goal): Update test to use new
+	deleted state; and don't even change the goal.
+	(test_change_state): Add a check to make sure we end up in deleted.
+	(test_next_state): Make sure waiting goes to deleted.
+	(test_free_deleted): Check the function.
+
 	* init/job.c (job_change_goal): Don't try and start a job if it's
 	marked to be deleted and is just waiting for cleanup.
 	* init/tests/test_job.c (test_change_state): Make sure that the cause

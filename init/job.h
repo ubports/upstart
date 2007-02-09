@@ -235,6 +235,7 @@ void     job_handle_event          (EventEmission *emission);
 void     job_handle_event_finished (EventEmission *emission);
 
 void     job_detect_stalled        (void);
+void     job_free_deleted          (void);
 
 NIH_END_EXTERN
 

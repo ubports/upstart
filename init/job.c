@@ -284,6 +284,9 @@ job_change_goal (Job           *job,
 	if (job->goal == goal)
 		return;
 
+	if (job->state == JOB_DELETED)
+		return;
+
 	nih_info (_("%s goal changed from %s to %s"), job->name,
 		  job_goal_name (job->goal), job_goal_name (goal));
 
@@ -302,7 +305,7 @@ job_change_goal (Job           *job,
 	 */
 	switch (job->goal) {
 	case JOB_START:
-		if ((job->state == JOB_WAITING) && (! job->delete))
+		if (job->state == JOB_WAITING)
 			job_change_state (job, job_next_state (job));
 
 		break;
@@ -379,17 +382,6 @@ job_change_state (Job      *job,
 		 * state, such as executing a process or emitting an event.
 		 */
 		switch (job->state) {
-		case JOB_WAITING:
-			nih_assert (job->pid == 0);
-			nih_assert (job->goal == JOB_STOP);
-			nih_assert ((old_state == JOB_POST_STOP)
-				    || (old_state == JOB_STARTING));
-
-			job_emit_event (job);
-
-			job_change_cause (job, NULL);
-
-			break;
 		case JOB_STARTING:
 			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
@@ -509,6 +501,26 @@ job_change_state (Job      *job,
 			}
 
 			break;
+		case JOB_WAITING:
+			nih_assert (job->pid == 0);
+			nih_assert (job->goal == JOB_STOP);
+			nih_assert ((old_state == JOB_POST_STOP)
+				    || (old_state == JOB_STARTING));
+
+			job_emit_event (job);
+
+			job_change_cause (job, NULL);
+
+			if (job->delete)
+				state = job_next_state (job);
+
+			break;
+		case JOB_DELETED:
+			nih_assert (job->pid == 0);
+			nih_assert (job->goal == JOB_STOP);
+			nih_assert (old_state == JOB_WAITING);
+
+			break;
 		}
 	}
 }
@@ -540,7 +552,7 @@ job_next_state (Job *job)
 	case JOB_WAITING:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_WAITING;
+			return JOB_DELETED;
 		case JOB_START:
 			return JOB_STARTING;
 		}
@@ -1277,8 +1289,6 @@ job_handle_event_finished (EventEmission *emission)
 
 /**
  * job_detect_stalled:
- * @data: unused,
- * @func: loop function.
  *
  * This function is called each time through the main loop to detect whether
  * the system is stalled, a state in which all jobs are dormant.  If we
@@ -1316,5 +1326,29 @@ job_detect_stalled (void)
 		event_emit (STALLED_EVENT, NULL, NULL);
 
 		nih_main_loop_interrupt ();
+	}
+}
+
+/**
+ * job_free_deleted:
+ * @data: unusued,
+ * @func: loop function.
+ *
+ * This function is called each time through the main loop to free any
+ * deleted jobs that are now in the deleted state.  We do this from the
+ * main loop because otherwise we'd have to be careful whenever calling
+ * job_change_goal() or job_change_state(); and we don't want that.
+ **/
+void
+job_free_deleted (void)
+{
+	NIH_LIST_FOREACH_SAFE (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		if (job->state != JOB_DELETED)
+			continue;
+
+		nih_debug ("Deleting %s job", job->name);
+		nih_list_free (&job->entry);
 	}
 }

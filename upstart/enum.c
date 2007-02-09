@@ -111,6 +111,8 @@ job_state_name (JobState state)
 		return N_("killed");
 	case JOB_POST_STOP:
 		return N_("post-stop");
+	case JOB_DELETED:
+		return N_("deleted");
 	default:
 		return NULL;
 	}
@@ -149,6 +151,8 @@ job_state_from_name (const char *state)
 		return JOB_KILLED;
 	} else if (! strcmp (state, "post-stop")) {
 		return JOB_POST_STOP;
+	} else if (! strcmp (state, "deleted")) {
+		return JOB_DELETED;
 	} else {
 		return -1;
 	}

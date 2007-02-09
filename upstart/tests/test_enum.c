@@ -161,6 +161,13 @@ test_state_name (void)
 	TEST_EQ_STR (name, "post-stop");
 
 
+	/* Check that the JOB_DELETED state returns the right string. */
+	TEST_FEATURE ("with deleted state");
+	name = job_state_name (JOB_DELETED);
+
+	TEST_EQ_STR (name, "deleted");
+
+
 	/* Check that an invalid state returns NULL. */
 	TEST_FEATURE ("with invalid state");
 	name = job_state_name (1234);
@@ -243,6 +250,13 @@ test_state_from_name (void)
 	state = job_state_from_name ("post-stop");
 
 	TEST_EQ (state, JOB_POST_STOP);
+
+
+	/* Check that JOB_DELETED is returned for the right string. */
+	TEST_FEATURE ("with deleted state");
+	state = job_state_from_name ("deleted");
+
+	TEST_EQ (state, JOB_DELETED);
 
 
 	/* Check that -1 is returned for an invalid string. */
