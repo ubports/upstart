@@ -104,12 +104,15 @@ test_read_job (void)
 
 	/* Check that we can give a new file for an existing job; this
 	 * frees the existing structure, while copying over critical
-	 * information from it to a new structure.
+	 * information from it to a new structure.  If the original job
+	 * was marked to be deleted, this should be cleared.
 	 */
 	TEST_FEATURE ("with re-reading existing job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon --daemon\n");
 	fclose (jf);
+
+	job->delete = TRUE;
 
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
@@ -140,6 +143,8 @@ test_read_job (void)
 
 	TEST_EQ_STR (job->command, "/sbin/daemon --daemon");
 	TEST_ALLOC_PARENT (job->command, job);
+
+	TEST_FALSE (job->delete);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
