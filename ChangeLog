@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_daemon): Don't allow arguments anymore.
+	* init/tests/test_cfgfile.c (test_stanza_daemon): Update tests.
+
 	* init/job.c (job_handle_event_finished): Function to unblock all
 	jobs blocked on a given event emission.
 	(job_new, job_emit_event): Rename blocker to blocked; it's useful for

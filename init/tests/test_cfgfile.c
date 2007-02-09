@@ -1439,30 +1439,32 @@ test_stanza_daemon (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a daemon stanza with arguments sets the job's
-	 * command and the daemon flag.
+	/* Check that a daemon stanza with arguments results in a syntax
+	 * error.
 	 */
 	TEST_FEATURE ("with arguments");
 	jf = fopen (filename, "w");
-	fprintf (jf, "daemon /sbin/daemon -d \"foo\"\n");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon foo\n");
 	fclose (jf);
 
-	job = cfg_read_job (NULL, filename, "test");
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
 
-	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_EQ_P (job, NULL);
 
-	TEST_TRUE (job->daemon);
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
 
-	TEST_ALLOC_PARENT (job->command, job);
-	TEST_EQ_STR (job->command, "/sbin/daemon -d \"foo\"");
-
-	nih_list_free (&job->entry);
+	TEST_FILE_RESET (output);
 
 
-	/* Check that duplicate occurances of the daemon stanza without
-	 * arguments results in a syntax error.
+	/* Check that duplicate occurances of the daemon stanza results in
+	 * a syntax error.
 	 */
-	TEST_FEATURE ("with duplicate without arguments");
+	TEST_FEATURE ("with duplicate");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
 	fprintf (jf, "daemon\n");
@@ -1481,27 +1483,6 @@ test_stanza_daemon (void)
 
 	TEST_FILE_RESET (output);
 
-
-	/* Check that duplicate occurances of the daemon or exec stanza with
-	 * arguments results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate with arguments");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon -d\n");
-	fprintf (jf, "daemon /sbin/daemon\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Duplicate value\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
 
 	fclose (output);
 	unlink (filename);

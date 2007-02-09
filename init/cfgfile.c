@@ -753,9 +753,7 @@ cfg_stanza_exec (Job             *job,
  * @lineno: line number.
  *
  * Parse a daemon stanza from @file.  This sets the daemon flag for the
- * job and may optionally be followed by a command and its arguments,
- * which will be the command run for the job.  It is stored as a single
- * string, rather than a parsed argument list.
+ * job and has no arguments.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -778,19 +776,7 @@ cfg_stanza_daemon (Job             *job,
 
 	job->daemon = TRUE;
 
-	if (! nih_config_has_token (file, len, pos, lineno))
-		return nih_config_skip_comment (file, len, pos, lineno);
-
-
-	if (job->command)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
-	job->command = nih_config_parse_command (job, file, len, pos, lineno);
-	if (! job->command)
-		return -1;
-
-	return 0;
+	return nih_config_skip_comment (file, len, pos, lineno);
 }
 
 /**
