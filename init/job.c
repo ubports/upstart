@@ -57,10 +57,10 @@
 
 /* Prototypes for static functions */
 static void job_change_cause  (Job *job, EventEmission *emission);
-static void job_run_process   (Job *job, char * const  argv[]);
-static void job_kill_timer    (Job *job, NihTimer *timer);
-static void job_failed_event  (Job *job, Event *event);
+static void job_emit_event    (Job *job);
+static void job_run_process   (Job *job, char * const argv[]);
 static int  job_catch_runaway (Job *job);
+static void job_kill_timer    (Job *job, NihTimer *timer);
 
 
 /**
@@ -367,38 +367,68 @@ job_change_state (Job      *job,
 		  JobState  state)
 {
 	nih_assert (job != NULL);
-	nih_assert (job->process_state == PROCESS_NONE);
+	nih_assert (job->pid == 0);
 
 	while (job->state != state) {
-		JobState  old_state;
-		char     *event_name = NULL;
+		JobState old_state;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
+
 		old_state = job->state;
 		job->state = state;
+		notify_job (job);
 
-		/* Check for invalid state changes; if ok, run the
-		 * appropriate script or command, or change the state
-		 * or goal.
+		/* Perform whatever action is necessary to enter the new
+		 * state, such as executing a process or emitting an event.
 		 */
 		switch (job->state) {
 		case JOB_WAITING:
-			nih_assert (old_state == JOB_STOPPING);
 			nih_assert (job->goal == JOB_STOP);
+			nih_assert ((old_state == JOB_POST_STOP)
+				    || (old_state == JOB_STARTING));
 
-			/* FIXME
-			 * instances need to be cleaned up */
+			job_emit_event (job);
 
 			job_change_cause (job, NULL);
 
-			event_name = JOB_STOPPED_EVENT;
 			break;
 		case JOB_STARTING:
+			nih_assert (job->goal == JOB_START);
 			nih_assert ((old_state == JOB_WAITING)
-				    || (old_state == JOB_STOPPING));
+				    || (old_state == JOB_POST_STOP));
 
+			/* Catch runaway jobs; make sure we do this before
+			 * we emit the starting event, so other jobs don't
+			 * think we're going to be started.
+			 */
+			if (job_catch_runaway (job)) {
+				nih_warn (_("%s respawning too fast, stopped"),
+					  job->name);
+
+				job_change_goal (job, JOB_STOP, job->cause);
+				state = job_next_state (job);
+
+				if (! job->failed) {
+					job->failed = TRUE;
+					job->failed_state = job->state;
+					job->exit_status = 0;
+				}
+
+				break;
+			}
+
+			/* Clear any old failed information */
 			job->failed = FALSE;
+			job->failed_state = JOB_WAITING;
+			job->exit_status = 0;
+
+			job_emit_event (job);
+
+			break;
+		case JOB_PRE_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_STARTING);
 
 			if (job->start_script) {
 				job_run_script (job, job->start_script);
@@ -406,21 +436,10 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			event_name = JOB_START_EVENT;
 			break;
-		case JOB_RUNNING:
-			nih_assert ((old_state == JOB_STARTING)
-				    || (old_state == JOB_RESPAWNING));
-
-			/* Catch run-away respawns */
-			if (job_catch_runaway (job)) {
-				nih_warn (_("%s respawning too fast, stopped"),
-					  job->name);
-
-				job_change_goal (job, JOB_STOP, job->cause);
-				state = job_next_state (job);
-				break;
-			}
+		case JOB_SPAWNED:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_PRE_START);
 
 			if (job->script) {
 				job_run_script (job, job->script);
@@ -428,18 +447,55 @@ job_change_state (Job      *job,
 				job_run_command (job, job->command);
 			}
 
+			state = job_next_state (job);
+
+			break;
+		case JOB_POST_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SPAWNED);
+
+			state = job_next_state (job);
+
+			break;
+		case JOB_RUNNING:
+			nih_assert (job->goal == JOB_START);
+			nih_assert ((old_state == JOB_POST_START)
+				    || (old_state == JOB_PRE_STOP));
+
+			job_emit_event (job);
+
 			/* Clear the cause if we're a service since our goal
 			 * is to be running, not to get back to waiting again.
 			 */
 			if (job->service)
 				job_change_cause (job, NULL);
 
-			event_name = JOB_STARTED_EVENT;
+			break;
+		case JOB_PRE_STOP:
+			nih_assert (job->goal == JOB_STOP);
+			nih_assert (old_state == JOB_RUNNING);
+
+			state = job_next_state (job);
+
 			break;
 		case JOB_STOPPING:
-			nih_assert ((old_state == JOB_STARTING)
+			nih_assert ((old_state == JOB_PRE_START)
+				    || (old_state == JOB_SPAWNED)
+				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)
-				    || (old_state == JOB_RESPAWNING));
+				    || (old_state == JOB_PRE_STOP));
+
+			job_emit_event (job);
+
+			break;
+		case JOB_KILLED:
+			nih_assert (old_state == JOB_STOPPING);
+
+			job_kill_process (job);
+
+			break;
+		case JOB_POST_STOP:
+			nih_assert (old_state == JOB_KILLED);
 
 			if (job->stop_script) {
 				job_run_script (job, job->stop_script);
@@ -447,33 +503,7 @@ job_change_state (Job      *job,
 				state = job_next_state (job);
 			}
 
-			event_name = JOB_STOP_EVENT;
 			break;
-		case JOB_RESPAWNING:
-			nih_assert (old_state == JOB_RUNNING);
-
-			if (job->respawn_script) {
-				job_run_script (job, job->respawn_script);
-			} else {
-				state = job_next_state (job);
-			}
-
-			break;
-		}
-
-		/* Notify subscribed processes and queue the event */
-		notify_job (job);
-
-		if (event_name) {
-			EventEmission *emission;
-
-			emission = event_emit (event_name, NULL, NULL);
-			NIH_MUST (nih_str_array_add (&emission->event.args,
-						     emission,
-						     NULL, job->name));
-			if ((job->state == JOB_WAITING)
-			    || (job->state == JOB_STOPPING))
-				job_failed_event (job, &emission->event);
 		}
 	}
 }
@@ -512,6 +542,27 @@ job_next_state (Job *job)
 	case JOB_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
+			return JOB_WAITING;
+		case JOB_START:
+			return JOB_PRE_START;
+		}
+	case JOB_PRE_START:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_SPAWNED;
+		}
+	case JOB_SPAWNED:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_POST_START;
+		}
+	case JOB_POST_START:
+		switch (job->goal) {
+		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_RUNNING;
@@ -519,90 +570,170 @@ job_next_state (Job *job)
 	case JOB_RUNNING:
 		switch (job->goal) {
 		case JOB_STOP:
+			return JOB_PRE_STOP;
+		case JOB_START:
 			return JOB_STOPPING;
-		case JOB_START:
-			return JOB_RESPAWNING;
 		}
-	case JOB_STOPPING:
-		switch (job->goal) {
-		case JOB_STOP:
-			return JOB_WAITING;
-		case JOB_START:
-			return JOB_STARTING;
-		}
-	case JOB_RESPAWNING:
+	case JOB_PRE_STOP:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_RUNNING;
 		}
+	case JOB_STOPPING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_KILLED;
+		case JOB_START:
+			return JOB_KILLED;
+		}
+	case JOB_KILLED:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_POST_STOP;
+		case JOB_START:
+			return JOB_POST_STOP;
+		}
+	case JOB_POST_STOP:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_WAITING;
+		case JOB_START:
+			return JOB_STARTING;
+		}
 	default:
-		return job->state;
+		nih_assert_not_reached ();
 	}
+}
+
+/**
+ * job_emit_event:
+ * @job: job generating the event.
+ *
+ * Called from a state change because it believes an event should be
+ * emitted.  Constructs the event with the right arguments and environment,
+ * adds it to the pending queue, and if the event should block, stores it
+ * in the blocker member of @job.
+ *
+ * The stopping and stopped events have an extra argument that is "ok" if
+ * the job terminated successfully, or "failed" if it terminated with an
+ * error.  If failed, a further argument indicates which process it was
+ * that caused the failure and either an EXIT_STATUS or EXIT_SIGNAL
+ * environment variable detailing it.
+ **/
+static void
+job_emit_event (Job *job)
+{
+	EventEmission  *emission;
+	const char     *name;
+	int             stop = FALSE, block = FALSE;
+	char          **args = NULL, **env = NULL;
+	size_t          len;
+
+	nih_assert (job != NULL);
+
+	switch (job->state) {
+	case JOB_STARTING:
+		name = JOB_STARTING_EVENT;
+		block = TRUE;
+		break;
+	case JOB_RUNNING:
+		name = JOB_STARTED_EVENT;
+		break;
+	case JOB_STOPPING:
+		name = JOB_STOPPING_EVENT;
+		stop = TRUE;
+		block = TRUE;
+		break;
+	case JOB_WAITING:
+		name = JOB_STOPPED_EVENT;
+		stop = TRUE;
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	if (stop && job->failed) {
+		char *exit;
+
+		len = 0;
+		NIH_MUST (args = nih_str_array_new (NULL));
+		NIH_MUST (nih_str_array_add (&args, NULL, &len, "failed"));
+		NIH_MUST (nih_str_array_add (
+				  &args, NULL, &len,
+				  job_state_name (job->failed_state)));
+
+		if (job->exit_status & 0x80) {
+			const char *sig;
+
+			sig = nih_signal_to_name (job->exit_status & 0x7f);
+			if (sig) {
+				NIH_MUST (exit = nih_sprintf (
+						  NULL, "EXIT_SIGNAL=%s",
+						  sig));
+			} else {
+				NIH_MUST (exit = nih_sprintf (
+						  NULL, "EXIT_SIGNAL=%d",
+						  job->exit_status & 0x7f));
+			}
+		} else {
+			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
+						      job->exit_status));
+		}
+
+		len = 0;
+		NIH_MUST (env = nih_str_array_new (NULL));
+		NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
+
+	} else if (stop) {
+		len = 0;
+		NIH_MUST (args = nih_str_array_new (NULL));
+		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));
+	}
+
+	emission = event_emit (name, args, env);
+
+	if (block)
+		job->blocker = emission;
 }
 
 
 /**
- * job_failed_event:
- * @job: job generating the event,
- * @event: event generated.
+ * job_catch_runaway
+ * @job: job being started.
  *
- * Adds arguments and environment to @event to indicate whether the job
- * is stopping normally or due to failure, and if failure, what failed.
+ * This function is called when changing the state of a job to starting,
+ * before emitting the event.  It ensures that a job doesn't end up in
+ * a restart loop by limiting the number of restarts in a particular
+ * time limit.
  *
- * Failed events have an extra "failed" argument, which is followed by the
- * name of a script if that is what failed.  They contain either an
- * EXIT_STATUS or EXIT_SIGNAL environment variable detailing the failure.
- *
- * Normal events have an "ok" argument instead.
- **/
-static void
-job_failed_event (Job   *job,
-		  Event *event)
+ * Returns: TRUE if the job is respawning too fast, FALSE if not.
+ */
+static int
+job_catch_runaway (Job *job)
 {
-	char *env;
-
 	nih_assert (job != NULL);
-	nih_assert (event != NULL);
 
-	if (! job->failed) {
-		NIH_MUST (nih_str_array_add (&event->args, event, NULL, "ok"));
-		return;
-	}
+	if (job->respawn_limit && job->respawn_interval) {
+		time_t interval;
 
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "failed"));
-
-	if (job->failed_state == JOB_STARTING) {
-		NIH_MUST (nih_str_array_add (&event->args, event,
-					     NULL, "start"));
-	} else if (job->failed_state == JOB_STOPPING) {
-		NIH_MUST (nih_str_array_add (&event->args, event,
-					     NULL, "stop"));
-	} else {
-		NIH_MUST (nih_str_array_add (&event->args, event,
-					     NULL, "main"));
-	}
-
-	if (job->exit_status & 0x80) {
-		const char *sig;
-
-		sig = nih_signal_to_name (job->exit_status & 0x7f);
-		if (sig) {
-			NIH_MUST (env = nih_sprintf (NULL, "EXIT_SIGNAL=%s",
-						     sig));
+		/* Time since last respawn ... this goes very large if we
+		 * haven't done one, which is fine
+		 */
+		interval = time (NULL) - job->respawn_time;
+		if (interval < job->respawn_interval) {
+			job->respawn_count++;
+			if (job->respawn_count > job->respawn_limit)
+				return TRUE;
 		} else {
-			NIH_MUST (env = nih_sprintf (NULL, "EXIT_SIGNAL=%d",
-						     job->exit_status & 0x7f));
+			job->respawn_time = time (NULL);
+			job->respawn_count = 1;
 		}
-	} else {
-		NIH_MUST (env = nih_sprintf (NULL, "EXIT_STATUS=%d",
-					     job->exit_status));
 	}
 
-	NIH_MUST (nih_str_array_addp (&event->env, event, NULL, env));
+	return FALSE;
 }
-
 
 /**
  * job_run_command:
@@ -1074,41 +1205,6 @@ job_child_reaper (void  *data,
 
 	/* We've reached a gateway point, switch to the next state. */
 	job_change_state (job, job_next_state (job));
-}
-
-
-/**
- * job_catch_runaway
- * @job: job respawning.
- *
- * This function ensures that a job doesn't enter a respawn loop by
- * limiting the number of respawns in a particular time limit.
- *
- * Returns: TRUE if the job is respawning too fast, FALSE if not.
- */
-static int
-job_catch_runaway (Job *job)
-{
-	nih_assert (job != NULL);
-
-	if (job->respawn_limit && job->respawn_interval) {
-		time_t interval;
-
-		/* Time since last respawn ... this goes very large if we
-		 * haven't done one, which is fine
-		 */
-		interval = time (NULL) - job->respawn_time;
-		if (interval < job->respawn_interval) {
-			job->respawn_count++;
-			if (job->respawn_count > job->respawn_limit)
-				return TRUE;
-		} else {
-			job->respawn_time = time (NULL);
-			job->respawn_count = 1;
-		}
-	}
-
-	return FALSE;
 }
 
 

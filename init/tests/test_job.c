@@ -457,759 +457,901 @@ test_change_state (void)
 {
 	FILE          *output;
 	Job           *job;
-	Event         *event;
-	EventEmission *em;
-	NihList       *list;
+	EventEmission *cause, *emission;
+	NihList       *events;
 	struct stat    statbuf;
-	char           dirname[PATH_MAX], filename[PATH_MAX];
-	int            i;
+	char           dirname[PATH_MAX], filename[PATH_MAX], *tmp;
+	int            status;
 
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
+	output = tmpfile ();
+
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0700);
+
+	job = job_new (NULL, "test");
+	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
+	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
+	job->command = nih_sprintf (job, "touch %s/run", dirname);
+	job->respawn_limit = 0;
 
 	/* This is a naughty way of getting a pointer to the event queue
 	 * list head...  we keep hold of the emitted event, but remove it
 	 * from the list (so it doesn't affect our "events emitted" check)
 	 */
 	event_poll ();
-	em = event_emit ("wibble", NULL, NULL);
-	list = em->event.entry.prev;
-	nih_list_remove (&em->event.entry);
-
-	job = job_new (NULL, "test");
-	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
-	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
-	job->respawn_script = nih_sprintf (job, "touch %s/respawn", dirname);
-	job->command = nih_sprintf (job, "touch %s/run", dirname);
-	job->respawn_limit = 0;
+	cause = event_emit ("wibble", NULL, NULL);
+	events = cause->event.entry.prev;
+	nih_list_remove (&cause->event.entry);
 
 
-	/* Check that a job can move from waiting to starting, and that if
-	 * it has a start script, that is run and the job left in the starting
-	 * state.  The start event should be emitted and any record of
-	 * a failed state cleared.
+	/* Check that a job can move from waiting to starting.  This
+	 * should emit the starting event and block on it after clearing
+	 * out any failed information from the last time the job was run.
 	 */
-	TEST_FEATURE ("waiting to starting with script");
+	TEST_FEATURE ("waiting to starting");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
 
 		job->failed = TRUE;
-		job->failed_state = JOB_RUNNING;
+		job->failed_state = JOB_STOPPING;
 		job->exit_status = 1;
+
+		job->instance = FALSE;
+		job->service = FALSE;
 
 		job_change_state (job, JOB_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "starting");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "start");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/start", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
 
-	/* Check that a job can move directly from waiting to running if it
-	 * has no start script, emitting both the start and started events;
-	 * since the job is not a service, this should not clear the cause.
+	/* Check that if a job tries to move from waiting to starting too
+	 * many times in a given period then it is caught, a message is
+	 * output and the job sent back to stopped and waiting.  We get
+	 * a stopped event, and the cause is cleared.  The failed information
+	 * should reflect that we were stopped by the starting state.
 	 */
-	TEST_FEATURE ("waiting to starting with no script");
-	nih_free (job->start_script);
+	TEST_FEATURE ("waiting to starting too fast");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job->respawn_limit = 10;
+		job->respawn_interval = 1000;
+		job->respawn_time = time (NULL);
+		job->respawn_count = 10;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_STARTING);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocker, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "starting");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_STARTING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output,
+			      "test: test respawning too fast, stopped");
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->respawn_limit = 0;
+	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
+	job->respawn_time = 0;
+	job->respawn_count = 0;
+
+
+	/* Check that a job with a start process can move from starting
+	 * to pre-start, and have the process run.
+	 */
+	TEST_FEATURE ("starting to pre-start");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_PRE_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_PRE_START);
+		TEST_NE (job->pid, 0);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/start");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job without a start process can move from starting
+	 * to pre-start, skipping over that state, and instead going all
+	 * the way through to the running state.  Because we get there,
+	 * we should get a started event emitted.
+	 */
+	TEST_FEATURE ("starting to pre-start without process");
+	tmp = job->start_script;
 	job->start_script = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-
-		job->cause = em;
-		em->jobs = 1;
-
-		job_change_state (job, JOB_STARTING);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->jobs, 1);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "start");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-	}
-
-	job->cause = NULL;
-
-
-	/* Check that a job can move directly from waiting to running if it
-	 * has no start script, emitting both the start and started events;
-	 * and as the job is a service, the cause should be cleared too.
-	 */
-	TEST_FEATURE ("waiting to starting with no script for service");
-	job->service = TRUE;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-
-		job->cause = em;
-		em->jobs = 1;
-
-		job_change_state (job, JOB_STARTING);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->jobs, 0);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "start");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-	}
-
-	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
-	job->service = FALSE;
-	job->cause = NULL;
-
-
-	/* Check that a job in the starting state moves into the running state,
-	 * emitting the started event; since this is not a service, this
-	 * should not clear the cause.
-	 */
-	TEST_FEATURE ("starting to running with command");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
 		job->state = JOB_STARTING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-		job->cause = em;
-		em->jobs = 1;
+		job->pid = 0;
 
-		job_change_state (job, JOB_RUNNING);
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_PRE_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_NE (job->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->jobs, 1);
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
 		TEST_EQ (stat (filename, &statbuf), 0);
-
 		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->cause = NULL;
+	job->start_script = tmp;
 
 
-	/* Check that a job in the starting state moves into the running state,
-	 * emitting the started event; and because it is a service, the
-	 * cause is cleared.
+	/* Check that a job with a main process can move from pre-start to
+	 * spawned and have the process run, and as it's not a daemon,
+	 * the state will be skipped forwards to running and the started
+	 * event emitted.
 	 */
-	TEST_FEATURE ("starting to running for service");
-	job->service = TRUE;
-
+	TEST_FEATURE ("pre-start to spawned");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-		job->cause = em;
-		em->jobs = 1;
+		job->state = JOB_PRE_START;
+		job->pid = 0;
 
-		job_change_state (job, JOB_RUNNING);
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_SPAWNED);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_NE (job->pid, 0);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->jobs, 0);
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
 		TEST_EQ (stat (filename, &statbuf), 0);
-
 		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->service = FALSE;
-	job->cause = NULL;
 
-
-	/* Check that a job in the starting state can move into the running
-	 * state, and that a script instead of a command can be run.
-	 * The started event should be emitted, and since this isn't a
-	 * service, the cause should be left alone.
+ 	/* Check that a job without a main process can move from pre-start
+	 * straight to running skipping the interim steps, and has the
+	 * started event emitted.
 	 */
-	TEST_FEATURE ("starting to running with script");
-	job->script = job->command;
+	TEST_FEATURE ("pre-start to spawned without process");
+	tmp = job->command;
 	job->command = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-		job->cause = em;
-		em->jobs = 1;
-
-		job_change_state (job, JOB_RUNNING);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->jobs, 1);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-	}
-
-	job->cause = NULL;
-
-
-	/* Check that a job in the starting state moves into the running state,
-	 * emitting the started event; even if there is no script or command
-	 * for it.  It should not leave this state until forced.
-	 */
-	TEST_FEATURE ("starting to running with no command or script");
-	nih_free (job->script);
-	job->script = NULL;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_NONE;
+		job->state = JOB_PRE_START;
 		job->pid = 0;
-		job->failed = FALSE;
-		job->cause = em;
-		em->jobs = 1;
 
-		job_change_state (job, JOB_RUNNING);
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_SPAWNED);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
 		TEST_EQ (job->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->jobs, 1);
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
 
-		TEST_LIST_EMPTY (list);
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->cause = NULL;
-	job->command = nih_sprintf (job, "touch %s/run", dirname);
+	job->command = tmp;
 
 
-	/* Check that a job in the running state can move into the respawning
-	 * state, resulting in the respawn script being run and the respawn
-	 * event being emitted.
+	/* Check that a task can move from post-start to running, which will
+	 * emit the started event but leave the cause alone.
 	 */
-	TEST_FEATURE ("running to respawning with script");
+	TEST_FEATURE ("post-start to running");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
 		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
-		job_change_state (job, JOB_RESPAWNING);
+		job->instance = FALSE;
+		job->service = FALSE;
 
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RESPAWNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/respawn", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-	}
-
-
-	/* Check that a job in the running state can move straight through
-	 * the respawning state back into the running state if there's no
-	 * script; emitting the started events as it goes.
-	 */
-	TEST_FEATURE ("running to respawning without script");
-	nih_free (job->respawn_script);
-	job->respawn_script = NULL;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-
-		job_change_state (job, JOB_RESPAWNING);
+		job_change_state (job, JOB_RUNNING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 1);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
 
-		TEST_LIST_EMPTY (list);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
 
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/run", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (events);
 
-		unlink (filename);
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
 
-	/* Check that a job in the running state can move into the stopping
-	 * state, running the script.  The stop event should be emitted
-	 * with no indication of failure.
+	/* Check that a service can move from post-start to running, which
+	 * will emit the started event and clear the cause since the job
+	 * has reached the desired state.
 	 */
-	TEST_FEATURE ("running to stopping with script");
+	TEST_FEATURE ("post-start to running for service");
+	job->service = TRUE;
+
 	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocker = NULL;
+
 		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
 
-		job_change_state (job, JOB_STOPPING);
+		job->instance = FALSE;
+		job->service = FALSE;
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		job_change_state (job, JOB_RUNNING);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stop");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
-		nih_list_free (&event->entry);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid, 1);
 
-		TEST_LIST_EMPTY (list);
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/stop", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_EQ (cause->jobs, 1);
 
-		unlink (filename);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
 
-	/* Check that a job in the running state can move into the stopping
-	 * state, running the script.  The stop event should be emitted
-	 * with an indication of what failed.
+	/* Check that a job can move from running to stopping, by-passing
+	 * pre-stop.  This should emit the stopping event, containing the
+	 * failed information including the exit status, and block on it.
 	 */
-	TEST_FEATURE ("running to stopping with script and failed state");
+	TEST_FEATURE ("running to stopping");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
-		job->failed = TRUE;
-		job->failed_state = JOB_START;
-		job->exit_status = SIGSEGV | 0x80;
+		job->pid = 0;
 
-		job_change_state (job, JOB_STOPPING);
+		job->cause = cause;
+		job->blocker = NULL;
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stop");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "start");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_SIGNAL=SEGV");
-		TEST_EQ_P (event->env[1], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/stop", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-	}
-
-
-	/* Check that a job in the running state can move directly into the
-	 * waiting state, emitting the stop and stopped events as it goes,
-	 * if there's no script.
-	 */
-	TEST_FEATURE ("running to stopping without script");
-	nih_free (job->stop_script);
-	job->stop_script = NULL;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-
-		job_change_state (job, JOB_STOPPING);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
-		nih_list_free (&event->entry);
-
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stop");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
-		nih_list_free (&event->entry);
-
-		TEST_LIST_EMPTY (list);
-	}
-
-
-	/* Check that a job in the running state can move directly into the
-	 * waiting state, emitting the stop and stopped events as it goes,
-	 * if there's no script.
-	 */
-	TEST_FEATURE ("running to stopping without script and failure");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 1;
 
+		job->instance = FALSE;
+		job->service = FALSE;
+
 		job_change_state (job, JOB_STOPPING);
 
 		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
-		nih_list_free (&event->entry);
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, (EventEmission *)events->next);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stop");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
-		nih_list_free (&event->entry);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
 
-		TEST_LIST_EMPTY (list);
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 1);
 	}
 
-	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
 
-
-	/* Check that a job in the stopping state can move into the waiting
-	 * state, emitting the stopped event as it goes and clearing the
-	 * cause.
+	/* Check that a job killed by a signal can move from running to
+	 * stopping, by-passing pre-stop.  This should emit the stopping
+	 * event, containing the failed information including the exit
+	 * signal, and block on it.
 	 */
-	TEST_FEATURE ("stopping to waiting");
+	TEST_FEATURE ("running to stopping for killed process");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
-		job->cause = em;
-		em->jobs = 1;
+		job->state = JOB_RUNNING;
+		job->pid = 0;
 
-		job_change_state (job, JOB_WAITING);
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = SIGSEGV | 0x80;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+	}
+
+
+	/* Check that a job killed by an unknown signal can move from
+	 * running to stopping, by-passing pre-stop.  This should emit
+	 * the stopping event, containing the failed information
+	 * including the exit signal number, and block on it.
+	 */
+	TEST_FEATURE ("running to stopping for unknown signal");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 33 | 0x80;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=33");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 33 | 0x80);
+	}
+
+
+	/* Check that a job can move from pre-stop to stopping.  This
+	 * should emit the stopping event, containing the failed information,
+	 * and block on it.
+	 */
+	TEST_FEATURE ("pre-stop to stopping");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "ok");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job with a stop process can move from killed
+	 * to post-stop, and have the process run.
+	 */
+	TEST_FEATURE ("killed to post-stop");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_POST_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+		TEST_NE (job->pid, 0);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/stop");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job without a stop process can move from killed
+	 * to post-stop, skipping over that state, and instead going all
+	 * the way through to the waiting state.  Because we get there,
+	 * we should get a stopped event emitted, and the cause forgotten.
+	 */
+	TEST_FEATURE ("killed to post-stop without process");
+	tmp = job->stop_script;
+	job->stop_script = NULL;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		job->pid = 0;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
+
+		job->instance = FALSE;
+		job->service = FALSE;
+
+		job_change_state (job, JOB_POST_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->jobs, 0);
+		TEST_EQ_P (job->blocker, NULL);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
-		nih_list_free (&event->entry);
+		TEST_EQ (cause->jobs, 1);
 
-		TEST_LIST_EMPTY (list);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[2], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 1);
 	}
 
-	job->cause = NULL;
+	job->stop_script = tmp;
 
 
-	/* Check that a job in the stopping state can move into the waiting
-	 * state, emitting the stopped event as it goes; which should include
-	 * failed state information.
+	/* Check that a job can move from post-stop to waiting.  This
+	 * should emit the stopped event and clear the cause, but not the
+	 * failed information.
 	 */
-	TEST_FEATURE ("stopping to waiting with failed state");
+	TEST_FEATURE ("post-stop to waiting");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_NONE;
+		job->state = JOB_POST_STOP;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
 		job->failed = TRUE;
-		job->failed_state = JOB_STOPPING;
-		job->exit_status = 32 | 0x80;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
+
+		job->instance = FALSE;
+		job->service = FALSE;
 
 		job_change_state (job, JOB_WAITING);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->pid, 0);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "stop");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_SIGNAL=32");
-		TEST_EQ_P (event->env[1], NULL);
-		nih_list_free (&event->entry);
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
-		TEST_LIST_EMPTY (list);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 1);
 	}
 
 
-	/* Check that a job in the stopping state can move round into the
-	 * starting state if the goal is JOB_START, emitting only the
-	 * start event.
+	/* Check that a job can move from post-stop to starting.  This
+	 * should emit the starting event and block on it, as well as clear
+	 * any failed state information; but not the cause.
 	 */
-	TEST_FEATURE ("stopping to starting");
+	TEST_FEATURE ("post-stop to starting");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_NONE;
-		job->failed = FALSE;
+		job->state = JOB_POST_STOP;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocker = NULL;
+
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
+
+		job->instance = FALSE;
+		job->service = FALSE;
 
 		job_change_state (job, JOB_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->pid, 0);
 
-		event = (Event *)list->prev;
-		TEST_EQ_STR (event->name, "start");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
-		nih_list_free (&event->entry);
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocker, (EventEmission *)events->next);
 
-		TEST_LIST_EMPTY (list);
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "starting");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
 
-		waitpid (job->pid, NULL, 0);
-		sprintf (filename, "%s/start", dirname);
-		TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_LIST_EMPTY (events);
 
-		unlink (filename);
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
 
-	/* Check that a job that tries to enter the running state from the
-	 * starting state too fast results in it being stopped.  An error
-	 * message should be emitted; but the cause shouldn't be
-	 * cleared since this is a caught failure.
+	/* Check that if a job tries to move from post-stop to starting too
+	 * many times in a given period then it is caught, a message is
+	 * output and the job sent back to stopped and waiting.  We get
+	 * a stopped event, and the cause is cleared.
 	 */
-	TEST_FEATURE ("starting to running too fast");
-	job->failed = FALSE;
-	job->respawn_count = 0;
-	job->respawn_time = 0;
-	job->respawn_limit = 10;
-	job->respawn_interval = 100;
+	TEST_FEATURE ("post-stop to starting too fast");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_STOP;
+		job->pid = 0;
 
-	job->cause = em;
-	em->jobs = 1;
+		job->cause = cause;
+		job->blocker = NULL;
 
-	output = tmpfile ();
-	TEST_DIVERT_STDERR (output) {
-		for (i = 0; i < 11; i++) {
-			job->goal = JOB_START;
-			job->state = JOB_STARTING;
-			job->process_state = PROCESS_NONE;
+		job->failed = TRUE;
+		job->failed_state = JOB_RUNNING;
+		job->exit_status = 1;
 
-			job_change_state (job, JOB_RUNNING);
+		job->instance = FALSE;
+		job->service = FALSE;
 
-			if (job->goal == JOB_START)
-				waitpid (job->pid, NULL, 0);
+		job->respawn_limit = 10;
+		job->respawn_interval = 1000;
+		job->respawn_time = time (NULL);
+		job->respawn_count = 10;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_STARTING);
 		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocker, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "running");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output,
+			      "test: test respawning too fast, stopped");
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
 	}
-	rewind (output);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	TEST_EQ_P (job->cause, em);
-	TEST_EQ (em->jobs, 1);
-
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
-
-	unlink (filename);
-
-	sprintf (filename, "%s/run", dirname);
-	unlink (filename);
-
-	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
-	TEST_FILE_RESET (output);
-
-	job->cause = NULL;
-	event_poll ();
-
-
-	/* Check that a job entering the respawning state from the running
-	 * state too fast results in the job being stopped.  An error
-	 * message should be emitted.
-	 */
-	TEST_FEATURE ("running to respawning too fast");
-	job->failed = FALSE;
-	job->respawn_count = 0;
+	job->respawn_limit = 0;
+	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
 	job->respawn_time = 0;
-	job->respawn_limit = 10;
-	job->respawn_interval = 100;
-
-	TEST_DIVERT_STDERR (output) {
-		for (i = 0; i < 11; i++) {
-			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
-			job->process_state = PROCESS_NONE;
-			job_change_state (job, JOB_RESPAWNING);
-		}
-	}
-	rewind (output);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	TEST_EQ (stat (filename, &statbuf), 0);
-
-	unlink (filename);
-
-	sprintf (filename, "%s/run", dirname);
-	unlink (filename);
-
-	TEST_FILE_EQ (output, "test: test respawning too fast, stopped\n");
-
-	event_poll ();
+	job->respawn_count = 0;
 
 
 	fclose (output);
 	rmdir (dirname);
 
 	nih_list_free (&job->entry);
-	nih_list_free (&em->event.entry);
+	nih_list_free (&cause->event.entry);
 }
 
 void
@@ -1241,83 +1383,188 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're stopping a starting job is
-	 * stopping.
+	 * waiting.
 	 */
 	TEST_FEATURE ("with starting job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_STARTING;
 
-	TEST_EQ (job_next_state (job), JOB_STOPPING);
+	TEST_EQ (job_next_state (job), JOB_WAITING);
 
 
 	/* Check that the next state if we're starting a starting job is
-	 * running.
+	 * pre-start.
 	 */
 	TEST_FEATURE ("with starting job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 
+	TEST_EQ (job_next_state (job), JOB_PRE_START);
+
+
+	/* Check that the next state if we're stopping a pre-start job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with pre-start job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_PRE_START;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a pre-start job is
+	 * spawned.
+	 */
+	TEST_FEATURE ("with pre-start job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_PRE_START;
+
+	TEST_EQ (job_next_state (job), JOB_SPAWNED);
+
+
+	/* Check that the next state if we're stopping a spawned job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with spawned job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_SPAWNED;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a spawned job is
+	 * post-start.
+	 */
+	TEST_FEATURE ("with spawned job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	TEST_EQ (job_next_state (job), JOB_POST_START);
+
+
+	/* Check that the next state if we're stopping a post-start job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_POST_START;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a post-start job is
+	 * running.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_POST_START;
+
 	TEST_EQ (job_next_state (job), JOB_RUNNING);
 
 
 	/* Check that the next state if we're stopping a running job is
-	 * stopping.
+	 * pre-stop.  This is the "normal" stop process, as called from the
+	 * goal change event.
 	 */
 	TEST_FEATURE ("with running job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
 
-	TEST_EQ (job_next_state (job), JOB_STOPPING);
+	TEST_EQ (job_next_state (job), JOB_PRE_STOP);
 
 
 	/* Check that the next state if we're starting a running job is
-	 * respawning.
+	 * stopping.  This assumes that the job has exited, but we didn't
+	 * change the goal, so it should be respawned.
 	 */
 	TEST_FEATURE ("with running job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
-	TEST_EQ (job_next_state (job), JOB_RESPAWNING);
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 
-	/* Check that the next state if we're stopping a stopping job is
-	 * waiting.
+	/* Check that the next state if we're starting a pre-stop job is
+	 * running.  This assumes that the pre-stop job decided that the
+	 * job should not stop.
 	 */
-	TEST_FEATURE ("with stopping job and a goal of stop");
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
+	TEST_FEATURE ("with pre-stop job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_PRE_STOP;
 
-	TEST_EQ (job_next_state (job), JOB_WAITING);
+	TEST_EQ (job_next_state (job), JOB_RUNNING);
+
+
+	/* Check that the next state if we're stopping a pre-stop job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with pre-stop job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_PRE_STOP;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 
 	/* Check that the next state if we're starting a stopping job is
-	 * starting.
+	 * killed.  This is because we need to clean up before we can start
+	 * again.
 	 */
 	TEST_FEATURE ("with stopping job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_STOPPING;
 
+	TEST_EQ (job_next_state (job), JOB_KILLED);
+
+
+	/* Check that the next state if we're stopping a stopping job is
+	 * killed.
+	 */
+	TEST_FEATURE ("with stopping job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	TEST_EQ (job_next_state (job), JOB_KILLED);
+
+
+	/* Check that the next state if we're starting a killed job is
+	 * post-stop.  This is because we need to clean up before we can
+	 * start again.
+	 */
+	TEST_FEATURE ("with killed job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_KILLED;
+
+	TEST_EQ (job_next_state (job), JOB_POST_STOP);
+
+
+	/* Check that the next state if we're stopping a killed job is
+	 * post-stop.
+	 */
+	TEST_FEATURE ("with killed job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_KILLED;
+
+	TEST_EQ (job_next_state (job), JOB_POST_STOP);
+
+
+	/* Check that the next state if we're starting a post-stop job is
+	 * starting.
+	 */
+	TEST_FEATURE ("with post-stop job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_POST_STOP;
+
 	TEST_EQ (job_next_state (job), JOB_STARTING);
 
 
-	/* Check that the next state if we're stopping a respawning job is
-	 * stopping.
+	/* Check that the next state if we're stopping a post-stop job is
+	 * waiting.
 	 */
-	TEST_FEATURE ("with respawning job and a goal of stop");
+	TEST_FEATURE ("with post-stop job and a goal of stop");
 	job->goal = JOB_STOP;
-	job->state = JOB_RESPAWNING;
+	job->state = JOB_POST_STOP;
 
-	TEST_EQ (job_next_state (job), JOB_STOPPING);
-
-
-	/* Check that the next state if we're starting a respawning job is
-	 * running.
-	 */
-	TEST_FEATURE ("with respawning job and a goal of start");
-	job->goal = JOB_START;
-	job->state = JOB_RESPAWNING;
-
-	TEST_EQ (job_next_state (job), JOB_RUNNING);
+	TEST_EQ (job_next_state (job), JOB_WAITING);
 
 
 	nih_list_free (&job->entry);

@@ -1,5 +1,16 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state, job_next_state): Ok, here's the big
+	one ... rewrite this to use the new state transitions.  This has
+	suddenly got a lot simpler and easier to read, this was definitely a
+	good idea.
+	(job_emit_event): Function to make emission of events easier.
+	(job_failed_event): replaces this one which wasn't so easy.
+	* init/tests/test_job.c (test_change_state): I can't say how much I
+	wasn't looking forwards to rewriting these test cases; anyway, it's
+	done now and I hope they're all right;
+	(test_next_state): Make sure the state transitions are correct too.
+
 	* init/job.h: Rename is_instance to delete and spawns_instance to
 	just instance.
 	* init/job.c (job_new): Update.
