@@ -18,9 +18,6 @@ High Priority:
    Then from above, we can read this pipe to determine whether the job
    failed before or after the exec.  (Might be a cleaner way to do this).
 
- * Configuration files can be deleted, need to do something with the
-   job at that point (stop it and delete it)
-
  * If environment variables don't have an = in them, copy that variable
    from init's environment (default PATH, TERM)
 
@@ -33,8 +30,6 @@ Medium Priority:
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
 
- * The jobs list should be a hash table.
-
  * If we can't KILL things, we shouldn't ignore that, we should treat
    that as a failure and adjust the job again so it still shows up as
    running
@@ -45,6 +40,9 @@ Medium Priority:
  * we may need to KILL scripts, e.g. post-start
 
  * scripts should also have a timeout
+
+ * There's no way to stop a single instance of job, it always tries to
+   stop the parent (which does nothing) and returns the list of instances.
 
 
 Low Priority:
@@ -59,11 +57,6 @@ Unfinished Features:
 
  * Handle locating the pid for a spawned daemon, use an inotify watch
    on the pid file or scan /proc.
-
- * Deal with instances, spawning and freeing of them.  Will need to be
-   hooked into job_find_by_name so that provides only the parent, and
-   another way to find other instances.  job_find_other_instance ()
-   which takes an existing job, iterates for the same name?
 
  * Get the LANG environment variable somehow.
 
