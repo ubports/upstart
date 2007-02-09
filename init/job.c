@@ -663,15 +663,16 @@ job_emit_event (Job *job)
 		nih_assert_not_reached ();
 	}
 
+	len = 0;
+	NIH_MUST (args = nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, job->name));
+
 	if (stop && job->failed) {
 		char *exit;
 
-		len = 0;
-		NIH_MUST (args = nih_str_array_new (NULL));
 		NIH_MUST (nih_str_array_add (&args, NULL, &len, "failed"));
-		NIH_MUST (nih_str_array_add (
-				  &args, NULL, &len,
-				  job_state_name (job->failed_state)));
+		NIH_MUST (nih_str_array_add (&args, NULL, &len,
+					     job_state_name (job->failed_state)));
 
 		if (job->exit_status & 0x80) {
 			const char *sig;
@@ -696,8 +697,6 @@ job_emit_event (Job *job)
 		NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
 
 	} else if (stop) {
-		len = 0;
-		NIH_MUST (args = nih_str_array_new (NULL));
 		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));
 	}
 

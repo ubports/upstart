@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_emit_event): Add the job name as an argument;
+	oops.
+
 	* init/tests/test_control.c (test_job_stop): Need to kill the process
 	ourselves, as we're blocked on an event.
 	(test_job_query): Fix wrong value in test.
