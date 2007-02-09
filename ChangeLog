@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_handle_event): Clean up tests.
+	(test_detect_stalled): Clean up.
+
 	* init/job.c (job_child_reaper): Update the reaping of the child
 	processes; there's a much larger state range for the main process
 	now, so that needs to be taken into account.

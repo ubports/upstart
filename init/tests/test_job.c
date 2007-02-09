@@ -2820,18 +2820,15 @@ test_handle_event (void)
 	Job            *job1, *job2;
 	Event          *event;
 	EventEmission  *em;
-	int             status;
 
 	TEST_FUNCTION ("job_handle_event");
 	job1 = job_new (NULL, "foo");
-	job1->command = "echo";
 	job1->respawn_limit = 0;
 
 	event = event_new (job1, "wibble");
 	nih_list_add (&job1->start_events, &event->entry);
 
 	job2 = job_new (NULL, "bar");
-	job2->command = "echo";
 	job2->respawn_limit = 0;
 
 	event = event_new (job2, "wibble");
@@ -2849,18 +2846,13 @@ test_handle_event (void)
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
-		job1->process_state = PROCESS_NONE;
 		job1->pid = -1;
 		job1->cause = NULL;
 
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
-		job2->process_state = PROCESS_ACTIVE;
+		job2->pid = 1;
 		job2->cause = NULL;
-
-		TEST_CHILD (job2->pid) {
-			pause ();
-		}
 
 		job_handle_event (em);
 
@@ -2868,16 +2860,11 @@ test_handle_event (void)
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_WAITING);
-		TEST_EQ (job1->process_state, PROCESS_NONE);
 		TEST_EQ_P (job1->cause, NULL);
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_RUNNING);
-		TEST_EQ (job2->process_state, PROCESS_ACTIVE);
 		TEST_EQ_P (job2->cause, NULL);
-
-		kill (job2->pid, SIGTERM);
-		waitpid (job2->pid, NULL, 0);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -2894,39 +2881,25 @@ test_handle_event (void)
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
-		job1->process_state = PROCESS_NONE;
 		job1->pid = -1;
 		job1->cause = NULL;
 
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
-		job2->process_state = PROCESS_ACTIVE;
+		job2->pid = 1;
 		job2->cause = NULL;
-
-		TEST_CHILD (job2->pid) {
-			pause ();
-		}
 
 		job_handle_event (em);
 
 		TEST_EQ (em->jobs, 2);
 
 		TEST_EQ (job1->goal, JOB_START);
-		TEST_EQ (job1->state, JOB_RUNNING);
-		TEST_EQ (job1->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job1->state, JOB_STARTING);
 		TEST_EQ_P (job1->cause, em);
 
-		TEST_NE (job1->pid, 0);
-		waitpid (job1->pid, NULL, 0);
-
 		TEST_EQ (job2->goal, JOB_STOP);
-		TEST_EQ (job2->state, JOB_RUNNING);
-		TEST_EQ (job2->process_state, PROCESS_KILLED);
+		TEST_EQ (job2->state, JOB_STOPPING);
 		TEST_EQ_P (job2->cause, em);
-
-		waitpid (job2->pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -2942,7 +2915,7 @@ test_detect_stalled (void)
 	Job           *job1, *job2;
 	Event         *event;
 	EventEmission *em;
-	NihList       *list;
+	NihList       *events;
 
 	TEST_FUNCTION ("job_detect_stalled");
 
@@ -2951,18 +2924,16 @@ test_detect_stalled (void)
 	 */
 	event_poll ();
 	em = event_emit ("wibble", NULL, NULL);
-	list = em->event.entry.prev;
+	events = em->event.entry.prev;
 	nih_list_free (&em->event.entry);
 
 	job1 = job_new (NULL, "foo");
 	job1->goal = JOB_STOP;
 	job1->state = JOB_WAITING;
-	job1->process_state = PROCESS_NONE;
 
 	job2 = job_new (NULL, "bar");
 	job2->goal = JOB_STOP;
 	job2->state = JOB_WAITING;
-	job2->process_state = PROCESS_NONE;
 
 
 	/* Check that even if we detect the stalled state, we do nothing
@@ -2971,7 +2942,7 @@ test_detect_stalled (void)
 	TEST_FEATURE ("with stalled state and no handler");
 	job_detect_stalled ();
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (events);
 
 
 	/* Check that we can detect the stalled state, when all jobs are
@@ -2980,13 +2951,14 @@ test_detect_stalled (void)
 	TEST_FEATURE ("with stalled state");
 	event = event_new (job1, "stalled");
 	nih_list_add (&job1->start_events, &event->entry);
+
 	job_detect_stalled ();
 
-	event = (Event *)list->prev;
+	event = (Event *)events->prev;
 	TEST_EQ_STR (event->name, "stalled");
 	nih_list_free (&event->entry);
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (events);
 
 
 	/* Check that we don't detect the stalled state if one of the jobs
@@ -2994,19 +2966,21 @@ test_detect_stalled (void)
 	 */
 	TEST_FEATURE ("with waiting job");
 	job1->goal = JOB_START;
+
 	job_detect_stalled ();
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (events);
 
 
 	/* Check that we don't detect the stalled state if one of the jobs
 	 * is starting.
 	 */
 	TEST_FEATURE ("with starting job");
-	job1->state = JOB_STARTING;
+	job1->state = JOB_PRE_START;
+
 	job_detect_stalled ();
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (events);
 
 
 	/* Check that we don't detect the stalled state if one of the jobs
@@ -3014,10 +2988,10 @@ test_detect_stalled (void)
 	 */
 	TEST_FEATURE ("with running job");
 	job1->state = JOB_RUNNING;
-	job1->process_state = PROCESS_ACTIVE;
+
 	job_detect_stalled ();
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (events);
 
 
 	/* Check that we don't detect the stalled if one of the jobs is
@@ -3025,11 +2999,11 @@ test_detect_stalled (void)
 	 */
 	TEST_FEATURE ("with stopping job");
 	job1->goal = JOB_STOP;
-	job1->state = JOB_STOPPING;
-	job1->process_state = PROCESS_NONE;
+	job1->state = JOB_POST_STOP;
+
 	job_detect_stalled ();
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (events);
 
 
 	nih_list_free (&job1->entry);
