@@ -194,6 +194,198 @@ job_new (const void *parent,
 	return job;
 }
 
+/**
+ * job_copy:
+ * @parent: parent of new job,
+ * @old_job: job to copy.
+ *
+ * Allocates and returns a new Job structure which is a copy of the
+ * configuration details of @old_job, but with a clean state.
+ *
+ * The job can be removed using nih_list_free().
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated job structure or NULL if insufficient memory.
+ **/
+Job *
+job_copy (const void *parent,
+	  const Job  *old_job)
+{
+	Job *job;
+	int  i;
+
+	nih_assert (old_job != NULL);
+
+	job = job_new (parent, old_job->name);
+	if (! job)
+		return NULL;
+
+	if (old_job->description) {
+		job->description = nih_strdup (job, old_job->description);
+		if (! job->description)
+			goto error;
+	}
+
+	if (old_job->author) {
+		job->author = nih_strdup (job, old_job->author);
+		if (! job->author)
+			goto error;
+	}
+
+	if (old_job->version) {
+		job->version = nih_strdup (job, old_job->version);
+		if (! job->version)
+			goto error;
+	}
+
+	NIH_LIST_FOREACH (&old_job->start_events, iter) {
+		Event *old_event = (Event *)iter;
+		Event *event;
+
+		event = event_copy (job, old_event);
+		if (! event)
+			goto error;
+
+		nih_list_add (&job->start_events, &event->entry);
+	}
+
+	NIH_LIST_FOREACH (&old_job->stop_events, iter) {
+		Event *old_event = (Event *)iter;
+		Event *event;
+
+		event = event_copy (job, old_event);
+		if (! event)
+			goto error;
+
+		nih_list_add (&job->stop_events, &event->entry);
+	}
+
+	NIH_LIST_FOREACH (&old_job->emits, iter) {
+		Event *old_event = (Event *)iter;
+		Event *event;
+
+		event = event_copy (job, old_event);
+		if (! event)
+			goto error;
+
+		nih_list_add (&job->emits, &event->entry);
+	}
+
+	if (old_job->normalexit && old_job->normalexit_len) {
+		job->normalexit = nih_alloc (job, (sizeof (int)
+						   * old_job->normalexit_len));
+		if (! job->normalexit)
+			goto error;
+
+		memcpy (job->normalexit, old_job->normalexit,
+			sizeof (int) * old_job->normalexit_len);
+		job->normalexit_len = old_job->normalexit_len;
+	}
+
+	job->kill_timeout = old_job->kill_timeout;
+
+	job->instance = old_job->instance;
+	job->service = old_job->service;
+	job->respawn = old_job->respawn;
+	job->respawn_limit = old_job->respawn_limit;
+	job->respawn_interval = old_job->respawn_interval;
+
+	job->daemon = old_job->daemon;
+
+	if (old_job->pid_file) {
+		job->pid_file = nih_strdup (job, old_job->pid_file);
+		if (! job->pid_file)
+			goto error;
+	}
+
+	if (old_job->pid_binary) {
+		job->pid_binary = nih_strdup (job, old_job->pid_binary);
+		if (! job->pid_binary)
+			goto error;
+	}
+
+	job->pid_timeout = old_job->pid_timeout;
+
+	if (old_job->command) {
+		job->command = nih_strdup (job, old_job->command);
+		if (! job->command)
+			goto error;
+	}
+
+	if (old_job->script) {
+		job->script = nih_strdup (job, old_job->script);
+		if (! job->script)
+			goto error;
+	}
+
+	if (old_job->start_script) {
+		job->start_script = nih_strdup (job, old_job->start_script);
+		if (! job->start_script)
+			goto error;
+	}
+
+	if (old_job->stop_script) {
+		job->stop_script = nih_strdup (job, old_job->stop_script);
+		if (! job->stop_script)
+			goto error;
+	}
+
+	job->console = old_job->console;
+
+	if (old_job->env) {
+		size_t   len;
+		char   **e;
+
+		len = 0;
+		job->env = nih_str_array_new (job);
+		if (! job->env)
+			goto error;
+
+		for (e = old_job->env; e && *e; e++)
+			if (! nih_str_array_add (&job->env, job, &len, *e))
+				goto error;
+	}
+
+	job->umask = old_job->umask;
+	job->nice = old_job->nice;
+
+	for (i = 0; i < RLIMIT_NLIMITS; i++) {
+		if (old_job->limits[i]) {
+			job->limits[i] = nih_new (job, struct rlimit);
+			if (! job->limits[i])
+				goto error;
+
+			job->limits[i]->rlim_cur \
+				= old_job->limits[i]->rlim_cur;
+			job->limits[i]->rlim_max \
+				= old_job->limits[i]->rlim_max;
+		}
+	}
+
+	if (old_job->chroot) {
+		job->chroot = nih_strdup (job, old_job->chroot);
+		if (! job->chroot)
+			goto error;
+	}
+
+	if (old_job->chdir) {
+		job->chdir = nih_strdup (job, old_job->chdir);
+		if (! job->chdir)
+			goto error;
+	}
+
+	return job;
+
+error:
+	nih_list_free (&job->entry);
+	return NULL;
+}
+
 
 /**
  * job_find_by_name:

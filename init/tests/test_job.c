@@ -136,6 +136,337 @@ test_new (void)
 }
 
 void
+test_copy (void)
+{
+	Job   *job, *copy;
+	Event *event;
+	int    i;
+
+	TEST_FUNCTION ("job_copy");
+
+	/* Check that we can create a copy of a fresh structure, with most
+	 * fields left unset.
+	 */
+	TEST_FEATURE ("with unconfigured job");
+	job = job_new (NULL, "test");
+
+	TEST_ALLOC_FAIL {
+		copy = job_copy (NULL, job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&copy->entry);
+
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_EQ_P (copy->description, NULL);
+		TEST_EQ_P (copy->author, NULL);
+		TEST_EQ_P (copy->version, NULL);
+
+		TEST_EQ_P (copy->instance_of, NULL);
+		TEST_EQ (copy->delete, FALSE);
+
+		TEST_EQ (copy->goal, JOB_STOP);
+		TEST_EQ (copy->state, JOB_WAITING);
+		TEST_EQ (copy->pid, 0);
+
+		TEST_EQ_P (copy->cause, NULL);
+		TEST_EQ_P (copy->blocked, NULL);
+
+		TEST_EQ (copy->failed, FALSE);
+		TEST_EQ (copy->failed_state, JOB_WAITING);
+		TEST_EQ (copy->exit_status, 0);
+
+		TEST_LIST_EMPTY (&copy->start_events);
+		TEST_LIST_EMPTY (&copy->stop_events);
+		TEST_LIST_EMPTY (&copy->emits);
+
+		TEST_EQ_P (copy->normalexit, NULL);
+		TEST_EQ (copy->normalexit_len, 0);
+
+		TEST_EQ (copy->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
+		TEST_EQ_P (copy->kill_timer, NULL);
+
+		TEST_EQ (copy->instance, FALSE);
+		TEST_EQ (copy->service, FALSE);
+		TEST_EQ (copy->respawn, FALSE);
+		TEST_EQ (copy->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
+		TEST_EQ (copy->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
+		TEST_EQ (copy->respawn_count, 0);
+		TEST_EQ (copy->respawn_time, 0);
+
+		TEST_EQ (copy->daemon, FALSE);
+		TEST_EQ_P (copy->pid_file, NULL);
+		TEST_EQ_P (copy->pid_binary, NULL);
+		TEST_EQ (copy->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ_P (copy->pid_timer, NULL);
+
+		TEST_EQ_P (copy->command, NULL);
+		TEST_EQ_P (copy->script, NULL);
+		TEST_EQ_P (copy->start_script, NULL);
+		TEST_EQ_P (copy->stop_script, NULL);
+
+		TEST_EQ (copy->console, CONSOLE_NONE);
+		TEST_EQ_P (copy->env, NULL);
+
+		TEST_EQ (copy->umask, JOB_DEFAULT_UMASK);
+		TEST_EQ (copy->nice, 0);
+
+		for (i = 0; i < RLIMIT_NLIMITS; i++)
+			TEST_EQ_P (copy->limits[i], NULL);
+
+		TEST_EQ_P (copy->chroot, NULL);
+		TEST_EQ_P (copy->chdir, NULL);
+
+		nih_list_free (&copy->entry);
+	}
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that we can create a copy of an existing structure which
+	 * has the same configured details, but a clean state.
+	 */
+	TEST_FEATURE ("with configured");
+	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "an example job");
+	job->author = nih_strdup (job, "joe bloggs");
+	job->version = nih_strdup (job, "1.0");
+
+	job->instance_of = (void *)-1;
+	job->delete = TRUE;
+
+	job->goal = JOB_STOP;
+	job->state = JOB_POST_STOP;
+	job->pid = 1000;
+
+	job->cause = (void *)-1;
+	job->blocked = (void *)-1;
+
+	job->failed = TRUE;
+	job->failed_state = JOB_RUNNING;
+	job->exit_status = SIGSEGV | 0x80;
+
+	event = event_new (job, "foo");
+	nih_list_add (&job->start_events, &event->entry);
+
+	event = event_new (job, "bar");
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "frodo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bilbo"));
+
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
+	nih_list_add (&job->start_events, &event->entry);
+
+	event = event_new (job, "baz");
+	nih_list_add (&job->stop_events, &event->entry);
+
+	event = event_new (job, "wibble");
+	nih_list_add (&job->emits, &event->entry);
+
+	job->normalexit = nih_alloc (job, sizeof (int) * 2);
+	job->normalexit[0] = 99;
+	job->normalexit[1] = 100;
+	job->normalexit_len = 2;
+
+	job->kill_timeout = 10;
+	job->kill_timer = (void *)-1;
+
+	job->instance = TRUE;
+	job->service = TRUE;
+	job->respawn = TRUE;
+	job->respawn_limit = 20;
+	job->respawn_interval = 100;
+	job->respawn_count = 8;
+	job->respawn_time = time (NULL) - 20;
+
+	job->daemon = TRUE;
+	job->pid_file = nih_strdup (job, "/var/run/job.pid");
+	job->pid_binary = nih_strdup (job, "/usr/lib/daemon");
+	job->pid_timeout = 30;
+	job->pid_timer = (void *)-1;
+
+	job->command = nih_strdup (job, "/usr/sbin/daemon");
+	job->script = nih_strdup (job, "echo foo");
+	job->start_script = nih_strdup (job, "mkdir /var/run/daemon");
+	job->stop_script = nih_strdup (job, "rm -rf /var/run/daemon");
+
+	job->console = CONSOLE_OUTPUT;
+
+	job->env = nih_str_array_new (job);
+	NIH_MUST (nih_str_array_add (&job->env, job, NULL, "EH=OH"));
+	NIH_MUST (nih_str_array_add (&job->env, job, NULL, "LA=LA"));
+
+	job->umask = 002;
+	job->nice = -5;
+
+	job->limits[RLIMIT_CORE] = nih_new (job, struct rlimit);
+	job->limits[RLIMIT_CORE]->rlim_cur = RLIM_INFINITY;
+	job->limits[RLIMIT_CORE]->rlim_max = RLIM_INFINITY;
+
+	job->limits[RLIMIT_CPU] = nih_new (job, struct rlimit);
+	job->limits[RLIMIT_CPU]->rlim_cur = 120;
+	job->limits[RLIMIT_CPU]->rlim_max = 180;
+
+	job->chroot = nih_strdup (job, "/var/run/daemon");
+	job->chdir = nih_strdup (job, "/etc");
+
+	TEST_ALLOC_FAIL {
+		copy = job_copy (NULL, job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&copy->entry);
+
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_ALLOC_PARENT (copy->description, copy);
+		TEST_EQ_STR (copy->description, job->description);
+		TEST_ALLOC_PARENT (copy->author, copy);
+		TEST_EQ_STR (copy->author, job->author);
+		TEST_ALLOC_PARENT (copy->version, copy);
+		TEST_EQ_STR (copy->version, job->version);
+
+		TEST_EQ_P (copy->instance_of, NULL);
+		TEST_EQ (copy->delete, FALSE);
+
+		TEST_EQ (copy->goal, JOB_STOP);
+		TEST_EQ (copy->state, JOB_WAITING);
+		TEST_EQ (copy->pid, 0);
+
+		TEST_EQ_P (copy->cause, NULL);
+		TEST_EQ_P (copy->blocked, NULL);
+
+		TEST_EQ (copy->failed, FALSE);
+		TEST_EQ (copy->failed_state, JOB_WAITING);
+		TEST_EQ (copy->exit_status, 0);
+
+		TEST_LIST_NOT_EMPTY (&copy->start_events);
+
+		event = (Event *)copy->start_events.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "foo");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+
+		event = (Event *)event->entry.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "bar");
+		TEST_ALLOC_PARENT (event->args, event);
+		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (event->args[0], event->args);
+		TEST_ALLOC_PARENT (event->args[1], event->args);
+		TEST_EQ_STR (event->args[0], "frodo");
+		TEST_EQ_STR (event->args[1], "bilbo");
+		TEST_EQ_P (event->args[2], NULL);
+		TEST_ALLOC_PARENT (event->env, event);
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (event->env[0], event->env);
+		TEST_EQ_P (event->env[1], NULL);
+
+		TEST_EQ_P (event->entry.next, &copy->start_events);
+
+		TEST_LIST_NOT_EMPTY (&copy->stop_events);
+
+		event = (Event *)copy->stop_events.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "baz");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+
+		TEST_EQ_P (event->entry.next, &copy->stop_events);
+
+		TEST_LIST_NOT_EMPTY (&copy->emits);
+
+		event = (Event *)copy->emits.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "wibble");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+
+		TEST_EQ_P (event->entry.next, &copy->emits);
+
+		TEST_ALLOC_PARENT (copy->normalexit, copy);
+		TEST_ALLOC_SIZE (copy->normalexit, sizeof (int) * 2);
+		TEST_EQ (copy->normalexit[0], 99);
+		TEST_EQ (copy->normalexit[1], 100);
+		TEST_EQ (copy->normalexit_len, 2);
+
+		TEST_EQ (copy->kill_timeout, job->kill_timeout);
+		TEST_EQ_P (copy->kill_timer, NULL);
+
+		TEST_EQ (copy->instance, job->instance);
+		TEST_EQ (copy->service, job->service);
+		TEST_EQ (copy->respawn, job->respawn);
+		TEST_EQ (copy->respawn_limit, job->respawn_limit);
+		TEST_EQ (copy->respawn_interval, job->respawn_interval);
+		TEST_EQ (copy->respawn_count, 0);
+		TEST_EQ (copy->respawn_time, 0);
+
+		TEST_EQ (copy->daemon, job->daemon);
+		TEST_ALLOC_PARENT (copy->pid_file, copy);
+		TEST_EQ_STR (copy->pid_file, job->pid_file);
+		TEST_ALLOC_PARENT (copy->pid_binary, copy);
+		TEST_EQ_STR (copy->pid_binary, job->pid_binary);
+		TEST_EQ (copy->pid_timeout, job->pid_timeout);
+		TEST_EQ_P (copy->pid_timer, NULL);
+
+		TEST_ALLOC_PARENT (copy->command, copy);
+		TEST_EQ_STR (copy->command, job->command);
+		TEST_ALLOC_PARENT (copy->script, copy);
+		TEST_EQ_STR (copy->script, job->script);
+		TEST_ALLOC_PARENT (copy->stop_script, copy);
+		TEST_EQ_STR (copy->start_script, job->start_script);
+		TEST_ALLOC_PARENT (copy->stop_script, copy);
+		TEST_EQ_STR (copy->stop_script, job->stop_script);
+
+		TEST_EQ (copy->console, job->console);
+		TEST_ALLOC_PARENT (copy->env, copy);
+		TEST_ALLOC_SIZE (copy->env, sizeof (char *) * 3);
+		TEST_EQ_STR (copy->env[0], "EH=OH");
+		TEST_EQ_STR (copy->env[1], "LA=LA");
+		TEST_EQ_P (copy->env[2], NULL);
+
+		TEST_EQ (copy->umask, job->umask);
+		TEST_EQ (copy->nice, job->nice);
+
+		for (i = 0; i < RLIMIT_NLIMITS; i++) {
+			if (job->limits[i]) {
+				TEST_ALLOC_PARENT (copy->limits[i], copy);
+				TEST_ALLOC_SIZE (copy->limits[i],
+						 sizeof (struct rlimit));
+				TEST_EQ (copy->limits[i]->rlim_cur,
+					 job->limits[i]->rlim_cur);
+				TEST_EQ (copy->limits[i]->rlim_max,
+					 job->limits[i]->rlim_max);
+			} else {
+				TEST_EQ_P (copy->limits[i], NULL);
+			}
+		}
+
+		TEST_ALLOC_PARENT (copy->chroot, copy);
+		TEST_EQ_STR (copy->chroot, job->chroot);
+		TEST_ALLOC_PARENT (copy->chdir, copy);
+		TEST_EQ_STR (copy->chdir, job->chdir);
+
+		nih_list_free (&copy->entry);
+	}
+
+	nih_list_free (&job->entry);
+}
+
+void
 test_find_by_name (void)
 {
 	Job *job1, *job2, *job3, *ptr;
@@ -3187,6 +3518,7 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
+	test_copy ();
 	test_find_by_name ();
 	test_find_by_pid ();
 	test_change_goal ();

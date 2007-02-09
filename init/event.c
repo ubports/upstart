@@ -133,6 +133,71 @@ event_new (const void *parent,
 }
 
 /**
+ * event_copy:
+ * @parent: parent of new event,
+ * @old_event: event to copy.
+ *
+ * Allocates and returns a new Event structure which is an identical copy
+ * of @old_event.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated Event structure or NULL if insufficient memory.
+ **/
+Event *
+event_copy (const void  *parent,
+	    const Event *old_event)
+{
+	Event *event;
+
+	nih_assert (old_event != NULL);
+
+	event = event_new (parent, old_event->name);
+	if (! event)
+		return NULL;
+
+	if (old_event->args) {
+		size_t   len;
+		char   **arg;
+
+		len = 0;
+		event->args = nih_str_array_new (event);
+		if (! event->args)
+			goto error;
+
+		for (arg = old_event->args; arg && *arg; arg++)
+			if (! nih_str_array_add (&event->args, event,
+						 &len, *arg))
+				goto error;
+	}
+
+	if (old_event->env) {
+		size_t   len;
+		char   **env;
+
+		len = 0;
+		event->env = nih_str_array_new (event);
+		if (! event->env)
+			goto error;
+
+		for (env = old_event->env; env && *env; env++)
+			if (! nih_str_array_add (&event->env, event,
+						 &len, *env))
+				goto error;
+	}
+
+	return event;
+
+error:
+	nih_free (event);
+	return NULL;
+}
+
+/**
  * event_match:
  * @event1: first event,
  * @event2: second event.

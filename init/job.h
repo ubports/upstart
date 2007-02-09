@@ -220,6 +220,8 @@ void     job_init                  (void);
 
 Job *    job_new                   (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
+Job *    job_copy                  (const void *parent, const Job *old_job)
+	__attribute__ ((warn_unused_result, malloc));
 
 Job *    job_find_by_name          (const char *name);
 Job *    job_find_by_pid           (pid_t pid);

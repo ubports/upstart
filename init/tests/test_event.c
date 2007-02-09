@@ -74,6 +74,79 @@ test_new (void)
 }
 
 void
+test_copy (void)
+{
+	Event *event, *copy;
+
+	TEST_FUNCTION ("event_copy");
+	event = event_new (NULL, "test");
+
+	/* Check that we can copy an event which does not have any arguments
+	 * or environment variables.
+	 */
+	TEST_FEATURE ("without arguments or environment");
+	TEST_ALLOC_FAIL {
+		copy = event_copy (NULL, event);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (Event));
+		TEST_LIST_EMPTY (&copy->entry);
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->env, NULL);
+
+		nih_list_free (&copy->entry);
+	}
+
+
+	/* Check that we can copy an event which does have arguments and
+	 * environment; and that the arrays are copies not references.
+	 */
+	TEST_FEATURE ("with arguments and environment");
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
+
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
+
+	TEST_ALLOC_FAIL {
+		copy = event_copy (NULL, event);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (Event));
+		TEST_LIST_EMPTY (&copy->entry);
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_STR (copy->name, "test");
+
+		TEST_ALLOC_PARENT (copy->args, copy);
+		TEST_ALLOC_SIZE (copy->args, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (copy->args[0], copy->args);
+		TEST_ALLOC_PARENT (copy->args[1], copy->args);
+		TEST_EQ_STR (copy->args[0], "foo");
+		TEST_EQ_STR (copy->args[1], "bar");
+		TEST_EQ_P (copy->args[2], NULL);
+
+		TEST_ALLOC_PARENT (copy->env, copy);
+		TEST_ALLOC_SIZE (copy->env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (copy->env[0], copy->env);
+		TEST_EQ_STR (copy->env[0], "FOO=BAR");
+		TEST_EQ_P (copy->env[1], NULL);
+
+		nih_list_free (&copy->entry);
+	}
+
+	nih_list_free (&event->entry);
+}
+
+void
 test_match (void)
 {
 	Event *event1, *event2;
@@ -550,6 +623,7 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
+	test_copy ();
 	test_match ();
 	test_emit ();
 	test_emit_find_by_id ();

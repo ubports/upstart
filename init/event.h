@@ -171,6 +171,9 @@ void           event_init            (void);
 
 Event *        event_new             (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
+Event *        event_copy            (const void *parent,
+				      const Event *old_event)
+	__attribute__ ((warn_unused_result, malloc));
 
 int            event_match           (Event *event1, Event *event2);
 

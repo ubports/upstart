@@ -1,5 +1,16 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_copy): Function to copy an event structure.
+	* init/event.h: Add prototype.
+	* init/tests/test_event.c (test_copy): Make sure we copy the event
+	correctly, with or without arguments and/or environment.
+	* init/job.c (job_copy): Function to copy a job structure, leaving
+	the state as it is.
+	* init/job.h: Add prototype.
+	* init/tests/test_job.c (test_copy): Make sure that we copy the
+	job details whether they are NULL or non-NULL, but don't copy the
+	state.
+	* init/init.supp: Update supression.
 	* init/job.c (job_find_by_name): If we get a job that's an instance,
 	return what it's an instance of.
 	* init/tests/test_job.c (test_find_by_name): Restore accidentally
