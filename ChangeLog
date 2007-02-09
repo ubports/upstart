@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_visitor): Correct number of arguments and call
+	to cfg_job_name.
+
 	* TODO: Update.
 
 	* init/cfgfile.c (cfg_stanza_daemon): Don't allow arguments anymore.

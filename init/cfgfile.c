@@ -136,8 +136,8 @@ static void  cfg_create_modify_handler (void *data, NihWatch *watch,
 					struct stat *statbuf);
 static void  cfg_delete_handler        (void *data, NihWatch *watch,
 					const char *path);
-static int   cfg_visitor               (void *data, const char *path,
-					struct stat *statbuf)
+static int   cfg_visitor               (void *data, const char *dirname,
+					const char *path, struct stat *statbuf)
 	__attribute__ ((warn_unused_result));
 
 
@@ -1783,6 +1783,7 @@ cfg_delete_handler (void       *data,
 /**
  * cfg_visitor:
  * @data: not used,
+ * @dirname: directory being iterated,
  * @path: full path to file,
  * @statbuf: stat of @path.
  *
@@ -1794,6 +1795,7 @@ cfg_delete_handler (void       *data,
  **/
 static int
 cfg_visitor (void        *data,
+	     const char  *dirname,
 	     const char  *path,
 	     struct stat *statbuf)
 {
@@ -1805,7 +1807,7 @@ cfg_visitor (void        *data,
 	if (! S_ISREG (statbuf->st_mode))
 		return 0;
 
-	NIH_MUST (name = cfg_job_name (NULL, path, path));
+	NIH_MUST (name = cfg_job_name (NULL, dirname, path));
 
 	cfg_read_job (NULL, path, name);
 
