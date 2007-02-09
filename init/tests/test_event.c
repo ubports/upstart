@@ -370,8 +370,10 @@ test_poll (void)
 	TEST_EQ (em1->jobs, 1);
 
 	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->pid, 0);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_GT (job->pid, 0);
+
+	waitpid (job->pid, NULL, 0);
 
 	nih_list_free (&sub->entry);
 	nih_list_free (&job->entry);
@@ -394,8 +396,8 @@ test_poll (void)
 
 
 	/* Check that events in the finished state are consumed, leaving
-	 * the list empty.  Subscribed processes should be notified and the
-	 * event should be freed.
+	 * the list empty.  Subscribed processes should be notified, blocked
+	 * jobs should be releaed and the event should be freed.
 	 */
 	TEST_FEATURE ("with finished event");
 	fflush (stdout);
@@ -421,6 +423,14 @@ test_poll (void)
 
 	em1 = event_emit ("test", NULL, NULL);
 	em1->id = 0xdeafbeef;
+
+	job = job_new (NULL, "test");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->pid = 0;
+	job->blocked = em1;
+	job->command = nih_strdup (job, "echo");
+
 	event_emit_finished (em1);
 
 	destructor_called = 0;
@@ -435,6 +445,16 @@ test_poll (void)
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_GT (job->pid, 0);
+
+	waitpid (job->pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ_P (job->blocked, NULL);
 
 	TEST_TRUE (destructor_called);
 
@@ -482,8 +502,10 @@ test_poll (void)
 	TEST_TRUE (destructor_called);
 
 	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->pid, 0);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_GT (job->pid, 0);
+
+	waitpid (job->pid, NULL, 0);
 
 	TEST_EQ_STR (job->cause->event.name, "test/failed");
 

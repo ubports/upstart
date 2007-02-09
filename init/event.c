@@ -394,6 +394,7 @@ event_finished (EventEmission *emission)
 	nih_debug ("Finished %s event", emission->event.name);
 
 	notify_event_finished (emission);
+	job_handle_event_finished (emission);
 
 	if (emission->failed) {
 		char *name;

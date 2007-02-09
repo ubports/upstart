@@ -90,7 +90,7 @@
  * @state: actual state of the job,
  * @pid: current process id,
  * @cause: cause of last goal change,
- * @blocker: emitted event we're waiting to finish,
+ * @blocked: emitted event we're waiting to finish,
  * @failed: whether the last process ran failed,
  * @failed_state: state the job was in for the last failed process,
  * @exit_status: exit status of the last failed process,
@@ -148,7 +148,7 @@ typedef struct job {
 	pid_t          pid;
 
 	EventEmission *cause;
-	EventEmission *blocker;
+	EventEmission *blocked;
 
 	int            failed;
 	JobState       failed_state;
@@ -209,30 +209,32 @@ typedef struct job_name {
 
 NIH_BEGIN_EXTERN
 
-NihList *   job_list            (void);
+NihList *job_list                  (void);
 
-Job *       job_new             (const void *parent, const char *name)
+Job *    job_new                   (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-Job *       job_find_by_name    (const char *name);
-Job *       job_find_by_pid     (pid_t pid);
+Job *    job_find_by_name          (const char *name);
+Job *    job_find_by_pid           (pid_t pid);
 
-void        job_change_goal     (Job *job, JobGoal goal,
-				 EventEmission *emission);
+void     job_change_goal           (Job *job, JobGoal goal,
+				    EventEmission *emission);
 
-void        job_change_state    (Job *job, JobState state);
-JobState    job_next_state      (Job *job);
+void     job_change_state          (Job *job, JobState state);
+JobState job_next_state            (Job *job);
 
-void        job_run_command     (Job *job, const char *command);
-void        job_run_script      (Job *job, const char *script);
+void     job_run_command           (Job *job, const char *command);
+void     job_run_script            (Job *job, const char *script);
 
-void        job_kill_process    (Job *job);
+void     job_kill_process          (Job *job);
 
-void        job_child_reaper    (void *ptr, pid_t pid, int killed, int status);
+void     job_child_reaper          (void *ptr, pid_t pid, int
+				    killed, int status);
 
-void        job_handle_event    (EventEmission *emission);
+void     job_handle_event          (EventEmission *emission);
+void     job_handle_event_finished (EventEmission *emission);
 
-void        job_detect_stalled  (void);
+void     job_detect_stalled        (void);
 
 NIH_END_EXTERN
 

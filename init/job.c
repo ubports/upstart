@@ -152,7 +152,7 @@ job_new (const void *parent,
 	job->pid = 0;
 
 	job->cause = NULL;
-	job->blocker = NULL;
+	job->blocked = NULL;
 
 	job->failed = FALSE;
 	job->failed_state = JOB_WAITING;
@@ -623,7 +623,7 @@ job_next_state (Job *job)
  * Called from a state change because it believes an event should be
  * emitted.  Constructs the event with the right arguments and environment,
  * adds it to the pending queue, and if the event should block, stores it
- * in the blocker member of @job.
+ * in the blocked member of @job.
  *
  * The stopping and stopped events have an extra argument that is "ok" if
  * the job terminated successfully, or "failed" if it terminated with an
@@ -703,7 +703,7 @@ job_emit_event (Job *job)
 	emission = event_emit (name, args, env);
 
 	if (block)
-		job->blocker = emission;
+		job->blocked = emission;
 }
 
 
@@ -1244,6 +1244,33 @@ job_handle_event (EventEmission *emission)
 			if (event_match (&emission->event, start_event))
 				job_change_goal (job, JOB_START, emission);
 		}
+	}
+}
+
+/**
+ * job_handle_event_finished:
+ * @emission: event emission that has finished.
+ *
+ * This function is called whenever the emission of an event finishes.  It
+ * iterates the list of jobs checking for any blocked by that event,
+ * unblocking them and sending them to the next state.
+ * necessary.
+ **/
+void
+job_handle_event_finished (EventEmission *emission)
+{
+	nih_assert (emission != NULL);
+
+	job_init ();
+
+	NIH_LIST_FOREACH_SAFE (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		if (job->blocked != emission)
+			continue;
+
+		job->blocked = NULL;
+		job_change_state (job, job_next_state (job));
 	}
 }
 
