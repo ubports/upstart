@@ -1392,9 +1392,9 @@ test_change_state (void)
 
 		TEST_LIST_EMPTY (events);
 
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_state, JOB_WAITING);
-		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, 1);
 
 		TEST_FILE_EQ (output,
 			      "test: test respawning too fast, stopped\n");
