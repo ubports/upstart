@@ -1162,6 +1162,7 @@ job_child_reaper (void  *data,
 			if (failed && job->respawn) {
 				nih_warn (_("%s process ended, respawning"),
 					  job->name);
+				failed = FALSE;
 				break;
 			}
 		}

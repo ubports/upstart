@@ -1,5 +1,12 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_reaper): Set failed back to FALSE if
+	we're respawning, since we don't want to be failing.
+	* init/tests/test_job.c (test_child_reaper): cause will be NULL.
+	also free and poll events when done.
+	(test_handle_event): pid can never be -1
+	(test_change_state): poll events when done
+
 	* init/tests/test_job.c (test_child_reaper): Process will always
 	be zero on return from reaper.
 

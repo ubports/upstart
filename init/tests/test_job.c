@@ -1412,7 +1412,9 @@ test_change_state (void)
 	rmdir (dirname);
 
 	nih_list_free (&job->entry);
+
 	nih_list_free (&cause->event.entry);
+	event_poll ();
 }
 
 void
@@ -2307,8 +2309,6 @@ test_child_reaper (void)
 	 * the failed exit status should contain the signal and the high bit.
 	 */
 	TEST_FEATURE ("with killed pre-start process");
-	em = event_emit ("foo", NULL, NULL);
-
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
@@ -2507,7 +2507,7 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
@@ -2717,8 +2717,6 @@ test_child_reaper (void)
 	 * of a failing earlier task.
 	 */
 	TEST_FEATURE ("with stopping task failure after failure");
-	em = event_emit ("foo", NULL, NULL);
-
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
@@ -2758,6 +2756,7 @@ test_child_reaper (void)
 
 	nih_list_free (&job->entry);
 
+	nih_list_free (&em->event.entry);
 	event_poll ();
 }
 
@@ -2794,7 +2793,7 @@ test_handle_event (void)
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
-		job1->pid = -1;
+		job1->pid = 0;
 		job1->cause = NULL;
 
 		job2->goal = JOB_START;
@@ -2829,7 +2828,7 @@ test_handle_event (void)
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
-		job1->pid = -1;
+		job1->pid = 0;
 		job1->cause = NULL;
 
 		job2->goal = JOB_START;
@@ -2851,10 +2850,12 @@ test_handle_event (void)
 	}
 
 	nih_list_free (&em->event.entry);
-	event_poll ();
+
 
 	nih_list_free (&job2->entry);
 	nih_list_free (&job1->entry);
+
+	event_poll ();
 }
 
 void
@@ -2956,6 +2957,7 @@ test_detect_stalled (void)
 
 	nih_list_free (&job1->entry);
 	nih_list_free (&job2->entry);
+	event_poll ();
 }
 
 
