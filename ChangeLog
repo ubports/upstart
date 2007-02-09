@@ -1,5 +1,8 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Run job_free_deleted each time through the
+	main loop.
+
 	* init/job.c (job_change_goal): Minor tweak to the logic; we may
 	have just made the job an instance, that should still let us stop
 	the one underneath.

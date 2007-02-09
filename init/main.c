@@ -246,8 +246,9 @@ main (int   argc,
 	 * haven't stalled, every time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
 					  NULL));
-	NIH_MUST (nih_main_loop_add_func (NULL,
-					  (NihMainLoopCb)job_detect_stalled,
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_stalled,
+					  NULL));
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_free_deleted,
 					  NULL));
 
 
