@@ -1,0 +1,62 @@
+/* Upstart state machine.
+ *
+ * Generate with:
+ *   dot -Tpng -ostates.png states.dot
+ *
+ * Diamonds represent natural rest states in which we need to take an action
+ * to change the goal.
+ *
+ * Ovals represent ordinary states which clear themselves when the process
+ * being run, or the event that was emitted, finishes.
+ *
+ * Rectangles represent additional actions that are taken, they are not
+ * states, instead you should follow through them to the next real state.
+ *
+ * Green arrows are followed while the goal is START.
+ * Red arrows are followed while the goal is STOP.
+ *
+ * Note that from the running state, there are two read arrows leaving it;
+ * these are chosen based on whether there is a process for the job or not.
+ */
+
+digraph {
+	rankdir=LR;
+	edge [fontsize=10];
+
+	waiting [shape=diamond];
+	starting [label="starting\n(emit starting)"];
+	pre_start [label="pre-start"];
+	spawned [label="spawned\n(wait for pid)"];
+	post_start [label="post-start"];
+	emit_started [shape=rectangle,label="emit started"];
+	running [shape=diamond];
+	pre_stop [label="pre-stop"];
+	stopping [label="stopping\n(emit stopping)"];
+	killed [label="killed\n(wait for SIGCHLD)"];
+	post_stop [label="post-stop"];
+	emit_stopped [shape=rectangle,label="emit stopped"];
+	deleted [shape=diamond,label="deleted\n(free job)"];
+
+	waiting -> starting [color=green];
+	waiting -> deleted [color=red];
+	starting -> pre_start [color=green];
+	starting -> waiting [color=red];
+	pre_start -> spawned [color=green];
+	pre_start -> stopping [color=red];
+	spawned -> post_start [color=green];
+	spawned -> stopping [color=red];
+	post_start -> emit_started -> running [color=green];
+	post_start -> stopping [color=red];
+	running -> pre_stop [color=red,label="pid > 0"];
+	running -> stopping [color=red,label="pid == 0"];
+	running -> stopping [color=green,label="respawn"];
+	pre_stop -> running [color=green];
+	pre_stop -> stopping [color=red];
+	stopping -> killed [color=green];
+	stopping -> killed [color=red];
+	killed -> post_stop [color=green];
+	killed -> post_stop [color=red];
+	post_stop -> starting [color=green];
+	post_stop -> emit_stopped [color=red];
+	emit_stopped -> waiting [color=red];
+}

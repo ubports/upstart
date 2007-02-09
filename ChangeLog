@@ -1,5 +1,10 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* doc/states.dot: Add updated state graph.
+	* doc/Makefile.am (EXTRA_DIST): Ship the states diagram.
+	(states.png): Include rules to build the png, we'll put it in bzr
+	anyway, but this is useful.
+
 	* init/cfgfile.c (cfg_delete_handler): Handle deleted jobs; mark
 	the job as deleted, and if it's dormant, invoke a state change.
 
