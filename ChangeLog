@@ -1,5 +1,11 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_kill_process, job_kill_timer): Just check the pid
+	and state, and no longer any need to notify jobs since we're just
+	called from one state amongst many.
+	(job_change_state): Skip over the killed state if there's no process.
+	* init/tests/test_job.c (test_kill_process): Update test cases.
+
 	* init/job.c (job_run_process): Simplify a little bit, no need to
 	do the state assertions here, just make sure there's no already
 	a process running.

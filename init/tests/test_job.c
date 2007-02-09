@@ -1899,43 +1899,40 @@ test_run_script (void)
 void
 test_kill_process (void)
 {
-	Job         *job;
-	NihTimer    *timer;
-	pid_t        pid;
-	char         filename[PATH_MAX];
-	struct stat  statbuf;
-	int          status;
+	Job      *job;
+	NihTimer *timer;
+	pid_t     pid;
+	int       status;
 
 	TEST_FUNCTION ("job_kill_process");
 	job = job_new (NULL, "test");
-	job->goal = JOB_STOP;
 	job->kill_timeout = 1000;
 	job->respawn_limit = 0;
 
 
 	/* Check that an easily killed process goes away with just a single
-	 * call to job_kill_process, having received the TERM signal.  The
-	 * process state should be changed to KILLED and a kill timer set
-	 * to handle it if it doesn't get reaped.
+	 * call to job_kill_process, having received the TERM signal.
+	 * A kill timer should be set to handle the case where the child
+	 * doesn't get reaped.
 	 */
 	TEST_FEATURE ("with easily killed process");
 	TEST_ALLOC_FAIL {
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
 		TEST_CHILD (job->pid) {
 			pause ();
 		}
 		pid = job->pid;
 
 		job_kill_process (job);
-		waitpid (pid, &status, 0);
 
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->pid, pid);
+
+		waitpid (job->pid, &status, 0);
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
-
-		TEST_EQ (job->pid, pid);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
 
 		TEST_NE_P (job->kill_timer, NULL);
 		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
@@ -1956,8 +1953,8 @@ test_kill_process (void)
 	TEST_ALLOC_FAIL {
 		int wait_fd;
 
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
 		TEST_CHILD_WAIT (job->pid, wait_fd) {
 			struct sigaction act;
 
@@ -1975,10 +1972,11 @@ test_kill_process (void)
 
 		job_kill_process (job);
 
-		TEST_EQ (kill (pid, 0), 0);
-
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
 		TEST_EQ (job->pid, pid);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
+
+		TEST_EQ (kill (job->pid, 0), 0);
 
 		TEST_NE_P (job->kill_timer, NULL);
 		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
@@ -1991,84 +1989,16 @@ test_kill_process (void)
 		timer->callback (timer->data, timer);
 		nih_free (timer);
 
-		waitpid (pid, &status, 0);
-
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGKILL);
-
-		TEST_EQ (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_NONE);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
+		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-	}
-
-
-	/* Check that a process that's hard to kill doesn't go away, but
-	 * that the kill timer sends the KILL signal and makes out that the
-	 * job has in fact died.  Also make sure it triggers a state
-	 * transition by using a stop sdcript and checking that it has run.
-	 */
-	TEST_FEATURE ("with hard to kill process and stop script");
-	TEST_FILENAME (filename);
-	job->stop_script = nih_sprintf (job, "touch %s", filename);
-
-	TEST_ALLOC_FAIL {
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-
-		TEST_CHILD (job->pid) {
-			struct sigaction act;
-
-			act.sa_handler = SIG_IGN;
-			act.sa_flags = 0;
-			sigemptyset (&act.sa_mask);
-			sigaction (SIGTERM, &act, NULL);
-
-			for (;;)
-				pause ();
-		}
-		pid = job->pid;
-
-		job_kill_process (job);
-
-		TEST_EQ (kill (pid, 0), 0);
-
-		TEST_EQ (job->pid, pid);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
-
-		TEST_NE_P (job->kill_timer, NULL);
-		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-		TEST_ALLOC_PARENT (job->kill_timer, job);
-		TEST_GE (job->kill_timer->due, time (NULL) + 950);
-		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
-
-		/* Run the kill timer */
-		timer = job->kill_timer;
-		timer->callback (timer->data, timer);
-		nih_free (timer);
-
-		TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->pid, 0);
 
 		waitpid (pid, &status, 0);
-
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGKILL);
 
-		TEST_NE (job->pid, 0);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		waitpid (job->pid, NULL, 0);
-
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
+		TEST_EQ_P (job->kill_timer, NULL);
 	}
-
-	nih_free (job->stop_script);
-	job->stop_script = NULL;
 
 
 	/* Check that if we kill an already dead process, the process is
@@ -2076,24 +2006,26 @@ test_kill_process (void)
 	 */
 	TEST_FEATURE ("with already dead process");
 	TEST_ALLOC_FAIL {
-		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
 		TEST_CHILD (job->pid) {
 			exit (0);
 		}
+
 		waitpid (job->pid, NULL, 0);
 
 		job_kill_process (job);
 
-		TEST_EQ (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_NONE);
+		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->pid, 0);
 
 		TEST_EQ_P (job->kill_timer, NULL);
 	}
 
 
 	nih_list_free (&job->entry);
+	event_poll ();
 }
 
 

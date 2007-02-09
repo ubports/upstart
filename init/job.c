@@ -491,7 +491,11 @@ job_change_state (Job      *job,
 		case JOB_KILLED:
 			nih_assert (old_state == JOB_STOPPING);
 
-			job_kill_process (job);
+			if (job->pid > 0) {
+				job_kill_process (job);
+			} else {
+				state = job_next_state (job);
+			}
 
 			break;
 		case JOB_POST_STOP:
@@ -957,8 +961,8 @@ job_run_process (Job          *job,
  *
  * The state change is not immediate unless the kill syscall fails.
  *
- * The only state that this may be called in is JOB_RUNNING with an
- * active process; all other states are transient, and are expected to
+ * The only state that this may be called in is JOB_KILLED when there
+ * is a process; all other states are transient, and are expected to
  * change within a relatively short space of time anyway.  For those it
  * is sufficient to simply change the goal and have the appropriate
  * state selected once the running script terminates.
@@ -967,12 +971,11 @@ void
 job_kill_process (Job *job)
 {
 	nih_assert (job != NULL);
-
-	nih_assert (job->state == JOB_RUNNING);
-	nih_assert (job->process_state == PROCESS_ACTIVE);
+	nih_assert (job->state == JOB_KILLED);
+	nih_assert (job->pid > 0);
 
 	nih_info (_("Sending TERM signal to %s process (%d)"),
-		   job->name, job->pid);
+		  job->name, job->pid);
 
 	if (process_kill (job, job->pid, FALSE) < 0) {
 		NihError *err;
@@ -987,14 +990,9 @@ job_kill_process (Job *job)
 		 * accord while we were dawdling
 		 */
 		job->pid = 0;
-		job->process_state = PROCESS_NONE;
-
 		job_change_state (job, job_next_state (job));
 		return;
 	}
-
-	job->process_state = PROCESS_KILLED;
-	notify_job (job);
 
 	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
 			  job, job->kill_timeout,
@@ -1016,9 +1014,8 @@ job_kill_timer (Job      *job,
 		NihTimer *timer)
 {
 	nih_assert (job != NULL);
-
-	nih_assert (job->state == JOB_RUNNING);
-	nih_assert (job->process_state == PROCESS_KILLED);
+	nih_assert (job->state == JOB_KILLED);
+	nih_assert (job->pid > 0);
 
 	nih_info (_("Sending KILL signal to %s process (%d)"),
 		   job->name, job->pid);
@@ -1039,7 +1036,6 @@ job_kill_timer (Job      *job,
 	 */
 
 	job->pid = 0;
-	job->process_state = PROCESS_NONE;
 	job->kill_timer = NULL;
 
 	job_change_state (job, job_next_state (job));
