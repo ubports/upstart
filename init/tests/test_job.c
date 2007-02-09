@@ -221,8 +221,6 @@ test_change_goal (void)
 {
 	EventEmission *em;
 	Job           *job;
-	int            status;
-	pid_t          pid;
 
 	TEST_FUNCTION ("job_change_goal");
 	program_name = "test";
@@ -240,18 +238,13 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
 		job->pid = 0;
 
 		job_change_goal (job, JOB_START, NULL);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-
-		TEST_NE (job->pid, 0);
-
-		waitpid (job->pid, NULL, 0);
+		TEST_EQ (job->pid, 0);
 	}
 
 
@@ -262,15 +255,13 @@ test_change_goal (void)
 	TEST_FEATURE ("with stopping job");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_ACTIVE;
+		job->state = JOB_KILLED;
 		job->pid = 1;
 
 		job_change_goal (job, JOB_START, NULL);
 
 		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->state, JOB_KILLED);
 		TEST_EQ (job->pid, 1);
 	}
 
@@ -284,7 +275,6 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
 		job->cause = em;
 		em->progress = EVENT_HANDLING;
@@ -294,7 +284,6 @@ test_change_goal (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, 1);
 
 		TEST_EQ_P (job->cause, NULL);
@@ -307,7 +296,7 @@ test_change_goal (void)
 	job->cause = NULL;
 
 
-	/* Check that start a job with a cause passed references that event
+	/* Check that starting a job with a cause passed references that event
 	 * and sets the cause in the job.
 	 */
 	TEST_FEATURE ("with new cause");
@@ -315,8 +304,7 @@ test_change_goal (void)
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process_state = PROCESS_ACTIVE;
+		job->state = JOB_POST_STOP;
 		job->pid = 1;
 		job->cause = NULL;
 		em->jobs = 0;
@@ -324,8 +312,7 @@ test_change_goal (void)
 		job_change_goal (job, JOB_START, em);
 
 		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
+		TEST_EQ (job->state, JOB_POST_STOP);
 		TEST_EQ (job->pid, 1);
 
 		TEST_EQ_P (job->cause, em);
@@ -344,79 +331,47 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
 		job->pid = 1;
 
 		job_change_goal (job, JOB_START, NULL);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 		TEST_EQ (job->pid, 1);
 	}
 
 
 	/* Check that an attempt to stop a running job results in the goal
-	 * being changed, the job killed and the state left to be changed by
-	 * the child reaper.
+	 * and the state being changed.
 	 */
 	TEST_FEATURE ("with running job");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_ACTIVE;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
+		job->pid = 1;
 
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process_state, PROCESS_KILLED);
-		TEST_EQ (job->pid, pid);
-
-		TEST_NE_P (job->kill_timer, NULL);
-		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-		TEST_ALLOC_PARENT (job->kill_timer, job);
-
-		nih_free (job->kill_timer);
-		job->kill_timer = NULL;
-
-		waitpid (pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 1);
 	}
 
 
 	/* Check that an attempt to stop a starting job only results in the
-	 * goal being changed, the starting process should not be killed and
-	 * instead left to terminate normally.
+	 * goal being changed, the state should not be changed.
 	 */
 	TEST_FEATURE ("with starting job");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_ACTIVE;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
+		job->state = JOB_PRE_START;
+		job->pid = 1;
 
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, pid);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		kill (pid, SIGTERM);
-		waitpid (pid, NULL, 0);
+		TEST_EQ (job->state, JOB_PRE_START);
+		TEST_EQ (job->pid, 1);
 	}
 
 
@@ -428,32 +383,21 @@ test_change_goal (void)
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_ACTIVE;
+		job->state = JOB_SPAWNED;
+		job->pid = 1;
 		job->cause = em;
 		em->jobs = 1;
 		em->progress = EVENT_HANDLING;
 
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
-
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, pid);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid, 1);
 		TEST_EQ_P (job->cause, NULL);
 
 		TEST_EQ (em->jobs, 0);
 		TEST_EQ (em->progress, EVENT_FINISHED);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		kill (pid, SIGTERM);
-		waitpid (pid, NULL, 0);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -469,29 +413,18 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
-		job->process_state = PROCESS_ACTIVE;
+		job->pid = 0;
 		job->cause = NULL;
 		em->jobs = 0;
-
-		TEST_CHILD (job->pid) {
-			pause ();
-		}
-		pid = job->pid;
 
 		job_change_goal (job, JOB_STOP, em);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
-		TEST_EQ (job->pid, pid);
+		TEST_EQ (job->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->jobs, 1);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		kill (pid, SIGTERM);
-		waitpid (pid, NULL, 0);
 	}
 
 	nih_list_free (&em->event.entry);
@@ -503,14 +436,12 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
-		job->process_state = PROCESS_NONE;
 		job->pid = 0;
 
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process_state, PROCESS_NONE);
 		TEST_EQ (job->pid, 0);
 	}
 

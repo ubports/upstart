@@ -1,3 +1,12 @@
+2007-02-09  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_change_goal): Have a stab at this function with the
+	new state machine; it gets somewhat simpler (until we introduce the
+	second scripts), now we just induce things by a state change.
+	* init/tests/test_job.c (test_change_goal): Made easier (for now)
+	because we don't need to deal with processes and can just wait to
+	be blocked on an event.
+
 2007-02-08  Scott James Remnant  <scott@netsplit.com>
 
 	* init/cfgfile.c (cfg_read_job): Drop check for useless respawn script

@@ -290,25 +290,24 @@ job_change_goal (Job           *job,
 	job_change_cause (job, emission);
 	notify_job (job);
 
-	/* We only need to inducate state changes from the natural
-	 * rest states of waiting, or an active running process.
-	 * Anything else will be handled as the processes naturally
-	 * terminate, the next state they select will be based on
-	 * the new goal.
+	/* Normally whatever process or event is associated with the state
+	 * will finish naturally, so all we need do is change the goal and
+	 * we'll change direction through the state machine at that point.
+	 *
+	 * The exceptions are the natural rest sates of waiting and a
+	 * running process; these need induction to get them moving.
+	 *
+	 * FIXME also we need to kill running post-start or pre-stop scripts.
 	 */
 	switch (job->goal) {
 	case JOB_START:
-		/* FIXME
-		 * instance jobs need to be duplicated */
-
 		if (job->state == JOB_WAITING)
 			job_change_state (job, job_next_state (job));
 
 		break;
 	case JOB_STOP:
-		if ((job->state == JOB_RUNNING)
-		    && (job->process_state == PROCESS_ACTIVE))
-			job_kill_process (job);
+		if (job->state == JOB_RUNNING)
+			job_change_state (job, job_next_state (job));
 
 		break;
 	}
