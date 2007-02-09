@@ -274,7 +274,8 @@ cfg_read_job (const void *parent,
 	 * copy information out of the old structure and free that
 	 */
 	if (old_job) {
-		time_t now;
+		NihList *iter;
+		time_t   now;
 
 		nih_debug ("Replacing existing %s job", job->name);
 
@@ -299,6 +300,15 @@ cfg_read_job (const void *parent,
 			NIH_MUST (job->pid_timer = nih_timer_add_timeout (
 					  job, old_job->pid_timer->due - now,
 					  old_job->pid_timer->callback, job));
+
+		/* Update references in instances */
+		for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+		     iter = nih_hash_search (jobs, job->name, iter)) {
+			Job *instance = (Job *)iter;
+
+			if (instance->instance_of == old_job)
+				instance->instance_of = job;
+		}
 
 		nih_list_free (&old_job->entry);
 	}

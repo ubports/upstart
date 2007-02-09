@@ -76,6 +76,7 @@ test_new (void)
 		TEST_EQ_P (job->author, NULL);
 		TEST_EQ_P (job->version, NULL);
 
+		TEST_EQ_P (job->instance_of, NULL);
 		TEST_EQ (job->delete, FALSE);
 
 		TEST_EQ (job->goal, JOB_STOP);

@@ -1,5 +1,12 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_new): instance_of is initialised to NULL.
+	* init/job.h: Add a new instance_of pointer, pointing to the parent
+	that we're an instance of.
+	* init/tests/test_job.c (test_new): Check that.
+	* init/tests/test_cfgfile.c (test_read_job): Make sure instance_of
+	pointers are updated.
+
 	* init/job.c (jobs): Store jobs in a hash table.
 	(job_new): Add to hash table, not to a list.
 	(job_handle_event, job_handle_event_finished, job_detect_stalled) 

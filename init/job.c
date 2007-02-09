@@ -134,6 +134,7 @@ job_new (const void *parent,
 	job->author = NULL;
 	job->version = NULL;
 
+	job->instance_of = NULL;
 	job->delete = FALSE;
 
 	job->goal = JOB_STOP;

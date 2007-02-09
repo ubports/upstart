@@ -68,7 +68,7 @@ my_timer (void *data, NihTimer *timer)
 void
 test_read_job (void)
 {
-	Job  *job;
+	Job  *job, *instance;
 	FILE *jf, *output;
 	char  filename[PATH_MAX];
 
@@ -105,7 +105,9 @@ test_read_job (void)
 	/* Check that we can give a new file for an existing job; this
 	 * frees the existing structure, while copying over critical
 	 * information from it to a new structure.  If the original job
-	 * was marked to be deleted, this should be cleared.
+	 * was marked to be deleted, this should be cleared.  Also any
+	 * jobs that are instances of this should have their pointers
+	 * updated.
 	 */
 	TEST_FEATURE ("with re-reading existing job file");
 	jf = fopen (filename, "w");
@@ -132,6 +134,9 @@ test_read_job (void)
 
 	was_called = 0;
 	nih_alloc_set_destructor (job, destructor_called);
+
+	instance = job_new (NULL, "test");
+	instance->instance_of = job;
 
 	job = cfg_read_job (NULL, filename, "test");
 
@@ -169,6 +174,9 @@ test_read_job (void)
 	TEST_EQ_P (job->pid_timer->callback, my_timer);
 	TEST_EQ_P (job->pid_timer->data, job);
 
+	TEST_EQ_P (instance->instance_of, job);
+
+	nih_list_free (&instance->entry);
 	nih_list_free (&job->entry);
 
 

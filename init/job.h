@@ -87,6 +87,8 @@
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
+ * @instance_of: job this is an instance of,
+ * @delete: job should be deleted once stopped,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
  * @pid: current process id,
@@ -100,8 +102,7 @@
  * @emits: list of additional events that this job can emit,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @kill_timer: timer to kill process,
- * @spawns_instance: job is always waiting and spawns instances,
- * @is_instance: job should be cleaned up instead of waiting,
+ * @instance: job is always waiting and spawns instances,
  * @service: job has reached its goal when running,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
@@ -134,7 +135,8 @@
  * collated together in this structure and only differ in the value of the
  * @service member.
  **/
-typedef struct job {
+typedef struct job Job;
+struct job {
 	NihList        entry;
 
 	char          *name;
@@ -142,6 +144,7 @@ typedef struct job {
 	char          *author;
 	char          *version;
 
+	Job           *instance_of;
 	int            delete;
 
 	JobGoal        goal;
@@ -192,7 +195,7 @@ typedef struct job {
 	struct rlimit *limits[RLIMIT_NLIMITS];
 	char          *chroot;
 	char          *chdir;
-} Job;
+};
 
 /**
  * JobName:
