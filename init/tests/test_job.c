@@ -521,9 +521,6 @@ test_change_state (void)
 		job->failed_state = JOB_STOPPING;
 		job->exit_status = 1;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -566,9 +563,6 @@ test_change_state (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job->respawn_limit = 10;
 		job->respawn_interval = 1000;
@@ -630,9 +624,6 @@ test_change_state (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_PRE_START);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -679,9 +670,6 @@ test_change_state (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_PRE_START);
 
@@ -736,9 +724,6 @@ test_change_state (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_SPAWNED);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -792,9 +777,6 @@ test_change_state (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_SPAWNED);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -836,9 +818,6 @@ test_change_state (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_RUNNING);
 
@@ -884,9 +863,6 @@ test_change_state (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_RUNNING);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -912,6 +888,8 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
+	job->service = FALSE;
+
 
 	/* Check that a job can move from running to stopping, by-passing
 	 * pre-stop.  This should emit the stopping event, containing the
@@ -929,9 +907,6 @@ test_change_state (void)
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 1;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -979,9 +954,6 @@ test_change_state (void)
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = SIGSEGV | 0x80;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_STOPPING);
 
 		TEST_EQ (job->goal, JOB_STOP);
@@ -1028,9 +1000,6 @@ test_change_state (void)
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 33 | 0x80;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_STOPPING);
 
 		TEST_EQ (job->goal, JOB_STOP);
@@ -1075,9 +1044,6 @@ test_change_state (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -1124,9 +1090,6 @@ test_change_state (void)
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_KILLED);
 
 		TEST_EQ (job->goal, JOB_STOP);
@@ -1169,9 +1132,6 @@ test_change_state (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_KILLED);
 
@@ -1216,9 +1176,6 @@ test_change_state (void)
 		job->failed = FALSE;
 		job->failed_state = JOB_WAITING;
 		job->exit_status = 0;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_POST_STOP);
 
@@ -1267,9 +1224,6 @@ test_change_state (void)
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 1;
-
-		job->instance = FALSE;
-		job->service = FALSE;
 
 		job_change_state (job, JOB_POST_STOP);
 
@@ -1320,9 +1274,6 @@ test_change_state (void)
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 1;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_WAITING);
 
 		TEST_EQ (job->goal, JOB_STOP);
@@ -1368,9 +1319,6 @@ test_change_state (void)
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 1;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
 		job_change_state (job, JOB_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
@@ -1401,6 +1349,9 @@ test_change_state (void)
 	 * a stopped event, and the cause is cleared.
 	 */
 	TEST_FEATURE ("post-stop to starting too fast");
+	job->respawn_limit = 10;
+	job->respawn_interval = 1000;
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_STOP;
@@ -1413,11 +1364,6 @@ test_change_state (void)
 		job->failed_state = JOB_RUNNING;
 		job->exit_status = 1;
 
-		job->instance = FALSE;
-		job->service = FALSE;
-
-		job->respawn_limit = 10;
-		job->respawn_interval = 1000;
 		job->respawn_time = time (NULL);
 		job->respawn_count = 10;
 
