@@ -1,5 +1,7 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_state): Add newline to test.
+
 	* init/job.c (job_emit_event): Add the job name as an argument;
 	oops.
 

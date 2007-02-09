@@ -603,7 +603,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output,
-			      "test: test respawning too fast, stopped");
+			      "test: test respawning too fast, stopped\n");
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 	}
@@ -1451,7 +1451,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output,
-			      "test: test respawning too fast, stopped");
+			      "test: test respawning too fast, stopped\n");
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 	}
