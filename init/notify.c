@@ -48,7 +48,7 @@
  * List of processes that are subscribed to changes in events or job status.
  * Each item is a NotifySubscription structure, in no particular order.
  **/
-static NihList *subscriptions = NULL;
+NihList *subscriptions = NULL;
 
 
 /**
@@ -56,7 +56,7 @@ static NihList *subscriptions = NULL;
  *
  * Initialise the subscriptions list.
  **/
-static void
+void
 notify_init (void)
 {
 	if (! subscriptions)

@@ -376,7 +376,9 @@ control_job_list (void               *data,
 
 	nih_info (_("Control request to list jobs"));
 
-	NIH_LIST_FOREACH (job_list (), iter) {
+	job_init ();
+
+	NIH_LIST_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
 
 		NIH_MUST (reply = upstart_message_new (control_io, pid,

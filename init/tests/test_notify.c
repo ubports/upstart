@@ -212,16 +212,15 @@ void
 test_unsubscribe (void)
 {
 	NotifySubscription *sub1, *sub2, *sub3;
-	NihList            *list;
 
 	/* Check that unsubscribe removes and frees all subscriptions for
 	 * the given process id from the list.
 	 */
 	TEST_FUNCTION ("notify_unsubscribe");
+	notify_init ();
 	sub1 = notify_subscribe_job (NULL, 1000, NULL);
 	sub2 = notify_subscribe_event (NULL, 1001, NULL);
 	sub3 = notify_subscribe_event (NULL, 1000, NULL);
-	list = sub3->entry.next;
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (sub1, my_destructor);
@@ -234,7 +233,7 @@ test_unsubscribe (void)
 
 	nih_list_free (&sub2->entry);
 
-	TEST_LIST_EMPTY (list);
+	TEST_LIST_EMPTY (subscriptions);
 }
 
 

@@ -300,7 +300,6 @@ void
 test_poll (void)
 {
 	EventEmission      *em1;
-	NihList            *events;
 	Job                *job;
 	Event              *event;
 	NihIo              *io;
@@ -312,13 +311,8 @@ test_poll (void)
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
-	job_list ();
-
-	/* Naughty way of getting the list */
-	event_poll ();
-	em1 = event_emit ("test", NULL, NULL);
-	events = em1->event.entry.next;
-	nih_list_free (&em1->event.entry);
+	job_init ();
+	event_init ();
 
 
 	/* Check that a pending event in the queue is handled, with any

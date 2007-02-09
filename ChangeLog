@@ -1,5 +1,22 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c: Don't hide the events list anymore
+	* init/event.h: Publish it and the init function.
+	* init/job.c: Don't hide the jobs list anymore.
+	(job_list): Since we don't hide it, we can drop this.
+	* init/job.h: Publish it and the init function.
+	* init/notify.c: Don't hide the subscriptions list anymore.
+	* init/notify.h: Publish it and the init function.
+	* init/control.c (control_job_list): Iterate the job list directly
+	* init/tests/test_control.c (test_event_emit): Use the events list
+	available to us.
+	* init/tests/test_event.c (test_poll): Call job_init directly and
+	just use the events list available to us.
+	* init/tests/test_job.c (test_new): Call job_init directly.
+	(test_change_state): Use the events list available to us.
+	* init/tests/test_notify.c (test_unsubscribe): Use the subscriptions
+	list available to us.
+
 	* doc/states.dot: Add updated state graph.
 	* doc/Makefile.am (EXTRA_DIST): Ship the states diagram.
 	(states.png): Include rules to build the png, we'll put it in bzr

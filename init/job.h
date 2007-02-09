@@ -209,7 +209,10 @@ typedef struct job_name {
 
 NIH_BEGIN_EXTERN
 
-NihList *job_list                  (void);
+NihList *jobs;
+
+
+void     job_init                  (void);
 
 Job *    job_new                   (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));

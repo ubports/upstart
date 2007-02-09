@@ -69,7 +69,7 @@ static void job_kill_timer    (Job *job, NihTimer *timer);
  * This list holds the list of known jobs, each entry is of the Job
  * structure.  No particular order is maintained.
  **/
-static NihList *jobs = NULL;
+NihList *jobs = NULL;
 
 
 /**
@@ -77,24 +77,11 @@ static NihList *jobs = NULL;
  *
  * Initialise the list of jobs.
  **/
-static inline void
+void
 job_init (void)
 {
 	if (! jobs)
 		NIH_MUST (jobs = nih_list_new (NULL));
-}
-
-/**
- * job_list:
- *
- * Return the list of jobs.
- **/
-NihList *
-job_list (void)
-{
-	job_init ();
-
-	return jobs;
 }
 
 

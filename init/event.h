@@ -163,8 +163,11 @@ typedef struct event_emission {
 
 NIH_BEGIN_EXTERN
 
-int paused;
+int      paused;
+NihList *events;
 
+
+void           event_init            (void);
 
 Event *        event_new             (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));

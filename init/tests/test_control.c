@@ -1073,7 +1073,6 @@ test_event_emit (void)
 	int                 wait_fd, status;
 	EventEmission      *em;
 	NotifySubscription *sub;
-	NihList            *list;
 
 	/* Check that we can handle a message from a child process requesting
 	 * that an event be emitted.  We don't send an immediate reply,
@@ -1084,13 +1083,7 @@ test_event_emit (void)
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
-	/* This is a naughty way of getting a pointer to the event queue
-	 * list head...
-	 */
-	event_poll ();
-	em = event_emit ("wibble", NULL, NULL);
-	list = em->event.entry.prev;
-	nih_list_free (&em->event.entry);
+	event_init ();
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -1122,7 +1115,7 @@ test_event_emit (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	em = (EventEmission *)list->prev;
+	em = (EventEmission *)events->prev;
 	TEST_EQ_STR (em->event.name, "wibble");
 	TEST_EQ_STR (em->event.args[0], "foo");
 	TEST_EQ_STR (em->event.args[1], "bar");

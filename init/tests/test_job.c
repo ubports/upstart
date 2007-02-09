@@ -57,7 +57,7 @@ test_new (void)
 	 * and have sensible defaults.
 	 */
 	TEST_FUNCTION ("job_new");
-	job_list ();
+	job_init ();
 	TEST_ALLOC_FAIL {
 		job = job_new (NULL, "test");
 
@@ -492,7 +492,6 @@ test_change_state (void)
 	FILE          *output;
 	Job           *job;
 	EventEmission *cause, *emission;
-	NihList       *events;
 	struct stat    statbuf;
 	char           dirname[PATH_MAX], filename[PATH_MAX], *tmp;
 	pid_t          pid;
@@ -511,13 +510,9 @@ test_change_state (void)
 	job->command = nih_sprintf (job, "touch %s/run", dirname);
 	job->respawn_limit = 0;
 
-	/* This is a naughty way of getting a pointer to the event queue
-	 * list head...  we keep hold of the emitted event, but remove it
-	 * from the list (so it doesn't affect our "events emitted" check)
-	 */
-	event_poll ();
+	event_init ();
+
 	cause = event_emit ("wibble", NULL, NULL);
-	events = cause->event.entry.prev;
 	nih_list_remove (&cause->event.entry);
 
 
@@ -3035,18 +3030,10 @@ test_detect_stalled (void)
 {
 	Job           *job1, *job2;
 	Event         *event;
-	EventEmission *em;
-	NihList       *events;
 
 	TEST_FUNCTION ("job_detect_stalled");
 
-	/* This is a naughty way of getting a pointer to the event queue
-	 * list head...
-	 */
-	event_poll ();
-	em = event_emit ("wibble", NULL, NULL);
-	events = em->event.entry.prev;
-	nih_list_free (&em->event.entry);
+	event_init ();
 
 	job1 = job_new (NULL, "foo");
 	job1->goal = JOB_STOP;

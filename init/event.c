@@ -72,7 +72,7 @@ static uint32_t emission_id = 0;
  * This list holds the list of events in the process of pending, being
  * handled or awaiting cleanup; each item is an EventEmission structure.
  **/
-static NihList *events = NULL;
+NihList *events = NULL;
 
 
 /**
@@ -80,7 +80,7 @@ static NihList *events = NULL;
  *
  * Initialise the event list.
  **/
-static inline void
+void
 event_init (void)
 {
 	if (! events)

@@ -67,6 +67,11 @@ typedef struct notify_subscription {
 
 NIH_BEGIN_EXTERN
 
+NihList *subscriptions;
+
+
+void                notify_init              (void);
+
 NotifySubscription *notify_subscribe_job     (const void *parent, pid_t pid,
 					      Job *job)
 	__attribute__ ((malloc));
