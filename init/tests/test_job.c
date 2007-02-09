@@ -359,6 +359,23 @@ test_change_goal (void)
 	}
 
 
+	/* Check that an attempt to stop a running job withoug any process
+	 * only results in the goal being changed.
+	 */
+	TEST_FEATURE ("with running job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid = 0;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid, 0);
+	}
+
+
 	/* Check that an attempt to stop a starting job only results in the
 	 * goal being changed, the state should not be changed.
 	 */
@@ -1567,8 +1584,21 @@ test_next_state (void)
 	TEST_FEATURE ("with running job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
+	job->pid = 1;
 
 	TEST_EQ (job_next_state (job), JOB_PRE_STOP);
+
+
+	/* Check that the next state if we're stopping a running job that
+	 * has no process is stopping.  This is the stop process if the
+	 * process goes away on its own, as called from the child reaper.
+	 */
+	TEST_FEATURE ("with dead running job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	job->pid = 0;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 
 	/* Check that the next state if we're starting a running job is

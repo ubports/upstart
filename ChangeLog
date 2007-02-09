@@ -1,5 +1,14 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_next_state): Encapsulate the slightly odd three
+	exit states of running in this function, otherwise we'll end up
+	special-casing it in places I'd rather not think about.
+	(job_change_goal): Only change the state of a running job if it
+	has a process.
+	* init/tests/test_job.c (test_next_state): Add a test case for the
+	dead running job
+	(test_change_goal): Add test case for the dead running job
+
 	* init/tests/test_job.c (test_change_state): Add test cases for
 	the forgotten stopping to killed transition.
 

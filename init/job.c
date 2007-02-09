@@ -307,7 +307,7 @@ job_change_goal (Job           *job,
 
 		break;
 	case JOB_STOP:
-		if (job->state == JOB_RUNNING)
+		if ((job->state == JOB_RUNNING) && (job->pid > 0))
 			job_change_state (job, job_next_state (job));
 
 		break;
@@ -574,7 +574,11 @@ job_next_state (Job *job)
 	case JOB_RUNNING:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_PRE_STOP;
+			if (job->pid > 0) {
+				return JOB_PRE_STOP;
+			} else {
+				return JOB_STOPPING;
+			}
 		case JOB_START:
 			return JOB_STOPPING;
 		}
