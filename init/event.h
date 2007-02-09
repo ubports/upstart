@@ -125,26 +125,32 @@ typedef struct event_emission {
 
 
 /**
- * JOB_START_EVENT:
+ * JOB_STARTING_EVENT:
  *
- * Name of the event we generate when a job begins to be started.
+ * Name of the event we generate when we're ready to start a job; the job
+ * is not actually started until the handling of this event finishes.
  **/
-#define JOB_START_EVENT "start"
+#define JOB_STARTING_EVENT "starting"
 
 /**
  * JOB_STARTED_EVENT:
  *
  * Name of the event we generate once a job has been started and is now
- * running.
+ * running.  This is not generated until the spawned pid is located (if
+ * appropriate) and the post-start script has finished.
  **/
 #define JOB_STARTED_EVENT "started"
 
 /**
- * JOB_STOP_EVENT:
+ * JOB_STOPPING_EVENT:
  *
- * Name of the event we generate when a job begins to be stopped.
+ * Name of the event we generate when we're ready to stop a job, which
+ * includes arguments and environment indicating whether the job failed.
+ * This is run after the pre-stop script has finished without setting the
+ * goal back to start.  The job is not actually stopped until the handling
+ * of this event finishes.
  **/
-#define JOB_STOP_EVENT "stop"
+#define JOB_STOPPING_EVENT "stopping"
 
 /**
  * JOB_STOPPED_EVENT:

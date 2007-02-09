@@ -1,5 +1,7 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h: Correct the event names.
+
 	* init/job.h: Add blocker event member.
 	* init/job.c (job_new): Initialise it to NULL.
 	* init/tests/test_job.c (test_new): Check it.
