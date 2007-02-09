@@ -1591,14 +1591,13 @@ test_run_command (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->command = nih_sprintf (job, "touch %s", filename);
 		}
 
 		job_run_command (job, job->command);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		waitpid (job->pid, NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
@@ -1618,7 +1617,7 @@ test_run_command (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->command = nih_sprintf (job, "echo $$ > %s",
 						    filename);
 		}
@@ -1626,7 +1625,6 @@ test_run_command (void)
 		job_run_command (job, job->command);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		waitpid (job->pid, NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
@@ -1664,7 +1662,7 @@ test_run_script (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->script = nih_sprintf (job, ("exec > %s\n"
 							 "echo $0\necho $@"),
 						   filename);
@@ -1673,7 +1671,6 @@ test_run_script (void)
 		job_run_script (job, job->script);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		waitpid (job->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -1698,7 +1695,7 @@ test_run_script (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->script = nih_sprintf (job, ("exec > %s\n"
 							 "test -d %s\n"
 							 "echo oops"),
@@ -1708,7 +1705,6 @@ test_run_script (void)
 		job_run_script (job, job->script);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		waitpid (job->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -1736,7 +1732,7 @@ test_run_script (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->script = nih_sprintf (job, ("exec > %s\n"
 							 "echo $0\necho $@"),
 						   filename);
@@ -1747,7 +1743,6 @@ test_run_script (void)
 		job_run_script (job, job->script);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		waitpid (job->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -1775,7 +1770,7 @@ test_run_script (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->script = nih_alloc (job, 4096);
 			sprintf (job->script, "exec > %s\necho $0\necho $@\n",
 				 filename);
@@ -1787,7 +1782,6 @@ test_run_script (void)
 		job_run_script (job, job->script);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		/* Loop until we've fed all of the data. */
 		first = TRUE;
@@ -1843,7 +1837,7 @@ test_run_script (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
+			job->state = JOB_SPAWNED;
 			job->script = nih_alloc (job, 4096);
 			sprintf (job->script, "exec > %s\necho $0\necho $@\n",
 				 filename);
@@ -1857,7 +1851,6 @@ test_run_script (void)
 		job_run_script (job, job->script);
 
 		TEST_NE (job->pid, 0);
-		TEST_EQ (job->process_state, PROCESS_ACTIVE);
 
 		/* Loop until we've fed all of the data. */
 		first = TRUE;

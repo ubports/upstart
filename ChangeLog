@@ -1,5 +1,13 @@
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Simplify a little bit, no need to
+	do the state assertions here, just make sure there's no already
+	a process running.
+	* init/tests/test_job.c (test_run_command, test_run_script): Run
+	tests in the spawned state, since that's where we run the primary
+	command or script.  Drop check for process state since that's no
+	longer set.
+
 	* init/job.c (job_change_state, job_next_state): Ok, here's the big
 	one ... rewrite this to use the new state transitions.  This has
 	suddenly got a lot simpler and easier to read, this was definitely a

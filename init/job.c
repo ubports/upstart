@@ -908,8 +908,7 @@ job_run_script (Job        *job,
  *
  * This function spawns a new process for @job storing the pid and new
  * process state back in that object.  This can only be called when there
- * is not already a process, and the state is one that permits a process
- * (ie. everything except JOB_WAITING).
+ * is not already a process for the job.
  *
  * The caller should have already prepared the arguments, the list is
  * passed directly to process_spawn().
@@ -927,8 +926,7 @@ job_run_process (Job          *job,
 	int   error = FALSE;
 
 	nih_assert (job != NULL);
-	nih_assert (job->state != JOB_WAITING);
-	nih_assert (job->process_state == PROCESS_NONE);
+	nih_assert (job->pid == 0);
 
 	/* Run the process, repeat until fork() works */
 	while ((pid = process_spawn (job, argv)) < 0) {
@@ -943,18 +941,9 @@ job_run_process (Job          *job,
 		error = TRUE;
 	}
 
-	/* Update the job details */
+	nih_info (_("Active %s process (%d)"), job->name, pid);
+
 	job->pid = pid;
-	if (job->daemon && (job->state == JOB_RUNNING)) {
-		/* FIXME should probably set timer or something?
-		 *
-		 * need to cope with daemons not being, after all */
-		nih_info (_("Spawned %s process (%d)"), job->name, job->pid);
-		job->process_state = PROCESS_SPAWNED;
-	} else {
-		nih_info (_("Active %s process (%d)"), job->name, job->pid);
-		job->process_state = PROCESS_ACTIVE;
-	}
 }
 
 
