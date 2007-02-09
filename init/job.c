@@ -354,9 +354,6 @@ job_change_cause (Job           *job,
  *
  * The associated event is also queued by this function.
  *
- * It does NOT perform any actions to leave the current state, so this
- * function may only be called when there is no active process.
- *
  * Some state transitions are not be permitted and will result in an
  * assertion failure.  Also some state transitions may result in further
  * transitions, so the state when this function returns may not be the
@@ -367,7 +364,6 @@ job_change_state (Job      *job,
 		  JobState  state)
 {
 	nih_assert (job != NULL);
-	nih_assert (job->pid == 0);
 
 	while (job->state != state) {
 		JobState old_state;
@@ -384,6 +380,7 @@ job_change_state (Job      *job,
 		 */
 		switch (job->state) {
 		case JOB_WAITING:
+			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert ((old_state == JOB_POST_STOP)
 				    || (old_state == JOB_STARTING));
@@ -394,6 +391,7 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_STARTING:
+			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
 			nih_assert ((old_state == JOB_WAITING)
 				    || (old_state == JOB_POST_STOP));
@@ -427,6 +425,7 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_PRE_START:
+			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
@@ -438,6 +437,7 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_SPAWNED:
+			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
@@ -499,6 +499,7 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_POST_STOP:
+			nih_assert (job->pid == 0);
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->stop_script) {
