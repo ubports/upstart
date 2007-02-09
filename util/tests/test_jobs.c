@@ -108,6 +108,10 @@ test_start_action (void)
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
 	/* Reap the child, check the output */
 	waitpid (pid, &status, 0);
 	rewind (output);
@@ -150,6 +154,10 @@ test_start_action (void)
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
 				   JOB_STOP, JOB_KILLED, 1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -198,6 +206,10 @@ test_start_action (void)
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
 	/* Reap the child, check the output */
 	waitpid (pid, &status, 0);
 	rewind (output);
@@ -243,6 +255,10 @@ test_start_action (void)
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
 	/* Should receive another UPSTART_JOB_QUERY */
 	assert (msg = nih_io_message_recv (NULL, sock, &len));
 
@@ -257,6 +273,10 @@ test_start_action (void)
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
 	/* Reap the child, check the output */
 	waitpid (pid, &status, 0);
 	rewind (output);
@@ -266,6 +286,66 @@ test_start_action (void)
 
 	TEST_FILE_EQ (output, "foo (stop) pre-stop, process 1000\n");
 	TEST_FILE_EQ (output, "bar (start) spawned, process 2000\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that if the command returns multiple replies, they are all
+	 * output.
+	 */
+	TEST_FEATURE ("with multiple replies");
+	cmd.command = "status";
+	args[0] = "foo";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = start_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_JOB_QUERY */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 20);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\03s\0\0\0\03foo", 20);
+
+	nih_free (msg);
+
+	/* Send back the status */
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
+				   JOB_STOP, JOB_WAITING, 0);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
+				   JOB_START, JOB_PRE_START, 1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
+				   JOB_STOP, JOB_PRE_STOP, 2000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_EQ (output, "foo (stop) waiting\n");
+	TEST_FILE_EQ (output, "foo (start) pre-start, process 1000\n");
+	TEST_FILE_EQ (output, "foo (stop) pre-stop, process 2000\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -362,6 +442,10 @@ test_start_action (void)
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "galen",
 				   JOB_START, JOB_RUNNING, 1000);
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	msg = upstart_message_new (NULL, pid, UPSTART_JOB_LIST_END);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 

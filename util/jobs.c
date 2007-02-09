@@ -141,8 +141,7 @@ static int
 do_job (NihCommand *command,
 	const char *job)
 {
-	NihIoMessage *message, *reply;
-	size_t        len;
+	NihIoMessage *message;
 
 	nih_assert (command != NULL);
 	nih_assert (job != NULL);
@@ -170,17 +169,27 @@ do_job (NihCommand *command,
 	nih_free (message);
 
 
-	/* Wait for a single reply */
-	reply = nih_io_message_recv (NULL, control_sock, &len);
-	if (! reply)
-		return -1;
+	/* Handle replies until a handler exits with a non-zero value,
+	 * indicating either an error or the list end.
+	 */
+	for (;;) {
+		NihIoMessage *reply;
+		size_t        len;
+		int           ret;
 
-	if (upstart_message_handle (reply, reply, handlers, NULL) < 0) {
+		reply = nih_io_message_recv (NULL, control_sock, &len);
+		if (! reply)
+			return -1;
+
+		ret = upstart_message_handle (reply, reply, handlers, NULL);
 		nih_free (reply);
-		return -1;
-	}
 
-	nih_free (reply);
+		if (ret < 0) {
+			return -1;
+		} else if (ret > 0) {
+			break;
+		}
+	}
 
 	return 0;
 }
@@ -212,6 +221,9 @@ list_action (NihCommand   *command,
 	if (nih_io_message_send (message, control_sock) < 0)
 		goto error;
 
+	nih_free (message);
+
+
 	/* Handle replies until a handler exits with a non-zero value,
 	 * indicating either an error or the list end.
 	 */
@@ -220,21 +232,19 @@ list_action (NihCommand   *command,
 		size_t        len;
 		int           ret;
 
-		reply = nih_io_message_recv (message, control_sock, &len);
+		reply = nih_io_message_recv (NULL, control_sock, &len);
 		if (! reply)
 			goto error;
 
 		ret = upstart_message_handle (reply, reply, handlers, NULL);
+		nih_free (reply);
+
 		if (ret < 0) {
 			goto error;
 		} else if (ret > 0) {
 			break;
 		}
-
-		nih_free (reply);
 	}
-
-	nih_free (message);
 
 	return 0;
 
@@ -274,22 +284,25 @@ jobs_action (NihCommand   *command,
 	if (nih_io_message_send (message, control_sock) < 0)
 		goto error;
 
+	nih_free (message);
+
+
 	/* Receive all replies */
 	for (;;) {
 		NihIoMessage *reply;
 		size_t        len;
+		int           ret;
 
-		reply = nih_io_message_recv (message, control_sock, &len);
+		reply = nih_io_message_recv (NULL, control_sock, &len);
 		if (! reply)
 			goto error;
 
-		if (upstart_message_handle (reply, reply, handlers, NULL) < 0)
-			goto error;
-
+		ret = upstart_message_handle (reply, reply, handlers, NULL);
 		nih_free (reply);
-	}
 
-	nih_free (message);
+		if (ret < 0)
+			goto error;
+	}
 
 	return 0;
 
@@ -358,7 +371,7 @@ static int handle_job_status (void               *data,
  *
  * Outputs a warning message containing the job name.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: positive value to end loop.
  **/
 static int handle_job_unknown  (void               *data,
 				pid_t               pid,
@@ -371,7 +384,7 @@ static int handle_job_unknown  (void               *data,
 
 	nih_warn (_("unknown job: %s"), name);
 
-	return 0;
+	return 1;
 }
 
 /**
