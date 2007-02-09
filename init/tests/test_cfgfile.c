@@ -214,8 +214,6 @@ test_read_job (void)
 	TEST_FEATURE ("with respawn options and not respawn");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "do something\n");
-	fprintf (jf, "end script\n");
 	fprintf (jf, "pid file /var/run/foo.pid\n");
 	fprintf (jf, "pid binary /lib/foo/foo.bin\n");
 	fclose (jf);
