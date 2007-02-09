@@ -408,7 +408,7 @@ check_job_stopped (void               *data,
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
-	TEST_EQ_STR (name, "test");
+	TEST_EQ_STR (name, "frodo");
 	TEST_EQ (goal, JOB_STOP);
 	TEST_EQ (state, JOB_STOPPING);
 	TEST_GT (process, 0);
@@ -434,7 +434,7 @@ test_job_stop (void)
 	 * along with the running process being killed.
 	 */
 	TEST_FEATURE ("with known job");
-	job = job_new (NULL, "test");
+	job = job_new (NULL, "frodo");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	TEST_CHILD (job->pid) {
@@ -450,7 +450,7 @@ test_job_stop (void)
 		sock = upstart_open ();
 
 		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test");
+					       UPSTART_JOB_STOP, "frodo");
 		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
@@ -478,6 +478,7 @@ test_job_stop (void)
 	TEST_EQ (job->state, JOB_STOPPING);
 	TEST_GT (job->pid, 0);
 
+	kill (job->pid, SIGTERM);
 	waitpid (job->pid, &status, 0);
 
 	TEST_TRUE (WIFSIGNALED (status));
@@ -603,7 +604,7 @@ test_job_query (void)
 		exit (1);
 
 	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STOPPING);
+	TEST_EQ (job->state, JOB_KILLED);
 	TEST_EQ (job->pid, 1000);
 
 	nih_list_free (&job->entry);
@@ -685,7 +686,7 @@ test_job_list (void)
 
 	job2 = job_new (NULL, "frodo");
 	job2->goal = JOB_STOP;
-	job2->state = JOB_KILLED;
+	job2->state = JOB_STOPPING;
 	job2->pid = 1000;
 
 	fflush (stdout);
@@ -830,7 +831,7 @@ test_unwatch_jobs (void)
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
-	job = job_new (NULL, "test");
+	job = job_new (NULL, "frodo");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->pid = 1000;
