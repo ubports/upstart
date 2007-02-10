@@ -1,28 +1,28 @@
-Code Cleanup:
-
- * cfg_watch_dir needs testing
-
-
 High Priority:
 
- * Serialisation is turning out to be quite a tricky topic.  We're not
-   serialising subscriptions, the outgoing message queue, event emission
-   callbacks, etc.  There must be a better way of doing this!
+ * cfg_watch_dir and its companion functions need testing; this shouldn't
+   be too hard, just create a config directory and move stuff around in
+   common patterns and see what happens to the jobs.
 
- * Re-exec'ing init will disconnect anything on the control socket.
+ * Restore serialisation of state between upstart processes.  Having made
+   the structures in memory more sane, this should be easier again, as
+   long as we send things in this order:
 
- * sort out the message types into groups, etc.
+    * EventEmission queue
+    * Job hash (referencing cause and blocked events by id, also need to
+      ensure we handle instance jobs proeprly)
+    * NotifySubscription list (which references both events by id and jobs
+      by name)
+   
+   I want to use the IPC protocol for this, since it's somewhat stable
+   now.  Handing off will still use the "fork a child, exec in the parent"
+   model, except for the following.
 
- * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
-   we encounter any problems write the error code to this pipe and die.
-   Then from above, we can read this pipe to determine whether the job
-   failed before or after the exec.  (Might be a cleaner way to do this).
-
- * If environment variables don't have an = in them, copy that variable
-   from init's environment (default PATH, TERM)
-
- * putenv/setenv is quite undesirable, in fact, process_setup_environment
-   is just getting messy!
+    * Leave the control socket open, clear the cloexec flag, and pass its
+      file descriptor number to the new init process.
+    * Pass logger state to the new init process
+    * In the child, close the control socket we had open and open an
+      ordinary socket; blocking-write the information to that and then die.
 
 
 Medium Priority:
@@ -30,28 +30,81 @@ Medium Priority:
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
 
+ * Likewise iterating through all the Jobs to find a pid is messy; we
+   should have a lookup table for these too (see Job thoughts below).
+
  * If we can't KILL things, we shouldn't ignore that, we should treat
    that as a failure and adjust the job again so it still shows up as
    running
+    * force option?  ensures things are KILLed and failure to KILL ignored?
 
- * force option?  ensures things are KILLed and failure to KILL
-   ignored?
+ * We may need to KILL scripts, e.g. post-start; especially when the goal
+   changes.  Or perhaps just after a timeout?  (see Job below)
 
- * we may need to KILL scripts, e.g. post-start; especially when the goal
-   changes.
-
- * scripts should also have a timeout
+ * Job and subscription IPC commands need to be grouped as has already
+   happened for the event commands, though note possible upcoming changes
+   to Job below.
 
  * There's no way to stop a single instance of job, it always tries to
    stop the parent (which does nothing) and returns the list of instances.
 
+ * The job structure now has a nice JobProcess sub-structure for holding
+   information about what to run, but still has a job-level pid and aux_pid
+   field for holding the running process id.
+
+   How about we move the pid into the JobProcess structure?
+
+   Status information could then be sent as something like:
+
+    * Job name
+      * Instance id
+      * Goal
+      * State
+        * Process name
+        * Process pid
+
+   With each indented bit repeated as many times as necessary (we'll need
+   some way to be able to add new fields in the middle though); perhaps
+   send them as separate messages?
+
+   This would make it really easy to implement actions, they just become
+   additional processes with a name and registration-assigned id (store
+   the whole lot in an array for convenience).
+
+   It'd also take a few of the strangenesses of using the state to identify
+   a process away.  failed_state would instead become a reference to the
+   failed *process*
+
+ * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
+   we encounter any problems write the error code to this pipe and die.
+   Then from above, we can read this pipe to determine whether the job
+   failed before or after the exec.  (Might be a cleaner way to do this).
+
 
 Low Priority:
 
- * replace logd raise/wait/kill interlock with a pipe-based one?
+ * If environment variables don't have an = in them, copy that variable
+   from init's environment (default PATH, TERM).  On the subject of
+   process_setup_environment, it's getty very messy; it's about time it
+   got cleaned up -- and maybe don't use putenv/setenv since they're a
+   little strange.
 
- * replace logd with something else that's more standard in the system,
+ * process_setup_console is due for an overhaul as well; especially if
+   we want to be able to pass file descriptors in.  Am somewhat tempted
+   to add a magic CONSOLE_DEFAULT option which tries fd, logging, null,
+   etc.  and use CONSOLE_LOGGED to mean "die if logd isn't around".
+
+ * We always want /dev/fd/NNN to be /dev/fd/3, we should have some way
+   to instruct process_spawn to do that.
+
+ * Replace logd raise/wait/kill interlock with a pipe-based one?
+
+ * Replace logd with something else that's more standard in the system,
    and just use a normal API to communicate with it.
+
+ * logd is currently disabled because of the problem where it goes away,
+   and the scripts being run end up vanishing because they can't write
+   data.
 
 
 Unfinished Features:
