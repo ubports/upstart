@@ -84,6 +84,10 @@ Medium Priority:
    a process away.  failed_state would instead become a reference to the
    failed *process*
 
+   The problem comes when a process is taken away by re-parsing the
+   configuration file; where do we put its pid?  (Maybe just mark the
+   structure some way, and cope with that)
+
  * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
    we encounter any problems write the error code to this pipe and die.
    Then from above, we can read this pipe to determine whether the job
