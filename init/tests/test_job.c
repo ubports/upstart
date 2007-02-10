@@ -568,6 +568,7 @@ test_find_by_pid (void)
 	TEST_FUNCTION ("job_find_by_pid");
 	job1 = job_new (NULL, "foo");
 	job1->pid = 10;
+	job1->aux_pid = 15;
 	job2 = job_new (NULL, "bar");
 	job3 = job_new (NULL, "baz");
 	job3->pid = 20;
@@ -579,6 +580,15 @@ test_find_by_pid (void)
 	ptr = job_find_by_pid (20);
 
 	TEST_EQ_P (ptr, job3);
+
+
+	/* Check that we can find a job that exists by the pid of its
+	 * auxiliary process.
+	 */
+	TEST_FEATURE ("with auxiliary pid we expect to find");
+	ptr = job_find_by_pid (15);
+
+	TEST_EQ_P (ptr, job1);
 
 
 	/* Check that we get NULL if no job has a process with that pid. */

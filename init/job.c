@@ -480,7 +480,7 @@ job_find_by_pid (pid_t pid)
 	NIH_HASH_FOREACH (jobs, iter) {
 		job = (Job *)iter;
 
-		if (job->pid == pid)
+		if ((job->pid == pid) || (job->aux_pid == pid))
 			return job;
 	}
 
