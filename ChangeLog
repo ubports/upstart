@@ -1,5 +1,16 @@
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add new post_start and pre_stop scripts.
+	* init/job.c (job_new): Initialise new scripts to NULL.
+	(job_copy): Copy the information from the new scripts over as well.
+	* init/tests/test_job.c (test_new): Check they're initialised.
+	(test_copy): Check that the information is copied properly.
+	* init/cfgfile.c (cfg_stanza_post_start, cfg_stanza_pre_stop): Add
+	new script stanza functions for the additional two scripts that
+	we want.
+	* init/tests/test_cfgfile.c (test_stanza_post_start) 
+	(test_stanza_pre_stop): Add tests for the new stanzas.
+
 	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script): Rewrite to
 	allocate a JobProcess and parse the command or script into it.
 	(cfg_read_job): Fix the long broken assumption that pid_file and

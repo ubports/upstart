@@ -116,6 +116,8 @@ test_new (void)
 
 		TEST_EQ_P (job->process, NULL);
 		TEST_EQ_P (job->pre_start, NULL);
+		TEST_EQ_P (job->post_start, NULL);
+		TEST_EQ_P (job->pre_stop, NULL);
 		TEST_EQ_P (job->post_stop, NULL);
 
 		TEST_EQ (job->console, CONSOLE_NONE);
@@ -206,6 +208,8 @@ test_copy (void)
 
 		TEST_EQ_P (copy->process, NULL);
 		TEST_EQ_P (copy->pre_start, NULL);
+		TEST_EQ_P (copy->post_start, NULL);
+		TEST_EQ_P (copy->pre_stop, NULL);
 		TEST_EQ_P (copy->post_stop, NULL);
 
 		TEST_EQ (copy->console, CONSOLE_NONE);
@@ -295,6 +299,16 @@ test_copy (void)
 	job->pre_start->script = TRUE;
 	job->pre_start->command = nih_strdup (job->pre_start,
 					      "mkdir /var/run/daemon\n");
+
+	job->post_start = nih_new (job, JobProcess);
+	job->post_start->script = TRUE;
+	job->post_start->command = nih_strdup (job->post_start,
+					       "echo start | nc -q0 127.0.0.1 80\n");
+
+	job->pre_stop = nih_new (job, JobProcess);
+	job->pre_stop->script = TRUE;
+	job->pre_stop->command = nih_strdup (job->pre_stop,
+					     "echo stop | nc -q0 127.0.0.1 80\n");
 
 	job->post_stop = nih_new (job, JobProcess);
 	job->post_stop->script = TRUE;
@@ -441,6 +455,20 @@ test_copy (void)
 		TEST_ALLOC_PARENT (copy->pre_start->command, copy->pre_start);
 		TEST_EQ_STR (copy->pre_start->command,
 			     job->pre_start->command);
+
+		TEST_ALLOC_PARENT (copy->post_start, copy);
+		TEST_ALLOC_SIZE (copy->post_start, sizeof (JobProcess));
+		TEST_EQ (copy->post_start->script, TRUE);
+		TEST_ALLOC_PARENT (copy->post_start->command,
+				   copy->post_start);
+		TEST_EQ_STR (copy->post_start->command,
+			     job->post_start->command);
+
+		TEST_ALLOC_PARENT (copy->pre_stop, copy);
+		TEST_ALLOC_SIZE (copy->pre_stop, sizeof (JobProcess));
+		TEST_EQ (copy->pre_stop->script, TRUE);
+		TEST_ALLOC_PARENT (copy->pre_stop->command, copy->pre_stop);
+		TEST_EQ_STR (copy->pre_stop->command, job->pre_stop->command);
 
 		TEST_ALLOC_PARENT (copy->post_stop, copy);
 		TEST_ALLOC_SIZE (copy->post_stop, sizeof (JobProcess));

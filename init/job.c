@@ -182,6 +182,8 @@ job_new (const void *parent,
 
 	job->process = NULL;
 	job->pre_start = NULL;
+	job->post_start = NULL;
+	job->pre_stop = NULL;
 	job->post_stop = NULL;
 
 	job->console = CONSOLE_NONE;
@@ -339,6 +341,30 @@ job_copy (const void *parent,
 		job->pre_start->command = nih_strdup (job->pre_start,
 						      old_job->pre_start->command);
 		if (! job->pre_start->command)
+			goto error;
+	}
+
+	if (old_job->post_start) {
+		job->post_start = nih_new (job, JobProcess);
+		if (! job->post_start)
+			goto error;
+
+		job->post_start->script = old_job->post_start->script;
+		job->post_start->command = nih_strdup (job->post_start,
+						       old_job->post_start->command);
+		if (! job->post_start->command)
+			goto error;
+	}
+
+	if (old_job->pre_stop) {
+		job->pre_stop = nih_new (job, JobProcess);
+		if (! job->pre_stop)
+			goto error;
+
+		job->pre_stop->script = old_job->pre_stop->script;
+		job->pre_stop->command = nih_strdup (job->pre_stop,
+						     old_job->pre_stop->command);
+		if (! job->pre_stop->command)
 			goto error;
 	}
 

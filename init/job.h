@@ -132,6 +132,8 @@ typedef struct job_process {
  * @pid_timer: timer for pid location,
  * @process: primary process to be run,
  * @pre_start: process to be run before job is started,
+ * @post_start: process to be run after job is started.
+ * @pre_stop: process to be run before job is stopped,
  * @post_stop: process to be run after job is stopped,
  * @respawn_script: script to run between @command respawns,
  * @console: how to arrange the job's stdin/out/err file descriptors,
@@ -197,6 +199,8 @@ struct job {
 
 	JobProcess    *process;
 	JobProcess    *pre_start;
+	JobProcess    *post_start;
+	JobProcess    *pre_stop;
 	JobProcess    *post_stop;
 
 	ConsoleType    console;

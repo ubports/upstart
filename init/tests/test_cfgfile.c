@@ -1571,6 +1571,400 @@ test_stanza_pre_start (void)
 }
 
 void
+test_stanza_post_start (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_post_start");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a post-start exec stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with exec and command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start exec /bin/tool -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->post_start, job);
+	TEST_ALLOC_SIZE (job->post_start, sizeof (JobProcess));
+	TEST_EQ (job->post_start->script, FALSE);
+	TEST_ALLOC_PARENT (job->post_start->command, job->post_start);
+	TEST_EQ_STR (job->post_start->command, "/bin/tool -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a post-start exec stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with exec but no command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the post-start exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start exec /bin/tool -d\n");
+	fprintf (jf, "post-start exec /bin/tool\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->post_start, job);
+	TEST_ALLOC_SIZE (job->post_start, sizeof (JobProcess));
+	TEST_EQ (job->post_start->script, TRUE);
+	TEST_ALLOC_PARENT (job->post_start->command, job->post_start);
+	TEST_EQ_STR (job->post_start->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple post-start script stanzas result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "post-start script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "5: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start script stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with argument to script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-start script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-start foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-start\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_pre_stop (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_pre_stop");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a pre-stop exec stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with exec and command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop exec /bin/tool -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->pre_stop, job);
+	TEST_ALLOC_SIZE (job->pre_stop, sizeof (JobProcess));
+	TEST_EQ (job->pre_stop->script, FALSE);
+	TEST_ALLOC_PARENT (job->pre_stop->command, job->pre_stop);
+	TEST_EQ_STR (job->pre_stop->command, "/bin/tool -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pre-stop exec stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with exec but no command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the pre-stop exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop exec /bin/tool -d\n");
+	fprintf (jf, "pre-stop exec /bin/tool\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->pre_stop, job);
+	TEST_ALLOC_SIZE (job->pre_stop, sizeof (JobProcess));
+	TEST_EQ (job->pre_stop->script, TRUE);
+	TEST_ALLOC_PARENT (job->pre_stop->command, job->pre_stop);
+	TEST_EQ_STR (job->pre_stop->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple pre-stop script stanzas result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "pre-stop script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "5: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop script stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with argument to script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-stop script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-stop foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-stop\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
 test_stanza_post_stop (void)
 {
 	Job  *job;
