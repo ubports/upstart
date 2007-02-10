@@ -1,5 +1,19 @@
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add an auxiliary pid member.
+	* init/job.c (job_new): Initialise the aux_pid member.
+	(job_change_state): Run the post-start and pre-stop scripts when we
+	enter the state with the same name (assuming they exist).
+	(job_run_process): Store the pid in aux_pid when starting the
+	post-start or pre-stop processes.
+	* init/tests/test_job.c (test_change_state): Add tests for running
+	the new post-start and pre-stop scripts; which get their process ids
+	stored in aux_pid instead of pid.
+	(test_new): Make sure the aux_pid member is initialised properly.
+	(test_copy): Make sure the aux_pid member is not copied.
+
+	* TODO: Update.
+
 	* init/tests/test_job.c (test_change_state): Add a check for the
 	daemon stanza holding the job in spawned; we snuck this in a while
 	back and never tested it (there's no support to get it out of

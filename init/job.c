@@ -148,6 +148,7 @@ job_new (const void *parent,
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->pid = 0;
+	job->aux_pid = 0;
 
 	job->cause = NULL;
 	job->blocked = NULL;
@@ -630,7 +631,6 @@ job_change_state (Job      *job,
 		 */
 		switch (job->state) {
 		case JOB_STARTING:
-			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
 			nih_assert ((old_state == JOB_WAITING)
 				    || (old_state == JOB_POST_STOP));
@@ -664,7 +664,6 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_PRE_START:
-			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
@@ -676,7 +675,6 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_SPAWNED:
-			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
@@ -691,7 +689,11 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
 
-			state = job_next_state (job);
+			if (job->post_start) {
+				job_run_process (job, job->post_start);
+			} else {
+				state = job_next_state (job);
+			}
 
 			break;
 		case JOB_RUNNING:
@@ -712,7 +714,11 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_RUNNING);
 
-			state = job_next_state (job);
+			if (job->pre_stop) {
+				job_run_process (job, job->pre_stop);
+			} else {
+				state = job_next_state (job);
+			}
 
 			break;
 		case JOB_STOPPING:
@@ -736,7 +742,6 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_POST_STOP:
-			nih_assert (job->pid == 0);
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->post_stop) {
@@ -747,7 +752,6 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_WAITING:
-			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert ((old_state == JOB_POST_STOP)
 				    || (old_state == JOB_STARTING));
@@ -761,7 +765,6 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_DELETED:
-			nih_assert (job->pid == 0);
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_WAITING);
 
@@ -1035,13 +1038,24 @@ job_run_process (Job        *job,
 {
 	char   **argv, *script = NULL;
 	size_t   argc;
-	pid_t    pid;
+	pid_t   *pid;
 	int      error = FALSE, fds[2];
 
 	nih_assert (job != NULL);
-	nih_assert (job->pid == 0);
 	nih_assert (process != NULL);
 	nih_assert (process->command != NULL);
+
+	/* Store the process id in the right field */
+	switch (job->state) {
+	case JOB_POST_START:
+	case JOB_PRE_STOP:
+		pid = &job->aux_pid;
+		break;
+	default:
+		pid = &job->pid;
+		break;
+	}
+	nih_assert (*pid == 0);
 
 	/* We run the process using a shell if it says it wants to be run
 	 * as such, or if it contains any shell-like characters; since that's
@@ -1119,7 +1133,7 @@ job_run_process (Job        *job,
 
 
 	/* Spawn the process, repeat until fork() works */
-	while ((pid = process_spawn (job, argv)) < 0) {
+	while ((*pid = process_spawn (job, argv)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -1133,8 +1147,7 @@ job_run_process (Job        *job,
 
 	nih_free (argv);
 
-	job->pid = pid;
-	nih_info (_("Active %s process (%d)"), job->name, job->pid);
+	nih_info (_("Active %s process (%d)"), job->name, *pid);
 
 
 	/* Feed the script to the child process */

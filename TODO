@@ -37,7 +37,8 @@ Medium Priority:
  * force option?  ensures things are KILLed and failure to KILL
    ignored?
 
- * we may need to KILL scripts, e.g. post-start
+ * we may need to KILL scripts, e.g. post-start; especially when the goal
+   changes.
 
  * scripts should also have a timeout
 

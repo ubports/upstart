@@ -82,6 +82,7 @@ test_new (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
@@ -174,6 +175,7 @@ test_copy (void)
 		TEST_EQ (copy->goal, JOB_STOP);
 		TEST_EQ (copy->state, JOB_WAITING);
 		TEST_EQ (copy->pid, 0);
+		TEST_EQ (copy->aux_pid, 0);
 
 		TEST_EQ_P (copy->cause, NULL);
 		TEST_EQ_P (copy->blocked, NULL);
@@ -245,6 +247,7 @@ test_copy (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_POST_STOP;
 	job->pid = 1000;
+	job->aux_pid = 1010;
 
 	job->cause = (void *)-1;
 	job->blocked = (void *)-1;
@@ -361,6 +364,7 @@ test_copy (void)
 		TEST_EQ (copy->goal, JOB_STOP);
 		TEST_EQ (copy->state, JOB_WAITING);
 		TEST_EQ (copy->pid, 0);
+		TEST_EQ (copy->aux_pid, 0);
 
 		TEST_EQ_P (copy->cause, NULL);
 		TEST_EQ_P (copy->blocked, NULL);
@@ -1267,7 +1271,6 @@ test_change_state (void)
 
 	job->process = tmp;
 
-
 	/* Check that a job which has a main process that becomes a daemon
 	 * can move from pre-start to spawned and have the process run.
 	 * The state will remain in spawned until that process dies, and
@@ -1314,6 +1317,104 @@ test_change_state (void)
 	}
 
 	job->daemon = FALSE;
+
+
+	/* Check that a job with a post-start process can move from spawned
+	 * to post-start, and have the process run.  The process id should be
+	 * stored in aux_pid, leaving pid unchanged.
+	 */
+	TEST_FEATURE ("spawned to post-start");
+	job->post_start = nih_new (job, JobProcess);
+	job->post_start->script = FALSE;
+	job->post_start->command = nih_sprintf (job->post_start,
+						"touch %s/post-start",
+						dirname);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid = 1;
+		job->aux_pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_POST_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid, 1);
+		TEST_NE (job->aux_pid, 0);
+
+		waitpid (job->aux_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/post-start");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	nih_free (job->post_start);
+	job->post_start = NULL;
+
+
+	/* Check that a job without a post-start process can move from
+	 * spawned to post-start, skipping over that state, and instead
+	 * going to the running state.  Because we get there, we should
+	 * get a started event emitted.
+	 */
+	TEST_FEATURE ("spawned to post-start without process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid = 1;
+		job->aux_pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_POST_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid, 1);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
 
 
 	/* Check that a task can move from post-start to running, which will
@@ -1402,6 +1503,104 @@ test_change_state (void)
 	}
 
 	job->service = FALSE;
+
+
+	/* Check that a job with a pre-stop process can move from running
+	 * to pre-stop, and have the process run.  The process id should be
+	 * stored in aux_pid, leaving pid unchanged.
+	 */
+	TEST_FEATURE ("running to pre-stop");
+	job->pre_stop = nih_new (job, JobProcess);
+	job->pre_stop->script = FALSE;
+	job->pre_stop->command = nih_sprintf (job->pre_stop,
+					      "touch %s/pre-stop", dirname);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid = 1;
+		job->aux_pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_PRE_STOP);
+		TEST_EQ (job->pid, 1);
+		TEST_NE (job->aux_pid, 0);
+
+		waitpid (job->aux_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/pre-stop");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	nih_free (job->pre_stop);
+	job->pre_stop = NULL;
+
+
+	/* Check that a job without a pre-stop process can move from
+	 * running to pre-stop, skipping over that state, and instead
+	 * going to the stopping state.  Because we get there, we should
+	 * get a stopping event emitted.
+	 */
+	TEST_FEATURE ("running to pre-stop without process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid = 1;
+		job->aux_pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 1);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "ok");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
 
 
 	/* Check that a job can move from running to stopping, by-passing

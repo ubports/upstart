@@ -106,6 +106,7 @@ typedef struct job_process {
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
  * @pid: current process id,
+ * @aux_pid: additional process id (for post-start or pre-stop),
  * @cause: cause of last goal change,
  * @blocked: emitted event we're waiting to finish,
  * @failed: whether the last process ran failed,
@@ -165,6 +166,7 @@ struct job {
 	JobGoal        goal;
 	JobState       state;
 	pid_t          pid;
+	pid_t          aux_pid;
 
 	EventEmission *cause;
 	EventEmission *blocked;
