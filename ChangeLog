@@ -1,3 +1,18 @@
+2007-02-10  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script): Rewrite to
+	allocate a JobProcess and parse the command or script into it.
+	(cfg_read_job): Fix the long broken assumption that pid_file and
+	pid_binary are required for respawn, when they're actually required
+	for daemon.
+	(cfg_stanza_start, cfg_stanza_stop): Remove script second-level.
+	(cfg_stanza_respawn): Parse into the job's process.
+	(cfg_stanza_pre_start, cfg_stanza_post_stop): New stanzas for the
+	processes alone.
+	* init/tests/test_cfgfile.c (test_read_job): Update a few test
+	cases to match reality.
+	(test_stanza_start, test_stanza_stop): Remove script-related checks.
+
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_kill_process): Poll the event queue
