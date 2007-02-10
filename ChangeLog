@@ -1,5 +1,9 @@
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Increase version to 0.3.5
+	* NEWS: Update.
+	* TODO: Update.
+
 	* TODO: More notes.
 
 	* TODO: Note an issue with using JobProcess->pid

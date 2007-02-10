@@ -1,3 +1,165 @@
+0.3.5  2007-02-10  "Wear flowers in your hair"
+
+	* Serialisation of job state between upstart processes is disabled;
+	  though upstart will still re-exec itself when sent the TERM
+	  signal, the new copy will not have any of the state of the old.
+	  This will be restored in a later release.
+
+	* WARNING: if you have any job declared "console owner" which is
+	  run by the "stalled" event, comment out the "start on" stanza
+	  before sending the TERM signal -- otherwise the newly started
+	  process will start that job, which will kill your running X
+	  server.
+
+	* logd and the "console logged" (default) option are currently
+	  disabled, pending large-scale changes to the way that this
+	  works.
+
+	* Job scripts have been renamed; "start" to "pre-start" and
+	  "stop" to "pre-stop".
+
+	* A new "post-start" script has been added, it's run after the
+	  main process has been started and the "started" event is not
+	  emitted until it finished.
+
+	* A new "pre-stop" script has also been added, it's run when a
+	  request or event comes in to stop a job, before the "stopping"
+	  event is emitted and before the job is killed.  If this restarts
+	  the job, it will not be stopped.
+
+	* Job processes now have an UPSTART_JOB environment variable
+	  containing the name of the job.
+
+	* initctl start, stop and status will default to using UPSTART_JOB
+	  if no arguments are given.  Therefore you can just put "stop"
+	  or "start" into a job script.
+
+	* Where a job was started or stopped by an event, the processes
+	  now have an UPSTART_EVENT environment variable containing the
+	  name of the event.
+
+	* Events may now have arguments and environment variables attached,
+	  these can be specified with initctl, e.g.
+
+	  # initctl emit network-interface-up eth0 -eADDR=00:11:22:33:44:55:66
+
+	* These arguments can be matched in the job by placing them after
+	  the event name for the "start on" or "stop on" stanzas:
+
+	  start on network-interface-up eth*
+
+	  Additional arguments in the event are assumed to match if not
+	  specified in the job definition, and wildcards may be used within
+	  the job definition as shown above.
+
+	* The arguments are also passed to the script of any job started or
+	  stopped by this event as positional arguments, and the environment
+	  variables are placed into the environment of the job.
+
+	* The set of events emitted due to a job state change have been
+	  completely changed.  The new events are as follows:
+
+	  started: this is emitted once the job is running and ready, and
+	  receives the job name as an argument.
+
+	  stopped: this is emitted once the job has been fully stopped.  As
+	  well as the job name, if the job terminated normally it will have
+	  the "ok" argument; otherwise it will have the "failed" argument
+	  followed by the name of the script that failed ("running" for the
+	  main job) and either an EXIT_STATUS or EXIT_SIGNAL environemtn
+	  variable indicating why it failed.
+
+	  starting: this is emitted before the job is started (before even
+	  the pre-start script is run).  Arguments are as "started".  The
+	  job will not be started until this event has finished.
+
+	  stopping: this is emitted before the job is stopped (but after the
+	  pre-stop script is run).  Arguments are as "stopped".  The job will
+	  not be stopped until this event has finished.
+
+	  These events can be usefully combined as follows.
+
+	  If the "hal" job requires "dbus" to be running, and "hal" must be
+	  stopped before "dbus" may stop:
+
+	  start on started dbus
+	  stop on stopping dbus
+
+	  If the "tomcat" job believes that it must be running before "apache"
+	  can run, and should not be stopped until "apache" has been stopped:
+
+	  start on starting apache
+	  stop on stopped apache
+
+	* The event named for the job has been completely removed; thus
+	  jobs and events no longer share a namespace.
+
+	* Jobs have goals to reach; for a task (the default), the goal is
+	  to go from stopped, to started and back to stopped again.  This
+	  means that when used for the "starting" or "stopping" event, the
+	  entire task has to complete before the referenced job can actually
+	  be started or stopped.
+
+	  Services will normally only want the goal to be to go from stopped
+	  to started; thus when used in "starting" in the example above, the
+	  referenced job can be started once the service has been started
+	  (and not stopped again).  A service is defined by specifying either
+	  "respawn" or "service" in the definition.
+
+	* The list of exit codes that determine whether the main process
+	  failed or succeeded can be specified by the "normalexit"
+	  configuration stanza.  The arguments to this stanza can be exit
+	  codes or signal names, e.g.
+
+	  normalexit 1 99 100 INT QUIT
+
+	  Zero is implied in the list, unless the job is marked "respawn"
+	  since for those jobs, this is the list of exit codes and signals
+	  that cause the job to be not respawned.
+
+	* There is no longer a respawning state, or "respawn script".  Jobs
+	  will instead be stopped and started through the same scripts.
+
+	* Jobs marked with the "instance" stanza can be started multiple
+	  times; each time they are started, a new instance is created.
+
+	* If any job whose goal is changed by an event fail to reach their
+	  new goal, a further "EVENT-NAME/failed" event will be emitted once
+	  the event has finished being handled.
+
+	  This can be used to emit, for example, a "path-unmounting" event
+	  and to not proceed to "path-unmounted" unless it succeeds.
+
+	* initctl emit will block until the event has been handled; it will
+	  also output job status information for any job changed by the event
+	  and terminate with an exit status of 1 if any of those jobs failed
+	  to reach their new goal.
+
+	* The set of events emitted by the "telinit" compatibility command
+	  have been changed.  It now only emits a single "runlevel" event,
+	  and supplies the new runlevel as an argument to it.
+
+	  You should change job files that use:
+
+	      start on runlevel-2
+
+	  to use the following:
+
+	      start on runlevel 2
+
+	  This means also that "stop on runlevel" would stop the job on
+	  any runlevel change.
+
+	* Neither the "telinit" nor "shutdown" commands now emit a
+	  "shutdown" event, in fact, this event has been removed altogether.
+	  "shutdown" now simply emits the appropriate runlevel event;
+	  the -H and -P arguments set the INIT_HALT variable in the
+	  environment of that event, just as it does in sysvinit.
+
+	* Normal output from initctl, etc. is no longer prefixed "initctl:"
+
+	* The "ctrlaltdel" event has been renamed to "control-alt-delete".
+
 0.3.2  2007-02-06  "Could anybody have tampered with your luggage?"
 
 	* Fix leak of inotify file descriptor that could allow any process

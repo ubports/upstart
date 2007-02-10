@@ -33,6 +33,9 @@ High Priority:
    they don't see it trying to go into starting in the case of respawning
    too fast (maybe this bit is right though)
 
+ * Process-less jobs was broken by the implementation of the three-states
+   for running -- add a test case for that.
+
 
 Medium Priority:
 
