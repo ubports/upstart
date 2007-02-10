@@ -12,7 +12,7 @@ High Priority:
     * Job hash (referencing cause and blocked events by id, also need to
       ensure we handle instance jobs proeprly)
     * NotifySubscription list (which references both events by id and jobs
-      by name)
+      by name [or id])
    
    I want to use the IPC protocol for this, since it's somewhat stable
    now.  Handing off will still use the "fork a child, exec in the parent"
@@ -56,6 +56,8 @@ Medium Priority:
 
  * There's no way to stop a single instance of job, it always tries to
    stop the parent (which does nothing) and returns the list of instances.
+   Perhaps a way of dealing with this is to assign each job an id, and
+   use that as the unique identifier, instead of the name?
 
  * The job structure now has a nice JobProcess sub-structure for holding
    information about what to run, but still has a job-level pid and aux_pid
@@ -66,7 +68,7 @@ Medium Priority:
    Status information could then be sent as something like:
 
     * Job name
-      * Instance id
+      * id
       * Goal
       * State
         * Process name
@@ -87,6 +89,17 @@ Medium Priority:
    The problem comes when a process is taken away by re-parsing the
    configuration file; where do we put its pid?  (Maybe just mark the
    structure some way, and cope with that)
+
+ * If we have that kind of indented status information, we could make
+   JOB_START and JOB_STOP accept only a job/instance id.  The tool could
+   lookup use JOB_QUERY to obtain the instance id, that takes a name and
+   a list of fields to be returned and returns all matches.  JOB_QUERY
+   could also take an id for an exact match, or NULL to list all jobs;
+   and that way we lose a command (yay)
+
+ * Perhaps when a configuration file is changed, the existing job structure
+   should be marked for deletion instead of updated; otherwise the job might
+   be stopped by a script or action it didn't know about when it was started!
 
  * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
    we encounter any problems write the error code to this pipe and die.
