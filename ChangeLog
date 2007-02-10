@@ -1,5 +1,11 @@
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_reaper): Make sure that we can
+	reap post-start and pre-stop processes, and have only the aux_pid
+	changed.  Also make sure that if the running process dies while
+	in these states, with or without an aux process, that we don't
+	transition badly.
+
 	* init/job.c (job_find_by_pid): Check aux_pid as well.
 	* init/tests/test_job.c (test_find_by_pid): Make sure we can find it.
 

@@ -2957,8 +2957,6 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid, 0);
 
-		waitpid (job->pid, NULL, 0);
-
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
 
@@ -3008,10 +3006,6 @@ test_child_reaper (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_state, JOB_WAITING);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_NE (job->pid, 1);
-
-		waitpid (job->pid, NULL, 0);
 	}
 
 
@@ -3534,6 +3528,334 @@ test_child_reaper (void)
 				       "with status 1\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
+	}
+
+
+	/* Check that we can reap the post-start task of the job, the
+	 * exit status should be ignored and the job transitioned into
+	 * the running state.  The pid of the job shouldn't be cleared,
+	 * but the aux pid should be.
+	 */
+	TEST_FEATURE ("with post-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+		job->aux_pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 2, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid, 1);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (2) terminated "
+				       "with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+
+	/* Check that we can reap the running task of the job, even if it
+	 * dies during the post-start state, which should set the goal to
+	 * stop and transition a state change into the stopping state.
+	 */
+	TEST_FEATURE ("with running process in post-start state");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+		job->aux_pid = 0;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that we can reap the running task of the job, while there
+	 * is a post-start script running; this should only set the goal to
+	 * stop since we also have to wait for the post-start script to stop.
+	 */
+	TEST_FEATURE ("with running process while post-start running");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+		job->aux_pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that we can reap the running process before the post-start
+	 * process finishes.  Reaping the running process should mark the job
+	 * to be stopped, but not change the state, then reaping the post-start
+	 * process should change the state.
+	 */
+	TEST_FEATURE ("with running then post-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+		job->aux_pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		job_child_reaper (NULL, 2, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that we can reap a failed running process before the
+	 * post-start process finishes.  Reaping the running process
+	 * should mark the job to be stopped, but not change the state,
+	 * then reaping the post-start process should change the state.
+	 */
+	TEST_FEATURE ("with failed running then post-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid = 1;
+		job->aux_pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGSEGV);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+
+		TEST_FILE_EQ (output, ("test: test process (1) killed "
+				       "by SEGV signal\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		job_child_reaper (NULL, 2, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_state, JOB_RUNNING);
+		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+	}
+
+
+	/* Check that we can reap the pre-stop task of the job, the
+	 * exit status should be ignored and the job transitioned into
+	 * the stopping state.  The pid of the job shouldn't be cleared,
+	 * but the aux pid should be.
+	 */
+	TEST_FEATURE ("with pre-stop process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->pid = 1;
+		job->aux_pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 2, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 1);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test process (2) terminated "
+				       "with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+
+	/* Check that we can reap the running task of the job, even if it
+	 * dies during the pre-stop state, which transition a state change
+	 * into the stopping state.
+	 */
+	TEST_FEATURE ("with running process in pre-stop state");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->pid = 1;
+		job->aux_pid = 0;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that we can reap the running task of the job, while there
+	 * is a pre-stop script running; this should have no other effect
+	 * since we also have to wait for the pre-stop script to stop.
+	 */
+	TEST_FEATURE ("with running process while pre-stop running");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->pid = 1;
+		job->aux_pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_PRE_STOP);
+		TEST_EQ (job->pid, 0);
+		TEST_EQ (job->aux_pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
 	}
 
 

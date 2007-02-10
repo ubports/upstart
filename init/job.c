@@ -1291,7 +1291,7 @@ job_child_reaper (void  *data,
 		  int    status)
 {
 	Job *job;
-	int  failed = FALSE, stop = FALSE;
+	int  failed = FALSE, stop = FALSE, state = TRUE;
 
 	nih_assert (data == NULL);
 	nih_assert (pid > 0);
@@ -1326,15 +1326,6 @@ job_child_reaper (void  *data,
 			  job->name, pid);
 	}
 
-	/* Cancel any timer trying to kill the job */
-	if (job->kill_timer) {
-		nih_free (job->kill_timer);
-		job->kill_timer = NULL;
-	}
-
-	job->pid = 0;
-
-
 	switch (job->state) {
 	case JOB_PRE_START:
 	case JOB_POST_STOP:
@@ -1349,10 +1340,26 @@ job_child_reaper (void  *data,
 		break;
 	case JOB_POST_START:
 	case JOB_PRE_STOP:
-		/* Ignore failure from the post-start or pre-stop scripts,
-		 * if they want us to stop or prevent the start of the job,
-		 * they will have changed the goal.
+		/* During the post-start and pre-stop states, we're actually
+		 * possibly running two different processes; the script
+		 * appropriate for the state *and* the primary process.
+		 *
+		 * Not only do we need to figure out which one terminated,
+		 * we also don't want to change the goal if it was the main
+		 * process that terminated since the script is still running;
+		 * so we turn that off, and fall through to handling it.
+		 *
+		 * If it was the script that terminated, we always want to
+		 * change the state (if the main process has since terminated,
+		 * we'll skip through running; if not, we'll stay there).
+		 * We ignore failure though, since there's not much we can
+		 * do about it.
 		 */
+		if (pid == job->aux_pid) {
+			break;
+		} else if (job->aux_pid > 0) {
+			state = FALSE;
+		}
 	case JOB_SPAWNED:
 	case JOB_RUNNING:
 	case JOB_STOPPING:
@@ -1400,6 +1407,26 @@ job_child_reaper (void  *data,
 		nih_assert_not_reached ();
 	}
 
+
+	if (pid == job->pid) {
+		/* Cancel any timer trying to kill the job, since it's just
+		 * died.  This is only relevant for the primary process; but
+		 * we do it here in case we ever use this for anything else
+		 * later down the line.
+		 */
+		if (job->kill_timer) {
+			nih_free (job->kill_timer);
+			job->kill_timer = NULL;
+		}
+
+		/* Clear the pid field. */
+		job->pid = 0;
+
+	} else if (pid == job->aux_pid) {
+		job->aux_pid = 0;
+
+	}
+
 	/* Mark the job as failed; this information shows up as arguments
 	 * and environment to the stop and stopped events generated for the
 	 * job.
@@ -1410,11 +1437,30 @@ job_child_reaper (void  *data,
 	 */
 	if (failed && (! job->failed)) {
 		job->failed = TRUE;
-		job->failed_state = job->state;
-		job->exit_status = status;
-
 		if (job->cause)
 			job->cause->failed = TRUE;
+
+		job->exit_status = status;
+
+		/* We don't store the real state here, since we really mean
+		 * to store a reference to which process failed ...
+		 */
+		switch (job->state) {
+		case JOB_PRE_START:
+		case JOB_POST_STOP:
+			job->failed_state = job->state;
+			break;
+		case JOB_SPAWNED:
+		case JOB_POST_START:
+		case JOB_RUNNING:
+		case JOB_PRE_STOP:
+		case JOB_STOPPING:
+		case JOB_KILLED:
+			job->failed_state = JOB_RUNNING;
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
 	}
 
 	/* Change the goal to stop.  Since at this point we have no process
@@ -1424,7 +1470,8 @@ job_child_reaper (void  *data,
 	if (stop)
 		job_change_goal (job, JOB_STOP, job->cause);
 
-	job_change_state (job, job_next_state (job));
+	if (state)
+		job_change_state (job, job_next_state (job));
 }
 
 
