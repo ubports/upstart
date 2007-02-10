@@ -1268,6 +1268,54 @@ test_change_state (void)
 	job->process = tmp;
 
 
+	/* Check that a job which has a main process that becomes a daemon
+	 * can move from pre-start to spawned and have the process run.
+	 * The state will remain in spawned until that process dies, and
+	 * we have a better pid.
+	 */
+	TEST_FEATURE ("pre-start to spawned for daemon");
+	job->daemon = TRUE;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_state = JOB_WAITING;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_NE (job->pid, 0);
+
+		waitpid (job->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_state, JOB_WAITING);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->daemon = FALSE;
+
+
 	/* Check that a task can move from post-start to running, which will
 	 * emit the started event but leave the cause alone.
 	 */

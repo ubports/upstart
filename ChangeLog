@@ -1,5 +1,10 @@
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_state): Add a check for the
+	daemon stanza holding the job in spawned; we snuck this in a while
+	back and never tested it (there's no support to get it out of
+	spawned yet).
+
 	* init/job.h (Job): Add new post_start and pre_stop scripts.
 	* init/job.c (job_new): Initialise new scripts to NULL.
 	(job_copy): Copy the information from the new scripts over as well.
