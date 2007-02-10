@@ -1,5 +1,7 @@
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job): Correct type of lineno in error.
+
 	* TOOD: Minor notify bug
 
 	* TODO: Big update.

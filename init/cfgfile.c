@@ -244,7 +244,7 @@ cfg_read_job (const void *parent,
 		case NIH_CONFIG_UNKNOWN_STANZA:
 		case CFG_ILLEGAL_VALUE:
 		case CFG_DUPLICATE_VALUE:
-			nih_error ("%s:%d: %s",
+			nih_error ("%s:%zi: %s",
 				   filename, lineno, err->message);
 			break;
 		default:
