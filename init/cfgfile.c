@@ -809,6 +809,10 @@ cfg_stanza_pre_start (Job             *job,
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
 
+		if (! nih_config_has_token (file, len, pos, lineno))
+			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
 		job->pre_start->script = FALSE;
 		job->pre_start->command = nih_config_parse_command (
 			job->pre_start, file, len, pos, lineno);
@@ -878,6 +882,10 @@ cfg_stanza_post_start (Job             *job,
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
+
+		if (! nih_config_has_token (file, len, pos, lineno))
+			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
 		job->post_start->script = FALSE;
 		job->post_start->command = nih_config_parse_command (
@@ -949,6 +957,10 @@ cfg_stanza_pre_stop (Job             *job,
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
 
+		if (! nih_config_has_token (file, len, pos, lineno))
+			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
 		job->pre_stop->script = FALSE;
 		job->pre_stop->command = nih_config_parse_command (
 			job->pre_stop, file, len, pos, lineno);
@@ -1018,6 +1030,10 @@ cfg_stanza_post_stop (Job             *job,
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
+
+		if (! nih_config_has_token (file, len, pos, lineno))
+			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
 		job->post_stop->script = FALSE;
 		job->post_stop->command = nih_config_parse_command (

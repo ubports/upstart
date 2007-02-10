@@ -1494,7 +1494,7 @@ test_stanza_pre_start (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "5: Duplicate value\n");
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -1560,7 +1560,7 @@ test_stanza_pre_start (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -1691,7 +1691,7 @@ test_stanza_post_start (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "5: Duplicate value\n");
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -1757,7 +1757,7 @@ test_stanza_post_start (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -1888,7 +1888,7 @@ test_stanza_pre_stop (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "5: Duplicate value\n");
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -1954,7 +1954,7 @@ test_stanza_pre_stop (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2085,7 +2085,7 @@ test_stanza_post_stop (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "5: Duplicate value\n");
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2151,7 +2151,7 @@ test_stanza_post_stop (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -5074,10 +5074,14 @@ main (int   argc,
 	test_stanza_start ();
 	test_stanza_stop ();
 	test_stanza_exec ();
+	test_stanza_script ();
+	test_stanza_pre_start ();
+	test_stanza_post_start ();
+	test_stanza_pre_stop ();
+	test_stanza_post_stop ();
 	test_stanza_daemon ();
 	test_stanza_respawn ();
 	test_stanza_service ();
-	test_stanza_script ();
 	test_stanza_instance ();
 	test_stanza_pid ();
 	test_stanza_kill ();
