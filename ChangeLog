@@ -1,3 +1,12 @@
+2007-02-11  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_stanza_start, cfg_stanza_stop) 
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop, cfg_stanza_respawn):
+	We're not going to allow stanza keywords to be quoted, since this
+	gives us an easy way to allow users to make something explicitly
+	not a keyword.
+
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.3.6

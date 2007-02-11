@@ -573,7 +573,8 @@ cfg_stanza_start (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -639,7 +640,8 @@ cfg_stanza_stop (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -800,7 +802,8 @@ cfg_stanza_pre_start (Job             *job,
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -874,7 +877,8 @@ cfg_stanza_post_start (Job             *job,
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -948,7 +952,8 @@ cfg_stanza_pre_stop (Job             *job,
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -1022,7 +1027,8 @@ cfg_stanza_post_stop (Job             *job,
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -1150,7 +1156,8 @@ cfg_stanza_respawn (Job             *job,
 	 */
 	arg_pos = *pos;
 	arg_lineno = (lineno ? *lineno : 1);
-	arg = nih_config_next_arg (NULL, file, len, &arg_pos, &arg_lineno);
+	arg = nih_config_next_token (NULL, file, len, &arg_pos, &arg_lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -1322,7 +1329,8 @@ cfg_stanza_pid (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
@@ -1415,7 +1423,8 @@ cfg_stanza_kill (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
