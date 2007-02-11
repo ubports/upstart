@@ -1,5 +1,15 @@
 2007-02-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_goal): We need to be able to stop a running
+	job without a process, because that's what a job-as-state is!  The
+	check was added because job_child_reaper calls job_change_goal and
+	then job_change_state immediately after, we should fix that instead.
+	(job_child_reaper): If we call job_change_goal while in the running
+	state, it will call job_change_state for us; so check for that first
+	and don't change the state!
+	* init/tests/test_job.c (test_change_goal): Update the test to ensure
+	that we can stop a job with no running process.
+
 	* init/cfgfile.c (cfg_stanza_normalexit): normalexit is inconsistent,
 	change to "normal exit"
 	* init/tests/test_cfgfile.c (test_stanza_normalexit): Update.

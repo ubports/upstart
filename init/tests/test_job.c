@@ -750,7 +750,7 @@ test_change_goal (void)
 	/* Check that an attempt to start a job that's running and still
 	 * with a start goal does nothing.
 	 */
-	TEST_FEATURE ("with running job");
+	TEST_FEATURE ("with running job and start");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -767,7 +767,7 @@ test_change_goal (void)
 	/* Check that an attempt to stop a running job results in the goal
 	 * and the state being changed.
 	 */
-	TEST_FEATURE ("with running job");
+	TEST_FEATURE ("with running job and stop");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -781,10 +781,10 @@ test_change_goal (void)
 	}
 
 
-	/* Check that an attempt to stop a running job withoug any process
-	 * only results in the goal being changed.
+	/* Check that an attempt to stop a running job without any process
+	 * also results in the state being changed.
 	 */
-	TEST_FEATURE ("with running job");
+	TEST_FEATURE ("with running job and no process");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
@@ -793,7 +793,7 @@ test_change_goal (void)
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid, 0);
 	}
 

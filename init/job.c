@@ -558,7 +558,7 @@ job_change_goal (Job           *job,
 
 		break;
 	case JOB_STOP:
-		if ((job->state == JOB_RUNNING) && (job->pid > 0))
+		if (job->state == JOB_RUNNING)
 			job_change_state (job, job_next_state (job));
 
 		break;
@@ -1463,12 +1463,17 @@ job_child_reaper (void  *data,
 		}
 	}
 
-	/* Change the goal to stop.  Since at this point we have no process
-	 * and are not in the waiting state, there will be no unexpected
-	 * side-effects.
+	/* Change the goal to stop; normally this doesn't have any
+	 * side-effects, except when we're in the RUNNING state when it'll
+	 * change the state as well.  We obviously don't want to change the
+	 * state twice.
 	 */
-	if (stop)
+	if (stop) {
+		if (job->state == JOB_RUNNING)
+			state = FALSE;
+
 		job_change_goal (job, JOB_STOP, job->cause);
+	}
 
 	if (state)
 		job_change_state (job, job_next_state (job));
