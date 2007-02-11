@@ -3411,27 +3411,27 @@ test_stanza_kill (void)
 }
 
 void
-test_stanza_normalexit (void)
+test_stanza_normal (void)
 {
 	Job  *job;
 	FILE *jf, *output;
 	char  filename[PATH_MAX];
 
-	TEST_FUNCTION ("cfg_stanza_normalexit");
+	TEST_FUNCTION ("cfg_stanza_normal");
 	program_name = "test";
 	output = tmpfile ();
 
 	TEST_FILENAME (filename);
 
 
-	/* Check that a normalexit stanza with a single argument results in
+	/* Check that a normal exit stanza with a single argument results in
 	 * the exit code given being added to the normalexit array, which
 	 * should be allocated.
 	 */
 	TEST_FEATURE ("with single argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit 99\n");
+	fprintf (jf, "normal exit 99\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
@@ -3447,14 +3447,14 @@ test_stanza_normalexit (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that an argument in a normalexit stanza may be a signal name,
+	/* Check that an argument in a normal exit stanza may be a signal name,
 	 * in which case the number or'd with 0x80 is added to the normalexit
 	 * array.
 	 */
 	TEST_FEATURE ("with single argument containing signal name");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit INT\n");
+	fprintf (jf, "normal exit INT\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
@@ -3470,14 +3470,14 @@ test_stanza_normalexit (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a normalexit stanza with multiple arguments results in
+	/* Check that a normal exit stanza with multiple arguments results in
 	 * all of the given exit codes being added to the array, which should
 	 * have been increased in size.
 	 */
 	TEST_FEATURE ("with multiple arguments");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit 99 100 101 SIGTERM\n");
+	fprintf (jf, "normal exit 99 100 101 SIGTERM\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
@@ -3496,16 +3496,16 @@ test_stanza_normalexit (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that repeated normalexit stanzas are permitted, each
+	/* Check that repeated normal exit stanzas are permitted, each
 	 * appending to the array.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit 99\n");
-	fprintf (jf, "normalexit 100 101\n");
-	fprintf (jf, "normalexit QUIT\n");
-	fprintf (jf, "normalexit 900\n");
+	fprintf (jf, "normal exit 99\n");
+	fprintf (jf, "normal exit 100 101\n");
+	fprintf (jf, "normal exit QUIT\n");
+	fprintf (jf, "normal exit 900\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
@@ -3525,13 +3525,13 @@ test_stanza_normalexit (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a normalexit stanza without an argument results in a
+	/* Check that a normal exit stanza without an argument results in a
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit\n");
+	fprintf (jf, "normal exit\n");
 	fclose (jf);
 
 	TEST_DIVERT_STDERR (output) {
@@ -3547,13 +3547,13 @@ test_stanza_normalexit (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that a normalexit stanza with a non-integer argument results
+	/* Check that a normal exit stanza with a non-integer argument results
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with non-integer argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit foo\n");
+	fprintf (jf, "normal exit foo\n");
 	fclose (jf);
 
 	TEST_DIVERT_STDERR (output) {
@@ -3569,13 +3569,13 @@ test_stanza_normalexit (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that a normalexit stanza with a partially numeric argument
+	/* Check that a normal exit stanza with a partially numeric argument
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with alphanumeric argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit 99foo\n");
+	fprintf (jf, "normal exit 99foo\n");
 	fclose (jf);
 
 	TEST_DIVERT_STDERR (output) {
@@ -3591,13 +3591,13 @@ test_stanza_normalexit (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that a normalexit stanza with a negative value results in
+	/* Check that a normal exit stanza with a negative value results in
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with negative argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "normalexit -1\n");
+	fprintf (jf, "normal exit -1\n");
 	fclose (jf);
 
 	TEST_DIVERT_STDERR (output) {
@@ -3608,6 +3608,50 @@ test_stanza_normalexit (void)
 	TEST_EQ_P (job, NULL);
 
 	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal stanza with something other than "exit"
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal wibble\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing exit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -5085,7 +5129,7 @@ main (int   argc,
 	test_stanza_instance ();
 	test_stanza_pid ();
 	test_stanza_kill ();
-	test_stanza_normalexit ();
+	test_stanza_normal ();
 	test_stanza_console ();
 	test_stanza_env ();
 	test_stanza_umask ();

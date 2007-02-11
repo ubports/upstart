@@ -115,7 +115,7 @@ static int   cfg_stanza_pid            (Job *job, NihConfigStanza *stanza,
 static int   cfg_stanza_kill           (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
-static int   cfg_stanza_normalexit     (Job *job, NihConfigStanza *stanza,
+static int   cfg_stanza_normal         (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
 static int   cfg_stanza_console        (Job *job, NihConfigStanza *stanza,
@@ -179,7 +179,7 @@ static NihConfigStanza stanzas[] = {
 	{ "instance",    (NihConfigHandler)cfg_stanza_instance    },
 	{ "pid",         (NihConfigHandler)cfg_stanza_pid         },
 	{ "kill",        (NihConfigHandler)cfg_stanza_kill        },
-	{ "normalexit",  (NihConfigHandler)cfg_stanza_normalexit  },
+	{ "normal",      (NihConfigHandler)cfg_stanza_normal      },
 	{ "console",     (NihConfigHandler)cfg_stanza_console     },
 	{ "env",         (NihConfigHandler)cfg_stanza_env         },
 	{ "umask",       (NihConfigHandler)cfg_stanza_umask       },
@@ -1461,7 +1461,7 @@ cfg_stanza_kill (Job             *job,
 }
 
 /**
- * cfg_stanza_normalexit:
+ * cfg_stanza_normal:
  * @job: job being parsed,
  * @stanza: stanza found,
  * @file: file or string to parse,
@@ -1469,9 +1469,10 @@ cfg_stanza_kill (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a normalexit stanza from @file.  This stanza expects one or more
- * arguments giving signal names or exit codes that the main process can
- * return and be considered to have been stopped normally.
+ * Parse a normal stanza from @file.  This stanza expects a single "exit"
+ * argument, followed by one or more arguments giving signal names or
+ * exit codes that the main process can return and be considered to have been
+ * stopped normally.
  *
  * Arguments are stored in the normalexit array, and the normalexit_len
  * value updated.  Signals have 0x80 or'd with their value.
@@ -1479,50 +1480,67 @@ cfg_stanza_kill (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-cfg_stanza_normalexit (Job             *job,
-		       NihConfigStanza *stanza,
-		       const char      *file,
-		       size_t           len,
-		       size_t          *pos,
-		       size_t          *lineno)
+cfg_stanza_normal (Job             *job,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
 {
+	char *arg;
+
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	do {
-		unsigned long  status;
-		char          *arg, *endptr;
-		int           *new_ne, signum;
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
 
-		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
-		if (! arg)
-			return -1;
-
-		signum = nih_signal_from_name (arg);
-		if (signum < 0) {
-			status = strtoul (arg, &endptr, 10);
-			if (*endptr || (status > INT_MAX)) {
-				nih_free (arg);
-				nih_return_error (-1, CFG_ILLEGAL_VALUE,
-						  _(CFG_ILLEGAL_VALUE_STR));
-			}
-		} else {
-			status = signum | 0x80;
-		}
-
+	if (! strcmp (arg, "exit")) {
 		nih_free (arg);
 
-		NIH_MUST (new_ne = nih_realloc (job->normalexit, job,
-						sizeof (int) *
-						(job->normalexit_len + 1)));
+		do {
+			unsigned long  status;
+			char          *endptr;
+			int           *new_ne, signum;
 
-		job->normalexit = new_ne;
-		job->normalexit[job->normalexit_len++] = (int) status;
-	} while (nih_config_has_token (file, len, pos, lineno));
+			arg = nih_config_next_arg (NULL, file, len,
+						   pos, lineno);
+			if (! arg)
+				return -1;
 
-	return nih_config_skip_comment (file, len, pos, lineno);
+			signum = nih_signal_from_name (arg);
+			if (signum < 0) {
+				status = strtoul (arg, &endptr, 10);
+				if (*endptr || (status > INT_MAX)) {
+					nih_free (arg);
+					nih_return_error (-1,CFG_ILLEGAL_VALUE,
+							  _(CFG_ILLEGAL_VALUE_STR));
+				}
+			} else {
+				status = signum | 0x80;
+			}
+
+			nih_free (arg);
+
+			NIH_MUST (new_ne = nih_realloc (job->normalexit, job,
+							sizeof (int) *
+							(job->normalexit_len + 1)));
+
+			job->normalexit = new_ne;
+			job->normalexit[job->normalexit_len++] = (int) status;
+		} while (nih_config_has_token (file, len, pos, lineno));
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
 }
 
 /**
