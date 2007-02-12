@@ -3,7 +3,7 @@
 # This task guesses what the "default runlevel" should be and starts the
 # appropriate script.
 
-start on rcS/stop
+start on stopped rcS
 
 script
 	runlevel --reboot || true

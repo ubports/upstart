@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@
  * to abort parsing.
  **/
 typedef struct nih_option NihOption;
-typedef int (*NihOptionSetter) (NihOption *, const char *);
+typedef int (*NihOptionSetter) (NihOption *option, const char *arg);
 
 
 /**
@@ -105,12 +105,16 @@ NIH_BEGIN_EXTERN
 
 char **    nih_option_parser         (const void *parent,
 				      int argc, char *argv[],
-				      NihOption *options, int break_nonopt);
+				      NihOption *options, int break_nonopt)
+	__attribute__ ((warn_unused_result, malloc));
 
 NihOption *nih_option_join           (const void *parent,
-				      NihOption *a, NihOption *b);
+				      NihOption *a, NihOption *b)
+	__attribute__ ((warn_unused_result, malloc));
 
 int        nih_option_count          (NihOption *option, const char *arg);
+int        nih_option_int            (NihOption *option, const char *arg);
+
 int        nih_option_quiet          (NihOption *option, const char *arg);
 int        nih_option_verbose        (NihOption *option, const char *arg);
 int        nih_option_debug          (NihOption *option, const char *arg);

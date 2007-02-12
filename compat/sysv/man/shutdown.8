@@ -1,4 +1,4 @@
-.TH shutdown 8 "October 2006" "Upstart"
+.TH shutdown 8 "February 2007" "Upstart"
 .\"
 .SH NAME
 shutdown \- bring the system down
@@ -31,63 +31,25 @@ has elapsed,
 .B shutdown
 sends a request to the
 .BR init (8)
-daemon to bring the system down,
-.BR init (8)
-will first generate the
-.I shutdown
-event and once that has been processed will generate a second event
-specified by the
-.IR -r " or " -h
-options to
-.BR shutdown .
-If no options are given, the
-.I maintenance
-event is sent.
-
-To see what actions are actually taken, examine the jobs in
-.IR /etc/event.d .
+daemon to bring the system down into the appropriate runlevel.
 .\"
 .SH OPTIONS
 .TP
 .BR -r
 Requests that the system be rebooted after it has been brought down.
-.BR init (8)
-will generate the
-.I reboot
-event once the
-.I shutdown
-event has been processed.
 .\"
 .TP
 .BR -h
 Requests that the system be either halted or powered off after it has been
 brought down, with the choice as to which left up to the system.
-.BR init (8)
-will generate the
-.I halt
-event once the
-.I shutdown
-event has been processed.
 .\"
 .TP
 .BR -H
 Requests that the system be halted after it has been brought down.
-.BR init (8)
-will generate the
-.I system-halt
-event once the
-.I shutdown
-event has been processed.
 .\"
 .TP
 .BR -P
 Requests that the system be powered off after it has been brought down.
-.BR init (8)
-will generate the
-.I power-off
-event once the
-.I shutdown
-event has been processed.
 .\"
 .TP
 .BR -c
@@ -104,6 +66,13 @@ bring the system down.
 .SH NOTES
 This tool is provided for compatibility with the traditional System V
 .BR init (8).
+Upstart has no notion of runlevels itself, this and the
+.BR runlevel (8)
+tool are provided to emulate their behaviour.
+
+When invoked it generates a
+.I runlevel
+event, with an argument containing the new runlevel.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.
@@ -112,7 +81,7 @@ Written by Scott James Remnant.
 Report bugs at https://launchpad.net/products/upstart/+bugs
 .\"
 .SH COPYRIGHT
-Copyright \(co 2006 Canonical Ltd.
+Copyright \(co 2007 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

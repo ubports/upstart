@@ -1,7 +1,7 @@
 This is the Ubuntu package of upstart, the event-based init daemon.
 
-Copyright © 2006 Canonical Ltd.
-Copyright © 2006 Scott James Remnant <scott@netsplit.com>
+Copyright © 2007 Canonical Ltd.
+Copyright © 2007 Scott James Remnant <scott@netsplit.com>
 
 Licence:
 

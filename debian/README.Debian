@@ -2,13 +2,9 @@ upstart
 =======
 
 Upstart is a replacement for the traditional sysvinit package, and
-runs as process #1.  While it is eventually intended to be used to
-create an event-driven boot process, for Ubuntu 6.10 ("Edgy Eft") we
-are only using it to emulate the original sysvinit behaviour.
-
-This gives us the maximum amount of testing of the code and concepts
-behind it, while retaining the ability to fallback to sysvinit should
-things not work out.
+runs as process #1.  Through upstart, we are able to have an
+event-driven process, whilst at the same time retaining compatibility
+for the original sysvinit behaviour.
 
 This file documents how to do a few common operations with the new
 system.
@@ -19,6 +15,9 @@ Where are initscripts installed?
 
 This has not changed, they are installed in /etc/init.d.  See
 /etc/init.d/README.
+
+Important system jobs are no longer shipped as initscripts, but as
+upstart jobs.  These are installed in /etc/event.d.
 
 
 How are initscripts started and stopped?
@@ -122,8 +121,8 @@ How do I change which runlevels gettys are run in?
 
 In /etc/event.d there is a file named ttyN for each getty that will be
 started, where N is numbered 1 to 6.  Edit these files, there are a
-series of lines of either "start on runlevel-N" or
-"stop on runlevel-N".
+series of lines of either "start on runlevel N" or
+"stop on runlevel N".
 
 Change "stop" to "start" or "start" to "stop" to match your taste.
 

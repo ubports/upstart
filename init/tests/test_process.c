@@ -2,7 +2,7 @@
  *
  * test_process.c - test suite for init/process.c
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,9 +33,11 @@
 #include <unistd.h>
 
 #include <nih/macros.h>
+#include <nih/string.h>
 #include <nih/list.h>
 
 #include "job.h"
+#include "event.h"
 #include "process.h"
 
 
@@ -96,13 +98,14 @@ child (enum child_tests  test,
 void
 test_spawn (void)
 {
-	FILE  *output;
-	char   function[PATH_MAX], filename[PATH_MAX], buf[80], *env[2];
-	char  *args[4];
-	Job   *job;
-	pid_t  pid;
+	FILE          *output;
+	char           function[PATH_MAX], filename[PATH_MAX], buf[80];
+	char          *env[2], *args[4], **em_env;
+	Job           *job;
+	EventEmission *em;
+	pid_t          pid;
 
-	printf ("Testing process_spawn()\n");
+	TEST_FUNCTION ("process_spawn");
 	TEST_FILENAME (filename);
 
 	args[0] = argv0;
@@ -114,7 +117,7 @@ test_spawn (void)
 	 * process and then read from the file written to check that the
 	 * process tree is what we expect it to look like.
 	 */
-	printf ("...with simple job\n");
+	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
 	job = job_new (NULL, "test");
@@ -149,7 +152,7 @@ test_spawn (void)
 	/* Check that a job spawned with no console has the file descriptors
 	 * bound to the /dev/null device.
 	 */
-	printf ("...with no console\n");
+	TEST_FEATURE ("with no console");
 	sprintf (function, "%d", TEST_CONSOLE);
 
 	job = job_new (NULL, "test");
@@ -173,7 +176,7 @@ test_spawn (void)
 	/* Check that a job with an alternate working directory is run from
 	 * that directory.
 	 */
-	printf ("...with working directory\n");
+	TEST_FEATURE ("with working directory");
 	sprintf (function, "%d", TEST_PWD);
 
 	job = job_new (NULL, "test");
@@ -195,7 +198,7 @@ test_spawn (void)
 	/* Check that a job is run in a consistent environment containing
 	 * only approved variables, or those set within the job.
 	 */
-	printf ("...with environment\n");
+	TEST_FEATURE ("with environment");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
@@ -210,6 +213,7 @@ test_spawn (void)
 
 	TEST_FILE_EQ_N (output, "PATH=");
 	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
 	TEST_FILE_END (output);
 
@@ -217,6 +221,44 @@ test_spawn (void)
 	unlink (filename);
 
 	nih_list_free (&job->entry);
+
+
+	/* Check that a job's environment includes the UPSTART_EVENT variable
+	 * and any event environment if the cause member is set, but this
+	 * should not override those specified in the job.
+	 */
+	TEST_FEATURE ("with environment and cause");
+	sprintf (function, "%d", TEST_ENVIRONMENT);
+	putenv ("BAR=baz");
+
+	em_env = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&em_env, NULL, NULL, "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&em_env, NULL, NULL, "TEA=YES"));
+	em = event_emit ("wibble", NULL, em_env);
+
+	job = job_new (NULL, "test");
+	job->cause = em;
+	job->env = env;
+	env[0] = "FOO=bar";
+	env[1] = NULL;
+	pid = process_spawn (job, args);
+
+	waitpid (pid, NULL, 0);
+	output = fopen (filename, "r");
+
+	TEST_FILE_EQ_N (output, "PATH=");
+	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+	TEST_FILE_EQ (output, "UPSTART_EVENT=wibble\n");
+	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "TEA=YES\n");
+	TEST_FILE_END (output);
+
+	fclose (output);
+	unlink (filename);
+
+	nih_list_free (&job->entry);
+	nih_list_free (&em->event.entry);
 }
 
 
@@ -227,13 +269,13 @@ test_kill (void)
 	pid_t  pid;
 	int    ret, status;
 
-	printf ("Testing process_kill()\n");
+	TEST_FUNCTION ("process_kill");
 	job = job_new (NULL, "test");
 
 	/* Check that when we normally kill the process, the TERM signal
 	 * is sent to it.
 	 */
-	printf ("...with TERM signal\n");
+	TEST_FEATURE ("with TERM signal");
 	TEST_CHILD (pid) {
 		pause ();
 	}
@@ -249,7 +291,7 @@ test_kill (void)
 	/* Check that when we force the kill, the KILL signal is sent
 	 * instead.
 	 */
-	printf ("...with KILL signal\n");
+	TEST_FEATURE ("with KILL signal");
 	TEST_CHILD (pid) {
 		pause ();
 	}

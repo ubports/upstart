@@ -4,15 +4,11 @@
 # the decision as to whether to halt or power off the system left up to the
 # script (and thus /etc/default/poweroff).
 
-start on halt
-start on runlevel-0
+start on runlevel 0
 
-stop on shutdown
-stop on runlevel-2
-stop on runlevel-3
-stop on runlevel-4
-stop on runlevel-5
+stop on runlevel [^0]
 
+console output
 script
 	set $(runlevel || true)
 	if [ "$2" != "0" ] && [ "$2" != "6" ]; then

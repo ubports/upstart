@@ -2,7 +2,7 @@
  *
  * control.c - handling of control socket requests
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,568 +27,594 @@
 
 #include <sys/types.h>
 
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
-#include <nih/string.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/control.h>
-#include <upstart/errors.h>
+#include <upstart/message.h>
 
 #include "job.h"
 #include "control.h"
+#include "notify.h"
 
 
 /* Prototypes for static functions */
-static void control_watcher (void *data, NihIoWatch *watch,
-			     NihIoEvents events);
-static void control_handle  (pid_t pid, UpstartMsg *msg);
+static void control_error_handler  (void  *data, NihIo *io);
+static int  control_job_start      (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_job_stop       (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_job_query      (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name);
+static int  control_job_list       (void *data,  pid_t pid,
+				    UpstartMessageType type);
+static int  control_watch_jobs     (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_unwatch_jobs   (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_watch_events   (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_unwatch_events (void *data, pid_t pid,
+				    UpstartMessageType type);
+static int  control_event_emit     (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name,
+				    char **args, char **env);
 
 
 /**
- * io_watch:
+ * control_io:
  *
- * The NihIoWatch being used to watch the control socket.
+ * The NihIo being used to handle the control socket.
  **/
-static NihIoWatch *io_watch = NULL;
+NihIo *control_io = NULL;
 
 /**
- * send_queue:
+ * message_handlers:
  *
- * List of messages that are queued up to be sent when the socket is
- * available for writing; done this way to avoid blocking on malicious
- * clients.
- *
- * Each item is a ControlMsg structure.
+ * Functions to be run when we receive particular messages from other
+ * processes.  Any message types not listed here will be discarded.
  **/
-static NihList *send_queue = NULL;
+static UpstartMessage message_handlers[] = {
+	{ -1, UPSTART_JOB_START,
+	  (UpstartMessageHandler)control_job_start },
+	{ -1, UPSTART_JOB_STOP,
+	  (UpstartMessageHandler)control_job_stop },
+	{ -1, UPSTART_JOB_QUERY,
+	  (UpstartMessageHandler)control_job_query },
+	{ -1, UPSTART_JOB_LIST,
+	  (UpstartMessageHandler)control_job_list },
+	{ -1, UPSTART_WATCH_JOBS,
+	  (UpstartMessageHandler)control_watch_jobs },
+	{ -1, UPSTART_UNWATCH_JOBS,
+	  (UpstartMessageHandler)control_unwatch_jobs },
+	{ -1, UPSTART_WATCH_EVENTS,
+	  (UpstartMessageHandler)control_watch_events },
+	{ -1, UPSTART_UNWATCH_EVENTS,
+	  (UpstartMessageHandler)control_unwatch_events },
+	{ -1, UPSTART_EVENT_EMIT,
+	  (UpstartMessageHandler)control_event_emit },
 
-/**
- * subscriptions:
- *
- * List of processes that are subscribed to changes in events or job status.
- * Each item is a ControlSub structure.
- **/
-static NihList *subscriptions = NULL;
-
-
-/**
- * control_init:
- *
- * Initialise the send queue and subscriptions list.
- **/
-static void
-control_init (void)
-{
-	if (! send_queue)
-		NIH_MUST (send_queue = nih_list_new (NULL));
-
-	if (! subscriptions)
-		NIH_MUST (subscriptions = nih_list_new (NULL));
-}
+	UPSTART_MESSAGE_LAST
+};
 
 
 /**
  * control_open:
  *
- * Opens the control socket and sets it up so that incoming messages are
- * dealt with and outgoing messages can be queued.
+ * Opens the control socket and associates it with an NihIo structure
+ * that ensures that all incoming messages are handled, outgoing messages
+ * can be queued, and any errors caught and the control socket re-opened.
  *
- * Returns: watch on socket on success, NULL on raised error.
+ * Returns: NihIo for socket on success, NULL on raised error.
  **/
-NihIoWatch *
+NihIo *
 control_open (void)
 {
-	NihIoEvents events;
-	int         sock;
+	int sock;
 
-	nih_assert (io_watch == NULL);
-
-	control_init ();
-
-	/* Open the socket */
 	sock = upstart_open ();
 	if (sock < 0)
 		return NULL;
 
-	/* Set various sensible flags */
-	if (nih_io_set_nonblock (sock) < 0)
-		goto error;
-	if (nih_io_set_cloexec (sock) < 0)
-		goto error;
+	nih_io_set_cloexec (sock);
 
-	events = NIH_IO_READ;
-	if (! NIH_LIST_EMPTY (send_queue))
-		events |= NIH_IO_WRITE;
+	while (! (control_io = nih_io_reopen (NULL, sock, NIH_IO_MESSAGE,
+					      (NihIoReader)upstart_message_reader,
+					      NULL, control_error_handler,
+					      message_handlers))) {
+		NihError *err;
 
-	io_watch = nih_io_add_watch (NULL, sock, events,
-				     control_watcher, NULL);
-	if (! io_watch) {
-		nih_error_raise_system ();
-		close (sock);
-		return NULL;
+		err = nih_error_get ();
+		if (err->number != ENOMEM) {
+			nih_free (err);
+			close (sock);
+			return NULL;
+		}
+
+		nih_free (err);
 	}
 
-	return io_watch;
-
-error:
-	close (sock);
-	return NULL;
+	return control_io;
 }
 
 /**
  * control_close:
  *
- * Close the currently open control socket and free the structure watching
- * it.  This does NOT clear the queue of messages to be sent, those will
- * be sent should the socket be re-opened.
+ * Close the currently open control socket and free the structure handling
+ * it.  Any messages in the queue will be lost.
  **/
 void
 control_close (void)
 {
-	nih_assert (io_watch != NULL);
+	nih_assert (control_io != NULL);
 
-	close (io_watch->fd);
-
-	nih_list_free (&io_watch->entry);
-	io_watch = NULL;
+	nih_io_close (control_io);
+	control_io = NULL;
 }
 
-
 /**
- * control_subscribe:
- * @pid: process id to send to,
- * @notify: notify events mask to change,
- * @set: TRUE to add events, FALSE to remove.
+ * control_error_handler:
+ * @data: ignored,
+ * @io: NihIo structure on which an error occurred.
  *
- * Adjusts the subscription of process @pid by adding the events listed
- * in @notify if @set is TRUE or removing if @set is FALSE.  Removing
- * all subscribed events removes the subscription.
- *
- * The current subscription can be found by passing NOTIFY_NONE.
- *
- * Returns: subscription record on success, NULL on insufficient memory
- * or removal of subscription.
- **/
-ControlSub *
-control_subscribe (pid_t        pid,
-		   NotifyEvents notify,
-		   int          set)
-{
-	ControlSub *sub;
-
-	nih_assert (pid > 0);
-
-	control_init ();
-
-	/* Amend existing subscription record */
-	NIH_LIST_FOREACH (subscriptions, iter) {
-		sub = (ControlSub *)iter;
-
-		if (sub->pid != pid)
-			continue;
-
-		if (set) {
-			sub->notify |= notify;
-		} else {
-			sub->notify &= ~notify;
-		}
-
-		if (sub->notify) {
-			return sub;
-		} else {
-			nih_list_free (&sub->entry);
-			return NULL;
-		}
-	}
-
-	/* Not adding anything, and no existing record */
-	if ((! set) || (! notify))
-		return NULL;
-
-	/* Create new subscription record */
-	sub = nih_new (NULL, ControlSub);
-	if (! sub)
-		return NULL;
-
-	nih_list_init (&sub->entry);
-
-	sub->pid = pid;
-	sub->notify = notify;
-
-	nih_list_add (subscriptions, &sub->entry);
-
-	return sub;
-}
-
-
-/**
- * control_send:
- * @pid: destination,
- * @message: message to be sent.
- *
- * Queue @message to be send to process @pid when next possible.  @message
- * is copied internally, including any pointers (such as the name).
- *
- * The message can be cancelled by using nih_list_free() on the returned
- * structure.
- *
- * Returns: entry in the send queue on success, NULL on insufficient memory.
- **/
-ControlMsg *
-control_send (pid_t       pid,
-	      UpstartMsg *message)
-{
-	ControlMsg *msg;
-
-	nih_assert (pid > 0);
-	nih_assert (message != NULL);
-
-	control_init ();
-
-	msg = nih_new (NULL, ControlMsg);
-	if (! msg)
-		return NULL;
-
-	nih_list_init (&msg->entry);
-
-	msg->pid = pid;
-
-	/* Deep copy the message */
-	memcpy (&msg->message, message, sizeof (msg->message));
-	switch (message->type) {
-	case UPSTART_JOB_START:
-	case UPSTART_JOB_STOP:
-	case UPSTART_JOB_QUERY:
-	case UPSTART_JOB_UNKNOWN:
-		NIH_MUST (msg->message.job_query.name
-			  = nih_strdup (msg, message->job_query.name));
-		break;
-	case UPSTART_JOB_STATUS:
-		NIH_MUST (msg->message.job_status.name
-			  = nih_strdup (msg, message->job_status.name));
-		if (message->job_status.description)
-			NIH_MUST (msg->message.job_status.description
-				  = nih_strdup (
-					  msg,
-					  message->job_status.description));
-		break;
-	case UPSTART_EVENT_QUEUE:
-	case UPSTART_EVENT:
-	case UPSTART_SHUTDOWN:
-		NIH_MUST (msg->message.event.name
-			  = nih_strdup (msg, message->event.name));
-		break;
-	default:
-		break;
-	}
-
-	nih_list_add (send_queue, &msg->entry);
-
-	if (io_watch)
-		io_watch->events |= NIH_IO_WRITE;
-
-	return msg;
-}
-
-
-/**
- * control_watcher:
- * @data: not used,
- * @watch: watch on socket,
- * @events: events that occurred.
- *
- * This function is called whenever we are able to read from the control
- * socket or there is data in the send queue and we are able to write to
- * the control socket.
- *
- * As many messages as possible are read from the socket and handled, and
- * as many queued messages as possible are sent.
- **/
-static void control_watcher (void        *data,
-			     NihIoWatch  *watch,
-			     NihIoEvents  events)
-{
-	nih_assert (watch != NULL);
-
-	/* Messages to be read */
-	if (events & NIH_IO_READ) {
-		for (;;) {
-			UpstartMsg *msg;
-			pid_t       pid;
-
-			msg = upstart_recv_msg (NULL, watch->fd, &pid);
-			if (! msg) {
-				NihError *err;
-
-				err = nih_error_get ();
-				if (err->number == EAGAIN) {
-					nih_free (err);
-					break;
-				} else if (err->number == EINTR) {
-					nih_free (err);
-					continue;
-				}
-
-				nih_warn (_("Error reading control message: %s"),
-					  err->message);
-
-				if (err->number == UPSTART_INVALID_MESSAGE) {
-					nih_free (err);
-					continue;
-				} else {
-					nih_free (err);
-					break;
-				}
-			}
-
-			control_handle (pid, msg);
-			nih_free (msg);
-		}
-	}
-
-	/* Messages to send */
-	if (events & NIH_IO_WRITE) {
-		NIH_LIST_FOREACH_SAFE (send_queue, iter) {
-			ControlMsg *msg = (ControlMsg *)iter;
-
-			if (upstart_send_msg_to (msg->pid, watch->fd,
-						 &msg->message) < 0) {
-				NihError *err;
-
-				err = nih_error_get ();
-				if (err->number == EAGAIN) {
-					nih_free (err);
-					break;
-				} else if (err->number == EINTR) {
-					nih_free (err);
-					continue;
-				} else if (err->number == ECONNREFUSED) {
-					pid_t pid;
-
-					pid = msg->pid;
-
-					nih_free (err);
-					nih_list_free (&msg->entry);
-
-					control_subscribe
-						(pid,
-						 NOTIFY_JOBS | NOTIFY_EVENTS,
-						 FALSE);
-
-					continue;
-				}
-
-				nih_warn (_("Error sending control message: %s"),
-					  err->message);
-
-				if (err->number == UPSTART_INVALID_MESSAGE) {
-					nih_free (err);
-					nih_list_free (&msg->entry);
-					continue;
-				} else {
-					nih_free (err);
-					break;
-				}
-			}
-
-			nih_list_free (&msg->entry);
-		}
-
-		/* Don't poll for write if we've nothing to write */
-		if (NIH_LIST_EMPTY (send_queue))
-			watch->events &= ~NIH_IO_WRITE;
-	}
-}
-
-
-/**
- * control_handle:
- * @pid: sender process,
- * @message: message sent.
- *
- * This function is called to handle messages received from clients.  The
- * process id of the client that sent @message is given in @pid.
- *
- * Appropriate action, if any, is taken which often includes sending a
- * message back to the client.
+ * This function is called should an error occur while reading from or
+ * writing to a descriptor.  We handle errors that we recognise, otherwise
+ * we log them and carry on.
  **/
 static void
-control_handle (pid_t       pid,
-		UpstartMsg *msg)
+control_error_handler (void  *data,
+		       NihIo *io)
 {
-	UpstartMsg *reply = NULL;
+	NihError *err;
+
+	nih_assert (io != NULL);
+	nih_assert (io == control_io);
+
+	err = nih_error_get ();
+
+	switch (err->number) {
+	case ECONNREFUSED: {
+		NihIoMessage *message;
+
+		/* Connection refused means that the process we're sending to
+		 * has closed their socket or just died.  We don't need to
+		 * error because of this, don't want to re-attempt delivery
+		 * of this message and in fact don't want to send them any
+		 * future notifications.
+		 */
+		message = (NihIoMessage *)io->send_q->next;
+
+		notify_unsubscribe ((pid_t)message->int_data);
+
+		nih_list_free (&message->entry);
+		break;
+	}
+	default:
+		nih_error (_("Error on control socket: %s"), err->message);
+		break;
+	}
+
+	nih_free (err);
+}
+
+
+/**
+ * control_job_start:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of job to start.
+ *
+ * This function is called when another process on the system requests that
+ * we start the job @name.
+ *
+ * If a job by that name exists, it is started and the other process receives
+ * the job status as a reply.  If no job by that name exists, then other
+ * process receives the unknown job message as a reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_start (void               *data,
+		   pid_t               pid,
+		   UpstartMessageType  type,
+		   const char         *name)
+{
+	NihIoMessage *reply;
+	Job          *job;
+	NihList      *iter;
 
 	nih_assert (pid > 0);
-	nih_assert (msg != NULL);
+	nih_assert (type == UPSTART_JOB_START);
+	nih_assert (name != NULL);
 
-	switch (msg->type) {
-	case UPSTART_NO_OP:
-		/* No action */
-		break;
-	case UPSTART_JOB_START:
-	case UPSTART_JOB_STOP:
-	case UPSTART_JOB_QUERY: {
-		Job *job;
-
-		job = job_find_by_name (msg->job_start.name);
-		if (! job) {
-			NIH_MUST (reply = nih_new (NULL, UpstartMsg));
-			reply->type = UPSTART_JOB_UNKNOWN;
-			reply->job_unknown.name = msg->job_start.name;
-			break;
-		}
-
-		if (msg->type == UPSTART_JOB_START) {
-			nih_info (_("Control request to start %s"), job->name);
-			job_start (job);
-		} else if (msg->type == UPSTART_JOB_STOP) {
-			nih_info (_("Control request to stop %s"), job->name);
-			job_stop (job);
-		} else {
-			nih_info (_("Control request for state of %s"),
-				  job->name);
-		}
-
-		NIH_MUST (reply = nih_new (NULL, UpstartMsg));
-		reply->type = UPSTART_JOB_STATUS;
-		reply->job_status.name = msg->job_query.name;
-		reply->job_status.description = job->description;
-		reply->job_status.goal = job->goal;
-		reply->job_status.state = job->state;
-		reply->job_status.process_state = job->process_state;
-		reply->job_status.pid = job->pid;
-
-		break;
-	}
-	case UPSTART_JOB_LIST:
-		nih_info (_("Control request to list jobs"));
-
-		NIH_LIST_FOREACH (job_list (), iter) {
-			Job *job = (Job *)iter;
-
-			NIH_MUST (reply = nih_new (NULL, UpstartMsg));
-			reply->type = UPSTART_JOB_STATUS;
-			reply->job_status.name = job->name;
-			reply->job_status.description = job->description;
-			reply->job_status.goal = job->goal;
-			reply->job_status.state = job->state;
-			reply->job_status.process_state = job->process_state;
-			reply->job_status.pid = job->pid;
-
-			NIH_MUST (control_send (pid, reply));
-			nih_free (reply);
-		}
-
-		NIH_MUST (reply = nih_new (NULL, UpstartMsg));
-		reply->type = UPSTART_JOB_LIST_END;
-
-		break;
-	case UPSTART_EVENT_QUEUE:
-		nih_info (_("Control request to queue event %s"),
-			  msg->event_queue.name);
-
-		event_queue (msg->event_queue.name);
-		break;
-	case UPSTART_WATCH_JOBS:
-		nih_info (_("Control request to subscribe %d to jobs"), pid);
-		control_subscribe (pid, NOTIFY_JOBS, TRUE);
-		break;
-	case UPSTART_UNWATCH_JOBS:
-		nih_info (_("Control request to unsubscribe %d from jobs"),
-			  pid);
-		control_subscribe (pid, NOTIFY_JOBS, FALSE);
-		break;
-	case UPSTART_WATCH_EVENTS:
-		nih_info (_("Control request to subscribe %d to events"), pid);
-		control_subscribe (pid, NOTIFY_EVENTS, TRUE);
-		break;
-	case UPSTART_UNWATCH_EVENTS:
-		nih_info (_("Control request to unsubscribe %d from events"),
-			  pid);
-		control_subscribe (pid, NOTIFY_EVENTS, FALSE);
-		break;
-	case UPSTART_SHUTDOWN:
-		nih_info (_("Control request to shutdown system for %s"),
-			  msg->shutdown.name);
-		event_queue (SHUTDOWN_EVENT);
-		job_set_idle_event (msg->shutdown.name);
-		break;
-	default:
-		/* Unknown message */
-		nih_debug ("Unhandled control message %d", msg->type);
+	job = job_find_by_name (name);
+	if (! job) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name));
+		nih_io_send_message (control_io, reply);
+		return 0;
 	}
 
-	/* Send the reply */
-	if (reply) {
-		NIH_MUST (control_send (pid, reply));
-		nih_free (reply);
+	nih_info (_("Control request to start %s"), job->name);
+	job_change_goal (job, JOB_START, NULL);
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_STATUS, job->name,
+					       job->goal, job->state,
+					       job->pid));
+	nih_io_send_message (control_io, reply);
+
+	/* Also return all instances */
+	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+	     iter = nih_hash_search (jobs, job->name, iter)) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       instance->name,
+						       instance->goal,
+						       instance->state,
+						       instance->pid));
+		nih_io_send_message (control_io, reply);
 	}
-}
 
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
+	nih_io_send_message (control_io, reply);
 
-/**
- * control_handle_job:
- * @job: job that changed state,
- *
- * Called when a job's state changes.  Notifies subscribed processes with
- * an UPSTART_JOB_STATUS message.
- **/
-void
-control_handle_job (Job *job)
-{
-	UpstartMsg msg;
-
-	nih_assert (job != NULL);
-
-	control_init ();
-
-	msg.type = UPSTART_JOB_STATUS;
-	msg.job_status.name = job->name;
-	msg.job_status.description = job->description;
-	msg.job_status.goal = job->goal;
-	msg.job_status.state = job->state;
-	msg.job_status.process_state = job->process_state;
-	msg.job_status.pid = job->pid;
-
-	NIH_LIST_FOREACH (subscriptions, iter) {
-		ControlSub *sub = (ControlSub *)iter;
-
-		if (sub->notify & NOTIFY_JOBS)
-			NIH_MUST (control_send (sub->pid, &msg));
-	}
+	return 0;
 }
 
 /**
- * control_handle_event:
- * @event: event to handle.
+ * control_job_stop:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of job to start.
  *
- * Called when an event occurrs.  Notifies subscribed processes with an
- * UPSTART_EVENT message.
+ * This function is called when another process on the system requests that
+ * we stop the job @name.
+ *
+ * If a job by that name exists, it is stopped and the other process receives
+ * the job status as a reply.  If no job by that name exists, then other
+ * process receives the unknown job message as a reply.
+ *
+ * Returns: zero on success, negative value on raised error.
  **/
-void
-control_handle_event (Event *event)
+static int
+control_job_stop (void               *data,
+		  pid_t               pid,
+		  UpstartMessageType  type,
+		  const char         *name)
 {
-	UpstartMsg msg;
+	NihIoMessage *reply;
+	Job          *job;
+	NihList      *iter;
 
-	nih_assert (event != NULL);
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_STOP);
+	nih_assert (name != NULL);
 
-	control_init ();
-
-	msg.type = UPSTART_EVENT;
-	msg.event.name = event->name;
-
-	NIH_LIST_FOREACH (subscriptions, iter) {
-		ControlSub *sub = (ControlSub *)iter;
-
-		if (sub->notify & NOTIFY_EVENTS)
-			NIH_MUST (control_send (sub->pid, &msg));
+	job = job_find_by_name (name);
+	if (! job) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name));
+		nih_io_send_message (control_io, reply);
+		return 0;
 	}
+
+	nih_info (_("Control request to stop %s"), job->name);
+	job_change_goal (job, JOB_STOP, NULL);
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_STATUS, job->name,
+					       job->goal, job->state,
+					       job->pid));
+	nih_io_send_message (control_io, reply);
+
+	/* Also return all instances */
+	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+	     iter = nih_hash_search (jobs, job->name, iter)) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       instance->name,
+						       instance->goal,
+						       instance->state,
+						       instance->pid));
+		nih_io_send_message (control_io, reply);
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
+	nih_io_send_message (control_io, reply);
+
+	return 0;
+}
+
+/**
+ * control_job_query:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of job to start.
+ *
+ * This function is called when another process on the system queries the
+ * status of the job @name.
+ *
+ * If a job by that name exists, the other process receives the job status
+ * as a reply.  If no job by that name exists, then the other process
+ * receives the unknown job message as a reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_query (void               *data,
+		   pid_t               pid,
+		   UpstartMessageType  type,
+		   const char         *name)
+{
+	NihIoMessage *reply;
+	Job          *job;
+	NihList      *iter;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_QUERY);
+	nih_assert (name != NULL);
+
+	job = job_find_by_name (name);
+	if (! job) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name));
+		nih_io_send_message (control_io, reply);
+		return 0;
+	}
+
+	nih_info (_("Control request for state of %s"), job->name);
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_STATUS, job->name,
+					       job->goal, job->state,
+					       job->pid));
+	nih_io_send_message (control_io, reply);
+
+	/* Also return all instances */
+	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
+	     iter = nih_hash_search (jobs, job->name, iter)) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       instance->name,
+						       instance->goal,
+						       instance->state,
+						       instance->pid));
+		nih_io_send_message (control_io, reply);
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
+	nih_io_send_message (control_io, reply);
+
+	return 0;
+}
+
+/**
+ * control_job_list:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system queries the
+ * table of known jobs.  It receives a job status reply for each known job
+ * followed by the list end message.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_list (void               *data,
+		  pid_t               pid,
+		  UpstartMessageType  type)
+{
+	NihIoMessage *reply;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_LIST);
+
+	nih_info (_("Control request to list jobs"));
+
+	job_init ();
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_STATUS,
+						       job->name, job->goal,
+						       job->state, job->pid));
+		nih_io_send_message (control_io, reply);
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END));
+	nih_io_send_message (control_io, reply);
+
+	return 0;
+}
+
+/**
+ * control_watch_jobs:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests
+ * status updates for all jobs to be sent to it.  It receives no reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_watch_jobs (void               *data,
+		    pid_t               pid,
+		    UpstartMessageType  type)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_WATCH_JOBS);
+
+	nih_info (_("Control request to subscribe %d to jobs"), pid);
+
+	notify_subscribe_job (NULL, pid, NULL);
+
+	return 0;
+}
+
+/**
+ * control_unwatch_jobs:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests
+ * status updates for all jobs no longer be sent to it.  It receives no reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_unwatch_jobs (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type)
+{
+	NotifySubscription *sub;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_UNWATCH_JOBS);
+
+	nih_info (_("Control request to unsubscribe %d from jobs"), pid);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
+	if (sub)
+		nih_list_free (&sub->entry);
+
+	return 0;
+}
+
+/**
+ * control_watch_events:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests
+ * notification of all events be sent to it.  It receives no reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_watch_events (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_WATCH_EVENTS);
+
+	nih_info (_("Control request to subscribe %d to events"), pid);
+
+	notify_subscribe_event (NULL, pid, NULL);
+
+	return 0;
+}
+
+/**
+ * control_unwatch_events:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests
+ * notification of all events no longer be sent to it.  It receives no reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_unwatch_events (void               *data,
+			pid_t               pid,
+			UpstartMessageType  type)
+{
+	NotifySubscription *sub;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_UNWATCH_EVENTS);
+
+	nih_info (_("Control request to unsubscribe %d from events"), pid);
+
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
+	if (sub)
+		nih_list_free (&sub->entry);
+
+	return 0;
+}
+
+/**
+ * control_event_emit:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of event to emit,
+ * @args: optional arguments to event,
+ * @end: optional environment for event.
+ *
+ * This function is called when another process on the system requests that
+ * we emit a @name event, with the optional @args and @env supplied.
+ *
+ * We queue the pending event and subscribe the process to receive
+ * notification when the event is being handled, all changes the event makes
+ * and notification when the event has finished; including whether it
+ * succeeded or failed.
+ *
+ * If given, @args and @env are re-parented to belong to the event emitted.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_event_emit (void                *data,
+		    pid_t                pid,
+		    UpstartMessageType   type,
+		    const char          *name,
+		    char               **args,
+		    char               **env)
+{
+	EventEmission *emission;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_EVENT_EMIT);
+	nih_assert (name != NULL);
+
+	nih_info (_("Control request to emit %s event"), name);
+
+	emission = event_emit (name, args, env);
+
+	notify_subscribe_event (emission, pid, emission);
+
+	return 0;
 }

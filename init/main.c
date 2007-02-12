@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,23 +60,13 @@
 #include "paths.h"
 
 
-/**
- * STATE_FD:
- *
- * File descriptor we read our state from.
- **/
-#define STATE_FD 101
-
-
 /* Prototypes for static functions */
 static void reset_console   (void);
-static void segv_handler    (int signum);
+static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
 static void term_handler    (const char *prog, NihSignal *signal);
-static void read_state      (int fd);
-static void write_state     (int fd);
 
 
 /**
@@ -108,7 +98,7 @@ main (int   argc,
       char *argv[])
 {
 	char **args;
-	int    ret, i;
+	int    ret;
 
 	nih_main_init (argv[0]);
 
@@ -137,6 +127,57 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Open control socket */
+	if (! control_open ()) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Unable to open control socket"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	/* Read configuration */
+	if (cfg_watch_dir (CFG_DIR) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Error parsing configuration"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+
+	/* Clear our arguments from the command-line, so that we show up in
+	 * ps or top output as /sbin/init, with no extra flags.
+	 *
+	 * This is a very Linux-specific trick; by deleting the NULL
+	 * terminator at the end of the last argument, we fool the kernel
+	 * into believing we used a setproctitle()-a-like to extend the
+	 * argument space into the environment space, and thus make it use
+	 * strlen() instead of its own assumed length.  In fact, we've done
+	 * the exact opposite, and shrunk the command line length to just that
+	 * of whatever is in argv[0].
+	 *
+	 * If we don't do this, and just write \0 over the rest of argv, for
+	 * example; the command-line length still includes those \0s, and ps
+	 * will show whitespace in their place.
+	 */
+	if (argc > 1) {
+		char *arg_end;
+
+		arg_end = argv[argc-1] + strlen (argv[argc-1]);
+		*arg_end = ' ';
+	}
+
+	/* Become session and process group leader (should be already,
+	 * but you never know what initramfs did
+	 */
+	setsid ();
 
 	/* Send all logging output to syslog */
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
@@ -146,19 +187,26 @@ main (int   argc,
 	 * device instead.  Normally we reset the console, unless we're
 	 * inheriting one from another init process.
 	 */
-	for (i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 		close (i);
 
-	process_setup_console (NULL, CONSOLE_OUTPUT);
+	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
+		nih_free (nih_error_get ());
 	if (! restart)
 		reset_console ();
+
+	/* Set the PATH environment variable */
+	setenv ("PATH", PATH, TRUE);
 
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
 	 */
-	nih_signal_reset ();
+	if (! restart)
+		nih_signal_reset ();
+
+	nih_signal_set_handler (SIGCHLD,  nih_signal_handler);
 	nih_signal_set_handler (SIGALRM,  nih_signal_handler);
 	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
 	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
@@ -166,93 +214,59 @@ main (int   argc,
 	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
-	nih_signal_set_handler (SIGSEGV,  segv_handler);
+	nih_signal_set_handler (SIGSEGV,  crash_handler);
+	nih_signal_set_handler (SIGABRT,  crash_handler);
 
 	/* Ensure that we don't process events while paused */
-	nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL);
-	nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL));
+	NIH_MUST (nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL));
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
 	reboot (RB_DISABLE_CAD);
-	nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
 	 * generate a kbdrequest event.
 	 */
-	ioctl (0, KDSIGACCEPT, SIGWINCH);
-	nih_signal_add_handler (NULL, SIGWINCH, kbd_handler, NULL);
+	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0)
+		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
+						  kbd_handler, NULL));
 
 	/* SIGTERM instructs us to re-exec ourselves */
-	nih_signal_add_handler (NULL, SIGTERM,
-				(NihSignalHandler)term_handler, argv[0]);
-
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
+					  (NihSignalHandler)term_handler,
+					  argv[0]));
 
 	/* Reap all children that die */
-	nih_child_add_watch (NULL, -1, job_child_reaper, NULL);
+	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
 
-	/* Process the event queue and check the jobs for idleness
-	 * every time through the main loop */
-	nih_main_loop_add_func (NULL, (NihMainLoopCb)event_queue_run, NULL);
-	nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_idle, NULL);
-
-
-	/* Become session and process group leader (should be already,
-	 * but you never know what initramfs did
-	 */
-	setsid ();
-
-	/* Open control socket */
-	control_open ();
-
-	/* Read configuration */
-	cfg_watch_dir (NULL, CFG_DIR, NULL);
-
-	/* Set the PATH environment variable */
-	setenv ("PATH", PATH, TRUE);
+	/* Process the event queue and check the jobs to make sure we
+	 * haven't stalled, every time through the main loop */
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
+					  NULL));
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_stalled,
+					  NULL));
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_free_deleted,
+					  NULL));
 
 
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		Job *logd;
-
-		/* FIXME this is a bit of a hack, should have a list of
-		 * essential services or something
-		 */
-		logd = job_find_by_name ("logd");
-		if (logd) {
-			job_start (logd);
-			if (logd->state == JOB_RUNNING) {
-				/* Hang around until logd signals that it's
-				 * listening ... but not too long
-				 */
-				alarm (5);
-				waitpid (logd->pid, NULL, WUNTRACED);
-				kill (logd->pid, SIGCONT);
-				alarm (0);
-			}
-		}
-
-		event_queue (STARTUP_EVENT);
+		event_emit (STARTUP_EVENT, NULL, NULL);
 	} else {
 		sigset_t mask;
-
-		/* State file descriptor is fixed */
-		read_state (STATE_FD);
 
 		/* We're ok to receive signals again */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
 
-	/* Run the event queue once, and detect anything idle */
-	event_queue_run ();
-	job_detect_idle ();
-
-	/* Go! */
+	/* Run through the loop at least once */
+	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
 	return ret;
@@ -299,15 +313,21 @@ reset_console (void)
 
 
 /**
- * segv_handler:
+ * crash_handler:
  * @signum: signal number received.
  *
- * Handle receiving the SEGV signal, usually caused by one of our own
- * mistakes.  We deal with it by dumping core in a child process and
- * just carrying on in the parent.
+ * Handle receiving the SEGV or ABRT signal, usually caused by one of
+ * our own mistakes.  We deal with it by dumping core in a child process
+ * and just carrying on in the parent.
+ *
+ * This may or may not work, but the only alternative would be sigjmp()ing
+ * to somewhere "safe" leaving inconsistent state everywhere (like dangling
+ * lists pointers) or exec'ing another process (which we couldn't transfer
+ * our state to anyway).  This just hopes that the kernel resumes on the
+ * next instruction.
  **/
 static void
-segv_handler (int signum)
+crash_handler (int signum)
 {
 	pid_t pid;
 
@@ -321,11 +341,11 @@ segv_handler (int signum)
 		sigfillset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 
-		/* Set the SEGV handler to the default so core is dumped */
+		/* Set the handler to the default so core is dumped */
 		act.sa_handler = SIG_DFL;
 		act.sa_flags = 0;
 		sigemptyset (&act.sa_mask);
-		sigaction (SIGSEGV, &act, NULL);
+		sigaction (signum, &act, NULL);
 
 		/* Dump in the root directory */
 		chdir ("/");
@@ -335,11 +355,11 @@ segv_handler (int signum)
 		limit.rlim_max = RLIM_INFINITY;
 		setrlimit (RLIMIT_CORE, &limit);
 
-		/* Raise the signal */
-		raise (SIGSEGV);
+		/* Raise the signal again */
+		raise (signum);
 
 		/* Unmask so that we receive it */
-		sigdelset (&mask, SIGSEGV);
+		sigdelset (&mask, signum);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 
 		/* Wait for death */
@@ -349,9 +369,13 @@ segv_handler (int signum)
 		/* Wait for the core to be generated */
 		waitpid (pid, NULL, 0);
 
-		nih_error (_("Caught segmentation fault, core dumped"));
+		nih_error (_("Caught %s, core dumped"),
+			   (signum == SIGSEGV
+			    ? "segmentation fault" : "abort"));
 	} else {
-		nih_error (_("Caught segmentation fault, unable to dump core"));
+		nih_error (_("Caught %s, unable to dump core"),
+			   (signum == SIGSEGV
+			    ? "segmentation fault" : "abort"));
 	}
 }
 
@@ -368,7 +392,7 @@ static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue (CTRLALTDEL_EVENT);
+	event_emit (CTRLALTDEL_EVENT, NULL, NULL);
 }
 
 /**
@@ -384,7 +408,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_queue (KBDREQUEST_EVENT);
+	event_emit (KBDREQUEST_EVENT, NULL, NULL);
 }
 
 /**
@@ -394,7 +418,7 @@ kbd_handler (void      *data,
  *
  * This is called when we receive the STOP, TSTP or CONT signals; we
  * adjust the paused variable appropriately so that the event queue and
- * job idle detection is not run.
+ * job stalled detection is not run.
  **/
 static void
 stop_handler (void      *data,
@@ -426,8 +450,6 @@ term_handler (const char *argv0,
 {
 	NihError *err;
 	sigset_t  mask, oldmask;
-	int       fds[2] = { -1, -1 };
-	pid_t     pid;
 
 	nih_assert (argv0 != NULL);
 	nih_assert (signal != NULL);
@@ -443,144 +465,13 @@ term_handler (const char *argv0,
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
-	/* Close the control connection */
-	control_close ();
-
-	/* Create pipe */
-	if (pipe (fds) < 0) {
-		nih_error_raise_system ();
-		goto error;
-	}
-
-	/* Fork a child that can send the state to the new init process */
-	pid = fork ();
-	if (pid < 0) {
-		nih_error_raise_system ();
-		goto error;
-	} else if (pid == 0) {
-		close (fds[0]);
-
-		write_state (fds[1]);
-		exit (0);
-	} else {
-		if (dup2 (fds[0], STATE_FD) < 0) {
-			nih_error_raise_system ();
-			goto error;
-		}
-
-		close (fds[0]);
-		close (fds[1]);
-		fds[0] = fds[1] = -1;
-	}
-
 	/* Argument list */
 	execl (argv0, argv0, "--restart", NULL);
 	nih_error_raise_system ();
 
-error:
 	err = nih_error_get ();
 	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
 	nih_free (err);
 
-	close (fds[0]);
-	close (fds[1]);
-
-	control_open ();
-
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-}
-
-/**
- * read_state:
- * @fd: file descriptor to read from.
- *
- * Read event and job state from @fd, which is a trivial line-based
- * protocol that we can keep the same without too much difficultly.  It's
- * tempting to use the control sockets for this, but they break too often.
- **/
-static void
-read_state (int fd)
-{
-	Job   *job = NULL;
-	Event *event = NULL;
-	FILE  *state;
-	char   buf[80];
-
-	nih_debug ("Reading state");
-
-	/* Use stdio as it's a light-weight thing that won't change */
-	state = fdopen (fd, "r");
-	if (! state) {
-		nih_warn (_("Unable to read from state descriptor: %s"),
-			  strerror (errno));
-		return;
-	}
-
-	/* It's just a series of simple lines; if one begins Job then it
-	 * indicates the start of a Job description, otherwise if it
-	 * begins Event then it's the start of an Event description.
-	 *
-	 * Lines beginning "." are assumed to belong to the current job
-	 * or event.
-	 */
-	while (fgets (buf, sizeof (buf), state)) {
-		char *ptr;
-
-		/* Strip newline */
-		ptr = strchr (buf, '\n');
-		if (ptr)
-			*ptr = '\0';
-
-		if (! strncmp (buf, "Job ", 4)) {
-			job = job_read_state (NULL, buf);
-			event = NULL;
-		} else if (! strncmp (buf, "Event ", 5)) {
-			event = event_read_state (NULL, buf);
-			job = NULL;
-		} else if (buf[0] == '.') {
-			if (job) {
-				job = job_read_state (job, buf);
-			} else if (event) {
-				event = event_read_state (event, buf);
-			}
-		} else {
-			event = NULL;
-			job = NULL;
-		}
-	}
-
-	if (fclose (state))
-		nih_warn (_("Error after reading state: %s"),
-			  strerror (errno));
-
-	nih_debug ("State read from parent");
-}
-
-/**
- * write_state:
- * @fd: file descriptor to write to.
- *
- * Write event and job state to @fd, which is a trivial line-based
- * protocol that we can keep the same without too much difficultly.  It's
- * tempting to use the control sockets for this, but they break too often.
- **/
-static void
-write_state (int fd)
-{
-	FILE  *state;
-
-	/* Use stdio as it's a light-weight thing that won't change */
-	state = fdopen (fd, "w");
-	if (! state) {
-		nih_warn (_("Unable to write to state descriptor: %s"),
-			  strerror (errno));
-		return;
-	}
-
-	event_write_state (state);
-	job_write_state (state);
-
-	if (fclose (state))
-		nih_warn (_("Error after writing state: %s"),
-			  strerror (errno));
 }

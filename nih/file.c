@@ -1,8 +1,8 @@
 /* libnih
  *
- * file.c - file watching
+ * file.c - file and directory utility functions
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,227 +24,51 @@
 #endif /* HAVE_CONFIG_H */
 
 
-#ifdef HAVE_SYS_INOTIFY_H
-# include <sys/inotify.h>
-#else
-# include <nih/inotify.h>
-#endif /* HAVE_SYS_INOTIFY_H */
-
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/ioctl.h>
 
 #include <fcntl.h>
-#include <errno.h>
+#include <dirent.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
-#include <nih/string.h>
 #include <nih/list.h>
+#include <nih/string.h>
 #include <nih/io.h>
 #include <nih/file.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih/errors.h>
+
+
+/**
+ * NihDirEntry:
+ * @entry: list header,
+ * @dev: device number,
+ * @ino: inode number.
+ *
+ * This structure is used to detect directory loops, and is stored in a stack
+ * as we recurse down the directory tree.
+ **/
+typedef struct nih_dir_entry {
+	NihList entry;
+	dev_t   dev;
+	ino_t   ino;
+} NihDirEntry;
 
 
 /* Prototypes for static functions */
-static void nih_file_reader (void *data, NihIo *io,
-			     const char *buf, size_t len);
-
-
-/**
- * file_watches:
- *
- * List of all file watches, in no particular order.  Each item is an
- * NihFileWatch structure.
- **/
-static NihList *file_watches = NULL;
-
-/**
- * inotify_fd:
- *
- * inotify file descriptor we use for all watches.
- **/
-static int inotify_fd = -1;
-
-
-/**
- * nih_file_init:
- *
- * Initialise the file watches list and inotify file descriptor.
- **/
-static inline void
-nih_file_init (void)
-{
-	if (! file_watches)
-		NIH_MUST (file_watches = nih_list_new (NULL));
-
-	if (inotify_fd == -1) {
-		inotify_fd = inotify_init ();
-		if (inotify_fd < 0)
-			return;
-
-		NIH_MUST (nih_io_reopen (NULL, inotify_fd, nih_file_reader,
-					 NULL, NULL, NULL));
-	}
-}
-
-
-/**
- * nih_file_add_watch:
- * @parent: parent of watch,
- * @path: path to watch,
- * @events: events to watch for,
- * @watcher: function to call,
- * @data: data to pass to @watcher.
- *
- * Begins watches @path for the list of @events given which should be a
- * bitmask as described in inotify(7).  When any of the listed events
- * occur, @watcher is called.
- *
- * The watch structure is allocated using nih_alloc() and stored in a linked
- * list, a default destructor is set that removes the watch from the list
- * and terminates the inotify watch.  Removal of the watch can be performed
- * by freeing it.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: new NihFileWatch structure or NULL on raised error.
- **/
-NihFileWatch *
-nih_file_add_watch (const void     *parent,
-		    const char     *path,
-		    uint32_t        events,
-		    NihFileWatcher  watcher,
-		    void           *data)
-{
-	NihFileWatch *watch;
-	int           wd;
-
-	nih_assert (path != NULL);
-	nih_assert (events != 0);
-
-	nih_file_init ();
-	if (inotify_fd < 0)
-		nih_return_system_error (NULL);
-
-	wd = inotify_add_watch (inotify_fd, path, events);
-	if (wd < 0)
-		nih_return_system_error (NULL);
-
-	watch = nih_new (parent, NihFileWatch);
-	if (! watch)
-		nih_return_system_error (NULL);
-
-	nih_list_init (&watch->entry);
-	nih_alloc_set_destructor (watch, (NihDestructor)nih_file_remove_watch);
-
-	watch->wd = wd;
-	watch->path = nih_strdup (watch, path);
-	watch->events = events;
-
-	watch->watcher = watcher;
-	watch->data = data;
-
-	nih_list_add (file_watches, &watch->entry);
-
-	return watch;
-}
-
-/**
- * nih_file_remove_watch:
- * @watch: watch to remove.
- *
- * Remove the watch on the path and events mask associated with the @wwatch
- * given and remove it from the list of watches.
- *
- * The structure itself is not freed.
- **/
-void
-nih_file_remove_watch (NihFileWatch *watch)
-{
-	nih_assert (watch != NULL);
-
-	if (watch->wd < 0)
-		return;
-
-	inotify_rm_watch (inotify_fd, watch->wd);
-	watch->wd = -1;
-
-	nih_list_remove (&watch->entry);
-}
-
-
-/**
- * nih_file_reader:
- * @data: ignored,
- * @io: watch on file descriptor,
- * @buf: buffer bytes available,
- * @len: length of @buf.
- *
- * This function is called whenever data has been read from the inotify
- * file descriptor and is waiting to be processed.  It reads data from the
- * buffer in inotify_event sized chunks, also reading the name afterwards
- * if expected.
- **/
-static void
-nih_file_reader (void       *data,
-		 NihIo      *io,
-		 const char *buf,
-		 size_t      len)
-{
-	struct inotify_event *event;
-	size_t                sz;
-
-	nih_assert (io != NULL);
-	nih_assert (buf != NULL);
-	nih_assert (len > 0);
-
-	while (len > 0) {
-		/* Wait until there's a complete event waiting
-		 * (should always be true, but better to be safe than sorry)
-		 */
-		sz = sizeof (struct inotify_event);
-		if (len < sz)
-			return;
-
-		/* Never read an event without its name (again should always be
-		 * true
-		 */
-		event = (struct inotify_event *) buf;
-		sz += event->len;
-		if (len < sz)
-			return;
-
-		/* Read the data (allocates the event structure, etc.)
-		 * Force this, otherwise we won't get called until the
-		 * next inotify event.
-		 */
-		NIH_MUST (event = (struct inotify_event *)nih_io_read (
-				  NULL, io, sz));
-		len -= sz;
-
-		/* Handle it */
-		NIH_LIST_FOREACH_SAFE (file_watches, iter) {
-			NihFileWatch *watch = (NihFileWatch *)iter;
-
-			if (watch->wd != event->wd)
-				continue;
-
-			watch->watcher (watch->data, watch, event->mask,
-					event->len ? event->name : NULL);
-		}
-
-		nih_free (event);
-	}
-}
+static char **nih_dir_walk_scan  (const char *path, NihFileFilter filter)
+	__attribute__ ((warn_unused_result, malloc));
+static int    nih_dir_walk_visit (const char *dirname, NihList *dirs,
+				  const char *path, NihFileFilter filter,
+				  NihFileVisitor visitor,
+				  NihFileErrorHandler error, void *data)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -318,4 +142,520 @@ nih_file_unmap (void   *map,
 		nih_return_system_error (-1);
 
 	return 0;
+}
+
+
+/**
+ * nih_file_is_hidden:
+ * @path: path to check.
+ *
+ * Determines whether @path represents a hidden file, matching it against
+ * common patterns for that type of file.
+ *
+ * Returns: TRUE if it matches, FALSE otherwise.
+ **/
+int
+nih_file_is_hidden (const char *path)
+{
+	const char *ptr;
+	size_t      len;
+
+	nih_assert (path != NULL);
+
+	ptr = strrchr (path, '/');
+	if (ptr)
+		path = ptr + 1;
+
+	len = strlen (path);
+
+	/* Matches .*; standard hidden pattern */
+	if ((len >= 1) && (path[0] == '.'))
+		return TRUE;
+
+	return FALSE;
+}
+
+/**
+ * nih_file_is_backup:
+ * @path: path to check.
+ *
+ * Determines whether @path represents a backup file, matching it against
+ * common patterns for that type of file.
+ *
+ * Returns: TRUE if it matches, FALSE otherwise.
+ **/
+int
+nih_file_is_backup (const char *path)
+{
+	const char *ptr;
+	size_t      len;
+
+	nih_assert (path != NULL);
+
+	ptr = strrchr (path, '/');
+	if (ptr)
+		path = ptr + 1;
+
+	len = strlen (path);
+	ptr = path + len;
+
+	/* Matches *~; standard backup style */
+	if ((len >= 1) && (ptr[-1] == '~'))
+		return TRUE;
+
+	/* Matches *.bak; common backup extension */
+	if ((len >= 4) && (! strcmp (&ptr[-4], ".bak")))
+		return TRUE;
+
+	/* Matches *.BAK; as above, but on case-insensitive filesystems */
+	if ((len >= 4) && (! strcmp (&ptr[-4], ".BAK")))
+		return TRUE;
+
+	/* Matches #*#; used by emacs for unsaved files */
+	if ((len >= 2) && (path[0] == '#') && (ptr[-1] == '#'))
+		return TRUE;
+
+	return FALSE;
+}
+
+/**
+ * nih_file_is_swap:
+ * @path: path to check.
+ *
+ * Determines whether @path represents an editor swap file, matching it
+ * against common patterns for that type of file.
+ *
+ * Returns: TRUE if it matches, FALSE otherwise.
+ **/
+int
+nih_file_is_swap (const char *path)
+{
+	const char *ptr;
+	size_t      len;
+
+	nih_assert (path != NULL);
+
+	ptr = strrchr (path, '/');
+	if (ptr)
+		path = ptr + 1;
+
+	len = strlen (path);
+	ptr = path + len;
+
+	/* Matches *.swp; used by vi */
+	if ((len >= 4) && (! strcmp (&ptr[-4], ".swp")))
+		return TRUE;
+
+	/* Matches *.swo; used by vi */
+	if ((len >= 4) && (! strcmp (&ptr[-4], ".swo")))
+		return TRUE;
+
+	/* Matches *.swn; used by vi */
+	if ((len >= 4) && (! strcmp (&ptr[-4], ".swn")))
+		return TRUE;
+
+	/* Matches .#*; used by emacs */
+	if ((len >= 2) && (! strncmp (path, ".#", 2)))
+		return TRUE;
+
+	return FALSE;
+}
+
+/**
+ * nih_file_is_rcs:
+ * @path: path to check.
+ *
+ * Determines whether @path represents a file or directory used by a
+ * common revision control system, matching it against common patterns
+ * for known RCSs.
+ *
+ * Returns: TRUE if it matches, FALSE otherwise.
+ **/
+int
+nih_file_is_rcs (const char *path)
+{
+	const char *ptr;
+	size_t      len;
+
+	nih_assert (path != NULL);
+
+	ptr = strrchr (path, '/');
+	if (ptr)
+		path = ptr + 1;
+
+	len = strlen (path);
+	ptr = path + len;
+
+	/* Matches *,v; used by rcs and cvs */
+	if ((len >= 2) && (! strcmp (&ptr[-2], ",v")))
+		return TRUE;
+
+	/* RCS; used by rcs */
+	if (! strcmp (path, "RCS"))
+		return TRUE;
+
+	/* CVS; used by cvs */
+	if (! strcmp (path, "CVS"))
+		return TRUE;
+
+	/* CVS.adm; used by cvs */
+	if (! strcmp (path, "CVS.adm"))
+		return TRUE;
+
+	/* SCCS; used by sccs */
+	if (! strcmp (path, "SCCS"))
+		return TRUE;
+
+	/* .bzr; used by bzr */
+	if (! strcmp (path, ".bzr"))
+		return TRUE;
+
+	/* .bzr.log; used by bzr */
+	if (! strcmp (path, ".bzr.log"))
+		return TRUE;
+
+	/* .hg; used by hg */
+	if (! strcmp (path, ".hg"))
+		return TRUE;
+
+	/* .git; used by git */
+	if (! strcmp (path, ".git"))
+		return TRUE;
+
+	/* .svn; used by subversion */
+	if (! strcmp (path, ".svn"))
+		return TRUE;
+
+	/* BitKeeper; used by BitKeeper */
+	if (! strcmp (path, "BitKeeper"))
+		return TRUE;
+
+	/* .arch-ids; used by tla */
+	if (! strcmp (path, ".arch-ids"))
+		return TRUE;
+
+	/* .arch-inventory; used by tla */
+	if (! strcmp (path, ".arch-inventory"))
+		return TRUE;
+
+	/* {arch}; used by tla */
+	if (! strcmp (path, "{arch}"))
+		return TRUE;
+
+	/* _darcs; used by darcs */
+	if (! strcmp (path, "_darcs"))
+		return TRUE;
+
+	return FALSE;
+}
+
+/**
+ * nih_file_is_packaging:
+ * @path: path to check.
+ *
+ * Determines whether @path represents a file or directory used by a
+ * common package manager, matching it against common patterns.
+ *
+ * Returns: TRUE if it matches, FALSE otherwise.
+ **/
+int
+nih_file_is_packaging (const char *path)
+{
+	const char *ptr;
+
+	nih_assert (path != NULL);
+
+	ptr = strrchr (path, '/');
+	if (ptr)
+		path = ptr + 1;
+
+	/* Matches *.dpkg-*; used by dpkg */
+	ptr = strrchr (path, '.');
+	if (ptr && (! strncmp (ptr, ".dpkg-", 6)))
+		return TRUE;
+
+
+	return FALSE;
+}
+
+/**
+ * nih_file_ignore:
+ * @path: path to check.
+ *
+ * Determines whether @path should normally be ignored when walking a
+ * directory tree.  Files ignored are those that are hidden, represent
+ * backup files, editor swap files and both files and directories used
+ * by revision control systems.
+ *
+ * Returns: TRUE if it should be ignored, FALSE otherwise.
+ **/
+int
+nih_file_ignore (const char *path)
+{
+	if (nih_file_is_hidden (path))
+		return TRUE;
+
+	if (nih_file_is_backup (path))
+		return TRUE;
+
+	if (nih_file_is_swap (path))
+		return TRUE;
+
+	if (nih_file_is_rcs (path))
+		return TRUE;
+
+	if (nih_file_is_packaging (path))
+		return TRUE;
+
+	return FALSE;
+}
+
+
+/**
+ * nih_dir_walk:
+ * @path: path to walk,
+ * @filter: path filter,
+ * @visitor: function to call for each path,
+ * @error: function to call on error,
+ * @data: data to pass to @visitor.
+ *
+ * Iterates the directory tree starting at @path, calling @visitor for
+ * each file, directory or other object found.  Sub-directories are
+ * descended into, and the same @visitor called for those.
+ *
+ * @visitor is not called for @path itself.
+ *
+ * @filter can be used to restrict both the sub-directories iterated and
+ * the objects that @visitor is called for.  It is passed the full path
+ * of the object, and if it returns TRUE, the object is ignored.
+ *
+ * If @visitor returns a negative value, or there's an error obtaining
+ * the listing for a particular sub-directory, then the @error function
+ * will be called.  This function should handle the error and return zero,
+ * or raise an error again and return a negative value which causes the
+ * entire walk to be aborted.  If @error is NULL, then a warning is emitted
+ * instead.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+nih_dir_walk (const char          *path,
+	      NihFileFilter        filter,
+	      NihFileVisitor       visitor,
+	      NihFileErrorHandler  error,
+	      void                *data)
+{
+	NihList      *dirs;
+	struct stat   statbuf;
+	char        **paths, **subpath;
+	int           ret = 0;
+
+	nih_assert (path != NULL);
+	nih_assert (visitor != NULL);
+
+	paths = nih_dir_walk_scan (path, filter);
+	if (! paths)
+		return -1;
+
+
+	NIH_MUST (dirs = nih_list_new (NULL));
+
+	if (stat (path, &statbuf) == 0) {
+		NihDirEntry *entry;
+
+		NIH_MUST (entry = nih_new (dirs, NihDirEntry));
+		nih_list_init (&entry->entry);
+		entry->dev = statbuf.st_dev;
+		entry->ino = statbuf.st_ino;
+		nih_list_add (dirs, &entry->entry);
+	}
+
+	for (subpath = paths; *subpath; subpath++) {
+		ret = nih_dir_walk_visit (path, dirs, *subpath, filter,
+					  visitor, error, data);
+		if (ret < 0)
+			break;
+	}
+
+	nih_free (dirs);
+	nih_free (paths);
+
+	return ret;
+}
+
+/**
+ * nih_dir_walk_scan:
+ * @path: path to scan,
+ * @filter: path filter.
+ *
+ * Reads the list of files in @path, removing ".", ".." and any for which
+ * @filter return TRUE.
+ *
+ * Returns: NULL-terminated array of full paths to sub-paths or NULL on
+ * raised error.
+ **/
+static char **
+nih_dir_walk_scan (const char    *path,
+		   NihFileFilter  filter)
+{
+	DIR            *dir;
+	struct dirent  *ent;
+	char          **paths;
+	size_t          npaths;
+
+	nih_assert (path != NULL);
+
+	dir = opendir (path);
+	if (! dir)
+		nih_return_system_error (NULL);
+
+	npaths = 0;
+	NIH_MUST (paths = nih_str_array_new (NULL));
+
+	while ((ent = readdir (dir)) != NULL) {
+		char  *subpath;
+
+		/* Always ignore '.' and '..' */
+		if ((! strcmp (ent->d_name, "."))
+		    || (! strcmp (ent->d_name, "..")))
+			continue;
+
+		NIH_MUST (subpath = nih_sprintf (paths, "%s/%s",
+						 path, ent->d_name));
+
+		if (filter && filter (subpath)) {
+			nih_free (subpath);
+			continue;
+		}
+
+		NIH_MUST (nih_str_array_addp (&paths, NULL, &npaths, subpath));
+	}
+
+	closedir (dir);
+
+	qsort (paths, npaths, sizeof (char *), alphasort);
+
+	return paths;
+}
+
+
+/**
+ * nih_dir_walk_visit:
+ * @dirname: top-level being walked,
+ * @dirs: stack of visited directories,
+ * @path: path being visited,
+ * @filter: path filter,
+ * @visitor: function to call for each path,
+ * @error: function to call on error,
+ * @data: data to pass to @visitor.
+ *
+ * Visits an individual @path found while iterating the directory tree
+ * started at @dirname.  Ensures that @visitor is called for @path, and
+ * if @path is a directory, it is descended into and the same @visitor
+ * called for each of those.
+ *
+ * @filter can be used to restrict both the sub-directories iterated and
+ * the objects that @visitor is called for.  It is passed the full path
+ * of the object, and if it returns TRUE, the object is ignored.
+ *
+ * If @visitor returns a negative value, or there's an error obtaining
+ * the listing for a particular sub-directory, then the @error function
+ * will be called.  This function should handle the error and return zero,
+ * or raise an error again and return a negative value which causes the
+ * entire walk to be aborted.  If @error is NULL, then a warning is emitted
+ * instead.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+nih_dir_walk_visit (const char          *dirname,
+		    NihList             *dirs,
+		    const char          *path,
+		    NihFileFilter        filter,
+		    NihFileVisitor       visitor,
+		    NihFileErrorHandler  error,
+		    void                *data)
+{
+	struct stat statbuf;
+
+	nih_assert (dirname != NULL);
+	nih_assert (dirs != NULL);
+	nih_assert (path != NULL);
+	nih_assert (visitor != NULL);
+
+	/* Not much we can do here if we can't at least stat it */
+	if (stat (path, &statbuf) < 0) {
+		nih_error_raise_system ();
+		goto error;
+	}
+
+	/* Call the handler */
+	if (visitor (data, dirname, path, &statbuf) < 0)
+		goto error;
+
+	/* Iterate into sub-directories; first checking for directory loops.
+	 */
+	if (S_ISDIR (statbuf.st_mode)) {
+		NihDirEntry  *entry;
+		char        **paths, **subpath;
+		int           ret = 0;
+
+		NIH_LIST_FOREACH (dirs, iter) {
+			NihDirEntry *entry = (NihDirEntry *)iter;
+
+			if ((entry->dev == statbuf.st_dev)
+			    && (entry->ino == statbuf.st_ino)) {
+				nih_error_raise (NIH_DIR_LOOP_DETECTED,
+						 _(NIH_DIR_LOOP_DETECTED_STR));
+				goto error;
+			}
+		}
+
+		/* Grab the directory contents */
+		paths = nih_dir_walk_scan (path, filter);
+		if (! paths)
+			goto error;
+
+		/* Record the device and inode numbers in the stack so that
+		 * we can detect directory loops.
+		 */
+		NIH_MUST (entry = nih_new (dirs, NihDirEntry));
+		nih_list_init (&entry->entry);
+		entry->dev = statbuf.st_dev;
+		entry->ino = statbuf.st_ino;
+		nih_list_add (dirs, &entry->entry);
+
+		/* Iterate the paths found.  If these calls return a negative
+		 * value, it means that an error handler decided to abort the
+		 * walk; so just abort right now.
+		 */
+		for (subpath = paths; *subpath; subpath++) {
+			ret = nih_dir_walk_visit (dirname, dirs, *subpath,
+						  filter, visitor, error,
+						  data);
+			if (ret < 0)
+				break;
+		}
+
+		nih_list_free (&entry->entry);
+		nih_free (paths);
+
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+
+error:
+	if (error) {
+		return error (data, dirname, path, &statbuf);
+	} else {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn ("%s: %s", path, err->message);
+		nih_free (err);
+
+		return 0;
+	}
 }

@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -55,7 +55,8 @@
 
 
 /* Prototypes for static functions */
-static NihIoWatch *open_logging    (void);
+static NihIoWatch *open_logging    (void)
+	__attribute__ ((warn_unused_result, malloc));
 static void        logging_watcher (void *data, NihIoWatch *watch,
 				    NihIoEvents events);
 static void        logging_reader  (void *data, NihIo *io,
@@ -140,7 +141,16 @@ main (int   argc,
 
 	/* Become daemon, or signify that we're ready to receive events */
 	if (daemonise) {
-		nih_main_daemonise ();
+		if (nih_main_daemonise () < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s", _("Unable to become daemon"),
+				   err->message);
+			nih_free (err);
+
+			exit (1);
+		}
 	} else {
 		raise (SIGSTOP);
 	}
@@ -152,7 +162,8 @@ main (int   argc,
 
 	/* Handle TERM signal gracefully */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_handler (NULL, SIGTERM, nih_main_term_signal, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
+					  nih_main_term_signal, NULL));
 
 
 	ret = nih_main_loop ();
@@ -246,7 +257,8 @@ logging_watcher (void        *data,
 	}
 
 	/* Create an NihIo structure for the child */
-	io = nih_io_reopen (NULL, sock, logging_reader, NULL, NULL, NULL);
+	io = nih_io_reopen (NULL, sock, NIH_IO_STREAM, logging_reader,
+			    NULL, NULL, NULL);
 	if (! io) {
 		nih_error (_("Insufficient memory to accept child"));
 		close (sock);
@@ -272,7 +284,7 @@ logging_reader (void       *data,
 		const char *buf,
 		size_t      len)
 {
-	size_t  namelen;
+	size_t  sizelen, namelen;
 	char   *name;
 
 	nih_assert (io != NULL);
@@ -289,12 +301,15 @@ logging_reader (void       *data,
 	if (len < (sizeof (size_t) + namelen))
 		return;
 
-	/* Read the size and then the name from the buffer */
-	NIH_MUST (name = nih_io_read (NULL, io, sizeof (size_t)));
+	/* Read the size and discard it */
+	sizelen = sizeof (size_t);
+	NIH_MUST (name = nih_io_read (io, io, &sizelen));
 	nih_free (name);
-	NIH_MUST (name = nih_io_read (io, io, namelen));
 
-	/* Change the functions called and pass the name */
+	/* Read the name from the buffer, change the function to be a
+	 * line_reader that gets the name in the data argument.
+	 */
+	NIH_MUST (name = nih_io_read (io, io, &namelen));
 	io->reader = (NihIoReader)line_reader;
 	io->data = name;
 

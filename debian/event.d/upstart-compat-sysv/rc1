@@ -2,15 +2,11 @@
 #
 # This task runs the old sysv-rc runlevel 1 ("single-user") scripts. 
 
-start on maintenance
-start on runlevel-1
+start on runlevel 1
 
-stop on shutdown
-stop on runlevel-2
-stop on runlevel-3
-stop on runlevel-4
-stop on runlevel-5
+stop on runlevel [^1]
 
+console output
 script
 	set $(runlevel --set 1 || true)
 	if [ "$1" != "unknown" ]; then

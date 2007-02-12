@@ -2,16 +2,11 @@
 #
 # This task runs the sulogin binary during "single-user" mode.
 
-start on runlevel-S
+start on runlevel S
 
-stop on shutdown
-stop on runlevel-2
-stop on runlevel-3
-stop on runlevel-4
-stop on runlevel-5
+stop on runlevel
 
 console owner
-
 script
 	runlevel --set S >/dev/null || true
 	/sbin/sulogin

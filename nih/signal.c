@@ -2,7 +2,7 @@
  *
  * signal.c - easier and main-loop signal handling
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <string.h>
 #include <signal.h>
 
 #include <nih/macros.h>
@@ -43,6 +44,64 @@
  * Linux this is always 32.
  **/
 #define NUM_SIGNALS 32
+
+/**
+ * SignalName:
+ * @num: number of signal,
+ * @name: name of signal.
+ *
+ * Structure used to associate signal names and numbers to each other.
+ **/
+typedef struct {
+	int         num;
+	const char *name;
+} SignalName;
+
+/**
+ * signal_names:
+ *
+ * List of signal name to number mappings, the last entry in the list has
+ * a NULL name and negative number.
+ **/
+static const SignalName signal_names[] = {
+	{ SIGHUP,    "HUP"    },
+	{ SIGINT,    "INT"    },
+	{ SIGQUIT,   "QUIT"   },
+	{ SIGILL,    "ILL"    },
+	{ SIGTRAP,   "TRAP"   },
+	{ SIGABRT,   "ABRT"   },
+	{ SIGIOT,    "IOT"    },
+	{ SIGBUS,    "BUS"    },
+	{ SIGFPE,    "FPE"    },
+	{ SIGKILL,   "KILL"   },
+	{ SIGUSR1,   "USR1"   },
+	{ SIGSEGV,   "SEGV"   },
+	{ SIGUSR2,   "USR2"   },
+	{ SIGPIPE,   "PIPE"   },
+	{ SIGALRM,   "ALRM"   },
+	{ SIGTERM,   "TERM"   },
+	{ SIGSTKFLT, "STKFLT" },
+	{ SIGCHLD,   "CHLD"   },
+	{ SIGCLD,    "CLD"    },
+	{ SIGCONT,   "CONT"   },
+	{ SIGSTOP,   "STOP"   },
+	{ SIGTSTP,   "TSTP"  },
+	{ SIGTTIN,   "TTIN"   },
+	{ SIGTTOU,   "TTOU"   },
+	{ SIGURG,    "URG"    },
+	{ SIGXCPU,   "XCPU"   },
+	{ SIGXFSZ,   "XFSZ"   },
+	{ SIGVTALRM, "VTALRM" },
+	{ SIGPROF,   "PROF"   },
+	{ SIGWINCH,  "WINCH"  },
+	{ SIGIO,     "IO"     },
+	{ SIGPOLL,   "POLL"   },
+	{ SIGPWR,    "PWR"    },
+	{ SIGSYS,    "SYS"    },
+	{ SIGUNUSED, "UNUSED" },
+
+	{ -1, NULL }
+};
 
 /**
  * signals_caught:
@@ -83,7 +142,7 @@ nih_signal_init (void)
  * Sets signal @signum to call the @handler function when raised, with
  * sensible defaults for the flags and signal mask.
  *
- * Returns: zero on success, negative value on raised error.
+ * Returns: zero on success, negative value on invalid signal.
  **/
 int
 nih_signal_set_handler (int    signum,
@@ -104,7 +163,7 @@ nih_signal_set_handler (int    signum,
 	sigemptyset (&act.sa_mask);
 
 	if (sigaction (signum, &act, NULL) < 0)
-		nih_return_system_error (-1);
+		return -1;
 
 	return 0;
 }
@@ -116,7 +175,7 @@ nih_signal_set_handler (int    signum,
  * Sets signal @signum to perform the operating system default action when
  * raised, with sensible defaults for the flags and signal mask.
  *
- * Returns: zero on success, negative value on raised error.
+ * Returns: zero on success, negative value on invalid signal.
  **/
 int
 nih_signal_set_default (int signum)
@@ -131,7 +190,7 @@ nih_signal_set_default (int signum)
 	sigemptyset (&act.sa_mask);
 
 	if (sigaction (signum, &act, NULL) < 0)
-		nih_return_system_error (-1);
+		return -1;
 
 	return 0;
 }
@@ -143,7 +202,7 @@ nih_signal_set_default (int signum)
  * Sets signal @signum to be ignored, with sensible defaults for the flags
  * and signal mask.
  *
- * Returns: zero on success, negative value on raised error.
+ * Returns: zero on success, negative value on invalid signal.
  **/
 int
 nih_signal_set_ignore (int signum)
@@ -158,7 +217,7 @@ nih_signal_set_ignore (int signum)
 	sigemptyset (&act.sa_mask);
 
 	if (sigaction (signum, &act, NULL) < 0)
-		nih_return_system_error (-1);
+		return -1;
 
 	return 0;
 }
@@ -166,8 +225,7 @@ nih_signal_set_ignore (int signum)
 /**
  * nih_signal_reset:
  *
- * Resets all signals to their default handling, errors are ignored as
- * there's no real way to deal with them.
+ * Resets all signals to their default handling.
  **/
 void
 nih_signal_reset (void)
@@ -175,8 +233,7 @@ nih_signal_reset (void)
 	int i;
 
 	for (i = 1; i < NUM_SIGNALS; i++)
-		if (nih_signal_set_default (i) < 0)
-			nih_free (nih_error_get ());
+		nih_signal_set_default (i);
 }
 
 
@@ -282,4 +339,54 @@ nih_signal_poll (void)
 
 	for (s = 0; s < NUM_SIGNALS; s++)
 		signals_caught[s] = 0;
+}
+
+
+/**
+ * nih_signal_to_name:
+ * @signum: signal number to look up.
+ *
+ * Looks up @signum in the table of signal names and returns the common
+ * name for the signal, in the form TERM/CHLD.
+ *
+ * Returns: static name string or NULL if signal is unknown.
+ **/
+const char *
+nih_signal_to_name (int signum)
+{
+	const SignalName *sig;
+
+	nih_assert (signum > 0);
+
+	for (sig = signal_names; (sig->num > 0) && sig->name; sig++)
+		if (sig->num == signum)
+			return sig->name;
+
+	return NULL;
+}
+
+/**
+ * nih_signal_from_name:
+ * @signame: signal name to look up.
+ *
+ * Looks up @signame in the table of signal names and returns the
+ * number for the signal; @signame may be in the form SIGTERM or TERM.
+ *
+ * Returns: signal number or negative value if signal is unknown.
+ **/
+int
+nih_signal_from_name (const char *signame)
+{
+	const SignalName *sig;
+
+	nih_assert (signame != NULL);
+
+	if (! strncmp (signame, "SIG", 3))
+		signame += 3;
+
+	for (sig = signal_names; (sig->num > 0) && sig->name; sig++)
+		if (! strcmp (sig->name, signame))
+			return sig->num;
+
+	return -1;
 }

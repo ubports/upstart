@@ -1,3 +1,28 @@
+upstart (0.3.5-1) feisty; urgency=low
+
+  * New upstream release:
+    - inotify file descriptor leak fixed.  LP: #83099.
+    - inotify support is no longer required.  LP: #68904.
+    - new job state machine
+    - new event structure, can now include arguments and environment
+
+  * Applied 00-libnih-update.patch; this updates the libnih library to the
+    latest bzr trunk version, required for the complex-event-config patch.
+  * Applied 10-cant-stop-execless-job.patch from upstream; this corrects a
+    bug where jobs without an "exec" or "script" stanza cannot be stopped.
+  * Applied 20-complex-event-config.patch from upstream; this is an
+    experimental implementation of the "on" keyword that allows definition
+    of complex system states.
+
+  * System V compatibility jobs updated to match new event names.
+  * rcS job now sets PREVLEVEL and RUNLEVEL.  LP: #76304.
+
+  * NOTE: After this upgrade, init will appear to have "forgotten" the
+    process ids of your gettys, etc.  This is not a critical problem and
+    will be fixed before release.  Shutdown will still work as normal.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Mon, 12 Feb 2007 13:51:40 +0000
+
 upstart (0.3.1-1) feisty; urgency=low
 
   * New upstream release:

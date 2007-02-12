@@ -181,12 +181,12 @@ main (int   argc,
 	}
 
 	nih_option_set_help (
-		_("This command is intended to actually instruct the kernel "
+		_("This command is intended to instruct the kernel "
 		  "to reboot or halt the system; when run without the -f "
 		  "option it will actually execute /sbin/shutdown.\n"
 		  "\n"
 		  "Before the system is rebooted or halted, the disks are "
-		  "sync'd; this can be avoided by giving -n.\n"
+		  "syncd; this can be avoided by giving -n.\n"
 		  "\n"
 		  "Network interfaces can be brought down by giving the -i "
 		  "option, and IDE disks can be put into standby by giving "

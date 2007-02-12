@@ -3,7 +3,9 @@
 # This task ensures that should the system fail to have any active jobs
 # that the system administrator can rescue it; by giving them a shell.
 
-on stalled
+# Disabled since this would get started when init is re-exec'd, and
+# "console owner" kills X.
+# start on stalled
 
 exec /sbin/sulogin
 console owner

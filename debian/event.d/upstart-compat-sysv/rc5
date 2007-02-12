@@ -3,13 +3,11 @@
 # This task runs the old sysv-rc runlevel 5 (user defined) scripts.  It
 # is usually started by the telinit compatibility wrapper.
 
-start on runlevel-5
+start on runlevel 5
 
-stop on shutdown
-stop on runlevel-2
-stop on runlevel-3
-stop on runlevel-4
+stop on runlevel [^5]
 
+console output
 script
 	set $(runlevel --set 5 || true)
 	if [ "$1" != "unknown" ]; then
