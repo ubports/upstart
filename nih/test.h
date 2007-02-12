@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,9 @@
 
 #include <sys/types.h>
 
+#include <errno.h>
 #include <stdio.h>
+#include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +39,16 @@
 #include <nih/alloc.h>
 #include <nih/list.h>
 
+
+/**
+ * assert0:
+ * @_expr: expression to check.
+ *
+ * Wrapper around the usual assert() function that handles the common case
+ * of asserting that @_expr returns zero, rather than a TRUE value.
+ **/
+#define assert0(_expr) \
+	assert ((_expr) == 0)
 
 /**
  * TEST_FUNCTION:
@@ -109,6 +121,19 @@
 			     #_a, (ssize_t)(_b), (ssize_t)(_a))
 
 /**
+ * TEST_EQ_U:
+ * @_a: first unsigned integer,
+ * @_b: second unsigned integer.
+ *
+ * Check that the two numeric values @_a and @_b are equal, they are cast
+ * to size_t for display purposes.
+ **/
+#define TEST_EQ_U(_a, _b) \
+	if ((_a) != (_b)) \
+		TEST_FAILED ("wrong value for %s, expected %zu got %zu", \
+			     #_a, (size_t)(_b), (size_t)(_a))
+
+/**
  * TEST_EQ_P:
  * @_a: first pointer,
  * @_b: second pointer.
@@ -157,8 +182,8 @@
  **/
 #define TEST_EQ_MEM(_a, _b, _l) \
 	if (memcmp ((_a), (_b), (_l))) \
-		TEST_FAILED ("wrong %d bytes at %p (%s), expected %p (%s)", \
-			     (_l), (_a), #_a, (_b), #_b)
+		TEST_FAILED ("wrong %zu bytes at %p (%s), expected %p (%s)", \
+			     (size_t)(_l), (_a), #_a, (_b), #_b)
 
 /**
  * TEST_NE:
@@ -172,6 +197,19 @@
 	if ((_a) == (_b)) \
 		TEST_FAILED ("wrong value for %s, got unexpected %zi", \
 			     #_a, (ssize_t)(_b))
+
+/**
+ * TEST_NE_U:
+ * @_a: first unsigned integer,
+ * @_b: second unsigned integer.
+ *
+ * Check that the two numeric values @_a and @_b are not equal, they are
+ * cast to size_t for display purposes.
+ **/
+#define TEST_NE_U(_a, _b) \
+	if ((_a) == (_b)) \
+		TEST_FAILED ("wrong value for %s, got unexpected %zu", \
+			     #_a, (size_t)(_b))
 
 /**
  * TEST_NE_P:
@@ -221,8 +259,8 @@
  **/
 #define TEST_NE_MEM(_a, _b, _l) \
 	if (! memcmp ((_a), (_b), (_l))) \
-		TEST_FAILED ("wrong %d bytes at %p (%s), got unexpected %p (%s)", \
-			     (_l), (_a), #_a, (_b), #_b)
+		TEST_FAILED ("wrong %zu bytes at %p (%s), got unexpected %p (%s)", \
+			     (size_t)(_l), (_a), #_a, (_b), #_b)
 
 /**
  * TEST_LT:
@@ -429,7 +467,7 @@
  **/
 #define TEST_FILENAME(_var) \
 	do { \
-		snprintf ((_var), sizeof (_var), "/tmp/%s:%s:%d:%d", \
+		snprintf ((_var), sizeof (_var), "/tmp/%s-%s-%d-%d", \
 			  strrchr (__FILE__, '/') ? strrchr (__FILE__, '/') + 1 : __FILE__, \
 			  __FUNCTION__, __LINE__, getpid ()); \
 		unlink (_var); \
@@ -570,6 +608,96 @@
 			     (_ptr), #_ptr, (_parent), #_parent, \
 			     nih_alloc_parent (_ptr))
 
+/**
+ * test_alloc_failed:
+ *
+ * Variable used by TEST_ALLOC_FAIL as the loop counter.
+ **/
+static int test_alloc_failed = 0;
+
+/**
+ * _test_alloc_count:
+ *
+ * Number of times malloc is called by the TEST_ALLOC_FAIL macro.
+ **/
+static int _test_alloc_count = 0;
+
+/**
+ * _test_alloc_call:
+ *
+ * Number of times malloc has been called during each cycle.
+ **/
+static int _test_alloc_call = 0;
+
+/**
+ * _test_allocator:
+ *
+ * Allocator used by TEST_ALLOC_FAIL; when test_alloc_failed is zero, it
+ * increments test_alloc_count and returns whatever realloc does.  Otherwise
+ * it internally counts the number of times it is called, and if that matches
+ * test_alloc_failed, then it returns NULL.
+ **/
+static inline void *
+_test_allocator (void   *ptr,
+		 size_t  size)
+{
+	if (! size)
+		return realloc (ptr, size);
+
+	if (! test_alloc_failed) {
+		_test_alloc_count++;
+
+		return realloc (ptr, size);
+	}
+
+	_test_alloc_call++;
+	if (test_alloc_failed == _test_alloc_call) {
+		errno = ENOMEM;
+		return NULL;
+	} else {
+		return realloc (ptr, size);
+	}
+}
+
+/**
+ * TEST_ALLOC_FAIL:
+ *
+ * This macro expands to code that runs the following block repeatedly; the
+ * first time (when the special test_alloc_failed variable is zero) is
+ * used to determine how many allocations are performed by the following block;
+ * subsequent calls (when test_alloc_failed is a positive integer) mean that
+ * the test_alloc_failedth call to realloc has failed.
+ *
+ * This cannot be nested as it relies on setting an alternate allocator
+ * and sharing a global state.
+ **/
+#define TEST_ALLOC_FAIL \
+	for (test_alloc_failed = -1; \
+	     test_alloc_failed <= (_test_alloc_count + 1); \
+	     test_alloc_failed++, _test_alloc_call = 0) \
+		if (test_alloc_failed < 0) { \
+			_test_alloc_count = 0; \
+			nih_alloc_set_allocator (_test_allocator); \
+		} else if (test_alloc_failed \
+			   && (test_alloc_failed == \
+			       (_test_alloc_count + 1))) { \
+			nih_alloc_set_allocator (realloc); \
+		} else
+
+/**
+ * TEST_ALLOC_SAFE:
+ *
+ * This macro may be used within a TEST_ALLOC_FAIL block to guard the
+ * following block of code from failing allocation.
+ **/
+#define TEST_ALLOC_SAFE \
+	for (int _test_alloc_safe = 0; _test_alloc_safe < 3; \
+	     _test_alloc_safe++) \
+		if (_test_alloc_safe < 1) { \
+			nih_alloc_set_allocator (realloc); \
+		} else if (_test_alloc_safe > 1) { \
+			nih_alloc_set_allocator (_test_allocator); \
+		} else
 
 /**
  * TEST_LIST_EMPTY:
@@ -594,6 +722,5 @@
 	if (NIH_LIST_EMPTY (_list)) \
 		TEST_FAILED ("list %p (%s) empty, expected multiple members", \
 			     (_list), #_list)
-
 
 #endif /* NIH_TEST_H */

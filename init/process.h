@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,10 +30,13 @@
 
 NIH_BEGIN_EXTERN
 
-pid_t process_spawn         (Job *job, char * const argv[]);
-int   process_kill          (Job *job, pid_t pid, int force);
+pid_t process_spawn         (Job *job, char * const argv[])
+	__attribute__ ((warn_unused_result));
+int   process_kill          (Job *job, pid_t pid, int force)
+	__attribute__ ((warn_unused_result));
 
-int   process_setup_console (Job *job, ConsoleType type);
+int   process_setup_console (Job *job, ConsoleType type)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

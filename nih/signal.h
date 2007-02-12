@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@
  * it can be removed if desired.
  **/
 typedef struct nih_signal NihSignal;
-typedef void (*NihSignalHandler) (void *, NihSignal *);
+typedef void (*NihSignalHandler) (void *data, NihSignal *signal);
 
 /**
  * NihSignal:
@@ -64,16 +64,20 @@ struct nih_signal {
 
 NIH_BEGIN_EXTERN
 
-int        nih_signal_set_handler (int signum, void (*handler)(int));
-int        nih_signal_set_default (int signum);
-int        nih_signal_set_ignore  (int signum);
-void       nih_signal_reset       (void);
+int         nih_signal_set_handler (int signum, void (*handler)(int));
+int         nih_signal_set_default (int signum);
+int         nih_signal_set_ignore  (int signum);
+void        nih_signal_reset       (void);
 
-NihSignal *nih_signal_add_handler (const void *parent, int signum,
-				   NihSignalHandler handler, void *data);
+NihSignal * nih_signal_add_handler (const void *parent, int signum,
+				   NihSignalHandler handler, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 
-void       nih_signal_handler     (int signum);
-void       nih_signal_poll        (void);
+void        nih_signal_handler     (int signum);
+void        nih_signal_poll        (void);
+
+const char *nih_signal_to_name     (int signum);
+int         nih_signal_from_name   (const char *signame);
 
 NIH_END_EXTERN
 

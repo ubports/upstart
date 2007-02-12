@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,11 +29,15 @@
 enum {
 	LIBUPSTART_ERROR_START = NIH_ERROR_LIBRARY_START,
 
-	/* Invalid message received */
-	UPSTART_INVALID_MESSAGE,
+	/* Errors while handling of received control messages */
+	UPSTART_MESSAGE_ILLEGAL,
+	UPSTART_MESSAGE_INVALID,
+	UPSTART_MESSAGE_UNKNOWN,
 };
 
 /* Error strings for defined messages */
-#define UPSTART_INVALID_MESSAGE_STR	N_("Invalid message received")
+#define UPSTART_MESSAGE_ILLEGAL_STR	N_("Message from illegal source")
+#define UPSTART_MESSAGE_INVALID_STR	N_("Invalid message received")
+#define UPSTART_MESSAGE_UNKNOWN_STR	N_("Unknown message received")
 
 #endif /* UPSTART_ERRORS_H */

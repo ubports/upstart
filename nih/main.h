@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@
  * The @loop pointer can be used to remove the callback.
  **/
 typedef struct nih_main_loop_func NihMainLoopFunc;
-typedef void (*NihMainLoopCb) (void *, NihMainLoopFunc *);
+typedef void (*NihMainLoopCb) (void *data, NihMainLoopFunc *loop);
 
 /**
  * NihMainLoopFunc:
@@ -119,14 +119,16 @@ const char *     nih_main_package_string (void);
 void             nih_main_suggest_help   (void);
 void             nih_main_version        (void);
 
-int              nih_main_daemonise      (void);
+int              nih_main_daemonise      (void)
+	__attribute__ ((warn_unused_result));
 
 int              nih_main_loop           (void);
 void             nih_main_loop_interrupt (void);
 void             nih_main_loop_exit      (int status);
 
 NihMainLoopFunc *nih_main_loop_add_func  (const void *parent,
-					  NihMainLoopCb callback, void *data);
+					  NihMainLoopCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 
 void             nih_main_term_signal    (void *data, NihSignal *signal);
 

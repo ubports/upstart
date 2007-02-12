@@ -2,7 +2,7 @@
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
-	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
+	-I$(top_builddir) -I$(top_srcdir) \
 	-I$(top_srcdir)/intl
 
 
@@ -13,10 +13,15 @@ dist_man_MANS = \
 sbin_PROGRAMS = \
 	initctl
 
+initctl_SOURCES = \
+	initctl.c initctl.h \
+	jobs.c jobs.h \
+	events.c events.h
 
-initctl_SOURCES = initctl.c
 initctl_LDFLAGS = -static
-initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+initctl_LDADD = \
+	../nih/libnih.la \
+	../upstart/libupstart.la
 
 
 install-data-hook:
@@ -30,9 +35,19 @@ install-exec-hook:
 	ln -sf initctl $(DESTDIR)$(sbindir)/status
 
 
-TESTS = 
+TESTS = \
+	test_jobs \
+	test_events
 
 check_PROGRAMS = $(TESTS)
+
+test_jobs_SOURCES = tests/test_jobs.c
+test_jobs_LDFLAGS = -static
+test_jobs_LDADD = ../nih/libnih.la ../upstart/libupstart.la jobs.o
+
+test_events_SOURCES = tests/test_events.c
+test_events_LDFLAGS = -static
+test_events_LDADD = ../nih/libnih.la ../upstart/libupstart.la events.o
 
 
 clean-local:

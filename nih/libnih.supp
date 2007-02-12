@@ -42,6 +42,17 @@
 }
 
 {
+   nih-io-init
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:nih_alloc_using
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:nih_io_init
+}
+
+{
    nih-signal-init
    Memcheck:Leak
    fun:malloc
@@ -78,4 +89,14 @@
    fun:nih_vsprintf
    fun:nih_sprintf
    fun:nih_main_package_string
+}
+
+# tmpfile is used by some test cases ... valgrind doesn't have a built-in
+# suppression for it.
+{
+   glibc-tmpfile
+   Memcheck:Leak
+   fun:malloc
+   fun:fdopen
+   fun:tmpfile
 }

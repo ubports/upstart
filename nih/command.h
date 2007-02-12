@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@
  * The return value of the function is returned from nih_command_parser().
  **/
 typedef struct nih_command NihCommand;
-typedef int (*NihCommandAction) (NihCommand *, char * const *);
+typedef int (*NihCommandAction) (NihCommand *command, char * const *args);
 
 
 /**
@@ -108,7 +108,8 @@ int         nih_command_parser (const void *parent, int argc, char *argv[],
 				NihOption *options, NihCommand *commands);
 
 NihCommand *nih_command_join   (const void *parent,
-				NihCommand *a, NihCommand *b);
+				NihCommand *a, NihCommand *b)
+	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 

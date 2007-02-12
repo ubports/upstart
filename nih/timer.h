@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@
  * nih_list_remove() or similar; this happens automatically for timeouts.
  **/
 typedef struct nih_timer NihTimer;
-typedef void (*NihTimerCb) (void *, NihTimer *);
+typedef void (*NihTimerCb) (void *data, NihTimer *timer);
 
 
 /**
@@ -111,12 +111,15 @@ struct nih_timer {
 NIH_BEGIN_EXTERN
 
 NihTimer *nih_timer_add_timeout   (const void *parent, time_t timeout,
-				   NihTimerCb callback, void *data);
+				   NihTimerCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 NihTimer *nih_timer_add_periodic  (const void *parent, time_t period,
-				   NihTimerCb callback, void *data);
+				   NihTimerCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 NihTimer *nih_timer_add_scheduled (const void *parent,
 				   NihTimerSchedule *schedule,
-				   NihTimerCb callback, void *data);
+				   NihTimerCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 
 NihTimer *nih_timer_next_due       (void);
 void      nih_timer_poll           (void);

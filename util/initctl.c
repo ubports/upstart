@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,408 +22,39 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <sys/types.h>
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
-#include <nih/alloc.h>
-#include <nih/string.h>
 #include <nih/main.h>
 #include <nih/option.h>
 #include <nih/command.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/job.h>
-#include <upstart/control.h>
+#include <upstart/message.h>
 
-
-/* Prototypes for static functions */
-static int  open_socket      (void);
-static void print_job_status (UpstartMsg *reply);
-static void print_event      (UpstartMsg *reply);
+#include <util/initctl.h>
+#include <util/jobs.h>
+#include <util/events.h>
 
 
 /**
- * start_options:
+ * control_sock:
  *
- * Command-line options accepted for the start, stop and status commands.
+ * Control socket opened by the main function for communication with the
+ * init daemon.
  **/
-static NihOption start_options[] = {
-	NIH_OPTION_LAST
-};
+int control_sock;
 
 /**
- * start_action:
- * @command: command invoked for,
- * @args: arguments passed.
+ * destination_pid:
  *
- * Function invoked when the start, stop or status command is run.  The
- * arguments are expected to be a list of jobs that should have their status
- * changed.
- *
- * Returns: zero on success, exit status on error.
+ * Process id to send the message to; nearly always the default of 1.
  **/
-static int
-start_action (NihCommand   *command,
-	      char * const *args)
-{
-	char * const *arg;
-	int           sock;
-
-	nih_assert (command != NULL);
-	nih_assert (args != NULL);
-
-	if (! args[0]) {
-		fprintf (stderr, _("%s: missing job name\n"), program_name);
-		nih_main_suggest_help ();
-		exit (1);
-	}
-
-	sock = open_socket ();
-
-	/* Iterate job names */
-	for (arg = args; *arg; arg++) {
-		UpstartMsg msg, *reply;
-
-		/* Build the message to send */
-		if (! strcmp (command->command, "start")) {
-			msg.type = UPSTART_JOB_START;
-			msg.job_start.name = *arg;
-		} else if (! strcmp (command->command, "stop")) {
-			msg.type = UPSTART_JOB_STOP;
-			msg.job_stop.name = *arg;
-		} else if (! strcmp (command->command, "status")) {
-			msg.type = UPSTART_JOB_QUERY;
-			msg.job_stop.name = *arg;
-		}
-
-		/* Send the message */
-		if (upstart_send_msg (sock, &msg) < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Unable to send message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		/* Wait for the reply */
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_JOB_STATUS:
-			print_job_status (reply);
-			break;
-		case UPSTART_JOB_UNKNOWN:
-			nih_warn (_("unknown job: %s\n"),
-				  reply->job_unknown.name);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
-
-		nih_free (reply);
-	}
-
-	return 0;
-}
-
-
-/**
- * list_options:
- *
- * Command-line options accepted for the list command.
- **/
-static NihOption list_options[] = {
-	NIH_OPTION_LAST
-};
-
-/**
- * list_action:
- * @command: command invoked for,
- * @args: arguments passed.
- *
- * Function invoked when the list command is run.  No arguments are permitted.
- *
- * Returns: zero on success, exit status on error.
- **/
-static int
-list_action (NihCommand   *command,
-	     char * const *args)
-{
-	UpstartMsg msg;
-	int        sock, receive_replies;
-
-	nih_assert (command != NULL);
-	nih_assert (args != NULL);
-
-	sock = open_socket ();
-
-	msg.type = UPSTART_JOB_LIST;
-
-	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"), err->message);
-		exit (1);
-	}
-
-	/* Receive all replies */
-	receive_replies = 1;
-	while (receive_replies) {
-		UpstartMsg *reply;
-
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_JOB_STATUS:
-			print_job_status (reply);
-			break;
-		case UPSTART_JOB_LIST_END:
-			receive_replies = 0;
-			break;
-		case UPSTART_JOB_UNKNOWN:
-			nih_warn (_("unknown job: %s\n"),
-				  reply->job_unknown.name);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
-
-		nih_free (reply);
-	}
-
-	return 0;
-}
-
-
-/**
- * emit_options:
- *
- * Command-line options accepted for the emit and shutdown commands.
- **/
-static NihOption emit_options[] = {
-	NIH_OPTION_LAST
-};
-
-/**
- * emit_action:
- * @command: command invoked for,
- * @args: arguments passed.
- *
- * Function invoked when the emit or shutdown command is run.  An event name
- * is expected.
- *
- * Returns: zero on success, exit status on error.
- **/
-static int
-emit_action (NihCommand   *command,
-	     char * const *args)
-{
-	UpstartMsg msg;
-	int        sock;
-
-	nih_assert (command != NULL);
-	nih_assert (args != NULL);
-
-	if (! args[0]) {
-		fprintf (stderr, _("%s: missing event name\n"), program_name);
-		nih_main_suggest_help ();
-		exit (1);
-	}
-
-	sock = open_socket ();
-
-	if (! strcmp (command->command, "emit")) {
-		msg.type = UPSTART_EVENT_QUEUE;
-	} else if (! strcmp (command->command, "trigger")) {
-		msg.type = UPSTART_EVENT_QUEUE;
-	} else if (! strcmp (command->command, "shutdown")) {
-		msg.type = UPSTART_SHUTDOWN;
-	}
-	msg.event_queue.name = args[0];
-
-	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"), err->message);
-		exit (1);
-	}
-
-	return 0;
-}
-
-
-/**
- * jobs_options:
- *
- * Command-line options accepted for the jobs command.
- **/
-static NihOption jobs_options[] = {
-	NIH_OPTION_LAST
-};
-
-/**
- * jobs_action:
- * @command: command invoked for,
- * @args: arguments passed.
- *
- * Function invoked when the jobs command is run.  No arguments are
- * expected.
- *
- * Returns: zero on success, exit status on error.
- **/
-static int
-jobs_action (NihCommand   *command,
-	     char * const *args)
-{
-	UpstartMsg msg;
-	int        sock;
-
-	nih_assert (command != NULL);
-	nih_assert (args != NULL);
-
-	sock = open_socket ();
-
-	msg.type = UPSTART_WATCH_JOBS;
-
-	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"),
-			   err->message);
-		exit (1);
-	}
-
-	/* Receive all replies */
-	for (;;) {
-		UpstartMsg *reply;
-
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_JOB_STATUS:
-			print_job_status (reply);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
-
-		nih_free (reply);
-	}
-
-	return 0;
-}
-
-
-/**
- * events_options:
- *
- * Command-line options accepted for the events command.
- **/
-static NihOption events_options[] = {
-	NIH_OPTION_LAST
-};
-
-/**
- * events_action:
- * @command: command invoked for,
- * @args: arguments passed.
- *
- * Function invoked when the events command is run.  No arguments are
- * expected.
- *
- * Returns: zero on success, exit status on error.
- **/
-static int
-events_action (NihCommand   *command,
-	       char * const *args)
-{
-	UpstartMsg msg;
-	int        sock;
-
-	nih_assert (command != NULL);
-	nih_assert (args != NULL);
-
-	sock = open_socket ();
-
-	msg.type = UPSTART_WATCH_EVENTS;
-
-	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"),
-			   err->message);
-		exit (1);
-	}
-
-	/* Receive all replies */
-	for (;;) {
-		UpstartMsg *reply;
-
-		reply = upstart_recv_msg (NULL, sock, NULL);
-		if (! reply) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Error receiving message: %s"),
-				   err->message);
-			exit (1);
-		}
-
-		switch (reply->type) {
-		case UPSTART_EVENT:
-			print_event (reply);
-			break;
-		default:
-			nih_warn (_("unexpected reply (type %d)\n"),
-				  reply->type);
-		}
-
-		nih_free (reply);
-	}
-
-	return 0;
-}
+int destination_pid = 1;
 
 
 /**
@@ -432,6 +63,57 @@ events_action (NihCommand   *command,
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
+	{ 'p', "pid", "destination process", NULL, "PID", &destination_pid,
+	  nih_option_int },
+
+	NIH_OPTION_LAST
+};
+
+/**
+ * start_options:
+ *
+ * Command-line options accepted for the start, stop and status commands.
+ **/
+NihOption start_options[] = {
+	NIH_OPTION_LAST
+};
+
+/**
+ * list_options:
+ *
+ * Command-line options accepted for the list command.
+ **/
+NihOption list_options[] = {
+	NIH_OPTION_LAST
+};
+
+/**
+ * jobs_options:
+ *
+ * Command-line options accepted for the jobs command.
+ **/
+NihOption jobs_options[] = {
+	NIH_OPTION_LAST
+};
+
+/**
+ * emit_options:
+ *
+ * Command-line options accepted for the emit command.
+ **/
+NihOption emit_options[] = {
+	{ 'e', NULL, "set environment variable in jobs changed by this event",
+	  NULL, "NAME[=VALUE]", &emit_env, env_option },
+
+	NIH_OPTION_LAST
+};
+
+/**
+ * events_options:
+ *
+ * Command-line options accepted for the events command.
+ **/
+NihOption events_options[] = {
 	NIH_OPTION_LAST
 };
 
@@ -476,9 +158,16 @@ static NihCommand commands[] = {
 	  NULL,
 	  &job_commands, list_options, list_action },
 
-	{ "emit", N_("EVENT"),
+	{ "emit", N_("EVENT [ARG]..."),
 	  N_("Emit an event."),
-	  N_("EVENT is the name of an event the init daemon should emit."),
+	  N_("EVENT is the name of an event the init daemon should emit, "
+	     "which may have zero or more arguments specified by ARG.  These "
+	     "may be matched in the job definition, and are passed to any "
+	     "scripts run by the job.\n\n"
+	     "Events may also pass environment variables to the job scripts, "
+	     "defined using -e.  A value may be specified in the option, or "
+	     "if omitted, the value is taken from the environment or ignored "
+	     "if not present there."),
 	  &event_commands, emit_options, emit_action },
 
 	{ "trigger", N_("EVENT"),
@@ -496,12 +185,6 @@ static NihCommand commands[] = {
 	  NULL,
 	  &event_commands, events_options, events_action },
 
-	{ "shutdown", N_("EVENT"),
-	  N_("Emit a shutdown event."),
-	  N_("EVENT is the name of an event the init daemon should emit "
-	     "after the shutdown event has been emitted."),
-	  &event_commands, emit_options, emit_action },
-
 	NIH_COMMAND_LAST
 };
 
@@ -514,25 +197,6 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	ret = nih_command_parser (NULL, argc, argv, options, commands);
-
-	return ret;
-}
-
-
-/**
- * open_socket:
- *
- * Open a connection to the upstart daemon, this will exit the process if
- * not successful.
- *
- * Returns: socket or exits.
- **/
-static int
-open_socket (void)
-{
-	int sock;
-
 	/* Check we're root */
 	setuid (geteuid ());
 	if (getuid ()) {
@@ -541,8 +205,8 @@ open_socket (void)
 	}
 
 	/* Connect to the daemon */
-	sock = upstart_open ();
-	if (sock < 0) {
+	control_sock = upstart_open ();
+	if (control_sock < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -551,60 +215,9 @@ open_socket (void)
 		exit (1);
 	}
 
-	return sock;
-}
+	ret = nih_command_parser (NULL, argc, argv, options, commands);
+	if (ret < 0)
+		exit (1);
 
-
-/**
- * print_job_status:
- * @reply: message received.
- *
- * Output job status information received from the init daemon.
- **/
-static void
-print_job_status (UpstartMsg *reply)
-{
-	char *extra;
-
-	nih_assert (reply != NULL);
-	nih_assert (reply->type == UPSTART_JOB_STATUS);
-
-	if (reply->job_status.state == JOB_WAITING) {
-		extra = nih_strdup (NULL, "");
-
-	} else if ((reply->job_status.process_state == PROCESS_SPAWNED)
-		   || (reply->job_status.process_state == PROCESS_NONE)) {
-		extra = nih_sprintf (NULL, ", process %s",
-				     process_state_name (
-					     reply->job_status.process_state));
-	} else {
-		extra = nih_sprintf (NULL, ", process %d %s",
-				     reply->job_status.pid,
-				     process_state_name (
-					     reply->job_status.process_state));
-	}
-
-	nih_message ("%s (%s) %s%s", reply->job_status.name,
-		     job_goal_name (reply->job_status.goal),
-		     job_state_name (reply->job_status.state),
-		     extra);
-
-	nih_free (extra);
-}
-
-
-/**
- * print_event:
- * @reply: message received.
- *
- * Output the name of an event in a notification received from the
- * init daemon.
- **/
-static void
-print_event (UpstartMsg *reply)
-{
-	nih_assert (reply != NULL);
-	nih_assert (reply->type == UPSTART_EVENT);
-
-	nih_message (_("%s event"), reply->event.name);
+	return ret;
 }
