@@ -1,3 +1,16 @@
+upstart (0.3.5-2) feisty; urgency=low
+
+  * Changed "start script" to "pre-start script" in sulogin event, the former
+    is no longer recognised.
+
+  * Applied 01-libnih-sparc-ftbfs.patch; this updates the signal name list
+    to exclude signals not available on that architecture, and add one that's
+    unique to it.
+  * Applied 30-fix-warnings.patch; this corrects a few warnings that spoiled
+    an otherwise clean build log.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 13 Feb 2007 15:56:33 +0000
+
 upstart (0.3.5-1) feisty; urgency=low
 
   * New upstream release:
