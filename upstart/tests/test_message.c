@@ -739,7 +739,7 @@ static UpstartMessage any_handler[] = {
 void
 test_handle (void)
 {
-	NihIoMessage *msg;
+	NihIoMessage *msg = NULL;
 	NihError     *err;
 	struct ucred  cred = { 1000, 1000, 1000 };
 	int           ret;
@@ -1981,7 +1981,7 @@ test_handle (void)
 void
 test_handle_using (void)
 {
-	NihIoMessage *msg;
+	NihIoMessage *msg = NULL;
 	struct ucred  cred = { 1000, 1000, 1000 };
 	int           ret;
 
@@ -2036,8 +2036,8 @@ my_logger (NihLogLevel  priority,
 void
 test_reader (void)
 {
-	NihIo        *io;
-	NihIoMessage *msg;
+	NihIo        *io = NULL;
+	NihIoMessage *msg = NULL;
 	struct ucred  cred = { 2000, 1000, 1000 };
 
 	TEST_FUNCTION ("upstart_message_reader");

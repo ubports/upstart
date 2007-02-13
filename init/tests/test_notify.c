@@ -143,8 +143,8 @@ test_subscription_find (void)
 	NotifySubscription *sub1, *sub2, *sub3, *sub4, *ret;
 
 	TEST_FUNCTION ("notify_subscription_find");
-	sub1 = notify_subscribe_job (NULL, 1000, (Job *)&sub1);
-	sub2 = notify_subscribe_event (NULL, 1001, (EventEmission *)&sub2);
+	sub1 = notify_subscribe_job (NULL, 1000, (void *)&sub1);
+	sub2 = notify_subscribe_event (NULL, 1001, (void *)&sub2);
 	sub3 = notify_subscribe_job (NULL, 1000, NULL);
 	sub4 = notify_subscribe_event (NULL, 1000, NULL);
 

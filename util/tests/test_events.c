@@ -59,7 +59,7 @@ test_emit_action (void)
 	FILE         *output;
 	char         *args[4];
 	pid_t         pid;
-	int           ret, sock, status;
+	int           ret = 0, sock, status;
 
 
 	TEST_FUNCTION ("emit_action");

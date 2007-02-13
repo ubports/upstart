@@ -2426,7 +2426,7 @@ test_next_state (void)
 void
 test_run_process (void)
 {
-	Job           *job;
+	Job           *job = NULL;
 	EventEmission *em;
 	FILE          *output;
 	struct stat    statbuf;
@@ -2807,7 +2807,7 @@ test_kill_process (void)
 	 */
 	TEST_FEATURE ("with hard to kill process");
 	TEST_ALLOC_FAIL {
-		int wait_fd;
+		int wait_fd = 0;
 
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;

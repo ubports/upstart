@@ -127,7 +127,7 @@ test_read_job (void)
 	job->state = JOB_RUNNING;
 	job->pid = 1000;
 
-	job->cause = (EventEmission *)&job;
+	job->cause = (void *)&job;
 
 	job->failed = TRUE;
 	job->failed_state = JOB_RUNNING;
@@ -165,7 +165,7 @@ test_read_job (void)
 	TEST_EQ (job->state, JOB_RUNNING);
 	TEST_EQ (job->pid, 1000);
 
-	TEST_EQ_P (job->cause, (EventEmission *)&job);
+	TEST_EQ_P (job->cause, (void *)&job);
 
 	TEST_EQ (job->failed, TRUE);
 	TEST_EQ (job->failed_state, JOB_RUNNING);

@@ -58,7 +58,7 @@ test_start_action (void)
 	FILE         *output;
 	pid_t         pid;
 	char         *args[3];
-	int           ret, sock, status;
+	int           ret = 0, sock, status;
 
 
 	TEST_FUNCTION ("start_action");
