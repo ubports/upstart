@@ -123,6 +123,14 @@ typedef struct event_emission {
  **/
 #define KBDREQUEST_EVENT "kbdrequest"
 
+/**
+ * PWRSTATUS_EVENT:
+ *
+ * Name of the event that we generate when we receive SIGPWR, indicating
+ * that the power status has changed.
+ **/
+#define PWRSTATUS_EVENT "power-status-changed"
+
 
 /**
  * JOB_STARTING_EVENT:

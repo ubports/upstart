@@ -65,6 +65,7 @@ static void reset_console   (void);
 static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
+static void pwr_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
 static void term_handler    (const char *prog, NihSignal *signal);
 
@@ -214,6 +215,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
+	nih_signal_set_handler (SIGPWR,   nih_signal_handler);
 	nih_signal_set_handler (SIGSEGV,  crash_handler);
 	nih_signal_set_handler (SIGABRT,  crash_handler);
 
@@ -233,6 +235,9 @@ main (int   argc,
 	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0)
 		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
 						  kbd_handler, NULL));
+
+	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
+	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
 
 	/* SIGTERM instructs us to re-exec ourselves */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
@@ -409,6 +414,22 @@ kbd_handler (void      *data,
 	     NihSignal *signal)
 {
 	event_emit (KBDREQUEST_EVENT, NULL, NULL);
+}
+
+/**
+ * pwr_handler:
+ * @data: unused,
+ * @signal: signal that called this handler.
+ *
+ * Handle having recieved the SIGPWR signal, sent to us when powstatd
+ * changes the /etc/powerstatus file.  We just generate a
+ * power-status-changed event and jobs read the file.
+ **/
+static void
+pwr_handler (void      *data,
+	     NihSignal *signal)
+{
+	event_emit (PWRSTATUS_EVENT, NULL, NULL);
 }
 
 /**

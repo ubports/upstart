@@ -1,5 +1,10 @@
 2007-02-25  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h (PWRSTATUS_EVENT): Add new power-status-changed event.
+	* init/main.c (pwd_handler): Handle the SIGPWR signal by generating
+	the new event, leave it up to a job to parse the file and do
+	whatever it likes.
+
 	* TODO: Update.
 
 2007-02-13  Scott James Remnant  <scott@netsplit.com>
