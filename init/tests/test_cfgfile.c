@@ -3448,8 +3448,8 @@ test_stanza_normal (void)
 
 
 	/* Check that an argument in a normal exit stanza may be a signal name,
-	 * in which case the number or'd with 0x80 is added to the normalexit
-	 * array.
+	 * in which case the signal number is shifted left and then added
+	 * to the normalexit array.
 	 */
 	TEST_FEATURE ("with single argument containing signal name");
 	jf = fopen (filename, "w");
@@ -3465,7 +3465,7 @@ test_stanza_normal (void)
 	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
 	TEST_ALLOC_PARENT (job->normalexit, job);
 
-	TEST_EQ (job->normalexit[0], SIGINT | 0x80);
+	TEST_EQ (job->normalexit[0], SIGINT << 8);
 
 	nih_list_free (&job->entry);
 
@@ -3491,7 +3491,7 @@ test_stanza_normal (void)
 	TEST_EQ (job->normalexit[0], 99);
 	TEST_EQ (job->normalexit[1], 100);
 	TEST_EQ (job->normalexit[2], 101);
-	TEST_EQ (job->normalexit[3], SIGTERM | 0x80);
+	TEST_EQ (job->normalexit[3], SIGTERM << 8);
 
 	nih_list_free (&job->entry);
 
@@ -3519,7 +3519,7 @@ test_stanza_normal (void)
 	TEST_EQ (job->normalexit[0], 99);
 	TEST_EQ (job->normalexit[1], 100);
 	TEST_EQ (job->normalexit[2], 101);
-	TEST_EQ (job->normalexit[3], SIGQUIT | 0x80);
+	TEST_EQ (job->normalexit[3], SIGQUIT << 8);
 	TEST_EQ (job->normalexit[4], 900);
 
 	nih_list_free (&job->entry);

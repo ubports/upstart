@@ -1,5 +1,14 @@
 2007-02-25  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_reaper): Shift the signal value into the
+	higher byte to make it easier to detect, and not stamp over exit
+	statuses between 128 and 255.
+	(job_emit_event): Detect the signal stored in the new way.
+	* init/cfgfile.c (cfg_stanza_normal): Store signal in the higher bytes.
+	* init/tests/test_job.c (test_copy, test_change_state) 
+	(test_child_reaper): Update test cases.
+	* init/tests/test_cfgfile.c (test_stanza_normal): Update test.
+
 	* TODO: Update.
 
 	* init/event.h (PWRSTATUS_EVENT): Add new power-status-changed event.

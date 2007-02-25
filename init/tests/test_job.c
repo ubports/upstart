@@ -254,7 +254,7 @@ test_copy (void)
 
 	job->failed = TRUE;
 	job->failed_state = JOB_RUNNING;
-	job->exit_status = SIGSEGV | 0x80;
+	job->exit_status = SIGSEGV << 8;
 
 	event = event_new (job, "foo");
 	nih_list_add (&job->start_events, &event->entry);
@@ -1674,7 +1674,7 @@ test_change_state (void)
 
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
-		job->exit_status = SIGSEGV | 0x80;
+		job->exit_status = SIGSEGV << 8;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -1700,7 +1700,7 @@ test_change_state (void)
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_state, JOB_RUNNING);
-		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
 	}
 
 
@@ -1720,7 +1720,7 @@ test_change_state (void)
 
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
-		job->exit_status = 33 | 0x80;
+		job->exit_status = 33 << 8;
 
 		job_change_state (job, JOB_STOPPING);
 
@@ -1746,7 +1746,7 @@ test_change_state (void)
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_state, JOB_RUNNING);
-		TEST_EQ (job->exit_status, 33 | 0x80);
+		TEST_EQ (job->exit_status, 33 << 8);
 	}
 
 
@@ -2903,7 +2903,7 @@ test_child_reaper (void)
 	Job           *job;
 	EventEmission *em;
 	FILE          *output;
-	int            exitcodes[2] = { 100, SIGINT | 0x80 };
+	int            exitcodes[2] = { 100, SIGINT << 8 };
 
 	TEST_FUNCTION ("job_child_reaper");
 	program_name = "test";
@@ -3114,7 +3114,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_state, JOB_PRE_START);
-		TEST_EQ (job->exit_status, SIGTERM | 0x80);
+		TEST_EQ (job->exit_status, SIGTERM << 8);
 
 		TEST_FILE_EQ (output, ("test: test process (1) killed "
 				       "by TERM signal\n"));
@@ -3506,7 +3506,7 @@ test_child_reaper (void)
 
 		job->failed = TRUE;
 		job->failed_state = JOB_RUNNING;
-		job->exit_status = SIGSEGV | 0x80;
+		job->exit_status = SIGSEGV << 8;
 
 		TEST_DIVERT_STDERR (output) {
 			job_child_reaper (NULL, 1, FALSE, 1);
@@ -3522,7 +3522,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_state, JOB_RUNNING);
-		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
 
 		TEST_FILE_EQ (output, ("test: test process (1) terminated "
 				       "with status 1\n"));
@@ -3725,7 +3725,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_state, JOB_RUNNING);
-		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
 
 		TEST_FILE_EQ (output, ("test: test process (1) killed "
 				       "by SEGV signal\n"));
@@ -3744,7 +3744,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_state, JOB_RUNNING);
-		TEST_EQ (job->exit_status, SIGSEGV | 0x80);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
 	}
 
 

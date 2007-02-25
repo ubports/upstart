@@ -1475,7 +1475,7 @@ cfg_stanza_kill (Job             *job,
  * stopped normally.
  *
  * Arguments are stored in the normalexit array, and the normalexit_len
- * value updated.  Signals have 0x80 or'd with their value.
+ * value updated.  Signals are stored in the higher bytes.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1521,7 +1521,7 @@ cfg_stanza_normal (Job             *job,
 							  _(CFG_ILLEGAL_VALUE_STR));
 				}
 			} else {
-				status = signum | 0x80;
+				status = signum << 8;
 			}
 
 			nih_free (arg);

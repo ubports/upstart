@@ -934,10 +934,14 @@ job_emit_event (Job *job)
 		NIH_MUST (nih_str_array_add (&args, NULL, &len,
 					     job_state_name (job->failed_state)));
 
-		if (job->exit_status & 0x80) {
+		/* If the job is terminated by a signal, that is stored in
+		 * the higher byte, and we set EXIT_SIGNAL instead of
+		 * EXIT_STATUS.
+		 */
+		if (job->exit_status & ~0xff) {
 			const char *sig;
 
-			sig = nih_signal_to_name (job->exit_status & 0x7f);
+			sig = nih_signal_to_name (job->exit_status >> 8);
 			if (sig) {
 				NIH_MUST (exit = nih_sprintf (
 						  NULL, "EXIT_SIGNAL=%s",
@@ -945,7 +949,7 @@ job_emit_event (Job *job)
 			} else {
 				NIH_MUST (exit = nih_sprintf (
 						  NULL, "EXIT_SIGNAL=%d",
-						  job->exit_status & 0x7f));
+						  job->exit_status >> 8));
 			}
 		} else {
 			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
@@ -1316,8 +1320,10 @@ job_child_reaper (void  *data,
 				  job->name, pid, status);
 		}
 
-		/* Mark it as a signal */
-		status |= 0x80;
+		/* Store the signal value in the higher byte so we can
+		 * distinguish it from a normal exit status.
+		 */
+		status <<= 8;
 	} else if (status) {
 		nih_warn (_("%s process (%d) terminated with status %d"),
 			  job->name, pid, status);
