@@ -33,11 +33,14 @@ High Priority:
    they don't see it trying to go into starting in the case of respawning
    too fast (maybe this bit is right though)
 
- * Process-less jobs was broken by the implementation of the three-states
-   for running -- add a test case for that.
+   Solution might be just to always notify the state in notify_finished and
+   to move it to the bottom of the loop; that probably solves everything.
 
 
 Medium Priority:
+
+ * Should be possible to configure things in one file, definings jobs with
+   a stanza rather than separate files.
 
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
