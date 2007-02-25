@@ -138,6 +138,10 @@ Low Priority:
    and the scripts being run end up vanishing because they can't write
    data.
 
+ * need to add dependencies to jobs, which are files that must exist before
+   the job can be started (because Debian/Ubuntu like to litter config files
+   like jobs)
+
 
 Unfinished Features:
 
