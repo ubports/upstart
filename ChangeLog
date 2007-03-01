@@ -1,5 +1,7 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_process_copy): Use job_process_new here, oops.
+
 	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script) 
 	(cfg_stanza_pre_start, cfg_stanza_post_start) 
 	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Use job_process_new

@@ -151,7 +151,7 @@ job_process_copy (const void       *parent,
 
 	nih_assert (old_process != NULL);
 
-	process = nih_new (parent, JobProcess);
+	process = job_process_new (parent);
 	if (! process)
 		return NULL;
 
