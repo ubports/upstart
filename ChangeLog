@@ -1,5 +1,15 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_start, control_job_stop) 
+	(control_job_query, control_job_list): Remove the pid field from
+	the messages, it'll come back later when we get better message
+	formats.
+	* init/tests/test_control.c (check_job_status, check_job_waiting) 
+	(check_job_started, check_job_stopped): Remove checks on the process
+	id, since that field is gone from the message.
+	(test_job_stop): Use the pid field of the main process.
+	(test_job_start): Initialise the main action process.
+
 	* init/notify.c (notify_job, notify_job_event): Remove the pid field
 	from the message, it'll come back later when we get better message
 	formats.

@@ -249,8 +249,7 @@ control_job_start (void               *data,
 
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
-					       job->goal, job->state,
-					       job->pid));
+					       job->goal, job->state));
 	nih_io_send_message (control_io, reply);
 
 	/* Also return all instances */
@@ -265,8 +264,7 @@ control_job_start (void               *data,
 						       UPSTART_JOB_STATUS,
 						       instance->name,
 						       instance->goal,
-						       instance->state,
-						       instance->pid));
+						       instance->state));
 		nih_io_send_message (control_io, reply);
 	}
 
@@ -321,8 +319,7 @@ control_job_stop (void               *data,
 
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
-					       job->goal, job->state,
-					       job->pid));
+					       job->goal, job->state));
 	nih_io_send_message (control_io, reply);
 
 	/* Also return all instances */
@@ -337,8 +334,7 @@ control_job_stop (void               *data,
 						       UPSTART_JOB_STATUS,
 						       instance->name,
 						       instance->goal,
-						       instance->state,
-						       instance->pid));
+						       instance->state));
 		nih_io_send_message (control_io, reply);
 	}
 
@@ -392,8 +388,7 @@ control_job_query (void               *data,
 
 	NIH_MUST (reply = upstart_message_new (control_io, pid,
 					       UPSTART_JOB_STATUS, job->name,
-					       job->goal, job->state,
-					       job->pid));
+					       job->goal, job->state));
 	nih_io_send_message (control_io, reply);
 
 	/* Also return all instances */
@@ -408,8 +403,7 @@ control_job_query (void               *data,
 						       UPSTART_JOB_STATUS,
 						       instance->name,
 						       instance->goal,
-						       instance->state,
-						       instance->pid));
+						       instance->state));
 		nih_io_send_message (control_io, reply);
 	}
 
@@ -452,7 +446,7 @@ control_job_list (void               *data,
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
 						       UPSTART_JOB_STATUS,
 						       job->name, job->goal,
-						       job->state, job->pid));
+						       job->state));
 		nih_io_send_message (control_io, reply);
 	}
 

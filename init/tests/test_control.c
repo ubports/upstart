@@ -213,7 +213,6 @@ test_error_handler (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_KILLED;
-	job->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -264,15 +263,13 @@ check_job_waiting (void               *data,
 		   UpstartMessageType  type,
 		   const char         *name,
 		   JobGoal             goal,
-		   JobState            state,
-		   pid_t               process)
+		   JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_STOP);
 	TEST_EQ (state, JOB_WAITING);
-	TEST_EQ (process, 0);
 
 	return 0;
 }
@@ -283,15 +280,13 @@ check_job_started (void               *data,
 		   UpstartMessageType  type,
 		   const char         *name,
 		   JobGoal             goal,
-		   JobState            state,
-		   pid_t               process)
+		   JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_STARTING);
-	TEST_EQ (process, 0);
 
 	return 0;
 }
@@ -342,10 +337,8 @@ test_job_start (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->pid = 0;
-	job->process = nih_new (job, JobProcess);
-	job->process->script = FALSE;
-	job->process->command = "echo";
+	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
+	job->process[JOB_MAIN_ACTION]->command = "echo";
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -391,7 +384,6 @@ test_job_start (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STARTING);
-	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&job->entry);
 	event_poll ();
@@ -407,10 +399,8 @@ test_job_start (void)
 	job->instance = TRUE;
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->pid = 0;
-	job->process = nih_new (job, JobProcess);
-	job->process->script = FALSE;
-	job->process->command = "echo";
+	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
+	job->process[JOB_MAIN_ACTION]->command = "echo";
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -464,7 +454,6 @@ test_job_start (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->pid, 0);
 
 	/* Now find the instance; there should be only one */
 	instance = NULL;
@@ -486,7 +475,6 @@ test_job_start (void)
 
 	TEST_EQ (instance->goal, JOB_START);
 	TEST_EQ (instance->state, JOB_STARTING);
-	TEST_EQ (instance->pid, 0);
 
 	nih_list_free (&instance->entry);
 
@@ -544,15 +532,13 @@ check_job_stopped (void               *data,
 		   UpstartMessageType  type,
 		   const char         *name,
 		   JobGoal             goal,
-		   JobState            state,
-		   pid_t               process)
+		   JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_STOP);
 	TEST_EQ (state, JOB_STOPPING);
-	TEST_GT (process, 0);
 
 	return 0;
 }
@@ -578,7 +564,9 @@ test_job_stop (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	TEST_CHILD (job->pid) {
+	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
+	job->process[JOB_MAIN_ACTION]->command = "echo";
+	TEST_CHILD (job->process[JOB_MAIN_ACTION]->pid) {
 		pause ();
 	}
 
@@ -625,10 +613,10 @@ test_job_stop (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_GT (job->pid, 0);
+	TEST_GT (job->process[JOB_MAIN_ACTION]->pid, 0);
 
-	kill (job->pid, SIGTERM);
-	waitpid (job->pid, &status, 0);
+	kill (job->process[JOB_MAIN_ACTION]->pid, SIGTERM);
+	waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
 
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGTERM);
@@ -646,19 +634,16 @@ test_job_stop (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->pid = 0;
 
 	i1 = job_new (NULL, "test");
 	i1->instance_of = job;
 	i1->goal = JOB_STOP;
 	i1->state = JOB_STOPPING;
-	i1->pid = 1000;
 
 	i2 = job_new (NULL, "test");
 	i2->instance_of = job;
 	i2->goal = JOB_STOP;
 	i2->state = JOB_STOPPING;
-	i2->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -719,7 +704,6 @@ test_job_stop (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&i1->entry);
 	nih_list_free (&i2->entry);
@@ -778,15 +762,13 @@ check_job_status (void               *data,
 		  UpstartMessageType  type,
 		  const char         *name,
 		  JobGoal             goal,
-		  JobState            state,
-		  pid_t               process)
+		  JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_KILLED);
-	TEST_EQ (process, 1000);
 
 	return 0;
 }
@@ -811,7 +793,6 @@ test_job_query (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_KILLED;
-	job->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -856,7 +837,6 @@ test_job_query (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_KILLED);
-	TEST_EQ (job->pid, 1000);
 
 	nih_list_free (&job->entry);
 
@@ -869,19 +849,16 @@ test_job_query (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->pid = 0;
 
 	i1 = job_new (NULL, "test");
 	i1->instance_of = job;
 	i1->goal = JOB_START;
 	i1->state = JOB_KILLED;
-	i1->pid = 1000;
 
 	i2 = job_new (NULL, "test");
 	i2->instance_of = job;
 	i2->goal = JOB_START;
 	i2->state = JOB_KILLED;
-	i2->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -942,7 +919,6 @@ test_job_query (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->pid, 0);
 
 	nih_list_free (&job->entry);
 	nih_list_free (&i1->entry);
@@ -1010,12 +986,10 @@ test_job_list (void)
 	job1 = job_new (NULL, "test");
 	job1->goal = JOB_START;
 	job1->state = JOB_STARTING;
-	job1->pid = 0;
 
 	job2 = job_new (NULL, "test");
 	job2->goal = JOB_STOP;
 	job2->state = JOB_STOPPING;
-	job2->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -1093,7 +1067,6 @@ test_watch_jobs (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
-	job->pid = 0;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -1162,7 +1135,6 @@ test_unwatch_jobs (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
-	job->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
