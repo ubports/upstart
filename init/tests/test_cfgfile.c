@@ -52,9 +52,10 @@
 void
 test_read_job (void)
 {
-	Job  *job, *new_job, *instance;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
+	Job        *job, *new_job, *instance;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_read_job");
 	program_name = "test";
@@ -80,17 +81,19 @@ test_read_job (void)
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
 
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon -d");
+	process = job->process[JOB_MAIN_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon -d");
 
-	TEST_ALLOC_PARENT (job->pre_start, job);
-	TEST_ALLOC_SIZE (job->pre_start, sizeof (JobProcess));
-	TEST_EQ (job->pre_start->script, TRUE);
-	TEST_ALLOC_PARENT (job->pre_start->command, job->pre_start);
-	TEST_EQ_STR (job->pre_start->command, "rm /var/lock/daemon\n");
+	process = job->process[JOB_PRE_START_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "rm /var/lock/daemon\n");
 
 
 	/* Check that when we give a new file for an existing job, the
@@ -104,7 +107,7 @@ test_read_job (void)
 
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	job->pid = 1000;
+	job->process[JOB_MAIN_ACTION]->pid = 1000;
 
 	instance = job_new (NULL, "test");
 	instance->instance_of = job;
@@ -117,21 +120,22 @@ test_read_job (void)
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
 
-	TEST_ALLOC_PARENT (new_job->process, new_job);
-	TEST_ALLOC_SIZE (new_job->process, sizeof (JobProcess));
-	TEST_EQ (new_job->process->script, FALSE);
-	TEST_ALLOC_PARENT (new_job->process->command, new_job->process);
-	TEST_EQ_STR (new_job->process->command, "/sbin/daemon --daemon");
+	process = new_job->process[JOB_MAIN_ACTION];
+	TEST_ALLOC_PARENT (process, new_job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
 
 	TEST_FALSE (new_job->delete);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->pid, 1000);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1000);
 
 	TEST_EQ (new_job->goal, JOB_STOP);
 	TEST_EQ (new_job->state, JOB_WAITING);
-	TEST_EQ (new_job->pid, 0);
+	TEST_EQ (new_job->process[JOB_MAIN_ACTION]->pid, 0);
 
 	TEST_EQ_P (instance->instance_of, job);
 
@@ -152,7 +156,7 @@ test_read_job (void)
 	rewind (output);
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_EQ_P (job->process, NULL);
+	TEST_EQ_P (job->process[JOB_MAIN_ACTION], NULL);
 
 
 	/* Check that a job may not use options that normally affect daemon
@@ -1136,9 +1140,10 @@ test_stanza_stop (void)
 void
 test_stanza_exec (void)
 {
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_exec");
 	program_name = "test";
@@ -1159,11 +1164,12 @@ test_stanza_exec (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon -d \"foo\"");
+	process = job->process[JOB_MAIN_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
 
 	nih_list_free (&job->entry);
 
@@ -1217,9 +1223,10 @@ test_stanza_exec (void)
 void
 test_stanza_script (void)
 {
-	Job   *job;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_script");
 	program_name = "test";
@@ -1242,11 +1249,12 @@ test_stanza_script (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, TRUE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "echo\n");
+	process = job->process[JOB_MAIN_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -1327,9 +1335,10 @@ test_stanza_script (void)
 void
 test_stanza_pre_start (void)
 {
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_pre_start");
 	program_name = "test";
@@ -1350,11 +1359,12 @@ test_stanza_pre_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->pre_start, job);
-	TEST_ALLOC_SIZE (job->pre_start, sizeof (JobProcess));
-	TEST_EQ (job->pre_start->script, FALSE);
-	TEST_ALLOC_PARENT (job->pre_start->command, job->pre_start);
-	TEST_EQ_STR (job->pre_start->command, "/bin/tool -d \"foo\"");
+	process = job->process[JOB_PRE_START_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
 	nih_list_free (&job->entry);
 
@@ -1416,11 +1426,12 @@ test_stanza_pre_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->pre_start, job);
-	TEST_ALLOC_SIZE (job->pre_start, sizeof (JobProcess));
-	TEST_EQ (job->pre_start->script, TRUE);
-	TEST_ALLOC_PARENT (job->pre_start->command, job->pre_start);
-	TEST_EQ_STR (job->pre_start->command, "echo\n");
+	process = job->process[JOB_PRE_START_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -1524,9 +1535,10 @@ test_stanza_pre_start (void)
 void
 test_stanza_post_start (void)
 {
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_post_start");
 	program_name = "test";
@@ -1547,11 +1559,12 @@ test_stanza_post_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->post_start, job);
-	TEST_ALLOC_SIZE (job->post_start, sizeof (JobProcess));
-	TEST_EQ (job->post_start->script, FALSE);
-	TEST_ALLOC_PARENT (job->post_start->command, job->post_start);
-	TEST_EQ_STR (job->post_start->command, "/bin/tool -d \"foo\"");
+	process = job->process[JOB_POST_START_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
 	nih_list_free (&job->entry);
 
@@ -1613,11 +1626,12 @@ test_stanza_post_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->post_start, job);
-	TEST_ALLOC_SIZE (job->post_start, sizeof (JobProcess));
-	TEST_EQ (job->post_start->script, TRUE);
-	TEST_ALLOC_PARENT (job->post_start->command, job->post_start);
-	TEST_EQ_STR (job->post_start->command, "echo\n");
+	process = job->process[JOB_POST_START_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -1721,9 +1735,10 @@ test_stanza_post_start (void)
 void
 test_stanza_pre_stop (void)
 {
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_pre_stop");
 	program_name = "test";
@@ -1744,11 +1759,12 @@ test_stanza_pre_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->pre_stop, job);
-	TEST_ALLOC_SIZE (job->pre_stop, sizeof (JobProcess));
-	TEST_EQ (job->pre_stop->script, FALSE);
-	TEST_ALLOC_PARENT (job->pre_stop->command, job->pre_stop);
-	TEST_EQ_STR (job->pre_stop->command, "/bin/tool -d \"foo\"");
+	process = job->process[JOB_PRE_STOP_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
 	nih_list_free (&job->entry);
 
@@ -1810,11 +1826,12 @@ test_stanza_pre_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->pre_stop, job);
-	TEST_ALLOC_SIZE (job->pre_stop, sizeof (JobProcess));
-	TEST_EQ (job->pre_stop->script, TRUE);
-	TEST_ALLOC_PARENT (job->pre_stop->command, job->pre_stop);
-	TEST_EQ_STR (job->pre_stop->command, "echo\n");
+	process = job->process[JOB_PRE_STOP_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -1918,9 +1935,10 @@ test_stanza_pre_stop (void)
 void
 test_stanza_post_stop (void)
 {
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_post_stop");
 	program_name = "test";
@@ -1941,11 +1959,12 @@ test_stanza_post_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->post_stop, job);
-	TEST_ALLOC_SIZE (job->post_stop, sizeof (JobProcess));
-	TEST_EQ (job->post_stop->script, FALSE);
-	TEST_ALLOC_PARENT (job->post_stop->command, job->post_stop);
-	TEST_EQ_STR (job->post_stop->command, "/bin/tool -d \"foo\"");
+	process = job->process[JOB_POST_STOP_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
 	nih_list_free (&job->entry);
 
@@ -2007,11 +2026,12 @@ test_stanza_post_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	TEST_ALLOC_PARENT (job->post_stop, job);
-	TEST_ALLOC_SIZE (job->post_stop, sizeof (JobProcess));
-	TEST_EQ (job->post_stop->script, TRUE);
-	TEST_ALLOC_PARENT (job->post_stop->command, job->post_stop);
-	TEST_EQ_STR (job->post_stop->command, "echo\n");
+	process = job->process[JOB_POST_STOP_ACTION];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -2220,12 +2240,6 @@ test_stanza_respawn (void)
 
 	TEST_TRUE (job->respawn);
 	TEST_TRUE (job->service);
-
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon");
 
 	nih_list_free (&job->entry);
 
@@ -2548,12 +2562,6 @@ test_stanza_service (void)
 
 	TEST_TRUE (job->service);
 
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon");
-
 	nih_list_free (&job->entry);
 
 
@@ -2617,12 +2625,6 @@ test_stanza_service (void)
 
 	TEST_TRUE (job->respawn);
 	TEST_TRUE (job->service);
-
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon");
 
 	nih_list_free (&job->entry);
 

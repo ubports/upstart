@@ -666,12 +666,14 @@ cfg_stanza_exec (Job             *job,
 		 size_t          *pos,
 		 size_t          *lineno)
 {
+	JobProcess *process;
+
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process)
+	if (job->process[JOB_MAIN_ACTION])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -679,11 +681,13 @@ cfg_stanza_exec (Job             *job,
 		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
-	NIH_MUST (job->process = nih_new (job, JobProcess));
-	job->process->script = FALSE;
-	job->process->command = nih_config_parse_command (job->process, file,
-							  len, pos, lineno);
-	if (! job->process->command)
+	NIH_MUST (process = job_process_new (job->process));
+	job->process[JOB_MAIN_ACTION] = process;
+
+	process->script = FALSE;
+	process->command = nih_config_parse_command (process, file,
+						     len, pos, lineno);
+	if (! process->command)
 		return -1;
 
 	return 0;
@@ -711,24 +715,27 @@ cfg_stanza_script (Job             *job,
 		   size_t          *pos,
 		   size_t          *lineno)
 {
+	JobProcess *process;
+
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process)
+	if (job->process[JOB_MAIN_ACTION])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
 	if (nih_config_skip_comment (file, len, pos, lineno) < 0)
 		return -1;
 
-	NIH_MUST (job->process = nih_new (job, JobProcess));
-	job->process->script = TRUE;
-	job->process->command = nih_config_parse_block (job->process, file,
-							len, pos, lineno,
-							"script");
-	if (! job->process->command)
+	NIH_MUST (process = job_process_new (job->process));
+	job->process[JOB_MAIN_ACTION] = process;
+
+	process->script = TRUE;
+	process->command = nih_config_parse_block (process, file,
+						   len, pos, lineno, "script");
+	if (! process->command)
 		return -1;
 
 	return 0;
@@ -757,14 +764,15 @@ cfg_stanza_pre_start (Job             *job,
 		      size_t          *pos,
 		      size_t          *lineno)
 {
-	char *arg;
+	JobProcess *process;
+	char       *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->pre_start)
+	if (job->process[JOB_PRE_START_ACTION])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -773,7 +781,8 @@ cfg_stanza_pre_start (Job             *job,
 	if (! arg)
 		return -1;
 
-	NIH_MUST (job->pre_start = nih_new (job, JobProcess));
+	NIH_MUST (process = job_process_new (job->process));
+	job->process[JOB_PRE_START_ACTION] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -782,9 +791,9 @@ cfg_stanza_pre_start (Job             *job,
 			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
-		job->pre_start->script = FALSE;
-		job->pre_start->command = nih_config_parse_command (
-			job->pre_start, file, len, pos, lineno);
+		process->script = FALSE;
+		process->command = nih_config_parse_command (process, file,
+							     len, pos, lineno);
 
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);
@@ -792,9 +801,10 @@ cfg_stanza_pre_start (Job             *job,
 		if (nih_config_skip_comment (file, len, pos, lineno) < 0)
 			return -1;
 
-		job->pre_start->script = TRUE;
-		job->pre_start->command = nih_config_parse_block (
-			job->pre_start, file, len, pos, lineno, "script");
+		process->script = TRUE;
+		process->command = nih_config_parse_block (process, file, len,
+							   pos, lineno,
+							   "script");
 
 	} else {
 		nih_free (arg);
@@ -803,7 +813,7 @@ cfg_stanza_pre_start (Job             *job,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
-	if (! job->pre_start->command)
+	if (! process->command)
 		return -1;
 
 	return 0;
@@ -832,14 +842,15 @@ cfg_stanza_post_start (Job             *job,
 		      size_t          *pos,
 		      size_t          *lineno)
 {
-	char *arg;
+	JobProcess *process;
+	char       *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->post_start)
+	if (job->process[JOB_POST_START_ACTION])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -848,7 +859,8 @@ cfg_stanza_post_start (Job             *job,
 	if (! arg)
 		return -1;
 
-	NIH_MUST (job->post_start = nih_new (job, JobProcess));
+	NIH_MUST (process = job_process_new (job->process));
+	job->process[JOB_POST_START_ACTION] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -857,9 +869,9 @@ cfg_stanza_post_start (Job             *job,
 			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
-		job->post_start->script = FALSE;
-		job->post_start->command = nih_config_parse_command (
-			job->post_start, file, len, pos, lineno);
+		process->script = FALSE;
+		process->command = nih_config_parse_command (process, file,
+							     len, pos, lineno);
 
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);
@@ -867,9 +879,10 @@ cfg_stanza_post_start (Job             *job,
 		if (nih_config_skip_comment (file, len, pos, lineno) < 0)
 			return -1;
 
-		job->post_start->script = TRUE;
-		job->post_start->command = nih_config_parse_block (
-			job->post_start, file, len, pos, lineno, "script");
+		process->script = TRUE;
+		process->command = nih_config_parse_block (process, file, len,
+							   pos, lineno,
+							   "script");
 
 	} else {
 		nih_free (arg);
@@ -878,7 +891,7 @@ cfg_stanza_post_start (Job             *job,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
-	if (! job->post_start->command)
+	if (! process->command)
 		return -1;
 
 	return 0;
@@ -907,14 +920,15 @@ cfg_stanza_pre_stop (Job             *job,
 		      size_t          *pos,
 		      size_t          *lineno)
 {
-	char *arg;
+	JobProcess *process;
+	char       *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->pre_stop)
+	if (job->process[JOB_PRE_STOP_ACTION])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -923,7 +937,8 @@ cfg_stanza_pre_stop (Job             *job,
 	if (! arg)
 		return -1;
 
-	NIH_MUST (job->pre_stop = nih_new (job, JobProcess));
+	NIH_MUST (process = job_process_new (job->process));
+	job->process[JOB_PRE_STOP_ACTION] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -932,9 +947,9 @@ cfg_stanza_pre_stop (Job             *job,
 			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
-		job->pre_stop->script = FALSE;
-		job->pre_stop->command = nih_config_parse_command (
-			job->pre_stop, file, len, pos, lineno);
+		process->script = FALSE;
+		process->command = nih_config_parse_command (process, file,
+							     len, pos, lineno);
 
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);
@@ -942,9 +957,10 @@ cfg_stanza_pre_stop (Job             *job,
 		if (nih_config_skip_comment (file, len, pos, lineno) < 0)
 			return -1;
 
-		job->pre_stop->script = TRUE;
-		job->pre_stop->command = nih_config_parse_block (
-			job->pre_stop, file, len, pos, lineno, "script");
+		process->script = TRUE;
+		process->command = nih_config_parse_block (process, file, len,
+							   pos, lineno,
+							   "script");
 
 	} else {
 		nih_free (arg);
@@ -953,7 +969,7 @@ cfg_stanza_pre_stop (Job             *job,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
-	if (! job->pre_stop->command)
+	if (! process->command)
 		return -1;
 
 	return 0;
@@ -982,14 +998,15 @@ cfg_stanza_post_stop (Job             *job,
 		      size_t          *pos,
 		      size_t          *lineno)
 {
-	char *arg;
+	JobProcess *process;
+	char       *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->post_stop)
+	if (job->process[JOB_POST_STOP_ACTION])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -998,7 +1015,8 @@ cfg_stanza_post_stop (Job             *job,
 	if (! arg)
 		return -1;
 
-	NIH_MUST (job->post_stop = nih_new (job, JobProcess));
+	NIH_MUST (process = job_process_new (job->process));
+	job->process[JOB_POST_STOP_ACTION] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -1007,9 +1025,9 @@ cfg_stanza_post_stop (Job             *job,
 			nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 					  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
-		job->post_stop->script = FALSE;
-		job->post_stop->command = nih_config_parse_command (
-			job->post_stop, file, len, pos, lineno);
+		process->script = FALSE;
+		process->command = nih_config_parse_command (process, file,
+							     len, pos, lineno);
 
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);
@@ -1017,9 +1035,10 @@ cfg_stanza_post_stop (Job             *job,
 		if (nih_config_skip_comment (file, len, pos, lineno) < 0)
 			return -1;
 
-		job->post_stop->script = TRUE;
-		job->post_stop->command = nih_config_parse_block (
-			job->post_stop, file, len, pos, lineno, "script");
+		process->script = TRUE;
+		process->command = nih_config_parse_block (process, file, len,
+							   pos, lineno,
+							   "script");
 
 	} else {
 		nih_free (arg);
@@ -1028,7 +1047,7 @@ cfg_stanza_post_stop (Job             *job,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
-	if (! job->post_stop->command)
+	if (! process->command)
 		return -1;
 
 	return 0;

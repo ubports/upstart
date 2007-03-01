@@ -1,5 +1,15 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script) 
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Use job_process_new
+	to allocate process structures and store in the process array.
+	* init/tests/test_cfgfile.c (test_read_job, test_stanza_exec) 
+	(test_stanza_script, test_stanza_pre_start) 
+	(test_stanza_post_start, test_stanza_pre_stop) 
+	(test_stanza_post_stop): Update test cases to use process array
+	member information.
+
 	* init/tests/test_event.c (test_poll): Update to use newer job process
 	array and find the pid under there.
 
