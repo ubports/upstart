@@ -40,7 +40,7 @@
  * Converts an enumerated job goal into the string used for the status
  * and for logging purposes.
  *
- * Returns: static string or NULL if state not known.
+ * Returns: static string or NULL if goal not known.
  **/
 const char *
 job_goal_name (JobGoal goal)
@@ -153,6 +153,63 @@ job_state_from_name (const char *state)
 		return JOB_POST_STOP;
 	} else if (! strcmp (state, "deleted")) {
 		return JOB_DELETED;
+	} else {
+		return -1;
+	}
+}
+
+
+/**
+ * job_action_name:
+ * @action: action to convert.
+ *
+ * Converts an enumerated job action into the string used for the status
+ * and for logging purposes.
+ *
+ * Returns: static string or NULL if action not known.
+ **/
+const char *
+job_action_name (JobAction action)
+{
+	switch (action) {
+	case JOB_MAIN_ACTION:
+		return N_("main");
+	case JOB_PRE_START_ACTION:
+		return N_("pre-start");
+	case JOB_POST_START_ACTION:
+		return N_("post-start");
+	case JOB_PRE_STOP_ACTION:
+		return N_("pre-stop");
+	case JOB_POST_STOP_ACTION:
+		return N_("post-stop");
+	default:
+		return NULL;
+	}
+}
+
+/**
+ * job_action_from_name:
+ * @action: action to convert.
+ *
+ * Converts a job action string into the enumeration.
+ *
+ * Returns: enumerated action or -1 if not known.
+ **/
+JobAction
+job_action_from_name (const char *action)
+{
+	nih_assert (action != NULL);
+
+	if (! strcmp (action, "main")) {
+		return JOB_MAIN_ACTION;
+	} else if (! strcmp (action, "pre-start")) {
+		return JOB_PRE_START_ACTION;
+	} else if (! strcmp (action, "post-start")) {
+		return JOB_POST_START_ACTION;
+	} else if (! strcmp (action, "pre-stop")) {
+		return JOB_PRE_STOP_ACTION;
+	} else if (! strcmp (action, "post-stop")) {
+		return JOB_POST_STOP_ACTION;
 	} else {
 		return -1;
 	}

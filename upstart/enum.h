@@ -31,7 +31,7 @@
  * or it should be started.  In order to achieve these goals, we may need
  * to go through a number of different states (defined by JobState).
  **/
-typedef enum {
+typedef enum job_goal {
 	JOB_STOP,
 	JOB_START
 } JobGoal;
@@ -47,7 +47,7 @@ typedef enum {
  * processes and which states to move into when changes in process state
  * (pid obtained or death) occur.
  **/
-typedef enum {
+typedef enum job_state {
 	JOB_WAITING,
 	JOB_STARTING,
 	JOB_PRE_START,
@@ -62,6 +62,21 @@ typedef enum {
 } JobState;
 
 /**
+ * JobAction:
+ *
+ * Each job has a list of associated actions, the first set of which are
+ * built-in to Upstart and indexed by this enumeration.
+ **/
+typedef enum job_action {
+	JOB_MAIN_ACTION,
+	JOB_PRE_START_ACTION,
+	JOB_POST_START_ACTION,
+	JOB_PRE_STOP_ACTION,
+	JOB_POST_STOP_ACTION,
+	JOB_LAST_ACTION
+} JobAction;
+
+/**
  * ConsoleType:
  *
  * This is used to identify how a job would like its standard input, output
@@ -69,7 +84,7 @@ typedef enum {
  * mapped to /dev/null, the console device (without being or being the owning
  * process) or to the logging daemon.
  **/
-typedef enum {
+typedef enum console_type {
 	CONSOLE_LOGGED,
 	CONSOLE_OUTPUT,
 	CONSOLE_OWNER,
@@ -86,6 +101,10 @@ JobGoal      job_goal_from_name      (const char *goal);
 const char * job_state_name          (JobState state)
 	__attribute__ ((const));
 JobState     job_state_from_name     (const char *state);
+
+const char * job_action_name         (JobAction action)
+	__attribute__ ((const));
+JobAction    job_action_from_name    (const char *action);
 
 NIH_END_EXTERN
 

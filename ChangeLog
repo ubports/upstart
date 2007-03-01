@@ -1,5 +1,11 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/enum.h (JobAction): Enumeration of different actions.
+	* upstart/enum.c (job_action_name, job_action_from_name): Enumeration
+	to string conversion functions.
+	* upstart/tests/test_enum.c (test_action_name) 
+	(test_action_from_name): Tests for the new functions.
+
 	* init/cfgfile.c (cfg_read_job): Instead of trying to copy over an
 	old job's state and instances into the new one, mark the old job
 	as deleted.  This ensures we never end up applying a new post-stop

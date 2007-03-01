@@ -267,6 +267,105 @@ test_state_from_name (void)
 }
 
 
+void
+test_action_name (void)
+{
+	const char *name;
+
+	TEST_FUNCTION ("job_action_name");
+
+	/* Check that JOB_MAIN_ACTION returns the right string. */
+	TEST_FEATURE ("with main action");
+	name = job_action_name (JOB_MAIN_ACTION);
+
+	TEST_EQ_STR (name, "main");
+
+
+	/* Check that JOB_PRE_START_ACTION returns the right string. */
+	TEST_FEATURE ("with pre-start action");
+	name = job_action_name (JOB_PRE_START_ACTION);
+
+	TEST_EQ_STR (name, "pre-start");
+
+
+	/* Check that JOB_POST_START_ACTION returns the right string. */
+	TEST_FEATURE ("with post-start action");
+	name = job_action_name (JOB_POST_START_ACTION);
+
+	TEST_EQ_STR (name, "post-start");
+
+
+	/* Check that JOB_PRE_STOP_ACTION returns the right string. */
+	TEST_FEATURE ("with pre-stop action");
+	name = job_action_name (JOB_PRE_STOP_ACTION);
+
+	TEST_EQ_STR (name, "pre-stop");
+
+
+	/* Check that JOB_POST_STOP_ACTION returns the right string. */
+	TEST_FEATURE ("with post-stop action");
+	name = job_action_name (JOB_POST_STOP_ACTION);
+
+	TEST_EQ_STR (name, "post-stop");
+
+
+	/* Check that an invalid action returns NULL. */
+	TEST_FEATURE ("with invalid action");
+	name = job_action_name (1234);
+
+	TEST_EQ_P (name, NULL);
+}
+
+void
+test_action_from_name (void)
+{
+	JobAction action;
+
+	TEST_FUNCTION ("job_action_from_name");
+
+	/* Check that the JOB_MAIN_ACTION is returned for the string. */
+	TEST_FEATURE ("with main action");
+	action = job_action_from_name ("main");
+
+	TEST_EQ (action, JOB_MAIN_ACTION);
+
+
+	/* Check that the JOB_PRE_START_ACTION is returned for the string. */
+	TEST_FEATURE ("with pre-start action");
+	action = job_action_from_name ("pre-start");
+
+	TEST_EQ (action, JOB_PRE_START_ACTION);
+
+
+	/* Check that the JOB_POST_START_ACTION is returned for the string. */
+	TEST_FEATURE ("with post-start action");
+	action = job_action_from_name ("post-start");
+
+	TEST_EQ (action, JOB_POST_START_ACTION);
+
+
+	/* Check that the JOB_PRE_STOP_ACTION is returned for the string. */
+	TEST_FEATURE ("with pre-stop action");
+	action = job_action_from_name ("pre-stop");
+
+	TEST_EQ (action, JOB_PRE_STOP_ACTION);
+
+
+	/* Check that the JOB_POST_STOP_ACTION is returned for the string. */
+	TEST_FEATURE ("with post-stop action");
+	action = job_action_from_name ("post-stop");
+
+	TEST_EQ (action, JOB_POST_STOP_ACTION);
+
+
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid action");
+	action = job_action_from_name ("wibble");
+
+	TEST_EQ (action, -1);
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -275,6 +374,8 @@ main (int   argc,
 	test_goal_from_name ();
 	test_state_name ();
 	test_state_from_name ();
+	test_action_name ();
+	test_action_from_name ();
 
 	return 0;
 }
