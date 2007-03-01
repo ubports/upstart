@@ -279,46 +279,12 @@ cfg_read_job (const void *parent,
 
 
 	/* Deal with the case where we're reloading an existing	job; we
-	 * copy information out of the old structure and free that
+	 * mark the existing job as deleted, rather than copying in old data,
+	 * since we don't want to mis-match scripts or configuration.
 	 */
 	if (old_job) {
-		NihList *iter;
-		time_t   now;
-
 		nih_debug ("Replacing existing %s job", job->name);
-
-		job->goal = old_job->goal;
-		job->state = old_job->state;
-		job->pid = old_job->pid;
-		job->cause = old_job->cause;
-		job->failed = old_job->failed;
-		job->failed_state = old_job->failed_state;
-		job->exit_status = old_job->exit_status;
-		job->respawn_count = old_job->respawn_count;
-		job->respawn_time = old_job->respawn_time;
-
-		now = time (NULL);
-
-		if (old_job->kill_timer)
-			NIH_MUST (job->kill_timer = nih_timer_add_timeout (
-					  job, old_job->kill_timer->due - now,
-					  old_job->kill_timer->callback, job));
-
-		if (old_job->pid_timer)
-			NIH_MUST (job->pid_timer = nih_timer_add_timeout (
-					  job, old_job->pid_timer->due - now,
-					  old_job->pid_timer->callback, job));
-
-		/* Update references in instances */
-		for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
-		     iter = nih_hash_search (jobs, job->name, iter)) {
-			Job *instance = (Job *)iter;
-
-			if (instance->instance_of == old_job)
-				instance->instance_of = job;
-		}
-
-		nih_list_free (&old_job->entry);
+		old_job->delete = TRUE;
 	}
 
 	return job;

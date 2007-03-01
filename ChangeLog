@@ -1,5 +1,14 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job): Instead of trying to copy over an
+	old job's state and instances into the new one, mark the old job
+	as deleted.  This ensures we never end up applying a new post-stop
+	script to a job started with an old pre-start script, etc.  It also
+	makes life so much simpler.
+	* init/tests/test_cfgfile.c (test_read_job): Update tests to make
+	sure the old job is marked for deletion, instead of freed.
+	* TODO: Update.
+
 	* init/notify.c (notify_job): Split out notification to processes
 	subscribed to the cause event into a new function
 	(notify_job_event): We can call this when we change cause.

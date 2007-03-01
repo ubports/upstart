@@ -49,26 +49,10 @@
 	} while (0);
 
 
-static int was_called = 0;
-
-static int
-destructor_called (void *ptr)
-{
-	was_called++;
-
-	return 0;
-}
-
-static void
-my_timer (void *data, NihTimer *timer)
-{
-	return;
-}
-
 void
 test_read_job (void)
 {
-	Job  *job, *instance;
+	Job  *job, *new_job, *instance;
 	FILE *jf, *output;
 	char  filename[PATH_MAX];
 
@@ -109,85 +93,52 @@ test_read_job (void)
 	TEST_EQ_STR (job->pre_start->command, "rm /var/lock/daemon\n");
 
 
-	/* Check that we can give a new file for an existing job; this
-	 * frees the existing structure, while copying over critical
-	 * information from it to a new structure.  If the original job
-	 * was marked to be deleted, this should be cleared.  Also any
-	 * jobs that are instances of this should have their pointers
-	 * updated.
+	/* Check that when we give a new file for an existing job, the
+	 * existing structure is marked to be deleted once stopped and is
+	 * otherwise unchanged.
 	 */
 	TEST_FEATURE ("with re-reading existing job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon --daemon\n");
 	fclose (jf);
 
-	job->delete = TRUE;
-
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 	job->pid = 1000;
 
-	job->cause = (void *)&job;
-
-	job->failed = TRUE;
-	job->failed_state = JOB_RUNNING;
-	job->exit_status = 2;
-
-	job->respawn_count = 20;
-	job->respawn_time = 1000;
-
-	job->kill_timer = nih_timer_add_timeout (job, 1000, my_timer, job);
-	job->pid_timer = nih_timer_add_timeout (job, 500, my_timer, job);
-
-	was_called = 0;
-	nih_alloc_set_destructor (job, destructor_called);
-
 	instance = job_new (NULL, "test");
 	instance->instance_of = job;
 
-	job = cfg_read_job (NULL, filename, "test");
+	new_job = cfg_read_job (NULL, filename, "test");
 
-	TEST_TRUE (was_called);
+	TEST_TRUE (job->delete);
 
-	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_ALLOC_SIZE (new_job, sizeof (Job));
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
 
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon --daemon");
+	TEST_ALLOC_PARENT (new_job->process, new_job);
+	TEST_ALLOC_SIZE (new_job->process, sizeof (JobProcess));
+	TEST_EQ (new_job->process->script, FALSE);
+	TEST_ALLOC_PARENT (new_job->process->command, new_job->process);
+	TEST_EQ_STR (new_job->process->command, "/sbin/daemon --daemon");
 
-	TEST_FALSE (job->delete);
+	TEST_FALSE (new_job->delete);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
 	TEST_EQ (job->pid, 1000);
 
-	TEST_EQ_P (job->cause, (void *)&job);
-
-	TEST_EQ (job->failed, TRUE);
-	TEST_EQ (job->failed_state, JOB_RUNNING);
-	TEST_EQ (job->exit_status, 2);
-
-	TEST_EQ (job->respawn_count, 20);
-	TEST_EQ (job->respawn_time, 1000);
-
-	TEST_ALLOC_PARENT (job->kill_timer, job);
-	TEST_LE (job->kill_timer->due, time (NULL) + 1000);
-	TEST_EQ_P (job->kill_timer->callback, my_timer);
-	TEST_EQ_P (job->kill_timer->data, job);
-
-	TEST_ALLOC_PARENT (job->pid_timer, job);
-	TEST_LE (job->pid_timer->due, time (NULL) + 500);
-	TEST_EQ_P (job->pid_timer->callback, my_timer);
-	TEST_EQ_P (job->pid_timer->data, job);
+	TEST_EQ (new_job->goal, JOB_STOP);
+	TEST_EQ (new_job->state, JOB_WAITING);
+	TEST_EQ (new_job->pid, 0);
 
 	TEST_EQ_P (instance->instance_of, job);
 
 	nih_list_free (&instance->entry);
 	nih_list_free (&job->entry);
+
+	job = new_job;
 
 
 	/* Check that a job may have both exec and script missing.

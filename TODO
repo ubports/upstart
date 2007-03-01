@@ -80,10 +80,6 @@ Medium Priority:
    a process away.  failed_state would instead become a reference to the
    failed *process*
 
-   The problem comes when a process is taken away by re-parsing the
-   configuration file; where do we put its pid?  (Maybe just mark the
-   structure some way, and cope with that)
-
  * If we have that kind of indented status information, we could make
    JOB_START and JOB_STOP accept only a job/instance id.  The tool could
    lookup use JOB_QUERY to obtain the instance id, that takes a name and
@@ -91,14 +87,12 @@ Medium Priority:
    could also take an id for an exact match, or NULL to list all jobs;
    and that way we lose a command (yay)
 
- * Perhaps when a configuration file is changed, the existing job structure
-   should be marked for deletion instead of updated; otherwise the job might
-   be stopped by a script or action it didn't know about when it was started!
-
  * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
    we encounter any problems write the error code to this pipe and die.
    Then from above, we can read this pipe to determine whether the job
    failed before or after the exec.  (Might be a cleaner way to do this).
+
+ * Include exit status, etc. in the stopping and stopped job state messages
 
 
 Low Priority:
