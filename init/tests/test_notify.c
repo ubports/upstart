@@ -243,15 +243,13 @@ check_job_status (void               *data,
 		  UpstartMessageType  type,
 		  const char         *name,
 		  JobGoal             goal,
-		  JobState            state,
-		  pid_t               process)
+		  JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_SPAWNED);
-	TEST_EQ (process, 1000);
 
 	return 0;
 }
@@ -263,8 +261,7 @@ check_event_job_status (void               *data,
 			uint32_t            id,
 			const char         *name,
 			JobGoal             goal,
-			JobState            state,
-			pid_t               process)
+			JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_EVENT_JOB_STATUS);
@@ -272,7 +269,6 @@ check_event_job_status (void               *data,
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_SPAWNED);
-	TEST_EQ (process, 1000);
 
 	return 0;
 }
@@ -299,7 +295,6 @@ test_job (void)
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
-	job->pid = 1000;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -346,7 +341,6 @@ test_job (void)
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
-	job->pid = 1000;
 
 	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
@@ -414,7 +408,6 @@ test_job_event (void)
 	job->description = nih_strdup (job, "a test job");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
-	job->pid = 1000;
 
 	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;

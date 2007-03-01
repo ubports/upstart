@@ -1,5 +1,12 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c (notify_job, notify_job_event): Remove the pid field
+	from the message, it'll come back later when we get better message
+	formats.
+	* init/tests/test_notify.c (check_job_status) 
+	(check_event_job_status): Remove checks on the pid, since that field
+	is no longer present.
+
 	* init/job.c (job_process_copy): Use job_process_new here, oops.
 
 	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script) 

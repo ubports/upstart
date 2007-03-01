@@ -254,7 +254,7 @@ notify_job (Job *job)
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_JOB_STATUS,
-				  job->name, job->goal, job->state, job->pid));
+				  job->name, job->goal, job->state));
 		nih_io_send_message (control_io, message);
 	}
 
@@ -298,7 +298,7 @@ notify_job_event (Job *job)
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid,
 				  UPSTART_EVENT_JOB_STATUS, job->cause->id,
-				  job->name, job->goal, job->state, job->pid));
+				  job->name, job->goal, job->state));
 		nih_io_send_message (control_io, message);
 	}
 }
