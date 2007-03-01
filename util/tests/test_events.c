@@ -112,14 +112,12 @@ test_emit_action (void)
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
-				   -1);
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
-				   1000);
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -137,7 +135,7 @@ test_emit_action (void)
 
 	TEST_FILE_EQ (output, "foo\n");
 	TEST_FILE_EQ (output, "test (start) waiting\n");
-	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "test (start) running\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -179,14 +177,12 @@ test_emit_action (void)
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
-				   -1);
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
-				   1000);
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -204,7 +200,7 @@ test_emit_action (void)
 
 	TEST_FILE_EQ (output, "foo\n");
 	TEST_FILE_EQ (output, "test (start) waiting\n");
-	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "test (start) running\n");
 	TEST_FILE_EQ (output, "test: foo event failed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
@@ -247,14 +243,12 @@ test_emit_action (void)
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
-				   -1);
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
-				   1000);
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -272,7 +266,7 @@ test_emit_action (void)
 
 	TEST_FILE_EQ (output, "foo frodo bilbo\n");
 	TEST_FILE_EQ (output, "test (start) waiting\n");
-	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "test (start) running\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -319,14 +313,12 @@ test_emit_action (void)
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_WAITING,
-				   -1);
+				   0xdeafbeef, "test", JOB_START, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_EVENT_JOB_STATUS,
-				   0xdeafbeef, "test", JOB_START, JOB_RUNNING,
-				   1000);
+				   0xdeafbeef, "test", JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -349,7 +341,7 @@ test_emit_action (void)
 	TEST_FILE_EQ (output, "foo frodo bilbo\n");
 	TEST_FILE_EQ (output, "    FOO=BAR\n");
 	TEST_FILE_EQ (output, "test (start) waiting\n");
-	TEST_FILE_EQ (output, "test (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "test (start) running\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 

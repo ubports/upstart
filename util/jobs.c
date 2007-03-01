@@ -48,8 +48,8 @@
 /* Prototypes for static functions */
 static int do_job              (NihCommand *command, const char *job);
 static int handle_job_status   (void *data, pid_t pid, UpstartMessageType type,
-				const char *name, JobGoal goal, JobState state,
-				pid_t process);
+				const char *name, JobGoal goal,
+				JobState state);
 static int handle_job_unknown  (void *data, pid_t pid, UpstartMessageType type,
 				const char *name);
 static int handle_job_list_end (void *data, pid_t pid,
@@ -338,23 +338,14 @@ static int handle_job_status (void               *data,
 			      UpstartMessageType  type,
 			      const char         *name,
 			      JobGoal             goal,
-			      JobState            state,
-			      pid_t               process)
+			      JobState            state)
 {
-	const char *format;
-
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_STATUS);
 	nih_assert (name != NULL);
 
-	if (process > 0) {
-		format = _("%s (%s) %s, process %d");
-	} else {
-		format = _("%s (%s) %s");
-	}
-
-	nih_message (format, name, job_goal_name (goal),
-		     job_state_name (state), process);
+	nih_message (_("%s (%s) %s"), name, job_goal_name (goal),
+		     job_state_name (state));
 
 	return 0;
 }

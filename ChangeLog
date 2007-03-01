@@ -1,5 +1,12 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* util/jobs.c (handle_job_status): Drop the process field from the
+	output for now.
+	* util/events.c (handle_event_job_status): Likewise
+	* util/tests/test_jobs.c (test_start_action, test_list_action) 
+	(test_jobs_action): Drop pid from messages we simulate.
+	* util/tests/test_events.c (test_emit_action): Likewise.
+
 	* upstart/message.c (upstart_message_new, upstart_message_handle):
 	Remove the pid field from the job status and event job status
 	messages.

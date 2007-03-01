@@ -59,7 +59,7 @@ static int handle_event            (void *data, pid_t pid,
 static int handle_event_job_status (void *data, pid_t pid,
 				    UpstartMessageType type, uint32_t id,
 				    const char *name, JobGoal goal,
-				    JobState state, pid_t process);
+				    JobState state);
 static int handle_event_finished   (void *data, pid_t pid,
 				    UpstartMessageType type, uint32_t id,
 				    int failed, const char *name,
@@ -360,23 +360,14 @@ static int handle_event_job_status (void               *data,
 				    uint32_t            id,
 				    const char         *name,
 				    JobGoal             goal,
-				    JobState            state,
-				    pid_t               process)
+				    JobState            state)
 {
-	const char *format;
-
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_EVENT_JOB_STATUS);
 	nih_assert (name != NULL);
 
-	if (process > 0) {
-		format = _("%s (%s) %s, process %d");
-	} else {
-		format = _("%s (%s) %s");
-	}
-
-	nih_message (format, name, job_goal_name (goal),
-		     job_state_name (state), process);
+	nih_message (_("%s (%s) %s"), name, job_goal_name (goal),
+		     job_state_name (state));
 
 	return 0;
 }

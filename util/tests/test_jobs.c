@@ -104,7 +104,7 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_START, JOB_RUNNING, 1000);
+				   JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -119,7 +119,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "foo (start) running\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -153,7 +153,7 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_STOP, JOB_KILLED, 1000);
+				   JOB_STOP, JOB_KILLED);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -168,7 +168,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (stop) killed, process 1000\n");
+	TEST_FILE_EQ (output, "foo (stop) killed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -202,7 +202,7 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_STOP, JOB_WAITING, 0);
+				   JOB_STOP, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -251,7 +251,7 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_STOP, JOB_PRE_STOP, 1000);
+				   JOB_STOP, JOB_PRE_STOP);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -269,7 +269,7 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "bar",
-				   JOB_START, JOB_SPAWNED, 2000);
+				   JOB_START, JOB_SPAWNED);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -284,8 +284,8 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (stop) pre-stop, process 1000\n");
-	TEST_FILE_EQ (output, "bar (start) spawned, process 2000\n");
+	TEST_FILE_EQ (output, "foo (stop) pre-stop\n");
+	TEST_FILE_EQ (output, "bar (start) spawned\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -318,17 +318,17 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_STOP, JOB_WAITING, 0);
+				   JOB_STOP, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_START, JOB_PRE_START, 1000);
+				   JOB_START, JOB_PRE_START);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "foo",
-				   JOB_STOP, JOB_PRE_STOP, 2000);
+				   JOB_STOP, JOB_PRE_STOP);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -344,8 +344,8 @@ test_start_action (void)
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_FILE_EQ (output, "foo (stop) waiting\n");
-	TEST_FILE_EQ (output, "foo (start) pre-start, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) pre-stop, process 2000\n");
+	TEST_FILE_EQ (output, "foo (start) pre-start\n");
+	TEST_FILE_EQ (output, "foo (stop) pre-stop\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -441,7 +441,7 @@ test_start_action (void)
 
 	/* Send back the status */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "galen",
-				   JOB_START, JOB_RUNNING, 1000);
+				   JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -456,7 +456,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "galen (start) running, process 1000\n");
+	TEST_FILE_EQ (output, "galen (start) running\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -518,22 +518,22 @@ test_list_action (void)
 
 	/* Send back a couple of jobs */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "frodo",
-				   JOB_START, JOB_RUNNING, 1000);
+				   JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "bilbo",
-				   JOB_STOP, JOB_KILLED, 2000);
+				   JOB_STOP, JOB_KILLED);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "merry",
-				   JOB_STOP, JOB_STOPPING, 3000);
+				   JOB_STOP, JOB_STOPPING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "pippin",
-				   JOB_STOP, JOB_WAITING, 0);
+				   JOB_STOP, JOB_WAITING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -548,9 +548,9 @@ test_list_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "frodo (start) running, process 1000\n");
-	TEST_FILE_EQ (output, "bilbo (stop) killed, process 2000\n");
-	TEST_FILE_EQ (output, "merry (stop) stopping, process 3000\n");
+	TEST_FILE_EQ (output, "frodo (start) running\n");
+	TEST_FILE_EQ (output, "bilbo (stop) killed\n");
+	TEST_FILE_EQ (output, "merry (stop) stopping\n");
 	TEST_FILE_EQ (output, "pippin (stop) waiting\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
@@ -621,17 +621,17 @@ test_jobs_action (void)
 
 	/* Send back a couple of jobs */
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "frodo",
-				   JOB_START, JOB_RUNNING, 1000);
+				   JOB_START, JOB_RUNNING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "frodo",
-				   JOB_STOP, JOB_KILLED, 2000);
+				   JOB_STOP, JOB_KILLED);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS, "frodo",
-				   JOB_STOP, JOB_STOPPING, 3000);
+				   JOB_STOP, JOB_STOPPING);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
 
@@ -653,9 +653,9 @@ test_jobs_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "frodo (start) running, process 1000\n");
-	TEST_FILE_EQ (output, "frodo (stop) killed, process 2000\n");
-	TEST_FILE_EQ (output, "frodo (stop) stopping, process 3000\n");
+	TEST_FILE_EQ (output, "frodo (start) running\n");
+	TEST_FILE_EQ (output, "frodo (stop) killed\n");
+	TEST_FILE_EQ (output, "frodo (stop) stopping\n");
 	TEST_FILE_EQ (output, "frodo (stop) waiting\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
