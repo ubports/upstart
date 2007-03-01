@@ -205,7 +205,7 @@ test_read_job (void)
 
 
 	/* Check that a job may not use options that normally affect daemon
-	 * if it doesn't use respawn itself.  It gets warnings.
+	 * if it doesn't use daemon itself.  It gets warnings.
 	 */
 	TEST_FEATURE ("with daemon options and not daemon");
 	jf = fopen (filename, "w");
@@ -2256,9 +2256,7 @@ test_stanza_respawn (void)
 	TEST_FILENAME (filename);
 
 
-	/* Check that a respawn stanza sets the job's respawn and service
-	 * flags, and doesn't clear the command set by exec.
-	 */
+	/* Check that a respawn stanza sets the job's respawn and service */
 	TEST_FEATURE ("with no argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
@@ -2281,37 +2279,12 @@ test_stanza_respawn (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a respawn stanza with arguments sets the job's
-	 * command and the respawn flag.
-	 */
-	TEST_FEATURE ("with arguments");
-	jf = fopen (filename, "w");
-	fprintf (jf, "respawn /sbin/daemon -d \"foo\"\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_TRUE (job->respawn);
-	TEST_TRUE (job->service);
-
-	TEST_ALLOC_PARENT (job->process, job);
-	TEST_ALLOC_SIZE (job->process, sizeof (JobProcess));
-	TEST_EQ (job->process->script, FALSE);
-	TEST_ALLOC_PARENT (job->process->command, job->process);
-	TEST_EQ_STR (job->process->command, "/sbin/daemon -d \"foo\"");
-
-	nih_list_free (&job->entry);
-
-
 	/* Check that a respawn stanza with the limit argument and numeric
 	 * rate and timeout results in it being stored in the job.
 	 */
 	TEST_FEATURE ("with limit and two arguments");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 10 120\n");
 	fclose (jf);
 
@@ -2331,7 +2304,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and missing second argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 10\n");
 	fclose (jf);
 
@@ -2342,7 +2314,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2354,7 +2326,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and missing arguments");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit\n");
 	fclose (jf);
 
@@ -2365,7 +2336,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_ERROR_EQ (output, "2: Expected token\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2377,7 +2348,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and non-integer interval argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 10 foo\n");
 	fclose (jf);
 
@@ -2388,7 +2358,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2400,7 +2370,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and non-integer limit argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit foo 120\n");
 	fclose (jf);
 
@@ -2411,7 +2380,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2423,7 +2392,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and alphanumeric interval argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 10 99foo\n");
 	fclose (jf);
 
@@ -2434,7 +2402,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2446,7 +2414,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and alphanumeric limit argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 99foo 120\n");
 	fclose (jf);
 
@@ -2457,7 +2424,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2469,7 +2436,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and negative interval argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 10 -1\n");
 	fclose (jf);
 
@@ -2480,7 +2446,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2492,7 +2458,6 @@ test_stanza_respawn (void)
 	TEST_FEATURE ("with limit and negative interval argument");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit -1 120\n");
 	fclose (jf);
 
@@ -2503,7 +2468,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2532,35 +2497,12 @@ test_stanza_respawn (void)
 	TEST_FILE_RESET (output);
 
 
-	/* Check that duplicate occurances of the respawn or exec stanza with
-	 * arguments results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate with arguments");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon -d\n");
-	fprintf (jf, "respawn /sbin/daemon\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Duplicate value\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
 	/* Check that duplicate respawn limit stanzas results in a
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with duplicate limit stanzas");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "respawn\n");
 	fprintf (jf, "respawn limit 10 120\n");
 	fprintf (jf, "respawn limit 20 90\n");
 	fclose (jf);
@@ -2572,7 +2514,7 @@ test_stanza_respawn (void)
 
 	TEST_EQ_P (job, NULL);
 
-	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2595,6 +2537,28 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument to limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn foo bar\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
 	TEST_FILE_END (output);
 
 	TEST_FILE_RESET (output);
@@ -2691,7 +2655,8 @@ test_stanza_service (void)
 	 */
 	TEST_FEATURE ("with no arguments");
 	jf = fopen (filename, "w");
-	fprintf (jf, "respawn /sbin/daemon\n");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
 	fprintf (jf, "service\n");
 	fclose (jf);
 

@@ -1113,12 +1113,9 @@ cfg_stanza_daemon (Job             *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a respawn stanza from @file.  This stanza is reasonably
- * complex; it may be called without arguments, in which case it sets
- * the job to be respawned, it may be called with a second argument
- * that specifies we want to set the respawn rate limit and finally it
- * may be called with a command to be executed, in which case it sets
- * the command and respawn flag together.
+ * Parse a daemon stanza from @file.  This either has no arguments, in
+ * which case it sets the respawn and service flags for the job, or it has
+ * the "limit" argument and sets the respawn rate limit.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1130,8 +1127,7 @@ cfg_stanza_respawn (Job             *job,
 		    size_t          *pos,
 		    size_t          *lineno)
 {
-	char   *arg;
-	size_t  arg_pos, arg_lineno;
+	char *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
@@ -1151,12 +1147,8 @@ cfg_stanza_respawn (Job             *job,
 	}
 
 
-	/* Peek at the next argument, and only update pos and lineno if
-	 * we decide to take it.
-	 */
-	arg_pos = *pos;
-	arg_lineno = (lineno ? *lineno : 1);
-	arg = nih_config_next_token (NULL, file, len, &arg_pos, &arg_lineno,
+	/* Take the next argument, a sub-stanza keyword. */
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
@@ -1165,9 +1157,6 @@ cfg_stanza_respawn (Job             *job,
 		char *endptr;
 
 		nih_free (arg);
-		*pos = arg_pos;
-		if (lineno)
-			*lineno = arg_lineno;
 
 		if ((job->respawn_limit != JOB_DEFAULT_RESPAWN_LIMIT)
 		    || (job->respawn_interval != JOB_DEFAULT_RESPAWN_INTERVAL))
@@ -1207,22 +1196,8 @@ cfg_stanza_respawn (Job             *job,
 	} else {
 		nih_free (arg);
 
-		if (job->respawn || job->process)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
-
-		job->respawn = TRUE;
-		job->service = TRUE;
-
-		NIH_MUST (job->process = nih_new (job, JobProcess));
-		job->process->script = FALSE;
-		job->process->command = nih_config_parse_command (
-			job->process, file, len, pos, lineno);
-
-		if (! job->process->command)
-			return -1;
-
-		return 0;
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 }
 

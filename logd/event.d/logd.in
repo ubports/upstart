@@ -10,5 +10,7 @@ stop on runlevel 0
 stop on runlevel 1
 stop on runlevel 6
 
-respawn @sbindir@/logd
 console output
+
+exec @sbindir@/logd
+respawn

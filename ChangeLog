@@ -1,3 +1,13 @@
+2007-03-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_stanza_respawn): Remove the shortcut that
+	lets you specify "respawn COMMAND".  It was confusing as it hid
+	the common "[when] exec"/"[when] script" syntax, made it non-obvious
+	that "exec" and "respawn" were the same flag, etc.
+	* init/tests/test_cfgfile.c (test_stanza_respawn): Update tests.
+	(test_stanza_service): Fix test case to not use shortcut.
+	* logd/event.d/logd.in: Update to not use respawn shortcut.
+
 2007-02-25  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_child_reaper): Shift the signal value into the
