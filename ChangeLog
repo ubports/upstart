@@ -1,5 +1,51 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Remove the pid and aux_pid fields; replace the
+	individual JobProcess pointers with an array of them of a fixed
+	minimum size; replace failed_state with failed_process.
+	(JobProcess): add a pid field here, so now we can obtain the pid on
+	an individual process/action basis rather than global.
+	* init/job.c (job_process_new): Function to create a JobProcess
+	structure, setting the initial values to FALSE/NULL/0.
+	(job_process_copy): Function to copy a JobProcess.
+	(job_new): Don't initialise the pid or aux_pid members, initialise
+	the process array to a fixed initial size and set the members to NULL,
+	initialise the failed_process member to -1.
+	(job_copy): Update to use job_process_copy and copy the process array.
+	(job_find_by_pid): Look through the process structures in the job's
+	process array to find the pid, and optionally return which action it
+	was.
+	(job_change_state): Call job_kill_process in the JOB_KILLED state if
+	we have a main process and that has a pid, pass in the main process.
+	(job_next_state): Check the process id of the main process when
+	deciding what the next state is for running.
+	(job_run_process): Store the process id in the process structure
+	(job_kill_process): Accept a process structure and use that to obtain
+	the process id we need to send TERM too.  Remove the code that forced
+	a state change if kill() failed, since we will get a child signal
+	anyway and should do it there.
+	(job_kill_timer): Likewise, accept a process structure and don't
+	forcibly change the state anymore.
+	(job_child_reaper): Rewrite to switch based on the action that died,
+	rather than the state we were in; assert that the state is what we
+	expected.
+	(job_emit_event): The argument to the failed event is now the action
+	name, rather than the state name; an action of -1 indicates that
+	respawn failed.
+	* init/tests/test_job.c (test_process_new, test_process_copy): Make
+	sure the structure is created and copied properly.
+	(test_new, test_copy): Drop checks on the pid and aux_pid members,
+	add checks for the process array and pid members of processes.
+	(test_find_by_pid): Update test case to make sure we can find the pid
+	of any process, returning the action index rather than the process
+	pointer.
+	(test_run_process, test_kill_process, test_change_goal)
+	(test_change_state, test_next_state, test_child_reaper): Update test
+	cases to use pid fields inside process structures rather than the
+	pid or aux_pid members.
+	(test_handle_event, test_handle_event_finished) 
+	(test_free_deleted): Update to avoid pid field checks.
+
 	* upstart/enum.h (JobAction): Enumeration of different actions.
 	* upstart/enum.c (job_action_name, job_action_from_name): Enumeration
 	to string conversion functions.
