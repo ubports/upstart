@@ -109,8 +109,7 @@ typedef enum {
  * UPSTART_JOB_STATUS:
  * @name: name of job (char *),
  * @goal: current goal (JobGoal),
- * @state: state of job (JobState),
- * @pid: process id (pid_t).
+ * @state: state of job (JobState).
  *
  *
  * UPSTART_EVENT_EMIT:
@@ -128,8 +127,7 @@ typedef enum {
  * @id: unique id of event (unsigned),
  * @name: name of job (char *),
  * @goal: updated goal (JobGoal),
- * @state: updated state (JobState),
- * @pid: updated process id (pid_t).
+ * @state: updated state (JobState).
  *
  * UPSTART_EVENT_FINISHED:
  * @id: unique id of event (unsigned),

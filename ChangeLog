@@ -1,5 +1,13 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Remove the pid field from the job status and event job status
+	messages.
+	* upstart/message.h: Update description of job status and event
+	job status message to remove the pid field.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Remove checks using the pid field.
+
 	* init/control.c (control_job_start, control_job_stop) 
 	(control_job_query, control_job_list): Remove the pid field from
 	the messages, it'll come back later when we get better message

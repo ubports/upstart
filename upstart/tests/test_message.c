@@ -223,7 +223,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
 					   UPSTART_JOB_STATUS, "test",
-					   JOB_START, JOB_RUNNING, 1000);
+					   JOB_START, JOB_RUNNING);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -232,10 +232,10 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 36);
+		TEST_EQ (msg->data->len, 31);
 		TEST_EQ_MEM (msg->data->buf, ("upstart\n\0\0\0\x04"
 					      "s\0\0\0\x04testi\0\0\0\x01"
-					      "i\0\0\0\x05i\0\0\x03\xe8"), 36);
+					      "i\0\0\0\x05"), 31);
 
 		nih_free (msg);
 }
@@ -477,7 +477,7 @@ test_new (void)
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
 					   UPSTART_EVENT_JOB_STATUS,
 					   0xdeafbeef, "test",
-					   JOB_START, JOB_RUNNING, 1000);
+					   JOB_START, JOB_RUNNING);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -486,11 +486,10 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 41);
+		TEST_EQ (msg->data->len, 36);
 		TEST_EQ_MEM (msg->data->buf,
 			     ("upstart\n\0\0\x02\x11u\xde\xaf\xbe\xef"
-			      "s\0\0\0\x04testi\0\0\0\x01i\0\0\0\x05"
-			      "i\0\0\x03\xe8"), 41);
+			      "s\0\0\0\x04testi\0\0\0\x01i\0\0\0\x05"), 36);
 
 		nih_free (msg);
 	}
@@ -588,17 +587,15 @@ my_handler (void                *data,
 	}
 	case UPSTART_JOB_STATUS: {
 		char *name;
-		int   goal, state, pid;
+		int   goal, state;
 
 		name = va_arg (args, char *);
 		goal = va_arg (args, int);
 		state = va_arg (args, int);
-		pid = va_arg (args, int);
 
 		TEST_EQ_STR (name, "test");
 		TEST_EQ (goal, JOB_START);
 		TEST_EQ (state, JOB_RUNNING);
-		TEST_EQ (pid, 1000);
 
 		nih_free (name);
 
@@ -666,19 +663,16 @@ my_handler (void                *data,
 		char     *name;
 		JobGoal   goal;
 		JobState  state;
-		pid_t     pid;
 
 		id = va_arg (args, unsigned);
 		name = va_arg (args, char *);
 		goal = va_arg (args, int);
 		state = va_arg (args, int);
-		pid = va_arg (args, int);
 
 		TEST_EQ_U (id, 0xdeafbeef);
 		TEST_EQ_STR (name, "test");
 		TEST_EQ (goal, JOB_START);
 		TEST_EQ (state, JOB_RUNNING);
-		TEST_EQ (pid, 1000);
 
 		nih_free (name);
 
@@ -889,8 +883,8 @@ test_handle (void)
 			assert0 (nih_io_buffer_push (msg->data,
 						     ("upstart\n\0\0\0\x04"
 						      "s\0\0\0\04test"
-						      "i\0\0\0\01i\0\0\0\05"
-						      "i\0\0\03\xe8"), 36));
+						      "i\0\0\0\01i\0\0\0\05"),
+						     31));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1227,8 +1221,8 @@ test_handle (void)
 						     ("upstart\n\0\0\x02\x11"
 						      "u\xde\xaf\xbe\xef"
 						      "s\0\0\0\04test"
-						      "i\0\0\0\01i\0\0\0\05"
-						      "i\0\0\03\xe8"), 41));
+						      "i\0\0\0\01i\0\0\0\05"),
+						     36));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1499,7 +1493,7 @@ test_handle (void)
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("upstart\n\0\0\0\x04s\0\0\0\x04test"
-				      "i\0\0\0\x01i\0\0\0\x05"), 31));
+				      "i\0\0\0\x01"), 26));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1526,7 +1520,7 @@ test_handle (void)
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("upstart\n\0\0\0\x04Si\0\0\0\x01"
-				      "i\0\0\0\x05i\0\0\x03\xe8s"), 28));
+				      "i\0\0\0\x05"), 23));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1710,8 +1704,7 @@ test_handle (void)
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("upstart\n\0\0\02\x11u\xde\xaf\xbe\xef"
-				      "s\0\0\0\x04testi\0\0\0\x01i\0\0\0\x02"),
-				     36));
+				      "s\0\0\0\x04testi\0\0\0\x01"), 31));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1738,8 +1731,7 @@ test_handle (void)
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     ("upstart\n\0\0\02\x11u\xde\xaf\xbe\xef"
-				      "Si\0\0\0\x01i\0\0\0\x02i\0\0\x03\xe8"),
-				     33));
+				      "Si\0\0\0\x01i\0\0\0\x02"), 28));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
