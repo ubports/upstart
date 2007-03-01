@@ -1,5 +1,8 @@
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event.c (test_poll): Update to use newer job process
+	array and find the pid under there.
+
 	* init/job.h (Job): Remove the pid and aux_pid fields; replace the
 	individual JobProcess pointers with an array of them of a fixed
 	minimum size; replace failed_state with failed_process.
