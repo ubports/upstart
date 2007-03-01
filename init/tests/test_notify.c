@@ -393,6 +393,74 @@ test_job (void)
 	upstart_disable_safeties = FALSE;
 }
 
+void
+test_job_event (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Job                *job;
+	EventEmission      *emission;
+	NotifySubscription *sub;
+
+	/* Check that processes subscribed to the job's cause event
+	 * receive an event job status message that includes the event id.
+	 */
+	TEST_FUNCTION ("notify_job_event");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "a test job");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+	job->pid = 1000;
+
+	emission = event_emit ("test", NULL, NULL);
+	emission->id = 0xdeafbeef;
+
+	job->cause = emission;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Release the parent so we can receive the job notification */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Wait for a reply */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event_job_status,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	sub = notify_subscribe_event (NULL, pid, emission);
+
+	notify_job (job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&job->entry);
+	nih_list_free (&sub->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
 
 static int
 check_event (void               *data,
@@ -602,6 +670,7 @@ main (int   argc,
 	test_subscription_find ();
 	test_unsubscribe ();
 	test_job ();
+	test_job_event ();
 	test_event ();
 	test_event_finished ();
 

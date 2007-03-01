@@ -584,6 +584,8 @@ job_change_cause (Job           *job,
 		return;
 
 	if (job->cause) {
+		notify_job_event (job);
+
 		job->cause->jobs--;
 		event_emit_finished (job->cause);
 	}
@@ -624,7 +626,6 @@ job_change_state (Job      *job,
 
 		old_state = job->state;
 		job->state = state;
-		notify_job (job);
 
 		/* Perform whatever action is necessary to enter the new
 		 * state, such as executing a process or emitting an event.
@@ -770,6 +771,8 @@ job_change_state (Job      *job,
 
 			break;
 		}
+
+		notify_job (job);
 	}
 }
 

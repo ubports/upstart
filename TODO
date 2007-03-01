@@ -24,18 +24,6 @@ High Priority:
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
 
- * notify_job is a little sub-optimal; if we notify at the top of the
-   job_change_state loop, we don't include the process information and
-   clients get notified *before* things like the events are emitted.
-
-   If we notify afterwards, then clients subscribed to the cause event
-   don't see the final state change (into waiting or running), and
-   they don't see it trying to go into starting in the case of respawning
-   too fast (maybe this bit is right though)
-
-   Solution might be just to always notify the state in notify_finished and
-   to move it to the bottom of the loop; that probably solves everything.
-
 
 Medium Priority:
 

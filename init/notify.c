@@ -258,11 +258,32 @@ notify_job (Job *job)
 		nih_io_send_message (control_io, message);
 	}
 
-	if (! job->cause)
+	if (job->cause)
+		notify_job_event (job);
+}
+
+/**
+ * notify_job_event:
+ * @job: job that is changing state,
+ *
+ * Called when a job changes state, and before a job changes cause.  Notifies
+ * processes subscribed to the job's cause emission with an
+ * UPSTART_EVENT_JOB_STATUS message containing the job state.
+ **/
+void
+notify_job_event (Job *job)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->cause != NULL);
+
+	notify_init ();
+
+	if (! control_io)
 		return;
 
-	/* And then to processes subscribed for the cause event; only
-	 * send to those specifically subscribed, not to global.
+	/* Send job status information to processes subscribed to the
+	 * cause event; only send to those specifically subscribed, not to
+	 * global.
 	 */
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
