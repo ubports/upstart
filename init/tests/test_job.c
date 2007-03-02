@@ -187,9 +187,9 @@ test_new (void)
 		TEST_NE_P (job->process, NULL);
 		TEST_ALLOC_PARENT (job->process, job);
 		TEST_ALLOC_SIZE (job->process,
-				 sizeof (JobProcess *) * JOB_LAST_ACTION);
+				 sizeof (JobProcess *) * PROCESS_LAST);
 
-		for (i = 0; i < JOB_LAST_ACTION; i++)
+		for (i = 0; i < PROCESS_LAST; i++)
 			TEST_EQ_P (job->process[i], NULL);
 
 		TEST_EQ_P (job->normalexit, NULL);
@@ -281,9 +281,9 @@ test_copy (void)
 		TEST_NE_P (copy->process, NULL);
 		TEST_ALLOC_PARENT (copy->process, copy);
 		TEST_ALLOC_SIZE (copy->process,
-				 sizeof (JobProcess *) * JOB_LAST_ACTION);
+				 sizeof (JobProcess *) * PROCESS_LAST);
 
-		for (i = 0; i < JOB_LAST_ACTION; i++)
+		for (i = 0; i < PROCESS_LAST; i++)
 			TEST_EQ_P (copy->process[i], NULL);
 
 		TEST_EQ_P (copy->normalexit, NULL);
@@ -343,7 +343,7 @@ test_copy (void)
 	job->blocked = (void *)-1;
 
 	job->failed = TRUE;
-	job->failed_process = JOB_MAIN_ACTION;
+	job->failed_process = PROCESS_MAIN;
 	job->exit_status = SIGSEGV << 8;
 
 	event = event_new (job, "foo");
@@ -388,30 +388,30 @@ test_copy (void)
 	process->script = FALSE;
 	process->command = nih_strdup (process, "/usr/sbin/daemon");
 	process->pid = 1000;
-	job->process[JOB_MAIN_ACTION] = process;
+	job->process[PROCESS_MAIN] = process;
 
 	process = job_process_new (job);
 	process->script = TRUE;
 	process->command = nih_strdup (process, "mkdir /var/run/daemon\n");
-	job->process[JOB_PRE_START_ACTION] = process;
+	job->process[PROCESS_PRE_START] = process;
 
 	process = job_process_new (job);
 	process->script = TRUE;
 	process->command = nih_strdup (process,
 				       "echo start | nc -q0 127.0.0.1 80\n");
-	job->process[JOB_POST_START_ACTION] = process;
+	job->process[PROCESS_POST_START] = process;
 
 	process = job_process_new (job);
 	process->script = TRUE;
 	process->command = nih_strdup (process,
 				       "echo stop | nc -q0 127.0.0.1 80\n");
 	process->pid = 1010;
-	job->process[JOB_PRE_STOP_ACTION] = process;
+	job->process[PROCESS_PRE_STOP] = process;
 
 	process = job_process_new (job);
 	process->script = TRUE;
 	process->command = nih_strdup (process, "rm -rf /var/run/daemon\n");
-	job->process[JOB_POST_STOP_ACTION] = process;
+	job->process[PROCESS_POST_STOP] = process;
 
 	job->console = CONSOLE_OUTPUT;
 
@@ -518,9 +518,9 @@ test_copy (void)
 		TEST_NE_P (copy->process, NULL);
 		TEST_ALLOC_PARENT (copy->process, copy);
 		TEST_ALLOC_SIZE (copy->process,
-				 sizeof (JobProcess *) * JOB_LAST_ACTION);
+				 sizeof (JobProcess *) * PROCESS_LAST);
 
-		for (i = 0; i < JOB_LAST_ACTION; i++) {
+		for (i = 0; i < PROCESS_LAST; i++) {
 			TEST_ALLOC_PARENT (copy->process[i], copy->process);
 			TEST_ALLOC_SIZE (copy->process[i],
 					 sizeof (JobProcess));
@@ -639,76 +639,76 @@ test_find_by_name (void)
 void
 test_find_by_pid (void)
 {
-	Job       *job1, *job2, *job3, *job4, *job5, *ptr;
-	JobAction  action;
+	Job         *job1, *job2, *job3, *job4, *job5, *ptr;
+	ProcessType  process;
 
 	TEST_FUNCTION ("job_find_by_pid");
 	job1 = job_new (NULL, "foo");
-	job1->process[JOB_MAIN_ACTION] = job_process_new (job1);
-	job1->process[JOB_MAIN_ACTION]->pid = 10;
-	job1->process[JOB_POST_START_ACTION] = job_process_new (job1);
-	job1->process[JOB_POST_START_ACTION]->pid = 15;
+	job1->process[PROCESS_MAIN] = job_process_new (job1);
+	job1->process[PROCESS_MAIN]->pid = 10;
+	job1->process[PROCESS_POST_START] = job_process_new (job1);
+	job1->process[PROCESS_POST_START]->pid = 15;
 	job2 = job_new (NULL, "bar");
 	job3 = job_new (NULL, "baz");
-	job3->process[JOB_PRE_START_ACTION] = job_process_new (job3);
-	job3->process[JOB_PRE_START_ACTION]->pid = 20;
+	job3->process[PROCESS_PRE_START] = job_process_new (job3);
+	job3->process[PROCESS_PRE_START]->pid = 20;
 	job4 = job_new (NULL, "frodo");
-	job4->process[JOB_MAIN_ACTION] = job_process_new (job4);
-	job4->process[JOB_MAIN_ACTION]->pid = 25;
-	job4->process[JOB_PRE_STOP_ACTION] = job_process_new (job4);
-	job4->process[JOB_PRE_STOP_ACTION]->pid = 30;
+	job4->process[PROCESS_MAIN] = job_process_new (job4);
+	job4->process[PROCESS_MAIN]->pid = 25;
+	job4->process[PROCESS_PRE_STOP] = job_process_new (job4);
+	job4->process[PROCESS_PRE_STOP]->pid = 30;
 	job5 = job_new (NULL, "bilbo");
-	job5->process[JOB_POST_STOP_ACTION] = job_process_new (job5);
-	job5->process[JOB_POST_STOP_ACTION]->pid = 35;
+	job5->process[PROCESS_POST_STOP] = job_process_new (job5);
+	job5->process[PROCESS_POST_STOP]->pid = 35;
 
 	/* Check that we can find a job that exists by the pid of its
 	 * primary process.
 	 */
 	TEST_FEATURE ("with pid we expect to find");
-	ptr = job_find_by_pid (10, &action);
+	ptr = job_find_by_pid (10, &process);
 
 	TEST_EQ_P (ptr, job1);
-	TEST_EQ (action, JOB_MAIN_ACTION);
+	TEST_EQ (process, PROCESS_MAIN);
 
 
 	/* Check that we can find a job that exists by the pid of its
 	 * pre-start process.
 	 */
 	TEST_FEATURE ("with pre-start pid we expect to find");
-	ptr = job_find_by_pid (20, &action);
+	ptr = job_find_by_pid (20, &process);
 
 	TEST_EQ_P (ptr, job3);
-	TEST_EQ (action, JOB_PRE_START_ACTION);
+	TEST_EQ (process, PROCESS_PRE_START);
 
 
 	/* Check that we can find a job that exists by the pid of its
 	 * post-start process.
 	 */
 	TEST_FEATURE ("with post-start pid we expect to find");
-	ptr = job_find_by_pid (15, &action);
+	ptr = job_find_by_pid (15, &process);
 
 	TEST_EQ_P (ptr, job1);
-	TEST_EQ (action, JOB_POST_START_ACTION);
+	TEST_EQ (process, PROCESS_POST_START);
 
 
 	/* Check that we can find a job that exists by the pid of its
 	 * pre-stop process.
 	 */
 	TEST_FEATURE ("with pre-stop pid we expect to find");
-	ptr = job_find_by_pid (30, &action);
+	ptr = job_find_by_pid (30, &process);
 
 	TEST_EQ_P (ptr, job4);
-	TEST_EQ (action, JOB_PRE_STOP_ACTION);
+	TEST_EQ (process, PROCESS_PRE_STOP);
 
 
 	/* Check that we can find a job that exists by the pid of its
 	 * pre-stop process.
 	 */
 	TEST_FEATURE ("with post-stop pid we expect to find");
-	ptr = job_find_by_pid (35, &action);
+	ptr = job_find_by_pid (35, &process);
 
 	TEST_EQ_P (ptr, job5);
-	TEST_EQ (action, JOB_POST_STOP_ACTION);
+	TEST_EQ (process, PROCESS_POST_STOP);
 
 
 	/* Check that we get NULL if no job has a process with that pid. */
@@ -750,12 +750,12 @@ test_change_goal (void)
 	program_name = "test";
 
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
-	job->process[JOB_PRE_START_ACTION] = job_process_new (job);
-	job->process[JOB_PRE_START_ACTION]->command = "echo";
-	job->process[JOB_POST_STOP_ACTION] = job_process_new (job);
-	job->process[JOB_POST_STOP_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_PRE_START]->command = "echo";
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->process[PROCESS_POST_STOP]->command = "echo";
 
 
 	/* Check that an attempt to start a waiting job results in the
@@ -797,16 +797,16 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job_change_goal (job, JOB_START, NULL);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that starting a job with a cause set unreferences it
@@ -818,7 +818,7 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 		job->cause = em;
 		em->progress = EVENT_HANDLING;
 		em->jobs = 1;
@@ -827,7 +827,7 @@ test_change_goal (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
 		TEST_EQ_P (job->cause, NULL);
 
@@ -837,7 +837,7 @@ test_change_goal (void)
 
 	nih_list_free (&em->event.entry);
 	job->cause = NULL;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that starting a job with a cause passed references that event
@@ -849,7 +849,7 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
-		job->process[JOB_POST_STOP_ACTION]->pid = 1;
+		job->process[PROCESS_POST_STOP]->pid = 1;
 		job->cause = NULL;
 		em->jobs = 0;
 
@@ -857,8 +857,8 @@ test_change_goal (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_STOP);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_POST_STOP_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 1);
 
 		TEST_EQ_P (job->cause, em);
 
@@ -867,7 +867,7 @@ test_change_goal (void)
 
 	nih_list_free (&em->event.entry);
 	job->cause = NULL;
-	job->process[JOB_POST_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
 	/* Check that an attempt to start a job that's running and still
@@ -877,16 +877,16 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job_change_goal (job, JOB_START, NULL);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that an attempt to stop a running job results in the goal
@@ -896,16 +896,16 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that an attempt to stop a running job without any process
@@ -930,16 +930,16 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[JOB_PRE_START_ACTION]->pid = 1;
+		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job_change_goal (job, JOB_STOP, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_START);
-		TEST_EQ (job->process[JOB_PRE_START_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 1);
 	}
 
-	job->process[JOB_PRE_START_ACTION]->pid = 0;
+	job->process[PROCESS_PRE_START]->pid = 0;
 
 
 	/* Check that stopping a job with a cause event set unreferences the
@@ -951,7 +951,7 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 		job->cause = em;
 		em->jobs = 1;
 		em->progress = EVENT_HANDLING;
@@ -960,7 +960,7 @@ test_change_goal (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_SPAWNED);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 		TEST_EQ_P (job->cause, NULL);
 
 		TEST_EQ (em->jobs, 0);
@@ -969,7 +969,7 @@ test_change_goal (void)
 
 	nih_list_free (&em->event.entry);
 	job->cause = NULL;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that stopping a job passing a cause references that event
@@ -1084,15 +1084,15 @@ test_change_state (void)
 	mkdir (dirname, 0700);
 
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job);
-	job->process[JOB_MAIN_ACTION]->command = nih_sprintf (
-		job->process[JOB_MAIN_ACTION], "touch %s/run", dirname);
-	job->process[JOB_PRE_START_ACTION] = job_process_new (job);
-	job->process[JOB_PRE_START_ACTION]->command = nih_sprintf (
-		job->process[JOB_PRE_START_ACTION], "touch %s/start", dirname);
-	job->process[JOB_POST_STOP_ACTION] = job_process_new (job);
-	job->process[JOB_POST_STOP_ACTION]->command = nih_sprintf (
-		job->process[JOB_POST_STOP_ACTION], "touch %s/stop", dirname);
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = nih_sprintf (
+		job->process[PROCESS_MAIN], "touch %s/run", dirname);
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_PRE_START]->command = nih_sprintf (
+		job->process[PROCESS_PRE_START], "touch %s/start", dirname);
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->process[PROCESS_POST_STOP]->command = nih_sprintf (
+		job->process[PROCESS_POST_STOP], "touch %s/stop", dirname);
 	job->respawn_limit = 0;
 
 	event_init ();
@@ -1114,7 +1114,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_POST_STOP_ACTION;
+		job->failed_process = PROCESS_POST_STOP;
 		job->exit_status = 1;
 
 		job_change_state (job, JOB_STARTING);
@@ -1208,7 +1208,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
-		job->process[JOB_PRE_START_ACTION]->pid = 0;
+		job->process[PROCESS_PRE_START]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1221,9 +1221,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_PRE_START);
-		TEST_NE (job->process[JOB_PRE_START_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_PRE_START]->pid, 0);
 
-		waitpid (job->process[JOB_PRE_START_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_PRE_START]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1242,7 +1242,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_PRE_START_ACTION]->pid = 0;
+	job->process[PROCESS_PRE_START]->pid = 0;
 
 
 	/* Check that a job without a start process can move from starting
@@ -1251,13 +1251,13 @@ test_change_state (void)
 	 * we should get a started event emitted.
 	 */
 	TEST_FEATURE ("starting to pre-start without process");
-	tmp = job->process[JOB_PRE_START_ACTION];
-	job->process[JOB_PRE_START_ACTION] = NULL;
+	tmp = job->process[PROCESS_PRE_START];
+	job->process[PROCESS_PRE_START] = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
-		job->process[JOB_MAIN_ACTION]->pid = 0;
+		job->process[PROCESS_MAIN]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1270,9 +1270,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1298,8 +1298,8 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_PRE_START_ACTION] = tmp;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_PRE_START] = tmp;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job with a main process can move from pre-start to
@@ -1311,7 +1311,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[JOB_MAIN_ACTION]->pid = 0;
+		job->process[PROCESS_MAIN]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1324,9 +1324,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1352,7 +1352,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
  	/* Check that a job without a main process can move from pre-start
@@ -1360,8 +1360,8 @@ test_change_state (void)
 	 * started event emitted.
 	 */
 	TEST_FEATURE ("pre-start to spawned without process");
-	tmp = job->process[JOB_MAIN_ACTION];
-	job->process[JOB_MAIN_ACTION] = NULL;
+	tmp = job->process[PROCESS_MAIN];
+	job->process[PROCESS_MAIN] = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
@@ -1396,7 +1396,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION] = tmp;
+	job->process[PROCESS_MAIN] = tmp;
 
 
 	/* Check that a job which has a main process that becomes a daemon
@@ -1410,7 +1410,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[JOB_MAIN_ACTION]->pid = 0;
+		job->process[PROCESS_MAIN]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1423,9 +1423,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_SPAWNED);
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1445,23 +1445,23 @@ test_change_state (void)
 	}
 
 	job->daemon = FALSE;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job with a post-start process can move from spawned
 	 * to post-start, and have the process run.
 	 */
 	TEST_FEATURE ("spawned to post-start");
-	job->process[JOB_POST_START_ACTION] = job_process_new (job);
-	job->process[JOB_POST_START_ACTION]->command = nih_sprintf (
-		job->process[JOB_POST_START_ACTION],
+	job->process[PROCESS_POST_START] = job_process_new (job);
+	job->process[PROCESS_POST_START]->command = nih_sprintf (
+		job->process[PROCESS_POST_START],
 		"touch %s/post-start", dirname);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_POST_START_ACTION]->pid = 0;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1474,10 +1474,10 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
-		TEST_NE (job->process[JOB_POST_START_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_NE (job->process[PROCESS_POST_START]->pid, 0);
 
-		waitpid (job->process[JOB_POST_START_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_POST_START]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1496,9 +1496,9 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	nih_free (job->process[JOB_POST_START_ACTION]);
-	job->process[JOB_POST_START_ACTION] = NULL;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	nih_free (job->process[PROCESS_POST_START]);
+	job->process[PROCESS_POST_START] = NULL;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job without a post-start process can move from
@@ -1510,7 +1510,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1523,7 +1523,7 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
@@ -1542,7 +1542,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a task can move from post-start to running, which will
@@ -1552,7 +1552,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1565,7 +1565,7 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
@@ -1584,7 +1584,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a service can move from post-start to running, which
@@ -1597,7 +1597,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		cause->jobs = 2;
 		job->cause = cause;
@@ -1611,7 +1611,7 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
@@ -1633,23 +1633,23 @@ test_change_state (void)
 	}
 
 	job->service = FALSE;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job with a pre-stop process can move from running
 	 * to pre-stop, and have the process run.
 	 */
 	TEST_FEATURE ("running to pre-stop");
-	job->process[JOB_PRE_STOP_ACTION] = job_process_new (job);
-	job->process[JOB_PRE_STOP_ACTION]->command = nih_sprintf (
-		job->process[JOB_PRE_STOP_ACTION],
+	job->process[PROCESS_PRE_STOP] = job_process_new (job);
+	job->process[PROCESS_PRE_STOP]->command = nih_sprintf (
+		job->process[PROCESS_PRE_STOP],
 		"touch %s/pre-stop", dirname);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_PRE_STOP_ACTION]->pid = 0;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_PRE_STOP]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1662,10 +1662,10 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_STOP);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
-		TEST_NE (job->process[JOB_PRE_STOP_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_NE (job->process[PROCESS_PRE_STOP]->pid, 0);
 
-		waitpid (job->process[JOB_PRE_STOP_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_PRE_STOP]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1684,9 +1684,9 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	nih_free (job->process[JOB_PRE_STOP_ACTION]);
-	job->process[JOB_PRE_STOP_ACTION] = NULL;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	nih_free (job->process[PROCESS_PRE_STOP]);
+	job->process[PROCESS_PRE_STOP] = NULL;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job without a pre-stop process can move from
@@ -1698,7 +1698,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1711,7 +1711,7 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
@@ -1731,7 +1731,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job can move from running to stopping, by-passing
@@ -1747,7 +1747,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
 		job_change_state (job, JOB_STOPPING);
@@ -1772,7 +1772,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 1);
 	}
 
@@ -1791,7 +1791,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = SIGSEGV << 8;
 
 		job_change_state (job, JOB_STOPPING);
@@ -1816,7 +1816,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, SIGSEGV << 8);
 	}
 
@@ -1835,7 +1835,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 33 << 8;
 
 		job_change_state (job, JOB_STOPPING);
@@ -1860,7 +1860,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 33 << 8);
 	}
 
@@ -1913,10 +1913,10 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
-		TEST_CHILD (job->process[JOB_MAIN_ACTION]->pid) {
+		TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
 			pause ();
 		}
-		pid = job->process[JOB_MAIN_ACTION]->pid;
+		pid = job->process[PROCESS_MAIN]->pid;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1929,9 +1929,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, pid);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
@@ -1950,7 +1950,7 @@ test_change_state (void)
 		job->kill_timer = NULL;
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a job with no running process can move from stopping
@@ -1961,7 +1961,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
-		job->process[JOB_POST_STOP_ACTION]->pid = 0;
+		job->process[PROCESS_POST_STOP]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -1974,9 +1974,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
-		TEST_NE (job->process[JOB_POST_STOP_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_POST_STOP]->pid, 0);
 
-		waitpid (job->process[JOB_POST_STOP_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_POST_STOP]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1997,7 +1997,7 @@ test_change_state (void)
 		TEST_EQ_P (job->kill_timer, NULL);
 	}
 
-	job->process[JOB_POST_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
 	/* Check that a job with a stop process can move from killed
@@ -2007,7 +2007,7 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		job->process[JOB_POST_STOP_ACTION]->pid = 0;
+		job->process[PROCESS_POST_STOP]->pid = 0;
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -2020,9 +2020,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
-		TEST_NE (job->process[JOB_POST_STOP_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_POST_STOP]->pid, 0);
 
-		waitpid (job->process[JOB_POST_STOP_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_POST_STOP]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2048,8 +2048,8 @@ test_change_state (void)
 	 * we should get a stopped event emitted, and the cause forgotten.
 	 */
 	TEST_FEATURE ("killed to post-stop without process");
-	tmp = job->process[JOB_POST_STOP_ACTION];
-	job->process[JOB_POST_STOP_ACTION] = NULL;
+	tmp = job->process[PROCESS_POST_STOP];
+	job->process[PROCESS_POST_STOP] = NULL;
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
@@ -2060,7 +2060,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
 		job_change_state (job, JOB_POST_STOP);
@@ -2087,11 +2087,11 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 1);
 	}
 
-	job->process[JOB_POST_STOP_ACTION] = tmp;
+	job->process[PROCESS_POST_STOP] = tmp;
 
 
 	/* Check that a job can move from post-stop to waiting.  This
@@ -2108,7 +2108,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
 		job_change_state (job, JOB_WAITING);
@@ -2135,7 +2135,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 1);
 	}
 
@@ -2153,7 +2153,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
 		job_change_state (job, JOB_STARTING);
@@ -2196,7 +2196,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
 		job->respawn_time = time (NULL);
@@ -2227,7 +2227,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 1);
 
 		TEST_FILE_EQ (output,
@@ -2256,7 +2256,7 @@ test_change_state (void)
 		job->blocked = NULL;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
 		job_change_state (job, JOB_WAITING);
@@ -2283,7 +2283,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 1);
 	}
 
@@ -2306,8 +2306,8 @@ test_next_state (void)
 
 	TEST_FUNCTION ("job_next_state");
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	/* Check that the next state if we're stopping a waiting job is
 	 * deleted.  The only place this can happen is from the job loop
@@ -2417,7 +2417,7 @@ test_next_state (void)
 	TEST_FEATURE ("with running job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
-	job->process[JOB_MAIN_ACTION]->pid = 1;
+	job->process[PROCESS_MAIN]->pid = 1;
 
 	TEST_EQ (job_next_state (job), JOB_PRE_STOP);
 
@@ -2429,7 +2429,7 @@ test_next_state (void)
 	TEST_FEATURE ("with dead running job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
@@ -2555,17 +2555,17 @@ test_run_process (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->command = nih_sprintf (
-				job->process[JOB_MAIN_ACTION],
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
 				"touch %s", filename);
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, NULL, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
 
 		unlink (filename);
@@ -2584,22 +2584,22 @@ test_run_process (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->command = nih_sprintf (
-				job->process[JOB_MAIN_ACTION],
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
 				"echo $$ > %s", filename);
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, NULL, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
 
 		/* Filename should contain the pid */
 		output = fopen (filename, "r");
-		sprintf (buf, "%d\n", job->process[JOB_MAIN_ACTION]->pid);
+		sprintf (buf, "%d\n", job->process[PROCESS_MAIN]->pid);
 		TEST_FILE_EQ (output, buf);
 		TEST_FILE_END (output);
 		fclose (output);
@@ -2618,18 +2618,18 @@ test_run_process (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->script = TRUE;
-			job->process[JOB_MAIN_ACTION]->command = nih_sprintf (
-				job->process[JOB_MAIN_ACTION],
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
 				"exec > %s\necho $0\necho $@", filename);
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2653,19 +2653,19 @@ test_run_process (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->script = TRUE;
-			job->process[JOB_MAIN_ACTION]->command = nih_sprintf (
-				job->process[JOB_MAIN_ACTION],
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
 				"exec > %s\ntest -d %s\necho oops",
 				filename, filename);
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 1);
 
@@ -2693,18 +2693,18 @@ test_run_process (void)
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 			job->cause = em;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->script = TRUE;
-			job->process[JOB_MAIN_ACTION]->command = nih_sprintf (
-				job->process[JOB_MAIN_ACTION],
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
 				"exec > %s\necho $0\necho $@", filename);
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2731,20 +2731,20 @@ test_run_process (void)
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->script = TRUE;
-			job->process[JOB_MAIN_ACTION]->command = nih_alloc (
-				job->process[JOB_MAIN_ACTION], 4096);
-			sprintf (job->process[JOB_MAIN_ACTION]->command,
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_alloc (
+				job->process[PROCESS_MAIN], 4096);
+			sprintf (job->process[PROCESS_MAIN]->command,
 				 "exec > %s\necho $0\necho $@\n", filename);
-			while (strlen (job->process[JOB_MAIN_ACTION]->command) < 4000)
-				strcat (job->process[JOB_MAIN_ACTION]->command,
+			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
+				strcat (job->process[PROCESS_MAIN]->command,
 					"# this just bulks it out a bit");
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
 		/* Loop until we've fed all of the data. */
 		first = TRUE;
@@ -2772,7 +2772,7 @@ test_run_process (void)
 			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 		}
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2802,20 +2802,20 @@ test_run_process (void)
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 			job->cause = em;
-			job->process[JOB_MAIN_ACTION] = job_process_new (job);
-			job->process[JOB_MAIN_ACTION]->script = TRUE;
-			job->process[JOB_MAIN_ACTION]->command = nih_alloc (
-				job->process[JOB_MAIN_ACTION], 4096);
-			sprintf (job->process[JOB_MAIN_ACTION]->command,
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_alloc (
+				job->process[PROCESS_MAIN], 4096);
+			sprintf (job->process[PROCESS_MAIN]->command,
 				 "exec > %s\necho $0\necho $@\n", filename);
-			while (strlen (job->process[JOB_MAIN_ACTION]->command) < 4000)
-				strcat (job->process[JOB_MAIN_ACTION]->command,
+			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
+				strcat (job->process[PROCESS_MAIN]->command,
 					"# this just bulks it out a bit");
 		}
 
-		job_run_process (job, job->process[JOB_MAIN_ACTION]);
+		job_run_process (job, job->process[PROCESS_MAIN]);
 
-		TEST_NE (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
 		/* Loop until we've fed all of the data. */
 		first = TRUE;
@@ -2843,7 +2843,7 @@ test_run_process (void)
 			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 		}
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2874,9 +2874,9 @@ test_kill_process (void)
 	job->kill_timeout = 1000;
 	job->respawn_limit = 0;
 
-	job->process[JOB_MAIN_ACTION] = job_process_new (job);
-	job->process[JOB_MAIN_ACTION]->command = nih_strdup (
-		job->process[JOB_MAIN_ACTION], "echo");
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = nih_strdup (
+		job->process[PROCESS_MAIN], "echo");
 
 
 	/* Check that an easily killed process goes away with just a single
@@ -2888,18 +2888,18 @@ test_kill_process (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		TEST_CHILD (job->process[JOB_MAIN_ACTION]->pid) {
+		TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
 			pause ();
 		}
-		pid = job->process[JOB_MAIN_ACTION]->pid;
+		pid = job->process[PROCESS_MAIN]->pid;
 
-		job_kill_process (job, job->process[JOB_MAIN_ACTION]);
+		job_kill_process (job, job->process[PROCESS_MAIN]);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, pid);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
@@ -2926,7 +2926,7 @@ test_kill_process (void)
 
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		TEST_CHILD_WAIT (job->process[JOB_MAIN_ACTION]->pid, wait_fd) {
+		TEST_CHILD_WAIT (job->process[PROCESS_MAIN]->pid, wait_fd) {
 			struct sigaction act;
 
 			act.sa_handler = SIG_IGN;
@@ -2939,15 +2939,15 @@ test_kill_process (void)
 			for (;;)
 				pause ();
 		}
-		pid = job->process[JOB_MAIN_ACTION]->pid;
+		pid = job->process[PROCESS_MAIN]->pid;
 
-		job_kill_process (job, job->process[JOB_MAIN_ACTION]);
+		job_kill_process (job, job->process[PROCESS_MAIN]);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, pid);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
 
-		TEST_EQ (kill (job->process[JOB_MAIN_ACTION]->pid, 0), 0);
+		TEST_EQ (kill (job->process[PROCESS_MAIN]->pid, 0), 0);
 
 		TEST_NE_P (job->kill_timer, NULL);
 		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
@@ -2962,9 +2962,9 @@ test_kill_process (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, pid);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGKILL);
 
@@ -2999,8 +2999,8 @@ test_child_reaper (void)
 	output = tmpfile ();
 
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	em = event_emit ("foo", NULL, NULL);
 
@@ -3012,16 +3012,16 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job_child_reaper (NULL, 999, FALSE, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap the running task of the job, which should
@@ -3032,7 +3032,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3045,7 +3045,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3055,7 +3055,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap a running task of the job after it's been
@@ -3067,7 +3067,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3090,7 +3090,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, FALSE);
@@ -3100,21 +3100,21 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap the pre-start process of the job, and if it
 	 * terminates with a good error code, end up in the running state.
 	 */
 	TEST_FEATURE ("with pre-start process");
-	job->process[JOB_PRE_START_ACTION] = job_process_new (job);
-	job->process[JOB_PRE_START_ACTION]->command = "echo";
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_PRE_START]->command = "echo";
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[JOB_MAIN_ACTION]->pid = 0;
-		job->process[JOB_PRE_START_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 0;
+		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3127,10 +3127,10 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_PRE_START_ACTION]->pid, 0);
-		TEST_GT (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
+		TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-		waitpid (job->process[JOB_MAIN_ACTION]->pid, NULL, 0);
+		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3140,8 +3140,8 @@ test_child_reaper (void)
 		TEST_EQ (em->failed, FALSE);
 	}
 
-	job->process[JOB_PRE_START_ACTION]->pid = 0;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_PRE_START]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap a failing pre-start process of the job, which
@@ -3153,7 +3153,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[JOB_PRE_START_ACTION]->pid = 1;
+		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3169,13 +3169,13 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_PRE_START_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_PRE_START_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_PRE_START);
 		TEST_EQ (job->exit_status, 1);
 
 		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
@@ -3184,7 +3184,7 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_PRE_START_ACTION]->pid = 0;
+	job->process[PROCESS_PRE_START]->pid = 0;
 
 
 	/* Check that we can reap a killed starting task, which should
@@ -3195,7 +3195,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[JOB_PRE_START_ACTION]->pid = 1;
+		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3211,13 +3211,13 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_PRE_START_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_PRE_START_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_PRE_START);
 		TEST_EQ (job->exit_status, SIGTERM << 8);
 
 		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
@@ -3226,7 +3226,7 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_PRE_START_ACTION]->pid = 0;
+	job->process[PROCESS_PRE_START]->pid = 0;
 
 
 	/* Check that we can catch the running task failing, and if the job
@@ -3242,7 +3242,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3258,7 +3258,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3271,7 +3271,7 @@ test_child_reaper (void)
 	}
 
 	job->respawn = FALSE;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can catch a running task exiting with a "normal"
@@ -3286,7 +3286,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3302,7 +3302,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3320,7 +3320,7 @@ test_child_reaper (void)
 	job->respawn = FALSE;
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a running task that fails with an exit status not
@@ -3333,7 +3333,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3349,13 +3349,13 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 99);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -3366,7 +3366,7 @@ test_child_reaper (void)
 
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a running task that fails doesn't mark the job or
@@ -3377,7 +3377,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3393,7 +3393,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, FALSE);
@@ -3408,7 +3408,7 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a running task that fails with an exit status
@@ -3422,7 +3422,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3438,7 +3438,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3455,7 +3455,7 @@ test_child_reaper (void)
 
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that a running task that fails with an signal
@@ -3469,7 +3469,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3485,7 +3485,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3502,7 +3502,7 @@ test_child_reaper (void)
 
 	job->normalexit = NULL;
 	job->normalexit_len = 0;
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* A running task exiting with the zero exit code is considered
@@ -3512,7 +3512,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3525,7 +3525,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3535,20 +3535,20 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap the post-stop process of the job, and end up
 	 * in the waiting state.
 	 */
 	TEST_FEATURE ("with post-stop process");
-	job->process[JOB_POST_STOP_ACTION] = job_process_new (job);
-	job->process[JOB_POST_STOP_ACTION]->command = "echo";
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->process[PROCESS_POST_STOP]->command = "echo";
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
-		job->process[JOB_POST_STOP_ACTION]->pid = 1;
+		job->process[PROCESS_POST_STOP]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3561,7 +3561,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[JOB_POST_STOP_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, FALSE);
@@ -3571,7 +3571,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_POST_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
 	/* Check that we can reap a failing post-stop process of the job, which
@@ -3581,7 +3581,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
-		job->process[JOB_POST_STOP_ACTION]->pid = 1;
+		job->process[PROCESS_POST_STOP]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3597,13 +3597,13 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[JOB_POST_STOP_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_POST_STOP_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_POST_STOP);
 		TEST_EQ (job->exit_status, 1);
 
 		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
@@ -3612,7 +3612,7 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_POST_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
 	/* Check that a failing stopping task doesn't overwrite the record
@@ -3622,13 +3622,13 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
-		job->process[JOB_POST_STOP_ACTION]->pid = 1;
+		job->process[PROCESS_POST_STOP]->pid = 1;
 
 		job->cause = em;
 		em->failed = TRUE;
 
 		job->failed = TRUE;
-		job->failed_process = JOB_MAIN_ACTION;
+		job->failed_process = PROCESS_MAIN;
 		job->exit_status = SIGSEGV << 8;
 
 		TEST_DIVERT_STDERR (output) {
@@ -3638,13 +3638,13 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[JOB_POST_STOP_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, SIGSEGV << 8);
 
 		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
@@ -3653,7 +3653,7 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_POST_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
 	/* Check that we can reap the post-start task of the job, the
@@ -3662,14 +3662,14 @@ test_child_reaper (void)
 	 * but the aux pid should be.
 	 */
 	TEST_FEATURE ("with post-start process");
-	job->process[JOB_POST_START_ACTION] = job_process_new (job);
-	job->process[JOB_POST_START_ACTION]->command = "echo";
+	job->process[PROCESS_POST_START] = job_process_new (job);
+	job->process[PROCESS_POST_START]->command = "echo";
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_POST_START_ACTION]->pid = 2;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3685,8 +3685,8 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
-		TEST_EQ (job->process[JOB_POST_START_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3701,8 +3701,8 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
-	job->process[JOB_POST_START_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
 
 
 	/* Check that we can reap the running task of the job, even if it
@@ -3713,7 +3713,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3726,7 +3726,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3736,7 +3736,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap the running task of the job, while there
@@ -3747,8 +3747,8 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_POST_START_ACTION]->pid = 2;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3761,8 +3761,8 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_POST_START_ACTION]->pid, 2);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3772,8 +3772,8 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
-	job->process[JOB_POST_START_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
 
 
 	/* Check that we can reap the running process before the post-start
@@ -3785,8 +3785,8 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_POST_START_ACTION]->pid = 2;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3799,8 +3799,8 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_POST_START_ACTION]->pid, 2);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3813,8 +3813,8 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_POST_START_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3824,8 +3824,8 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
-	job->process[JOB_POST_START_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
 
 
 	/* Check that we can reap a failed running process before the
@@ -3837,8 +3837,8 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_POST_START_ACTION]->pid = 2;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3854,14 +3854,14 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_POST_START_ACTION]->pid, 2);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, SIGSEGV << 8);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -3873,19 +3873,19 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_POST_START_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, JOB_MAIN_ACTION);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, SIGSEGV << 8);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
-	job->process[JOB_POST_START_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
 
 
 	/* Check that we can reap the pre-stop task of the job, the
@@ -3894,14 +3894,14 @@ test_child_reaper (void)
 	 * but the aux pid should be.
 	 */
 	TEST_FEATURE ("with pre-stop process");
-	job->process[JOB_PRE_STOP_ACTION] = job_process_new (job);
-	job->process[JOB_PRE_STOP_ACTION]->command = "echo";
+	job->process[PROCESS_PRE_STOP] = job_process_new (job);
+	job->process[PROCESS_PRE_STOP]->command = "echo";
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_PRE_STOP;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_PRE_STOP_ACTION]->pid = 2;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_PRE_STOP]->pid = 2;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3917,8 +3917,8 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1);
-		TEST_EQ (job->process[JOB_PRE_STOP_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3933,8 +3933,8 @@ test_child_reaper (void)
 		TEST_FILE_RESET (output);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
-	job->process[JOB_PRE_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_PRE_STOP]->pid = 0;
 
 
 	/* Check that we can reap the running task of the job, even if it
@@ -3945,7 +3945,7 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_PRE_STOP;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
+		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3958,7 +3958,7 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -3968,7 +3968,7 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
 	/* Check that we can reap the running task of the job, while there
@@ -3979,8 +3979,8 @@ test_child_reaper (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_PRE_STOP;
-		job->process[JOB_MAIN_ACTION]->pid = 1;
-		job->process[JOB_PRE_STOP_ACTION]->pid = 2;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_PRE_STOP]->pid = 2;
 
 		job->cause = em;
 		em->failed = FALSE;
@@ -3993,8 +3993,8 @@ test_child_reaper (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_STOP);
-		TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
-		TEST_EQ (job->process[JOB_PRE_STOP_ACTION]->pid, 2);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 2);
 
 		TEST_EQ_P (job->cause, em);
 		TEST_EQ (em->failed, FALSE);
@@ -4004,8 +4004,8 @@ test_child_reaper (void)
 		TEST_EQ (job->exit_status, 0);
 	}
 
-	job->process[JOB_MAIN_ACTION]->pid = 0;
-	job->process[JOB_PRE_STOP_ACTION]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_PRE_STOP]->pid = 0;
 
 
 	fclose (output);
@@ -4120,20 +4120,20 @@ test_handle_event_finished (void)
 	TEST_FUNCTION ("job_handle_event_finished");
 	job1 = job_new (NULL, "foo");
 	job1->respawn_limit = 0;
-	job1->process[JOB_PRE_START_ACTION] = job_process_new (job1);
-	job1->process[JOB_PRE_START_ACTION]->command = "echo";
-	job1->process[JOB_POST_STOP_ACTION] = job_process_new (job1);
-	job1->process[JOB_POST_STOP_ACTION]->command = "echo";
+	job1->process[PROCESS_PRE_START] = job_process_new (job1);
+	job1->process[PROCESS_PRE_START]->command = "echo";
+	job1->process[PROCESS_POST_STOP] = job_process_new (job1);
+	job1->process[PROCESS_POST_STOP]->command = "echo";
 
 	event = event_new (job1, "wibble");
 	nih_list_add (&job1->start_events, &event->entry);
 
 	job2 = job_new (NULL, "bar");
 	job2->respawn_limit = 0;
-	job2->process[JOB_PRE_START_ACTION] = job_process_new (job2);
-	job2->process[JOB_PRE_START_ACTION]->command = "echo";
-	job2->process[JOB_POST_STOP_ACTION] = job_process_new (job2);
-	job2->process[JOB_POST_STOP_ACTION]->command = "echo";
+	job2->process[PROCESS_PRE_START] = job_process_new (job2);
+	job2->process[PROCESS_PRE_START]->command = "echo";
+	job2->process[PROCESS_POST_STOP] = job_process_new (job2);
+	job2->process[PROCESS_POST_STOP]->command = "echo";
 
 	event = event_new (job2, "wibble");
 	nih_list_add (&job2->stop_events, &event->entry);
@@ -4176,29 +4176,29 @@ test_handle_event_finished (void)
 	TEST_ALLOC_FAIL {
 		job1->goal = JOB_STOP;
 		job1->state = JOB_STOPPING;
-		job1->process[JOB_POST_STOP_ACTION]->pid = 0;
+		job1->process[PROCESS_POST_STOP]->pid = 0;
 		job1->blocked = em;
 
 		job2->goal = JOB_START;
 		job2->state = JOB_STARTING;
-		job2->process[JOB_PRE_START_ACTION]->pid = 0;
+		job2->process[PROCESS_PRE_START]->pid = 0;
 		job2->blocked = em;
 
 		job_handle_event_finished (em);
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_POST_STOP);
-		TEST_GT (job1->process[JOB_POST_STOP_ACTION]->pid, 0);
+		TEST_GT (job1->process[PROCESS_POST_STOP]->pid, 0);
 		TEST_EQ_P (job1->blocked, NULL);
 
-		waitpid (job1->process[JOB_POST_STOP_ACTION]->pid, NULL, 0);
+		waitpid (job1->process[PROCESS_POST_STOP]->pid, NULL, 0);
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_PRE_START);
-		TEST_GT (job2->process[JOB_PRE_START_ACTION]->pid, 0);
+		TEST_GT (job2->process[PROCESS_PRE_START]->pid, 0);
 		TEST_EQ_P (job2->blocked, NULL);
 
-		waitpid (job2->process[JOB_PRE_START_ACTION]->pid, NULL, 0);
+		waitpid (job2->process[PROCESS_PRE_START]->pid, NULL, 0);
 	}
 
 	nih_list_free (&em->event.entry);

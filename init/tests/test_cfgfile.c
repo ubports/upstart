@@ -866,7 +866,7 @@ test_stanza_exec (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_MAIN_ACTION];
+	process = job->process[PROCESS_MAIN];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
@@ -951,7 +951,7 @@ test_stanza_script (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_MAIN_ACTION];
+	process = job->process[PROCESS_MAIN];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, TRUE);
@@ -1061,7 +1061,7 @@ test_stanza_pre_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_PRE_START_ACTION];
+	process = job->process[PROCESS_PRE_START];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
@@ -1128,7 +1128,7 @@ test_stanza_pre_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_PRE_START_ACTION];
+	process = job->process[PROCESS_PRE_START];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, TRUE);
@@ -1261,7 +1261,7 @@ test_stanza_post_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_POST_START_ACTION];
+	process = job->process[PROCESS_POST_START];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
@@ -1328,7 +1328,7 @@ test_stanza_post_start (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_POST_START_ACTION];
+	process = job->process[PROCESS_POST_START];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, TRUE);
@@ -1461,7 +1461,7 @@ test_stanza_pre_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_PRE_STOP_ACTION];
+	process = job->process[PROCESS_PRE_STOP];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
@@ -1528,7 +1528,7 @@ test_stanza_pre_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_PRE_STOP_ACTION];
+	process = job->process[PROCESS_PRE_STOP];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, TRUE);
@@ -1661,7 +1661,7 @@ test_stanza_post_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_POST_STOP_ACTION];
+	process = job->process[PROCESS_POST_STOP];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
@@ -1728,7 +1728,7 @@ test_stanza_post_stop (void)
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 
-	process = job->process[JOB_POST_STOP_ACTION];
+	process = job->process[PROCESS_POST_STOP];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, TRUE);
@@ -4757,14 +4757,14 @@ test_read_job (void)
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
 
-	process = job->process[JOB_MAIN_ACTION];
+	process = job->process[PROCESS_MAIN];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
 	TEST_ALLOC_PARENT (process->command, process);
 	TEST_EQ_STR (process->command, "/sbin/daemon -d");
 
-	process = job->process[JOB_PRE_START_ACTION];
+	process = job->process[PROCESS_PRE_START];
 	TEST_ALLOC_PARENT (process, job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, TRUE);
@@ -4783,7 +4783,7 @@ test_read_job (void)
 
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	job->process[JOB_MAIN_ACTION]->pid = 1000;
+	job->process[PROCESS_MAIN]->pid = 1000;
 
 	instance = job_new (NULL, "test");
 	instance->instance_of = job;
@@ -4796,7 +4796,7 @@ test_read_job (void)
 	TEST_LIST_EMPTY (&job->start_events);
 	TEST_LIST_EMPTY (&job->stop_events);
 
-	process = new_job->process[JOB_MAIN_ACTION];
+	process = new_job->process[PROCESS_MAIN];
 	TEST_ALLOC_PARENT (process, new_job->process);
 	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
 	TEST_EQ (process->script, FALSE);
@@ -4807,11 +4807,11 @@ test_read_job (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 1000);
+	TEST_EQ (job->process[PROCESS_MAIN]->pid, 1000);
 
 	TEST_EQ (new_job->goal, JOB_STOP);
 	TEST_EQ (new_job->state, JOB_WAITING);
-	TEST_EQ (new_job->process[JOB_MAIN_ACTION]->pid, 0);
+	TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
 
 	TEST_EQ_P (instance->instance_of, job);
 
@@ -4832,7 +4832,7 @@ test_read_job (void)
 	rewind (output);
 
 	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_EQ_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
 
 
 	/* Check that a job may not use options that normally affect daemon
@@ -4963,9 +4963,9 @@ test_watch_dir (void)
 
 	TEST_NE_P (job, NULL);
 	TEST_TRUE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/sbin/daemon");
 
 	nih_list_free (&job->entry);
@@ -4974,9 +4974,9 @@ test_watch_dir (void)
 
 	TEST_NE_P (job, NULL);
 	TEST_FALSE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "echo\n");
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -4984,9 +4984,9 @@ test_watch_dir (void)
 
 	TEST_NE_P (job, NULL);
 	TEST_FALSE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/bin/tool");
 
 	nih_list_free (&job->entry);
@@ -5023,9 +5023,9 @@ test_watch_dir (void)
 
 	TEST_NE_P (job, NULL);
 	TEST_TRUE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "echo\n");
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
 
 	/* Check that we can modify the existing job entry, and that it is
@@ -5066,9 +5066,9 @@ test_watch_dir (void)
 
 	TEST_NE_P (job, NULL);
 	TEST_TRUE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "sleep 5\n");
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "sleep 5\n");
 
 
 	/* Check that when a configuration file is deleted, the job is also
@@ -5140,9 +5140,9 @@ no_inotify:
 
 	TEST_NE_P (job, NULL);
 	TEST_TRUE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/sbin/daemon");
 
 	nih_list_free (&job->entry);
@@ -5151,9 +5151,9 @@ no_inotify:
 
 	TEST_NE_P (job, NULL);
 	TEST_FALSE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "echo\n");
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
 	nih_list_free (&job->entry);
 
@@ -5161,9 +5161,9 @@ no_inotify:
 
 	TEST_NE_P (job, NULL);
 	TEST_FALSE (job->respawn);
-	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
-	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/bin/tool");
 
 	nih_list_free (&job->entry);

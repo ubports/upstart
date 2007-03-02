@@ -62,19 +62,21 @@ typedef enum job_state {
 } JobState;
 
 /**
- * JobAction:
+ * ProcessType:
  *
- * Each job has a list of associated actions, the first set of which are
- * built-in to Upstart and indexed by this enumeration.
+ * Each job has a list of associated processes, the first of which are
+ * built-in to upstart and indexed by this enumeration.  PROCESS_LAST
+ * is (slightly oddly) the first non-built-in process, and is normally
+ * added or subtracted from the index to find the name.
  **/
-typedef enum job_action {
-	JOB_MAIN_ACTION,
-	JOB_PRE_START_ACTION,
-	JOB_POST_START_ACTION,
-	JOB_PRE_STOP_ACTION,
-	JOB_POST_STOP_ACTION,
-	JOB_LAST_ACTION
-} JobAction;
+typedef enum process_type {
+	PROCESS_MAIN,
+	PROCESS_PRE_START,
+	PROCESS_POST_START,
+	PROCESS_PRE_STOP,
+	PROCESS_POST_STOP,
+	PROCESS_LAST
+} ProcessType;
 
 /**
  * ConsoleType:
@@ -102,9 +104,9 @@ const char * job_state_name          (JobState state)
 	__attribute__ ((const));
 JobState     job_state_from_name     (const char *state);
 
-const char * job_action_name         (JobAction action)
+const char * process_name            (ProcessType process)
 	__attribute__ ((const));
-JobAction    job_action_from_name    (const char *action);
+ProcessType  process_from_name       (const char *process);
 
 NIH_END_EXTERN
 

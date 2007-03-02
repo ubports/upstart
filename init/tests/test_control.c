@@ -337,8 +337,8 @@ test_job_start (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -399,8 +399,8 @@ test_job_start (void)
 	job->instance = TRUE;
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -564,9 +564,9 @@ test_job_stop (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
-	TEST_CHILD (job->process[JOB_MAIN_ACTION]->pid) {
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+	TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
 		pause ();
 	}
 
@@ -613,10 +613,10 @@ test_job_stop (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_GT (job->process[JOB_MAIN_ACTION]->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	kill (job->process[JOB_MAIN_ACTION]->pid, SIGTERM);
-	waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+	kill (job->process[PROCESS_MAIN]->pid, SIGTERM);
+	waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGTERM);

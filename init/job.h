@@ -167,7 +167,7 @@ struct job {
 	EventEmission  *blocked;
 
 	int             failed;
-	JobAction       failed_process;
+	ProcessType     failed_process;
 	int             exit_status;
 
 	NihList         start_events;
@@ -226,7 +226,7 @@ Job *       job_copy                  (const void *parent, const Job *old_job)
 	__attribute__ ((warn_unused_result, malloc));
 
 Job *       job_find_by_name          (const char *name);
-Job *       job_find_by_pid           (pid_t pid, JobAction *action);
+Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 
 void        job_change_goal           (Job *job, JobGoal goal,
 				       EventEmission *emission);

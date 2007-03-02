@@ -415,8 +415,8 @@ test_poll (void)
 	}
 
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event = event_new (job, "test");
 	nih_list_add (&job->start_events, &event->entry);
@@ -439,9 +439,9 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->process[JOB_MAIN_ACTION]->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	waitpid (job->process[JOB_MAIN_ACTION]->pid, NULL, 0);
+	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
 	nih_list_free (&sub->entry);
 	nih_list_free (&job->entry);
@@ -496,8 +496,8 @@ test_poll (void)
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 	job->blocked = em1;
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event_emit_finished (em1);
 
@@ -516,9 +516,9 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->process[JOB_MAIN_ACTION]->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	waitpid (job->process[JOB_MAIN_ACTION]->pid, &status, 0);
+	waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -557,8 +557,8 @@ test_poll (void)
 	em1->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event = event_new (job, "test/failed");
 	nih_list_add (&job->start_events, &event->entry);
@@ -572,9 +572,9 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->process[JOB_MAIN_ACTION]->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	waitpid (job->process[JOB_MAIN_ACTION]->pid, NULL, 0);
+	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
 	TEST_EQ_STR (job->cause->event.name, "test/failed");
 
@@ -593,8 +593,8 @@ test_poll (void)
 	em1->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
-	job->process[JOB_MAIN_ACTION] = job_process_new (job->process);
-	job->process[JOB_MAIN_ACTION]->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event = event_new (job, "test/failed");
 	nih_list_add (&job->start_events, &event->entry);
@@ -611,7 +611,7 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process[JOB_MAIN_ACTION]->pid, 0);
+	TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 	nih_list_free (&job->entry);
 

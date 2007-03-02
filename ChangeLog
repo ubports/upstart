@@ -1,5 +1,36 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/enum.h: Rename JobAction to ProcessType.
+	* upstart/enum.c (job_action_name): Rename to process_name.
+	(job_action_from_name): Rename to process_from_name.
+	* upstart/tests/test_enum.c (test_action_name, test_action_from_name):
+	Rename and update to match.
+	* init/job.c (job_new, job_copy, job_change_state) 
+	(job_next_state): Change JOB_*_ACTION constants to PROCESS_*.
+	(job_find_by_pid): Change JobAction argument to ProcessType.
+	(job_emit_event): Call process_name on the failed process.
+	(job_child_reaper): Update to use ProcessType instead of JobAction.
+	* init/job.h (Job): Change type of failed_process to ProcessType.
+	* init/tests/test_job.c (test_find_by_pid): Update to use ProcessType
+	instead of JobAction in tests.
+	(test_new, test_copy, test_change_goal, test_change_state) 
+	(test_next_state, test_run_process, test_kill_process) 
+	(test_child_reaper, test_handle_event_finished): Change JOB_*_ACTION
+	constants to PROCESS_*
+	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script) 
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Change JOB_*_ACTION
+	constants to PROCESS_*
+	* init/tests/test_cfgfile.c (test_stanza_exec) 
+	(test_stanza_script, test_stanza_pre_start) 
+	(test_stanza_post_start, test_stanza_pre_stop) 
+	(test_stanza_post_stop, test_read_job, test_watch_dir): Change
+	JOB_*_ACTION constants to PROCESS_*
+	* init/tests/test_event.c (test_poll): Change JOB_*_ACTION constants
+	to PROCESS_*
+	* init/tests/test_control.c (test_job_start, test_job_stop): Change
+	JOB_*_ACTION constants to PROCESS_*
+
 	* init/cfgfile.c (cfg_watch_dir): Restore the prefix argument; pass
 	as the data pointer to the inotify callbacks and visitor function.
 	Change the return value to be the watch structure.

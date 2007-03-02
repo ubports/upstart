@@ -523,7 +523,7 @@ cfg_stanza_exec (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[JOB_MAIN_ACTION])
+	if (job->process[PROCESS_MAIN])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -532,7 +532,7 @@ cfg_stanza_exec (Job             *job,
 				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
 	NIH_MUST (process = job_process_new (job->process));
-	job->process[JOB_MAIN_ACTION] = process;
+	job->process[PROCESS_MAIN] = process;
 
 	process->script = FALSE;
 	process->command = nih_config_parse_command (process, file,
@@ -572,7 +572,7 @@ cfg_stanza_script (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[JOB_MAIN_ACTION])
+	if (job->process[PROCESS_MAIN])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -580,7 +580,7 @@ cfg_stanza_script (Job             *job,
 		return -1;
 
 	NIH_MUST (process = job_process_new (job->process));
-	job->process[JOB_MAIN_ACTION] = process;
+	job->process[PROCESS_MAIN] = process;
 
 	process->script = TRUE;
 	process->command = nih_config_parse_block (process, file,
@@ -622,7 +622,7 @@ cfg_stanza_pre_start (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[JOB_PRE_START_ACTION])
+	if (job->process[PROCESS_PRE_START])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -632,7 +632,7 @@ cfg_stanza_pre_start (Job             *job,
 		return -1;
 
 	NIH_MUST (process = job_process_new (job->process));
-	job->process[JOB_PRE_START_ACTION] = process;
+	job->process[PROCESS_PRE_START] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -700,7 +700,7 @@ cfg_stanza_post_start (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[JOB_POST_START_ACTION])
+	if (job->process[PROCESS_POST_START])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -710,7 +710,7 @@ cfg_stanza_post_start (Job             *job,
 		return -1;
 
 	NIH_MUST (process = job_process_new (job->process));
-	job->process[JOB_POST_START_ACTION] = process;
+	job->process[PROCESS_POST_START] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -778,7 +778,7 @@ cfg_stanza_pre_stop (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[JOB_PRE_STOP_ACTION])
+	if (job->process[PROCESS_PRE_STOP])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -788,7 +788,7 @@ cfg_stanza_pre_stop (Job             *job,
 		return -1;
 
 	NIH_MUST (process = job_process_new (job->process));
-	job->process[JOB_PRE_STOP_ACTION] = process;
+	job->process[PROCESS_PRE_STOP] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
@@ -856,7 +856,7 @@ cfg_stanza_post_stop (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[JOB_POST_STOP_ACTION])
+	if (job->process[PROCESS_POST_STOP])
 		nih_return_error (-1, CFG_DUPLICATE_VALUE,
 				  _(CFG_DUPLICATE_VALUE_STR));
 
@@ -866,7 +866,7 @@ cfg_stanza_post_stop (Job             *job,
 		return -1;
 
 	NIH_MUST (process = job_process_new (job->process));
-	job->process[JOB_POST_STOP_ACTION] = process;
+	job->process[PROCESS_POST_STOP] = process;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
