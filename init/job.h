@@ -101,6 +101,7 @@ typedef struct job_process {
 /**
  * Job:
  * @entry: list header,
+ * @id: unique job id,
  * @name: string name of the job; namespace shared with events,
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
@@ -151,6 +152,7 @@ typedef struct job_process {
 typedef struct job Job;
 struct job {
 	NihList         entry;
+	uint32_t        id;
 
 	char           *name;
 	char           *description;
@@ -227,6 +229,7 @@ Job *       job_copy                  (const void *parent, const Job *old_job)
 
 Job *       job_find_by_name          (const char *name);
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
+Job *       job_find_by_id            (uint32_t id);
 
 Job *       job_change_goal           (Job *job, JobGoal goal,
 				       EventEmission *emission);

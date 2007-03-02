@@ -754,6 +754,49 @@ test_find_by_pid (void)
 	TEST_EQ_P (ptr, NULL);
 }
 
+void
+test_find_by_id (void)
+{
+	Job      *job1, *job2, *job3, *ptr;
+	uint32_t  id;
+
+	TEST_FUNCTION ("job_find_by_id");
+	job1 = job_new (NULL, "foo");
+	job2 = job_new (NULL, "bar");
+	job3 = job_new (NULL, "bar");
+
+	/* Check that we can find a job by its id. */
+	TEST_FEATURE ("with id we expect to find");
+	ptr = job_find_by_id (job2->id);
+
+	TEST_EQ_P (ptr, job2);
+
+
+	/* Check that we get NULL if the id doesn't exist. */
+	TEST_FEATURE ("with id we do not expect to find");
+	id = job3->id;
+	while ((id == job1->id) || (id == job2->id) || (id == job3->id))
+		id++;
+
+	ptr = job_find_by_id (id);
+
+	TEST_EQ_P (ptr, NULL);
+
+
+	/* Check that we get NULL if the job list is empty, and nothing
+	 * bad happens.
+	 */
+	TEST_FEATURE ("with empty job table");
+	id = job1->id;
+
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+	ptr = job_find_by_id (id);
+
+	TEST_EQ_P (ptr, NULL);
+}
+
 
 void
 test_change_goal (void)
@@ -4419,6 +4462,7 @@ main (int   argc,
 	test_copy ();
 	test_find_by_name ();
 	test_find_by_pid ();
+	test_find_by_id ();
 	test_change_goal ();
 	test_change_state ();
 	test_next_state ();

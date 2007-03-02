@@ -1,5 +1,16 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add a unique id to the job structure.
+	* init/job.c (job_new): Assign an incrementing id to each new job
+	allocated.
+	(job_find_by_id): Locate a job by its unique id, sadly not very
+	efficient in a hash table ;-)
+	(job_name): New hash key function since name isn't the first entry
+	anymore.
+	(job_init): Change hash key function.
+	* init/tests/test_job.c (test_find_by_id): Make sure we can find a
+	job by its id.
+
 	* init/job.c (job_change_goal): Return the new instance in that
 	circumstance, and clean up a little bit.
 	* init/job.h: Update prototype.

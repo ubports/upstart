@@ -66,11 +66,23 @@
 
 
 /* Prototypes for static functions */
-static void job_change_cause  (Job *job, EventEmission *emission);
-static void job_emit_event    (Job *job);
-static int  job_catch_runaway (Job *job);
-static void job_kill_timer    (ProcessType process, NihTimer *timer);
+static const char *job_name          (Job *job);
+static void        job_change_cause  (Job *job, EventEmission *emission);
+static void        job_emit_event    (Job *job);
+static int         job_catch_runaway (Job *job);
+static void        job_kill_timer    (ProcessType process, NihTimer *timer);
 
+
+/**
+ * job_id
+ *
+ * This counter is used to assign unique job ids to jobs and is incremented
+ * each time we use it.  After a while (4 billion jobs) it'll wrap over, in
+ * which case you should set job_id_wrapped and take care to check an id
+ * isn't taken.
+ **/
+static uint32_t job_id = 0;
+static int      job_id_wrapped = FALSE;
 
 /**
  * jobs:
@@ -91,7 +103,8 @@ void
 job_init (void)
 {
 	if (! jobs)
-		NIH_MUST (jobs = nih_hash_new (NULL, 0, nih_hash_string_key));
+		NIH_MUST (jobs = nih_hash_new (NULL, 0,
+					       (NihKeyFunction)job_name));
 }
 
 
@@ -205,6 +218,24 @@ job_new (const void *parent,
 		return NULL;
 
 	nih_list_init (&job->entry);
+
+	/* If we're somehow wrapped the job id counter and consumed 4 billion
+	 * jobs (!!), make sure that the id we're about to use isn't already
+	 * used.
+	 */
+	if (job_id_wrapped)
+		while (job_find_by_id (job_id))
+			job_id++;
+
+	/* Assign the next id to the job, and increment the counter.  If the
+	 * counter goes zero, we wrapped and need to be less efficient from
+	 * now on.
+	 */
+	job->id = job_id++;
+	if (! job->id) {
+		nih_debug ("Wrapped job_id counter");
+		job_id_wrapped = TRUE;
+	}
 
 	job->name = nih_strdup (job, name);
 	if (! job->name) {
@@ -456,6 +487,23 @@ error:
 	return NULL;
 }
 
+/**
+ * job_name:
+ * @job: job to be checked.
+ *
+ * This is the hash key function for the jobs hash table, returning the
+ * name of the job.
+ *
+ * Returns: pointer to the job name.
+ **/
+static const char *
+job_name (Job *job)
+{
+	nih_assert (job != NULL);
+
+	return job->name;
+}
+
 
 /**
  * job_find_by_name:
@@ -523,6 +571,31 @@ job_find_by_pid (pid_t        pid,
 				return job;
 			}
 		}
+	}
+
+	return NULL;
+}
+
+/**
+ * job_find_by_id:
+ * @id: unique job id to find.
+ *
+ * Finds the job with the unique id @id in the jobs hash table.
+ *
+ * Returns: job found or NULL if not known.
+ **/
+Job *
+job_find_by_id (uint32_t id)
+{
+	Job *job;
+
+	job_init ();
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		job = (Job *)iter;
+
+		if (job->id == id)
+			return job;
 	}
 
 	return NULL;
