@@ -1,5 +1,8 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_emit): Port the slightly more efficient in the
+	early case code from job_new.
+
 	* init/job.h (Job): Add a unique id to the job structure.
 	* init/job.c (job_new): Assign an incrementing id to each new job
 	allocated.

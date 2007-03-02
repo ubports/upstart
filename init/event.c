@@ -62,9 +62,11 @@ int paused = FALSE;
  *
  * This counter is used to assign unique emission ids and is incremented
  * each time we use it.  After a while (4 billion events) it'll wrap over,
- * so always check an id isn't taken.
+ * in which case you should set emission_id_wrapped and take care to check
+ * an id isn't taken.
  **/
 static uint32_t emission_id = 0;
+static int      emission_id_wrapped = FALSE;
 
 /**
  * events:
@@ -270,14 +272,24 @@ event_emit (const char       *name,
 
 	NIH_MUST (emission = nih_new (NULL, EventEmission));
 
-	/* Use incrementing ids, skipping any that are still in use
-	 * (in practice, we shouldn't reach 4 billion events, but better
-	 * safe than sorry.
+	/* If we've somehow wrapped the emission id counter and emitted 4
+	 * billion events (!!), make sure that the id we're about to use
+	 * isn't already used.
 	 */
-	while (event_emit_find_by_id (emission_id))
-		emission_id++;
+	if (emission_id_wrapped)
+		while (event_emit_find_by_id (emission_id))
+			emission_id++;
 
+	/* Assign the next id to the emission, and increment the counter.  If
+	 * the counter goes zero, we wrapped and need to be less efficient
+	 * from now on.
+	 */
 	emission->id = emission_id++;
+	if (! emission->id) {
+		nih_debug ("Wrapped emission_id counter");
+		emission_id_wrapped = TRUE;
+	}
+
 	emission->progress = EVENT_PENDING;
 
 	emission->jobs = 0;
