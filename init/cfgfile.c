@@ -137,16 +137,17 @@ static int   cfg_stanza_chdir          (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
 
-static char *cfg_job_name              (const void *parent,
+static char *cfg_job_name              (const void *parent, const char *prefix,
 					const char *dirname, const char *path)
 	__attribute__ ((warn_unused_result, malloc));
-static void  cfg_create_modify_handler (void *data, NihWatch *watch,
+static void  cfg_create_modify_handler (const char *prefix, NihWatch *watch,
 					const char *path,
 					struct stat *statbuf);
-static void  cfg_delete_handler        (void *data, NihWatch *watch,
+static void  cfg_delete_handler        (const char *prefix, NihWatch *watch,
 					const char *path);
-static int   cfg_visitor               (void *data, const char *dirname,
-					const char *path, struct stat *statbuf)
+static int   cfg_visitor               (const char *prefix,
+					const char *dirname, const char *path,
+					struct stat *statbuf)
 	__attribute__ ((warn_unused_result));
 
 
@@ -1856,16 +1857,25 @@ cfg_read_job (const void *parent,
 
 /**
  * cfg_watch_dir:
- * @dirname: directory to watch.
+ * @dirname: directory to watch,
+ * @prefix: prefix to apply to job names.
  *
  * Watch @dirname for creation or modification of configuration files or
  * sub-directories and parse them whenever they exist.  This also performs
  * the initial parsing of jobs in the directory.
  *
- * Returns: zero on success, negative value on raised error.
+ * The names of jobs are constructed from @prefix (which may be NULL) and
+ * the relative path of the job to @dirname.  If @prefix is not NULL, it
+ * would normally end with some separating character such as '/' or '.'
+ *
+ * The watch can be freed using nih_watch_free().
+ *
+ * Returns: watch structure on success, NULL if inotify wasn't available
+ * and (void *)-1 on raised error.
  **/
-int
-cfg_watch_dir (const char *dirname)
+NihWatch *
+cfg_watch_dir (const char *dirname,
+	       const char *prefix)
 {
 	NihWatch *watch;
 	NihError *err;
@@ -1880,10 +1890,11 @@ cfg_watch_dir (const char *dirname)
 	watch = nih_watch_new (NULL, dirname, TRUE, TRUE, nih_file_ignore,
 			       (NihCreateHandler)cfg_create_modify_handler,
 			       (NihModifyHandler)cfg_create_modify_handler,
-			       (NihDeleteHandler)cfg_delete_handler, NULL);
+			       (NihDeleteHandler)cfg_delete_handler,
+			       (void *)prefix);
 	if (watch) {
 		nih_io_set_cloexec (watch->fd);
-		return 0;
+		return watch;
 	}
 
 	/* Failed to watch with inotify, fall back to walking the directory
@@ -1894,9 +1905,10 @@ cfg_watch_dir (const char *dirname)
 	 */
 	err = nih_error_get ();
 	if (nih_dir_walk (dirname, nih_file_ignore,
-			  (NihFileVisitor)cfg_visitor, NULL, NULL) < 0) {
+			  (NihFileVisitor)cfg_visitor, NULL,
+			  (void *)prefix) < 0) {
 		nih_free (err);
-		return -1;
+		return (void *)-1;
 	}
 
 	/* Walk worked; but inotify didn't ... if this is for any other
@@ -1908,17 +1920,18 @@ cfg_watch_dir (const char *dirname)
 			   err->message);
 	nih_free (err);
 
-	return 0;
+	return NULL;
 }
 
 /**
  * cfg_job_name:
  * @parent: parent for new string,
+ * @prefix: prefix to apply to name,
  * @dirname: top-level directory being watched,
  * @path: full path to file.
  *
  * Constructs a job name for a given file by removing @dirname from the
- * front.
+ * front and pre-pending @prefix (which may be NULL).
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -1930,6 +1943,7 @@ cfg_watch_dir (const char *dirname)
  **/
 static char *
 cfg_job_name (const void *parent,
+	      const char *prefix,
 	      const char *dirname,
 	      const char *path)
 {
@@ -1945,12 +1959,16 @@ cfg_job_name (const void *parent,
 		path++;
 
 	/* Construct job name */
-	return nih_strdup (parent, path);
+	if (prefix) {
+		return nih_sprintf (parent, "%s%s", prefix, path);
+	} else {
+		return nih_strdup (parent, path);
+	}
 }
 
 /**
  * cfg_create_modify_handler:
- * @data: not used,
+ * @prefix: prefix to apply to job names,
  * @watch: NihWatch for directory tree,
  * @path: full path to file,
  * @statbuf: stat of @path.
@@ -1961,7 +1979,7 @@ cfg_job_name (const void *parent,
  * only partially written.
  **/
 static void
-cfg_create_modify_handler (void        *data,
+cfg_create_modify_handler (const char  *prefix,
 			   NihWatch    *watch,
 			   const char  *path,
 			   struct stat *statbuf)
@@ -1975,7 +1993,7 @@ cfg_create_modify_handler (void        *data,
 	if (! S_ISREG (statbuf->st_mode))
 		return;
 
-	NIH_MUST (name = cfg_job_name (NULL, watch->path, path));
+	NIH_MUST (name = cfg_job_name (NULL, prefix, watch->path, path));
 
 	nih_debug ("%s job definition changed", name);
 
@@ -1986,7 +2004,7 @@ cfg_create_modify_handler (void        *data,
 
 /**
  * cfg_delete_handler:
- * @data: not used,
+ * @prefix: prefix to apply to job names,
  * @watch: NihWatch for directory tree,
  * @path: full path to file.
  *
@@ -1994,7 +2012,7 @@ cfg_create_modify_handler (void        *data,
  * we're watching.
  **/
 static void
-cfg_delete_handler (void       *data,
+cfg_delete_handler (const char *prefix,
 		    NihWatch   *watch,
 		    const char *path)
 {
@@ -2004,7 +2022,7 @@ cfg_delete_handler (void       *data,
 	nih_assert (watch != NULL);
 	nih_assert (path != NULL);
 
-	NIH_MUST (name = cfg_job_name (NULL, watch->path, path));
+	NIH_MUST (name = cfg_job_name (NULL, prefix, watch->path, path));
 
 	nih_debug ("%s job definition deleted", name);
 
@@ -2021,7 +2039,7 @@ cfg_delete_handler (void       *data,
 
 /**
  * cfg_visitor:
- * @data: not used,
+ * @prefix: prefix to apply to job names,
  * @dirname: directory being iterated,
  * @path: full path to file,
  * @statbuf: stat of @path.
@@ -2033,7 +2051,7 @@ cfg_delete_handler (void       *data,
  * Returns: always zero.
  **/
 static int
-cfg_visitor (void        *data,
+cfg_visitor (const char  *prefix,
 	     const char  *dirname,
 	     const char  *path,
 	     struct stat *statbuf)
@@ -2046,7 +2064,7 @@ cfg_visitor (void        *data,
 	if (! S_ISREG (statbuf->st_mode))
 		return 0;
 
-	NIH_MUST (name = cfg_job_name (NULL, dirname, path));
+	NIH_MUST (name = cfg_job_name (NULL, prefix, dirname, path));
 
 	cfg_read_job (NULL, path, name);
 

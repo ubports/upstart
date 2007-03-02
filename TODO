@@ -1,9 +1,5 @@
 High Priority:
 
- * cfg_watch_dir and its companion functions need testing; this shouldn't
-   be too hard, just create a config directory and move stuff around in
-   common patterns and see what happens to the jobs.
-
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
    long as we send things in this order:

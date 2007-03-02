@@ -141,7 +141,7 @@ main (int   argc,
 	}
 
 	/* Read configuration */
-	if (cfg_watch_dir (CFG_DIR) < 0) {
+	if (cfg_watch_dir (CFG_DIR, NULL) == (void *)-1) {
 		NihError *err;
 
 		err = nih_error_get ();

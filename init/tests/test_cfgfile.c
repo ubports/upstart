@@ -22,18 +22,30 @@
 
 #include <nih/test.h>
 
+#ifdef HAVE_SYS_INOTIFY_H
+# include <sys/inotify.h>
+#else
+# include <nih/inotify.h>
+#endif /* HAVE_SYS_INOTIFY_H */
+
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/select.h>
 
 #include <time.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/list.h>
 #include <nih/timer.h>
+#include <nih/io.h>
+#include <nih/watch.h>
 #include <nih/main.h>
+#include <nih/logging.h>
 
 #include "cfgfile.h"
 
@@ -4869,6 +4881,304 @@ test_read_job (void)
 }
 
 
+static int logger_called = 0;
+static char *last_message = NULL;
+
+static int
+my_logger (NihLogLevel  priority,
+	   const char  *message)
+{
+	logger_called++;
+	last_message = strdup (message);
+
+	return 0;
+}
+
+void
+test_watch_dir (void)
+{
+	NihWatch *watch;
+	Job      *job, *old_job;
+	FILE     *jf;
+	fd_set    readfds, writefds, exceptfds;
+	char      dirname[PATH_MAX], filename[PATH_MAX];
+	int       fd[4096], i, nfds;
+
+	TEST_FUNCTION ("cfg_watch_dir");
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	/* Make sure we have inotify before performing these tests... */
+	fd[0] = inotify_init ();
+	if (fd[0] < 0) {
+		printf ("SKIP: inotify not available\n");
+		goto no_inotify;
+	}
+	close (fd[0]);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fclose (jf);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "script\n");
+	fprintf (jf, "  echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo");
+
+	mkdir (filename, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/foo");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /bin/tool\n");
+	fclose (jf);
+
+
+	/* Check that we can watch a configuration directory with inotify,
+	 * and that any existing job definitions are parsed.  The watch
+	 * file descriptor should be marked close-on-exec.
+	 */
+	TEST_FEATURE ("with new watch");
+	watch = cfg_watch_dir (dirname, NULL);
+
+	TEST_ALLOC_SIZE (watch, sizeof (NihWatch));
+	TEST_EQ_STR (watch->path, dirname);
+	TEST_EQ_P (watch->data, NULL);
+
+	TEST_TRUE (fcntl (watch->fd, F_GETFD) & FD_CLOEXEC);
+
+	job = job_find_by_name ("foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+		     "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("bar");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("frodo/foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+		     "/bin/tool");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that we can create a new job file, and that it is
+	 * automatically parsed and loaded.
+	 */
+	TEST_FEATURE ("with new job");
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/bar");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "script\n");
+	fprintf (jf, "  echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	job = job_find_by_name ("frodo/bar");
+
+	while (job->delete) {
+		nih_list_free (&job->entry);
+		job = job_find_by_name ("frodo/bar");
+	}
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "echo\n");
+
+
+	/* Check that we can modify the existing job entry, and that it is
+	 * automatically reparsed with the previous structure being marked
+	 * as deleted.
+	 */
+	TEST_FEATURE ("with modification to job");
+	old_job = job;
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/bar");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "script\n");
+	fprintf (jf, "  sleep 5\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_EQ (old_job->delete, TRUE);
+
+	nih_list_free (&old_job->entry);
+
+	job = job_find_by_name ("frodo/bar");
+
+	while (job->delete) {
+		nih_list_free (&job->entry);
+		job = job_find_by_name ("frodo/bar");
+	}
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "sleep 5\n");
+
+
+	/* Check that when a configuration file is deleted, the job is also
+	 * marked for deletion.
+	 */
+	TEST_FEATURE ("with deletion of job");
+	old_job = job;
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/bar");
+
+	unlink (filename);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_EQ (old_job->delete, TRUE);
+
+	nih_list_free (&old_job->entry);
+
+	job = job_find_by_name ("frodo/bar");
+
+	TEST_EQ_P (job, NULL);
+
+
+	nih_watch_free (watch);
+
+
+	/* Consume all available inotify instances so that the tests run
+	 * without inotify.
+	 */
+	for (i = 0; i < 4096; i++)
+		if ((fd[i] = inotify_init ()) < 0)
+			break;
+no_inotify:
+
+	/* Check that if we don't have inotify, or just don't have any
+	 * available watches, we simply iterate the directory once and
+	 * parse everything that's there.  Make sure jobs have the prefix
+	 * we give appended, and if we only exhausted the inotify
+	 * descriptors, a warning output explaining that this has happened.
+	 */
+	TEST_FEATURE ("with iteration only");
+	logger_called = 0;
+	last_message = NULL;
+	nih_log_set_logger (my_logger);
+
+	watch = cfg_watch_dir (dirname, "test-");
+
+	TEST_EQ_P (watch, NULL);
+
+	if (i) {
+		TEST_TRUE (logger_called);
+		TEST_EQ_STR (strchr (last_message, ':'),
+			     (": Unable to watch configuration directory"
+			      ": Too many open files"));
+
+		free (last_message);
+	} else {
+		TEST_FALSE (logger_called);
+	}
+
+	job = job_find_by_name ("test-foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+		     "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("test-bar");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, TRUE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("test-frodo/foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[JOB_MAIN_ACTION], NULL);
+	TEST_EQ (job->process[JOB_MAIN_ACTION]->script, FALSE);
+	TEST_EQ_STR (job->process[JOB_MAIN_ACTION]->command,
+		     "/bin/tool");
+
+	nih_list_free (&job->entry);
+
+
+	/* Release consumed instances */
+	for (i = 0; i < 4096; i++) {
+		if (fd[i] < 0)
+			break;
+
+		close (fd[i]);
+	}
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -4900,6 +5210,7 @@ main (int   argc,
 	test_stanza_chroot ();
 	test_stanza_chdir ();
 	test_read_job ();
+	test_watch_dir ();
 
 	return 0;
 }

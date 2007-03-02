@@ -1,5 +1,19 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_watch_dir): Restore the prefix argument; pass
+	as the data pointer to the inotify callbacks and visitor function.
+	Change the return value to be the watch structure.
+	(cfg_job_name): Add prefix argument and prepend to relative path.
+	(cfg_create_modify_handler, cfg_delete_handler, cfg_visitor): Get
+	the prefix for the job names from the data pointer and pass to
+	cfg_job_name().
+	* init/cfgfile.h: Update prototypes.
+	* init/tests/test_cfgfile.c (test_watch_dir): Actually test the
+	watch functions.
+	* init/main.c (main): Pass NULL for the prefix for the global job
+	directory, compare the return value against (void *)-1.
+	* TODO: Update.
+
 	* init/cfgfile.c (cfg_stanza_on): Drop the simple on stanza.
 	* init/tests/test_cfgfile.c (test_stanza_on): Remove test case.
 
