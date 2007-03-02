@@ -70,9 +70,6 @@ static int   cfg_stanza_version        (Job *job, NihConfigStanza *stanza,
 static int   cfg_stanza_emits          (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
-static int   cfg_stanza_on             (Job *job, NihConfigStanza *stanza,
-					const char *file, size_t len,
-					size_t *pos, size_t *lineno);
 static int   cfg_stanza_start          (Job *job, NihConfigStanza *stanza,
 					const char *file, size_t len,
 					size_t *pos, size_t *lineno);
@@ -164,7 +161,6 @@ static NihConfigStanza stanzas[] = {
 	{ "author",      (NihConfigHandler)cfg_stanza_author      },
 	{ "version",     (NihConfigHandler)cfg_stanza_version     },
 	{ "emits",       (NihConfigHandler)cfg_stanza_emits       },
-	{ "on",          (NihConfigHandler)cfg_stanza_on          },
 	{ "start",       (NihConfigHandler)cfg_stanza_start       },
 	{ "stop",        (NihConfigHandler)cfg_stanza_stop        },
 	{ "exec",        (NihConfigHandler)cfg_stanza_exec        },
@@ -190,105 +186,6 @@ static NihConfigStanza stanzas[] = {
 
 	NIH_CONFIG_LAST
 };
-
-
-/**
- * cfg_read_job:
- * @parent: parent of returned job,
- * @filename: name of file to read,
- * @name: name to call job.
- *
- * Reads the @filename given and uses the information within to construct
- * a new job structure named @name which is returned.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: newly allocated job structure, or NULL if the file was invalid.
- **/
-Job *
-cfg_read_job (const void *parent,
-	      const char *filename,
-	      const char *name)
-{
-	Job    *job, *old_job;
-	size_t  lineno;
-
-	nih_assert (filename != NULL);
-	nih_assert (name != NULL);
-
-	/* Look for an old job with that name */
-	old_job = job_find_by_name (name);
-
-	/* Allocate a new structure */
-	NIH_MUST (job = job_new (parent, name));
-	nih_debug ("Loading %s from %s", job->name, filename);
-
-	/* Parse the file, if we can't parse the new file, we just return now
-	 * without ditching the old job if there is one.
-	 */
-	lineno = 1;
-	if (nih_config_parse (filename, NULL, &lineno, stanzas, job) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		switch (err->number) {
-		case NIH_CONFIG_EXPECTED_TOKEN:
-		case NIH_CONFIG_UNEXPECTED_TOKEN:
-		case NIH_CONFIG_TRAILING_SLASH:
-		case NIH_CONFIG_UNTERMINATED_QUOTE:
-		case NIH_CONFIG_UNTERMINATED_BLOCK:
-		case NIH_CONFIG_UNKNOWN_STANZA:
-		case CFG_ILLEGAL_VALUE:
-		case CFG_DUPLICATE_VALUE:
-			nih_error ("%s:%zi: %s",
-				   filename, lineno, err->message);
-			break;
-		default:
-			nih_error ("%s: %s: %s", filename, _("unable to read"),
-				   err->message);
-			break;
-		}
-
-		nih_list_free (&job->entry);
-		nih_free (err);
-
-		return NULL;
-	}
-
-
-	/* Now we sanity check the job, checking for things that will
-	 * cause assertions or bad behaviour later on, or just general
-	 * warnings
-	 */
-
-	/* pid file makes no sense unless daemon */
-	if (job->pid_file && (! job->daemon)) {
-		nih_warn (_("%s: 'pid file' ignored unless 'daemon' specified"),
-			  filename);
-	}
-
-	/* pid binary makes no sense unless daemon */
-	if (job->pid_binary && (! job->daemon)) {
-		nih_warn (_("%s: 'pid binary' ignored unless 'daemon' specified"),
-			  filename);
-	}
-
-
-	/* Deal with the case where we're reloading an existing	job; we
-	 * mark the existing job as deleted, rather than copying in old data,
-	 * since we don't want to mis-match scripts or configuration.
-	 */
-	if (old_job) {
-		nih_debug ("Replacing existing %s job", job->name);
-		old_job->delete = TRUE;
-	}
-
-	return job;
-}
 
 
 /**
@@ -457,54 +354,6 @@ cfg_stanza_emits (Job             *job,
 	}
 
 	nih_free (args);
-
-	return 0;
-}
-
-/**
- * cfg_stanza_on:
- * @job: job being parsed,
- * @stanza: stanza found,
- * @file: file or string to parse,
- * @len: length of @file,
- * @pos: offset within @file,
- * @lineno: line number.
- *
- * Parse an on stanza from @file, extracting a single argument containing
- * an event that starts the job, followed by arguments for that event.
- *
- * Returns: zero on success, negative value on error.
- **/
-static int
-cfg_stanza_on (Job             *job,
-	       NihConfigStanza *stanza,
-	       const char      *file,
-	       size_t           len,
-	       size_t          *pos,
-	       size_t          *lineno)
-{
-	Event *event;
-	char  *name;
-
-	nih_assert (job != NULL);
-	nih_assert (stanza != NULL);
-	nih_assert (file != NULL);
-	nih_assert (pos != NULL);
-
-	name = nih_config_next_arg (NULL, file, len, pos, lineno);
-	if (! name)
-		return -1;
-
-	NIH_MUST (event = event_new (job, name));
-	nih_free (name);
-
-	event->args = nih_config_parse_args (event, file, len, pos, lineno);
-	if (! event->args) {
-		nih_free (event);
-		return -1;
-	}
-
-	nih_list_add (&job->start_events, &event->entry);
 
 	return 0;
 }
@@ -1907,6 +1756,105 @@ cfg_stanza_chdir (Job             *job,
 
 
 /**
+ * cfg_read_job:
+ * @parent: parent of returned job,
+ * @filename: name of file to read,
+ * @name: name to call job.
+ *
+ * Reads the @filename given and uses the information within to construct
+ * a new job structure named @name which is returned.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated job structure, or NULL if the file was invalid.
+ **/
+Job *
+cfg_read_job (const void *parent,
+	      const char *filename,
+	      const char *name)
+{
+	Job    *job, *old_job;
+	size_t  lineno;
+
+	nih_assert (filename != NULL);
+	nih_assert (name != NULL);
+
+	/* Look for an old job with that name */
+	old_job = job_find_by_name (name);
+
+	/* Allocate a new structure */
+	NIH_MUST (job = job_new (parent, name));
+	nih_debug ("Loading %s from %s", job->name, filename);
+
+	/* Parse the file, if we can't parse the new file, we just return now
+	 * without ditching the old job if there is one.
+	 */
+	lineno = 1;
+	if (nih_config_parse (filename, NULL, &lineno, stanzas, job) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		switch (err->number) {
+		case NIH_CONFIG_EXPECTED_TOKEN:
+		case NIH_CONFIG_UNEXPECTED_TOKEN:
+		case NIH_CONFIG_TRAILING_SLASH:
+		case NIH_CONFIG_UNTERMINATED_QUOTE:
+		case NIH_CONFIG_UNTERMINATED_BLOCK:
+		case NIH_CONFIG_UNKNOWN_STANZA:
+		case CFG_ILLEGAL_VALUE:
+		case CFG_DUPLICATE_VALUE:
+			nih_error ("%s:%zi: %s",
+				   filename, lineno, err->message);
+			break;
+		default:
+			nih_error ("%s: %s: %s", filename, _("unable to read"),
+				   err->message);
+			break;
+		}
+
+		nih_list_free (&job->entry);
+		nih_free (err);
+
+		return NULL;
+	}
+
+
+	/* Now we sanity check the job, checking for things that will
+	 * cause assertions or bad behaviour later on, or just general
+	 * warnings
+	 */
+
+	/* pid file makes no sense unless daemon */
+	if (job->pid_file && (! job->daemon)) {
+		nih_warn (_("%s: 'pid file' ignored unless 'daemon' specified"),
+			  filename);
+	}
+
+	/* pid binary makes no sense unless daemon */
+	if (job->pid_binary && (! job->daemon)) {
+		nih_warn (_("%s: 'pid binary' ignored unless 'daemon' specified"),
+			  filename);
+	}
+
+
+	/* Deal with the case where we're reloading an existing	job; we
+	 * mark the existing job as deleted, rather than copying in old data,
+	 * since we don't want to mis-match scripts or configuration.
+	 */
+	if (old_job) {
+		nih_debug ("Replacing existing %s job", job->name);
+		old_job->delete = TRUE;
+	}
+
+	return job;
+}
+
+
+/**
  * cfg_watch_dir:
  * @dirname: directory to watch.
  *
@@ -1962,7 +1910,6 @@ cfg_watch_dir (const char *dirname)
 
 	return 0;
 }
-
 
 /**
  * cfg_job_name:

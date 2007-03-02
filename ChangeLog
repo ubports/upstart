@@ -1,5 +1,8 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_on): Drop the simple on stanza.
+	* init/tests/test_cfgfile.c (test_stanza_on): Remove test case.
+
 	* TODO: Update.
 
 2007-03-01  Scott James Remnant  <scott@netsplit.com>
