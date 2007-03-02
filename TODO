@@ -36,13 +36,11 @@ Medium Priority:
  * Likewise iterating through all the Jobs to find a pid is messy; we
    should have a lookup table for these too (see Job thoughts below).
 
- * If we can't KILL things, we shouldn't ignore that, we should treat
-   that as a failure and adjust the job again so it still shows up as
-   running
-    * force option?  ensures things are KILLed and failure to KILL ignored?
-
  * We may need to KILL scripts, e.g. post-start; especially when the goal
-   changes.  Or perhaps just after a timeout?  (see Job below)
+   changes.  Or perhaps just after a timeout?
+
+ * May need a way to force ignoring of the KILL signal, and assuming that
+   a job that won't die really has.
 
  * Job and subscription IPC commands need to be grouped as has already
    happened for the event commands, though note possible upcoming changes
@@ -53,13 +51,7 @@ Medium Priority:
    Perhaps a way of dealing with this is to assign each job an id, and
    use that as the unique identifier, instead of the name?
 
- * The job structure now has a nice JobProcess sub-structure for holding
-   information about what to run, but still has a job-level pid and aux_pid
-   field for holding the running process id.
-
-   How about we move the pid into the JobProcess structure?
-
-   Status information could then be sent as something like:
+ * Job status information could be sent as something like:
 
     * Job name
       * id
@@ -71,14 +63,6 @@ Medium Priority:
    With each indented bit repeated as many times as necessary (we'll need
    some way to be able to add new fields in the middle though); perhaps
    send them as separate messages?
-
-   This would make it really easy to implement actions, they just become
-   additional processes with a name and registration-assigned id (store
-   the whole lot in an array for convenience).
-
-   It'd also take a few of the strangenesses of using the state to identify
-   a process away.  failed_state would instead become a reference to the
-   failed *process*
 
  * If we have that kind of indented status information, we could make
    JOB_START and JOB_STOP accept only a job/instance id.  The tool could
