@@ -1,5 +1,8 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h, init/notify.h, upstart/message.h: Provide C-level names
+	for enums, this makes the compiler generate things that gdb can get.
+
 	* init/job.c (job_run_process, job_kill_process, job_kill_timer):
 	Change process argument to be a plain ProcessType, this means we
 	know exactly which process we're trying to run or kill.

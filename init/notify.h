@@ -34,7 +34,7 @@
  *
  * Types of changes we notify subscribed process about.
  **/
-typedef enum {
+typedef enum notify_event {
 	NOTIFY_JOB,
 	NOTIFY_EVENT
 } NotifyEvent;

@@ -45,7 +45,7 @@
  * information is received with it.  See the documentation of
  * UpstartMsgHandler for more details.
  **/
-typedef enum {
+typedef enum upstart_message_type {
 	/* General messages */
 	UPSTART_NO_OP,
 

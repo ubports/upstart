@@ -35,7 +35,7 @@
  * being pending, then being handled and finally waiting for the callback
  * to be called and any cleanup performed.
  **/
-typedef enum {
+typedef enum event_progress {
 	EVENT_PENDING,
 	EVENT_HANDLING,
 	EVENT_FINISHED
