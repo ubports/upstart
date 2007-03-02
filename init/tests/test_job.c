@@ -595,18 +595,21 @@ test_copy (void)
 void
 test_find_by_name (void)
 {
-	Job *job1, *job2, *job3, *ptr;
+	Job *job1, *job2, *job3, *job4, *job5, *ptr;
 
 	TEST_FUNCTION ("job_find_by_name");
 	job1 = job_new (NULL, "foo");
 	job2 = job_new (NULL, "bar");
-	job3 = job_new (NULL, "baz");
+	job2->delete = TRUE;
+	job3 = job_new (NULL, "bar");
+	job4 = job_new (NULL, "baz");
+	job5 = job_new (NULL, "bar");
 
 	/* Check that we can find a job that exists by its name. */
 	TEST_FEATURE ("with name we expect to find");
 	ptr = job_find_by_name ("bar");
 
-	TEST_EQ_P (ptr, job2);
+	TEST_EQ_P (ptr, job3);
 
 
 	/* Check that we get NULL if the job doesn't exist. */
@@ -618,16 +621,28 @@ test_find_by_name (void)
 
 	/* Check that if an entry is an instance, we get the real job. */
 	TEST_FEATURE ("with instance");
-	job2->instance_of = job1;
+	job2->instance_of = job3;
 	ptr = job_find_by_name ("bar");
 
-	TEST_EQ (ptr, job1);
+	TEST_EQ (ptr, job3);
+
+
+	/* Check that if the master instance is deleted, we ignore it and
+	 * try the next job.
+	 */
+	TEST_FEATURE ("with instance of deleted job");
+	job3->delete = TRUE;
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ (ptr, job5);
 
 
 	/* Check that we get NULL if the job list is empty, and nothing
 	 * bad happens.
 	 */
 	TEST_FEATURE ("with empty job list");
+	nih_list_free (&job5->entry);
+	nih_list_free (&job4->entry);
 	nih_list_free (&job3->entry);
 	nih_list_free (&job2->entry);
 	nih_list_free (&job1->entry);

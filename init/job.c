@@ -463,7 +463,7 @@ error:
  *
  * Finds the job with the given @name in the jobs hash table.  This will
  * not return instance jobs, instead preferring to return the job that they
- * are actually an instance of.
+ * are actually an instance of, and will not return jobs marked for deletion.
  *
  * Returns: job found or NULL if not known.
  **/
@@ -477,8 +477,15 @@ job_find_by_name (const char *name)
 	job_init ();
 
 	job = (Job *)nih_hash_lookup (jobs, name);
-	if (job && job->instance_of)
-		return job->instance_of;
+	while (job) {
+		if (job->instance_of && (! job->instance_of->delete)) {
+			return job->instance_of;
+		} else if (job->delete) {
+			job = (Job *)nih_hash_search (jobs, name, &job->entry);
+		} else {
+			break;
+		}
+	}
 
 	return job;
 }
