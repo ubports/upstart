@@ -542,39 +542,56 @@ job_find_by_pid (pid_t        pid,
  * @emission is stored in the Job's cause member, and may be NULL.
  * Any previous cause is unreferenced and allowed to finish handling
  * if it has no further references.
+ *
+ * Returns: job with changed goal, which may be a new instance of @job.
  **/
-void
+Job *
 job_change_goal (Job           *job,
 		 JobGoal        goal,
 		 EventEmission *emission)
 {
+	int state = FALSE;
+
 	nih_assert (job != NULL);
 
 	if (job->goal == goal)
-		return;
+		return job;
 
-	/* Deleted jobs cannot have their goal changed */
-	if (job->state == JOB_DELETED)
-		return;
-
-	/* Instance jobs may only have their goal changed to start; when
-	 * we do that, we spawn off a new instance and change that goal
-	 * instead.
+	/* Normally whatever process or event is associated with the state
+	 * will finish naturally, so all we need do is change the goal and
+	 * we'll change direction through the state machine at that point.
+	 *
+	 * The exceptions are the natural rest sates of waiting and a
+	 * running process; these need induction to get them moving.
 	 */
-	if (job->instance && (job->instance_of == NULL)
-	    && (goal == JOB_START))
-	{
-		Job *instance;
+	switch (goal) {
+	case JOB_START:
+		/* Deleted jobs cannot be started again. */
+		if (job->state == JOB_DELETED)
+			return job;
 
-		if (goal != JOB_START)
-			return;
+		/* Instance jobs cannot be directly started, instead we
+		 * spawn off a new instance and switch to that job instead.
+		 */
+		if (job->instance && (job->instance_of == NULL)) {
+			Job *instance;
 
-		NIH_MUST (instance = job_copy (NULL, job));
-		instance->instance_of = job;
-		instance->delete = TRUE;
+			NIH_MUST (instance = job_copy (NULL, job));
+			instance->instance_of = job;
+			instance->delete = TRUE;
 
-		job_change_goal (instance, goal, emission);
-		return;
+			job = instance;
+		}
+
+		if (job->state == JOB_WAITING)
+			state = TRUE;
+
+		break;
+	case JOB_STOP:
+		if (job->state == JOB_RUNNING)
+			state = TRUE;
+
+		break;
 	}
 
 
@@ -585,25 +602,10 @@ job_change_goal (Job           *job,
 	job_change_cause (job, emission);
 	notify_job (job);
 
-	/* Normally whatever process or event is associated with the state
-	 * will finish naturally, so all we need do is change the goal and
-	 * we'll change direction through the state machine at that point.
-	 *
-	 * The exceptions are the natural rest sates of waiting and a
-	 * running process; these need induction to get them moving.
-	 */
-	switch (job->goal) {
-	case JOB_START:
-		if (job->state == JOB_WAITING)
-			job_change_state (job, job_next_state (job));
+	if (state)
+		job_change_state (job, job_next_state (job));
 
-		break;
-	case JOB_STOP:
-		if (job->state == JOB_RUNNING)
-			job_change_state (job, job_next_state (job));
-
-		break;
-	}
+	return job;
 }
 
 /**

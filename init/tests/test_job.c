@@ -759,7 +759,7 @@ void
 test_change_goal (void)
 {
 	EventEmission *em;
-	Job           *job;
+	Job           *job, *ptr;
 
 	TEST_FUNCTION ("job_change_goal");
 	program_name = "test";
@@ -782,8 +782,9 @@ test_change_goal (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		job_change_goal (job, JOB_START, NULL);
+		ptr = job_change_goal (job, JOB_START, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 	}
@@ -796,12 +797,16 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_DELETED;
+		job->delete = TRUE;
 
-		job_change_goal (job, JOB_START, NULL);
+		ptr = job_change_goal (job, JOB_START, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_DELETED);
 	}
+
+	job->delete = FALSE;
 
 
 	/* Check that an attempt to start a job that's in the process of
@@ -814,8 +819,9 @@ test_change_goal (void)
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job_change_goal (job, JOB_START, NULL);
+		ptr = job_change_goal (job, JOB_START, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_KILLED);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -838,8 +844,9 @@ test_change_goal (void)
 		em->progress = EVENT_HANDLING;
 		em->jobs = 1;
 
-		job_change_goal (job, JOB_START, NULL);
+		ptr = job_change_goal (job, JOB_START, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -868,8 +875,9 @@ test_change_goal (void)
 		job->cause = NULL;
 		em->jobs = 0;
 
-		job_change_goal (job, JOB_START, em);
+		ptr = job_change_goal (job, JOB_START, em);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_STOP);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
@@ -894,8 +902,9 @@ test_change_goal (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job_change_goal (job, JOB_START, NULL);
+		ptr = job_change_goal (job, JOB_START, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -913,8 +922,9 @@ test_change_goal (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		ptr = job_change_goal (job, JOB_STOP, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -931,11 +941,34 @@ test_change_goal (void)
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		ptr = job_change_goal (job, JOB_STOP, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 	}
+
+
+	/* Check that an attempt to stop a running deleted job results in
+	 * the goal being changed and the state being kicked too.
+	 */
+	TEST_FEATURE ("with running deleted job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->delete = TRUE;
+
+		ptr = job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ_P (ptr, job);
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->delete = FALSE;
 
 
 	/* Check that an attempt to stop a starting job only results in the
@@ -947,8 +980,9 @@ test_change_goal (void)
 		job->state = JOB_PRE_START;
 		job->process[PROCESS_PRE_START]->pid = 1;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		ptr = job_change_goal (job, JOB_STOP, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_START);
 		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 1);
@@ -971,8 +1005,9 @@ test_change_goal (void)
 		em->jobs = 1;
 		em->progress = EVENT_HANDLING;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		ptr = job_change_goal (job, JOB_STOP, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_SPAWNED);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -999,8 +1034,9 @@ test_change_goal (void)
 		job->cause = NULL;
 		em->jobs = 0;
 
-		job_change_goal (job, JOB_STOP, em);
+		ptr = job_change_goal (job, JOB_STOP, em);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STARTING);
 
@@ -1018,8 +1054,9 @@ test_change_goal (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		ptr = job_change_goal (job, JOB_STOP, NULL);
 
+		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 	}
@@ -1042,8 +1079,9 @@ test_change_goal (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		job_change_goal (job, JOB_START, NULL);
+		ptr = job_change_goal (job, JOB_START, NULL);
 
+		TEST_NE_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 
@@ -1060,6 +1098,7 @@ test_change_goal (void)
 		}
 
 		TEST_NE_P (instance, NULL);
+		TEST_EQ_P (ptr, instance);
 
 		TEST_EQ_STR (instance->name, job->name);
 		TEST_EQ_P (instance->instance_of, job);

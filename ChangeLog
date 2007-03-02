@@ -1,5 +1,10 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_goal): Return the new instance in that
+	circumstance, and clean up a little bit.
+	* init/job.h: Update prototype.
+	* init/tests/test_job.c (test_change_goal): Update tests.
+
 	* init/job.c (job_find_by_name): Skip jobs marked for deletion too.
 	* init/tests/test_job.c (test_find_by_name): Update test case.
 
