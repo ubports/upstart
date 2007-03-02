@@ -69,7 +69,7 @@
 static void job_change_cause  (Job *job, EventEmission *emission);
 static void job_emit_event    (Job *job);
 static int  job_catch_runaway (Job *job);
-static void job_kill_timer    (JobProcess *process, NihTimer *timer);
+static void job_kill_timer    (ProcessType process, NihTimer *timer);
 
 
 /**
@@ -653,8 +653,7 @@ job_change_state (Job      *job,
 	nih_assert (job != NULL);
 
 	while (job->state != state) {
-		JobState    old_state;
-		JobProcess *process;
+		JobState old_state;
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
@@ -703,9 +702,8 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
-			process = job->process[PROCESS_PRE_START];
-			if (process) {
-				job_run_process (job, process);
+			if (job->process[PROCESS_PRE_START]) {
+				job_run_process (job, PROCESS_PRE_START);
 			} else {
 				state = job_next_state (job);
 			}
@@ -715,9 +713,8 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
-			process = job->process[PROCESS_MAIN];
-			if (process)
-				job_run_process (job, process);
+			if (job->process[PROCESS_MAIN])
+				job_run_process (job, PROCESS_MAIN);
 
 			if (! job->daemon)
 				state = job_next_state (job);
@@ -727,9 +724,8 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
 
-			process = job->process[PROCESS_POST_START];
-			if (process) {
-				job_run_process (job, process);
+			if (job->process[PROCESS_POST_START]) {
+				job_run_process (job, PROCESS_POST_START);
 			} else {
 				state = job_next_state (job);
 			}
@@ -753,9 +749,8 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_RUNNING);
 
-			process = job->process[PROCESS_PRE_STOP];
-			if (process) {
-				job_run_process (job, process);
+			if (job->process[PROCESS_PRE_STOP]) {
+				job_run_process (job, PROCESS_PRE_STOP);
 			} else {
 				state = job_next_state (job);
 			}
@@ -774,9 +769,9 @@ job_change_state (Job      *job,
 		case JOB_KILLED:
 			nih_assert (old_state == JOB_STOPPING);
 
-			process = job->process[PROCESS_MAIN];
-			if (process && (process->pid > 0)) {
-				job_kill_process (job, process);
+			if (job->process[PROCESS_MAIN]
+			    && (job->process[PROCESS_MAIN]->pid > 0)) {
+				job_kill_process (job, PROCESS_MAIN);
 			} else {
 				state = job_next_state (job);
 			}
@@ -785,9 +780,8 @@ job_change_state (Job      *job,
 		case JOB_POST_STOP:
 			nih_assert (old_state == JOB_KILLED);
 
-			process = job->process[PROCESS_POST_STOP];
-			if (process) {
-				job_run_process (job, process);
+			if (job->process[PROCESS_POST_STOP]) {
+				job_run_process (job, PROCESS_POST_STOP);
 			} else {
 				state = job_next_state (job);
 			}
@@ -1061,11 +1055,11 @@ job_catch_runaway (Job *job)
 /**
  * job_run_process:
  * @job: job context for process to be run in,
- * @process: process details.
+ * @process: job process to run.
  *
- * This function uses the information in @process to spawn a new process
- * for the @job, and store the pid of the newly spawned process in the pid
- * member of @process.
+ * This function looks up @process in the job's process table and uses
+ * the information there to spawn a new process for the @job, storing the
+ * pid in that table entry.
  *
  * The process is normally executed using the system shell, unless the
  * script member of @process is FALSE and there are no typical shell
@@ -1089,23 +1083,26 @@ job_catch_runaway (Job *job)
  * carrying on anyway.
  **/
 void
-job_run_process (Job        *job,
-		 JobProcess *process)
+job_run_process (Job         *job,
+		 ProcessType  process)
 {
-	char   **argv, *script = NULL;
-	size_t   argc;
-	int      error = FALSE, fds[2];
+	JobProcess  *proc;
+	char       **argv, *script = NULL;
+	size_t       argc;
+	int          error = FALSE, fds[2];
 
 	nih_assert (job != NULL);
-	nih_assert (process != NULL);
-	nih_assert (process->command != NULL);
-	nih_assert (process->pid == 0);
+
+	proc = job->process[process];
+	nih_assert (proc != NULL);
+	nih_assert (proc->command != NULL);
+	nih_assert (proc->pid == 0);
 
 	/* We run the process using a shell if it says it wants to be run
 	 * as such, or if it contains any shell-like characters; since that's
 	 * the best way to deal with things like variables.
 	 */
-	if ((process->script) || strpbrk (process->command, SHELL_CHARS)) {
+	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
 		struct stat   statbuf;
 		char        **arg;
 
@@ -1119,12 +1116,11 @@ job_run_process (Job        *job,
 		 * a shell, prepend exec to the script so that the shell
 		 * gets out of the way after parsing.
 		 */
-		if (process->script) {
-			NIH_MUST (script = nih_strdup (NULL,
-						       process->command));
+		if (proc->script) {
+			NIH_MUST (script = nih_strdup (NULL, proc->command));
 		} else {
 			NIH_MUST (script = nih_sprintf (NULL, "exec %s",
-							process->command));
+							proc->command));
 		}
 
 		/* If the script is very large, we consider piping it using
@@ -1171,13 +1167,13 @@ job_run_process (Job        *job,
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
 		 */
-		NIH_MUST (argv = nih_str_split (NULL, process->command,
+		NIH_MUST (argv = nih_str_split (NULL, proc->command,
 						" \t\r\n", TRUE));
 	}
 
 
 	/* Spawn the process, repeat until fork() works */
-	while ((process->pid = process_spawn (job, argv)) < 0) {
+	while ((proc->pid = process_spawn (job, argv)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -1191,7 +1187,8 @@ job_run_process (Job        *job,
 
 	nih_free (argv);
 
-	nih_info (_("Active %s process (%d)"), job->name, process->pid);
+	nih_info (_("Active %s %s process (%d)"),
+		  job->name, process_name (process), proc->pid);
 
 
 	/* Feed the script to the child process */
@@ -1233,24 +1230,28 @@ job_run_process (Job        *job,
  * has actually terminated.
  **/
 void
-job_kill_process (Job        *job,
-		  JobProcess *process)
+job_kill_process (Job         *job,
+		  ProcessType  process)
 {
+	JobProcess *proc;
+
 	nih_assert (job != NULL);
-	nih_assert (process != NULL);
-	nih_assert (process->command != NULL);
-	nih_assert (process->pid > 0);
 
-	nih_info (_("Sending TERM signal to %s process (%d)"),
-		  job->name, process->pid);
+	proc = job->process[process];
+	nih_assert (proc != NULL);
+	nih_assert (proc->pid > 0);
 
-	if (process_kill (job, process->pid, FALSE) < 0) {
+	nih_info (_("Sending TERM signal to %s %s process (%d)"),
+		  job->name, process_name (process), proc->pid);
+
+	if (process_kill (job, proc->pid, FALSE) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send TERM signal to %s process (%d): %s"),
-				  job->name, process->pid, err->message);
+			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
+				  job->name, process_name (process),
+				  proc->pid, err->message);
 		nih_free (err);
 
 		return;
@@ -1258,7 +1259,7 @@ job_kill_process (Job        *job,
 
 	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
 			  job, job->kill_timeout,
-			  (NihTimerCb)job_kill_timer, process));
+			  (NihTimerCb)job_kill_timer, (void *)process));
 }
 
 /**
@@ -1271,29 +1272,33 @@ job_kill_process (Job        *job,
  * more forcibly by sending the KILL signal.
  **/
 static void
-job_kill_timer (JobProcess *process,
-		NihTimer   *timer)
+job_kill_timer (ProcessType  process,
+		NihTimer    *timer)
 {
-	Job *job;
+	Job        *job;
+	JobProcess *proc;
 
-	nih_assert (process != NULL);
-	nih_assert (process->pid > 0);
+	nih_assert (timer != NULL);
+	job = nih_alloc_parent (timer);
 
-	job = nih_alloc_parent (process);
+	proc = job->process[process];
+	nih_assert (proc != NULL);
+	nih_assert (proc->pid > 0);
+
 
 	job->kill_timer = NULL;
 
+	nih_info (_("Sending KILL signal to %s %s process (%d)"),
+		   job->name, process_name (process), proc->pid);
 
-	nih_info (_("Sending KILL signal to %s process (%d)"),
-		   job->name, process->pid);
-
-	if (process_kill (job, process->pid, TRUE) < 0) {
+	if (process_kill (job, proc->pid, TRUE) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send KILL signal to %s process (%d): %s"),
-				  job->name, process->pid, err->message);
+			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
+				  job->name, process_name (process),
+				  proc->pid, err->message);
 		nih_free (err);
 	}
 }

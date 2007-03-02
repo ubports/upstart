@@ -1,5 +1,13 @@
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process, job_kill_process, job_kill_timer):
+	Change process argument to be a plain ProcessType, this means we
+	know exactly which process we're trying to run or kill.
+	(job_change_state): Update calls to job_run_process
+	and job_kill_process
+	* init/tests/test_job.c (test_run_process, test_kill_process): Update
+	function calls to just pass a ProcessType in.
+
 	* upstart/enum.h: Rename JobAction to ProcessType.
 	* upstart/enum.c (job_action_name): Rename to process_name.
 	(job_action_from_name): Rename to process_from_name.

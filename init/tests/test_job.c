@@ -2561,7 +2561,7 @@ test_run_process (void)
 				"touch %s", filename);
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2590,7 +2590,7 @@ test_run_process (void)
 				"echo $$ > %s", filename);
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2625,7 +2625,7 @@ test_run_process (void)
 				"exec > %s\necho $0\necho $@", filename);
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2661,7 +2661,7 @@ test_run_process (void)
 				filename, filename);
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2700,7 +2700,7 @@ test_run_process (void)
 				"exec > %s\necho $0\necho $@", filename);
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2742,7 +2742,7 @@ test_run_process (void)
 					"# this just bulks it out a bit");
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2813,7 +2813,7 @@ test_run_process (void)
 					"# this just bulks it out a bit");
 		}
 
-		job_run_process (job, job->process[PROCESS_MAIN]);
+		job_run_process (job, PROCESS_MAIN);
 
 		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
 
@@ -2893,7 +2893,7 @@ test_kill_process (void)
 		}
 		pid = job->process[PROCESS_MAIN]->pid;
 
-		job_kill_process (job, job->process[PROCESS_MAIN]);
+		job_kill_process (job, PROCESS_MAIN);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);
@@ -2941,7 +2941,7 @@ test_kill_process (void)
 		}
 		pid = job->process[PROCESS_MAIN]->pid;
 
-		job_kill_process (job, job->process[PROCESS_MAIN]);
+		job_kill_process (job, PROCESS_MAIN);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);

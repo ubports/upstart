@@ -234,8 +234,8 @@ void        job_change_goal           (Job *job, JobGoal goal,
 void        job_change_state          (Job *job, JobState state);
 JobState    job_next_state            (Job *job);
 
-void        job_run_process           (Job *job, JobProcess *process);
-void        job_kill_process          (Job *job, JobProcess *process);
+void        job_run_process           (Job *job, ProcessType process);
+void        job_kill_process          (Job *job, ProcessType process);
 
 void        job_child_reaper          (void *ptr, pid_t pid, int
 				       killed, int status);
