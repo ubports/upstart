@@ -1,5 +1,17 @@
 2007-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_parse_exec, cfg_parse_script): Separate out
+	the parsing of an exec or script stanza into separate functions,
+	seeing as this is quite a common operation.  This also means we
+	just need to change them in one place now.
+	(cfg_parse_process): Function to call either of the above depending
+	on the next argument.
+	(cfg_stanza_exec): Call cfg_parse_exec instead.
+	(cfg_stanza_script): Call cfg_parse_script instead.
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Call cfg_parse_process
+	with the right arguments instead of doing by hand in each function.
+
 	* init/event.c (event_emit_next_id): Split the id assigning code into
 	a static inline function for easier modification.
 	* init/job.c (job_next_id): Use the same style function here too.

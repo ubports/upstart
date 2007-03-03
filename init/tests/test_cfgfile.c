@@ -62,784 +62,6 @@
 
 
 void
-test_stanza_description (void)
-{
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
-
-	TEST_FUNCTION ("cfg_stanza_description");
-	program_name = "test";
-	output = tmpfile ();
-
-	TEST_FILENAME (filename);
-
-
-	/* Check that a description stanza with an argument results in it
-	 * being stored in the job.
-	 */
-	TEST_FEATURE ("with single argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "description \"a test job\"\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_ALLOC_PARENT (job->description, job);
-	TEST_EQ_STR (job->description, "a test job");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that a description stanza without an argument results in
-	 * a syntax error.
-	 */
-	TEST_FEATURE ("with missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "description\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a description stanza with an extra second argument
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "description \"a test job\" \"ya ya\"\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a repeated description stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "description \"a test job\"\n");
-	fprintf (jf, "description \"ya ya\"\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "3: Duplicate value\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-	unlink (filename);
-}
-
-void
-test_stanza_author (void)
-{
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
-
-	TEST_FUNCTION ("cfg_stanza_author");
-	program_name = "test";
-	output = tmpfile ();
-
-	TEST_FILENAME (filename);
-
-
-	/* Check that a author stanza with an argument results in it
-	 * being stored in the job.
-	 */
-	TEST_FEATURE ("with single argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "author \"a test job\"\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_ALLOC_PARENT (job->author, job);
-	TEST_EQ_STR (job->author, "a test job");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that a author stanza without an argument results in
-	 * a syntax error.
-	 */
-	TEST_FEATURE ("with missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "author\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a author stanza with an extra second argument
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "author \"a test job\" \"ya ya\"\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a repeated author stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "author \"a test job\"\n");
-	fprintf (jf, "author \"ya ya\"\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "3: Duplicate value\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-	unlink (filename);
-}
-
-void
-test_stanza_version (void)
-{
-	Job  *job;
-	FILE *jf, *output;
-	char  filename[PATH_MAX];
-
-	TEST_FUNCTION ("cfg_stanza_version");
-	program_name = "test";
-	output = tmpfile ();
-
-	TEST_FILENAME (filename);
-
-
-	/* Check that a version stanza with an argument results in it
-	 * being stored in the job.
-	 */
-	TEST_FEATURE ("with single argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "version \"a test job\"\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_ALLOC_PARENT (job->version, job);
-	TEST_EQ_STR (job->version, "a test job");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that a version stanza without an argument results in
-	 * a syntax error.
-	 */
-	TEST_FEATURE ("with missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "version\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a version stanza with an extra second argument
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with extra argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "version \"a test job\" \"ya ya\"\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unexpected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a repeated version stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "version \"a test job\"\n");
-	fprintf (jf, "version \"ya ya\"\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "3: Duplicate value\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-	unlink (filename);
-}
-
-void
-test_stanza_emits (void)
-{
-	Job   *job;
-	Event *event;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
-
-	TEST_FUNCTION ("cfg_stanza_emits");
-	program_name = "test";
-	output = tmpfile ();
-
-	TEST_FILENAME (filename);
-
-
-	/* Check that an emits stanza with a single argument results in
-	 * the named event being added to the emits list.
-	 */
-	TEST_FEATURE ("with single argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "emits wibble\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->emits);
-
-	event = (Event *)job->emits.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that an emits stanza with multiple arguments results in
-	 * all of the named events being added to the emits list.
-	 */
-	TEST_FEATURE ("with multiple arguments");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "emits wibble wobble waggle\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->emits);
-
-	event = (Event *)job->emits.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wobble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "waggle");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that repeated emits stanzas are permitted, each appending
-	 * to the last.
-	 */
-	TEST_FEATURE ("with multiple stanzas");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "emits wibble\n");
-	fprintf (jf, "emits wobble waggle\n");
-	fprintf (jf, "emits wuggle\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->emits);
-
-	event = (Event *)job->emits.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wobble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "waggle");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wuggle");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that an emits stanza without an argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "emits\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-	unlink (filename);
-}
-
-void
-test_stanza_start (void)
-{
-	Job   *job;
-	Event *event;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
-
-	TEST_FUNCTION ("cfg_stanza_start");
-	program_name = "test";
-	output = tmpfile ();
-
-	TEST_FILENAME (filename);
-
-
-	/* Check that a start stanza with an on argument followed by an
-	 * event name results in the named event being added to the
-	 * start events list.
-	 */
-	TEST_FEATURE ("with on and single argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start on wibble\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->start_events);
-
-	event = (Event *)job->start_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that all arguments to the start on stanza are consumed,
-	 * with additional arguments after the first being treated as
-	 * arguments for the event.
-	 */
-	TEST_FEATURE ("with on and multiple arguments");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start on wibble foo bar b?z*\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->start_events);
-
-	event = (Event *)job->start_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	TEST_ALLOC_PARENT (event->args, event);
-	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
-	TEST_ALLOC_PARENT (event->args[0], event->args);
-	TEST_ALLOC_PARENT (event->args[1], event->args);
-	TEST_ALLOC_PARENT (event->args[2], event->args);
-	TEST_EQ_STR (event->args[0], "foo");
-	TEST_EQ_STR (event->args[1], "bar");
-	TEST_EQ_STR (event->args[2], "b?z*");
-	TEST_EQ_P (event->args[3], NULL);
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that repeated start on stanzas are permitted, each appending
-	 * to the last.
-	 */
-	TEST_FEATURE ("with multiple on stanzas");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start on wibble\n");
-	fprintf (jf, "start on wobble\n");
-	fprintf (jf, "start on waggle\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->start_events);
-
-	event = (Event *)job->start_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wobble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "waggle");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that a start stanza without a second-level argument results
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a start stanza with an unknown second-level argument
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with unknown argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start foo\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a start on stanza without an argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with on and missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "start on\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-	unlink (filename);
-}
-
-void
-test_stanza_stop (void)
-{
-	Job   *job;
-	Event *event;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
-
-	TEST_FUNCTION ("cfg_stanza_stop");
-	program_name = "test";
-	output = tmpfile ();
-
-	TEST_FILENAME (filename);
-
-
-	/* Check that a stop stanza with an on argument followed by an
-	 * event name results in the named event being added to the
-	 * stop events list.
-	 */
-	TEST_FEATURE ("with on and single argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop on wibble\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->stop_events);
-
-	event = (Event *)job->stop_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that all arguments to the stop on stanza are consumed,
-	 * with additional arguments after the first being treated as
-	 * arguments for the event.
-	 */
-	TEST_FEATURE ("with on and multiple arguments");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop on wibble foo bar b?z*\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->stop_events);
-
-	event = (Event *)job->stop_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	TEST_ALLOC_PARENT (event->args, event);
-	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
-	TEST_ALLOC_PARENT (event->args[0], event->args);
-	TEST_ALLOC_PARENT (event->args[1], event->args);
-	TEST_ALLOC_PARENT (event->args[2], event->args);
-	TEST_EQ_STR (event->args[0], "foo");
-	TEST_EQ_STR (event->args[1], "bar");
-	TEST_EQ_STR (event->args[2], "b?z*");
-	TEST_EQ_P (event->args[3], NULL);
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that repeated stop on stanzas are permitted, each appending
-	 * to the last.
-	 */
-	TEST_FEATURE ("with multiple on stanzas");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop on wibble\n");
-	fprintf (jf, "stop on wobble\n");
-	fprintf (jf, "stop on waggle\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-	TEST_LIST_NOT_EMPTY (&job->stop_events);
-
-	event = (Event *)job->stop_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wibble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "wobble");
-
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
-	TEST_EQ_STR (event->name, "waggle");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that a stop stanza without a second-level argument results
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a stop stanza with an unknown second-level argument
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with unknown argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop foo\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	/* Check that a stop on stanza without an argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with on and missing argument");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/daemon\n");
-	fprintf (jf, "stop on\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_EQ_P (job, NULL);
-
-	TEST_ERROR_EQ (output, "2: Expected token\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-
-	fclose (output);
-	unlink (filename);
-}
-
-void
 test_stanza_exec (void)
 {
 	Job        *job;
@@ -1833,6 +1055,787 @@ test_stanza_post_stop (void)
 	fclose (output);
 	unlink (filename);
 }
+
+
+void
+test_stanza_start (void)
+{
+	Job   *job;
+	Event *event;
+	FILE  *jf, *output;
+	char   filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_start");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a start stanza with an on argument followed by an
+	 * event name results in the named event being added to the
+	 * start events list.
+	 */
+	TEST_FEATURE ("with on and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that all arguments to the start on stanza are consumed,
+	 * with additional arguments after the first being treated as
+	 * arguments for the event.
+	 */
+	TEST_FEATURE ("with on and multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated start on stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple on stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble\n");
+	fprintf (jf, "start on wobble\n");
+	fprintf (jf, "start on waggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a start stanza without a second-level argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a start stanza with an unknown second-level argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a start on stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with on and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_stop (void)
+{
+	Job   *job;
+	Event *event;
+	FILE  *jf, *output;
+	char   filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_stop");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a stop stanza with an on argument followed by an
+	 * event name results in the named event being added to the
+	 * stop events list.
+	 */
+	TEST_FEATURE ("with on and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that all arguments to the stop on stanza are consumed,
+	 * with additional arguments after the first being treated as
+	 * arguments for the event.
+	 */
+	TEST_FEATURE ("with on and multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated stop on stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple on stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble\n");
+	fprintf (jf, "stop on wobble\n");
+	fprintf (jf, "stop on waggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a stop stanza without a second-level argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a stop stanza with an unknown second-level argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a stop on stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with on and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+
+void
+test_stanza_description (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_description");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a description stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description \"a test job\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->description, job);
+	TEST_EQ_STR (job->description, "a test job");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a description stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a description stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description \"a test job\" \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated description stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description \"a test job\"\n");
+	fprintf (jf, "description \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_author (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_author");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a author stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author \"a test job\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->author, job);
+	TEST_EQ_STR (job->author, "a test job");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a author stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a author stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author \"a test job\" \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated author stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author \"a test job\"\n");
+	fprintf (jf, "author \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_version (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_version");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a version stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version \"a test job\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->version, job);
+	TEST_EQ_STR (job->version, "a test job");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a version stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a version stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version \"a test job\" \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated version stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version \"a test job\"\n");
+	fprintf (jf, "version \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_emits (void)
+{
+	Job   *job;
+	Event *event;
+	FILE  *jf, *output;
+	char   filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_emits");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that an emits stanza with a single argument results in
+	 * the named event being added to the emits list.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits wibble\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->emits);
+
+	event = (Event *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an emits stanza with multiple arguments results in
+	 * all of the named events being added to the emits list.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits wibble wobble waggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->emits);
+
+	event = (Event *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated emits stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits wibble\n");
+	fprintf (jf, "emits wobble waggle\n");
+	fprintf (jf, "emits wuggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->emits);
+
+	event = (Event *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wuggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an emits stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
 
 void
 test_stanza_daemon (void)
@@ -5183,18 +5186,18 @@ int
 main (int   argc,
       char *argv[])
 {
-	test_stanza_description ();
-	test_stanza_version ();
-	test_stanza_author ();
-	test_stanza_emits ();
-	test_stanza_start ();
-	test_stanza_stop ();
 	test_stanza_exec ();
 	test_stanza_script ();
 	test_stanza_pre_start ();
 	test_stanza_post_start ();
 	test_stanza_pre_stop ();
 	test_stanza_post_stop ();
+	test_stanza_start ();
+	test_stanza_stop ();
+	test_stanza_description ();
+	test_stanza_version ();
+	test_stanza_author ();
+	test_stanza_emits ();
 	test_stanza_daemon ();
 	test_stanza_respawn ();
 	test_stanza_service ();
