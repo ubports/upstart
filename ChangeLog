@@ -1,3 +1,9 @@
+2007-03-03  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_emit_next_id): Split the id assigning code into
+	a static inline function for easier modification.
+	* init/job.c (job_next_id): Use the same style function here too.
+
 2007-03-02  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.c (event_emit): Port the slightly more efficient in the

@@ -183,6 +183,69 @@ job_process_copy (const void       *parent,
 
 
 /**
+ * job_next_id:
+ *
+ * Returns the current value of the job_id counter, unless that has
+ * been wrapped before, in which case it checks whether the value is
+ * currently in use before returning it.  If the value is in use, it
+ * increments the counter until it finds a value that isn't, or until it
+ * has checked the entire value space.
+ *
+ * This is most efficient while less than 4 billion jobs have been
+ * defined, at which point it becomes slightly less efficient.  If there
+ * are currently 4 billion known jobs (!!) we lose the ability to generate
+ * unique ids, and emit an error -- if we start seeing this in the field,
+ * we can always increase the size to a 64-bit number or something.
+ *
+ * Returns: next usable id.
+ **/
+static inline uint32_t
+job_next_id (void)
+{
+	uint32_t id;
+
+	/* If we've wrapped the job_id counter, we can't just assume that
+	 * the current value isn't taken, we need to make sure that nothing
+	 * is using it first.
+	 */
+	if (job_id_wrapped) {
+		uint32_t start_id = job_id;
+
+		while (job_find_by_id (job_id)) {
+			job_id++;
+
+			/* Make sure we don't end up in an infinite loop if
+			 * we're currently handling 4 billion events.
+			 */
+			if (job_id == start_id) {
+				nih_error (_("Job id %zu is not unique"),
+					   job_id);
+				break;
+			}
+		}
+	}
+
+	/* Use the current value of the counter, it's unique as we're ever
+	 * going to get; increment the counter afterwards so the next time
+	 * this runs, we have moved forwards.
+	 */
+	id = job_id++;
+
+	/* If incrementing the counter gave us zero, we consumed the entire
+	 * id space.  This means that in future we can't assume that the ids
+	 * are unique, next time we'll have to be more careful.
+	 */
+	if (! job_id) {
+		if (! job_id_wrapped)
+			nih_debug ("Wrapped job_id counter");
+
+		job_id_wrapped = TRUE;
+	}
+
+	return id;
+}
+
+/**
  * job_new:
  * @parent: parent of new job,
  * @name: name of new job,
@@ -219,24 +282,7 @@ job_new (const void *parent,
 
 	nih_list_init (&job->entry);
 
-	/* If we're somehow wrapped the job id counter and consumed 4 billion
-	 * jobs (!!), make sure that the id we're about to use isn't already
-	 * used.
-	 */
-	if (job_id_wrapped)
-		while (job_find_by_id (job_id))
-			job_id++;
-
-	/* Assign the next id to the job, and increment the counter.  If the
-	 * counter goes zero, we wrapped and need to be less efficient from
-	 * now on.
-	 */
-	job->id = job_id++;
-	if (! job->id) {
-		nih_debug ("Wrapped job_id counter");
-		job_id_wrapped = TRUE;
-	}
-
+	job->id = job_next_id ();
 	job->name = nih_strdup (job, name);
 	if (! job->name) {
 		nih_free (job);

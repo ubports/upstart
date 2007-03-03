@@ -240,6 +240,70 @@ event_match (Event *event1,
 
 
 /**
+ * event_emit_next_id:
+ *
+ * Returns the current value of the emission_id counter, unless that has
+ * been wrapped before, in which case it checks whether the value is
+ * currently in use before returning it.  If the value is in use, it
+ * increments the counter until it finds a value that isn't, or until it
+ * has checked the entire value space.
+ *
+ * This is most efficient while less than 4 billion events have been
+ * generated, at which point it becomes slightly less efficient.  If there
+ * are currently 4 billion events being handled (!!) we lose the ability
+ * to generate unique ids, and emit an error -- if we start seeing this in
+ * the field, we can always increase the size to a 64-bit number or
+ * something.
+ *
+ * Returns: next usable id.
+ **/
+static inline uint32_t
+event_emit_next_id (void)
+{
+	uint32_t id;
+
+	/* If we've wrapped the emission_id counter, we can't just assume that
+	 * the current value isn't taken, we need to make sure that nothing
+	 * is using it first.
+	 */
+	if (emission_id_wrapped) {
+		uint32_t start_id = emission_id;
+
+		while (event_emit_find_by_id (emission_id)) {
+			emission_id++;
+
+			/* Make sure we don't end up in an infinite loop if
+			 * we're currently handling 4 billion events.
+			 */
+			if (emission_id == start_id) {
+				nih_error (_("Emission id %zu is not unique"),
+					   emission_id);
+				break;
+			}
+		}
+	}
+
+	/* Use the current value of the counter, it's unique as we're ever
+	 * going to get; increment the counter afterwards so the next time
+	 * this runs, we have moved forwards.
+	 */
+	id = emission_id++;
+
+	/* If incrementing the counter gave us zero, we consumed the entire
+	 * id space.  This means that in future we can't assume that the ids
+	 * are unique, next time we'll have to be more careful.
+	 */
+	if (! emission_id) {
+		if (! emission_id_wrapped)
+			nih_debug ("Wrapped emission_id counter");
+
+		emission_id_wrapped = TRUE;
+	}
+
+	return id;
+}
+
+/**
  * event_emit:
  * @name: name of event to emit,
  * @args: arguments to event,
@@ -272,24 +336,7 @@ event_emit (const char       *name,
 
 	NIH_MUST (emission = nih_new (NULL, EventEmission));
 
-	/* If we've somehow wrapped the emission id counter and emitted 4
-	 * billion events (!!), make sure that the id we're about to use
-	 * isn't already used.
-	 */
-	if (emission_id_wrapped)
-		while (event_emit_find_by_id (emission_id))
-			emission_id++;
-
-	/* Assign the next id to the emission, and increment the counter.  If
-	 * the counter goes zero, we wrapped and need to be less efficient
-	 * from now on.
-	 */
-	emission->id = emission_id++;
-	if (! emission->id) {
-		nih_debug ("Wrapped emission_id counter");
-		emission_id_wrapped = TRUE;
-	}
-
+	emission->id = event_emit_next_id ();
 	emission->progress = EVENT_PENDING;
 
 	emission->jobs = 0;
