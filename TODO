@@ -20,24 +20,6 @@ High Priority:
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
 
-
-Medium Priority:
-
- * Should be possible to configure things in one file, definings jobs with
-   a stanza rather than separate files.
-
- * Iterating through every Job's start and stop events is messy; we should
-   have some kind of match lookup table to make it easier.
-
- * Likewise iterating through all the Jobs to find a pid is messy; we
-   should have a lookup table for these too (see Job thoughts below).
-
- * We may need to KILL scripts, e.g. post-start; especially when the goal
-   changes.  Or perhaps just after a timeout?
-
- * May need a way to force ignoring of the KILL signal, and assuming that
-   a job that won't die really has.
-
  * Job and subscription IPC commands need to be grouped as has already
    happened for the event commands, though note possible upcoming changes
    to Job below.
@@ -67,6 +49,15 @@ Medium Priority:
    could also take an id for an exact match, or NULL to list all jobs;
    and that way we lose a command (yay)
 
+
+Medium Priority:
+
+ * Iterating through every Job's start and stop events is messy; we should
+   have some kind of match lookup table to make it easier.
+
+ * Likewise iterating through all the Jobs to find a pid is messy; we
+   should have a lookup table for these too (see Job thoughts below).
+
  * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
    we encounter any problems write the error code to this pipe and die.
    Then from above, we can read this pipe to determine whether the job
@@ -83,6 +74,10 @@ Low Priority:
    got cleaned up -- and maybe don't use putenv/setenv since they're a
    little strange.
 
+ * need to add dependencies to jobs, which are files that must exist before
+   the job can be started (because Debian/Ubuntu like to litter config files
+   like jobs)
+
  * process_setup_console is due for an overhaul as well; especially if
    we want to be able to pass file descriptors in.  Am somewhat tempted
    to add a magic CONSOLE_DEFAULT option which tries fd, logging, null,
@@ -90,6 +85,15 @@ Low Priority:
 
  * We always want /dev/fd/NNN to be /dev/fd/3, we should have some way
    to instruct process_spawn to do that.
+
+ * We may need to KILL scripts, e.g. post-start; especially when the goal
+   changes.  Or perhaps just after a timeout?
+
+ * May need a way to force ignoring of the KILL signal, and assuming that
+   a job that won't die really has.
+
+ * Should be possible to configure things in one file, definings jobs with
+   a stanza rather than separate files.
 
  * Replace logd raise/wait/kill interlock with a pipe-based one?
 
@@ -99,10 +103,6 @@ Low Priority:
  * logd is currently disabled because of the problem where it goes away,
    and the scripts being run end up vanishing because they can't write
    data.
-
- * need to add dependencies to jobs, which are files that must exist before
-   the job can be started (because Debian/Ubuntu like to litter config files
-   like jobs)
 
 
 Unfinished Features:
