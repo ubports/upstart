@@ -799,10 +799,63 @@ test_find_by_id (void)
 
 
 void
+test_instance (void)
+{
+	Job *job, *ptr;
+
+	TEST_FUNCTION ("job_instance");
+
+	job = job_new (NULL, "test");
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+
+	/* Check that we get an ordinary job returned as-is. */
+	TEST_FEATURE ("with non-instance job");
+	TEST_ALLOC_FAIL {
+		ptr = job_instance (job);
+
+		TEST_EQ_P (ptr, job);
+	}
+
+
+	/* Check that we get a new instance for an instance master. */
+	TEST_FEATURE ("with instance master job");
+	job->instance = TRUE;
+
+	TEST_ALLOC_FAIL {
+		ptr = job_instance (job);
+
+		TEST_NE_P (ptr, job);
+		TEST_EQ (ptr->instance, TRUE);
+		TEST_EQ_P (ptr->instance_of, job);
+		TEST_EQ (ptr->delete, TRUE);
+
+		nih_list_free (&ptr->entry);
+	}
+
+
+	/* Check that we get the instance itself returned if we give
+	 * an instance of another job.
+	 */
+	TEST_FEATURE ("with instance of another job");
+	job->instance_of = job;
+
+	TEST_ALLOC_FAIL {
+		ptr = job_instance (job);
+
+		TEST_EQ_P (ptr, job);
+	}
+
+
+	nih_list_free (&job->entry);
+}
+
+void
 test_change_goal (void)
 {
 	EventEmission *em;
-	Job           *job, *ptr;
+	Job           *job;
 
 	TEST_FUNCTION ("job_change_goal");
 	program_name = "test";
@@ -825,31 +878,11 @@ test_change_goal (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		ptr = job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 	}
-
-
-	/* Check that an attempt to start a deleted job results in nothing
-	 * happening at all.
-	 */
-	TEST_FEATURE ("with deleted job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_DELETED;
-		job->delete = TRUE;
-
-		ptr = job_change_goal (job, JOB_START, NULL);
-
-		TEST_EQ_P (ptr, job);
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_DELETED);
-	}
-
-	job->delete = FALSE;
 
 
 	/* Check that an attempt to start a job that's in the process of
@@ -862,9 +895,8 @@ test_change_goal (void)
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		ptr = job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_KILLED);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -887,9 +919,8 @@ test_change_goal (void)
 		em->progress = EVENT_HANDLING;
 		em->jobs = 1;
 
-		ptr = job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -918,9 +949,8 @@ test_change_goal (void)
 		job->cause = NULL;
 		em->jobs = 0;
 
-		ptr = job_change_goal (job, JOB_START, em);
+		job_change_goal (job, JOB_START, em);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_STOP);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
@@ -945,9 +975,8 @@ test_change_goal (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		ptr = job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -965,9 +994,8 @@ test_change_goal (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		ptr = job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -984,16 +1012,15 @@ test_change_goal (void)
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 
-		ptr = job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 	}
 
 
-	/* Check that an attempt to stop a running deleted job results in
-	 * the goal being changed and the state being kicked too.
+	/* Check that an attempt to stop a running job to be deleted later
+	 * results in the goal being changed and the state being kicked too.
 	 */
 	TEST_FEATURE ("with running deleted job");
 	TEST_ALLOC_FAIL {
@@ -1002,9 +1029,8 @@ test_change_goal (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->delete = TRUE;
 
-		ptr = job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -1023,9 +1049,8 @@ test_change_goal (void)
 		job->state = JOB_PRE_START;
 		job->process[PROCESS_PRE_START]->pid = 1;
 
-		ptr = job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_START);
 		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 1);
@@ -1048,9 +1073,8 @@ test_change_goal (void)
 		em->jobs = 1;
 		em->progress = EVENT_HANDLING;
 
-		ptr = job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_SPAWNED);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
@@ -1077,9 +1101,8 @@ test_change_goal (void)
 		job->cause = NULL;
 		em->jobs = 0;
 
-		ptr = job_change_goal (job, JOB_STOP, em);
+		job_change_goal (job, JOB_STOP, em);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STARTING);
 
@@ -1097,63 +1120,11 @@ test_change_goal (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		ptr = job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP, NULL);
 
-		TEST_EQ_P (ptr, job);
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 	}
-
-
-	/* Check that an attempt to start a waiting instance job doesn't
-	 * change the job itself, but starts another job that is a new
-	 * instance of the first which is placed into the starting state.
-	 *
-	 * The new instance should reference the first, and should also
-	 * be marked to be deleted when stopped.
-	 */
-	TEST_FEATURE ("with waiting instance job");
-	job->instance = TRUE;
-
-	TEST_ALLOC_FAIL {
-		NihList *iter;
-		Job     *instance;
-
-		job->goal = JOB_STOP;
-		job->state = JOB_WAITING;
-
-		ptr = job_change_goal (job, JOB_START, NULL);
-
-		TEST_NE_P (ptr, job);
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-
-		/* Now find the instance; there should be only one */
-		instance = NULL;
-		for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
-		     iter = nih_hash_search (jobs, job->name, iter)) {
-			Job *i_job = (Job *)iter;
-
-			if (i_job->instance_of == job) {
-				TEST_EQ_P (instance, NULL);
-				instance = i_job;
-			}
-		}
-
-		TEST_NE_P (instance, NULL);
-		TEST_EQ_P (ptr, instance);
-
-		TEST_EQ_STR (instance->name, job->name);
-		TEST_EQ_P (instance->instance_of, job);
-		TEST_EQ (instance->delete, TRUE);
-
-		TEST_EQ (instance->goal, JOB_START);
-		TEST_EQ (instance->state, JOB_STARTING);
-
-		nih_list_free (&instance->entry);
-	}
-
-	job->instance = FALSE;
 
 
 	nih_list_free (&job->entry);
@@ -4200,8 +4171,58 @@ test_handle_event (void)
 
 	nih_list_free (&em->event.entry);
 
-
 	nih_list_free (&job2->entry);
+
+
+	/* Check that a matching event for an instance job results in the
+	 * job itself being unchanged, but a new job being created that's
+	 * an instance of the first and that one being started.
+	 */
+	TEST_FEATURE ("with matching event for instance job");
+	job1->instance = TRUE;
+
+	em = event_emit ("wibble", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->cause = NULL;
+
+		job_handle_event (em);
+
+		TEST_EQ (em->jobs, 1);
+
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_WAITING);
+		TEST_EQ_P (job1->cause, NULL);
+
+		job2 = NULL;
+		NIH_HASH_FOREACH (jobs, iter) {
+			Job *instance = (Job *)iter;
+
+			if (instance->instance_of == job1) {
+				job2 = instance;
+				break;
+			}
+		}
+
+		TEST_NE_P (job2, NULL);
+		TEST_EQ (job2->instance, TRUE);
+		TEST_EQ_P (job2->instance_of, job1);
+		TEST_EQ (job2->delete, TRUE);
+
+		TEST_EQ (job2->goal, JOB_START);
+		TEST_EQ (job2->state, JOB_STARTING);
+		TEST_EQ_P (job2->cause, em);
+
+		nih_list_free (&job2->entry);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
 	nih_list_free (&job1->entry);
 
 	event_poll ();
@@ -4463,6 +4484,7 @@ main (int   argc,
 	test_find_by_name ();
 	test_find_by_pid ();
 	test_find_by_id ();
+	test_instance ();
 	test_change_goal ();
 	test_change_state ();
 	test_next_state ();

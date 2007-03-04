@@ -231,7 +231,8 @@ Job *       job_find_by_name          (const char *name);
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 Job *       job_find_by_id            (uint32_t id);
 
-Job *       job_change_goal           (Job *job, JobGoal goal,
+Job *       job_instance              (Job *job);
+void        job_change_goal           (Job *job, JobGoal goal,
 				       EventEmission *emission);
 
 void        job_change_state          (Job *job, JobState state);

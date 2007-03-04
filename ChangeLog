@@ -1,5 +1,18 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_instance): Split out the instance spawning code
+	into its own function, as we'll frequently need a pointer to the
+	instance before we try and change the goal.
+	(job_change_goal): Clean this function back up again, it no longer
+	needs to return values and can assert that it's never called for
+	deleted jobs or instance mastersr.
+	(job_handle_event): Spawn an instance when we get a start event.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_instance): Check instance creation.
+	(test_change_goal): Update tests now that it doesn't return a value
+	again, and doesn't spawn instances itself.
+	(test_handle_event): Make sure instances are spawned.
+
 	* init/tests/test_event.c (test_poll): Needs a slight fix now that
 	we generate more events than we check, and that subscriptions go
 	away automatically.

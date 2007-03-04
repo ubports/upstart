@@ -649,6 +649,34 @@ job_find_by_id (uint32_t id)
 
 
 /**
+ * job_instance:
+ * @job: job to spawn from.
+ *
+ * This function is used to spawn a new instance of @job, if appropriate;
+ * it should be called before attempting to start a job as you cannot
+ * start a master of an instance job.
+ *
+ * Returns: new instance, or @job for non-instance jobs.
+ **/
+Job *
+job_instance (Job *job)
+{
+	Job *instance;
+
+	nih_assert (job != NULL);
+	nih_assert (job->state != JOB_DELETED);
+
+	if ((! job->instance) || (job->instance_of != NULL))
+		return job;
+
+	NIH_MUST (instance = job_copy (NULL, job));
+	instance->instance_of = job;
+	instance->delete = TRUE;
+
+	return instance;
+}
+
+/**
  * job_change_goal:
  * @job: job to change goal of,
  * @goal: goal to change to,
@@ -662,19 +690,30 @@ job_find_by_id (uint32_t id)
  * Any previous cause is unreferenced and allowed to finish handling
  * if it has no further references.
  *
- * Returns: job with changed goal, which may be a new instance of @job.
+ * Before starting a job, you should call job_instance() to ensure that you
+ * have a job that can be started, as you may not attempt to change the
+ * goal of an instance master.  You may also not change the goal of a deleted
+ * job.
  **/
-Job *
+void
 job_change_goal (Job           *job,
 		 JobGoal        goal,
 		 EventEmission *emission)
 {
-	int state = FALSE;
-
 	nih_assert (job != NULL);
+	nih_assert (job->state != JOB_DELETED);
+	nih_assert ((! job->instance) || (job->instance_of != NULL));
 
 	if (job->goal == goal)
-		return job;
+		return;
+
+	nih_info (_("%s goal changed from %s to %s"), job->name,
+		  job_goal_name (job->goal), job_goal_name (goal));
+
+	job->goal = goal;
+	job_change_cause (job, emission);
+	notify_job (job);
+
 
 	/* Normally whatever process or event is associated with the state
 	 * will finish naturally, so all we need do is change the goal and
@@ -685,46 +724,16 @@ job_change_goal (Job           *job,
 	 */
 	switch (goal) {
 	case JOB_START:
-		/* Deleted jobs cannot be started again. */
-		if (job->state == JOB_DELETED)
-			return job;
-
-		/* Instance jobs cannot be directly started, instead we
-		 * spawn off a new instance and switch to that job instead.
-		 */
-		if (job->instance && (job->instance_of == NULL)) {
-			Job *instance;
-
-			NIH_MUST (instance = job_copy (NULL, job));
-			instance->instance_of = job;
-			instance->delete = TRUE;
-
-			job = instance;
-		}
-
 		if (job->state == JOB_WAITING)
-			state = TRUE;
+			job_change_state (job, job_next_state (job));
 
 		break;
 	case JOB_STOP:
 		if (job->state == JOB_RUNNING)
-			state = TRUE;
+			job_change_state (job, job_next_state (job));
 
 		break;
 	}
-
-
-	nih_info (_("%s goal changed from %s to %s"), job->name,
-		  job_goal_name (job->goal), job_goal_name (goal));
-
-	job->goal = goal;
-	job_change_cause (job, emission);
-	notify_job (job);
-
-	if (state)
-		job_change_state (job, job_next_state (job));
-
-	return job;
 }
 
 /**
@@ -1676,6 +1685,10 @@ job_handle_event (EventEmission *emission)
 	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
+		/* Never try and handle events for jobs about to be deleted */
+		if (job->state == JOB_DELETED)
+			continue;
+
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
 		 * to be killed, the stop script then the start script to be
@@ -1695,8 +1708,13 @@ job_handle_event (EventEmission *emission)
 		NIH_LIST_FOREACH (&job->start_events, iter) {
 			Event *start_event = (Event *)iter;
 
-			if (event_match (&emission->event, start_event))
-				job_change_goal (job, JOB_START, emission);
+			if (event_match (&emission->event, start_event)) {
+				Job *instance;
+
+				instance = job_instance (job);
+				job_change_goal (instance, JOB_START,
+						 emission);
+			}
 		}
 	}
 }
