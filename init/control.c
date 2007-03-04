@@ -400,8 +400,8 @@ control_job_start (void                *data,
 	}
 
 	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job,
-	 * and reply with UPSTART_JOB_DELETED if the job we found was
-	 * deleted, since we can't change those.
+	 * and reply with UPSTART_JOB_INVALID if the job we found by id
+	 * is deleted, an instance or a replacement.
 	 */
 	if (! job) {
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
@@ -410,9 +410,11 @@ control_job_start (void                *data,
 		nih_io_send_message (control_io, reply);
 		return 0;
 
-	} else if (job->state == JOB_DELETED) {
+	} else if ((job->state == JOB_DELETED)
+		   || (job->instance_of != NULL)
+		   || (job->replacement_for != NULL)) {
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_DELETED,
+						       UPSTART_JOB_INVALID,
 						       job->id, job->name));
 		nih_io_send_message (control_io, reply);
 		return 0;
@@ -433,6 +435,11 @@ control_job_start (void                *data,
 	}
 
 	notify_subscribe_job (job, pid, job);
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB,
+					       job->id, job->name));
+	nih_io_send_message (control_io, reply);
 
 	job_change_goal (job, JOB_START, NULL);
 
@@ -480,8 +487,8 @@ control_job_stop (void                *data,
 	}
 
 	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job,
-	 * and reply with UPSTART_JOB_DELETED if the job we found was
-	 * deleted, since we can't change those.
+	 * and reply with UPSTART_JOB_INVALID if the job we found was
+	 * deleted or a replacement, since we can't change those.
 	 */
 	if (! job) {
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
@@ -490,29 +497,79 @@ control_job_stop (void                *data,
 		nih_io_send_message (control_io, reply);
 		return 0;
 
-	} else if (job->state == JOB_DELETED) {
+	} else if ((job->state == JOB_DELETED)
+		   || (job->replacement_for != NULL)) {
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_DELETED,
+						       UPSTART_JOB_INVALID,
 						       job->id, job->name));
 		nih_io_send_message (control_io, reply);
 		return 0;
 	}
 
-	/* Make sure that the job isn't already stopped, since we might never
-	 * send a reply if it's already at rest.  Send UPSTART_JOB_UNCHANGED
-	 * so they know their command had no effect.
-	 */
-	if (job->goal == JOB_STOP) {
+	if ((! job->instance) || (job->instance_of != NULL)) {
+		/* Make sure that the job isn't already stopped, since we
+		 * might never send a reply if it's already at rest.  Send
+		 * UPSTART_JOB_UNCHANGED so they know their command had no
+		 * effect.
+		 */
+		if (job->goal == JOB_STOP) {
+			NIH_MUST (reply = upstart_message_new (
+					  control_io, pid,
+					  UPSTART_JOB_UNCHANGED,
+					  job->id, job->name));
+			nih_io_send_message (control_io, reply);
+			return 0;
+		}
+
+		notify_subscribe_job (job, pid, job);
+
 		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNCHANGED,
+						       UPSTART_JOB,
 						       job->id, job->name));
 		nih_io_send_message (control_io, reply);
-		return 0;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+	} else {
+		int has_instance = FALSE;
+
+		/* We've been asked to stop an instance master, we can't
+		 * directly change the goal of those since they never have
+		 * any running processes.  Instead of returning INVALID,
+		 * we're rather more helpful, and instead stop every single
+		 * instance that's running.
+		 */
+		NIH_HASH_FOREACH (jobs, iter) {
+			Job *instance = (Job *)iter;
+
+			if (instance->instance_of != job)
+				continue;
+
+			has_instance = TRUE;
+
+			notify_subscribe_job (instance, pid, instance);
+
+			NIH_MUST (reply = upstart_message_new (
+					  control_io, pid, UPSTART_JOB,
+					  instance->id, instance->name));
+			nih_io_send_message (control_io, reply);
+
+			job_change_goal (instance, JOB_STOP, NULL);
+		}
+
+		/* If no instances were running, we send back
+		 * UPSTART_JOB_UNCHANGED since they should at least receive
+		 * something for their troubles.
+		 */
+		if (! has_instance) {
+			NIH_MUST (reply = upstart_message_new (
+					  control_io, pid,
+					  UPSTART_JOB_UNCHANGED,
+					  job->id, job->name));
+			nih_io_send_message (control_io, reply);
+			return 0;
+		}
 	}
-
-	notify_subscribe_job (job, pid, job);
-
-	job_change_goal (job, JOB_STOP, NULL);
 
 	return 0;
 }

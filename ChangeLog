@@ -1,5 +1,20 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_start): Update to return INVALID for
+	instances and replacements; add the forgotten UPSTART_JOB message.
+	(control_job_stop): Update to return INVALID for replacements; add
+	the forgotten UPSTART_JOB message.  Deal with instance masters
+	magically by iterating all instances and stopping those instead.
+	* init/tests/test_control.c (check_job_deleted): Rename to 
+	check_job_invalid and check that message.
+	(check_job): Function to check the job we've acted upon.
+	(test_job_start): Check that we get the UPSTART_JOB message first,
+	restore the check on deleted jobs causing an error and add checks
+	that instance and replacement jobs also cause an error.
+	(test_job_stop): Check that we get the UPSTART_JOB message first,
+	restore the check on deleted jobs causing an error.  Make sure
+	instances are handled.
+
 	* upstart/message.h: More message changes; add a JOB_FIND message
 	and replace UPSTART_JOB_DELETED with UPSTART_JOB_INVALID since there's
 	a few more problem conditions.
