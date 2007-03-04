@@ -106,8 +106,9 @@ typedef struct job_process {
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
+ * @replacement: job to replace this one,
+ * @replacement_for: job this is a replacement for,
  * @instance_of: job this is an instance of,
- * @delete: job should be deleted once stopped,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
  * @cause: cause of last goal change,
@@ -159,8 +160,9 @@ struct job {
 	char           *author;
 	char           *version;
 
+	Job            *replacement;
+	Job            *replacement_for;
 	Job            *instance_of;
-	int             delete;
 
 	JobGoal         goal;
 	JobState        state;
@@ -239,6 +241,8 @@ void        job_change_goal           (Job *job, JobGoal goal,
 
 void        job_change_state          (Job *job, JobState state);
 JobState    job_next_state            (Job *job);
+
+int         job_should_replace        (Job *job);
 
 void        job_run_process           (Job *job, ProcessType process);
 void        job_kill_process          (Job *job, ProcessType process);

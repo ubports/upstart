@@ -499,6 +499,7 @@ check_job_unknown (void               *data,
 	return 0;
 }
 
+#if 0
 static int
 check_job_deleted (void               *data,
 		   pid_t               pid,
@@ -514,6 +515,7 @@ check_job_deleted (void               *data,
 
 	return 0;
 }
+#endif
 
 static int
 check_job_unchanged (void               *data,
@@ -1196,7 +1198,6 @@ test_job_start (void)
 	TEST_NE_P (instance, NULL);
 	TEST_EQ (instance->instance, TRUE);
 	TEST_EQ_P (instance->instance_of, job);
-	TEST_EQ (instance->delete, TRUE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, instance);
 	TEST_NE_P (sub, NULL);
@@ -1257,6 +1258,7 @@ test_job_start (void)
 	event_poll ();
 
 
+#if 0
 	/* Check that if we ask to start a deleted job, which we have to do
 	 * by its id since it won't be found otherwise, we get an error
 	 * in reply.
@@ -1309,6 +1311,7 @@ test_job_start (void)
 
 	nih_list_free (&job->entry);
 	event_poll ();
+#endif
 
 
 	/* Check that if we ask to start a job that is already running,
@@ -1666,6 +1669,7 @@ test_job_stop (void)
 	event_poll ();
 
 
+#if 0
 	/* Check that if we ask to stop a deleted job, which we have to do
 	 * by its id since it won't be found otherwise, we get an error
 	 * in reply.
@@ -1718,6 +1722,7 @@ test_job_stop (void)
 
 	nih_list_free (&job->entry);
 	event_poll ();
+#endif
 
 
 	/* Check that if we ask to stop a job that is already stopped,

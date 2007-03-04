@@ -1,5 +1,46 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Remove the delete flag, add replacement and
+	replacement_for pointers instead.
+	* init/job.c (job_new): Initialise replacement and replacement_for
+	pointers to NULL.
+	(job_find_by_name): Update to return what job the one we found is
+	a replacement for, and to skip DELETED jobs.
+	(job_instance): Make it simply illegal to call this for deleted jobs,
+	instances or replacements.
+	(job_change_goal): Make it illegal to change the goal of a replacement
+	job.
+	(job_free_deleted): Remove the previous code to handle deleted instance
+	masters, because it's now bogus.
+	(job_should_replace): New function to determine whether a job is
+	replaceable.
+	* init/tests/test_job.c (test_new): Check pointers are set.
+	(test_copy): Check that replacement and replacement_for are not
+	copied, since their state of an individual job.
+	(test_find_by_name): Update tests to make sure we ignore deleted jobs,
+	instances and replacements.
+	(test_instance): Remove test that will now cause an assertion,
+	and no longer check delete is set.
+	(test_change_goal): Remove test that will now cause an assertion.
+	(test_free_deleted): Remove test cases for deleted masters.
+	(test_should_replace): Test the new check function.
+	(test_change_state): Make sure that we end up in deleted for instances
+	and replaced jobs, and that replacements become the real job.
+	* init/cfgfile.c (cfg_read_job): Update to handle replacement jobs;
+	the old job's previous replacement is discarded, and set to the
+	current job; and then if the job should be replaced, it's moved
+	to deleted (which should promote the new job).
+	(cfg_delete_handler): Handle deletion of a job in a similar manner,
+	except we sent the replacement pointer to the special -1 value since
+	we have no actual replacement.
+	* init/tests/test_cfgfile.c (test_watch_dir): Update tests to make
+	sure that deletion and modification are handled wrt replacement.
+	(test_read_job): Make sure that reparsing an existing file is handled.
+	* init/tests/test_control.c (test_job_start): Remove checks that
+	delete gets set to true for instances.
+	(test_job_stop, test_job_start): Temporarily comment out deleted
+	job behaviour, since that's been somewhat changed.
+
 	* upstart/message.h: We're not going to return JOB_LIST for JOB_STOP
 	since that's just awkward for the client; just act on the master,
 	and return JOB_UNCHANGED.

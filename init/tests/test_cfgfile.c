@@ -4728,10 +4728,19 @@ test_stanza_chdir (void)
 }
 
 
+static int destructor_called = 0;
+
+static int
+my_destructor (void *ptr)
+{
+	destructor_called++;
+	return 0;
+}
+
 void
 test_read_job (void)
 {
-	Job        *job, *new_job, *instance;
+	Job        *job, *new_job;
 	JobProcess *process;
 	FILE       *jf, *output;
 	char        filename[PATH_MAX];
@@ -4776,8 +4785,9 @@ test_read_job (void)
 
 
 	/* Check that when we give a new file for an existing job, the
-	 * existing structure is marked to be deleted once stopped and is
-	 * otherwise unchanged.
+	 * existing job is marked for replacement (and the previous
+	 * replacement discarded), but as that job is running, left to
+	 * stop on its own later.
 	 */
 	TEST_FEATURE ("with re-reading existing job file");
 	jf = fopen (filename, "w");
@@ -4788,12 +4798,12 @@ test_read_job (void)
 	job->state = JOB_RUNNING;
 	job->process[PROCESS_MAIN]->pid = 1000;
 
-	instance = job_new (NULL, "test");
-	instance->instance_of = job;
+	job->replacement = job_new (NULL, "wibble");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (job->replacement, my_destructor);
 
 	new_job = cfg_read_job (NULL, filename, "test");
-
-	TEST_TRUE (job->delete);
 
 	TEST_ALLOC_SIZE (new_job, sizeof (Job));
 	TEST_LIST_EMPTY (&job->start_events);
@@ -4806,8 +4816,6 @@ test_read_job (void)
 	TEST_ALLOC_PARENT (process->command, process);
 	TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
 
-	TEST_FALSE (new_job->delete);
-
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
 	TEST_EQ (job->process[PROCESS_MAIN]->pid, 1000);
@@ -4816,12 +4824,54 @@ test_read_job (void)
 	TEST_EQ (new_job->state, JOB_WAITING);
 	TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
 
-	TEST_EQ_P (instance->instance_of, job);
+	TEST_TRUE (destructor_called);
 
-	nih_list_free (&instance->entry);
+	TEST_EQ_P (job->replacement, new_job);
+	TEST_EQ_P (new_job->replacement_for, job);
+
 	nih_list_free (&job->entry);
 
 	job = new_job;
+	job->replacement_for = NULL;
+
+
+	/* Check that a stopped job can be instantly replaced and marked for
+	 * deletion if it's waiting.
+	 */
+	TEST_FEATURE ("with re-reading stopped job");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon --daemon\n");
+	fclose (jf);
+
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+	new_job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (new_job, sizeof (Job));
+	TEST_LIST_EMPTY (&job->start_events);
+	TEST_LIST_EMPTY (&job->stop_events);
+
+	process = new_job->process[PROCESS_MAIN];
+	TEST_ALLOC_PARENT (process, new_job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+	TEST_EQ (new_job->goal, JOB_STOP);
+	TEST_EQ (new_job->state, JOB_WAITING);
+	TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
+
+	TEST_EQ_P (job->replacement, new_job);
+	TEST_EQ_P (new_job->replacement_for, NULL);
+
+	nih_list_free (&new_job->entry);
+	nih_list_free (&job->entry);
 
 
 	/* Check that a job may have both exec and script missing.
@@ -5019,11 +5069,6 @@ test_watch_dir (void)
 
 	job = job_find_by_name ("frodo/bar");
 
-	while (job->delete) {
-		nih_list_free (&job->entry);
-		job = job_find_by_name ("frodo/bar");
-	}
-
 	TEST_NE_P (job, NULL);
 	TEST_TRUE (job->respawn);
 	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
@@ -5056,16 +5101,14 @@ test_watch_dir (void)
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
-	TEST_EQ (old_job->delete, TRUE);
-
-	nih_list_free (&old_job->entry);
-
 	job = job_find_by_name ("frodo/bar");
 
-	while (job->delete) {
-		nih_list_free (&job->entry);
-		job = job_find_by_name ("frodo/bar");
-	}
+	TEST_EQ_P (old_job->replacement, job);
+	TEST_EQ_P (job->replacement_for, NULL);
+	TEST_EQ (old_job->goal, JOB_STOP);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+	nih_list_free (&old_job->entry);
 
 	TEST_NE_P (job, NULL);
 	TEST_TRUE (job->respawn);
@@ -5075,10 +5118,14 @@ test_watch_dir (void)
 
 
 	/* Check that when a configuration file is deleted, the job is also
-	 * marked for deletion.
+	 * marked for deletion with any previous replacement discarded.
 	 */
 	TEST_FEATURE ("with deletion of job");
 	old_job = job;
+	old_job->replacement = job_new (NULL, "wibble");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (old_job->replacement, my_destructor);
 
 	strcpy (filename, dirname);
 	strcat (filename, "/frodo/bar");
@@ -5093,7 +5140,11 @@ test_watch_dir (void)
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
-	TEST_EQ (old_job->delete, TRUE);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (old_job->replacement, (void *)-1);
+	TEST_EQ (old_job->goal, JOB_STOP);
+	TEST_EQ (old_job->state, JOB_DELETED);
 
 	nih_list_free (&old_job->entry);
 

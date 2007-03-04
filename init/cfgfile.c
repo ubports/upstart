@@ -1807,8 +1807,18 @@ cfg_read_job (const void *parent,
 	 * since we don't want to mis-match scripts or configuration.
 	 */
 	if (old_job) {
-		nih_debug ("Replacing existing %s job", job->name);
-		old_job->delete = TRUE;
+		nih_info (_("Replacing existing %s job"), job->name);
+
+		if (old_job->replacement) {
+			nih_debug ("Discarding previous replacement");
+			nih_list_free (&old_job->replacement->entry);
+		}
+
+		old_job->replacement = job;
+		job->replacement_for = old_job;
+
+		if (job_should_replace (old_job))
+			job_change_state (old_job, job_next_state (old_job));
 	}
 
 	return job;
@@ -1988,9 +1998,16 @@ cfg_delete_handler (const char *prefix,
 
 	job = job_find_by_name (name);
 	if (job) {
-		job->delete = TRUE;
+		nih_info (_("Deleting %s job"), job->name);
 
-		if ((job->goal == JOB_STOP) && (job->state == JOB_WAITING))
+		if (job->replacement) {
+			nih_debug ("Discarding replacement");
+			nih_list_free (&job->replacement->entry);
+		}
+
+		job->replacement = (void *)-1;
+
+		if (job_should_replace (job))
 			job_change_state (job, job_next_state (job));
 	}
 

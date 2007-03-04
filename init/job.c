@@ -293,8 +293,9 @@ job_new (const void *parent,
 	job->author = NULL;
 	job->version = NULL;
 
+	job->replacement = NULL;
+	job->replacement_for = NULL;
 	job->instance_of = NULL;
-	job->delete = FALSE;
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
@@ -556,8 +557,9 @@ job_name (Job *job)
  * @name: name of job.
  *
  * Finds the job with the given @name in the jobs hash table.  This will
- * not return instance jobs, instead preferring to return the job that they
- * are actually an instance of, and will not return jobs marked for deletion.
+ * not return instance or replacement jobs, instead preferring to return
+ * the job that is currently active.  It will also not return jobs that
+ * are to be deleted.
  *
  * Returns: job found or NULL if not known.
  **/
@@ -572,9 +574,11 @@ job_find_by_name (const char *name)
 
 	job = (Job *)nih_hash_lookup (jobs, name);
 	while (job) {
-		if (job->instance_of && (! job->instance_of->delete)) {
+		if (job->instance_of) {
 			return job->instance_of;
-		} else if (job->delete) {
+		} else if (job->replacement_for) {
+			return job->replacement_for;
+		} else if (job->state == JOB_DELETED) {
 			job = (Job *)nih_hash_search (jobs, name, &job->entry);
 		} else {
 			break;
@@ -656,6 +660,9 @@ job_find_by_id (uint32_t id)
  * it should be called before attempting to start a job as you cannot
  * start a master of an instance job.
  *
+ * It is illegal to attempt to obtain an instance of a deleted job,
+ * instance job or replacement job.
+ *
  * Returns: new instance, or @job for non-instance jobs.
  **/
 Job *
@@ -665,15 +672,17 @@ job_instance (Job *job)
 
 	nih_assert (job != NULL);
 	nih_assert (job->state != JOB_DELETED);
+	nih_assert (job->instance_of == NULL);
+	nih_assert (job->replacement_for == NULL);
 
-	if ((! job->instance) || (job->instance_of != NULL))
+	if (job->instance) {
+		NIH_MUST (instance = job_copy (NULL, job));
+		instance->instance_of = job;
+
+		return instance;
+	} else {
 		return job;
-
-	NIH_MUST (instance = job_copy (NULL, job));
-	instance->instance_of = job;
-	instance->delete = TRUE;
-
-	return instance;
+	}
 }
 
 /**
@@ -703,6 +712,7 @@ job_change_goal (Job           *job,
 	nih_assert (job != NULL);
 	nih_assert (job->state != JOB_DELETED);
 	nih_assert ((! job->instance) || (job->instance_of != NULL));
+	nih_assert (job->replacement_for == NULL);
 
 	if (job->goal == goal)
 		return;
@@ -937,13 +947,24 @@ job_change_state (Job      *job,
 			notify_job_finished (job);
 			job_change_cause (job, NULL);
 
-			if (job->delete)
+			/* Mark the job as deleted if it's an instance or
+			 * should be replaced by another.
+			 */
+			if (job->instance_of || job_should_replace (job))
 				state = job_next_state (job);
 
 			break;
 		case JOB_DELETED:
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_WAITING);
+
+			/* If the job has a replacement, and isn't just
+			 * marked for deletion, let that become the prime
+			 * job now.
+			 */
+			if ((job->replacement != NULL)
+			    && (job->replacement != (void *)-1))
+				job->replacement->replacement_for = NULL;
 
 			break;
 		}
@@ -1192,6 +1213,45 @@ job_catch_runaway (Job *job)
 	return FALSE;
 }
 
+
+/**
+ * job_should_replace:
+ * @job: job to check.
+ *
+ * This function determines whether a job has a replacement and whether it
+ * should be replaced by that one by moving it to the DELETED state.
+ *
+ * A job should be replaced if it has a replacement, is in the WAITING state
+ * and is either a non-instance job or an instance job without any instances.
+ *
+ * Returns: TRUE if job should be replaced, FALSE otherwise.
+ **/
+int
+job_should_replace (Job *job)
+{
+	nih_assert (job != NULL);
+
+	if (! job->replacement)
+		return FALSE;
+
+	if (job->state != JOB_WAITING)
+		return FALSE;
+
+	if (! job->instance)
+		return TRUE;
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		Job *instance = (Job *)iter;
+
+		if (instance->state == JOB_DELETED)
+			continue;
+
+		if (instance->instance_of == job)
+			return FALSE;
+	}
+
+	return TRUE;
+}
 
 /**
  * job_run_process:
@@ -1685,8 +1745,11 @@ job_handle_event (EventEmission *emission)
 	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
-		/* Never try and handle events for jobs about to be deleted */
-		if (job->state == JOB_DELETED)
+		/* Never try and handle events for jobs about to be deleted,
+		 * or for a replacement job.
+		 */
+		if ((job->state == JOB_DELETED)
+		    || (job->replacement_for != NULL))
 			continue;
 
 		/* We stop first so that if an event is listed both as a
@@ -1704,6 +1767,12 @@ job_handle_event (EventEmission *emission)
 			if (event_match (&emission->event, stop_event))
 				job_change_goal (job, JOB_STOP, emission);
 		}
+
+		/* Don't handle start events for instances, as they get
+		 * handled by the master.
+		 */
+		if (job->instance_of)
+			continue;
 
 		NIH_LIST_FOREACH (&job->start_events, iter) {
 			Event *start_event = (Event *)iter;
@@ -1773,6 +1842,7 @@ job_detect_stalled (void)
 			Event *event = (Event *)event_iter;
 
 			if (! strcmp (event->name, STALLED_EVENT))
+
 				can_stall = TRUE;
 		}
 
@@ -1806,37 +1876,6 @@ job_free_deleted (void)
 		Job *job = (Job *)iter;
 
 		if (job->state != JOB_DELETED)
-			continue;
-
-		nih_debug ("Deleting %s job", job->name);
-		nih_list_free (&job->entry);
-	}
-
-	/* Check instance jobs, as they won't ever be in the deleted state;
-	 * do it here rather than above as we know that all instances of the
-	 * jobs have been cleaned up, and any that remain should save it.
-	 */
-	NIH_HASH_FOREACH_SAFE (jobs, iter) {
-		Job *job = (Job *)iter;
-		int  has_instance = FALSE;
-
-		if (! job->delete)
-			continue;
-
-		if ((! job->instance) || (job->instance_of != NULL))
-			continue;
-
-		/* Check for remaining instances */
-		NIH_HASH_FOREACH (jobs, iter) {
-			Job *instance = (Job *)iter;
-
-			if (instance->instance_of == job) {
-				has_instance = TRUE;
-				break;
-			}
-		}
-
-		if (has_instance)
 			continue;
 
 		nih_debug ("Deleting %s job", job->name);

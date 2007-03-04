@@ -167,8 +167,9 @@ test_new (void)
 		TEST_EQ_P (job->author, NULL);
 		TEST_EQ_P (job->version, NULL);
 
+		TEST_EQ_P (job->replacement, NULL);
+		TEST_EQ_P (job->replacement_for, NULL);
 		TEST_EQ_P (job->instance_of, NULL);
-		TEST_EQ (job->delete, FALSE);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -261,8 +262,9 @@ test_copy (void)
 		TEST_EQ_P (copy->author, NULL);
 		TEST_EQ_P (copy->version, NULL);
 
+		TEST_EQ_P (copy->replacement, NULL);
+		TEST_EQ_P (copy->replacement_for, NULL);
 		TEST_EQ_P (copy->instance_of, NULL);
-		TEST_EQ (copy->delete, FALSE);
 
 		TEST_EQ (copy->goal, JOB_STOP);
 		TEST_EQ (copy->state, JOB_WAITING);
@@ -333,8 +335,9 @@ test_copy (void)
 	job->author = nih_strdup (job, "joe bloggs");
 	job->version = nih_strdup (job, "1.0");
 
+	job->replacement = (void *)-1;
+	job->replacement_for = (void *)-1;
 	job->instance_of = (void *)-1;
-	job->delete = TRUE;
 
 	job->goal = JOB_STOP;
 	job->state = JOB_POST_STOP;
@@ -453,8 +456,9 @@ test_copy (void)
 		TEST_ALLOC_PARENT (copy->version, copy);
 		TEST_EQ_STR (copy->version, job->version);
 
+		TEST_EQ_P (copy->replacement, NULL);
+		TEST_EQ_P (copy->replacement_for, NULL);
 		TEST_EQ_P (copy->instance_of, NULL);
-		TEST_EQ (copy->delete, FALSE);
 
 		TEST_EQ (copy->goal, JOB_STOP);
 		TEST_EQ (copy->state, JOB_WAITING);
@@ -595,21 +599,18 @@ test_copy (void)
 void
 test_find_by_name (void)
 {
-	Job *job1, *job2, *job3, *job4, *job5, *ptr;
+	Job *job1, *job2, *job3, *ptr;
 
 	TEST_FUNCTION ("job_find_by_name");
 	job1 = job_new (NULL, "foo");
 	job2 = job_new (NULL, "bar");
-	job2->delete = TRUE;
-	job3 = job_new (NULL, "bar");
-	job4 = job_new (NULL, "baz");
-	job5 = job_new (NULL, "bar");
+	job3 = job_new (NULL, "baz");
 
 	/* Check that we can find a job that exists by its name. */
 	TEST_FEATURE ("with name we expect to find");
-	ptr = job_find_by_name ("bar");
+	ptr = job_find_by_name ("foo");
 
-	TEST_EQ_P (ptr, job3);
+	TEST_EQ_P (ptr, job1);
 
 
 	/* Check that we get NULL if the job doesn't exist. */
@@ -619,34 +620,40 @@ test_find_by_name (void)
 	TEST_EQ_P (ptr, NULL);
 
 
+	/* Check that we ignore jobs about to be deleted. */
+	TEST_FEATURE ("with deleted job");
+	job2->state = JOB_DELETED;
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ_P (ptr, NULL);
+
+
 	/* Check that if an entry is an instance, we get the real job. */
 	TEST_FEATURE ("with instance");
+	job2->state = JOB_WAITING;
 	job2->instance_of = job3;
 	ptr = job_find_by_name ("bar");
 
 	TEST_EQ (ptr, job3);
 
 
-	/* Check that if the master instance is deleted, we ignore it and
-	 * try the next job.
-	 */
-	TEST_FEATURE ("with instance of deleted job");
-	job3->delete = TRUE;
+	/* Check that if an entry is an replacement, we get the current job. */
+	TEST_FEATURE ("with replacement");
+	job2->instance_of = NULL;
+	job2->replacement_for = job3;
 	ptr = job_find_by_name ("bar");
 
-	TEST_EQ (ptr, job5);
+	TEST_EQ (ptr, job3);
 
 
 	/* Check that we get NULL if the job list is empty, and nothing
 	 * bad happens.
 	 */
 	TEST_FEATURE ("with empty job list");
-	nih_list_free (&job5->entry);
-	nih_list_free (&job4->entry);
 	nih_list_free (&job3->entry);
 	nih_list_free (&job2->entry);
 	nih_list_free (&job1->entry);
-	ptr = job_find_by_name ("bar");
+	ptr = job_find_by_name ("foo");
 
 	TEST_EQ_P (ptr, NULL);
 }
@@ -829,22 +836,8 @@ test_instance (void)
 		TEST_NE_P (ptr, job);
 		TEST_EQ (ptr->instance, TRUE);
 		TEST_EQ_P (ptr->instance_of, job);
-		TEST_EQ (ptr->delete, TRUE);
 
 		nih_list_free (&ptr->entry);
-	}
-
-
-	/* Check that we get the instance itself returned if we give
-	 * an instance of another job.
-	 */
-	TEST_FEATURE ("with instance of another job");
-	job->instance_of = job;
-
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (job);
-
-		TEST_EQ_P (ptr, job);
 	}
 
 
@@ -1017,27 +1010,6 @@ test_change_goal (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 	}
-
-
-	/* Check that an attempt to stop a running job to be deleted later
-	 * results in the goal being changed and the state being kicked too.
-	 */
-	TEST_FEATURE ("with running deleted job");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->delete = TRUE;
-
-		job_change_goal (job, JOB_STOP, NULL);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->delete = FALSE;
 
 
 	/* Check that an attempt to stop a starting job only results in the
@@ -2310,11 +2282,11 @@ test_change_state (void)
 	job->respawn_count = 0;
 
 
-	/* Check that a deleted job can move from post-stop to waiting,
+	/* Check that an instance job can move from post-stop to waiting,
 	 * going through that state and ending up in deleted.
 	 */
-	TEST_FEATURE ("post-stop to waiting for deleted job");
-	job->delete = TRUE;
+	TEST_FEATURE ("post-stop to waiting for instance");
+	job->instance_of = job_new (NULL, "wibble");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
@@ -2355,7 +2327,61 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 1);
 	}
 
-	job->delete = FALSE;
+	nih_list_free (&job->instance_of->entry);
+	job->instance_of = NULL;
+
+
+	/* Check that a job with a replacement can move from post-stop to
+	 * waiting, going through that state and ending up in deleted where
+	 * the replacement takes over and becomes a real job.
+	 */
+	TEST_FEATURE ("post-stop to waiting for instance");
+	job->replacement = job_new (NULL, "wibble");
+	job->replacement->replacement_for = job;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		TEST_EQ_P (job->replacement->replacement_for, NULL);
+	}
+
+	nih_list_free (&job->replacement->entry);
+	job->replacement = NULL;
 
 
 	fclose (output);
@@ -2379,7 +2405,8 @@ test_next_state (void)
 
 	/* Check that the next state if we're stopping a waiting job is
 	 * deleted.  The only place this can happen is from the job loop
-	 * if job->delete is TRUE; so this is the logical next state.
+	 * for jobs that should be deleted or replaced; so this is the
+	 * logical next state.
 	 */
 	TEST_FEATURE ("with waiting job and a goal of stop");
 	job->goal = JOB_STOP;
@@ -2597,6 +2624,84 @@ test_next_state (void)
 
 
 	nih_list_free (&job->entry);
+}
+
+
+void
+test_should_replace (void)
+{
+	Job *job1, *job2, *job3;
+	int  replace;
+
+	TEST_FUNCTION ("job_should_replace");
+	job1 = job_new (NULL, "foo");
+	job1->goal = JOB_STOP;
+	job1->state = JOB_WAITING;
+
+	job2 = job_new (NULL, "bar");
+	job2->goal = JOB_START;
+	job2->state = JOB_RUNNING;
+	job2->replacement = job1;
+
+	job3 = job_new (NULL, "bar");
+	job3->goal = JOB_START;
+	job3->state = JOB_RUNNING;
+	job3->instance_of = job2;
+
+
+	/* Check that we should not replace a job that doesn't have a
+	 * replacement at this point.
+	 */
+	TEST_FEATURE ("with replacement-less job");
+	replace = job_should_replace (job1);
+
+	TEST_FALSE (replace);
+
+
+	/* Check that we should not replace a job that has a replacement,
+	 * but is still running.
+	 */
+	TEST_FEATURE ("with running job");
+	replace = job_should_replace (job2);
+
+	TEST_FALSE (replace);
+
+
+	/* Check that we should replace a job that has a replacement and
+	 * is no longer running.
+	 */
+	TEST_FEATURE ("with stopped job");
+	job2->goal = JOB_STOP;
+	job2->state = JOB_WAITING;
+
+	replace = job_should_replace (job2);
+
+	TEST_TRUE (replace);
+
+
+	/* Check that we should not replace a job that has current instances.
+	 */
+	TEST_FEATURE ("with job that has instances");
+	job2->instance = TRUE;
+
+	replace = job_should_replace (job2);
+
+	TEST_FALSE (replace);
+
+
+	/* Check that we should replace a job that has no current instances.
+	 */
+	TEST_FEATURE ("with instance-less job");
+	job3->instance_of = NULL;
+
+	replace = job_should_replace (job2);
+
+	TEST_TRUE (replace);
+
+
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
 }
 
 
@@ -4211,7 +4316,6 @@ test_handle_event (void)
 		TEST_NE_P (job2, NULL);
 		TEST_EQ (job2->instance, TRUE);
 		TEST_EQ_P (job2->instance_of, job1);
-		TEST_EQ (job2->delete, TRUE);
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_STARTING);
@@ -4430,12 +4534,10 @@ test_free_deleted ()
 
 	TEST_FUNCTION ("job_free_deleted");
 	job1 = job_new (NULL, "frodo");
-	job1->delete = TRUE;
 	job1->goal = JOB_START;
 	job1->state = JOB_RUNNING;
 
 	job2 = job_new (NULL, "bilbo");
-	job2->delete = TRUE;
 	job2->goal = JOB_STOP;
 	job2->state = JOB_DELETED;
 
@@ -4467,94 +4569,8 @@ test_free_deleted ()
 
 	TEST_EQ (destructor_called, 0);
 
+	nih_list_free (&job1->entry);
 	nih_list_free (&job3->entry);
-
-
-	/* Check that when we delete an instance job, the master instance
-	 * isn't deleted if it's not marked to be.
-	 */
-	TEST_FEATURE ("with instance job");
-	job1->instance = TRUE;
-	job1->delete = FALSE;
-	job1->goal = JOB_STOP;
-	job1->state = JOB_WAITING;
-
-	job2 = job_new (NULL, "frodo");
-	job2->instance = TRUE;
-	job2->instance_of = job1;
-	job2->delete = TRUE;
-	job2->goal = JOB_STOP;
-	job2->state = JOB_DELETED;
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (job2, my_destructor);
-
-	job_free_deleted ();
-
-	TEST_EQ (destructor_called, 1);
-
-
-	/* Check that when we delete an instance job, a deleted master instance
-	 * isn't deleted if there's other instances still around.
-	 */
-	TEST_FEATURE ("with instance of deleted job with remaining instances");
-	job1->delete = TRUE;
-
-	job2 = job_new (NULL, "frodo");
-	job2->instance = TRUE;
-	job2->instance_of = job1;
-	job2->delete = TRUE;
-	job2->goal = JOB_STOP;
-	job2->state = JOB_DELETED;
-
-	job3 = job_new (NULL, "frodo");
-	job3->instance = TRUE;
-	job3->instance_of = job1;
-	job3->delete = TRUE;
-	job3->goal = JOB_START;
-	job3->state = JOB_RUNNING;
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (job2, my_destructor);
-	nih_alloc_set_destructor (job3, my_destructor);
-
-	job_free_deleted ();
-
-	TEST_EQ (destructor_called, 1);
-
-
-	/* Check that when we delete the last instance of a deleted job,
-	 * the master instance is also deleted.
-	 */
-	TEST_FEATURE ("with last instance of deleted job");
-	job1->delete = TRUE;
-
-	job3->goal = JOB_STOP;
-	job3->state = JOB_DELETED;
-
-	destructor_called = 0;
-
-	job_free_deleted ();
-
-	TEST_EQ (destructor_called, 2);
-
-
-	/* Check that a lone deleted master instance is automatically cleaned
-	 * up if it has no instances.
-	 */
-	TEST_FEATURE ("with deleted instance job");
-	job1 = job_new (NULL, "frodo");
-	job1->instance = TRUE;
-	job1->delete = TRUE;
-	job1->goal = JOB_STOP;
-	job1->state = JOB_WAITING;
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (job1, my_destructor);
-
-	job_free_deleted ();
-
-	TEST_EQ (destructor_called, 1);
 }
 
 
@@ -4573,6 +4589,7 @@ main (int   argc,
 	test_change_goal ();
 	test_change_state ();
 	test_next_state ();
+	test_should_replace ();
 	test_run_process ();
 	test_kill_process ();
 	test_child_reaper ();
