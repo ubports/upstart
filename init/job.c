@@ -1811,4 +1811,35 @@ job_free_deleted (void)
 		nih_debug ("Deleting %s job", job->name);
 		nih_list_free (&job->entry);
 	}
+
+	/* Check instance jobs, as they won't ever be in the deleted state;
+	 * do it here rather than above as we know that all instances of the
+	 * jobs have been cleaned up, and any that remain should save it.
+	 */
+	NIH_HASH_FOREACH_SAFE (jobs, iter) {
+		Job *job = (Job *)iter;
+		int  has_instance = FALSE;
+
+		if (! job->delete)
+			continue;
+
+		if ((! job->instance) || (job->instance_of != NULL))
+			continue;
+
+		/* Check for remaining instances */
+		NIH_HASH_FOREACH (jobs, iter) {
+			Job *instance = (Job *)iter;
+
+			if (instance->instance_of == job) {
+				has_instance = TRUE;
+				break;
+			}
+		}
+
+		if (has_instance)
+			continue;
+
+		nih_debug ("Deleting %s job", job->name);
+		nih_list_free (&job->entry);
+	}
 }

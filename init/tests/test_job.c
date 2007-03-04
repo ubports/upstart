@@ -4467,9 +4467,94 @@ test_free_deleted ()
 
 	TEST_EQ (destructor_called, 0);
 
-
-	nih_list_free (&job1->entry);
 	nih_list_free (&job3->entry);
+
+
+	/* Check that when we delete an instance job, the master instance
+	 * isn't deleted if it's not marked to be.
+	 */
+	TEST_FEATURE ("with instance job");
+	job1->instance = TRUE;
+	job1->delete = FALSE;
+	job1->goal = JOB_STOP;
+	job1->state = JOB_WAITING;
+
+	job2 = job_new (NULL, "frodo");
+	job2->instance = TRUE;
+	job2->instance_of = job1;
+	job2->delete = TRUE;
+	job2->goal = JOB_STOP;
+	job2->state = JOB_DELETED;
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (job2, my_destructor);
+
+	job_free_deleted ();
+
+	TEST_EQ (destructor_called, 1);
+
+
+	/* Check that when we delete an instance job, a deleted master instance
+	 * isn't deleted if there's other instances still around.
+	 */
+	TEST_FEATURE ("with instance of deleted job with remaining instances");
+	job1->delete = TRUE;
+
+	job2 = job_new (NULL, "frodo");
+	job2->instance = TRUE;
+	job2->instance_of = job1;
+	job2->delete = TRUE;
+	job2->goal = JOB_STOP;
+	job2->state = JOB_DELETED;
+
+	job3 = job_new (NULL, "frodo");
+	job3->instance = TRUE;
+	job3->instance_of = job1;
+	job3->delete = TRUE;
+	job3->goal = JOB_START;
+	job3->state = JOB_RUNNING;
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (job2, my_destructor);
+	nih_alloc_set_destructor (job3, my_destructor);
+
+	job_free_deleted ();
+
+	TEST_EQ (destructor_called, 1);
+
+
+	/* Check that when we delete the last instance of a deleted job,
+	 * the master instance is also deleted.
+	 */
+	TEST_FEATURE ("with last instance of deleted job");
+	job1->delete = TRUE;
+
+	job3->goal = JOB_STOP;
+	job3->state = JOB_DELETED;
+
+	destructor_called = 0;
+
+	job_free_deleted ();
+
+	TEST_EQ (destructor_called, 2);
+
+
+	/* Check that a lone deleted master instance is automatically cleaned
+	 * up if it has no instances.
+	 */
+	TEST_FEATURE ("with deleted instance job");
+	job1 = job_new (NULL, "frodo");
+	job1->instance = TRUE;
+	job1->delete = TRUE;
+	job1->goal = JOB_STOP;
+	job1->state = JOB_WAITING;
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (job1, my_destructor);
+
+	job_free_deleted ();
+
+	TEST_EQ (destructor_called, 1);
 }
 
 

@@ -1,5 +1,11 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_free_deleted): Found a bug; because
+	master instances never change state, they never end up in the deleted
+	state so are never reaped.  Add some test cases for cleaning them up,
+	but not while they have remaining instances.
+	* init/job.c (job_free_deleted): Implement the bug fix.
+
 	* init/job.c (job_instance): Split out the instance spawning code
 	into its own function, as we'll frequently need a pointer to the
 	instance before we try and change the goal.
