@@ -241,12 +241,15 @@ static int
 check_job_status (void               *data,
 		  pid_t               pid,
 		  UpstartMessageType  type,
+		  uint32_t            id,
 		  const char         *name,
 		  JobGoal             goal,
 		  JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
+
+	TEST_EQ_U (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_SPAWNED);
@@ -255,16 +258,33 @@ check_job_status (void               *data,
 }
 
 static int
-check_event_job_status (void               *data,
-			pid_t               pid,
-			UpstartMessageType  type,
-			uint32_t            id,
-			const char         *name,
-			JobGoal             goal,
-			JobState            state)
+check_job_process (void               *data,
+		   pid_t               pid,
+		   UpstartMessageType  type,
+		   ProcessType         process,
+		   pid_t               process_pid)
 {
 	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT_JOB_STATUS);
+	TEST_EQ (type, UPSTART_JOB_PROCESS);
+
+	TEST_EQ (process, PROCESS_MAIN);
+	TEST_EQ (process_pid, 1000);
+
+	return 0;
+}
+
+static int
+check_job_status_end (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type,
+		      uint32_t            id,
+		      const char         *name,
+		      JobGoal             goal,
+		      JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS_END);
+
 	TEST_EQ_U (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
@@ -272,6 +292,106 @@ check_event_job_status (void               *data,
 
 	return 0;
 }
+
+static int
+check_job_finished (void               *data,
+		    pid_t               pid,
+		    UpstartMessageType  type,
+		    uint32_t            id,
+		    const char         *name,
+		    int                 failed,
+		    ProcessType         failed_process,
+		    int                 exit_status)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_FINISHED);
+
+	TEST_EQ_U (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_TRUE (failed);
+	TEST_EQ (failed_process, PROCESS_MAIN);
+	TEST_EQ (exit_status, 1);
+
+	return 0;
+}
+
+
+static int
+check_event (void               *data,
+	     pid_t               pid,
+	     UpstartMessageType  type,
+	     uint32_t            id,
+	     const char         *name,
+	     char * const       *args,
+	     char * const       *env)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT);
+
+	TEST_EQ_U (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "snarf");
+
+	TEST_ALLOC_SIZE (args, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (args[0], args);
+	TEST_ALLOC_PARENT (args[1], args);
+	TEST_EQ_STR (args[0], "foo");
+	TEST_EQ_STR (args[1], "bar");
+	TEST_EQ_P (args[2], NULL);
+
+	TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
+	TEST_ALLOC_PARENT (env[0], env);
+	TEST_EQ_STR (env[0], "FOO=BAR");
+	TEST_EQ_P (env[1], NULL);
+
+	return 0;
+}
+
+static int
+check_event_caused (void               *data,
+		    pid_t               pid,
+		    UpstartMessageType  type,
+		    uint32_t            id)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT_CAUSED);
+
+	TEST_EQ_U (id, 0xdeafbeef);
+
+	return 0;
+}
+
+static int
+check_event_finished (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type,
+		      uint32_t            id,
+		      int                 failed,
+		      const char         *name,
+		      char * const       *args,
+		      char * const       *env)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT_FINISHED);
+
+	TEST_EQ_U (id, 0xdeafbeef);
+	TEST_EQ (failed, FALSE);
+	TEST_EQ_STR (name, "snarf");
+
+	TEST_ALLOC_SIZE (args, sizeof (char *) * 3);
+	TEST_ALLOC_PARENT (args[0], args);
+	TEST_ALLOC_PARENT (args[1], args);
+	TEST_EQ_STR (args[0], "foo");
+	TEST_EQ_STR (args[1], "bar");
+	TEST_EQ_P (args[2], NULL);
+
+	TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
+	TEST_ALLOC_PARENT (env[0], env);
+	TEST_EQ_STR (env[0], "FOO=BAR");
+	TEST_EQ_P (env[1], NULL);
+
+	return 0;
+}
+
 
 void
 test_job (void)
@@ -287,14 +407,18 @@ test_job (void)
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
-	/* Check that subscribed processes receive a job status message when
-	 * a job changes state.
+	/* Check that subscribed processes receive a job status message set
+	 * when a job changes state.
 	 */
 	TEST_FEATURE ("with subscription to job");
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
+	job->id = 0xdeafbeef;
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->pid = 1000;
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -307,11 +431,27 @@ test_job (void)
 		/* Release the parent so we can receive the job notification */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for a reply */
+		/* Should receive UPSTART_JOB_STATUS */
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert0 (upstart_message_handle_using (message, message,
 						       (UpstartMessageHandler)
 						       check_job_status,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end,
 						       NULL));
 		nih_free (message);
 
@@ -328,20 +468,15 @@ test_job (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	nih_list_free (&job->entry);
 	nih_list_free (&sub->entry);
 
 
 	/* Check that a job status change also notifies any processes
-	 * subscribed to its cause event, with the slightly different
-	 * event job status message that includes the event id.
+	 * subscribed to its cause event, with the job status message set
+	 * preceeded by an UPSTART_EVENT_CAUSED message that includes the
+	 * event id.
 	 */
 	TEST_FEATURE ("with subscription to cause event");
-	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
-	job->goal = JOB_START;
-	job->state = JOB_SPAWNED;
-
 	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
 
@@ -358,11 +493,35 @@ test_job (void)
 		/* Release the parent so we can receive the job notification */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for a reply */
+		/* Should receive UPSTART_EVENT_CAUSED */
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert0 (upstart_message_handle_using (message, message,
 						       (UpstartMessageHandler)
-						       check_event_job_status,
+						       check_event_caused,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end,
 						       NULL));
 		nih_free (message);
 
@@ -398,16 +557,21 @@ test_job_event (void)
 	NotifySubscription *sub;
 
 	/* Check that processes subscribed to the job's cause event
-	 * receive an event job status message that includes the event id.
+	 * receive an event caused message that includes the event id
+	 * followed by the job status message set.
 	 */
 	TEST_FUNCTION ("notify_job_event");
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
 	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "a test job");
+	job->id = 0xdeafbeef;
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->pid = 1000;
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
 
 	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
@@ -425,11 +589,35 @@ test_job_event (void)
 		/* Release the parent so we can receive the job notification */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for a reply */
+		/* Should receive UPSTART_EVENT_CAUSED */
 		message = nih_io_message_recv (NULL, sock, &len);
 		assert0 (upstart_message_handle_using (message, message,
 						       (UpstartMessageHandler)
-						       check_event_job_status,
+						       check_event_caused,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end,
 						       NULL));
 		nih_free (message);
 
@@ -454,36 +642,104 @@ test_job_event (void)
 	upstart_disable_safeties = FALSE;
 }
 
-
-static int
-check_event (void               *data,
-	     pid_t               pid,
-	     UpstartMessageType  type,
-	     uint32_t            id,
-	     const char         *name,
-	     char * const       *args,
-	     char * const       *env)
+void
+test_job_finished (void)
 {
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT);
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Job                *job;
+	NotifySubscription *sub;
 
-	TEST_EQ_U (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "snarf");
 
-	TEST_ALLOC_SIZE (args, sizeof (char *) * 3);
-	TEST_ALLOC_PARENT (args[0], args);
-	TEST_ALLOC_PARENT (args[1], args);
-	TEST_EQ_STR (args[0], "foo");
-	TEST_EQ_STR (args[1], "bar");
-	TEST_EQ_P (args[2], NULL);
+	/* Check that subscribed processes receive a final job status message
+	 * set, followed by a job finished message including the failed
+	 * information.  The subscription should be automatically freed.
+	 */
+	TEST_FUNCTION ("notify_job_finished");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
 
-	TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
-	TEST_ALLOC_PARENT (env[0], env);
-	TEST_EQ_STR (env[0], "FOO=BAR");
-	TEST_EQ_P (env[1], NULL);
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->pid = 1000;
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = 1;
 
-	return 0;
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Release the parent so we can receive the job notification */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_FINISHED */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_finished,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	sub = notify_subscribe_job (NULL, pid, job);
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (sub, my_destructor);
+
+	notify_job_finished (job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	TEST_TRUE (destructor_called);
+
+	nih_list_free (&job->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
 }
+
 
 void
 test_event (void)
@@ -553,38 +809,6 @@ test_event (void)
 }
 
 
-static int
-check_event_finished (void               *data,
-		      pid_t               pid,
-		      UpstartMessageType  type,
-		      uint32_t            id,
-		      int                 failed,
-		      const char         *name,
-		      char * const       *args,
-		      char * const       *env)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT_FINISHED);
-
-	TEST_EQ_U (id, 0xdeafbeef);
-	TEST_EQ (failed, FALSE);
-	TEST_EQ_STR (name, "snarf");
-
-	TEST_ALLOC_SIZE (args, sizeof (char *) * 3);
-	TEST_ALLOC_PARENT (args[0], args);
-	TEST_ALLOC_PARENT (args[1], args);
-	TEST_EQ_STR (args[0], "foo");
-	TEST_EQ_STR (args[1], "bar");
-	TEST_EQ_P (args[2], NULL);
-
-	TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
-	TEST_ALLOC_PARENT (env[0], env);
-	TEST_EQ_STR (env[0], "FOO=BAR");
-	TEST_EQ_P (env[1], NULL);
-
-	return 0;
-}
-
 void
 test_event_finished (void)
 {
@@ -596,7 +820,8 @@ test_event_finished (void)
 	NotifySubscription  *sub;
 
 	/* Check that subscribed processes receive an event message when
-	 * handling of an event is finished.
+	 * handling of an event is finished, and the subscription is
+	 * automatically freed.
 	 */
 	TEST_FUNCTION ("notify_event_finished");
 	io = control_open ();
@@ -638,6 +863,9 @@ test_event_finished (void)
 
 	sub = notify_subscribe_event (NULL, pid, emission);
 
+	destructor_called = 0;
+	nih_alloc_set_destructor (sub, my_destructor);
+
 	notify_event_finished (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
@@ -646,8 +874,10 @@ test_event_finished (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
+	TEST_TRUE (destructor_called);
+
 	nih_list_free (&emission->event.entry);
-	nih_list_free (&sub->entry);
+
 
 	control_close ();
 	upstart_disable_safeties = FALSE;
@@ -664,6 +894,7 @@ main (int   argc,
 	test_unsubscribe ();
 	test_job ();
 	test_job_event ();
+	test_job_finished ();
 	test_event ();
 	test_event_finished ();
 

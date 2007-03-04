@@ -87,6 +87,7 @@ NotifySubscription *notify_subscription_find (pid_t pid, NotifyEvent type,
 
 void                notify_job               (Job *job);
 void                notify_job_event         (Job *job);
+void                notify_job_finished      (Job *job);
 void                notify_event             (EventEmission *emission);
 void                notify_event_finished    (EventEmission *emission);
 

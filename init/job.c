@@ -866,11 +866,14 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
-			/* Clear the cause if we're a service since our goal
-			 * is to be running, not to get back to waiting again.
+			/* If we're a service, our goal is to be running;
+			 * notify subscribed processes that we reached it,
+			 * and change the cause.
 			 */
-			if (job->service)
+			if (job->service) {
+				notify_job_finished (job);
 				job_change_cause (job, NULL);
+			}
 
 			break;
 		case JOB_PRE_STOP:
@@ -922,6 +925,7 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
+			notify_job_finished (job);
 			job_change_cause (job, NULL);
 
 			if (job->delete)

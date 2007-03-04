@@ -1,5 +1,27 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c (notify_job_status): Static function to handle
+	sending the more complicated job status message series 
+	(notify_job): Call notify_job_status() to send the new-style message
+	(notify_job_event): Send the new UPSTART_EVENT_CAUSED message with
+	the emission id, then call notify_job_status() to send the new-style
+	common status message.
+	(notify_job_finished): New function to be called when we reach the
+	job rest state, notifies and unsubscribes directly subscribed
+	processes, and includes failed information.
+	(notify_event_finished): Unsubscribe processes after sending the
+	finished event, since the event has gone away.  Also don't send
+	this to processes subscribed to all events, since it's not useful
+	for them.
+	* init/notify.h: Add prototype.
+	* init/tests/test_notify.c: Update all test cases and helper
+	functions to the new message types.
+	(test_job_finished): Check the new finished message is sent with
+	a status message preceeding it.
+	* init/job.c (job_change_state, job_change_state): Notify subscribed
+	processes with notify_job_finished() when in the running (for service)
+	or waiting states, just before we drop the cause.
+
 	* upstart/message.h: Add failed, failed_process and exit_status
 	arguments to UPSTART_JOB_FINISHED.
 	* upstart/message.c (upstart_message_new, upstart_message_handle): 
