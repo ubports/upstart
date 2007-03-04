@@ -1,5 +1,41 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c (notify_job_status): Move this function to
+	* init/control.c (control_send_job_status): here, since we need it for
+	the new control responses.
+	(control_job_query): New single function to list all jobs or a
+	particular job.
+	* init/control.h: Add prototype.
+	* init/tests/test_control.c (test_error_handler): Simplify this a
+	little to just sending a NO_OP message, since we can send an entire
+	stream of messages and leave them in the queue.
+	(check_job_status__stopping, check_job_process) 
+	(check_job_status_end__stopping): Trio of check functions for a job
+	status that's stopping, with an active main process.
+	(test_send_job_status): Test the now global status function.
+	(check_job_status__starting, check_job_status_end__starting): Pair
+	of check functions for a starting job with no process yet.
+	(test_watch_jobs, test_unwatch_jobs): Update to expect the full new
+	job status messages, with an optional process part as well.
+	(check_event): Function to check an event.
+	(test_watch_events): Minor update to use above function.
+	(check_job_status__waiting, check_job_status_end__waiting): Pair of
+	check functions for the first step in starting a job (goal change only)
+	(check_job_unknown, check_job_deleted, check_job_unchanged): Trio
+	of functions to check common error responses.
+	(test_job_start): Update tests to newer behaviour.
+	(check_job_status__running, check_job_status_end__running) 
+	(check_job_status__pre_stop, check_job_status_end__pre_stop): Checks
+	for the states we go through when stopping a job.
+	(test_job_stop): Update tests to newer behaviour.
+	* init/notify.c (notify_job, notify_job_event, notify_job_finished):
+	Update to call the newly exported function.
+	* init/job.c: Make job_id and job_id_wrapped externally available.
+	* init/job.h: Update.
+	* init/event.c: Make emission_id and emission_id_wrapped externally
+	available.
+	* init/event.h: Update.
+
 	* upstart/message.h: Rename UPSTART_JOB_INVALID to
 	UPSTART_JOB_UNCHANGED, as it's not really invalid just a no-op
 	* upstart/message.c (upstart_message_new, upstart_message_handle):

@@ -29,6 +29,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <fnmatch.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -47,14 +48,6 @@
 
 /* Prototypes for static functions */
 static void control_error_handler  (void  *data, NihIo *io);
-static int  control_job_start      (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name);
-static int  control_job_stop       (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name);
-static int  control_job_query      (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name);
-static int  control_job_list       (void *data,  pid_t pid,
-				    UpstartMessageType type);
 static int  control_watch_jobs     (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_jobs   (void *data, pid_t pid,
@@ -63,6 +56,14 @@ static int  control_watch_events   (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_events (void *data, pid_t pid,
 				    UpstartMessageType type);
+
+static int  control_job_start      (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name,
+				    uint32_t id);
+static int  control_job_stop       (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name,
+				    uint32_t id);
+
 static int  control_event_emit     (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name,
 				    char **args, char **env);
@@ -82,14 +83,6 @@ NihIo *control_io = NULL;
  * processes.  Any message types not listed here will be discarded.
  **/
 static UpstartMessage message_handlers[] = {
-	{ -1, UPSTART_JOB_START,
-	  (UpstartMessageHandler)control_job_start },
-	{ -1, UPSTART_JOB_STOP,
-	  (UpstartMessageHandler)control_job_stop },
-	{ -1, UPSTART_JOB_QUERY,
-	  (UpstartMessageHandler)control_job_query },
-	{ -1, UPSTART_JOB_LIST,
-	  (UpstartMessageHandler)control_job_list },
 	{ -1, UPSTART_WATCH_JOBS,
 	  (UpstartMessageHandler)control_watch_jobs },
 	{ -1, UPSTART_UNWATCH_JOBS,
@@ -98,6 +91,10 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_watch_events },
 	{ -1, UPSTART_UNWATCH_EVENTS,
 	  (UpstartMessageHandler)control_unwatch_events },
+	{ -1, UPSTART_JOB_START,
+	  (UpstartMessageHandler)control_job_start },
+	{ -1, UPSTART_JOB_STOP,
+	  (UpstartMessageHandler)control_job_stop },
 	{ -1, UPSTART_EVENT_EMIT,
 	  (UpstartMessageHandler)control_event_emit },
 
@@ -206,256 +203,48 @@ control_error_handler (void  *data,
 
 
 /**
- * control_job_start:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of job to start.
+ * control_send_job_status:
+ * @pid: destination process,
+ * @job: job to send.
  *
- * This function is called when another process on the system requests that
- * we start the job @name.
- *
- * If a job by that name exists, it is started and the other process receives
- * the job status as a reply.  If no job by that name exists, then other
- * process receives the unknown job message as a reply.
- *
- * Returns: zero on success, negative value on raised error.
+ * Sends a series of messages to @pid containing the current status of @job
+ * and its processes.  The UPSTART_JOB_STATUS message is sent first, giving
+ * the id and name of the job, along with its current goal and state.  Then,
+ * for each active process, an UPSTART_JOB_PROCESS message is sent containing
+ * the process type and current pid.  Finally an UPSTART_JOB_STATUS_END
+ * message is sent.
  **/
-static int
-control_job_start (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name)
+void
+control_send_job_status (pid_t  pid,
+			 Job   *job)
 {
-	NihIoMessage *reply;
-	Job          *job;
-	NihList      *iter;
+	NihIoMessage *message;
+	int           i;
 
 	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_START);
-	nih_assert (name != NULL);
+	nih_assert (job != NULL);
+	nih_assert (control_io != NULL);
 
-	job = job_find_by_name (name);
-	if (! job) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNKNOWN,
-						       name));
-		nih_io_send_message (control_io, reply);
-		return 0;
+	NIH_MUST (message = upstart_message_new (
+			  control_io, pid, UPSTART_JOB_STATUS,
+			  job->id, job->name, job->goal, job->state));
+	nih_io_send_message (control_io, message);
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (job->process[i] && (job->process[i]->pid > 0)) {
+			NIH_MUST (message = upstart_message_new (
+					  control_io, pid, UPSTART_JOB_PROCESS,
+					  i, job->process[i]->pid));
+			nih_io_send_message (control_io, message);
+		}
 	}
 
-	nih_info (_("Control request to start %s"), job->name);
-	job_change_goal (job, JOB_START, NULL);
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_STATUS, job->name,
-					       job->goal, job->state));
-	nih_io_send_message (control_io, reply);
-
-	/* Also return all instances */
-	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
-	     iter = nih_hash_search (jobs, job->name, iter)) {
-		Job *instance = (Job *)iter;
-
-		if (instance->instance_of != job)
-			continue;
-
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_STATUS,
-						       instance->name,
-						       instance->goal,
-						       instance->state));
-		nih_io_send_message (control_io, reply);
-	}
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_LIST_END));
-	nih_io_send_message (control_io, reply);
-
-	return 0;
+	NIH_MUST (message = upstart_message_new (
+			  control_io, pid, UPSTART_JOB_STATUS_END,
+			  job->id, job->name, job->goal, job->state));
+	nih_io_send_message (control_io, message);
 }
 
-/**
- * control_job_stop:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of job to start.
- *
- * This function is called when another process on the system requests that
- * we stop the job @name.
- *
- * If a job by that name exists, it is stopped and the other process receives
- * the job status as a reply.  If no job by that name exists, then other
- * process receives the unknown job message as a reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_job_stop (void               *data,
-		  pid_t               pid,
-		  UpstartMessageType  type,
-		  const char         *name)
-{
-	NihIoMessage *reply;
-	Job          *job;
-	NihList      *iter;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_STOP);
-	nih_assert (name != NULL);
-
-	job = job_find_by_name (name);
-	if (! job) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNKNOWN,
-						       name));
-		nih_io_send_message (control_io, reply);
-		return 0;
-	}
-
-	nih_info (_("Control request to stop %s"), job->name);
-	job_change_goal (job, JOB_STOP, NULL);
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_STATUS, job->name,
-					       job->goal, job->state));
-	nih_io_send_message (control_io, reply);
-
-	/* Also return all instances */
-	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
-	     iter = nih_hash_search (jobs, job->name, iter)) {
-		Job *instance = (Job *)iter;
-
-		if (instance->instance_of != job)
-			continue;
-
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_STATUS,
-						       instance->name,
-						       instance->goal,
-						       instance->state));
-		nih_io_send_message (control_io, reply);
-	}
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_LIST_END));
-	nih_io_send_message (control_io, reply);
-
-	return 0;
-}
-
-/**
- * control_job_query:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of job to start.
- *
- * This function is called when another process on the system queries the
- * status of the job @name.
- *
- * If a job by that name exists, the other process receives the job status
- * as a reply.  If no job by that name exists, then the other process
- * receives the unknown job message as a reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_job_query (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name)
-{
-	NihIoMessage *reply;
-	Job          *job;
-	NihList      *iter;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_QUERY);
-	nih_assert (name != NULL);
-
-	job = job_find_by_name (name);
-	if (! job) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNKNOWN,
-						       name));
-		nih_io_send_message (control_io, reply);
-		return 0;
-	}
-
-	nih_info (_("Control request for state of %s"), job->name);
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_STATUS, job->name,
-					       job->goal, job->state));
-	nih_io_send_message (control_io, reply);
-
-	/* Also return all instances */
-	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
-	     iter = nih_hash_search (jobs, job->name, iter)) {
-		Job *instance = (Job *)iter;
-
-		if (instance->instance_of != job)
-			continue;
-
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_STATUS,
-						       instance->name,
-						       instance->goal,
-						       instance->state));
-		nih_io_send_message (control_io, reply);
-	}
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_LIST_END));
-	nih_io_send_message (control_io, reply);
-
-	return 0;
-}
-
-/**
- * control_job_list:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system queries the
- * table of known jobs.  It receives a job status reply for each known job
- * followed by the list end message.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_job_list (void               *data,
-		  pid_t               pid,
-		  UpstartMessageType  type)
-{
-	NihIoMessage *reply;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_LIST);
-
-	nih_info (_("Control request to list jobs"));
-
-	job_init ();
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		Job *job = (Job *)iter;
-
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_STATUS,
-						       job->name, job->goal,
-						       job->state));
-		nih_io_send_message (control_io, reply);
-	}
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_LIST_END));
-	nih_io_send_message (control_io, reply);
-
-	return 0;
-}
 
 /**
  * control_watch_jobs:
@@ -568,6 +357,166 @@ control_unwatch_events (void               *data,
 
 	return 0;
 }
+
+
+/**
+ * control_job_start:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of job to start,
+ * @id: id of job to start if @name is NULL.
+ *
+ * This function is called when another process on the system requests that
+ * we start the job named @name or with the unique @id.
+ *
+ * We locate the job, subscribe the process to receive notification when the
+ * job state changes and when the job reaches its goal, and then initiate
+ * the goal change.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_start (void                *data,
+		   pid_t                pid,
+		   UpstartMessageType   type,
+		   const char          *name,
+		   uint32_t             id)
+{
+	NihIoMessage *reply;
+	Job          *job;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_START);
+
+	if (name) {
+		nih_info (_("Control request to start %s"), name);
+
+		job = job_find_by_name (name);
+	} else {
+		nih_info (_("Control request to start job #%zu"), id);
+
+		job = job_find_by_id (id);
+	}
+
+	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job,
+	 * and reply with UPSTART_JOB_DELETED if the job we found was
+	 * deleted, since we can't change those.
+	 */
+	if (! job) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name, id));
+		nih_io_send_message (control_io, reply);
+		return 0;
+
+	} else if (job->state == JOB_DELETED) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_DELETED,
+						       job->id, job->name));
+		nih_io_send_message (control_io, reply);
+		return 0;
+	}
+
+	/* Obtain an instance of the job that can be started.  Make sure
+	 * that this instance isn't already started, since we might never
+	 * send a reply if it's already at rest.  Send UPSTART_JOB_UNCHANGED
+	 * so they know their command had no effect.
+	 */
+	job = job_instance (job);
+	if (job->goal == JOB_START) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNCHANGED,
+						       job->id, job->name));
+		nih_io_send_message (control_io, reply);
+		return 0;
+	}
+
+	notify_subscribe_job (job, pid, job);
+
+	job_change_goal (job, JOB_START, NULL);
+
+	return 0;
+}
+
+/**
+ * control_job_stop:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of job to stop,
+ * @id: id of job to stop if @name is NULL.
+ *
+ * This function is called when another process on the system requests that
+ * we stop the job named @name or with the unique @id.
+ *
+ * We locate the job, subscribe the process to receive notification when the
+ * job state changes and when the job reaches its goal, and then initiate
+ * the goal change.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_stop (void                *data,
+		  pid_t                pid,
+		  UpstartMessageType   type,
+		  const char          *name,
+		  uint32_t             id)
+{
+	NihIoMessage *reply;
+	Job          *job;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_STOP);
+
+	if (name) {
+		nih_info (_("Control request to stop %s"), name);
+
+		job = job_find_by_name (name);
+	} else {
+		nih_info (_("Control request to stop job #%zu"), id);
+
+		job = job_find_by_id (id);
+	}
+
+	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job,
+	 * and reply with UPSTART_JOB_DELETED if the job we found was
+	 * deleted, since we can't change those.
+	 */
+	if (! job) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name, id));
+		nih_io_send_message (control_io, reply);
+		return 0;
+
+	} else if (job->state == JOB_DELETED) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_DELETED,
+						       job->id, job->name));
+		nih_io_send_message (control_io, reply);
+		return 0;
+	}
+
+	/* Make sure that the job isn't already stopped, since we might never
+	 * send a reply if it's already at rest.  Send UPSTART_JOB_UNCHANGED
+	 * so they know their command had no effect.
+	 */
+	if (job->goal == JOB_STOP) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNCHANGED,
+						       job->id, job->name));
+		nih_io_send_message (control_io, reply);
+		return 0;
+	}
+
+	notify_subscribe_job (job, pid, job);
+
+	job_change_goal (job, JOB_STOP, NULL);
+
+	return 0;
+}
+
 
 /**
  * control_event_emit:

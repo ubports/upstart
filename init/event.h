@@ -172,6 +172,8 @@ typedef struct event_emission {
 NIH_BEGIN_EXTERN
 
 int      paused;
+uint32_t emission_id;
+int      emission_id_wrapped;
 NihList *events;
 
 

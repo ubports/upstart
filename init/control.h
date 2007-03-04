@@ -31,9 +31,11 @@ NIH_BEGIN_EXTERN
 NihIo *control_io;
 
 
-NihIo *control_open  (void)
+NihIo *control_open            (void)
 	__attribute__ ((warn_unused_result, malloc));
-void   control_close (void);
+void   control_close           (void);
+
+void   control_send_job_status (pid_t pid, Job *job);
 
 NIH_END_EXTERN
 

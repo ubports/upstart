@@ -175,9 +175,9 @@ void
 test_error_handler (void)
 {
 	NihIo              *io;
+	NihIoMessage       *message;
 	pid_t               pid;
 	int                 wait_fd, status;
-	Job                *job;
 	NotifySubscription *sub;
 
 	TEST_FUNCTION ("control_error_handler");
@@ -210,28 +210,18 @@ test_error_handler (void)
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_KILLED;
-
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
+		int sock;
 
 		sock = upstart_open ();
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_WATCH_JOBS);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
+		TEST_CHILD_RELEASE (wait_fd);
 
 		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
+	sub = notify_subscribe_job (NULL, pid, NULL);
 	TEST_NE_P (sub, NULL);
 
 	destructor_called = 0;
@@ -241,15 +231,15 @@ test_error_handler (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	notify_job (job);
+	NIH_MUST (message = upstart_message_new (control_io, pid,
+						 UPSTART_NO_OP));
+	nih_io_send_message (control_io, message);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	TEST_TRUE (destructor_called);
 
 	TEST_LIST_EMPTY (io->send_q);
-
-	nih_list_free (&job->entry);
 
 
 	control_close ();
@@ -258,32 +248,58 @@ test_error_handler (void)
 
 
 static int
-check_job_waiting (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name,
-		   JobGoal             goal,
-		   JobState            state)
+check_job_status__waiting (void               *data,
+			   pid_t               pid,
+			   UpstartMessageType  type,
+			   uint32_t            id,
+			   const char         *name,
+			   JobGoal             goal,
+			   JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
+
+	TEST_EQ (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
+	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_WAITING);
 
 	return 0;
 }
 
 static int
-check_job_started (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name,
-		   JobGoal             goal,
-		   JobState            state)
+check_job_status_end__waiting (void               *data,
+			       pid_t               pid,
+			       UpstartMessageType  type,
+			       uint32_t            id,
+			       const char         *name,
+			       JobGoal             goal,
+			       JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS_END);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_START);
+	TEST_EQ (state, JOB_WAITING);
+
+	return 0;
+}
+
+static int
+check_job_status__starting (void               *data,
+			    pid_t               pid,
+			    UpstartMessageType  type,
+			    uint32_t            id,
+			    const char         *name,
+			    JobGoal             goal,
+			    JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
+
+	TEST_EQ (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_START);
 	TEST_EQ (state, JOB_STARTING);
@@ -292,250 +308,118 @@ check_job_started (void               *data,
 }
 
 static int
-check_job_unknown (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name)
+check_job_status_end__starting (void               *data,
+				pid_t               pid,
+				UpstartMessageType  type,
+				uint32_t            id,
+				const char         *name,
+				JobGoal             goal,
+				JobState            state)
 {
 	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_UNKNOWN);
-	TEST_EQ_STR (name, "wibble");
+	TEST_EQ (type, UPSTART_JOB_STATUS_END);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_START);
+	TEST_EQ (state, JOB_STARTING);
 
 	return 0;
 }
 
 static int
-check_job_list_end (void               *data,
-		    pid_t               pid,
-		    UpstartMessageType  type)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_LIST_END);
-
-	return 0;
-}
-
-void
-test_job_start (void)
-{
-	NihIo   *io;
-	pid_t    pid;
-	int      wait_fd, status;
-	Job     *job, *instance;
-	NihList *iter;
-
-	TEST_FUNCTION ("control_job_start");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* Check that we can handle a message from a child process asking us
-	 * to start up a job.  The child should get a reply containing the
-	 * status of the job, while the job goal should change in the parent
-	 * as well as being started.
-	 */
-	TEST_FEATURE ("with known job");
-	job = job_new (NULL, "test");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job start message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "test");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_started,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the list end */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that we can handle starting of an instance job, we'll get
-	 * two replies; one for the master which won't have changed, and one
-	 * for the instance which will have been created and had the goal
-	 * set.
-	 */
-	TEST_FEATURE ("with known instance job");
-	job = job_new (NULL, "test");
-	job->instance = TRUE;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job start message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "test");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_waiting,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the instance */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_started,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the list end */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	/* Now find the instance; there should be only one */
-	instance = NULL;
-	for (iter = nih_hash_lookup (jobs, job->name); iter != NULL;
-	     iter = nih_hash_search (jobs, job->name, iter)) {
-		Job *i_job = (Job *)iter;
-
-		if (i_job->instance_of == job) {
-			TEST_EQ_P (instance, NULL);
-			instance = i_job;
-		}
-	}
-
-	TEST_NE_P (instance, NULL);
-
-	TEST_EQ_STR (instance->name, job->name);
-	TEST_EQ_P (instance->instance_of, job);
-	TEST_EQ (instance->delete, TRUE);
-
-	TEST_EQ (instance->goal, JOB_START);
-	TEST_EQ (instance->state, JOB_STARTING);
-
-	nih_list_free (&instance->entry);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to start an unknown job, we get an unknown
-	 * job reply.
-	 */
-	TEST_FEATURE ("with unknown job");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "wibble");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_unknown,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-static int
-check_job_stopped (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name,
-		   JobGoal             goal,
-		   JobState            state)
+check_job_status__running (void               *data,
+			   pid_t               pid,
+			   UpstartMessageType  type,
+			   uint32_t            id,
+			   const char         *name,
+			   JobGoal             goal,
+			   JobState            state)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_STATUS);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_STOP);
+	TEST_EQ (state, JOB_RUNNING);
+
+	return 0;
+}
+
+static int
+check_job_status_end__running (void               *data,
+			       pid_t               pid,
+			       UpstartMessageType  type,
+			       uint32_t            id,
+			       const char         *name,
+			       JobGoal             goal,
+			       JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS_END);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_STOP);
+	TEST_EQ (state, JOB_RUNNING);
+
+	return 0;
+}
+
+static int
+check_job_status__pre_stop (void               *data,
+			    pid_t               pid,
+			    UpstartMessageType  type,
+			    uint32_t            id,
+			    const char         *name,
+			    JobGoal             goal,
+			    JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_STOP);
+	TEST_EQ (state, JOB_PRE_STOP);
+
+	return 0;
+}
+
+static int
+check_job_status_end__pre_stop (void               *data,
+				pid_t               pid,
+				UpstartMessageType  type,
+				uint32_t            id,
+				const char         *name,
+				JobGoal             goal,
+				JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS_END);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_STOP);
+	TEST_EQ (state, JOB_PRE_STOP);
+
+	return 0;
+}
+
+static int
+check_job_status__stopping (void               *data,
+			    pid_t               pid,
+			    UpstartMessageType  type,
+			    uint32_t            id,
+			    const char         *name,
+			    JobGoal             goal,
+			    JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS);
+
+	TEST_EQ (id, 0xdeafbeef);
 	TEST_EQ_STR (name, "test");
 	TEST_EQ (goal, JOB_STOP);
 	TEST_EQ (state, JOB_STOPPING);
@@ -543,322 +427,135 @@ check_job_stopped (void               *data,
 	return 0;
 }
 
-void
-test_job_stop (void)
-{
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-	Job   *job, *i1, *i2;
-
-	TEST_FUNCTION ("control_job_stop");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* Check that we can handle a message from a child process asking us
-	 * to stop a job.  The child should get a reply containing the
-	 * status of the job, while the job goal should change in the parent,
-	 * along with the running process being killed.
-	 */
-	TEST_FEATURE ("with known job");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-	TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
-		pause ();
-	}
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_stopped,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the list end */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
-
-	kill (job->process[PROCESS_MAIN]->pid, SIGTERM);
-	waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that we can handle a message from a child process asking us
-	 * to stop an instance job; since this mesage is directed at the
-	 * master, which will always be stopped, it tends to just return
-	 * the list of instances that are running.
-	 */
-	TEST_FEATURE ("with known instance job");
-	job = job_new (NULL, "test");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-
-	i1 = job_new (NULL, "test");
-	i1->instance_of = job;
-	i1->goal = JOB_STOP;
-	i1->state = JOB_STOPPING;
-
-	i2 = job_new (NULL, "test");
-	i2->instance_of = job;
-	i2->goal = JOB_STOP;
-	i2->state = JOB_STOPPING;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_waiting,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the first instance */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_stopped,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the second instance */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_stopped,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the list end */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	nih_list_free (&i1->entry);
-	nih_list_free (&i2->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to start an unknown job, we get an unknown
-	 * job reply.
-	 */
-	TEST_FEATURE ("with unknown job");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "wibble");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_unknown,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-
 static int
-check_job_status (void               *data,
-		  pid_t               pid,
-		  UpstartMessageType  type,
-		  const char         *name,
-		  JobGoal             goal,
-		  JobState            state)
+check_job_process (void               *data,
+		   pid_t               pid,
+		   UpstartMessageType  type,
+		   ProcessType         process,
+		   pid_t               process_pid)
 {
 	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_KILLED);
+	TEST_EQ (type, UPSTART_JOB_PROCESS);
+
+	TEST_EQ (process, PROCESS_MAIN);
+	TEST_EQ (process_pid, 1000);
 
 	return 0;
 }
 
+static int
+check_job_status_end__stopping (void               *data,
+				pid_t               pid,
+				UpstartMessageType  type,
+				uint32_t            id,
+				const char         *name,
+				JobGoal             goal,
+				JobState            state)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_STATUS_END);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (goal, JOB_STOP);
+	TEST_EQ (state, JOB_STOPPING);
+
+	return 0;
+}
+
+static int
+check_event (void               *data,
+	     pid_t               pid,
+	     UpstartMessageType  type,
+	     uint32_t            id,
+	     const char         *name,
+	     char * const       *args,
+	     char * const       *env)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_EVENT);
+
+	TEST_EQ_U (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+	TEST_EQ_P (args, NULL);
+	TEST_EQ_P (env, NULL);
+
+	return 0;
+}
+
+static int
+check_job_unknown (void               *data,
+		   pid_t               pid,
+		   UpstartMessageType  type,
+		   const char         *name,
+		   uint32_t            id)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_UNKNOWN);
+
+	TEST_EQ_STR (name, "test");
+	TEST_EQ (id, 0);
+
+	return 0;
+}
+
+static int
+check_job_deleted (void               *data,
+		   pid_t               pid,
+		   UpstartMessageType  type,
+		   uint32_t            id,
+		   const char         *name)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_DELETED);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+
+	return 0;
+}
+
+static int
+check_job_unchanged (void               *data,
+		     pid_t               pid,
+		     UpstartMessageType  type,
+		     uint32_t            id,
+		     const char         *name)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_UNCHANGED);
+
+	TEST_EQ (id, 0xdeafbeef);
+	TEST_EQ_STR (name, "test");
+
+	return 0;
+}
+
+
 void
-test_job_query (void)
+test_send_job_status (void)
 {
 	NihIo *io;
 	pid_t  pid;
 	int    wait_fd, status;
-	Job   *job, *i1, *i2;
+	Job   *job;
 
-	TEST_FUNCTION ("control_job_query");
+	/* Check that we can send the status of a job to a child, it should
+	 * receive the start message, a message for the running process and
+	 * an end message.
+	 */
+	TEST_FUNCTION ("control_send_job_status");
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
 
-	/* Check that we can handle a message from a child process asking us
-	 * for the status of a job.  The child should get a reply containing
-	 * the status without changing it.
-	 */
-	TEST_FEATURE ("with known job");
 	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_KILLED;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, "test");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_status,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the end of the list */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_KILLED);
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that we can handle a message from a child process asking us
-	 * for the status of a job which has instances.  The child should get
-	 * a reply containing the status of each instance.
-	 */
-	TEST_FEATURE ("with known job that has instances");
-	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
 	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-
-	i1 = job_new (NULL, "test");
-	i1->instance_of = job;
-	i1->goal = JOB_START;
-	i1->state = JOB_KILLED;
-
-	i2 = job_new (NULL, "test");
-	i2->instance_of = job;
-	i2->goal = JOB_START;
-	i2->state = JOB_KILLED;
+	job->state = JOB_STOPPING;
+	job->process[PROCESS_PRE_START] = job_process_new (job->process);
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->pid = 1000;
+	job->process[PROCESS_POST_STOP] = job_process_new (job->process);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -868,184 +565,50 @@ test_job_query (void)
 
 		sock = upstart_open ();
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, "test");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for a reply */
+		/* Should receive UPSTART_JOB_STATUS */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_waiting,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__stopping,
+						       NULL));
 		nih_free (message);
 
-		/* Wait for a reply for the first instance */
+		/* Should receive UPSTART_JOB_PROCESS */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_status,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
 		nih_free (message);
 
-		/* Wait for a reply for the second instance */
+		/* Should receive UPSTART_JOB_STATUS_END */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_status,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the end of the list */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__stopping,
+						       NULL));
 		nih_free (message);
 
 		exit (0);
 	}
+
+	control_send_job_status (pid, job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
 
 	nih_list_free (&job->entry);
-	nih_list_free (&i1->entry);
-	nih_list_free (&i2->entry);
-
-
-	/* Check that if we ask to start an unknown job, we get an unknown
-	 * job reply.
-	 */
-	TEST_FEATURE ("with unknown job");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, "wibble");
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_unknown,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
 
 
 	control_close ();
 	upstart_disable_safeties = FALSE;
 }
 
-void
-test_job_list (void)
-{
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-	Job   *job1, *job2;
-
-	/* Check that we can handle a message from a child process asking us
-	 * for the list of jobs.  The child should get a reply containing
-	 * the status of each job, followed by without changing it.
-	 */
-	TEST_FUNCTION ("control_job_list");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	job1 = job_new (NULL, "test");
-	job1->goal = JOB_START;
-	job1->state = JOB_STARTING;
-
-	job2 = job_new (NULL, "test");
-	job2->goal = JOB_STOP;
-	job2->state = JOB_STOPPING;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_LIST);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Wait for a reply for the first job */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_started,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the second job */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_stopped,
-				NULL) == 0);
-		nih_free (message);
-
-		/* Wait for a reply for the end of the list */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_list_end,
-				NULL) == 0);
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
 
 void
 test_watch_jobs (void)
@@ -1065,8 +628,12 @@ test_watch_jobs (void)
 	upstart_disable_safeties = TRUE;
 
 	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
+	job->process[PROCESS_PRE_START] = job_process_new (job->process);
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_POST_STOP] = job_process_new (job->process);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -1084,12 +651,20 @@ test_watch_jobs (void)
 		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for job notification */
+		/* Should receive UPSTART_JOB_STATUS */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_started,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__starting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__starting,
+						       NULL));
 		nih_free (message);
 
 		exit (0);
@@ -1133,8 +708,13 @@ test_unwatch_jobs (void)
 	upstart_disable_safeties = TRUE;
 
 	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
+	job->process[PROCESS_PRE_START] = job_process_new (job->process);
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->pid = 1000;
+	job->process[PROCESS_POST_STOP] = job_process_new (job->process);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -1152,17 +732,33 @@ test_unwatch_jobs (void)
 		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for job notification - this ensures that the parent
-		 * knows we're subscribed before we unsubscripe.
-		 */
+		/* Should receive UPSTART_JOB_STATUS */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_job_stopped,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__stopping,
+						       NULL));
 		nih_free (message);
 
-		/* Now unsubscribe */
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__stopping,
+						       NULL));
+		nih_free (message);
+
+		/* Having received a status update, we know the parent has
+		 * found our subscription, so now we unsubscribe.
+		 */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_UNWATCH_JOBS);
 		assert (nih_io_message_send (message, sock) > 0);
@@ -1198,26 +794,6 @@ test_unwatch_jobs (void)
 	upstart_disable_safeties = FALSE;
 }
 
-static int
-check_event (void                *data,
-	     pid_t                pid,
-	     UpstartMessageType   type,
-	     uint32_t             id,
-	     const char          *name,
-	     char * const       **args,
-	     char * const       **env)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT);
-
-	TEST_EQ_U (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "snarf");
-	TEST_EQ_P (args, NULL);
-	TEST_EQ_P (env, NULL);
-
-	return 0;
-}
-
 void
 test_watch_events (void)
 {
@@ -1251,12 +827,12 @@ test_watch_events (void)
 		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for event notification */
+		/* Should receive UPSTART_EVENT */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_event,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event,
+						       NULL));
 		nih_free (message);
 
 		exit (0);
@@ -1267,7 +843,7 @@ test_watch_events (void)
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
 
-	emission = event_emit ("snarf", NULL, NULL);
+	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
 	notify_event (emission);
 
@@ -1317,17 +893,17 @@ test_unwatch_events (void)
 		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Wait for event notification - this ensures that the parent
-		 * knows we're subscribed before we unsubscripe.
-		 */
+		/* Should receive UPSTART_EVENT */
 		message = nih_io_message_recv (NULL, sock, &len);
-		assert (upstart_message_handle_using (
-				message, message,
-				(UpstartMessageHandler)check_event,
-				NULL) == 0);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event,
+						       NULL));
 		nih_free (message);
 
-		/* Now unsubscribe */
+		/* Having received an event, we know the parent has
+		 * found our subscription, so now we unsubscribe.
+		 */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_UNWATCH_EVENTS);
 		assert (nih_io_message_send (message, sock) > 0);
@@ -1344,7 +920,7 @@ test_unwatch_events (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (sub, my_destructor);
 
-	emission = event_emit ("snarf", NULL, NULL);
+	emission = event_emit ("test", NULL, NULL);
 	emission->id = 0xdeafbeef;
 	notify_event (emission);
 
@@ -1364,6 +940,841 @@ test_unwatch_events (void)
 	control_close ();
 	upstart_disable_safeties = FALSE;
 }
+
+
+void
+test_job_start (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Job                *job, *instance;
+	NotifySubscription *sub;
+
+	TEST_FUNCTION ("control_job_start");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	/* Check that we can handle a message from a child process asking us
+	 * to start up a job.  The child should be subscribed to the job,
+	 * and therefore receive replies containing status updates as the
+	 * job heads towards being running.
+	 */
+	TEST_FEATURE ("with known job");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job start message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_START, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it and see
+		 * the subscription.
+		 */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__waiting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__waiting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__starting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__starting,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&sub->entry);
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that a job can be started by its id, instead of its name. */
+	TEST_FEATURE ("with known job by id");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job start message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_START, NULL,
+					       0xdeafbeef);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it and see
+		 * the subscription.
+		 */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__waiting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__waiting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__starting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__starting,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&sub->entry);
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that we can handle the starting of a new instance; the job
+	 * the child should receive status message for, and to which it should
+	 * be subscribed, should be the instance rather than the master which
+	 * should be untouched.
+	 */
+	TEST_FEATURE ("with instance job");
+	job_id = 0xdeafbeee;
+
+	job = job_new (NULL, "test");
+	job->instance = TRUE;
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job start message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_START, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it and see
+		 * the subscription.
+		 */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__waiting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__waiting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__starting,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__starting,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	instance = job_find_by_id (0xdeafbeef);
+
+	TEST_NE_P (instance, NULL);
+	TEST_EQ (instance->instance, TRUE);
+	TEST_EQ_P (instance->instance_of, job);
+	TEST_EQ (instance->delete, TRUE);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, instance);
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_WAITING);
+
+	TEST_EQ (instance->goal, JOB_START);
+	TEST_EQ (instance->state, JOB_STARTING);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&sub->entry);
+	nih_list_free (&instance->entry);
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that if we ask to start an unknown job, we get an error
+	 * in reply.
+	 */
+	TEST_FEATURE ("with unknown job");
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_START, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_UNKNOWN */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_unknown,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	event_poll ();
+
+
+	/* Check that if we ask to start a deleted job, which we have to do
+	 * by its id since it won't be found otherwise, we get an error
+	 * in reply.
+	 */
+	TEST_FEATURE ("with deleted job");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->delete = TRUE;
+	job->goal = JOB_STOP;
+	job->state = JOB_DELETED;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_START, NULL,
+					       0xdeafbeef);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_DELETED */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_deleted,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that if we ask to start a job that is already running,
+	 * we get an unchanged message in reply.
+	 */
+	TEST_FEATURE ("with already started job");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_START, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_UNCHANGED */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_unchanged,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+void
+test_job_stop (void)
+{
+	NihIo              *io;
+	pid_t               pid;
+	int                 wait_fd, status;
+	Job                *job;
+	NotifySubscription *sub;
+
+	TEST_FUNCTION ("control_job_stop");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	/* Check that we can handle a message from a child process asking us
+	 * to stop a running job.  The child should be subscribed to the job,
+	 * and therefore receive replies containing status updates as the
+	 * job heads towards being waiting.
+	 */
+	TEST_FEATURE ("with known job");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+	job->process[PROCESS_MAIN]->pid = 1000;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job start message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_STOP, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it and see
+		 * the subscription.
+		 */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__running,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__running,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__pre_stop,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__pre_stop,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__stopping,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__stopping,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&sub->entry);
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that a job can be stopped by its id, instead of its name. */
+	TEST_FEATURE ("with known job by id");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+	job->process[PROCESS_MAIN]->pid = 1000;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job start message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_STOP, NULL,
+					       0xdeafbeef);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it and see
+		 * the subscription.
+		 */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__running,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__running,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__pre_stop,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__pre_stop,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__stopping,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__stopping,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
+	TEST_NE_P (sub, NULL);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&sub->entry);
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that if we ask to stop an unknown job, we get an error
+	 * in reply.
+	 */
+	TEST_FEATURE ("with unknown job");
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_STOP, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_UNKNOWN */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_unknown,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	event_poll ();
+
+
+	/* Check that if we ask to stop a deleted job, which we have to do
+	 * by its id since it won't be found otherwise, we get an error
+	 * in reply.
+	 */
+	TEST_FEATURE ("with deleted job");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->delete = TRUE;
+	job->goal = JOB_STOP;
+	job->state = JOB_DELETED;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_STOP, NULL,
+					       0xdeafbeef);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_DELETED */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_deleted,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	/* Check that if we ask to stop a job that is already stopped,
+	 * we get an unchanged message in reply.
+	 */
+	TEST_FEATURE ("with already stopped job");
+	job = job_new (NULL, "test");
+	job->id = 0xdeafbeef;
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_STOP, "test", 0);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_UNCHANGED */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_unchanged,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_WAITING);
+
+	nih_list_free (&job->entry);
+	event_poll ();
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
 
 void
 test_event_emit (void)
@@ -1445,14 +1856,13 @@ main (int   argc,
 	test_open ();
 	test_close ();
 	test_error_handler ();
-	test_job_start ();
-	test_job_stop ();
-	test_job_query ();
-	test_job_list ();
+	test_send_job_status ();
 	test_watch_jobs ();
 	test_unwatch_jobs ();
 	test_watch_events ();
 	test_unwatch_events ();
+	test_job_start ();
+	test_job_stop ();
 	test_event_emit ();
 
 	return 0;

@@ -211,6 +211,8 @@ struct job {
 
 NIH_BEGIN_EXTERN
 
+uint32_t job_id;
+int      job_id_wrapped;
 NihHash *jobs;
 
 

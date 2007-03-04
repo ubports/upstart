@@ -81,8 +81,8 @@ static void        job_kill_timer    (ProcessType process, NihTimer *timer);
  * which case you should set job_id_wrapped and take care to check an id
  * isn't taken.
  **/
-static uint32_t job_id = 0;
-static int      job_id_wrapped = FALSE;
+uint32_t job_id = 0;
+int      job_id_wrapped = FALSE;
 
 /**
  * jobs:

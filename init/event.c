@@ -65,8 +65,8 @@ int paused = FALSE;
  * in which case you should set emission_id_wrapped and take care to check
  * an id isn't taken.
  **/
-static uint32_t emission_id = 0;
-static int      emission_id_wrapped = FALSE;
+uint32_t emission_id = 0;
+int      emission_id_wrapped = FALSE;
 
 /**
  * events:

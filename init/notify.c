@@ -42,10 +42,6 @@
 #include "notify.h"
 
 
-/* Prototypes for static functions */
-static void notify_job_status (pid_t pid, Job *job);
-
-
 /**
  * subscriptions:
  *
@@ -227,49 +223,6 @@ notify_unsubscribe (pid_t pid)
 
 
 /**
- * notify_job_status:
- * @pid: destination process,
- * @job: job to send.
- *
- * Sends a series of messages to @pid containing the current status of @job
- * and its processes.  The UPSTART_JOB_STATUS message is sent first, giving
- * the id and name of the job, along with its current goal and state.  Then,
- * for each active process, an UPSTART_JOB_PROCESS message is sent containing
- * the process type and current pid.  Finally an UPSTART_JOB_STATUS_END
- * message is sent.
- **/
-static void
-notify_job_status (pid_t  pid,
-		   Job   *job)
-{
-	NihIoMessage *message;
-	int           i;
-
-	nih_assert (pid > 0);
-	nih_assert (job != NULL);
-	nih_assert (control_io != NULL);
-
-	NIH_MUST (message = upstart_message_new (
-			  control_io, pid, UPSTART_JOB_STATUS,
-			  job->id, job->name, job->goal, job->state));
-	nih_io_send_message (control_io, message);
-
-	for (i = 0; i < PROCESS_LAST; i++) {
-		if (job->process[i] && (job->process[i]->pid > 0)) {
-			NIH_MUST (message = upstart_message_new (
-					  control_io, pid, UPSTART_JOB_PROCESS,
-					  i, job->process[i]->pid));
-			nih_io_send_message (control_io, message);
-		}
-	}
-
-	NIH_MUST (message = upstart_message_new (
-			  control_io, pid, UPSTART_JOB_STATUS_END,
-			  job->id, job->name, job->goal, job->state));
-	nih_io_send_message (control_io, message);
-}
-
-/**
  * notify_job:
  * @job: job that changed state,
  *
@@ -296,7 +249,7 @@ notify_job (Job *job)
 		if (sub->job && (sub->job != job))
 			continue;
 
-		notify_job_status (sub->pid, job);
+		control_send_job_status (sub->pid, job);
 	}
 
 	if (job->cause)
@@ -337,7 +290,7 @@ notify_job_event (Job *job)
 				  job->cause->id));
 		nih_io_send_message (control_io, message);
 
-		notify_job_status (sub->pid, job);
+		control_send_job_status (sub->pid, job);
 	}
 }
 
@@ -370,7 +323,7 @@ notify_job_finished (Job *job)
 		if (sub->job != job)
 			continue;
 
-		notify_job_status (sub->pid, job);
+		control_send_job_status (sub->pid, job);
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_JOB_FINISHED,
