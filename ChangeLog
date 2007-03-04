@@ -1,5 +1,9 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: We're not going to return JOB_LIST for JOB_STOP
+	since that's just awkward for the client; just act on the master,
+	and return JOB_UNCHANGED.
+
 	* init/notify.c (notify_job_status): Move this function to
 	* init/control.c (control_send_job_status): here, since we need it for
 	the new control responses.

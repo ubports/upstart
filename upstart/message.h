@@ -68,8 +68,7 @@ typedef enum upstart_message_type {
 	 * its goal, the client will receive a JOB_STATUS message.  Once
 	 * the job reaches the goal, it will receive a JOB_FINISHED event.
 	 *
-	 * For UPSTART_JOB_QUERY, or if the job named by UPSTART_JOB_STOP
-	 * is not unique, the client will receive a JOB_LIST response
+	 * For UPSTART_JOB_QUERY the client will receive a JOB_LIST response
 	 * followed by a JOB_STATUS message for each matching job and then
 	 * finally a JOB_LIST_END message.
 	 *
