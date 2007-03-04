@@ -74,7 +74,10 @@ typedef enum upstart_message_type {
 	 * finally a JOB_LIST_END message.
 	 *
 	 * If the job named by UPSTART_JOB_START or UPSTART_JOB_STOP is not
-	 * known, the client will receive a JOB_UNKNOWN message.
+	 * known, the client will receive a JOB_UNKNOWN message.  If the job
+	 * is deleted, the client will receive a JOB_DELETED message.  If
+	 * the job is already started or stopped, the client will receive a
+	 * JOB_INVALID response.
 	 */
 	UPSTART_JOB_QUERY         = 0x0100,
 	UPSTART_JOB_START         = 0x0101,
@@ -87,6 +90,8 @@ typedef enum upstart_message_type {
 	UPSTART_JOB_PROCESS       = 0x0181,
 	UPSTART_JOB_STATUS_END    = 0x018f,
 	UPSTART_JOB_UNKNOWN       = 0x01f0,
+	UPSTART_JOB_DELETED       = 0x01f1,
+	UPSTART_JOB_INVALID       = 0x01f2,
 
 	/* Event requests and responses.
 	 *
@@ -166,6 +171,14 @@ typedef enum upstart_message_type {
  * UPSTART_JOB_UNKNOWN:
  * @name: name of unknown job (char *),
  * @id: unique id of job (unsigned), if @name is NULL.
+ *
+ * UPSTART_JOB_DELETED:
+ * @id: unique id of job (unsigned),
+ * @name: name of unknown job (char *).
+ *
+ * UPSTART_JOB_INVALID:
+ * @id: unique id of job (unsigned),
+ * @name: name of unknown job (char *).
  *
  *
  * UPSTART_EVENT_EMIT:

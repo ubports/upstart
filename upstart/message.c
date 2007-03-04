@@ -274,6 +274,16 @@ upstart_message_new (const void         *parent,
 			goto error;
 
 		break;
+	case UPSTART_JOB_DELETED:
+		if (upstart_push_packv (message, "us", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_INVALID:
+		if (upstart_push_packv (message, "us", args))
+			goto error;
+
+		break;
 
 	case UPSTART_EVENT_EMIT:
 		if (upstart_push_packv (message, "saa", args))
@@ -634,6 +644,40 @@ upstart_message_handle (const void     *parent,
 		}
 
 		ret = handler (data, cred.pid, type, name, id);
+		break;
+	}
+	case UPSTART_JOB_DELETED: {
+		uint32_t  id;
+		char     *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name);
+		break;
+	}
+	case UPSTART_JOB_INVALID: {
+		uint32_t  id;
+		char     *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name);
 		break;
 	}
 

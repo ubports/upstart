@@ -1,5 +1,13 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: Turns out we need extra errors to indicate that
+	the job was deleted or already at that goal, otherwise the client
+	would sit there waiting for the finished event.	
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Marshal the new error messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the handling of the new messages.
+
 	* init/tests/test_job.c (test_free_deleted): Found a bug; because
 	master instances never change state, they never end up in the deleted
 	state so are never reaped.  Add some test cases for cleaning them up,
