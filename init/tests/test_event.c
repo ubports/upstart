@@ -376,7 +376,6 @@ test_poll (void)
 	Job                *job;
 	Event              *event;
 	NihIo              *io;
-	NotifySubscription *sub;
 	int                 wait_fd, status;
 	pid_t               pid;
 
@@ -424,11 +423,12 @@ test_poll (void)
 	em1 = event_emit ("test", NULL, NULL);
 	em1->id = 0xdeafbeef;
 
-	sub = notify_subscribe_event (NULL, pid, em1);
+	notify_subscribe_event (NULL, pid, em1);
 
 	event_poll ();
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
@@ -443,7 +443,8 @@ test_poll (void)
 
 	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
-	nih_list_free (&sub->entry);
+	TEST_LIST_EMPTY (subscriptions);
+
 	nih_list_free (&job->entry);
 	nih_list_free (&em1->event.entry);
 
@@ -504,11 +505,12 @@ test_poll (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (em1, my_destructor);
 
-	sub = notify_subscribe_event (NULL, pid, em1);
+	notify_subscribe_event (NULL, pid, em1);
 
 	event_poll ();
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
@@ -526,7 +528,7 @@ test_poll (void)
 
 	TEST_TRUE (destructor_called);
 
-	nih_list_free (&sub->entry);
+	TEST_LIST_EMPTY (subscriptions);
 
 
 	/* Check that a pending event which doesn't cause any jobs to be

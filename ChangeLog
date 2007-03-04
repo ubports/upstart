@@ -1,5 +1,9 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event.c (test_poll): Needs a slight fix now that
+	we generate more events than we check, and that subscriptions go
+	away automatically.
+
 	* init/notify.c (notify_job_status): Static function to handle
 	sending the more complicated job status message series 
 	(notify_job): Call notify_job_status() to send the new-style message
