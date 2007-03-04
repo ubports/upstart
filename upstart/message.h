@@ -162,10 +162,8 @@ typedef enum upstart_message_type {
  * @exit_status: exit status or signal of failed process (int).
  *
  * UPSTART_LIST:
- * @name: name of job or NULL (char *).
  *
  * UPSTART_LIST_END:
- * @name: name of job or NULL (char *).
  *
  * UPSTART_STATUS:
  * @id: unique id of job (unsigned),
