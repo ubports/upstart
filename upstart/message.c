@@ -219,8 +219,13 @@ upstart_message_new (const void         *parent,
 	case UPSTART_UNWATCH_EVENTS:
 		break;
 
-	case UPSTART_JOB_QUERY:
+	case UPSTART_JOB_FIND:
 		if (upstart_push_packv (message, "s", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_QUERY:
+		if (upstart_push_packv (message, "su", args))
 			goto error;
 
 		break;
@@ -274,7 +279,7 @@ upstart_message_new (const void         *parent,
 			goto error;
 
 		break;
-	case UPSTART_JOB_DELETED:
+	case UPSTART_JOB_INVALID:
 		if (upstart_push_packv (message, "us", args))
 			goto error;
 
@@ -475,17 +480,31 @@ upstart_message_handle (const void     *parent,
 		ret = handler (data, cred.pid, type);
 		break;
 
-	case UPSTART_JOB_QUERY: {
-		char *name = NULL;
+	case UPSTART_JOB_FIND: {
+		char *pattern = NULL;
 
-		if (upstart_pop_pack (message, parent, "s", &name)) {
+		if (upstart_pop_pack (message, parent, "s", &pattern)) {
+			if (pattern)
+				nih_free (pattern);
+
+			goto invalid;
+		}
+
+		ret = handler (data, cred.pid, type, pattern);
+		break;
+	}
+	case UPSTART_JOB_QUERY: {
+		char     *name = NULL;
+		uint32_t  id;
+
+		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
 			if (name)
 				nih_free (name);
 
 			goto invalid;
 		}
 
-		ret = handler (data, cred.pid, type, name);
+		ret = handler (data, cred.pid, type, name, id);
 		break;
 	}
 	case UPSTART_JOB_START: {
@@ -646,7 +665,7 @@ upstart_message_handle (const void     *parent,
 		ret = handler (data, cred.pid, type, name, id);
 		break;
 	}
-	case UPSTART_JOB_DELETED: {
+	case UPSTART_JOB_INVALID: {
 		uint32_t  id;
 		char     *name = NULL;
 

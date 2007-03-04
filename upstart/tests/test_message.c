@@ -235,13 +235,13 @@ test_new (void)
 	}
 
 
-	/* Check that we can create an UPSTART_JOB_QUERY message and have
+	/* Check that we can create an UPSTART_JOB_FIND message and have
 	 * the message buffer filled in correctly.
 	 */
-	TEST_FEATURE ("with UPSTART_JOB_QUERY message");
+	TEST_FEATURE ("with UPSTART_JOB_FIND message");
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_JOB_QUERY, "test");
+					   UPSTART_JOB_FIND, "test*");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -250,9 +250,80 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 21);
+		TEST_EQ (msg->data->len, 22);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\x01\x00s\0\0\0\x04test", 21);
+			     "upstart\n\0\0\x01\x00s\0\0\0\x05test*", 22);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_JOB_FIND message with a NULL
+	 * pattern and have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_FIND message and NULL pattern");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_JOB_FIND, NULL);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 13);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x01\x00S", 13);
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_JOB_QUERY message and have
+	 * the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_QUERY message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_JOB_QUERY, "test", 0);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 26);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x01\x01s\0\0\0\x04testu\0\0\0\0",
+			     26);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_JOB_QUERY message with an
+	 * id instead of name and have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_QUERY message and id not name");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_JOB_QUERY,
+					   NULL, 0xdeafbeef);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 18);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x01\x01Su\xde\xaf\xbe\xef",
+			     18);
 
 		nih_free (msg);
 	}
@@ -275,8 +346,33 @@ test_new (void)
 
 		TEST_EQ (msg->data->len, 26);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\x01\x01s\0\0\0\x04testu\0\0\0\0",
+			     "upstart\n\0\0\x01\x02s\0\0\0\x04testu\0\0\0\0",
 			     26);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_JOB_START message with an
+	 * id instead of name and have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_START message and id not name");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_JOB_START,
+					   NULL, 0xdeafbeef);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 18);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x01\x02Su\xde\xaf\xbe\xef",
+			     18);
 
 		nih_free (msg);
 	}
@@ -286,6 +382,30 @@ test_new (void)
 	 * the message buffer filled in correctly.
 	 */
 	TEST_FEATURE ("with UPSTART_JOB_STOP message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_JOB_STOP, "test", 0);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 26);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x01\x03s\0\0\0\x04testu\0\0\0\0",
+			     26);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_JOB_STOP message with an
+	 * id instead of name and have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_STOP message and id not name");
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
 					   UPSTART_JOB_STOP, NULL,
@@ -300,7 +420,7 @@ test_new (void)
 
 		TEST_EQ (msg->data->len, 18);
 		TEST_EQ_MEM (msg->data->buf,
-			     "upstart\n\0\0\x01\x02Su\xde\xaf\xbe\xef", 18);
+			     "upstart\n\0\0\x01\x03Su\xde\xaf\xbe\xef", 18);
 
 		nih_free (msg);
 	}
@@ -502,13 +622,13 @@ test_new (void)
 	}
 
 
-	/* Check that we can create an UPSTART_JOB_DELETED message and have
+	/* Check that we can create an UPSTART_JOB_INVALID message and have
 	 * the message buffer filled in correctly.
 	 */
-	TEST_FEATURE ("with UPSTART_JOB_DELETED message");
+	TEST_FEATURE ("with UPSTART_JOB_INVALID message");
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_JOB_DELETED,
+					   UPSTART_JOB_INVALID,
 					   0xdeafbeef, "test");
 
 		if (test_alloc_failed) {
@@ -720,12 +840,26 @@ my_handler (void                *data,
 	va_start (args, type);
 
 	switch (type) {
+	case UPSTART_JOB_FIND: {
+		char *pattern;
+
+		pattern = va_arg (args, char *);
+
+		TEST_EQ_STR (pattern, "test*");
+
+		nih_free (pattern);
+
+		break;
+	}
 	case UPSTART_JOB_QUERY: {
-		char *name;
+		char     *name;
+		uint32_t  id;
 
 		name = va_arg (args, char *);
+		id = va_arg (args, unsigned);
 
 		TEST_EQ_STR (name, "test");
+		TEST_EQ_U (id, 0);
 
 		nih_free (name);
 
@@ -882,7 +1016,7 @@ my_handler (void                *data,
 
 		break;
 	}
-	case UPSTART_JOB_DELETED: {
+	case UPSTART_JOB_INVALID: {
 		uint32_t  id;
 		char     *name;
 
@@ -1204,6 +1338,41 @@ test_handle (void)
 	}
 
 
+	/* Check that we call the handler function for an UPSTART_JOB_FIND
+	 * message from a particular process id.
+	 */
+	TEST_FEATURE ("with UPSTART_JOB_FIND message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (
+					 msg->data,
+					 ("upstart\n\0\0\x01\x00"
+					  "s\0\0\0\5test*"),
+					 22));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_JOB_FIND);
+
+		nih_free (msg);
+	}
+
+
 	/* Check that we call the handler function for an UPSTART_JOB_QUERY
 	 * message from a particular process id.
 	 */
@@ -1213,9 +1382,9 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (
 					 msg->data,
-					 ("upstart\n\0\0\x01\x00"
-					  "s\0\0\0\4test"),
-					 21));
+					 ("upstart\n\0\0\x01\x01"
+					  "s\0\0\0\4testu\0\0\0\0"),
+					 26));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1248,7 +1417,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (
 					 msg->data,
-					 ("upstart\n\0\0\x01\x01"
+					 ("upstart\n\0\0\x01\x02"
 					  "s\0\0\0\4testu\0\0\0\0"),
 					 26));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
@@ -1283,7 +1452,7 @@ test_handle (void)
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (
 					 msg->data,
-					 ("upstart\n\0\0\x01\x02"
+					 ("upstart\n\0\0\x01\x03"
 					  "Su\xde\xaf\xbe\xef"),
 					 18));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
@@ -1588,10 +1757,10 @@ test_handle (void)
 	}
 
 
-	/* Check that we call the handler function for an UPSTART_JOB_DELETED
+	/* Check that we call the handler function for an UPSTART_JOB_INVALID
 	 * message from a particular process id.
 	 */
-	TEST_FEATURE ("with UPSTART_JOB_DELETED message");
+	TEST_FEATURE ("with UPSTART_JOB_INVALID message");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			msg = nih_io_message_new (NULL);
@@ -1617,7 +1786,7 @@ test_handle (void)
 		TEST_TRUE (handler_called);
 		TEST_EQ_P (last_data, &ret);
 		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_JOB_DELETED);
+		TEST_EQ (last_type, UPSTART_JOB_INVALID);
 
 		nih_free (msg);
 	}
@@ -1852,11 +2021,36 @@ test_handle (void)
 
 
 	/* Check that the UPSTART_MESSAGE_INVALID error is raised on an
+	 * incomplete UPSTART_JOB_FIND message.
+	 */
+	TEST_FEATURE ("with incomplete UPSTART_JOB_FIND message");
+	msg = nih_io_message_new (NULL);
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x00", 12));
+	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					     sizeof (cred), &cred));
+
+	handler_called = FALSE;
+
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+	TEST_LT (ret, 0);
+	TEST_FALSE (handler_called);
+
+	err = nih_error_get ();
+
+	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
+
+	nih_free (err);
+
+	nih_free (msg);
+
+
+	/* Check that the UPSTART_MESSAGE_INVALID error is raised on an
 	 * incomplete UPSTART_JOB_QUERY message.
 	 */
 	TEST_FEATURE ("with incomplete UPSTART_JOB_QUERY message");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x00", 12));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x01S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1881,7 +2075,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with incomplete UPSTART_JOB_START message");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x01S", 13));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x02S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1906,7 +2100,7 @@ test_handle (void)
 	 */
 	TEST_FEATURE ("with incomplete UPSTART_JOB_STOP message");
 	msg = nih_io_message_new (NULL);
-	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x02S", 13));
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x01\x03S", 13));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -2244,9 +2438,9 @@ test_handle (void)
 
 
 	/* Check that the UPSTART_MESSAGE_INVALID error is raised on an
-	 * incomplete UPSTART_JOB_DELETED message.
+	 * incomplete UPSTART_JOB_INVALID message.
 	 */
-	TEST_FEATURE ("with incomplete UPSTART_JOB_DELETED message");
+	TEST_FEATURE ("with incomplete UPSTART_JOB_INVALID message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     "upstart\n\0\0\x01\xf1u\0\0\0\0", 17));
@@ -2270,9 +2464,9 @@ test_handle (void)
 
 
 	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
-	 * name field in a UPSTART_JOB_DELETED message is NULL.
+	 * name field in a UPSTART_JOB_INVALID message is NULL.
 	 */
-	TEST_FEATURE ("with null name in UPSTART_JOB_DELETED message");
+	TEST_FEATURE ("with null name in UPSTART_JOB_INVALID message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     "upstart\n\0\0\x01\xf1u\0\0\0\0S", 18));

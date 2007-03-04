@@ -1,5 +1,14 @@
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: More message changes; add a JOB_FIND message
+	and replace UPSTART_JOB_DELETED with UPSTART_JOB_INVALID since there's
+	a few more problem conditions.
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Marshal the new message and update names.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Update tests to check the new message and update the
+	values and names of the existing ones.
+
 	* init/job.h (Job): Remove the delete flag, add replacement and
 	replacement_for pointers instead.
 	* init/job.c (job_new): Initialise replacement and replacement_for
