@@ -213,26 +213,68 @@ upstart_message_new (const void         *parent,
 
 	switch (type) {
 	case UPSTART_NO_OP:
-	case UPSTART_JOB_LIST:
-	case UPSTART_JOB_LIST_END:
 	case UPSTART_WATCH_JOBS:
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
 	case UPSTART_UNWATCH_EVENTS:
 		break;
-	case UPSTART_JOB_START:
-	case UPSTART_JOB_STOP:
+
 	case UPSTART_JOB_QUERY:
-	case UPSTART_JOB_UNKNOWN:
+		if (upstart_push_packv (message, "s", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_START:
+		if (upstart_push_packv (message, "su", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_STOP:
+		if (upstart_push_packv (message, "su", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB:
+		if (upstart_push_packv (message, "us", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_FINISHED:
+		if (upstart_push_packv (message, "us", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_LIST:
+		if (upstart_push_packv (message, "s", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_LIST_END:
 		if (upstart_push_packv (message, "s", args))
 			goto error;
 
 		break;
 	case UPSTART_JOB_STATUS:
-		if (upstart_push_packv (message, "sii", args))
+		if (upstart_push_packv (message, "usuu", args))
 			goto error;
 
 		break;
+	case UPSTART_JOB_PROCESS:
+		if (upstart_push_packv (message, "ui", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_STATUS_END:
+		if (upstart_push_packv (message, "usuu", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_UNKNOWN:
+		if (upstart_push_packv (message, "su", args))
+			goto error;
+
+		break;
+
 	case UPSTART_EVENT_EMIT:
 		if (upstart_push_packv (message, "saa", args))
 			goto error;
@@ -243,8 +285,8 @@ upstart_message_new (const void         *parent,
 			goto error;
 
 		break;
-	case UPSTART_EVENT_JOB_STATUS:
-		if (upstart_push_packv (message, "usii", args))
+	case UPSTART_EVENT_CAUSED:
+		if (upstart_push_packv (message, "u", args))
 			goto error;
 
 		break;
@@ -416,18 +458,14 @@ upstart_message_handle (const void     *parent,
 	 */
 	switch (type) {
 	case UPSTART_NO_OP:
-	case UPSTART_JOB_LIST:
-	case UPSTART_JOB_LIST_END:
 	case UPSTART_WATCH_JOBS:
 	case UPSTART_UNWATCH_JOBS:
 	case UPSTART_WATCH_EVENTS:
 	case UPSTART_UNWATCH_EVENTS:
 		ret = handler (data, cred.pid, type);
 		break;
-	case UPSTART_JOB_START:
-	case UPSTART_JOB_STOP:
-	case UPSTART_JOB_QUERY:
-	case UPSTART_JOB_UNKNOWN: {
+
+	case UPSTART_JOB_QUERY: {
 		char *name = NULL;
 
 		if (upstart_pop_pack (message, parent, "s", &name)) {
@@ -437,18 +475,42 @@ upstart_message_handle (const void     *parent,
 			goto invalid;
 		}
 
-		if (! name)
-			goto invalid;
-
 		ret = handler (data, cred.pid, type, name);
 		break;
 	}
-	case UPSTART_JOB_STATUS: {
-		char *name = NULL;
-		int   goal, state;
+	case UPSTART_JOB_START: {
+		char     *name = NULL;
+		uint32_t  id;
 
-		if (upstart_pop_pack (message, parent, "sii",
-				      &name, &goal, &state)) {
+		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		ret = handler (data, cred.pid, type, name, id);
+		break;
+	}
+	case UPSTART_JOB_STOP: {
+		char     *name = NULL;
+		uint32_t  id;
+
+		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		ret = handler (data, cred.pid, type, name, id);
+		break;
+	}
+	case UPSTART_JOB: {
+		uint32_t  id;
+		char     *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
 			if (name)
 				nih_free (name);
 
@@ -458,9 +520,117 @@ upstart_message_handle (const void     *parent,
 		if (! name)
 			goto invalid;
 
-		ret = handler (data, cred.pid, type, name, goal, state);
+		ret = handler (data, cred.pid, type, id, name);
 		break;
 	}
+	case UPSTART_JOB_FINISHED: {
+		uint32_t  id;
+		char     *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name);
+		break;
+	}
+	case UPSTART_JOB_LIST: {
+		char *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "s", &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		ret = handler (data, cred.pid, type, name);
+		break;
+	}
+	case UPSTART_JOB_LIST_END: {
+		char *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "s", &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		ret = handler (data, cred.pid, type, name);
+		break;
+	}
+	case UPSTART_JOB_STATUS: {
+		uint32_t  id;
+		char     *name = NULL;
+		JobGoal   goal;
+		JobState  state;
+
+		if (upstart_pop_pack (message, parent, "usuu",
+				      &id, &name, &goal, &state)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name, goal, state);
+		break;
+	}
+	case UPSTART_JOB_PROCESS: {
+		ProcessType process;
+		pid_t       pid;
+
+		if (upstart_pop_pack (message, parent, "ui", &process, &pid))
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, process, pid);
+		break;
+	}
+	case UPSTART_JOB_STATUS_END: {
+		uint32_t  id;
+		char     *name = NULL;
+		JobGoal   goal;
+		JobState  state;
+
+		if (upstart_pop_pack (message, parent, "usuu",
+				      &id, &name, &goal, &state)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name, goal, state);
+		break;
+	}
+	case UPSTART_JOB_UNKNOWN: {
+		char     *name = NULL;
+		uint32_t  id;
+
+		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		ret = handler (data, cred.pid, type, name, id);
+		break;
+	}
+
 	case UPSTART_EVENT_EMIT: {
 		char *name = NULL, **args = NULL, **env = NULL;
 
@@ -504,24 +674,13 @@ upstart_message_handle (const void     *parent,
 		ret = handler (data, cred.pid, type, id, name, args, env);
 		break;
 	}
-	case UPSTART_EVENT_JOB_STATUS: {
+	case UPSTART_EVENT_CAUSED: {
 		uint32_t  id;
-		char     *name = NULL;
-		JobGoal   goal;
-		JobState  state;
 
-		if (upstart_pop_pack (message, parent, "usii",
-				      &id, &name, &goal, &state)) {
-			if (name)
-				nih_free (name);
-
-			goto invalid;
-		}
-
-		if (! name)
+		if (upstart_pop_pack (message, parent, "u", &id))
 			goto invalid;
 
-		ret = handler (data, cred.pid, type, id, name, goal, state);
+		ret = handler (data, cred.pid, type, id);
 		break;
 	}
 	case UPSTART_EVENT_FINISHED: {
