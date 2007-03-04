@@ -527,13 +527,13 @@ test_new (void)
 	}
 
 
-	/* Check that we can create an UPSTART_JOB_INVALID message and have
+	/* Check that we can create an UPSTART_JOB_UNCHANGED message and have
 	 * the message buffer filled in correctly.
 	 */
-	TEST_FEATURE ("with UPSTART_JOB_INVALID message");
+	TEST_FEATURE ("with UPSTART_JOB_UNCHANGED message");
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_JOB_INVALID,
+					   UPSTART_JOB_UNCHANGED,
 					   0xdeafbeef, "test");
 
 		if (test_alloc_failed) {
@@ -896,7 +896,7 @@ my_handler (void                *data,
 
 		break;
 	}
-	case UPSTART_JOB_INVALID: {
+	case UPSTART_JOB_UNCHANGED: {
 		uint32_t  id;
 		char     *name;
 
@@ -1623,10 +1623,10 @@ test_handle (void)
 	}
 
 
-	/* Check that we call the handler function for an UPSTART_JOB_INVALID
+	/* Check that we call the handler function for an UPSTART_JOB_UNCHANGED
 	 * message from a particular process id.
 	 */
-	TEST_FEATURE ("with UPSTART_JOB_INVALID message");
+	TEST_FEATURE ("with UPSTART_JOB_UNCHANGED message");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			msg = nih_io_message_new (NULL);
@@ -1652,7 +1652,7 @@ test_handle (void)
 		TEST_TRUE (handler_called);
 		TEST_EQ_P (last_data, &ret);
 		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_JOB_INVALID);
+		TEST_EQ (last_type, UPSTART_JOB_UNCHANGED);
 
 		nih_free (msg);
 	}
@@ -2296,9 +2296,9 @@ test_handle (void)
 
 
 	/* Check that the UPSTART_MESSAGE_INVALID error is raised on an
-	 * incomplete UPSTART_JOB_INVALID message.
+	 * incomplete UPSTART_JOB_UNCHANGED message.
 	 */
-	TEST_FEATURE ("with incomplete UPSTART_JOB_INVALID message");
+	TEST_FEATURE ("with incomplete UPSTART_JOB_UNCHANGED message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     "upstart\n\0\0\x01\xf2u\0\0\0\0", 17));
@@ -2322,9 +2322,9 @@ test_handle (void)
 
 
 	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
-	 * name field in a UPSTART_JOB_INVALID message is NULL.
+	 * name field in a UPSTART_JOB_UNCHANGED message is NULL.
 	 */
-	TEST_FEATURE ("with null name in UPSTART_JOB_INVALID message");
+	TEST_FEATURE ("with null name in UPSTART_JOB_UNCHANGED message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
 				     "upstart\n\0\0\x01\xf2u\0\0\0\0S", 18));

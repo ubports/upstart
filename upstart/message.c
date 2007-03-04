@@ -279,7 +279,7 @@ upstart_message_new (const void         *parent,
 			goto error;
 
 		break;
-	case UPSTART_JOB_INVALID:
+	case UPSTART_JOB_UNCHANGED:
 		if (upstart_push_packv (message, "us", args))
 			goto error;
 
@@ -663,7 +663,7 @@ upstart_message_handle (const void     *parent,
 		ret = handler (data, cred.pid, type, id, name);
 		break;
 	}
-	case UPSTART_JOB_INVALID: {
+	case UPSTART_JOB_UNCHANGED: {
 		uint32_t  id;
 		char     *name = NULL;
 
