@@ -337,7 +337,8 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
 					   UPSTART_JOB_FINISHED,
-					   0xdeafbeef, "test");
+					   0xdeafbeef, "test", TRUE,
+					   PROCESS_MAIN, 1);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (msg, NULL);
@@ -346,10 +347,11 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
 
-		TEST_EQ (msg->data->len, 26);
+		TEST_EQ (msg->data->len, 41);
 		TEST_EQ_MEM (msg->data->buf,
 			     ("upstart\n\0\0\x01\x1fu\xde\xaf\xbe\xef"
-			      "s\0\0\0\x04test"), 26);
+			      "s\0\0\0\x04testi\0\0\0\1u\0\0\0\0i\0\0\0\1"),
+			     41);
 
 		nih_free (msg);
 	}
@@ -720,14 +722,23 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_FINISHED: {
-		uint32_t  id;
-		char     *name;
+		uint32_t     id;
+		char        *name;
+		int          failed;
+		ProcessType  failed_process;
+		int          exit_status;
 
 		id = va_arg (args, unsigned);
 		name = va_arg (args, char *);
+		failed = va_arg (args, int);
+		failed_process = va_arg (args, unsigned);
+		exit_status = va_arg (args, int);
 
 		TEST_EQ_U (id, 0xdeafbeef);
 		TEST_EQ_STR (name, "test");
+		TEST_EQ (failed, TRUE);
+		TEST_EQ (failed_process, PROCESS_MAIN);
+		TEST_EQ (exit_status, 1);
 
 		nih_free (name);
 
@@ -1265,8 +1276,8 @@ test_handle (void)
 			assert0 (nih_io_buffer_push (
 					 msg->data,
 					 ("upstart\n\0\0\x01\x1f"
-					  "u\xde\xaf\xbe\xefs\0\0\0\4test"),
-					 26));
+					  "u\xde\xaf\xbe\xefs\0\0\0\4test"
+					  "i\0\0\0\1u\0\0\0\0i\0\0\0\1"), 41));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1825,7 +1836,9 @@ test_handle (void)
 	TEST_FEATURE ("with incomplete UPSTART_JOB_FINISHED message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\x01\x1fu\0\0\0\0", 17));
+				     ("upstart\n\0\0\x01\x1fu\0\0\0\0"
+				      "s\0\0\04testi\0\0\0\1u\0\0\0\0"),
+				     36));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 
@@ -1851,7 +1864,9 @@ test_handle (void)
 	TEST_FEATURE ("with null name in UPSTART_JOB_FINISHED message");
 	msg = nih_io_message_new (NULL);
 	assert0 (nih_io_buffer_push (msg->data,
-				     "upstart\n\0\0\x01\x1fSu\0\0\0\0", 18));
+				     ("upstart\n\0\0\x01\x1fu\0\0\0\0S"
+				      "i\0\0\0\1u\0\0\0\0i\0\0\0\1"),
+				     33));
 	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
 					     sizeof (cred), &cred));
 

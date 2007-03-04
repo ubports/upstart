@@ -240,7 +240,7 @@ upstart_message_new (const void         *parent,
 
 		break;
 	case UPSTART_JOB_FINISHED:
-		if (upstart_push_packv (message, "us", args))
+		if (upstart_push_packv (message, "usiui", args))
 			goto error;
 
 		break;
@@ -524,10 +524,15 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_FINISHED: {
-		uint32_t  id;
-		char     *name = NULL;
+		uint32_t     id;
+		char        *name = NULL;
+		int          failed;
+		ProcessType  failed_process;
+		int          exit_status;
 
-		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
+		if (upstart_pop_pack (message, parent, "usiui",
+				      &id, &name, &failed, &failed_process,
+				      &exit_status)) {
 			if (name)
 				nih_free (name);
 
@@ -537,7 +542,8 @@ upstart_message_handle (const void     *parent,
 		if (! name)
 			goto invalid;
 
-		ret = handler (data, cred.pid, type, id, name);
+		ret = handler (data, cred.pid, type, id, name, failed,
+			       failed_process, exit_status);
 		break;
 	}
 	case UPSTART_JOB_LIST: {

@@ -119,14 +119,14 @@ typedef enum upstart_message_type {
  * @type is received from another process @pid.  The function will be called
  * with additional arguments that vary based on @type as follows:
  *
- * UPSTART_QUERY:
+ * UPSTART_JOB_QUERY:
  * @name: name of job or NULL (char *).
  *
- * UPSTART_START:
+ * UPSTART_JOB_START:
  * @name: name of job (char *),
  * @id: unique id of job (unsigned), if @name is NULL.
  *
- * UPSTART_STOP:
+ * UPSTART_JOB_STOP:
  * @name: name of job (char *),
  * @id: unique id of job (unsigned), if @name is NULL.
  *
@@ -136,7 +136,10 @@ typedef enum upstart_message_type {
  *
  * UPSTART_JOB_FINISHED:
  * @id: unique id of job (unsigned),
- * @name: name of job (char *).
+ * @name: name of job (char *),
+ * @failed: whether the job failed (int),
+ * @failed_process: type of process that failed (unsigned),
+ * @exit_status: exit status or signal of failed process (int).
  *
  * UPSTART_LIST:
  * @name: name of job or NULL (char *).
