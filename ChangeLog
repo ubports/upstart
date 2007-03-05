@@ -1,5 +1,8 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_read_job, cfg_delete_handler): Don't try and
+	free the magic (void *)-1 replacement (delete).
+
 	* util/events.c, util/events.c, util/jobs.c, util/jobs.h: With the
 	new message responses, that intermix event and job information freely,
 	it no longer makes sense to distinguish between them.  So fold these

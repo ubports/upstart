@@ -1809,7 +1809,8 @@ cfg_read_job (const void *parent,
 	if (old_job) {
 		nih_info (_("Replacing existing %s job"), job->name);
 
-		if (old_job->replacement) {
+		if ((old_job->replacement != NULL)
+		    && (old_job->replacement != (void *)-1)) {
 			nih_debug ("Discarding previous replacement");
 			nih_list_free (&old_job->replacement->entry);
 		}
@@ -2000,7 +2001,8 @@ cfg_delete_handler (const char *prefix,
 	if (job) {
 		nih_info (_("Deleting %s job"), job->name);
 
-		if (job->replacement) {
+		if ((job->replacement != NULL)
+		    && (job->replacement != (void *)-1)) {
 			nih_debug ("Discarding replacement");
 			nih_list_free (&job->replacement->entry);
 		}
