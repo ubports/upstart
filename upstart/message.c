@@ -259,6 +259,16 @@ upstart_message_new (const void         *parent,
 			goto error;
 
 		break;
+	case UPSTART_JOB_INSTANCE:
+		if (upstart_push_packv (message, "us", args))
+			goto error;
+
+		break;
+	case UPSTART_JOB_INSTANCE_END:
+		if (upstart_push_packv (message, "us", args))
+			goto error;
+
+		break;
 	case UPSTART_JOB_STATUS:
 		if (upstart_push_packv (message, "usuu", args))
 			goto error;
@@ -599,6 +609,40 @@ upstart_message_handle (const void     *parent,
 		}
 
 		ret = handler (data, cred.pid, type, pattern);
+		break;
+	}
+	case UPSTART_JOB_INSTANCE: {
+		uint32_t  id;
+		char     *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name);
+		break;
+	}
+	case UPSTART_JOB_INSTANCE_END: {
+		uint32_t  id;
+		char     *name = NULL;
+
+		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
+			if (name)
+				nih_free (name);
+
+			goto invalid;
+		}
+
+		if (! name)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, id, name);
 		break;
 	}
 	case UPSTART_JOB_STATUS: {

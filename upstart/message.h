@@ -57,33 +57,36 @@ typedef enum upstart_message_type {
 
 	/* Job requests and responses.
 	 *
-	 * Clients send UPSTART_JOB_START or UPSTART_JOB_STOP to start or
-	 * stop a job, UPSTART_JOB_QUERY to query the status of a known
-	 * job or UPSTART_JOB_FIND to find a job.
+	 * Clients may send UPSTART_JOB_FIND to request a list of jobs
+	 * matching a wildcard pattern.  They receive an UPSTART_JOB_LIST
+	 * message in response, followed by an UPSTART_JOB_STATUS or
+	 * UPSTART_JOB_INSTANCE message for each job (see below) and a
+	 * final UPSTART_JOB_LIST_END message.
 	 *
-	 * For UPSTART_JOB_START or UPSTART_JOB_STOP, they receive the
-	 * UPSTART_JOB response which will include the unique id of the job
-	 * actually started or stopped; for UPSTART_JOB_STOP there may be
-	 * multiple of these if the job was an instance master, since all
-	 * instaces are stopped.
+	 * They may send UPSTART_JOB_QUERY to query the status of a job
+	 * by name or id.  If the job is not an instance job, or is an
+	 * instance, they receive an UPSTART_JOB_STATUS reply, followed by
+	 * an UPSTART_JOB_PROCESS message for each running process and then
+	 * an UPSTART_JOB_STATUS_END reply.  If the job is an instance job,
+	 * they receive an UPSTART_JOB_INSTANCE reply, followed by
+	 * UPSTART_JOB_STATUS for each active instance and finally
+	 * UPSTART_JOB_INSTANCE_END.
+	 *
+	 * Clients send UPSTART_JOB_START or UPSTART_JOB_STOP to start or
+	 * stop a job.  They will receive the UPSTART_JOB response which
+	 * includes the unique id of the job actually started or stopped;
+	 * for UPSTART_JOB_STOP there may be multiple of these if the job
+	 * was an instance job, since all instances will be stopped.
 	 *
 	 * For each status change the job goes through before it reaches
 	 * its goal, the client will receive a UPSTART_JOB_STATUS message.
 	 * Once the job reaches the goal, it will receive an
 	 * UPSTART_JOB_FINISHED event.
 	 *
-	 * For UPSTART_JOB_QUERY the client will receive either an
-	 * UPSTART_JOB_STATUS message set, for a non-instance job, or an
-	 * UPSTART_JOB_LIST response followed by an UPSTART_JOB_STATUS message
-	 * for each instance and then finally an UPSTART_JOB_LIST_END message.
+	 * If the job given to UPSTART_JOB_QUERY, UPSTART_JOB_START or
+	 * UPSTART_JOB_STOP is not known, the client will receive an
+	 * UPSTART_JOB_UNKNOWN message.
 	 *
-	 * For UPSTART_JOB_FIND the client will receive an UPSTART_JOB_LIST
-	 * response, followed by an UPSTART_JOB_STATUS message for each
-	 * matching job or instance and then finally an UPSTART_JOB_LIST_END
-	 * message.
-	 *
-	 * If the job named by UPSTART_JOB_START or UPSTART_JOB_STOP is not
-	 * known, the client will receive an UPSTART_JOB_UNKNOWN message.
 	 * If the job cannot be started or stopped, usually because it's
 	 * an instance, replacement or deleted job, the client will receive
 	 * UPSTART_JOB_INVALID.  If the job has already been started or
@@ -97,6 +100,8 @@ typedef enum upstart_message_type {
 	UPSTART_JOB_FINISHED      = 0x011f,
 	UPSTART_JOB_LIST          = 0x0120,
 	UPSTART_JOB_LIST_END      = 0x012f,
+	UPSTART_JOB_INSTANCE      = 0x0130,
+	UPSTART_JOB_INSTANCE_END  = 0x013f,
 	UPSTART_JOB_STATUS        = 0x0180,
 	UPSTART_JOB_PROCESS       = 0x0181,
 	UPSTART_JOB_STATUS_END    = 0x018f,
@@ -166,6 +171,14 @@ typedef enum upstart_message_type {
  *
  * UPSTART_JOB_LIST_END:
  * @pattern: pattern sought or NULL (char *).
+ *
+ * UPSTART_JOB_INSTANCE:
+ * @id: unique id of job (unsigned),
+ * @name: name of job (char *).
+ *
+ * UPSTART_JOB_INSTANCE_END:
+ * @id: unique id of job (unsigned),
+ * @name: name of job (char *).
  *
  * UPSTART_JOB_STATUS:
  * @id: unique id of job (unsigned),
