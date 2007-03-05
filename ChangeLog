@@ -1,5 +1,21 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* util/events.c, util/events.c, util/jobs.c, util/jobs.h: With the
+	new message responses, that intermix event and job information freely,
+	it no longer makes sense to distinguish between them.  So fold these
+	files back into the main initctl.c
+	* util/initctl.h: Drop unused header.
+	* util/Makefile.am (initctl_SOURCES): Update sources list.
+	(TESTS): Change which tests we build
+	(test_initctl_SOURCES, test_initctl_CFLAGS, test_initctl_LDFLAGS) 
+	(test_initctl_LDADD): Build the new combined test case binary, use
+	an automake feature to rebuild initctl.c with -DTEST and a different
+	.o file, and thus be able to define out main()
+
+	* util/tests/test_events.c, util/tests/test_jobs.c: Collapse the two
+	test case files into one single
+	* util/tests/test_initctl.c
+
 	* init/control.c (control_job_find): And implement the find function
 	that returns a list of jobs matching an optional pattern.
 	* init/tests/test_control.c: Make sure we do send all messages.
