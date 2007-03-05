@@ -1,5 +1,11 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (crash_handler): Simply trying to leave a SEGV handler
+	doesn't work so well, we end up repeating the problem instruction.
+	We really can't resume from this point, and can't even jump elsewhere
+	since our state is probably buggered up.  Only thing for it is to
+	re-exec ourselves with a clean state.
+
 	* init/cfgfile.c (cfg_read_job, cfg_delete_handler): Don't try and
 	free the magic (void *)-1 replacement (delete).
 

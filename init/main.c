@@ -78,6 +78,14 @@ static void term_handler    (const char *prog, NihSignal *signal);
  **/
 static int restart = FALSE;
 
+/**
+ * rescue:
+ *
+ * This is set to TRUE if we're being re-exec'd by an existing init process
+ * that has crashed.
+ **/
+static int rescue = FALSE;
+
 
 /**
  * options:
@@ -86,6 +94,7 @@ static int restart = FALSE;
  **/
 static NihOption options[] = {
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+	{ 0, "rescue", NULL, NULL, NULL, &rescue, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -193,7 +202,7 @@ main (int   argc,
 
 	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
 		nih_free (nih_error_get ());
-	if (! restart)
+	if (! (restart || rescue))
 		reset_console ();
 
 	/* Set the PATH environment variable */
@@ -204,7 +213,7 @@ main (int   argc,
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
 	 */
-	if (! restart)
+	if (! (restart || rescue))
 		nih_signal_reset ();
 
 	nih_signal_set_handler (SIGCHLD,  nih_signal_handler);
@@ -260,7 +269,7 @@ main (int   argc,
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! restart) {
+	if (! (restart || rescue)) {
 		event_emit (STARTUP_EVENT, NULL, NULL);
 	} else {
 		sigset_t mask;
@@ -334,7 +343,9 @@ reset_console (void)
 static void
 crash_handler (int signum)
 {
-	pid_t pid;
+	NihError *err;
+	sigset_t  mask, oldmask;
+	pid_t     pid;
 
 	pid = fork ();
 	if (pid == 0) {
@@ -382,6 +393,32 @@ crash_handler (int signum)
 			   (signum == SIGSEGV
 			    ? "segmentation fault" : "abort"));
 	}
+
+	/* There's no point carrying on from here; our state is almost
+	 * likely in tatters, so we'd just end up core-dumping again and
+	 * writing over the one that contains the real bug.  We can't
+	 * even re-exec properly, since we'd probably core dump while
+	 * trying to transfer the state.
+	 *
+	 * So we just do the only thing we can, block out all signals
+	 * and try and start again from scratch.
+	 */
+	sigfillset (&mask);
+	sigprocmask (SIG_BLOCK, &mask, &oldmask);
+
+	/* Argument list */
+	execl ("/sbin/init", "/sbin/init", "--rescue", NULL);
+	nih_error_raise_system ();
+
+	err = nih_error_get ();
+	nih_error (_("Failed to re-execute %s: %s"),
+		   "/sbin/init", err->message);
+	nih_free (err);
+
+	sigprocmask (SIG_SETMASK, &oldmask, NULL);
+
+	/* Oh Bugger */
+	exit (1);
 }
 
 /**
