@@ -56,6 +56,9 @@ static int  control_watch_events   (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_events (void *data, pid_t pid,
 				    UpstartMessageType type);
+static int  control_job_find       (void *data, pid_t pid,
+				    UpstartMessageType type,
+				    const char *pattern);
 static int  control_job_query      (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name,
 				    uint32_t id);
@@ -92,6 +95,8 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_watch_events },
 	{ -1, UPSTART_UNWATCH_EVENTS,
 	  (UpstartMessageHandler)control_unwatch_events },
+	{ -1, UPSTART_JOB_FIND,
+	  (UpstartMessageHandler)control_job_find },
 	{ -1, UPSTART_JOB_QUERY,
 	  (UpstartMessageHandler)control_job_query },
 	{ -1, UPSTART_JOB_START,
@@ -407,12 +412,75 @@ control_unwatch_events (void               *data,
 
 
 /**
+ * control_job_find:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @pattern: pattern to match or NULL.
+ *
+ * This function is called when another process on the system asks for the
+ * list of processes matching the wildcard @pattern, which may be NULL to
+ * list all jobs.
+ *
+ * We iterate the jobs and return the job status for each one; instances are
+ * collated together and sent as a job instance group.  Deleted and
+ * replacement jobs are ignored.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_find (void                *data,
+		  pid_t                pid,
+		  UpstartMessageType   type,
+		  const char          *pattern)
+{
+	NihIoMessage *reply;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_FIND);
+
+	if (pattern) {
+		nih_info (_("Control request for jobs matching %s"), pattern);
+	} else {
+		nih_info (_("Control request for all jobs"));
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST, pattern));
+	nih_io_send_message (control_io, reply);
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		Job *job = (Job *)iter;
+
+		if ((job->state == JOB_DELETED)
+		    || (job->instance_of != NULL)
+		    || (job->replacement_for != NULL))
+			continue;
+
+		if (pattern && fnmatch (pattern, job->name, 0))
+			continue;
+
+		if (! job->instance) {
+			control_send_job_status (pid, job);
+		} else {
+			control_send_instance (pid, job);
+		}
+	}
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_JOB_LIST_END, pattern));
+	nih_io_send_message (control_io, reply);
+
+	return 0;
+}
+
+/**
  * control_job_query:
  * @data: data pointer,
  * @pid: origin process id,
  * @type: message type received,
- * @name: name of job to stop,
- * @id: id of job to stop if @name is NULL.
+ * @name: name of job to query,
+ * @id: id of job to query if @name is NULL.
  *
  * This function is called when another process on the system queries the
  * state of the job named @name or with the unique @id.

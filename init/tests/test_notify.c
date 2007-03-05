@@ -463,6 +463,8 @@ test_job (void)
 	notify_job (job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -533,6 +535,8 @@ test_job (void)
 	notify_job (job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -629,6 +633,8 @@ test_job_event (void)
 	notify_job (job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -726,6 +732,8 @@ test_job_finished (void)
 	notify_job_finished (job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -796,6 +804,8 @@ test_event (void)
 	notify_event (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -869,6 +879,8 @@ test_event_finished (void)
 	notify_event_finished (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))

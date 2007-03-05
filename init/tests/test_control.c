@@ -29,6 +29,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -630,6 +631,211 @@ check_event (void               *data,
 }
 
 
+static int                check_list_all = FALSE;
+static int                check_list_responses = 0;
+static UpstartMessageType last_type = -1;
+static uint32_t           last_job_id = 0, last_instance_id = 0;
+
+static int
+check_list (void               *data,
+	    pid_t               pid,
+	    UpstartMessageType  type,
+	    ...)
+{
+	va_list args;
+	int     ret = 0;
+
+	TEST_EQ (pid, getppid ());
+
+	va_start (args, type);
+
+	switch (type) {
+	case UPSTART_JOB_INSTANCE: {
+		uint32_t  id;
+		char     *name;
+
+		if ((last_type != UPSTART_JOB_LIST)
+		    && (last_type != UPSTART_JOB_STATUS_END)
+		    && (last_type != UPSTART_JOB_INSTANCE_END))
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		id = va_arg (args, unsigned);
+		name = va_arg (args, char *);
+
+		if (id == 0xbeeb1003) {
+			TEST_EQ_STR (name, "baz");
+		} else {
+			TEST_FAILED ("unexpected job #%08x", id);
+		}
+
+		check_list_responses++;
+		last_instance_id = id;
+		break;
+	}
+	case UPSTART_JOB_INSTANCE_END: {
+		uint32_t  id;
+		char     *name;
+
+		if ((last_type != UPSTART_JOB_INSTANCE)
+		    && (last_type != UPSTART_JOB_STATUS_END))
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		id = va_arg (args, unsigned);
+		name = va_arg (args, char *);
+
+		TEST_EQ (id, last_instance_id);
+
+		if (id == 0xbeeb1003) {
+			TEST_EQ_STR (name, "baz");
+		} else {
+			TEST_FAILED ("unexpected job #%08x", id);
+		}
+
+		last_instance_id = -1;
+		break;
+	}
+	case UPSTART_JOB_STATUS: {
+		uint32_t  id;
+		char     *name;
+
+		if ((last_type != UPSTART_JOB_LIST)
+		    && (last_type != UPSTART_JOB_STATUS_END)
+		    && (last_type != UPSTART_JOB_INSTANCE))
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		id = va_arg (args, unsigned);
+		name = va_arg (args, char *);
+
+		if (id == 0xbeeb1001) {
+			TEST_TRUE (check_list_all);
+			TEST_EQ_STR (name, "foo");
+			check_list_responses++;
+		} else if (id == 0xbeeb1002) {
+			TEST_EQ_STR (name, "bar");
+			check_list_responses++;
+		} else if (id == 0xbeeb1004) {
+			TEST_EQ (last_type, UPSTART_JOB_INSTANCE);
+			TEST_EQ (last_instance_id, 0xbeeb1003);
+			TEST_EQ_STR (name, "baz");
+		} else {
+			TEST_FAILED ("unexpected job #%08x", id);
+		}
+
+		last_job_id = id;
+		break;
+	}
+	case UPSTART_JOB_STATUS_END: {
+		uint32_t  id;
+		char     *name;
+
+		if ((last_type != UPSTART_JOB_STATUS)
+		    && (last_type != UPSTART_JOB_PROCESS))
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		id = va_arg (args, unsigned);
+		name = va_arg (args, char *);
+
+		TEST_EQ (id, last_job_id);
+
+		if (id == 0xbeeb1001) {
+			TEST_TRUE (check_list_all);
+			TEST_EQ_STR (name, "foo");
+		} else if (id == 0xbeeb1002) {
+			TEST_EQ_STR (name, "bar");
+		} else if (id == 0xbeeb1004) {
+			TEST_EQ (last_instance_id, 0xbeeb1003);
+			TEST_EQ_STR (name, "baz");
+		} else {
+			TEST_FAILED ("unexpected job #%08x", id);
+		}
+
+		last_job_id = -1;
+		break;
+	}
+	case UPSTART_JOB_PROCESS: {
+		ProcessType process;
+		pid_t       process_pid;
+
+		if ((last_type != UPSTART_JOB_STATUS)
+		    && (last_type != UPSTART_JOB_PROCESS))
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		process = va_arg (args, unsigned);
+		process_pid = va_arg (args, int);
+
+		if (last_job_id == 0xbeeb1001) {
+			TEST_EQ (process, PROCESS_MAIN);
+			TEST_EQ (process_pid, 1000);
+		} else if (last_job_id == 0xbeeb1002) {
+			if (process == PROCESS_MAIN) {
+				TEST_EQ (process_pid, 1000);
+			} else if (process == PROCESS_PRE_STOP) {
+				TEST_EQ (process_pid, 1001);
+			} else {
+				TEST_FAILED ("unexpected process %d",
+					     process);
+			}
+		} else {
+			TEST_FAILED ("process wasn't expected for job #%08x",
+				     last_job_id);
+		}
+
+		break;
+	}
+	case UPSTART_JOB_LIST: {
+		char *pattern;
+
+		if (last_type != -1)
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		pattern = va_arg (args, char *);
+		if (check_list_all) {
+			TEST_EQ_P (pattern, NULL);
+		} else {
+			TEST_EQ_STR (pattern, "b*");
+		}
+
+		break;
+	}
+	case UPSTART_JOB_LIST_END: {
+		char *pattern;
+
+		if ((last_type != UPSTART_JOB_LIST)
+		    && (last_type != UPSTART_JOB_INSTANCE_END)
+		    && (last_type != UPSTART_JOB_STATUS_END))
+			TEST_FAILED ("incorrect message order (%04x before %04x)",
+				     last_type, type);
+
+		pattern = va_arg (args, char *);
+		if (check_list_all) {
+			TEST_EQ_P (pattern, NULL);
+		} else {
+			TEST_EQ_STR (pattern, "b*");
+		}
+
+		ret = 1;
+		break;
+	}
+	default:
+		TEST_FAILED ("unexpected message type %04x received", type);
+		break;
+	}
+
+	va_end (args);
+
+	last_type = type;
+
+	return ret;
+}
+
+
+
 void
 test_send_job_status (void)
 {
@@ -695,6 +901,8 @@ test_send_job_status (void)
 	control_send_job_status (pid, job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -795,6 +1003,8 @@ test_send_instance (void)
 	control_send_instance (pid, job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -870,6 +1080,8 @@ test_watch_jobs (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
 	TEST_NE_P (sub, NULL);
@@ -877,6 +1089,8 @@ test_watch_jobs (void)
 	notify_job (job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -967,6 +1181,8 @@ test_unwatch_jobs (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
 	TEST_NE_P (sub, NULL);
@@ -977,12 +1193,16 @@ test_unwatch_jobs (void)
 	notify_job (job);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	TEST_TRUE (destructor_called);
 
@@ -1038,6 +1258,8 @@ test_watch_events (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
@@ -1047,6 +1269,8 @@ test_watch_events (void)
 	notify_event (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1112,6 +1336,8 @@ test_unwatch_events (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
@@ -1124,12 +1350,16 @@ test_unwatch_events (void)
 	notify_event (emission);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	TEST_TRUE (destructor_called);
 
@@ -1140,6 +1370,190 @@ test_unwatch_events (void)
 	upstart_disable_safeties = FALSE;
 }
 
+
+void
+test_job_find (void)
+{
+	NihIo *io;
+	pid_t  pid;
+	int    wait_fd, status;
+	Job   *job1, *job2, *job3, *job4, *job5, *job6;
+
+	TEST_FUNCTION ("control_job_find");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job1 = job_new (NULL, "foo");
+	job1->id = 0xbeeb1001;
+	job1->goal = JOB_START;
+	job1->state = JOB_RUNNING;
+	job1->process[PROCESS_MAIN] = job_process_new (job1->process);
+	job1->process[PROCESS_MAIN]->command = "echo";
+	job1->process[PROCESS_MAIN]->pid = 1000;
+
+	job2 = job_new (NULL, "bar");
+	job2->id = 0xbeeb1002;
+	job2->goal = JOB_STOP;
+	job2->state = JOB_PRE_STOP;
+	job2->process[PROCESS_MAIN] = job_process_new (job2->process);
+	job2->process[PROCESS_MAIN]->command = "echo";
+	job2->process[PROCESS_MAIN]->pid = 1000;
+	job2->process[PROCESS_PRE_STOP] = job_process_new (job2->process);
+	job2->process[PROCESS_PRE_STOP]->command = "echo";
+	job2->process[PROCESS_PRE_STOP]->pid = 1001;
+
+	job3 = job_new (NULL, "baz");
+	job3->id = 0xbeeb1003;
+	job3->instance = TRUE;
+	job3->goal = JOB_STOP;
+	job3->state = JOB_WAITING;
+
+	job4 = job_new (NULL, "baz");
+	job4->id = 0xbeeb1004;
+	job4->instance = TRUE;
+	job4->instance_of = job3;
+	job4->goal = JOB_START;
+	job4->state = JOB_STARTING;
+
+	job5 = job_new (NULL, "test");
+	job5->id = 0xbeeb1005;
+	job5->goal = JOB_STOP;
+	job5->state = JOB_DELETED;
+
+	job6 = job_new (NULL, "foo");
+	job6->id = 0xbeeb1006;
+	job6->goal = JOB_STOP;
+	job6->state = JOB_WAITING;
+	job6->replacement_for = job1;
+	job1->replacement = job6;
+
+
+	/* Check that we can obtain a list of all jobs by passing a NULL
+	 * pattern, which should return the list excluding both the deleted
+	 * job and that which is a replacement for another.
+	 */
+	TEST_FEATURE ("with no pattern");
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job query message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_FIND, NULL);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		check_list_all = TRUE;
+		check_list_responses = 0;
+		last_type = -1;
+
+		/* Handle messages until we receive UPSTART_JOB_LIST_END */
+		for (;;) {
+			int ret;
+
+			message = nih_io_message_recv (NULL, sock, &len);
+			ret = upstart_message_handle_using (message, message,
+							    (UpstartMessageHandler)
+							    check_list,
+							    NULL);
+			nih_free (message);
+
+			assert (ret >= 0);
+			if (ret > 0)
+				break;
+		}
+
+		TEST_EQ (check_list_responses, 3);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	event_poll ();
+
+
+	/* Check that we can provide a pattern, and have only jobs matching
+	 * that returned.
+	 */
+	TEST_FEATURE ("with pattern");
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Send the job query message */
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_JOB_FIND, "b*");
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		check_list_all = FALSE;
+		check_list_responses = 0;
+		last_type = -1;
+
+		/* Handle messages until we receive UPSTART_JOB_LIST_END */
+		for (;;) {
+			int ret;
+
+			message = nih_io_message_recv (NULL, sock, &len);
+			ret = upstart_message_handle_using (message, message,
+							    (UpstartMessageHandler)
+							    check_list,
+							    NULL);
+			nih_free (message);
+
+			assert (ret >= 0);
+			if (ret > 0)
+				break;
+		}
+
+		TEST_EQ (check_list_responses, 2);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	event_poll ();
+
+
+	nih_list_free (&job6->entry);
+	nih_list_free (&job5->entry);
+	nih_list_free (&job4->entry);
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
 
 void
 test_job_query (void)
@@ -1174,7 +1588,7 @@ test_job_query (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job query message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_QUERY, "test", 0);
 		assert (nih_io_message_send (message, sock) > 0);
@@ -1211,6 +1625,8 @@ test_job_query (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1238,7 +1654,7 @@ test_job_query (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job query message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_QUERY, NULL,
 					       0xdeafbeef);
@@ -1276,6 +1692,8 @@ test_job_query (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1313,7 +1731,7 @@ test_job_query (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job query message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_QUERY, "test", 0);
 		assert (nih_io_message_send (message, sock) > 0);
@@ -1366,6 +1784,8 @@ test_job_query (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1405,7 +1825,7 @@ test_job_query (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job query message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_QUERY,
 					       NULL, 0xdeafbeef);
@@ -1443,6 +1863,8 @@ test_job_query (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1485,6 +1907,8 @@ test_job_query (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1541,6 +1965,8 @@ test_job_query (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1646,6 +2072,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
 	TEST_NE_P (sub, NULL);
@@ -1735,6 +2163,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
 	TEST_NE_P (sub, NULL);
@@ -1829,6 +2259,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	instance = job_find_by_id (0xdeafbeef);
 
@@ -1887,6 +2319,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1936,6 +2370,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -1990,6 +2426,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2044,6 +2482,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2095,6 +2535,8 @@ test_job_start (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2146,7 +2588,7 @@ test_job_stop (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job stop message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_STOP, "test", 0);
 		assert (nih_io_message_send (message, sock) > 0);
@@ -2240,6 +2682,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
 	TEST_NE_P (sub, NULL);
@@ -2274,7 +2718,7 @@ test_job_stop (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job stop message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_STOP, NULL,
 					       0xdeafbeef);
@@ -2370,6 +2814,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
 	TEST_NE_P (sub, NULL);
@@ -2414,7 +2860,7 @@ test_job_stop (void)
 
 		sock = upstart_open ();
 
-		/* Send the job start message */
+		/* Send the job stop message */
 		message = upstart_message_new (NULL, getppid (),
 					       UPSTART_JOB_STOP, "test", 0);
 		assert (nih_io_message_send (message, sock) > 0);
@@ -2508,6 +2954,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
 	TEST_EQ_P (sub, NULL);
@@ -2560,6 +3008,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2609,6 +3059,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2664,6 +3116,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2715,6 +3169,8 @@ test_job_stop (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2780,6 +3236,8 @@ test_event_emit (void)
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
@@ -2818,6 +3276,7 @@ main (int   argc,
 	test_unwatch_jobs ();
 	test_watch_events ();
 	test_unwatch_events ();
+	test_job_find ();
 	test_job_query ();
 	test_job_start ();
 	test_job_stop ();

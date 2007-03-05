@@ -1,5 +1,12 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_find): And implement the find function
+	that returns a list of jobs matching an optional pattern.
+	* init/tests/test_control.c: Make sure we do send all messages.
+	(check_list): Complex function to check the responses to a job list
+	(test_job_find): Test a couple of job lists.
+	* init/tests/test_notify.c: Make sure we do send all messages.
+
 	* init/control.c (control_job_query): Implement the query message,
 	this just needs to return the status or instance set.
 	* init/tests/test_control.c (test_job_query): Test the query command.
