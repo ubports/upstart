@@ -188,6 +188,53 @@ upstart_message_new (const void         *parent,
 
 	nih_assert (pid > 0);
 
+	va_start (args, type);
+
+	message = upstart_message_newv (parent, pid, type, args);
+
+	va_end (args);
+
+	return message;
+}
+
+/**
+ * upstart_message_newv:
+ * @parent: parent of new structure,
+ * @pid: process to send message to,
+ * @type: type of message,
+ * @args: arguments to message.
+ *
+ * Allocates an NihIoMessage structure using nih_alloc() that can be
+ * immediately sent down a socket with nih_io_message_send() or queued
+ * for later sending with nih_io_send_message().
+ *
+ * @args depend on the type of message being sent, see the documentation
+ * for UpstartMessageHandler for more details.
+ *
+ * The destination process id is used to construct the address member of
+ * the message, it is also stored in the int_data member for error handling.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated message, or NULL if insufficient memory.
+ **/
+NihIoMessage *
+upstart_message_newv (const void         *parent,
+		      pid_t               pid,
+		      UpstartMessageType  type,
+		      va_list             args)
+{
+	NihIoMessage *message;
+	va_list       args_copy;
+
+	nih_assert (pid > 0);
+
+	va_copy (args_copy, args);
+
 	message = nih_io_message_new (parent);
 	if (! message)
 		return NULL;
@@ -209,8 +256,6 @@ upstart_message_new (const void         *parent,
 		goto error;
 
 	/* Message type determines arguments and message payload */
-	va_start (args, type);
-
 	switch (type) {
 	case UPSTART_NO_OP:
 	case UPSTART_WATCH_JOBS:
@@ -220,111 +265,109 @@ upstart_message_new (const void         *parent,
 		break;
 
 	case UPSTART_JOB_FIND:
-		if (upstart_push_packv (message, "s", args))
+		if (upstart_push_packv (message, "s", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_QUERY:
-		if (upstart_push_packv (message, "su", args))
+		if (upstart_push_packv (message, "su", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_START:
-		if (upstart_push_packv (message, "su", args))
+		if (upstart_push_packv (message, "su", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_STOP:
-		if (upstart_push_packv (message, "su", args))
+		if (upstart_push_packv (message, "su", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB:
-		if (upstart_push_packv (message, "us", args))
+		if (upstart_push_packv (message, "us", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_FINISHED:
-		if (upstart_push_packv (message, "usiui", args))
+		if (upstart_push_packv (message, "usiui", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_LIST:
-		if (upstart_push_packv (message, "s", args))
+		if (upstart_push_packv (message, "s", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_LIST_END:
-		if (upstart_push_packv (message, "s", args))
+		if (upstart_push_packv (message, "s", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_INSTANCE:
-		if (upstart_push_packv (message, "us", args))
+		if (upstart_push_packv (message, "us", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_INSTANCE_END:
-		if (upstart_push_packv (message, "us", args))
+		if (upstart_push_packv (message, "us", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_STATUS:
-		if (upstart_push_packv (message, "usuu", args))
+		if (upstart_push_packv (message, "usuu", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_PROCESS:
-		if (upstart_push_packv (message, "ui", args))
+		if (upstart_push_packv (message, "ui", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_STATUS_END:
-		if (upstart_push_packv (message, "usuu", args))
+		if (upstart_push_packv (message, "usuu", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_UNKNOWN:
-		if (upstart_push_packv (message, "su", args))
+		if (upstart_push_packv (message, "su", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_INVALID:
-		if (upstart_push_packv (message, "us", args))
+		if (upstart_push_packv (message, "us", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_JOB_UNCHANGED:
-		if (upstart_push_packv (message, "us", args))
+		if (upstart_push_packv (message, "us", args_copy))
 			goto error;
 
 		break;
 
 	case UPSTART_EVENT_EMIT:
-		if (upstart_push_packv (message, "saa", args))
+		if (upstart_push_packv (message, "saa", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_EVENT:
-		if (upstart_push_packv (message, "usaa", args))
+		if (upstart_push_packv (message, "usaa", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_EVENT_CAUSED:
-		if (upstart_push_packv (message, "u", args))
+		if (upstart_push_packv (message, "u", args_copy))
 			goto error;
 
 		break;
 	case UPSTART_EVENT_FINISHED:
-		if (upstart_push_packv (message, "uisaa", args))
+		if (upstart_push_packv (message, "uisaa", args_copy))
 			goto error;
 
 		break;
 	default:
 		nih_assert_not_reached ();
 	}
-
-	va_end (args);
 
 	return message;
 

@@ -1,5 +1,10 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_new): Make this a wrapper around
+	(upstart_message_newv): which has all the old code, but accepts a
+	va_list instead of making its own.
+	* upstart/message.h: Add prototype.
+
 	* init/main.c (crash_handler): Simply trying to leave a SEGV handler
 	doesn't work so well, we end up repeating the problem instruction.
 	We really can't resume from this point, and can't even jump elsewhere

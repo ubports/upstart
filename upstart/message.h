@@ -23,6 +23,8 @@
 
 #include <sys/types.h>
 
+#include <stdarg.h>
+
 #include <nih/macros.h>
 #include <nih/io.h>
 
@@ -278,6 +280,10 @@ int           upstart_open                 (void)
 
 NihIoMessage *upstart_message_new          (const void *parent, pid_t pid,
 					    UpstartMessageType type, ...)
+	__attribute__ ((warn_unused_result, malloc));
+NihIoMessage *upstart_message_newv         (const void *parent, pid_t pid,
+					    UpstartMessageType type,
+					    va_list args)
 	__attribute__ ((warn_unused_result, malloc));
 
 int           upstart_message_handle       (const void *parent,
