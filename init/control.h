@@ -36,6 +36,7 @@ NihIo *control_open            (void)
 void   control_close           (void);
 
 void   control_send_job_status (pid_t pid, Job *job);
+void   control_send_instance   (pid_t pid, Job *job);
 
 NIH_END_EXTERN
 

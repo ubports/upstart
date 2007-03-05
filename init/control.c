@@ -245,6 +245,50 @@ control_send_job_status (pid_t  pid,
 	nih_io_send_message (control_io, message);
 }
 
+/**
+ * control_send_instance:
+ * @pid: destination process,
+ * @job: job to send.
+ *
+ * Sends a series of job status messages to @pid for each instance of @job,
+ * enclosed within UPSTART_JOB_INSTANCE and UPSTART_JOB_INSTANCE_END messages
+ * giving the id and name of the instance itself.
+ **/
+void
+control_send_instance (pid_t  pid,
+		       Job   *job)
+{
+	NihIoMessage *message;
+
+	nih_assert (pid > 0);
+	nih_assert (job != NULL);
+	nih_assert (job->instance);
+	nih_assert (job->instance_of == NULL);
+	nih_assert (control_io != NULL);
+
+	NIH_MUST (message = upstart_message_new (
+			  control_io, pid, UPSTART_JOB_INSTANCE,
+			  job->id, job->name));
+	nih_io_send_message (control_io, message);
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		Job *instance = (Job *)iter;
+
+		if (instance->instance_of != job)
+			continue;
+
+		if (instance->state == JOB_DELETED)
+			continue;
+
+		control_send_job_status (pid, instance);
+	}
+
+	NIH_MUST (message = upstart_message_new (
+			  control_io, pid, UPSTART_JOB_INSTANCE_END,
+			  job->id, job->name));
+	nih_io_send_message (control_io, message);
+}
+
 
 /**
  * control_watch_jobs:

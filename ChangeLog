@@ -1,5 +1,13 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_send_instance): Function to send an instance
+	job, collating all of its instances together.
+	* init/control.h: Update.
+	* init/tests/test_control.c (test_send_instance): Check we receive
+	the right messages.
+	(check_job_instance, check_job_instance_end): Pair of functions to
+	check the instance messages.
+
 	* upstart/message.h: Add new UPSTART_JOB_INSTANCE and
 	UPSTART_JOB_INSTANCE_END messages which we'll use to communicate that
 	a job is an instance, and group the instances of it together.

@@ -264,6 +264,38 @@ check_job (void               *data,
 }
 
 static int
+check_job_instance (void               *data,
+		    pid_t               pid,
+		    UpstartMessageType  type,
+		    uint32_t            id,
+		    const char         *name)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_INSTANCE);
+
+	TEST_EQ (id, 0xdeadbabe);
+	TEST_EQ_STR (name, "test");
+
+	return 0;
+}
+
+static int
+check_job_instance_end (void               *data,
+			pid_t               pid,
+			UpstartMessageType  type,
+			uint32_t            id,
+			const char         *name)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_JOB_INSTANCE_END);
+
+	TEST_EQ (id, 0xdeadbabe);
+	TEST_EQ_STR (name, "test");
+
+	return 0;
+}
+
+static int
 check_job_status__waiting (void               *data,
 			   pid_t               pid,
 			   UpstartMessageType  type,
@@ -618,6 +650,107 @@ test_send_job_status (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
+	nih_list_free (&job->entry);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+void
+test_send_instance (void)
+{
+	NihIo *io;
+	pid_t  pid;
+	int    wait_fd, status;
+	Job   *job, *instance;
+
+	/* Check that we can send the status of an instance job to a child,
+	 * with the status of each instance inside it.
+	 */
+	TEST_FUNCTION ("control_send_instance");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	job = job_new (NULL, "test");
+	job->id = 0xdeadbabe;
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->instance = TRUE;
+
+	instance = job_new (NULL, "test");
+	instance->id = 0xdeafbeef;
+	instance->goal = JOB_STOP;
+	instance->state = JOB_STOPPING;
+	instance->process[PROCESS_PRE_START] = job_process_new (instance);
+	instance->process[PROCESS_MAIN] = job_process_new (instance);
+	instance->process[PROCESS_MAIN]->pid = 1000;
+	instance->process[PROCESS_POST_STOP] = job_process_new (instance);
+	instance->instance = TRUE;
+	instance->instance_of = job;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_JOB_INSTANCE */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_instance,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status__stopping,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end__stopping,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_INSTANCE_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_instance_end,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	control_send_instance (pid, job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&instance->entry);
 	nih_list_free (&job->entry);
 
 
@@ -2214,6 +2347,7 @@ main (int   argc,
 	test_close ();
 	test_error_handler ();
 	test_send_job_status ();
+	test_send_instance ();
 	test_watch_jobs ();
 	test_unwatch_jobs ();
 	test_watch_events ();
