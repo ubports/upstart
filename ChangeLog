@@ -1,3 +1,13 @@
+2007-03-05  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/message.h: Restore arguments to JOB_LIST, but rename to
+	pattern since that's what it is.
+	* upstart/message.c (upstart_message_handle): Restore arguments
+	with updated name.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Restore tests for arguments, rename and make sure we
+	include a wildcard.
+
 2007-03-04  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/message.h: Drop arguments to JOB_LIST.

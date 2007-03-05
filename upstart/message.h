@@ -161,21 +161,23 @@ typedef enum upstart_message_type {
  * @failed_process: type of process that failed (unsigned),
  * @exit_status: exit status or signal of failed process (int).
  *
- * UPSTART_LIST:
+ * UPSTART_JOB_LIST:
+ * @pattern: pattern sought or NULL (char *).
  *
- * UPSTART_LIST_END:
+ * UPSTART_JOB_LIST_END:
+ * @pattern: pattern sought or NULL (char *).
  *
- * UPSTART_STATUS:
+ * UPSTART_JOB_STATUS:
  * @id: unique id of job (unsigned),
  * @name: name of job (char *),
  * @goal: goal of job (unsigned),
  * @state: state of job (unsigned).
  *
- * UPSTART_PROCESS:
+ * UPSTART_JOB_PROCESS:
  * @type: type of process (unsigned),
  * @pid: process id (int).
  *
- * UPSTART_STATUS_END:
+ * UPSTART_JOB_STATUS_END:
  * @id: unique id of job (unsigned),
  * @name: name of job (char *),
  * @goal: goal of job (unsigned),
