@@ -56,14 +56,15 @@ static int  control_watch_events   (void *data, pid_t pid,
 				    UpstartMessageType type);
 static int  control_unwatch_events (void *data, pid_t pid,
 				    UpstartMessageType type);
-
+static int  control_job_query      (void *data, pid_t pid,
+				    UpstartMessageType type, const char *name,
+				    uint32_t id);
 static int  control_job_start      (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name,
 				    uint32_t id);
 static int  control_job_stop       (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name,
 				    uint32_t id);
-
 static int  control_event_emit     (void *data, pid_t pid,
 				    UpstartMessageType type, const char *name,
 				    char **args, char **env);
@@ -91,6 +92,8 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_watch_events },
 	{ -1, UPSTART_UNWATCH_EVENTS,
 	  (UpstartMessageHandler)control_unwatch_events },
+	{ -1, UPSTART_JOB_QUERY,
+	  (UpstartMessageHandler)control_job_query },
 	{ -1, UPSTART_JOB_START,
 	  (UpstartMessageHandler)control_job_start },
 	{ -1, UPSTART_JOB_STOP,
@@ -402,6 +405,63 @@ control_unwatch_events (void               *data,
 	return 0;
 }
 
+
+/**
+ * control_job_query:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received,
+ * @name: name of job to stop,
+ * @id: id of job to stop if @name is NULL.
+ *
+ * This function is called when another process on the system queries the
+ * state of the job named @name or with the unique @id.
+ *
+ * We locate the job and return the job status, either as single message set,
+ * or if its an instance, the status of every instance.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_job_query (void                *data,
+		   pid_t                pid,
+		   UpstartMessageType   type,
+		   const char          *name,
+		   uint32_t             id)
+{
+	NihIoMessage *reply;
+	Job          *job;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_JOB_QUERY);
+
+	if (name) {
+		nih_info (_("Control request for status of %s"), name);
+
+		job = job_find_by_name (name);
+	} else {
+		nih_info (_("Control request for status of job #%zu"), id);
+
+		job = job_find_by_id (id);
+	}
+
+	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job. */
+	if (! job) {
+		NIH_MUST (reply = upstart_message_new (control_io, pid,
+						       UPSTART_JOB_UNKNOWN,
+						       name, id));
+		nih_io_send_message (control_io, reply);
+		return 0;
+	}
+
+	if ((! job->instance) || (job->instance_of != NULL)) {
+		control_send_job_status (pid, job);
+	} else {
+		control_send_instance (pid, job);
+	}
+
+	return 0;
+}
 
 /**
  * control_job_start:

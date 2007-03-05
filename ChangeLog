@@ -1,5 +1,11 @@
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_query): Implement the query message,
+	this just needs to return the status or instance set.
+	* init/tests/test_control.c (test_job_query): Test the query command.
+	(check_job_status__deleted, check_job_status_end__deleted): Pair of
+	functions to check we can query deleted jobs directly.
+
 	* init/control.c (control_send_instance): Function to send an instance
 	job, collating all of its instances together.
 	* init/control.h: Update.
