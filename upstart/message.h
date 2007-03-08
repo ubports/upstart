@@ -51,12 +51,6 @@ typedef enum upstart_message_type {
 	/* General messages */
 	UPSTART_NO_OP,
 
-	/* Watches */
-	UPSTART_WATCH_JOBS = 0x0a,
-	UPSTART_UNWATCH_JOBS,
-	UPSTART_WATCH_EVENTS,
-	UPSTART_UNWATCH_EVENTS,
-
 	/* Job requests and responses.
 	 *
 	 * Clients may send UPSTART_JOB_FIND to request a list of jobs
@@ -129,6 +123,21 @@ typedef enum upstart_message_type {
 	UPSTART_EVENT             = 0x0210,
 	UPSTART_EVENT_CAUSED      = 0x0211,
 	UPSTART_EVENT_FINISHED    = 0x021f,
+
+	/* Subscription requests.
+	 *
+	 * Clients send UPSTART_SUBSCRIBE_JOBS or UPSTART_SUBSCRIBE_EVENTS
+	 * and will receive UPSTART_JOB_STATUS or UPSTART_EVENT messages
+	 * for each job status change or event emission respectively.
+	 *
+	 * Messages can be ceased by sending UPSTART_UNSUBSCRIBE_JOBS or
+	 * UPSTART_UNSUBSCRIPE_EVENTS, or simply by closing the control
+	 * socket.
+	 */
+	UPSTART_SUBSCRIBE_JOBS     = 0x1000,
+	UPSTART_UNSUBSCRIBE_JOBS   = 0x100f,
+	UPSTART_SUBSCRIBE_EVENTS   = 0x1010,
+	UPSTART_UNSUBSCRIBE_EVENTS = 0x101f,
 } UpstartMessageType;
 
 
@@ -232,7 +241,18 @@ typedef enum upstart_message_type {
  * @args: arguments to event (char **),
  * @env: environment for event (char **).
  *
- * All other types receive no further arguments.
+ *
+ * UPSTART_SUBSCRIBE_JOBS:
+ * No arguments.
+ *
+ * UPSTART_UNSUBSCRIBE_JOBS:
+ * No arguments.
+ *
+ * UPSTART_SUBSCRIBE_EVENTS:
+ * No arguments.
+ *
+ * UPSTART_UNSUBSCRIBE_EVENTS:
+ * No arguments.
  *
  * Returns: zero on success, negative value on raised error.
  **/

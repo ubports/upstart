@@ -258,10 +258,6 @@ upstart_message_newv (const void         *parent,
 	/* Message type determines arguments and message payload */
 	switch (type) {
 	case UPSTART_NO_OP:
-	case UPSTART_WATCH_JOBS:
-	case UPSTART_UNWATCH_JOBS:
-	case UPSTART_WATCH_EVENTS:
-	case UPSTART_UNWATCH_EVENTS:
 		break;
 
 	case UPSTART_JOB_FIND:
@@ -364,6 +360,15 @@ upstart_message_newv (const void         *parent,
 		if (upstart_push_packv (message, "uisaa", args_copy))
 			goto error;
 
+		break;
+
+	case UPSTART_SUBSCRIBE_JOBS:
+		break;
+	case UPSTART_UNSUBSCRIBE_JOBS:
+		break;
+	case UPSTART_SUBSCRIBE_EVENTS:
+		break;
+	case UPSTART_UNSUBSCRIBE_EVENTS:
 		break;
 	default:
 		nih_assert_not_reached ();
@@ -526,10 +531,6 @@ upstart_message_handle (const void     *parent,
 	 */
 	switch (type) {
 	case UPSTART_NO_OP:
-	case UPSTART_WATCH_JOBS:
-	case UPSTART_UNWATCH_JOBS:
-	case UPSTART_WATCH_EVENTS:
-	case UPSTART_UNWATCH_EVENTS:
 		ret = handler (data, cred.pid, type);
 		break;
 
@@ -863,6 +864,18 @@ upstart_message_handle (const void     *parent,
 			       name, args, env);
 		break;
 	}
+	case UPSTART_SUBSCRIBE_JOBS:
+		ret = handler (data, cred.pid, type);
+		break;
+	case UPSTART_UNSUBSCRIBE_JOBS:
+		ret = handler (data, cred.pid, type);
+		break;
+	case UPSTART_SUBSCRIBE_EVENTS:
+		ret = handler (data, cred.pid, type);
+		break;
+	case UPSTART_UNSUBSCRIBE_EVENTS:
+		ret = handler (data, cred.pid, type);
+		break;
 	default:
 		nih_error_raise (UPSTART_MESSAGE_UNKNOWN,
 				 _(UPSTART_MESSAGE_UNKNOWN_STR));

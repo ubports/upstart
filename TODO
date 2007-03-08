@@ -1,5 +1,8 @@
 High Priority:
 
+ * Running out of instances doesn't seem to kick the master job into being
+   replaced.
+
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
    long as we send things in this order:
@@ -19,9 +22,6 @@ High Priority:
     * Pass logger state to the new init process
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
-
- * Subscription IPC commands need to be grouped as has already happened for
-   the job and event commands.
 
 
 Medium Priority:
@@ -77,6 +77,8 @@ Low Priority:
  * logd is currently disabled because of the problem where it goes away,
    and the scripts being run end up vanishing because they can't write
    data.
+
+ * Should be able to query the version of the init daemon with a message.
 
 
 Unfinished Features:

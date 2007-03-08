@@ -147,94 +147,6 @@ test_new (void)
 	}
 
 
-	/* Check that we can create an UPSTART_WATCH_JOBS message and have
-	 * the message buffer filled in correctly.
-	 */
-	TEST_FEATURE ("with UPSTART_WATCH_JOBS message");
-	TEST_ALLOC_FAIL {
-		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_WATCH_JOBS);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (msg, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
-
-		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\x0a", 12);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we can create an UPSTART_UNWATCH_JOBS message and have
-	 * the message buffer filled in correctly.
-	 */
-	TEST_FEATURE ("with UPSTART_UNWATCH_JOBS message");
-	TEST_ALLOC_FAIL {
-		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_UNWATCH_JOBS);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (msg, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
-
-		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\x0b", 12);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we can create an UPSTART_WATCH_EVENTS message and have
-	 * the message buffer filled in correctly.
-	 */
-	TEST_FEATURE ("with UPSTART_WATCH_EVENTS message");
-	TEST_ALLOC_FAIL {
-		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_WATCH_EVENTS);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (msg, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
-
-		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\x0c", 12);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we can create an UPSTART_UNWATCH_EVENTS message and have
-	 * the message buffer filled in correctly.
-	 */
-	TEST_FEATURE ("with UPSTART_UNWATCH_EVENTS message");
-	TEST_ALLOC_FAIL {
-		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-					   UPSTART_UNWATCH_EVENTS);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (msg, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
-
-		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\x0d", 12);
-
-		nih_free (msg);
-	}
-
-
 	/* Check that we can create an UPSTART_JOB_FIND message and have
 	 * the message buffer filled in correctly.
 	 */
@@ -853,6 +765,94 @@ test_new (void)
 
 	nih_free (args);
 	nih_free (env);
+
+
+	/* Check that we can create an UPSTART_SUBSCRIBE_JOBS message and have
+	 * the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_SUBSCRIBE_JOBS message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_SUBSCRIBE_JOBS);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x10\x00", 12);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_UNSUBSCRIBE_JOBS message and
+	 * have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_UNSUBSCRIBE_JOBS message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_UNSUBSCRIBE_JOBS);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x10\x0f", 12);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_SUBSCRIBE_EVENTS message and
+	 * have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_SUBSCRIBE_EVENTS message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_SUBSCRIBE_EVENTS);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x10\x10", 12);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_UNSUBSCRIBE_EVENTS message and
+	 * have the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_UNSUBSCRIBE_EVENTS message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_UNSUBSCRIBE_EVENTS);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x10\x1f", 12);
+
+		nih_free (msg);
+	}
 }
 
 
@@ -1221,6 +1221,14 @@ my_handler (void                *data,
 
 		break;
 	}
+	case UPSTART_SUBSCRIBE_JOBS:
+		break;
+	case UPSTART_UNSUBSCRIBE_JOBS:
+		break;
+	case UPSTART_SUBSCRIBE_EVENTS:
+		break;
+	case UPSTART_UNSUBSCRIBE_EVENTS:
+		break;
 	default:
 		break;
 	}
@@ -1279,138 +1287,6 @@ test_handle (void)
 		TEST_EQ_P (last_data, &ret);
 		TEST_EQ (last_pid, 1000);
 		TEST_EQ (last_type, UPSTART_NO_OP);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we call the handler function for an UPSTART_WATCH_JOBS
-	 * message.
-	 */
-	TEST_FEATURE ("with UPSTART_WATCH_JOBS message");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     "upstart\n\0\0\0\xa",
-						     12));
-			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
-							     SCM_CREDENTIALS,
-							     sizeof (cred),
-							     &cred));
-		}
-
-		handler_called = FALSE;
-		last_data = NULL;
-		last_pid = -1;
-		last_type = -1;
-
-		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-		TEST_EQ (ret, 0);
-		TEST_TRUE (handler_called);
-		TEST_EQ_P (last_data, &ret);
-		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_WATCH_JOBS);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we call the handler function for an UPSTART_UNWATCH_JOBS
-	 * message.
-	 */
-	TEST_FEATURE ("with UPSTART_UNWATCH_JOBS message");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     "upstart\n\0\0\0\xb",
-						     12));
-			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
-							     SCM_CREDENTIALS,
-							     sizeof (cred),
-							     &cred));
-		}
-
-		handler_called = FALSE;
-		last_data = NULL;
-		last_pid = -1;
-		last_type = -1;
-
-		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-		TEST_EQ (ret, 0);
-		TEST_TRUE (handler_called);
-		TEST_EQ_P (last_data, &ret);
-		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_UNWATCH_JOBS);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we call the handler function for an UPSTART_WATCH_EVENTS
-	 * message.
-	 */
-	TEST_FEATURE ("with UPSTART_WATCH_EVENTS message");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     "upstart\n\0\0\0\xc",
-						     12));
-			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
-							     SCM_CREDENTIALS,
-							     sizeof (cred),
-							     &cred));
-		}
-
-		handler_called = FALSE;
-		last_data = NULL;
-		last_pid = -1;
-		last_type = -1;
-
-		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-		TEST_EQ (ret, 0);
-		TEST_TRUE (handler_called);
-		TEST_EQ (last_data, &ret);
-		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_WATCH_EVENTS);
-
-		nih_free (msg);
-	}
-
-
-	/* Check that we call the handler function for an
-	 * UPSTART_UNWATCH_EVENTS message.
-	 */
-	TEST_FEATURE ("with UPSTART_UNWATCH_EVENTS message");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			msg = nih_io_message_new (NULL);
-			assert0 (nih_io_buffer_push (msg->data,
-						     "upstart\n\0\0\0\xd",
-						     12));
-			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
-							     SCM_CREDENTIALS,
-							     sizeof (cred),
-							     &cred));
-		}
-
-		handler_called = FALSE;
-		last_data = NULL;
-		last_pid = -1;
-		last_type = -1;
-
-		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
-
-		TEST_EQ (ret, 0);
-		TEST_TRUE (handler_called);
-		TEST_EQ_P (last_data, &ret);
-		TEST_EQ (last_pid, 1000);
-		TEST_EQ (last_type, UPSTART_UNWATCH_EVENTS);
 
 		nih_free (msg);
 	}
@@ -2112,6 +1988,138 @@ test_handle (void)
 		TEST_EQ_P (last_data, &ret);
 		TEST_EQ (last_pid, 1000);
 		TEST_EQ (last_type, UPSTART_EVENT_FINISHED);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an
+	 * UPSTART_SUBSCRIBE_JOBS message.
+	 */
+	TEST_FEATURE ("with UPSTART_SUBSCRIBE_JOBS message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     "upstart\n\0\0\x10\x00",
+						     12));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_SUBSCRIBE_JOBS);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an
+	 * UPSTART_UNSUBSCRIBE_JOBS message.
+	 */
+	TEST_FEATURE ("with UPSTART_UNSUBSCRIBE_JOBS message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     "upstart\n\0\0\x10\x0f",
+						     12));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_UNSUBSCRIBE_JOBS);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an
+	 * UPSTART_SUBSCRIBE_EVENTS message.
+	 */
+	TEST_FEATURE ("with UPSTART_SUBSCRIBE_EVENTS message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     "upstart\n\0\0\x10\x10",
+						     12));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_SUBSCRIBE_EVENTS);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an
+	 * UPSTART_UNSUBSCRIBE_EVENTS message.
+	 */
+	TEST_FEATURE ("with UPSTART_UNSUBSCRIBE_EVENTS message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     "upstart\n\0\0\x10\x1f",
+						     12));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_UNSUBSCRIBE_EVENTS);
 
 		nih_free (msg);
 	}
