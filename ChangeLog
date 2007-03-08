@@ -1,3 +1,10 @@
+2007-03-08  Scott James Remnant  <scott@netsplit.com>
+
+	* doc/states.dot: Fix an error in the state diagram; when moving from
+	starting back to waiting, due to a failed respawn, we need to emit
+	the stopped event otherwise it will never happen.
+	* doc/states.png: Update.
+
 2007-03-05  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart/message.c (upstart_message_new): Make this a wrapper around
