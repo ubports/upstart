@@ -37,8 +37,6 @@ Medium Priority:
    Then from above, we can read this pipe to determine whether the job
    failed before or after the exec.  (Might be a cleaner way to do this).
 
- * Include exit status, etc. in the stopping and stopped job state messages
-
 
 Low Priority:
 
@@ -48,7 +46,7 @@ Low Priority:
    got cleaned up -- and maybe don't use putenv/setenv since they're a
    little strange.
 
- * need to add dependencies to jobs, which are files that must exist before
+ * Need to add dependencies to jobs, which are files that must exist before
    the job can be started (because Debian/Ubuntu like to litter config files
    like jobs)
 
@@ -107,3 +105,11 @@ Future Features:
    stats?
 
  * Actions: "reload" and optional replacements for "stop", "start", etc.
+
+   This is mostly just a matter of deciding policy for when they can be run,
+   and adding "user processes" onto the end of the job->process array.
+
+ * Alternative script interpreters; "start script python".
+
+   Would be done by making script a char *, and putting the interpreter into
+   command?

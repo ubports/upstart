@@ -1,5 +1,7 @@
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/control.c (control_watch_jobs): Rename to control_subscribe_jobs
 	and update to handle new event name.
 	(control_unwatch_jobs): Rename to control_unsubscribe_jobs and update
