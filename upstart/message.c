@@ -864,7 +864,9 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	default:
-		goto invalid;
+		nih_error_raise (UPSTART_MESSAGE_UNKNOWN,
+				 _(UPSTART_MESSAGE_UNKNOWN_STR));
+		return -1;
 	}
 
 	return ret;

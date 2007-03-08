@@ -1,5 +1,10 @@
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_handle): Raise a the unknown
+	message error if the type is unknown, rather than the invalid message
+	error.
+	* upstart/tests/test_message.c (test_handle): Correct test case.
+
 	* init/job.c (job_change_state): Correct a problem here too, when
 	moving from pre-stop to running, we don't want to emit a started event
 	since we never emitted a stopping event and never killed the process

@@ -2142,7 +2142,7 @@ test_handle (void)
 	nih_free (msg);
 
 
-	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
+	/* Check that the UPSTART_MESSAGE_UNKNOWN error is raised if the
 	 * message type is invalid.
 	 */
 	TEST_FEATURE ("with unknown message type");
@@ -2161,7 +2161,7 @@ test_handle (void)
 
 	err = nih_error_get ();
 
-	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
+	TEST_EQ (err->number, UPSTART_MESSAGE_UNKNOWN);
 
 	nih_free (err);
 
