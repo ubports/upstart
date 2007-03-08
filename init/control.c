@@ -47,30 +47,31 @@
 
 
 /* Prototypes for static functions */
-static void control_error_handler  (void  *data, NihIo *io);
-static int  control_watch_jobs     (void *data, pid_t pid,
-				    UpstartMessageType type);
-static int  control_unwatch_jobs   (void *data, pid_t pid,
-				    UpstartMessageType type);
-static int  control_watch_events   (void *data, pid_t pid,
-				    UpstartMessageType type);
-static int  control_unwatch_events (void *data, pid_t pid,
-				    UpstartMessageType type);
-static int  control_job_find       (void *data, pid_t pid,
-				    UpstartMessageType type,
-				    const char *pattern);
-static int  control_job_query      (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name,
-				    uint32_t id);
-static int  control_job_start      (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name,
-				    uint32_t id);
-static int  control_job_stop       (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name,
-				    uint32_t id);
-static int  control_event_emit     (void *data, pid_t pid,
-				    UpstartMessageType type, const char *name,
-				    char **args, char **env);
+static void control_error_handler      (void  *data, NihIo *io);
+static int  control_job_find           (void *data, pid_t pid,
+					UpstartMessageType type,
+					const char *pattern);
+static int  control_job_query          (void *data, pid_t pid,
+					UpstartMessageType type,
+					const char *name, uint32_t id);
+static int  control_job_start          (void *data, pid_t pid,
+					UpstartMessageType type,
+					const char *name, uint32_t id);
+static int  control_job_stop           (void *data, pid_t pid,
+					UpstartMessageType type,
+					const char *name, uint32_t id);
+static int  control_event_emit         (void *data, pid_t pid,
+					UpstartMessageType type,
+					const char *name,
+					char **args, char **env);
+static int  control_subscribe_jobs     (void *data, pid_t pid,
+					UpstartMessageType type);
+static int  control_unsubscribe_jobs   (void *data, pid_t pid,
+					UpstartMessageType type);
+static int  control_subscribe_events   (void *data, pid_t pid,
+					UpstartMessageType type);
+static int  control_unsubscribe_events (void *data, pid_t pid,
+					UpstartMessageType type);
 
 
 /**
@@ -87,14 +88,6 @@ NihIo *control_io = NULL;
  * processes.  Any message types not listed here will be discarded.
  **/
 static UpstartMessage message_handlers[] = {
-	{ -1, UPSTART_WATCH_JOBS,
-	  (UpstartMessageHandler)control_watch_jobs },
-	{ -1, UPSTART_UNWATCH_JOBS,
-	  (UpstartMessageHandler)control_unwatch_jobs },
-	{ -1, UPSTART_WATCH_EVENTS,
-	  (UpstartMessageHandler)control_watch_events },
-	{ -1, UPSTART_UNWATCH_EVENTS,
-	  (UpstartMessageHandler)control_unwatch_events },
 	{ -1, UPSTART_JOB_FIND,
 	  (UpstartMessageHandler)control_job_find },
 	{ -1, UPSTART_JOB_QUERY,
@@ -105,6 +98,14 @@ static UpstartMessage message_handlers[] = {
 	  (UpstartMessageHandler)control_job_stop },
 	{ -1, UPSTART_EVENT_EMIT,
 	  (UpstartMessageHandler)control_event_emit },
+	{ -1, UPSTART_SUBSCRIBE_JOBS,
+	  (UpstartMessageHandler)control_subscribe_jobs },
+	{ -1, UPSTART_UNSUBSCRIBE_JOBS,
+	  (UpstartMessageHandler)control_unsubscribe_jobs },
+	{ -1, UPSTART_SUBSCRIBE_EVENTS,
+	  (UpstartMessageHandler)control_subscribe_events },
+	{ -1, UPSTART_UNSUBSCRIBE_EVENTS,
+	  (UpstartMessageHandler)control_unsubscribe_events },
 
 	UPSTART_MESSAGE_LAST
 };
@@ -295,119 +296,6 @@ control_send_instance (pid_t  pid,
 			  control_io, pid, UPSTART_JOB_INSTANCE_END,
 			  job->id, job->name));
 	nih_io_send_message (control_io, message);
-}
-
-
-/**
- * control_watch_jobs:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system requests
- * status updates for all jobs to be sent to it.  It receives no reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_watch_jobs (void               *data,
-		    pid_t               pid,
-		    UpstartMessageType  type)
-{
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_WATCH_JOBS);
-
-	nih_info (_("Control request to subscribe %d to jobs"), pid);
-
-	notify_subscribe_job (NULL, pid, NULL);
-
-	return 0;
-}
-
-/**
- * control_unwatch_jobs:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system requests
- * status updates for all jobs no longer be sent to it.  It receives no reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_unwatch_jobs (void               *data,
-		      pid_t               pid,
-		      UpstartMessageType  type)
-{
-	NotifySubscription *sub;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_UNWATCH_JOBS);
-
-	nih_info (_("Control request to unsubscribe %d from jobs"), pid);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
-	if (sub)
-		nih_list_free (&sub->entry);
-
-	return 0;
-}
-
-/**
- * control_watch_events:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system requests
- * notification of all events be sent to it.  It receives no reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_watch_events (void               *data,
-		      pid_t               pid,
-		      UpstartMessageType  type)
-{
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_WATCH_EVENTS);
-
-	nih_info (_("Control request to subscribe %d to events"), pid);
-
-	notify_subscribe_event (NULL, pid, NULL);
-
-	return 0;
-}
-
-/**
- * control_unwatch_events:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system requests
- * notification of all events no longer be sent to it.  It receives no reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_unwatch_events (void               *data,
-			pid_t               pid,
-			UpstartMessageType  type)
-{
-	NotifySubscription *sub;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_UNWATCH_EVENTS);
-
-	nih_info (_("Control request to unsubscribe %d from events"), pid);
-
-	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
-	if (sub)
-		nih_list_free (&sub->entry);
-
-	return 0;
 }
 
 
@@ -787,6 +675,129 @@ control_event_emit (void                *data,
 	emission = event_emit (name, args, env);
 
 	notify_subscribe_event (emission, pid, emission);
+
+	return 0;
+}
+
+
+/**
+ * control_subscribe_jobs:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests that
+ * it be subscribed to job status updates.
+ *
+ * We add the subscription, no reply is sent.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_subscribe_jobs (void               *data,
+			pid_t               pid,
+			UpstartMessageType  type)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_SUBSCRIBE_JOBS);
+
+	nih_info (_("Control request to subscribe %d to jobs"), pid);
+
+	notify_subscribe_job (NULL, pid, NULL);
+
+	return 0;
+}
+
+/**
+ * control_unsubscribe_jobs:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests that
+ * it be unsubscribed from job status updates.
+ *
+ * We lookup their current subscription, and remove it if it exists.  No
+ * reply is sent, and a non-existant subscription is ignored.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_unsubscribe_jobs (void               *data,
+			  pid_t               pid,
+			  UpstartMessageType  type)
+{
+	NotifySubscription *sub;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_UNSUBSCRIBE_JOBS);
+
+	nih_info (_("Control request to unsubscribe %d from jobs"), pid);
+
+	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
+	if (sub)
+		nih_list_free (&sub->entry);
+
+	return 0;
+}
+
+/**
+ * control_subscribe_events:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests that
+ * it be subscribed to event emissions.
+ *
+ * We add the subscription, no reply is sent.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_subscribe_events (void               *data,
+			  pid_t               pid,
+			  UpstartMessageType  type)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_SUBSCRIBE_EVENTS);
+
+	nih_info (_("Control request to subscribe %d to events"), pid);
+
+	notify_subscribe_event (NULL, pid, NULL);
+
+	return 0;
+}
+
+/**
+ * control_unsubscribe_events:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system requests that
+ * it be unsubscribed from event emissions.
+ *
+ * We lookup their current subscription, and remove it if it exists.  No
+ * reply is sent, and a non-existant subscription is ignored.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_unsubscribe_events (void               *data,
+			    pid_t               pid,
+			    UpstartMessageType  type)
+{
+	NotifySubscription *sub;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_UNSUBSCRIBE_EVENTS);
+
+	nih_info (_("Control request to unsubscribe %d from events"), pid);
+
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
+	if (sub)
+		nih_list_free (&sub->entry);
 
 	return 0;
 }

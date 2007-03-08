@@ -1,5 +1,30 @@
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_watch_jobs): Rename to control_subscribe_jobs
+	and update to handle new event name.
+	(control_unwatch_jobs): Rename to control_unsubscribe_jobs and update
+	to handle the new event name.
+	(control_watch_events): Rename to control_subscribe_events and update
+	to handle the new event name.
+	(control_unwatch_events): Rename to control_unsubscribe_events and
+	update to handle the new event name.
+	* init/tests/test_control.c (test_watch_jobs): Rename to
+	test_subscribe_jobs and update to new event name.
+	(test_unwatch_jobs): Rename to test_unsubscribe_jobs and update to 
+	new event name.
+	(test_watch_events): Rename to test_subscribe_events and update to
+	new event name.
+	(test_unwatch_events): Rename to test_unsubscribe events and update
+	to new event name.
+
+	* upstart/message.h: Rename the watch commands to subscribe/unsubscribe
+	and regroup with new message numbers.
+	* upstart/message.c (upstart_message_newv) 
+	(upstart_message_handle): Marshal the updated subscription messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Update tests to new names and numbers.
+	* TODO: Update.
+
 	* upstart/message.c (upstart_message_handle): Raise a the unknown
 	message error if the type is unknown, rather than the invalid message
 	error.
