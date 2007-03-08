@@ -883,6 +883,11 @@ job_change_state (Job      *job,
 			nih_assert ((old_state == JOB_POST_START)
 				    || (old_state == JOB_PRE_STOP));
 
+			if (old_state == JOB_PRE_STOP) {
+				notify_job_finished (job);
+				break;
+			}
+
 			job_emit_event (job);
 
 			/* If we're a service, our goal is to be running;

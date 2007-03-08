@@ -1905,6 +1905,38 @@ test_change_state (void)
 	}
 
 
+	/* Check that a job can move from pre-stop back to starting again,
+	 * which should only clear the cause.
+	 */
+	TEST_FEATURE ("pre-stop to stopping");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_goal (job, JOB_START, NULL);
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
 	/* Check that a job can move from pre-stop to stopping.  This
 	 * should emit the stopping event, containing the failed information,
 	 * and block on it.

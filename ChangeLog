@@ -1,5 +1,13 @@
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Correct a problem here too, when
+	moving from pre-stop to running, we don't want to emit a started event
+	since we never emitted a stopping event and never killed the process
+	anyway.  We do need to notify the job as finished, since the process
+	that tried to stop it will need to be told not to wait any longer.
+	* init/tests/test_job.c (test_change_state): Add a test for pre-stop
+	back to running.
+
 	* doc/states.dot: Fix an error in the state diagram; when moving from
 	starting back to waiting, due to a failed respawn, we need to emit
 	the stopped event otherwise it will never happen.
