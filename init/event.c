@@ -487,7 +487,7 @@ event_pending (EventEmission *emission)
 	nih_assert (emission != NULL);
 	nih_assert (emission->progress == EVENT_PENDING);
 
-	nih_debug ("Handling %s event", emission->event.name);
+	nih_info (_("Handling %s event"), emission->event.name);
 	emission->progress = EVENT_HANDLING;
 
 	notify_event (emission);

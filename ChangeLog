@@ -1,5 +1,8 @@
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_pending): The message that we're handling an
+	event should be logged with --verbose.
+
 	* init/cfgfile.c (cfg_parse_script): Remove the unnecessary check for
 	a token inside a script block.
 
