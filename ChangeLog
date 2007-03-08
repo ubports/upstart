@@ -1,5 +1,12 @@
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main, crash_handler): Promote deadly errors to nih_fatal
+	* logd/main.c (main): Promote deadly errors to nih_fatal
+	* compat/sysv/reboot.c (main): Promote deadly errors to nih_fatal
+	* compat/sysv/shutdown.c (main, shutdown_now): Promote deadly errors
+	to nih_fatal
+	* compat/sysv/telinit.c (main): Promote deadly errors to nih_fatal
+
 	* init/event.c (event_pending): The message that we're handling an
 	event should be logged with --verbose.
 

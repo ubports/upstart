@@ -124,7 +124,7 @@ main (int   argc,
 
 	/* Check we're root */
 	if (getuid ()) {
-		nih_error (_("Need to be root"));
+		nih_fatal (_("Need to be root"));
 		exit (1);
 	}
 
@@ -133,7 +133,7 @@ main (int   argc,
 		execv (TELINIT, argv);
 		/* Ignore failure, probably just that telinit doesn't exist */
 
-		nih_error (_("Not being executed as init"));
+		nih_fatal (_("Not being executed as init"));
 		exit (1);
 	}
 
@@ -142,7 +142,7 @@ main (int   argc,
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s: %s", _("Unable to open control socket"),
+		nih_fatal ("%s: %s", _("Unable to open control socket"),
 			   err->message);
 		nih_free (err);
 
@@ -154,7 +154,7 @@ main (int   argc,
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s: %s", _("Error parsing configuration"),
+		nih_fatal ("%s: %s", _("Error parsing configuration"),
 			   err->message);
 		nih_free (err);
 
@@ -385,11 +385,11 @@ crash_handler (int signum)
 		/* Wait for the core to be generated */
 		waitpid (pid, NULL, 0);
 
-		nih_error (_("Caught %s, core dumped"),
+		nih_fatal (_("Caught %s, core dumped"),
 			   (signum == SIGSEGV
 			    ? "segmentation fault" : "abort"));
 	} else {
-		nih_error (_("Caught %s, unable to dump core"),
+		nih_fatal (_("Caught %s, unable to dump core"),
 			   (signum == SIGSEGV
 			    ? "segmentation fault" : "abort"));
 	}
@@ -411,7 +411,7 @@ crash_handler (int signum)
 	nih_error_raise_system ();
 
 	err = nih_error_get ();
-	nih_error (_("Failed to re-execute %s: %s"),
+	nih_fatal (_("Failed to re-execute %s: %s"),
 		   "/sbin/init", err->message);
 	nih_free (err);
 
