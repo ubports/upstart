@@ -237,14 +237,6 @@ static size_t num_jobs = 0;
 static size_t num_events = 0;
 
 /**
- * in_list:
- *
- * TRUE if we've received an UPSTART_JOB_LIST reply without a terminating
- * UPSTART_JOB_LIST_END reply.
- **/
-static int in_list = FALSE;
-
-/**
  * event_caused:
  *
  * TRUE if the next message was caused by an event.
@@ -433,8 +425,7 @@ initctl_recv (int responses)
 	num_responses = 0;
 
 	while ((responses < 0) || (num_responses < responses)
-	       || in_list
-	       || (current_instance != NULL) || (current_job != NULL)
+	       || current_list || current_instance || current_job
 	       || ((! no_wait) && (num_jobs || num_events)))
 	{
 		NihIoMessage *reply;
@@ -801,13 +792,15 @@ handle_job_list (void               *data,
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_LIST);
-	nih_assert (! in_list);
+	nih_assert (current_list == NULL);
 
 	if (! event_caused)
 		num_responses++;
 
 	event_caused = FALSE;
-	in_list = TRUE;
+
+	NIH_MUST (current_list = nih_alloc (NULL, 0));
+	current_list_sz = 0;
 
 	return 0;
 }
@@ -835,34 +828,37 @@ handle_job_list_end (void               *data,
 		     UpstartMessageType  type,
 		     const char         *pattern)
 {
-	size_t i;
+	int ret = 0;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_LIST_END);
-	nih_assert (in_list);
-
-	in_list = FALSE;
+	nih_assert (current_list != NULL);
 
 	if (current_list_sz) {
+		size_t i;
+
 		qsort (current_list, current_list_sz, sizeof (JobInfo *),
 		       (int (*)(const void *, const void *))job_info_cmp);
 
 		for (i = 0; i < current_list_sz; i++)
 			job_info_output (current_list[i], TRUE);
 
-		/* Reset the list for next time */
-		nih_free (current_list);
-		current_list = NULL;
-		current_list_sz = 0;
 	} else if (pattern) {
 		nih_warn (_("No jobs matching `%s'"), pattern);
-		return 1;
+		ret = 1;
+
 	} else {
 		nih_warn (_("No jobs registered"));
-		return 1;
+		ret = 1;
+
 	}
 
-	return 0;
+	/* Reset the list for next time */
+	nih_free (current_list);
+	current_list = NULL;
+	current_list_sz = 0;
+
+	return ret;
 }
 
 
@@ -898,7 +894,7 @@ handle_job_instance (void               *data,
 	nih_assert (name != NULL);
 	nih_assert (current_instance == NULL);
 
-	if (! in_list)
+	if (current_list == NULL)
 		if (! event_caused)
 			num_responses++;
 
@@ -953,7 +949,7 @@ handle_job_instance_end (void               *data,
 	nih_assert (name != NULL);
 	nih_assert (current_instance != NULL);
 
-	if (in_list) {
+	if (current_list) {
 		JobInfo **new_list;
 
 		NIH_MUST (new_list = nih_realloc (current_list, NULL,
@@ -1012,7 +1008,7 @@ handle_job_status (void               *data,
 	nih_assert (name != NULL);
 	nih_assert (current_job == NULL);
 
-	if ((current_instance == NULL) && (! in_list))
+	if ((current_instance == NULL) && (current_list == NULL))
 		if (! (event_caused || num_jobs))
 			num_responses++;
 
@@ -1127,7 +1123,7 @@ handle_job_status_end (void               *data,
 		current_instance->jobs = new_list;
 		current_instance->jobs[current_instance->jobs_sz++]
 			= current_job;
-	} else if (in_list) {
+	} else if (current_list) {
 		JobInfo **new_list;
 
 		NIH_MUST (new_list = nih_realloc (current_list, NULL,

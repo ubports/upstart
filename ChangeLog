@@ -1,5 +1,14 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (handle_job_list): Always allocate current_list,
+	since we need it to be the parent of pointers we attach to it.
+	(handle_job_list_end): Always free the current list, only suppress
+	output if there aren't any entries in it.
+	(initctl_recv): Check the current_list pointer, no need for in_list
+	(handle_job_instance, handle_job_instance_end, handle_job_status):
+	Check current_list not in_list.
+	* util/tests/test_initctl.c: Correct some memory leaks.
+
 	* init/process.c (process_setup_environment): Set the UPSTART_JOB_ID
 	environment variable to the job's unique id.
 	* init/tests/test_process.c (test_spawn): Make sure it's set.

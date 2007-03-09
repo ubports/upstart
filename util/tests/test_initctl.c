@@ -141,6 +141,9 @@ test_env_option (void)
 	TEST_EQ_STR (value[1], "TEA=YES");
 	TEST_EQ_STR (value[2], "WIBBLE=SNARF");
 	TEST_EQ_P (value[3], NULL);
+
+
+	nih_free (value);
 }
 
 
@@ -5405,6 +5408,10 @@ test_emit_action (void)
 
 			control_sock = upstart_open ();
 			ret = emit_action (&cmd, args);
+
+			nih_free (emit_env);
+			emit_env = NULL;
+
 			exit (ret);
 		}
 	}
@@ -5453,12 +5460,21 @@ test_emit_action (void)
 	 */
 	TEST_FEATURE ("with missing argument");
 	args[0] = NULL;
-	TEST_DIVERT_STDERR (output) {
-		ret = emit_action (&cmd, args);
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDERR (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = emit_action (&cmd, args);
+			exit (ret);
+		}
 	}
+
+	waitpid (pid, &status, 0);
 	rewind (output);
 
-	TEST_NE (ret, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 1);
 
 	TEST_FILE_EQ (output, "test: missing event name\n");
 	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
@@ -5469,7 +5485,6 @@ test_emit_action (void)
 	fclose (output);
 
 	close (sock);
-	close (control_sock);
 }
 
 
@@ -5887,6 +5902,8 @@ test_events_action (void)
 				   0xdeafbeef, "frodo", argv, env);
 	assert (nih_io_message_send (msg, sock) > 0);
 	nih_free (msg);
+	nih_free (argv);
+	nih_free (env);
 
 
 	/* Meh; no real way to know ... */
