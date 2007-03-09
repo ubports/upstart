@@ -1,5 +1,12 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_state): Add a test case for
+	deleting the last instance of a replaced job.
+	* init/job.c (job_change_state): When moving a instance of a job into
+	the deleted state, check whether we should replace the job it's an
+	instance of, and if so, change that job's state too.
+	* TODO: Update.
+
 	* util/initctl.c (handle_job_list): Always allocate current_list,
 	since we need it to be the parent of pointers we attach to it.
 	(handle_job_list_end): Always free the current list, only suppress

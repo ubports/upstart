@@ -971,6 +971,14 @@ job_change_state (Job      *job,
 			    && (job->replacement != (void *)-1))
 				job->replacement->replacement_for = NULL;
 
+			/* If the job this is an instance of can be replaced,
+			 * kick it into the deleted state.
+			 */
+			if (job->instance_of
+			    && job_should_replace (job->instance_of))
+				job_change_state (job->instance_of,
+						  job_next_state (job->instance_of));
+
 			break;
 		}
 

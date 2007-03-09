@@ -2367,7 +2367,7 @@ test_change_state (void)
 	 * waiting, going through that state and ending up in deleted where
 	 * the replacement takes over and becomes a real job.
 	 */
-	TEST_FEATURE ("post-stop to waiting for instance");
+	TEST_FEATURE ("post-stop to waiting for replaced job");
 	job->replacement = job_new (NULL, "wibble");
 	job->replacement->replacement_for = job;
 	TEST_ALLOC_FAIL {
@@ -2414,6 +2414,62 @@ test_change_state (void)
 
 	nih_list_free (&job->replacement->entry);
 	job->replacement = NULL;
+
+
+	/* Check that an instance of a replaced job can move from post-stop
+	 * to deleted via waiting, and cause its own instance parent to
+	 * become deleted and replaced as well.
+	 */
+	TEST_FEATURE ("post-stop to waiting for instance of replaced job");
+	job->instance_of = job_new (NULL, "wibble");
+	job->instance_of->replacement = job_new (NULL, "wibble");
+	job->instance_of->replacement->replacement_for = job->instance_of;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "ok");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		TEST_EQ_P (emission->event.env, NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ (job->instance_of->goal, JOB_STOP);
+		TEST_EQ (job->instance_of->state, JOB_DELETED);
+
+		TEST_EQ (job->instance_of->replacement->replacement_for, NULL);
+	}
+
+	nih_list_free (&job->instance_of->replacement->entry);
+	nih_list_free (&job->instance_of->entry);
+	job->instance_of = NULL;
 
 
 	fclose (output);

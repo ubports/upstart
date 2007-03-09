@@ -1,8 +1,5 @@
 High Priority:
 
- * Running out of instances doesn't seem to kick the master job into being
-   replaced.
-
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
    long as we send things in this order:
