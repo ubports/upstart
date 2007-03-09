@@ -1,5 +1,8 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* README: Add a README that copies the text from the web page and
+	adds some notes about recommended operating system versions.
+
 	* util/initctl.c: Completely rewrite initctl, top to bottom; handling
 	of the new messages is done natively, meaning that the commands just
 	vary the requests send and number of responses expected.
