@@ -1,5 +1,7 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.3.8
+
 	* NEWS: Updated.
 	* configure.ac: Increase version to 0.3.7
 
