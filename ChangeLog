@@ -1,5 +1,10 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Improve restarting and rescuing a little; store the
+	program path in a static variable so we can always access it, and
+	use the exported loglevel to pass the same to the new process.
+	* TODO: Update.
+
 	* compat/sysv/shutdown.c: More error/fatal adjustments.
 	* compat/sysv/telinit.c: More error/fatal adjustments.
 

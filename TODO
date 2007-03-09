@@ -76,7 +76,8 @@ Low Priority:
    and the scripts being run end up vanishing because they can't write
    data.
 
- * Should be able to query the version of the init daemon with a message.
+ * Should be able to query the version of the init daemon with a message,
+   also set the log level, pause/unpause the event queue, re-exec, etc.
 
 
 Unfinished Features:

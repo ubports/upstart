@@ -67,8 +67,16 @@ static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
-static void term_handler    (const char *prog, NihSignal *signal);
+static void term_handler    (void *data, NihSignal *signal);
 
+
+/**
+ * argv0:
+ *
+ * Path to program executed, used for re-executing the init binary from the
+ * same location we were executed from.
+ **/
+static const char *argv0 = NULL;
 
 /**
  * restart:
@@ -110,7 +118,8 @@ main (int   argc,
 	char **args;
 	int    ret;
 
-	nih_main_init (argv[0]);
+	argv0 = argv[0];
+	nih_main_init (argv0);
 
 	nih_option_set_synopsis (_("Process management daemon."));
 	nih_option_set_help (
@@ -251,7 +260,7 @@ main (int   argc,
 	/* SIGTERM instructs us to re-exec ourselves */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
 					  (NihSignalHandler)term_handler,
-					  argv[0]));
+					  NULL));
 
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
@@ -343,9 +352,12 @@ reset_console (void)
 static void
 crash_handler (int signum)
 {
-	NihError *err;
-	sigset_t  mask, oldmask;
-	pid_t     pid;
+	NihError   *err;
+	const char *loglevel = NULL;
+	sigset_t    mask, oldmask;
+	pid_t       pid;
+
+	nih_assert (argv0 != NULL);
 
 	pid = fork ();
 	if (pid == 0) {
@@ -407,7 +419,16 @@ crash_handler (int signum)
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
 	/* Argument list */
-	execl ("/sbin/init", "/sbin/init", "--rescue", NULL);
+	if (nih_log_priority <= NIH_LOG_DEBUG) {
+		loglevel = "--debug";
+	} else if (nih_log_priority <= NIH_LOG_INFO) {
+		loglevel = "--verbose";
+	} else if (nih_log_priority >= NIH_LOG_ERROR) {
+		loglevel = "--error";
+	} else {
+		loglevel = NULL;
+	}
+	execl (argv0, argv0, "--rescue", loglevel, NULL);
 	nih_error_raise_system ();
 
 	err = nih_error_get ();
@@ -496,18 +517,19 @@ stop_handler (void      *data,
 
 /**
  * term_handler:
- * @argv0: program to run,
+ * @data: unused,
  * @signal: signal caught.
  *
  * This is called when we receive the TERM signal, which instructs us
  * to reexec ourselves.
  **/
 static void
-term_handler (const char *argv0,
-	      NihSignal  *signal)
+term_handler (void      *data,
+	      NihSignal *signal)
 {
-	NihError *err;
-	sigset_t  mask, oldmask;
+	NihError   *err;
+	const char *loglevel;
+	sigset_t    mask, oldmask;
 
 	nih_assert (argv0 != NULL);
 	nih_assert (signal != NULL);
@@ -524,7 +546,16 @@ term_handler (const char *argv0,
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
 	/* Argument list */
-	execl (argv0, argv0, "--restart", NULL);
+	if (nih_log_priority <= NIH_LOG_DEBUG) {
+		loglevel = "--debug";
+	} else if (nih_log_priority <= NIH_LOG_INFO) {
+		loglevel = "--verbose";
+	} else if (nih_log_priority >= NIH_LOG_ERROR) {
+		loglevel = "--error";
+	} else {
+		loglevel = NULL;
+	}
+	execl (argv0, argv0, "--restart", loglevel, NULL);
 	nih_error_raise_system ();
 
 	err = nih_error_get ();
