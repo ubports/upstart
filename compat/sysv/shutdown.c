@@ -523,7 +523,7 @@ shutdown_now (void)
 		if (err->number == ECONNREFUSED)
 			sysvinit_shutdown ();
 
-		nih_error (_("Unable to send message: %s"), err->message);
+		nih_fatal (_("Unable to send message: %s"), err->message);
 		exit (1);
 	}
 

@@ -135,7 +135,7 @@ main (int   argc,
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"), err->message);
+		nih_fatal (_("Unable to send message: %s"), err->message);
 		exit (1);
 	}
 

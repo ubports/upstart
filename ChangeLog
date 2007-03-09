@@ -1,3 +1,8 @@
+2007-03-09  Scott James Remnant  <scott@netsplit.com>
+
+	* compat/sysv/shutdown.c: More error/fatal adjustments.
+	* compat/sysv/telinit.c: More error/fatal adjustments.
+
 2007-03-08  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c (main, crash_handler): Promote deadly errors to nih_fatal
