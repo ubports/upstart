@@ -1,4 +1,4 @@
-.TH initctl 8 "October 2006" "Upstart"
+.TH initctl 8 "March 2007" "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control utility
@@ -18,18 +18,60 @@ non-option argument, however symbolic or hard links may be used so that
 it is invoked as the name of a command, in which case it behaves
 accordingly.
 .\"
+.SH OPTIONS
+.TP
+.B --show-ids
+Usually a job's name is sufficient to identify it, except for instance jobs
+which may have multiple running instances with the same name.  To query or
+stop a specific instance, its unique id is necessary.
+
+This option causes all commands to output the unique id of jobs and events,
+in addition to their name.
+.\"
+.TP
+.B --by-id
+Applies to the
+.BR start ", " stop " and " status
+commands.
+
+Normally these accept the job name as arguments; with this option they
+expect job ids instead.
+.\"
+.TP
+.B --no-wait
+Applies to the
+.BR start ", " stop " and " emit
+commands.
+
+Normally these commands wait for the named jobs or events to be started,
+stopped or finished respectively.  This option causes them to return
+without waiting once the request has been confirmed.
+.\"
+.TP
+.B --quiet
+Reduces output of all commands to errors only.
+.\"
 .SH COMMANDS
 .TP
 .BI "start " JOB\fR...
 Requests that the named jobs be started.  The status of the jobs will be
-output to standard output.  It is common for jobs to not immediately reach
-the running state if they have scripts to run first.
+output to standard output until they are succesfully running, or in the
+case of tasks, until they have completed.
+
+See
+.B status
+for a description of the output format.
 .\"
 .TP
 .BI "stop " JOB\fR...
 Requests that the named jobs be stopped.  The status of the jobs will be
-output to standard output.  It is common for jobs to not immediately reach
-the waiting state if they have scripts to run first.
+output to standard output until they are successfully stopped.
+
+When called with an instance job, all instances will be stopped.
+
+See
+.B status
+for a description of the output format.
 .\"
 .TP
 .BI "status " JOB\fR...
@@ -37,45 +79,97 @@ Requests the status of the named jobs.  For each job on the command-line, a
 line like the following is output.
 
 .nf
-  job (start) running, process 1234 active
+  job (start) running, process 1234
 .fi
 
 The job name is given first; the goal of the job, either
 .IR start " or " stop
 is then given in parens followed by the current state of the job.  If
-there is an associated process, the pid is given and indication whether the
-process is
-.I active
-(running normally) or
-.I killed
-.RB ( SIGTERM
-sent, but process not yet reaped).
+there is an associated process, the pid is given.
+
+Some job states may have multiple processes associated, for example when
+the job is in the
+.IR post-start " or " pre-stop
+states.  The extra processes follow on consecutive lines, indented by a tab.
+
+.nf
+  job (start) post-start, process 1347
+          main process 1234
+.fi
+
+If no
+.IR post-start " or " pre-stop
+process exists, only one line is output.  If there's a
+.I main
+process running, that is included on the same line preceeded by
+.IR (main) .
+
+.nf
+  job (stop) pre-stop, (main) process 1234
+.fi
+
+Instance jobs are output with the first line giving the name of the job,
+and consecutive lines giving the state of each instance indented by four
+spaces.
+
+.nf
+  job (instance)
+      (start) running, process 1234
+      (start) post-start, process 2358
+          main process 2345
+      (stop) pre-stop, (main) process 3456
+.fi
 .\"
 .TP
-.B list
-Requests a list of the known jobs and their statuses.  The status of each
-job is output a line at a time.
+.BR list " ["\fIPATTERN\fR]
+Requests a list of the known jobs and their statuses.  The optional pattern
+may contain the usual shell wildcard and glob characters, if omitted all
+known jobs are returned.
+
+See
+.B status
+for a description of the output format.
 .\"
 .TP
 .BI "emit " EVENT
 Requests that the named event be emitted, potentially causing jobs to
-be started and stopped.  No output is given at this time.
+be started and stopped.  The event information is output once handling
+begins followed by each job status changed caused by the event until
+handling is finished.
+
+.nf
+  fstab-device-added hda1
+      FSTAB_FSNAME=/dev/hda1
+      FSTAB_DIR=/
+      FSTAB_TYPE=ext3
+      FSTAB_OPTS=default
+.fi
+
+The event name is given first followed by each argument to the event
+separated by a space.  Consecutive lines are indented and give the environment
+variables passed to any job changed by the event.
+
+See
+.B status
+for a description of the output format for the job status changes.
 .\"
 .TP
 .B jobs
 Requests notification of all job state changes be sent to the process,
 which remains in the foreground until terminated.
+
+See
+.B status
+for a description of the output format.
 .\"
 .TP
 .B events
 Requests notification of all generated events be sent to the process,
 which remains in the foreground until terminated.
-.\"
-.TP
-.BI "shutdown " EVENT
-Requests that the system be brought down.  The
-.I shutdown
-event is emitted, and once processed, the event given is emitted.
+
+See
+.B emit
+for a description of the output format of the event messages.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant.
@@ -84,12 +178,11 @@ Written by Scott James Remnant.
 Report bugs at https://launchpad.net/products/upstart/+bugs
 .\"
 .SH COPYRIGHT
-Copyright \(co 2006 Canonical Ltd.
+Copyright \(co 2007 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
 .BR init (8)
-.BR shutdown (8)
 .BR telinit (8)

@@ -1,5 +1,9 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/man/initctl.8: Update the initctl manpage.
+	* compat/sysv/man/reboot.8: Correct a minor grammar error.
+	* compat/sysv/man/shutdown.8: Fix reference from runlevel to telinit.
+
 	* README: Add a README that copies the text from the web page and
 	adds some notes about recommended operating system versions.
 
