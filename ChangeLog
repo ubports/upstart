@@ -1,5 +1,9 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Set the UPSTART_JOB_ID
+	environment variable to the job's unique id.
+	* init/tests/test_process.c (test_spawn): Make sure it's set.
+
 	* util/man/initctl.8: Update the initctl manpage.
 	* compat/sysv/man/reboot.8: Correct a minor grammar error.
 	* compat/sysv/man/shutdown.8: Fix reference from runlevel to telinit.
