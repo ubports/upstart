@@ -1,3 +1,99 @@
+0.3.7  2007-03-09  "Lines of communication"
+
+	* The "normalexit" stanza has been changed to "normal exit".
+
+	* The "respawn COMMAND" short-cut for specifying both "respawn" and
+	  "exec" in the same stanza has been removed.  Jobs that previously
+	  used syntax such as:
+
+		respawn /sbin/getty 38400 tty1
+
+	  Should be changed to use:
+
+		exec /sbin/getty 38400 tty1
+		respawn
+
+	  While the shortcut saved a little typing, it caused confusion and
+	  hid the fact that "exec" and "script" were both options for
+	  respawning services.
+
+	* The "on EVENT" stanza has been removed, change your jobs to use
+	  the identical "start on EVENT" instead.  This is because the "on"
+	  stanza may be useful for other things in future.
+
+	* Stanzas in job definitions may no longer be surrounded by single
+	  or double quotes, allowing them to be turned into ordinary
+	  tokens by quoting them.
+
+	* Configuration of running jobs is no longer immediately changed
+	  when the definition is changed on disk; the job must be stopped
+	  first.  If the job is an instance job, all instances must be
+	  stopped before an instance of the changed job definition will be
+	  started.
+
+	  This ensures that the post-stop process run when the job is stopped
+	  matches the pre-start process run when it was started, and for
+	  instance jobs ensures that any locking between them is identical.
+
+	  Jobs marked for deletion, or jobs that have not yet replaced
+	  another, will not ordinarily show up in the output of initctl
+	  "status" or "list" unless addressed by id.  They cannot be
+	  started or stopped, even when addressed by id.
+
+	* Job definitions may safely omit "exec"/"script"; the job will stay
+	  in the running state with no process until it is stopped manually
+	  or by an event.
+
+	  This allows a service to define hardware configuration; for example
+	  the mixer service could restore the ALSA mixer in its pre-start
+	  script and save the mixer state in its stop script.  "start mixer"
+	  would restore the state, "status mixer" would show it was running
+	  and "stop mixer" would save the state again and presumably mute it.
+
+	* Sending the SIGPWR signal to init will emit the power-status-changed
+	  event.  A simple job can hook this event, check the /etc/powerstatus
+	  file and take further action.
+
+	* As well as their name, all jobs now also have a unique id exported
+	  in the UPSTART_JOB_ID environment variable and viewable with initctl
+	  by using the "--show-ids" option to "status" or "list".
+
+	  The unique id is changed whenever the job is reloaded from disk, or
+	  whenever a new instance is started.  "start" and "stop" now default
+	  to UPSTART_JOB_ID if no arguments are given (falling back to
+	  UPSTART_JOB if that is not present either).  This means they act on
+	  the current instance of the job, rather than spawning a new instance
+	  or stopping all instances.
+
+	  "start", "status" and "stop" also accept a new "--by-id" option
+	  which makes them expect job ids as arguments instead of job names.
+
+	* The initctl "status" and "list" commands group instances of
+	  instance jobs together in their output, rather than repeating them
+	  without further clarification.  E.g.:
+
+		foo (instance)
+		    (start) starting
+		    (start) running, process 1000
+		    (stop) post-stop, process 1050
+
+	  The "stop" command will stop all instances when given the name of
+	  an instance job; individual instances can be stopped using "--by-id"
+	  after obtaining the id from "status --show-ids".
+
+	* Wildcard patterns of job names to be listed can be given as an
+	  argument to the initctl "list" command.
+
+	* Starting and stopping jobs with initctl will now block until the
+	  job reaches its goal state, outputting all status changes and
+	  process ids until the goal is reached and will also output an error
+	  and exit with a non-zero status if the job fails.
+
+	  Remember that jobs default to being tasks, so "start" will actually
+	  block until the job finishes and returns back to "(stop) waiting".
+	  Use the "service" or "respawn" stanza to turn them into services to
+	  that they only block until the "(start) running" state is reached.
+
 0.3.5  2007-02-10  "Wear flowers in your hair"
 
 	* Serialisation of job state between upstart processes is disabled;

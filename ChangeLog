@@ -1,5 +1,8 @@
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Updated.
+	* configure.ac: Increase version to 0.3.7
+
 	* init/tests/test_job.c (test_change_state): Add a test case for
 	deleting the last instance of a replaced job.
 	* init/job.c (job_change_state): When moving a instance of a job into
