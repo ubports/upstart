@@ -1,3 +1,7 @@
+2007-03-09  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add nih/tree.c; remove util/events.c and util/jobs.c
+
 2007-02-05  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Add nih/config.c, nih/watch.c; rename upstart/job.c
