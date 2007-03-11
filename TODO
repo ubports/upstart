@@ -73,9 +73,6 @@ Low Priority:
    and the scripts being run end up vanishing because they can't write
    data.
 
- * Should be able to query the version of the init daemon with a message,
-   also set the log level, pause/unpause the event queue, re-exec, etc.
-
 
 Unfinished Features:
 
@@ -111,3 +108,20 @@ Future Features:
 
    Would be done by making script a char *, and putting the interpreter into
    command?
+
+ * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
+   which state do we keep it in while it's waiting?
+
+ * Apply event variables to keys, such as "uses" ?
+
+ * Watershed jobs
+
+ * How do we balance events, if two "added" happen we probably want two
+   "removed" to happen as well.  One way is to allow $... in the event
+   definitions which apply to earlier ones?
+
+ * Extend telinit to support --default or similar; moving the shell parsing
+   out of rc-default and just make that exec telinit with the right args.
+
+ * Event tree for "start on" and "stop on" -- need to solve when instances
+   are spawned and which event gets stored in cause first though.
