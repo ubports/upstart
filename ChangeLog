@@ -1,5 +1,7 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* util/man/initctl.8: Document the new commands.
+
 	* TODO: Update.
 
 	* init/job.c (job_handle_event): Correct the function so we don't

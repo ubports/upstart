@@ -171,6 +171,18 @@ See
 .B emit
 for a description of the output format of the event messages.
 .\"
+.TP
+.B version
+Requests and outputs the version of the running init daemon.
+.\"
+.TP
+.BI "log-priority " PRIORITY
+Changes the minimum priority of messages logged by the init daemon.
+
+.I PRIORITY
+may be one of
+.IR debug ", " info ", " message ", " warn ", " error " or " fatal .
+.\"
 .SH AUTHOR
 Written by Scott James Remnant.
 .\"
