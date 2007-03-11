@@ -1,5 +1,7 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.3.9
+
 	* NEWS: Update.
 
 	* util/man/initctl.8: Document the new commands.
