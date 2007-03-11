@@ -249,6 +249,21 @@ test_error_handler (void)
 
 
 static int
+check_version (void               *data,
+	       pid_t               pid,
+	       UpstartMessageType  type,
+	       const char         *version)
+{
+	TEST_EQ (pid, getppid ());
+	TEST_EQ (type, UPSTART_VERSION);
+
+	TEST_EQ_STR (version, nih_main_package_string ());
+
+	return 0;
+}
+
+
+static int
 check_job (void               *data,
 	   pid_t               pid,
 	   UpstartMessageType  type,
@@ -1013,6 +1028,112 @@ test_send_instance (void)
 	nih_list_free (&instance->entry);
 	nih_list_free (&job->entry);
 
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+
+void
+test_version_query (void)
+{
+	NihIo *io;
+	pid_t  pid;
+	int    wait_fd, status;
+
+	/* Check that we can handle a message from a child process asking us
+	 * for our version.
+	 */
+	TEST_FUNCTION ("control_version_query");
+	nih_main_init_full ("test", "upstart", "0.5.0", NULL, NULL);
+
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_VERSION_QUERY);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_VERSION */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_version,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+
+	control_close ();
+	upstart_disable_safeties = FALSE;
+}
+
+void
+test_log_priority (void)
+{
+	NihIo *io;
+	pid_t  pid;
+	int    status;
+
+	/* Check that we can handle a message from a child process changing
+	 * our logging priority.
+	 */
+	TEST_FUNCTION ("control_log_priority");
+	io = control_open ();
+	upstart_disable_safeties = TRUE;
+
+	nih_log_set_priority (NIH_LOG_MESSAGE);
+
+	fflush (stdout);
+	TEST_CHILD (pid) {
+		NihIoMessage *message;
+		int           sock;
+
+		sock = upstart_open ();
+
+		message = upstart_message_new (NULL, getppid (),
+					       UPSTART_LOG_PRIORITY,
+					       NIH_LOG_DEBUG);
+		assert (nih_io_message_send (message, sock) > 0);
+		nih_free (message);
+
+		exit (0);
+	}
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	TEST_EQ (nih_log_priority, NIH_LOG_DEBUG);
+
+
+	nih_log_set_priority (NIH_LOG_MESSAGE);
 
 	control_close ();
 	upstart_disable_safeties = FALSE;
@@ -3272,6 +3393,8 @@ main (int   argc,
 	test_error_handler ();
 	test_send_job_status ();
 	test_send_instance ();
+	test_version_query ();
+	test_log_priority ();
 	test_job_find ();
 	test_job_query ();
 	test_job_start ();

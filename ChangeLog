@@ -1,5 +1,10 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_version_query, control_log_priority):
+	Functions to handle the new messages from the server pov
+	* init/tests/test_control.c (test_version_query) 
+	(test_log_priority): Test the new messages are handled properly.
+	(check_version): Check the version string matches.
 	* upstart/message.h: Add messages for querying the version of the
 	init daemon and changing the log priority.
 	* upstart/message.c (upstart_message_newv)

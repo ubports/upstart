@@ -36,6 +36,7 @@
 #include <nih/list.h>
 #include <nih/hash.h>
 #include <nih/io.h>
+#include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
@@ -48,6 +49,11 @@
 
 /* Prototypes for static functions */
 static void control_error_handler      (void  *data, NihIo *io);
+static int  control_version_query      (void *data, pid_t pid,
+					UpstartMessageType type);
+static int  control_log_priority       (void *data, pid_t pid,
+					UpstartMessageType type,
+					NihLogLevel priority);
 static int  control_job_find           (void *data, pid_t pid,
 					UpstartMessageType type,
 					const char *pattern);
@@ -88,6 +94,10 @@ NihIo *control_io = NULL;
  * processes.  Any message types not listed here will be discarded.
  **/
 static UpstartMessage message_handlers[] = {
+	{ -1, UPSTART_VERSION_QUERY,
+	  (UpstartMessageHandler)control_version_query },
+	{ -1, UPSTART_LOG_PRIORITY,
+	  (UpstartMessageHandler)control_log_priority },
 	{ -1, UPSTART_JOB_FIND,
 	  (UpstartMessageHandler)control_job_find },
 	{ -1, UPSTART_JOB_QUERY,
@@ -296,6 +306,71 @@ control_send_instance (pid_t  pid,
 			  control_io, pid, UPSTART_JOB_INSTANCE_END,
 			  job->id, job->name));
 	nih_io_send_message (control_io, message);
+}
+
+
+/**
+ * control_version_query:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system asks for our
+ * version.
+ *
+ * We return the autoconf-set package string, containing both the package
+ * name and current version, in an UPSTART_VERSION reply.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_version_query (void               *data,
+		       pid_t               pid,
+		       UpstartMessageType  type)
+{
+	NihIoMessage *reply;
+
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_VERSION_QUERY);
+
+	nih_info (_("Control request for our version"));
+
+	NIH_MUST (reply = upstart_message_new (control_io, pid,
+					       UPSTART_VERSION,
+					       nih_main_package_string ()));
+	nih_io_send_message (control_io, reply);
+
+	return 0;
+}
+
+/**
+ * control_log_priority:
+ * @data: data pointer,
+ * @pid: origin process id,
+ * @type: message type received.
+ *
+ * This function is called when another process on the system adjusts our
+ * logging priority.
+ *
+ * We change the priority to the new one given and return no reply, since
+ * this is always successful.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+control_log_priority (void               *data,
+		      pid_t               pid,
+		      UpstartMessageType  type,
+		      NihLogLevel         priority)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_LOG_PRIORITY);
+
+	nih_info (_("Control request to change logging priority"));
+
+	nih_log_set_priority (priority);
+
+	return 0;
 }
 
 
