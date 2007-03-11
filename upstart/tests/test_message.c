@@ -141,7 +141,77 @@ test_new (void)
 			     "/com/ubuntu/upstart", 19);
 
 		TEST_EQ (msg->data->len, 12);
-		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\0\0", 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x00", 12);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_VERSION_QUERY message and have
+	 * the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_VERSION_QUERY message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_VERSION_QUERY);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 12);
+		TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x01", 12);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_LOG_PRIORITY message and have
+	 * the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_LOG_PRIORITY message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_LOG_PRIORITY,
+					   NIH_LOG_DEBUG);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 17);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x00\x02u\0\0\0\x1", 17);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we can create an UPSTART_VERSION message and have
+	 * the message buffer filled in correctly.
+	 */
+	TEST_FEATURE ("with UPSTART_VERSION message");
+	TEST_ALLOC_FAIL {
+		msg = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+					   UPSTART_VERSION, "upstart 0.5.0");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (msg, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (msg, sizeof (NihIoMessage));
+
+		TEST_EQ (msg->data->len, 30);
+		TEST_EQ_MEM (msg->data->buf,
+			     "upstart\n\0\0\x00\x10s\0\0\0\xdupstart 0.5.0",
+			     30);
 
 		nih_free (msg);
 	}
@@ -890,6 +960,31 @@ my_handler (void                *data,
 	va_start (args, type);
 
 	switch (type) {
+	case UPSTART_NO_OP:
+		break;
+	case UPSTART_VERSION_QUERY:
+		break;
+	case UPSTART_LOG_PRIORITY: {
+		NihLogLevel priority;
+
+		priority = va_arg (args, unsigned);
+
+		TEST_EQ (priority, NIH_LOG_DEBUG);
+
+		break;
+	}
+	case UPSTART_VERSION: {
+		char *version;
+
+		version = va_arg (args, char *);
+
+		TEST_EQ_STR (version, "upstart 0.5.0");
+
+		nih_free (version);
+
+		break;
+	}
+
 	case UPSTART_JOB_FIND: {
 		char *pattern;
 
@@ -1268,7 +1363,8 @@ test_handle (void)
 		TEST_ALLOC_SAFE {
 			msg = nih_io_message_new (NULL);
 			assert0 (nih_io_buffer_push (msg->data,
-						     "upstart\n\0\0\0\0", 12));
+						     "upstart\n\0\0\x00\x00",
+						     12));
 			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
 							     SCM_CREDENTIALS,
 							     sizeof (cred),
@@ -1287,6 +1383,106 @@ test_handle (void)
 		TEST_EQ_P (last_data, &ret);
 		TEST_EQ (last_pid, 1000);
 		TEST_EQ (last_type, UPSTART_NO_OP);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an UPSTART_VERSION_QUERY
+	 * message from a particular process id.
+	 */
+	TEST_FEATURE ("with UPSTART_VERSION_QUERY message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     "upstart\n\0\0\x00\x01",
+						     12));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_VERSION_QUERY);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an UPSTART_LOG_PRIORITY
+	 * message from a particular process id.
+	 */
+	TEST_FEATURE ("with UPSTART_VERSION_QUERY message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     ("upstart\n\0\0\x00\x02"
+						      "u\0\0\0\1"), 17));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_LOG_PRIORITY);
+
+		nih_free (msg);
+	}
+
+
+	/* Check that we call the handler function for an UPSTART_VERSION
+	 * message from a particular process id.
+	 */
+	TEST_FEATURE ("with UPSTART_VERSION message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			msg = nih_io_message_new (NULL);
+			assert0 (nih_io_buffer_push (msg->data,
+						     ("upstart\n\0\0\x00\x10"
+						      "s\0\0\0\xd"
+						      "upstart 0.5.0"), 30));
+			assert0 (nih_io_message_add_control (msg, SOL_SOCKET,
+							     SCM_CREDENTIALS,
+							     sizeof (cred),
+							     &cred));
+		}
+
+		handler_called = FALSE;
+		last_data = NULL;
+		last_pid = -1;
+		last_type = -1;
+
+		ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+		TEST_EQ (ret, 0);
+		TEST_TRUE (handler_called);
+		TEST_EQ_P (last_data, &ret);
+		TEST_EQ (last_pid, 1000);
+		TEST_EQ (last_type, UPSTART_VERSION);
 
 		nih_free (msg);
 	}
@@ -2170,6 +2366,56 @@ test_handle (void)
 	err = nih_error_get ();
 
 	TEST_EQ (err->number, UPSTART_MESSAGE_UNKNOWN);
+
+	nih_free (err);
+
+	nih_free (msg);
+
+
+	/* Check that the UPSTART_MESSAGE_INVALID error is raised on an
+	 * incomplete UPSTART_VERSION message.
+	 */
+	TEST_FEATURE ("with incomplete UPSTART_VERSION message");
+	msg = nih_io_message_new (NULL);
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x00\x10", 12));
+	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					     sizeof (cred), &cred));
+
+	handler_called = FALSE;
+
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+	TEST_LT (ret, 0);
+	TEST_FALSE (handler_called);
+
+	err = nih_error_get ();
+
+	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
+
+	nih_free (err);
+
+	nih_free (msg);
+
+
+	/* Check that the UPSTART_MESSAGE_INVALID error is raised if the
+	 * name field in a UPSTART_VERSION message is NULL.
+	 */
+	TEST_FEATURE ("with null name in UPSTART_VERSION message");
+	msg = nih_io_message_new (NULL);
+	assert0 (nih_io_buffer_push (msg->data, "upstart\n\0\0\x00\x10S", 13));
+	assert0 (nih_io_message_add_control (msg, SOL_SOCKET, SCM_CREDENTIALS,
+					     sizeof (cred), &cred));
+
+	handler_called = FALSE;
+
+	ret = upstart_message_handle (NULL, msg, any_handler, &ret);
+
+	TEST_LT (ret, 0);
+	TEST_FALSE (handler_called);
+
+	err = nih_error_get ();
+
+	TEST_EQ (err->number, UPSTART_MESSAGE_INVALID);
 
 	nih_free (err);
 

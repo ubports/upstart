@@ -48,8 +48,20 @@
  * UpstartMsgHandler for more details.
  **/
 typedef enum upstart_message_type {
-	/* General messages */
-	UPSTART_NO_OP,
+	/* General messages.
+	 *
+	 * Clients or the server may send UPSTART_NO_OP at any time, without
+	 * any effect or reply.
+	 *
+	 * Clients may send UPSTART_VERSION_QUERY and receive an
+	 * UPSTART_VERSION message in reply.
+	 *
+	 * Clients may send UPSTART_LOG_PRIORITY, without any reply.
+	 */
+	UPSTART_NO_OP              = 0x0000,
+	UPSTART_VERSION_QUERY      = 0x0001,
+	UPSTART_LOG_PRIORITY       = 0x0002,
+	UPSTART_VERSION            = 0x0010,
 
 	/* Job requests and responses.
 	 *
@@ -150,6 +162,19 @@ typedef enum upstart_message_type {
  * A message handler function is called whenever a message of an appropriate
  * @type is received from another process @pid.  The function will be called
  * with additional arguments that vary based on @type as follows:
+ *
+ * UPSTART_NO_OP:
+ * No arguments.
+ *
+ * UPSTART_VERSION_QUERY:
+ * No arguments.
+ *
+ * UPSTART_LOG_PRIORITY:
+ * @priority: new log priority (unsigned).
+ *
+ * UPSTART_VERSION:
+ * @version: full name and version of init daemon (char *).
+ *
  *
  * UPSTART_JOB_FIND:
  * @pattern: pattern to seek or NULL (char *).

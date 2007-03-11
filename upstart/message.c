@@ -259,6 +259,18 @@ upstart_message_newv (const void         *parent,
 	switch (type) {
 	case UPSTART_NO_OP:
 		break;
+	case UPSTART_VERSION_QUERY:
+		break;
+	case UPSTART_LOG_PRIORITY:
+		if (upstart_push_packv (message, "u", args_copy))
+			goto error;
+
+		break;
+	case UPSTART_VERSION:
+		if (upstart_push_packv (message, "s", args_copy))
+			goto error;
+
+		break;
 
 	case UPSTART_JOB_FIND:
 		if (upstart_push_packv (message, "s", args_copy))
@@ -533,6 +545,34 @@ upstart_message_handle (const void     *parent,
 	case UPSTART_NO_OP:
 		ret = handler (data, cred.pid, type);
 		break;
+	case UPSTART_VERSION_QUERY:
+		ret = handler (data, cred.pid, type);
+		break;
+	case UPSTART_LOG_PRIORITY: {
+		NihLogLevel priority;
+
+		if (upstart_pop_pack (message, parent, "u", &priority))
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, priority);
+		break;
+	}
+	case UPSTART_VERSION: {
+		char *version = NULL;
+
+		if (upstart_pop_pack (message, parent, "s", &version)) {
+			if (version)
+				nih_free (version);
+
+			goto invalid;
+		}
+
+		if (! version)
+			goto invalid;
+
+		ret = handler (data, cred.pid, type, version);
+		break;
+	}
 
 	case UPSTART_JOB_FIND: {
 		char *pattern = NULL;

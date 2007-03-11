@@ -1,5 +1,12 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: Add messages for querying the version of the
+	init daemon and changing the log priority.
+	* upstart/message.c (upstart_message_newv)
+	(upstart_message_handle): Marshal the new messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the marshalling of the new messages,
+
 	* upstart/libupstart.ver: Add enum functions to the global list.
 
 	* util/initctl.c (start_action, stop_action): Imply --no-wait if
