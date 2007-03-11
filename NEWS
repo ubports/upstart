@@ -1,3 +1,15 @@
+0.3.8  2007-03-11  "I had a little drink about an hour ago"
+
+	* Fix an assertion error that occurred whenever a stop event for an
+	  instance job was emitted.
+
+	* Correct a bug where calling "stop" from a job without arguments
+	  would stop the running job, and attempt to block until it was
+	  stopped.  This can obviously never happen since it won't stop until
+	  stop unblocks.
+
+	* Add "version" and "log-priority" commands to initctl.
+
 0.3.7  2007-03-09  "Lines of communication"
 
 	* The "normalexit" stanza has been changed to "normal exit".
