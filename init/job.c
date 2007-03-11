@@ -1772,30 +1772,36 @@ job_handle_event (EventEmission *emission)
 		 *
 		 * (The other way around would be just strange, it'd cause
 		 * a process's start and stop scripts to be run without the
-		 * actual process)
+		 * actual process).
+		 *
+		 * Obviously there's no point matching the stop events for
+		 * the master of an instance job since they're always stopped.
 		 */
-		NIH_LIST_FOREACH (&job->stop_events, iter) {
-			Event *stop_event = (Event *)iter;
+		if ((! job->instance) || (job->instance_of != NULL)) {
+			NIH_LIST_FOREACH (&job->stop_events, iter) {
+				Event *stop_event = (Event *)iter;
 
-			if (event_match (&emission->event, stop_event))
-				job_change_goal (job, JOB_STOP, emission);
+				if (event_match (&emission->event, stop_event))
+					job_change_goal (job, JOB_STOP,
+							 emission);
+			}
 		}
 
-		/* Don't handle start events for instances, as they get
-		 * handled by the master.
+		/* And there's no point matching the start events for an
+		 * instance of a job, since they're always running.
 		 */
-		if (job->instance_of)
-			continue;
+		if ((! job->instance) || (job->instance_of == NULL)) {
+			NIH_LIST_FOREACH (&job->start_events, iter) {
+				Event *start_event = (Event *)iter;
 
-		NIH_LIST_FOREACH (&job->start_events, iter) {
-			Event *start_event = (Event *)iter;
+				if (event_match (&emission->event,
+						 start_event)) {
+					Job *instance;
 
-			if (event_match (&emission->event, start_event)) {
-				Job *instance;
-
-				instance = job_instance (job);
-				job_change_goal (instance, JOB_START,
-						 emission);
+					instance = job_instance (job);
+					job_change_goal (instance, JOB_START,
+							 emission);
+				}
 			}
 		}
 	}

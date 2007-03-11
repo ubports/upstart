@@ -1,5 +1,8 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_event): Correct the function so we don't
+	try and stop the master of an instance, and cause an assertion error.
+
 	* util/initctl.c: Oops, correct function pointers in command table
 
 	* util/tests/test_initctl.c (test_version_action): 
