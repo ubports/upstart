@@ -1,5 +1,7 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/libupstart.ver: Add enum functions to the global list.
+
 	* util/initctl.c (start_action, stop_action): Imply --no-wait if
 	we take the job id or name from an environment variable, since we'd
 	end up waiting for ourselves otherwise
