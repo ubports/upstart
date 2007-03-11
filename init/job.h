@@ -81,40 +81,45 @@
 /**
  * JobProcess:
  * @script: whether a shell will be required,
- * @command: command or script to be run.
+ * @command: command or script to be run,
+ * @pid: current process id.
  *
- * This structure represents an individual process within the job that
- * can be run.  When @script is FALSE, @command is checked for shell
- * characters; if there are none, it is split on whitespace and executed
- * directly using exec().  If there are shell characters, or @script is
- * TRUE, @command is executed using a shell.
+ * This structure represents an individual action process within the job.
+ * When @script is FALSE, @command is checked for shell characters; if there
+ * are none, it is split on whitespace and executed directly using exec().
+ * If there are shell characters, or @script is TRUE, @command is executed
+ * using a shell.
+ *
+ * If the process is running, the current pid will be stored in @pid.
  **/
 typedef struct job_process {
-	int   script;
-	char *command;
+	int    script;
+	char  *command;
+	pid_t  pid;
 } JobProcess;
 
 /**
  * Job:
  * @entry: list header,
+ * @id: unique job id,
  * @name: string name of the job; namespace shared with events,
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
+ * @replacement: job to replace this one,
+ * @replacement_for: job this is a replacement for,
  * @instance_of: job this is an instance of,
- * @delete: job should be deleted once stopped,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
- * @pid: current process id,
- * @aux_pid: additional process id (for post-start or pre-stop),
  * @cause: cause of last goal change,
  * @blocked: emitted event we're waiting to finish,
  * @failed: whether the last process ran failed,
- * @failed_state: state the job was in for the last failed process,
+ * @failed_process: the last process that failed,
  * @exit_status: exit status of the last failed process,
  * @start_events: list of events that can start this job,
  * @stop_events; list of events that can stop this job.
  * @emits: list of additional events that this job can emit,
+ * @process: processes to be run,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @kill_timer: timer to kill process,
  * @instance: job is always waiting and spawns instances,
@@ -131,12 +136,6 @@ typedef struct job_process {
  * @pid_binary: obtain pid by locating this binary,
  * @pid_timeout: time to wait before giving up obtaining pid,
  * @pid_timer: timer for pid location,
- * @process: primary process to be run,
- * @pre_start: process to be run before job is started,
- * @post_start: process to be run after job is started.
- * @pre_stop: process to be run before job is stopped,
- * @post_stop: process to be run after job is stopped,
- * @respawn_script: script to run between @command respawns,
  * @console: how to arrange the job's stdin/out/err file descriptors,
  * @env: NULL-terminated list of environment strings to set,
  * @umask: file mode creation mask,
@@ -153,102 +152,109 @@ typedef struct job_process {
  **/
 typedef struct job Job;
 struct job {
-	NihList        entry;
+	NihList         entry;
+	uint32_t        id;
 
-	char          *name;
-	char          *description;
-	char          *author;
-	char          *version;
+	char           *name;
+	char           *description;
+	char           *author;
+	char           *version;
 
-	Job           *instance_of;
-	int            delete;
+	Job            *replacement;
+	Job            *replacement_for;
+	Job            *instance_of;
 
-	JobGoal        goal;
-	JobState       state;
-	pid_t          pid;
-	pid_t          aux_pid;
+	JobGoal         goal;
+	JobState        state;
 
-	EventEmission *cause;
-	EventEmission *blocked;
+	EventEmission  *cause;
+	EventEmission  *blocked;
 
-	int            failed;
-	JobState       failed_state;
-	int            exit_status;
+	int             failed;
+	ProcessType     failed_process;
+	int             exit_status;
 
-	NihList        start_events;
-	NihList        stop_events;
-	NihList        emits;
+	NihList         start_events;
+	NihList         stop_events;
+	NihList         emits;
 
-	int           *normalexit;
-	size_t         normalexit_len;
+	JobProcess    **process;
 
-	time_t         kill_timeout;
-	NihTimer      *kill_timer;
+	int            *normalexit;
+	size_t          normalexit_len;
 
-	int            instance;
-	int            service;
-	int            respawn;
-	int            respawn_limit;
-	time_t         respawn_interval;
-	int            respawn_count;
-	time_t         respawn_time;
+	time_t          kill_timeout;
+	NihTimer       *kill_timer;
 
-	int            daemon;
-	char          *pid_file;
-	char          *pid_binary;
-	time_t         pid_timeout;
-	NihTimer      *pid_timer;
+	int             instance;
+	int             service;
+	int             respawn;
+	int             respawn_limit;
+	time_t          respawn_interval;
+	int             respawn_count;
+	time_t          respawn_time;
 
-	JobProcess    *process;
-	JobProcess    *pre_start;
-	JobProcess    *post_start;
-	JobProcess    *pre_stop;
-	JobProcess    *post_stop;
+	int             daemon;
+	char           *pid_file;
+	char           *pid_binary;
+	time_t          pid_timeout;
+	NihTimer       *pid_timer;
 
-	ConsoleType    console;
-	char         **env;
+	ConsoleType     console;
+	char          **env;
 
-	mode_t         umask;
-	int            nice;
-	struct rlimit *limits[RLIMIT_NLIMITS];
-	char          *chroot;
-	char          *chdir;
+	mode_t          umask;
+	int             nice;
+	struct rlimit  *limits[RLIMIT_NLIMITS];
+	char           *chroot;
+	char           *chdir;
 };
 
 
 NIH_BEGIN_EXTERN
 
+uint32_t job_id;
+int      job_id_wrapped;
 NihHash *jobs;
 
 
-void     job_init                  (void);
+void        job_init                  (void);
 
-Job *    job_new                   (const void *parent, const char *name)
+JobProcess *job_process_new           (const void *parent)
 	__attribute__ ((warn_unused_result, malloc));
-Job *    job_copy                  (const void *parent, const Job *old_job)
+JobProcess *job_process_copy          (const void *parent,
+				       const JobProcess *old_process)
 	__attribute__ ((warn_unused_result, malloc));
 
-Job *    job_find_by_name          (const char *name);
-Job *    job_find_by_pid           (pid_t pid);
+Job *       job_new                   (const void *parent, const char *name)
+	__attribute__ ((warn_unused_result, malloc));
+Job *       job_copy                  (const void *parent, const Job *old_job)
+	__attribute__ ((warn_unused_result, malloc));
 
-void     job_change_goal           (Job *job, JobGoal goal,
-				    EventEmission *emission);
+Job *       job_find_by_name          (const char *name);
+Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
+Job *       job_find_by_id            (uint32_t id);
 
-void     job_change_state          (Job *job, JobState state);
-JobState job_next_state            (Job *job);
+Job *       job_instance              (Job *job);
+void        job_change_goal           (Job *job, JobGoal goal,
+				       EventEmission *emission);
 
-void     job_run_process           (Job *job, JobProcess *process);
+void        job_change_state          (Job *job, JobState state);
+JobState    job_next_state            (Job *job);
 
-void     job_kill_process          (Job *job);
+int         job_should_replace        (Job *job);
 
-void     job_child_reaper          (void *ptr, pid_t pid, int
-				    killed, int status);
+void        job_run_process           (Job *job, ProcessType process);
+void        job_kill_process          (Job *job, ProcessType process);
 
-void     job_handle_event          (EventEmission *emission);
-void     job_handle_event_finished (EventEmission *emission);
+void        job_child_reaper          (void *ptr, pid_t pid, int
+				       killed, int status);
 
-void     job_detect_stalled        (void);
-void     job_free_deleted          (void);
+void        job_handle_event          (EventEmission *emission);
+void        job_handle_event_finished (EventEmission *emission);
+
+void        job_detect_stalled        (void);
+void        job_free_deleted          (void);
 
 NIH_END_EXTERN
 

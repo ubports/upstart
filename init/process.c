@@ -221,7 +221,7 @@ static int
 process_setup_environment (Job *job)
 {
 	char **env;
-	char  *path, *term;
+	char  *path, *term, *jobid;
 
 	nih_assert (job != NULL);
 
@@ -245,6 +245,11 @@ process_setup_environment (Job *job)
 			nih_return_system_error (-1);
 		nih_free (term);
 	}
+
+	NIH_MUST (jobid = nih_sprintf (NULL, "%zu", job->id));
+	if (setenv ("UPSTART_JOB_ID", jobid, TRUE) < 0)
+		nih_return_system_error (-1);
+	nih_free (jobid);
 
 	if (setenv ("UPSTART_JOB", job->name, TRUE) < 0)
 		nih_return_system_error (-1);

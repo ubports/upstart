@@ -67,7 +67,7 @@ foreach (sort keys %gettys) {
 	foreach my $rl (qw/2 3 4 5/) {
 	    my $idx;
 	    for ($idx = 0; $idx < @job; $idx++) {
-		last if $job[$idx] =~ /^\s*(start|stop)\s+on\s+runlevel-$rl\b/;
+		last if $job[$idx] =~ /^\s*(start|stop)\s+on\s+runlevel\s+$rl\b/;
 	    }
 
 	    if ($idx < @job) {
@@ -78,9 +78,9 @@ foreach (sort keys %gettys) {
 		}
 	    } else {
 		if ($rlevel =~ /$rl/) {
-		    push @job, "start on runlevel-$rl\n";
+		    push @job, "start on runlevel $rl\n";
 		} else {
-		    push @job, "stop on runlevel-$rl\n";
+		    push @job, "stop on runlevel $rl\n";
 		}
 	    }
 	}
@@ -93,7 +93,8 @@ foreach (sort keys %gettys) {
 	if ($idx < @job) {
 	    $job[$idx] =~ s/^(\s*respawn\s+).*/$1$process/;
 	} else {
-	    push @job, "respawn $process\n";
+	    push @job, "respawn\n";
+	    push @job, "exec $process\n";
 	}
 
     } else {
@@ -104,9 +105,9 @@ foreach (sort keys %gettys) {
 
 	foreach my $rl (qw/2 3 4 5/) {
 	    if ($rlevel =~ /$rl/) {
-		push @job, "start on runlevel-$rl\n";
+		push @job, "start on runlevel $rl\n";
 	    } else {
-		push @job, "stop on runlevel-$rl\n";
+		push @job, "stop on runlevel $rl\n";
 	    }
 	}
 	push @job, "\n";
@@ -114,7 +115,8 @@ foreach (sort keys %gettys) {
 	push @job, "stop on shutdown\n";
 	push @job, "\n";
 
-	push @job, "respawn $process\n";
+	push @job, "respawn\n";
+	push @job, "exec $process\n";
     }
 
     open JOB, ">/etc/event.d/.$_"
@@ -131,9 +133,4 @@ foreach (sort keys %gettys) {
 	unlink "/etc/event.d/.$_";
 	next;
     }
-
-    # Cause an inotify CLOSE_WRITE event on the file so upstart reloads it
-    # (it doesn't handle move/rename)
-    open JOB, ">>/etc/event.d/$_";
-    close JOB;
 }

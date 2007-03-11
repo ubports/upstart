@@ -1,3 +1,27 @@
+upstart (0.3.8-1) feisty; urgency=low
+
+  * New upstream release:
+    - much improved initctl tool.
+
+  * Update my standard prep_/undo_/rm_conffile functions to take into account
+    current dpkg behaviour wrt obsolete conffiles.  The conffile is now moved
+    out of the way in preinst and the moved file deleted in postinst, or moved
+    back in postrm abort-upgrade.  This means it's not there when dpkg
+    configures the new version, so the conffile is not left in the list.
+  * Purge backups of modified obsolete conffiles when the package is purged.
+
+  * Update runlevel and respawn rule generated in migrate-inittab.pl
+    LP: #89314
+
+  * Drop 00-libnih-update.patch and 01-libnih-sparc-ftbfs.patch; new upstream
+    release includes an up-to-date libnih which contains both patches.
+  * Drop 10-cant-stop-execless-job.patch; included upstream.
+  * Drop 20-complex-event-config.patch; this is going to be significantly
+    changed upstream, and we don't want to ship something strange.
+  * Drop 30-fix-warnings.patch; included upstream.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Sun, 11 Mar 2007 19:19:00 +0000
+
 upstart (0.3.5-2) feisty; urgency=low
 
   * Changed "start script" to "pre-start script" in sulogin event, the former

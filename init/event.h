@@ -35,7 +35,7 @@
  * being pending, then being handled and finally waiting for the callback
  * to be called and any cleanup performed.
  **/
-typedef enum {
+typedef enum event_progress {
 	EVENT_PENDING,
 	EVENT_HANDLING,
 	EVENT_FINISHED
@@ -123,6 +123,14 @@ typedef struct event_emission {
  **/
 #define KBDREQUEST_EVENT "kbdrequest"
 
+/**
+ * PWRSTATUS_EVENT:
+ *
+ * Name of the event that we generate when we receive SIGPWR, indicating
+ * that the power status has changed.
+ **/
+#define PWRSTATUS_EVENT "power-status-changed"
+
 
 /**
  * JOB_STARTING_EVENT:
@@ -164,6 +172,8 @@ typedef struct event_emission {
 NIH_BEGIN_EXTERN
 
 int      paused;
+uint32_t emission_id;
+int      emission_id_wrapped;
 NihList *events;
 
 

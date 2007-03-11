@@ -26,6 +26,8 @@ prep_rm_conffile()
         if [ "$md5sum" != "$old_md5sum" ]; then
             echo "Obsolete conffile $CONFFILE has been modified by you, renaming to .dpkg-bak"
             mv -f "$CONFFILE" "$CONFFILE".dpkg-bak
+	else
+	    mv -f "$CONFFILE" "$CONFFILE".dpkg-obsolete
 	fi
     fi
 }

@@ -36,7 +36,19 @@ undo_rm_conffile()
 	if [ -e "$CONFFILE".dpkg-bak ]; then
 	    echo "Restoring modified conffile $CONFFILE"
 	    mv -f "$CONFFILE".dpkg-bak "$CONFFILE"
+	elif [ -e "$CONFFILE".dpkg-obsolete ]; then
+	    mv -f "$CONFFILE".dpkg-obsolete "$CONFFILE"
 	fi
+    fi
+}
+
+# Finish removal of a no-longer used conffile
+finish_rm_conffile()
+{
+    CONFFILE="$1"
+
+    if [ -e "$CONFFILE".dpkg-bak ]; then
+	rm -f "$CONFFILE".dpkg-bak
     fi
 }
 
@@ -48,12 +60,20 @@ undo_rm_obsolete_jobs()
     undo_rm_conffile /etc/event.d/rc0-poweroff
 }
 
+# Finish removal of obsolete jobs
+finish_rm_obsolete_jobs()
+{
+    finish_rm_conffile /etc/event.d/rc0-halt
+    finish_rm_conffile /etc/event.d/rc0-poweroff
+}
+
 
 case "$1" in
     remove)
 	;;
 
     purge)
+	finish_rm_obsolete_jobs
 	;;
 
     upgrade|failed-upgrade|disappear)

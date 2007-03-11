@@ -14,9 +14,7 @@ sbin_PROGRAMS = \
 	initctl
 
 initctl_SOURCES = \
-	initctl.c initctl.h \
-	jobs.c jobs.h \
-	events.c events.h
+	initctl.c
 
 initctl_LDFLAGS = -static
 initctl_LDADD = \
@@ -36,18 +34,14 @@ install-exec-hook:
 
 
 TESTS = \
-	test_jobs \
-	test_events
+	test_initctl
 
 check_PROGRAMS = $(TESTS)
 
-test_jobs_SOURCES = tests/test_jobs.c
-test_jobs_LDFLAGS = -static
-test_jobs_LDADD = ../nih/libnih.la ../upstart/libupstart.la jobs.o
-
-test_events_SOURCES = tests/test_events.c
-test_events_LDFLAGS = -static
-test_events_LDADD = ../nih/libnih.la ../upstart/libupstart.la events.o
+test_initctl_SOURCES = tests/test_initctl.c initctl.c
+test_initctl_CFLAGS = -DTEST
+test_initctl_LDFLAGS = -static
+test_initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
 
 clean-local:

@@ -132,7 +132,7 @@ main (int   argc,
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error (_("Unable to open listening socket: %s"),
+		nih_fatal (_("Unable to open listening socket: %s"),
 			   err->message);
 		nih_free (err);
 
@@ -145,7 +145,7 @@ main (int   argc,
 			NihError *err;
 
 			err = nih_error_get ();
-			nih_error ("%s: %s", _("Unable to become daemon"),
+			nih_fatal ("%s: %s", _("Unable to become daemon"),
 				   err->message);
 			nih_free (err);
 

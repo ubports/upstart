@@ -267,6 +267,105 @@ test_state_from_name (void)
 }
 
 
+void
+test_process_name (void)
+{
+	const char *name;
+
+	TEST_FUNCTION ("process_name");
+
+	/* Check that PROCESS_MAIN returns the right string. */
+	TEST_FEATURE ("with main process");
+	name = process_name (PROCESS_MAIN);
+
+	TEST_EQ_STR (name, "main");
+
+
+	/* Check that PROCESS_PRE_START returns the right string. */
+	TEST_FEATURE ("with pre-start process");
+	name = process_name (PROCESS_PRE_START);
+
+	TEST_EQ_STR (name, "pre-start");
+
+
+	/* Check that PROCESS_POST_START returns the right string. */
+	TEST_FEATURE ("with post-start process");
+	name = process_name (PROCESS_POST_START);
+
+	TEST_EQ_STR (name, "post-start");
+
+
+	/* Check that PROCESS_PRE_STOP returns the right string. */
+	TEST_FEATURE ("with pre-stop process");
+	name = process_name (PROCESS_PRE_STOP);
+
+	TEST_EQ_STR (name, "pre-stop");
+
+
+	/* Check that PROCESS_POST_STOP returns the right string. */
+	TEST_FEATURE ("with post-stop process");
+	name = process_name (PROCESS_POST_STOP);
+
+	TEST_EQ_STR (name, "post-stop");
+
+
+	/* Check that an invalid process returns NULL. */
+	TEST_FEATURE ("with invalid process");
+	name = process_name (1234);
+
+	TEST_EQ_P (name, NULL);
+}
+
+void
+test_process_from_name (void)
+{
+	ProcessType process;
+
+	TEST_FUNCTION ("process_from_name");
+
+	/* Check that PROCESS_MAIN is returned for the string. */
+	TEST_FEATURE ("with main process");
+	process = process_from_name ("main");
+
+	TEST_EQ (process, PROCESS_MAIN);
+
+
+	/* Check that PROCESS_PRE_START is returned for the string. */
+	TEST_FEATURE ("with pre-start process");
+	process = process_from_name ("pre-start");
+
+	TEST_EQ (process, PROCESS_PRE_START);
+
+
+	/* Check that PROCESS_POST_START is returned for the string. */
+	TEST_FEATURE ("with post-start process");
+	process = process_from_name ("post-start");
+
+	TEST_EQ (process, PROCESS_POST_START);
+
+
+	/* Check that PROCESS_PRE_STOP is returned for the string. */
+	TEST_FEATURE ("with pre-stop process");
+	process = process_from_name ("pre-stop");
+
+	TEST_EQ (process, PROCESS_PRE_STOP);
+
+
+	/* Check that PROCESS_POST_STOP is returned for the string. */
+	TEST_FEATURE ("with post-stop process");
+	process = process_from_name ("post-stop");
+
+	TEST_EQ (process, PROCESS_POST_STOP);
+
+
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid process");
+	process = process_from_name ("wibble");
+
+	TEST_EQ (process, -1);
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -275,6 +374,8 @@ main (int   argc,
 	test_goal_from_name ();
 	test_state_name ();
 	test_state_from_name ();
+	test_process_name ();
+	test_process_from_name ();
 
 	return 0;
 }

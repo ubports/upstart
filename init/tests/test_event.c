@@ -376,7 +376,6 @@ test_poll (void)
 	Job                *job;
 	Event              *event;
 	NihIo              *io;
-	NotifySubscription *sub;
 	int                 wait_fd, status;
 	pid_t               pid;
 
@@ -415,9 +414,8 @@ test_poll (void)
 	}
 
 	job = job_new (NULL, "test");
-	job->process = nih_new (job, JobProcess);
-	job->process->script = FALSE;
-	job->process->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event = event_new (job, "test");
 	nih_list_add (&job->start_events, &event->entry);
@@ -425,11 +423,12 @@ test_poll (void)
 	em1 = event_emit ("test", NULL, NULL);
 	em1->id = 0xdeafbeef;
 
-	sub = notify_subscribe_event (NULL, pid, em1);
+	notify_subscribe_event (NULL, pid, em1);
 
 	event_poll ();
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
@@ -440,11 +439,12 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	waitpid (job->pid, NULL, 0);
+	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
-	nih_list_free (&sub->entry);
+	TEST_LIST_EMPTY (subscriptions);
+
 	nih_list_free (&job->entry);
 	nih_list_free (&em1->event.entry);
 
@@ -496,22 +496,21 @@ test_poll (void)
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
-	job->pid = 0;
 	job->blocked = em1;
-	job->process = nih_new (job, JobProcess);
-	job->process->script = FALSE;
-	job->process->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event_emit_finished (em1);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (em1, my_destructor);
 
-	sub = notify_subscribe_event (NULL, pid, em1);
+	notify_subscribe_event (NULL, pid, em1);
 
 	event_poll ();
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
@@ -519,9 +518,9 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	waitpid (job->pid, &status, 0);
+	waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -529,7 +528,7 @@ test_poll (void)
 
 	TEST_TRUE (destructor_called);
 
-	nih_list_free (&sub->entry);
+	TEST_LIST_EMPTY (subscriptions);
 
 
 	/* Check that a pending event which doesn't cause any jobs to be
@@ -560,9 +559,8 @@ test_poll (void)
 	em1->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
-	job->process = nih_new (job, JobProcess);
-	job->process->script = FALSE;
-	job->process->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event = event_new (job, "test/failed");
 	nih_list_add (&job->start_events, &event->entry);
@@ -576,9 +574,9 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->pid, 0);
+	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
-	waitpid (job->pid, NULL, 0);
+	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
 	TEST_EQ_STR (job->cause->event.name, "test/failed");
 
@@ -597,9 +595,8 @@ test_poll (void)
 	em1->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
-	job->process = nih_new (job, JobProcess);
-	job->process->script = FALSE;
-	job->process->command = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job->process);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 	event = event_new (job, "test/failed");
 	nih_list_add (&job->start_events, &event->entry);
@@ -616,7 +613,7 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->pid, 0);
+	TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 	nih_list_free (&job->entry);
 

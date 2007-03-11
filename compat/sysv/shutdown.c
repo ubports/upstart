@@ -328,7 +328,7 @@ main (int   argc,
 	/* Check we're root, or setuid root */
 	setuid (geteuid ());
 	if (getuid ()) {
-		nih_error (_("Need to be root"));
+		nih_fatal (_("Need to be root"));
 		exit (1);
 	}
 
@@ -486,7 +486,7 @@ shutdown_now (void)
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error (_("Unable to establish control socket: %s"),
+		nih_fatal (_("Unable to establish control socket: %s"),
 			   err->message);
 		exit (1);
 	}
@@ -523,7 +523,7 @@ shutdown_now (void)
 		if (err->number == ECONNREFUSED)
 			sysvinit_shutdown ();
 
-		nih_error (_("Unable to send message: %s"), err->message);
+		nih_fatal (_("Unable to send message: %s"), err->message);
 		exit (1);
 	}
 

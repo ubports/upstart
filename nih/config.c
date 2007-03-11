@@ -39,30 +39,6 @@
 #include <nih/errors.h>
 
 
-/**
- * WS:
- *
- * Definition of what characters we consider whitespace.
- **/
-#define WS " \t\r"
-
-/**
- * CNL:
- *
- * Definition of what characters nominally end a line; a comment start
- * character or a newline.
- **/
-#define CNL "#\n"
-
-/**
- * CNLWS:
- *
- * Defintion of what characters nominally separate tokens.
- **/
-#define CNLWS " \t\r#\n"
-
-
-
 /* Prototypes for static functions */
 static ssize_t          nih_config_block_end  (const char *file, size_t len,
 					       size_t *lineno, size_t *pos,
@@ -107,7 +83,7 @@ nih_config_has_token (const char *file,
 	nih_assert (file != NULL);
 
 	p = (pos ? *pos : 0);
-	if ((p < len) && (! strchr (CNL, file[p]))) {
+	if ((p < len) && (! strchr (NIH_CONFIG_CNL, file[p]))) {
 		return TRUE;
 	} else {
 		return FALSE;
@@ -116,7 +92,7 @@ nih_config_has_token (const char *file,
 
 
 /**
- * nih_config_next_token:
+ * nih_config_token:
  * @file: file or string to parse,
  * @len: length of @file,
  * @pos: offset within @file,
@@ -125,7 +101,7 @@ nih_config_has_token (const char *file,
  * @delim: characters to stop on,
  * @dequote: remove quotes and escapes.
  *
- * Extracts a single token from @file which is stopped when any character
+ * Parses a single token from @file which is stopped when any character
  * in @delim is encountered outside of a quoted string and not escaped
  * using a backslash.
  *
@@ -154,13 +130,13 @@ nih_config_has_token (const char *file,
  * or negative value on raised error.
  **/
 ssize_t
-nih_config_next_token (const char *file,
-		       size_t      len,
-		       size_t     *pos,
-		       size_t     *lineno,
-		       char       *dest,
-		       const char *delim,
-		       int         dequote)
+nih_config_token (const char *file,
+		  size_t      len,
+		  size_t     *pos,
+		  size_t     *lineno,
+		  char       *dest,
+		  const char *delim,
+		  int         dequote)
 {
 	size_t  p, ws = 0, nlws = 0, qc = 0, i = 0;
 	ssize_t ret;
@@ -208,7 +184,7 @@ nih_config_next_token (const char *file,
 				if (lineno)
 					(*lineno)++;
 				continue;
-			} else if (strchr (WS, file[p])) {
+			} else if (strchr (NIH_CONFIG_WS, file[p])) {
 				ws++;
 				continue;
 			}
@@ -217,7 +193,7 @@ nih_config_next_token (const char *file,
 			isq = TRUE;
 		} else if (strchr (delim, file[p])) {
 			break;
-		} else if (strchr (WS, file[p])) {
+		} else if (strchr (NIH_CONFIG_WS, file[p])) {
 			ws++;
 			continue;
 		}
@@ -294,6 +270,91 @@ finish:
 }
 
 /**
+ * nih_config_next_token:
+ * @parent: parent of returned argument,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number,
+ * @delim: characters to stop on,
+ * @dequote: remove quotes and escapes.
+ *
+ * Extracts a single token from @file which is stopped when any character
+ * in @delim is encountered outside of a quoted string and not escaped
+ * using a backslash.  If @delim contains any whitespace character, then
+ * all whitespace after the token is also consumed, but not returned,
+ * including that with escaped newlines within it.
+ *
+ * @file may be a memory mapped file, in which case @pos should be given
+ * as the offset within and @len should be the length of the file as a
+ * whole.
+ *
+ * If @pos is given then it will be used as the offset within @file to
+ * begin (otherwise the start is assumed), and will be updated to point
+ * to @delim or past the end of the file.
+ *
+ * If @lineno is given it will be incremented each time a new line is
+ * discovered in the file.
+ *
+ * If you also want quotes to be removed and escaped characters to be
+ * replaced with the character itself, set @dequote to TRUE.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: the token found or NULL on raised error.
+ **/
+char *
+nih_config_next_token (const void *parent,
+		       const char *file,
+		       size_t      len,
+		       size_t     *pos,
+		       size_t     *lineno,
+		       const char *delim,
+		       int         dequote)
+{
+	size_t   p, arg_start, arg_end;
+	ssize_t  arg_len;
+	char    *arg = NULL;
+
+	nih_assert (file != NULL);
+
+	p = (pos ? *pos : 0);
+	arg_start = p;
+	arg_len = nih_config_token (file, len, &p, lineno,
+				    NULL, delim, dequote);
+	arg_end = p;
+
+	if (arg_len < 0) {
+		goto finish;
+	} else if (! arg_len) {
+		nih_error_raise (NIH_CONFIG_EXPECTED_TOKEN,
+				 _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+		goto finish;
+	}
+
+	nih_config_skip_whitespace (file, len, &p, lineno);
+
+	/* Copy in the new token */
+	arg = nih_alloc (parent, arg_len + 1);
+	if (! arg)
+		nih_return_system_error (NULL);
+
+	if (nih_config_token (file + arg_start, arg_end - arg_start, NULL,
+			      NULL, arg, delim, dequote) < 0)
+		goto finish;
+
+finish:
+	if (pos)
+		*pos = p;
+
+	return arg;
+}
+
+/**
  * nih_config_next_arg:
  * @parent: parent of returned argument,
  * @file: file or string to parse,
@@ -332,65 +393,10 @@ nih_config_next_arg (const void *parent,
 		     size_t     *pos,
 		     size_t     *lineno)
 {
-	size_t   p, arg_start, arg_end;
-	ssize_t  arg_len;
-	char    *arg = NULL;
-
 	nih_assert (file != NULL);
 
-	p = (pos ? *pos : 0);
-	arg_start = p;
-	arg_len = nih_config_next_token (file, len, &p, lineno,
-					 NULL, CNLWS, TRUE);
-	arg_end = p;
-
-	if (arg_len < 0) {
-		goto finish;
-	} else if (! arg_len) {
-		nih_error_raise (NIH_CONFIG_EXPECTED_TOKEN,
-				 _(NIH_CONFIG_EXPECTED_TOKEN_STR));
-		goto finish;
-	}
-
-	/* Skip any amount of whitespace between them, we also need to
-	 * detect an escaped newline here.
-	 */
-	while (p < len) {
-		if (file[p] == '\\') {
-			/* Escape character, only continue scanning if
-			 * the next character is newline
-			 */
-			if ((len - p > 1) && (file[p + 1] == '\n')) {
-				p++;
-			} else {
-				break;
-			}
-		} else if (! strchr (WS, file[p])) {
-			break;
-		}
-
-		if (file[p] == '\n')
-			if (lineno)
-				(*lineno)++;
-
-		/* Whitespace characer */
-		p++;
-	}
-
-	/* Copy in the new token */
-	arg = nih_alloc (parent, arg_len + 1);
-	if (! arg)
-		nih_return_system_error (NULL);
-
-	if (nih_config_next_token (file + arg_start, arg_end - arg_start, NULL,
-				   NULL, arg, CNLWS, TRUE) < 0)
-		goto finish;
-
-finish:
-	if (pos)
-		*pos = p;
-
-	return arg;
+	return nih_config_next_token (parent, file, len, pos, lineno,
+				      NIH_CONFIG_CNLWS, TRUE);
 }
 
 /**
@@ -431,6 +437,63 @@ nih_config_next_line (const char *file,
 	if (*pos < len) {
 		if (lineno)
 			(*lineno)++;
+		(*pos)++;
+	}
+}
+
+
+/**
+ * nih_config_skip_whitespace:
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Skips an amount of whitespace and finds either the next token or the end
+ * of the current line in @file.  Escaped newlines within the whitespace
+ * are treated as whitespace.
+ *
+ * @file may be a memory mapped file, in which case @pos should be given
+ * as the offset within and @len should be the length of the file as a
+ * whole.
+ *
+ * @pos is used as the offset within @file to begin, and will be updated
+ * to point to past the end of the line or file.
+ *
+ * If @lineno is given it will be incremented each time a new line is
+ * discovered in the file.
+ **/
+void
+nih_config_skip_whitespace (const char *file,
+			    size_t      len,
+			    size_t     *pos,
+			    size_t     *lineno)
+{
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	/* Skip any amount of whitespace between them, we also need to
+	 * detect an escaped newline here.
+	 */
+	while (*pos < len) {
+		if (file[*pos] == '\\') {
+			/* Escape character, only continue scanning if
+			 * the next character is newline
+			 */
+			if ((len - *pos > 1) && (file[*pos + 1] == '\n')) {
+				(*pos)++;
+			} else {
+				break;
+			}
+		} else if (! strchr (NIH_CONFIG_WS, file[*pos])) {
+			break;
+		}
+
+		if (file[*pos] == '\n')
+			if (lineno)
+				(*lineno)++;
+
+		/* Whitespace characer */
 		(*pos)++;
 	}
 }
@@ -614,14 +677,14 @@ nih_config_parse_command (const void *parent,
 	 */
 	p = (pos ? *pos : 0);
 	cmd_start = p;
-	cmd_len = nih_config_next_token (file, len, &p, lineno,
-					 NULL, CNL, FALSE);
+	cmd_len = nih_config_token (file, len, &p, lineno, NULL,
+				    NIH_CONFIG_CNL, FALSE);
 	cmd_end = p;
 
 	if (cmd_len < 0)
 		goto finish;
 
-	/* nih_config_next_token will eat up to the end of the file, a comment
+	/* nih_config_token will eat up to the end of the file, a comment
 	 * or a newline; so this must always succeed.
 	 */
 	if (nih_config_skip_comment (file, len, &p, lineno) < 0)
@@ -632,8 +695,8 @@ nih_config_parse_command (const void *parent,
 	if (! cmd)
 		nih_return_system_error (NULL);
 
-	if (nih_config_next_token (file + cmd_start, cmd_end - cmd_start, NULL,
-				   NULL, cmd, CNL, FALSE) < 0)
+	if (nih_config_token (file + cmd_start, cmd_end - cmd_start, NULL,
+			      NULL, cmd, NIH_CONFIG_CNL, FALSE) < 0)
 		goto finish;
 
 finish:
@@ -719,7 +782,7 @@ nih_config_parse_block (const void *parent,
 		line_start = p;
 		if (ws < 0) {
 			/* Count initial whitespace */
-			while ((p < len) && strchr (WS, file[p]))
+			while ((p < len) && strchr (NIH_CONFIG_WS, file[p]))
 				p++;
 
 			ws = p - line_start;
@@ -813,7 +876,7 @@ nih_config_block_end (const char *file,
 	p = *pos;
 
 	/* Skip initial whitespace */
-	while ((p < len) && strchr (WS, file[p]))
+	while ((p < len) && strchr (NIH_CONFIG_WS, file[p]))
 		p++;
 
 	/* Check the first word (check we have at least 4 chars because of
@@ -823,12 +886,12 @@ nih_config_block_end (const char *file,
 		return -1;
 
 	/* Must be whitespace after */
-	if (! strchr (WS, file[p + 3]))
+	if (! strchr (NIH_CONFIG_WS, file[p + 3]))
 		return -1;
 
 	/* Find the second word */
 	p += 3;
-	while ((p < len) && strchr (WS, file[p]))
+	while ((p < len) && strchr (NIH_CONFIG_WS, file[p]))
 		p++;
 
 	/* Check the second word */
@@ -838,7 +901,7 @@ nih_config_block_end (const char *file,
 
 	/* May be followed by whitespace */
 	p += strlen (type);
-	while ((p < len) && strchr (WS, file[p]))
+	while ((p < len) && strchr (NIH_CONFIG_WS, file[p]))
 		p++;
 
 	/* May be a comment, in which case eat up to the newline
@@ -1017,7 +1080,7 @@ nih_config_parse_file (const char      *file,
 
 	while (p < len) {
 		/* Skip initial whitespace */
-		while ((p < len) && strchr (WS, file[p]))
+		while ((p < len) && strchr (NIH_CONFIG_WS, file[p]))
 			p++;
 
 		/* Skip lines with only comments in them; because has_token

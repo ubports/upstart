@@ -12,4 +12,5 @@ stop on runlevel 0
 stop on runlevel 1
 stop on runlevel 6
 
-respawn /sbin/getty 38400 tty1
+respawn
+exec /sbin/getty 38400 tty1

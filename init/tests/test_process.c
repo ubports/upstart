@@ -203,6 +203,7 @@ test_spawn (void)
 	putenv ("BAR=baz");
 
 	job = job_new (NULL, "test");
+	job->id = 1000;
 	job->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
@@ -213,6 +214,7 @@ test_spawn (void)
 
 	TEST_FILE_EQ_N (output, "PATH=");
 	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
 	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
 	TEST_FILE_END (output);
@@ -237,6 +239,7 @@ test_spawn (void)
 	em = event_emit ("wibble", NULL, em_env);
 
 	job = job_new (NULL, "test");
+	job->id = 1000;
 	job->cause = em;
 	job->env = env;
 	env[0] = "FOO=bar";
@@ -248,6 +251,7 @@ test_spawn (void)
 
 	TEST_FILE_EQ_N (output, "PATH=");
 	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
 	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 	TEST_FILE_EQ (output, "UPSTART_EVENT=wibble\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");

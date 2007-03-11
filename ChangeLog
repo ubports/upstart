@@ -1,4 +1,705 @@
+2007-03-11  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Update.
+
+	* util/man/initctl.8: Document the new commands.
+
+	* TODO: Update.
+
+	* init/job.c (job_handle_event): Correct the function so we don't
+	try and stop the master of an instance, and cause an assertion error.
+
+	* util/initctl.c: Oops, correct function pointers in command table
+
+	* util/tests/test_initctl.c (test_version_action): 
+
+	* util/initctl.c (handle_version): Handle receipt of the version
+	reply.
+	(version_action): Send the version-query message to the server and
+	expect one response.
+	(log_priority_action): Parse the single argument into an NihLogLevel
+	and send it to the server.
+
+	* init/control.c (control_version_query, control_log_priority):
+	Functions to handle the new messages from the server pov
+	* init/tests/test_control.c (test_version_query) 
+	(test_log_priority): Test the new messages are handled properly.
+	(check_version): Check the version string matches.
+	* upstart/message.h: Add messages for querying the version of the
+	init daemon and changing the log priority.
+	* upstart/message.c (upstart_message_newv)
+	(upstart_message_handle): Marshal the new messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the marshalling of the new messages,
+
+	* upstart/libupstart.ver: Add enum functions to the global list.
+
+	* util/initctl.c (start_action, stop_action): Imply --no-wait if
+	we take the job id or name from an environment variable, since we'd
+	end up waiting for ourselves otherwise
+	* util/tests/test_initctl.c (test_start_action, test_stop_action):
+	Update test cases to make sure no-wait is implied.
+
+2007-03-09  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.3.8
+
+	* NEWS: Updated.
+	* configure.ac: Increase version to 0.3.7
+
+	* init/tests/test_job.c (test_change_state): Add a test case for
+	deleting the last instance of a replaced job.
+	* init/job.c (job_change_state): When moving a instance of a job into
+	the deleted state, check whether we should replace the job it's an
+	instance of, and if so, change that job's state too.
+	* TODO: Update.
+
+	* util/initctl.c (handle_job_list): Always allocate current_list,
+	since we need it to be the parent of pointers we attach to it.
+	(handle_job_list_end): Always free the current list, only suppress
+	output if there aren't any entries in it.
+	(initctl_recv): Check the current_list pointer, no need for in_list
+	(handle_job_instance, handle_job_instance_end, handle_job_status):
+	Check current_list not in_list.
+	* util/tests/test_initctl.c: Correct some memory leaks.
+
+	* init/process.c (process_setup_environment): Set the UPSTART_JOB_ID
+	environment variable to the job's unique id.
+	* init/tests/test_process.c (test_spawn): Make sure it's set.
+
+	* util/man/initctl.8: Update the initctl manpage.
+	* compat/sysv/man/reboot.8: Correct a minor grammar error.
+	* compat/sysv/man/shutdown.8: Fix reference from runlevel to telinit.
+
+	* README: Add a README that copies the text from the web page and
+	adds some notes about recommended operating system versions.
+
+	* util/initctl.c: Completely rewrite initctl, top to bottom; handling
+	of the new messages is done natively, meaning that the commands just
+	vary the requests send and number of responses expected.
+	* util/tests/test_initctl.c: Test all of the new code.
+
+	* init/main.c: Improve restarting and rescuing a little; store the
+	program path in a static variable so we can always access it, and
+	use the exported loglevel to pass the same to the new process.
+	* TODO: Update.
+
+	* compat/sysv/shutdown.c: More error/fatal adjustments.
+	* compat/sysv/telinit.c: More error/fatal adjustments.
+
+2007-03-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (main, crash_handler): Promote deadly errors to nih_fatal
+	* logd/main.c (main): Promote deadly errors to nih_fatal
+	* compat/sysv/reboot.c (main): Promote deadly errors to nih_fatal
+	* compat/sysv/shutdown.c (main, shutdown_now): Promote deadly errors
+	to nih_fatal
+	* compat/sysv/telinit.c (main): Promote deadly errors to nih_fatal
+
+	* init/event.c (event_pending): The message that we're handling an
+	event should be logged with --verbose.
+
+	* init/cfgfile.c (cfg_parse_script): Remove the unnecessary check for
+	a token inside a script block.
+
+	* TODO: Update.
+
+	* init/control.c (control_watch_jobs): Rename to control_subscribe_jobs
+	and update to handle new event name.
+	(control_unwatch_jobs): Rename to control_unsubscribe_jobs and update
+	to handle the new event name.
+	(control_watch_events): Rename to control_subscribe_events and update
+	to handle the new event name.
+	(control_unwatch_events): Rename to control_unsubscribe_events and
+	update to handle the new event name.
+	* init/tests/test_control.c (test_watch_jobs): Rename to
+	test_subscribe_jobs and update to new event name.
+	(test_unwatch_jobs): Rename to test_unsubscribe_jobs and update to 
+	new event name.
+	(test_watch_events): Rename to test_subscribe_events and update to
+	new event name.
+	(test_unwatch_events): Rename to test_unsubscribe events and update
+	to new event name.
+
+	* upstart/message.h: Rename the watch commands to subscribe/unsubscribe
+	and regroup with new message numbers.
+	* upstart/message.c (upstart_message_newv) 
+	(upstart_message_handle): Marshal the updated subscription messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Update tests to new names and numbers.
+	* TODO: Update.
+
+	* upstart/message.c (upstart_message_handle): Raise a the unknown
+	message error if the type is unknown, rather than the invalid message
+	error.
+	* upstart/tests/test_message.c (test_handle): Correct test case.
+
+	* init/job.c (job_change_state): Correct a problem here too, when
+	moving from pre-stop to running, we don't want to emit a started event
+	since we never emitted a stopping event and never killed the process
+	anyway.  We do need to notify the job as finished, since the process
+	that tried to stop it will need to be told not to wait any longer.
+	* init/tests/test_job.c (test_change_state): Add a test for pre-stop
+	back to running.
+
+	* doc/states.dot: Fix an error in the state diagram; when moving from
+	starting back to waiting, due to a failed respawn, we need to emit
+	the stopped event otherwise it will never happen.
+	* doc/states.png: Update.
+
+2007-03-05  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/message.c (upstart_message_new): Make this a wrapper around
+	(upstart_message_newv): which has all the old code, but accepts a
+	va_list instead of making its own.
+	* upstart/message.h: Add prototype.
+
+	* init/main.c (crash_handler): Simply trying to leave a SEGV handler
+	doesn't work so well, we end up repeating the problem instruction.
+	We really can't resume from this point, and can't even jump elsewhere
+	since our state is probably buggered up.  Only thing for it is to
+	re-exec ourselves with a clean state.
+
+	* init/cfgfile.c (cfg_read_job, cfg_delete_handler): Don't try and
+	free the magic (void *)-1 replacement (delete).
+
+	* util/events.c, util/events.c, util/jobs.c, util/jobs.h: With the
+	new message responses, that intermix event and job information freely,
+	it no longer makes sense to distinguish between them.  So fold these
+	files back into the main initctl.c
+	* util/initctl.h: Drop unused header.
+	* util/Makefile.am (initctl_SOURCES): Update sources list.
+	(TESTS): Change which tests we build
+	(test_initctl_SOURCES, test_initctl_CFLAGS, test_initctl_LDFLAGS) 
+	(test_initctl_LDADD): Build the new combined test case binary, use
+	an automake feature to rebuild initctl.c with -DTEST and a different
+	.o file, and thus be able to define out main()
+
+	* util/tests/test_events.c, util/tests/test_jobs.c: Collapse the two
+	test case files into one single
+	* util/tests/test_initctl.c
+
+	* init/control.c (control_job_find): And implement the find function
+	that returns a list of jobs matching an optional pattern.
+	* init/tests/test_control.c: Make sure we do send all messages.
+	(check_list): Complex function to check the responses to a job list
+	(test_job_find): Test a couple of job lists.
+	* init/tests/test_notify.c: Make sure we do send all messages.
+
+	* init/control.c (control_job_query): Implement the query message,
+	this just needs to return the status or instance set.
+	* init/tests/test_control.c (test_job_query): Test the query command.
+	(check_job_status__deleted, check_job_status_end__deleted): Pair of
+	functions to check we can query deleted jobs directly.
+
+	* init/control.c (control_send_instance): Function to send an instance
+	job, collating all of its instances together.
+	* init/control.h: Update.
+	* init/tests/test_control.c (test_send_instance): Check we receive
+	the right messages.
+	(check_job_instance, check_job_instance_end): Pair of functions to
+	check the instance messages.
+
+	* upstart/message.h: Add new UPSTART_JOB_INSTANCE and
+	UPSTART_JOB_INSTANCE_END messages which we'll use to communicate that
+	a job is an instance, and group the instances of it together.
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Marshal the new instance messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the new message types.
+
+	* upstart/message.h: Restore arguments to JOB_LIST, but rename to
+	pattern since that's what it is.
+	* upstart/message.c (upstart_message_handle): Restore arguments
+	with updated name.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Restore tests for arguments, rename and make sure we
+	include a wildcard.
+
+2007-03-04  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/message.h: Drop arguments to JOB_LIST.
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Drop arguments to JOB_LIST.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Drop the arguments from the test.
+
+	* init/control.c (control_job_start): Update to return INVALID for
+	instances and replacements; add the forgotten UPSTART_JOB message.
+	(control_job_stop): Update to return INVALID for replacements; add
+	the forgotten UPSTART_JOB message.  Deal with instance masters
+	magically by iterating all instances and stopping those instead.
+	* init/tests/test_control.c (check_job_deleted): Rename to 
+	check_job_invalid and check that message.
+	(check_job): Function to check the job we've acted upon.
+	(test_job_start): Check that we get the UPSTART_JOB message first,
+	restore the check on deleted jobs causing an error and add checks
+	that instance and replacement jobs also cause an error.
+	(test_job_stop): Check that we get the UPSTART_JOB message first,
+	restore the check on deleted jobs causing an error.  Make sure
+	instances are handled.
+
+	* upstart/message.h: More message changes; add a JOB_FIND message
+	and replace UPSTART_JOB_DELETED with UPSTART_JOB_INVALID since there's
+	a few more problem conditions.
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Marshal the new message and update names.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Update tests to check the new message and update the
+	values and names of the existing ones.
+
+	* init/job.h (Job): Remove the delete flag, add replacement and
+	replacement_for pointers instead.
+	* init/job.c (job_new): Initialise replacement and replacement_for
+	pointers to NULL.
+	(job_find_by_name): Update to return what job the one we found is
+	a replacement for, and to skip DELETED jobs.
+	(job_instance): Make it simply illegal to call this for deleted jobs,
+	instances or replacements.
+	(job_change_goal): Make it illegal to change the goal of a replacement
+	job.
+	(job_free_deleted): Remove the previous code to handle deleted instance
+	masters, because it's now bogus.
+	(job_should_replace): New function to determine whether a job is
+	replaceable.
+	* init/tests/test_job.c (test_new): Check pointers are set.
+	(test_copy): Check that replacement and replacement_for are not
+	copied, since their state of an individual job.
+	(test_find_by_name): Update tests to make sure we ignore deleted jobs,
+	instances and replacements.
+	(test_instance): Remove test that will now cause an assertion,
+	and no longer check delete is set.
+	(test_change_goal): Remove test that will now cause an assertion.
+	(test_free_deleted): Remove test cases for deleted masters.
+	(test_should_replace): Test the new check function.
+	(test_change_state): Make sure that we end up in deleted for instances
+	and replaced jobs, and that replacements become the real job.
+	* init/cfgfile.c (cfg_read_job): Update to handle replacement jobs;
+	the old job's previous replacement is discarded, and set to the
+	current job; and then if the job should be replaced, it's moved
+	to deleted (which should promote the new job).
+	(cfg_delete_handler): Handle deletion of a job in a similar manner,
+	except we sent the replacement pointer to the special -1 value since
+	we have no actual replacement.
+	* init/tests/test_cfgfile.c (test_watch_dir): Update tests to make
+	sure that deletion and modification are handled wrt replacement.
+	(test_read_job): Make sure that reparsing an existing file is handled.
+	* init/tests/test_control.c (test_job_start): Remove checks that
+	delete gets set to true for instances.
+	(test_job_stop, test_job_start): Temporarily comment out deleted
+	job behaviour, since that's been somewhat changed.
+
+	* upstart/message.h: We're not going to return JOB_LIST for JOB_STOP
+	since that's just awkward for the client; just act on the master,
+	and return JOB_UNCHANGED.
+
+	* init/notify.c (notify_job_status): Move this function to
+	* init/control.c (control_send_job_status): here, since we need it for
+	the new control responses.
+	(control_job_query): New single function to list all jobs or a
+	particular job.
+	* init/control.h: Add prototype.
+	* init/tests/test_control.c (test_error_handler): Simplify this a
+	little to just sending a NO_OP message, since we can send an entire
+	stream of messages and leave them in the queue.
+	(check_job_status__stopping, check_job_process) 
+	(check_job_status_end__stopping): Trio of check functions for a job
+	status that's stopping, with an active main process.
+	(test_send_job_status): Test the now global status function.
+	(check_job_status__starting, check_job_status_end__starting): Pair
+	of check functions for a starting job with no process yet.
+	(test_watch_jobs, test_unwatch_jobs): Update to expect the full new
+	job status messages, with an optional process part as well.
+	(check_event): Function to check an event.
+	(test_watch_events): Minor update to use above function.
+	(check_job_status__waiting, check_job_status_end__waiting): Pair of
+	check functions for the first step in starting a job (goal change only)
+	(check_job_unknown, check_job_deleted, check_job_unchanged): Trio
+	of functions to check common error responses.
+	(test_job_start): Update tests to newer behaviour.
+	(check_job_status__running, check_job_status_end__running) 
+	(check_job_status__pre_stop, check_job_status_end__pre_stop): Checks
+	for the states we go through when stopping a job.
+	(test_job_stop): Update tests to newer behaviour.
+	* init/notify.c (notify_job, notify_job_event, notify_job_finished):
+	Update to call the newly exported function.
+	* init/job.c: Make job_id and job_id_wrapped externally available.
+	* init/job.h: Update.
+	* init/event.c: Make emission_id and emission_id_wrapped externally
+	available.
+	* init/event.h: Update.
+
+	* upstart/message.h: Rename UPSTART_JOB_INVALID to
+	UPSTART_JOB_UNCHANGED, as it's not really invalid just a no-op
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Update the constant, fields are unchanged,
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Rename constants/messages.
+
+	* upstart/message.h: Turns out we need extra errors to indicate that
+	the job was deleted or already at that goal, otherwise the client
+	would sit there waiting for the finished event.	
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Marshal the new error messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the handling of the new messages.
+
+	* init/tests/test_job.c (test_free_deleted): Found a bug; because
+	master instances never change state, they never end up in the deleted
+	state so are never reaped.  Add some test cases for cleaning them up,
+	but not while they have remaining instances.
+	* init/job.c (job_free_deleted): Implement the bug fix.
+
+	* init/job.c (job_instance): Split out the instance spawning code
+	into its own function, as we'll frequently need a pointer to the
+	instance before we try and change the goal.
+	(job_change_goal): Clean this function back up again, it no longer
+	needs to return values and can assert that it's never called for
+	deleted jobs or instance mastersr.
+	(job_handle_event): Spawn an instance when we get a start event.
+	* init/job.h: Update.
+	* init/tests/test_job.c (test_instance): Check instance creation.
+	(test_change_goal): Update tests now that it doesn't return a value
+	again, and doesn't spawn instances itself.
+	(test_handle_event): Make sure instances are spawned.
+
+	* init/tests/test_event.c (test_poll): Needs a slight fix now that
+	we generate more events than we check, and that subscriptions go
+	away automatically.
+
+	* init/notify.c (notify_job_status): Static function to handle
+	sending the more complicated job status message series 
+	(notify_job): Call notify_job_status() to send the new-style message
+	(notify_job_event): Send the new UPSTART_EVENT_CAUSED message with
+	the emission id, then call notify_job_status() to send the new-style
+	common status message.
+	(notify_job_finished): New function to be called when we reach the
+	job rest state, notifies and unsubscribes directly subscribed
+	processes, and includes failed information.
+	(notify_event_finished): Unsubscribe processes after sending the
+	finished event, since the event has gone away.  Also don't send
+	this to processes subscribed to all events, since it's not useful
+	for them.
+	* init/notify.h: Add prototype.
+	* init/tests/test_notify.c: Update all test cases and helper
+	functions to the new message types.
+	(test_job_finished): Check the new finished message is sent with
+	a status message preceeding it.
+	* init/job.c (job_change_state, job_change_state): Notify subscribed
+	processes with notify_job_finished() when in the running (for service)
+	or waiting states, just before we drop the cause.
+
+	* upstart/message.h: Add failed, failed_process and exit_status
+	arguments to UPSTART_JOB_FINISHED.
+	* upstart/message.c (upstart_message_new, upstart_message_handle): 
+	Marshal the new arguments.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the new arguments.
+
+	* upstart/message.h: Update the message types, introducing a more
+	structured job message set and replacing the UPSTART_EVENT_JOB_STATUS
+	message with UPSTART_EVENT_CAUSED which will be immediately followed
+	by an ordinary UPSTART_JOB_STATUS message.
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Marshal the new messages.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Test the new message types.
+	* TODO: Update.
+
+2007-03-03  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* init/cfgfile.c (cfg_parse_exec, cfg_parse_script): Separate out
+	the parsing of an exec or script stanza into separate functions,
+	seeing as this is quite a common operation.  This also means we
+	just need to change them in one place now.
+	(cfg_parse_process): Function to call either of the above depending
+	on the next argument.
+	(cfg_stanza_exec): Call cfg_parse_exec instead.
+	(cfg_stanza_script): Call cfg_parse_script instead.
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Call cfg_parse_process
+	with the right arguments instead of doing by hand in each function.
+
+	* init/event.c (event_emit_next_id): Split the id assigning code into
+	a static inline function for easier modification.
+	* init/job.c (job_next_id): Use the same style function here too.
+
+2007-03-02  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_emit): Port the slightly more efficient in the
+	early case code from job_new.
+
+	* init/job.h (Job): Add a unique id to the job structure.
+	* init/job.c (job_new): Assign an incrementing id to each new job
+	allocated.
+	(job_find_by_id): Locate a job by its unique id, sadly not very
+	efficient in a hash table ;-)
+	(job_name): New hash key function since name isn't the first entry
+	anymore.
+	(job_init): Change hash key function.
+	* init/tests/test_job.c (test_find_by_id): Make sure we can find a
+	job by its id.
+
+	* init/job.c (job_change_goal): Return the new instance in that
+	circumstance, and clean up a little bit.
+	* init/job.h: Update prototype.
+	* init/tests/test_job.c (test_change_goal): Update tests.
+
+	* init/job.c (job_find_by_name): Skip jobs marked for deletion too.
+	* init/tests/test_job.c (test_find_by_name): Update test case.
+
+	* init/event.h, init/notify.h, upstart/message.h: Provide C-level names
+	for enums, this makes the compiler generate things that gdb can get.
+
+	* init/job.c (job_run_process, job_kill_process, job_kill_timer):
+	Change process argument to be a plain ProcessType, this means we
+	know exactly which process we're trying to run or kill.
+	(job_change_state): Update calls to job_run_process
+	and job_kill_process
+	* init/tests/test_job.c (test_run_process, test_kill_process): Update
+	function calls to just pass a ProcessType in.
+
+	* upstart/enum.h: Rename JobAction to ProcessType.
+	* upstart/enum.c (job_action_name): Rename to process_name.
+	(job_action_from_name): Rename to process_from_name.
+	* upstart/tests/test_enum.c (test_action_name, test_action_from_name):
+	Rename and update to match.
+	* init/job.c (job_new, job_copy, job_change_state) 
+	(job_next_state): Change JOB_*_ACTION constants to PROCESS_*.
+	(job_find_by_pid): Change JobAction argument to ProcessType.
+	(job_emit_event): Call process_name on the failed process.
+	(job_child_reaper): Update to use ProcessType instead of JobAction.
+	* init/job.h (Job): Change type of failed_process to ProcessType.
+	* init/tests/test_job.c (test_find_by_pid): Update to use ProcessType
+	instead of JobAction in tests.
+	(test_new, test_copy, test_change_goal, test_change_state) 
+	(test_next_state, test_run_process, test_kill_process) 
+	(test_child_reaper, test_handle_event_finished): Change JOB_*_ACTION
+	constants to PROCESS_*
+	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script) 
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Change JOB_*_ACTION
+	constants to PROCESS_*
+	* init/tests/test_cfgfile.c (test_stanza_exec) 
+	(test_stanza_script, test_stanza_pre_start) 
+	(test_stanza_post_start, test_stanza_pre_stop) 
+	(test_stanza_post_stop, test_read_job, test_watch_dir): Change
+	JOB_*_ACTION constants to PROCESS_*
+	* init/tests/test_event.c (test_poll): Change JOB_*_ACTION constants
+	to PROCESS_*
+	* init/tests/test_control.c (test_job_start, test_job_stop): Change
+	JOB_*_ACTION constants to PROCESS_*
+
+	* init/cfgfile.c (cfg_watch_dir): Restore the prefix argument; pass
+	as the data pointer to the inotify callbacks and visitor function.
+	Change the return value to be the watch structure.
+	(cfg_job_name): Add prefix argument and prepend to relative path.
+	(cfg_create_modify_handler, cfg_delete_handler, cfg_visitor): Get
+	the prefix for the job names from the data pointer and pass to
+	cfg_job_name().
+	* init/cfgfile.h: Update prototypes.
+	* init/tests/test_cfgfile.c (test_watch_dir): Actually test the
+	watch functions.
+	* init/main.c (main): Pass NULL for the prefix for the global job
+	directory, compare the return value against (void *)-1.
+	* TODO: Update.
+
+	* init/cfgfile.c (cfg_stanza_on): Drop the simple on stanza.
+	* init/tests/test_cfgfile.c (test_stanza_on): Remove test case.
+
+	* TODO: Update.
+
+2007-03-01  Scott James Remnant  <scott@netsplit.com>
+
+	* util/jobs.c (handle_job_status): Drop the process field from the
+	output for now.
+	* util/events.c (handle_event_job_status): Likewise
+	* util/tests/test_jobs.c (test_start_action, test_list_action) 
+	(test_jobs_action): Drop pid from messages we simulate.
+	* util/tests/test_events.c (test_emit_action): Likewise.
+
+	* upstart/message.c (upstart_message_new, upstart_message_handle):
+	Remove the pid field from the job status and event job status
+	messages.
+	* upstart/message.h: Update description of job status and event
+	job status message to remove the pid field.
+	* upstart/tests/test_message.c (test_new, my_handler) 
+	(test_handle): Remove checks using the pid field.
+
+	* init/control.c (control_job_start, control_job_stop) 
+	(control_job_query, control_job_list): Remove the pid field from
+	the messages, it'll come back later when we get better message
+	formats.
+	* init/tests/test_control.c (check_job_status, check_job_waiting) 
+	(check_job_started, check_job_stopped): Remove checks on the process
+	id, since that field is gone from the message.
+	(test_job_stop): Use the pid field of the main process.
+	(test_job_start): Initialise the main action process.
+
+	* init/notify.c (notify_job, notify_job_event): Remove the pid field
+	from the message, it'll come back later when we get better message
+	formats.
+	* init/tests/test_notify.c (check_job_status) 
+	(check_event_job_status): Remove checks on the pid, since that field
+	is no longer present.
+
+	* init/job.c (job_process_copy): Use job_process_new here, oops.
+
+	* init/cfgfile.c (cfg_stanza_exec, cfg_stanza_script) 
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop): Use job_process_new
+	to allocate process structures and store in the process array.
+	* init/tests/test_cfgfile.c (test_read_job, test_stanza_exec) 
+	(test_stanza_script, test_stanza_pre_start) 
+	(test_stanza_post_start, test_stanza_pre_stop) 
+	(test_stanza_post_stop): Update test cases to use process array
+	member information.
+
+	* init/tests/test_event.c (test_poll): Update to use newer job process
+	array and find the pid under there.
+
+	* init/job.h (Job): Remove the pid and aux_pid fields; replace the
+	individual JobProcess pointers with an array of them of a fixed
+	minimum size; replace failed_state with failed_process.
+	(JobProcess): add a pid field here, so now we can obtain the pid on
+	an individual process/action basis rather than global.
+	* init/job.c (job_process_new): Function to create a JobProcess
+	structure, setting the initial values to FALSE/NULL/0.
+	(job_process_copy): Function to copy a JobProcess.
+	(job_new): Don't initialise the pid or aux_pid members, initialise
+	the process array to a fixed initial size and set the members to NULL,
+	initialise the failed_process member to -1.
+	(job_copy): Update to use job_process_copy and copy the process array.
+	(job_find_by_pid): Look through the process structures in the job's
+	process array to find the pid, and optionally return which action it
+	was.
+	(job_change_state): Call job_kill_process in the JOB_KILLED state if
+	we have a main process and that has a pid, pass in the main process.
+	(job_next_state): Check the process id of the main process when
+	deciding what the next state is for running.
+	(job_run_process): Store the process id in the process structure
+	(job_kill_process): Accept a process structure and use that to obtain
+	the process id we need to send TERM too.  Remove the code that forced
+	a state change if kill() failed, since we will get a child signal
+	anyway and should do it there.
+	(job_kill_timer): Likewise, accept a process structure and don't
+	forcibly change the state anymore.
+	(job_child_reaper): Rewrite to switch based on the action that died,
+	rather than the state we were in; assert that the state is what we
+	expected.
+	(job_emit_event): The argument to the failed event is now the action
+	name, rather than the state name; an action of -1 indicates that
+	respawn failed.
+	* init/tests/test_job.c (test_process_new, test_process_copy): Make
+	sure the structure is created and copied properly.
+	(test_new, test_copy): Drop checks on the pid and aux_pid members,
+	add checks for the process array and pid members of processes.
+	(test_find_by_pid): Update test case to make sure we can find the pid
+	of any process, returning the action index rather than the process
+	pointer.
+	(test_run_process, test_kill_process, test_change_goal)
+	(test_change_state, test_next_state, test_child_reaper): Update test
+	cases to use pid fields inside process structures rather than the
+	pid or aux_pid members.
+	(test_handle_event, test_handle_event_finished) 
+	(test_free_deleted): Update to avoid pid field checks.
+
+	* upstart/enum.h (JobAction): Enumeration of different actions.
+	* upstart/enum.c (job_action_name, job_action_from_name): Enumeration
+	to string conversion functions.
+	* upstart/tests/test_enum.c (test_action_name) 
+	(test_action_from_name): Tests for the new functions.
+
+	* init/cfgfile.c (cfg_read_job): Instead of trying to copy over an
+	old job's state and instances into the new one, mark the old job
+	as deleted.  This ensures we never end up applying a new post-stop
+	script to a job started with an old pre-start script, etc.  It also
+	makes life so much simpler.
+	* init/tests/test_cfgfile.c (test_read_job): Update tests to make
+	sure the old job is marked for deletion, instead of freed.
+	* TODO: Update.
+
+	* init/notify.c (notify_job): Split out notification to processes
+	subscribed to the cause event into a new function
+	(notify_job_event): We can call this when we change cause.
+	* init/job.c (job_change_state): Notify anyone subscribed to the
+	job after we've changed the state, rather than before, otherwise
+	we won't know the new pids or anything.
+	(job_change_cause): Call notify_job_event before changing the cause
+	so that subscribers get a final status update.
+	* init/tests/test_notify.c (test_job_event): Check the new function.
+	* TODO: Update.
+
+	* init/cfgfile.c (cfg_stanza_respawn): Remove the shortcut that
+	lets you specify "respawn COMMAND".  It was confusing as it hid
+	the common "[when] exec"/"[when] script" syntax, made it non-obvious
+	that "exec" and "respawn" were the same flag, etc.
+	* init/tests/test_cfgfile.c (test_stanza_respawn): Update tests.
+	(test_stanza_service): Fix test case to not use shortcut.
+	* logd/event.d/logd.in: Update to not use respawn shortcut.
+
+2007-02-25  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_child_reaper): Shift the signal value into the
+	higher byte to make it easier to detect, and not stamp over exit
+	statuses between 128 and 255.
+	(job_emit_event): Detect the signal stored in the new way.
+	* init/cfgfile.c (cfg_stanza_normal): Store signal in the higher bytes.
+	* init/tests/test_job.c (test_copy, test_change_state) 
+	(test_child_reaper): Update test cases.
+	* init/tests/test_cfgfile.c (test_stanza_normal): Update test.
+
+	* TODO: Update.
+
+	* init/event.h (PWRSTATUS_EVENT): Add new power-status-changed event.
+	* init/main.c (pwd_handler): Handle the SIGPWR signal by generating
+	the new event, leave it up to a job to parse the file and do
+	whatever it likes.
+
+	* TODO: Update.
+
+2007-02-13  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/tests/test_message.c (test_reader, test_handle_using)
+	(test_handle); Usual fix for gcc optimiser thinking that fixed
+	for loops might not be.
+	* init/tests/test_job.c (test_run_process, test_kill_process):
+	Likewise.
+	* init/tests/test_notify.c (test_subscription_find): I still don't
+	know what a type-punned pointer is, nor why dereferencing such a
+	thing would break strict-aliasing rules.
+	* init/tests/test_cfgfile.c (test_read_job): More type-punning.
+	* util/tests/test_jobs.c (test_start_action): More for-loop action.
+	* util/tests/test_events.c (test_emit_action): And again.
+
+2007-02-11  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_change_goal): We need to be able to stop a running
+	job without a process, because that's what a job-as-state is!  The
+	check was added because job_child_reaper calls job_change_goal and
+	then job_change_state immediately after, we should fix that instead.
+	(job_child_reaper): If we call job_change_goal while in the running
+	state, it will call job_change_state for us; so check for that first
+	and don't change the state!
+	* init/tests/test_job.c (test_change_goal): Update the test to ensure
+	that we can stop a job with no running process.
+
+	* init/cfgfile.c (cfg_stanza_normalexit): normalexit is inconsistent,
+	change to "normal exit"
+	* init/tests/test_cfgfile.c (test_stanza_normalexit): Update.
+
+	* init/cfgfile.c (cfg_stanza_start, cfg_stanza_stop) 
+	(cfg_stanza_pre_start, cfg_stanza_post_start) 
+	(cfg_stanza_pre_stop, cfg_stanza_post_stop, cfg_stanza_respawn):
+	We're not going to allow stanza keywords to be quoted, since this
+	gives us an easy way to allow users to make something explicitly
+	not a keyword.
+
 2007-02-10  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.3.6
 
 	* configure.ac: Increase version to 0.3.5
 	* NEWS: Update.

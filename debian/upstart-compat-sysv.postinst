@@ -21,9 +21,9 @@ rm_conffile()
 {
     CONFFILE="$1"
 
-    if [ -e "$CONFFILE" ]; then
+    if [ -e "$CONFFILE".dpkg-obsolete ]; then
 	echo "Removing obsolete conffile $CONFFILE"
-	rm -f "$CONFFILE"
+	rm -f "$CONFFILE".dpkg-obsolete
     fi
 }
 
