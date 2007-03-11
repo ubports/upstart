@@ -2175,7 +2175,7 @@ static NihCommand commands[] = {
 	     "`error' (only errors are logged, equivalent to --quiet on "
 	     "the kernel command-line) or "
 	     "`fatal' (only fatal errors are logged)."),
-	  NULL, version_options, version_action },
+	  NULL, log_priority_options, log_priority_action },
 
 	NIH_COMMAND_LAST
 };
