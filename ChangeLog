@@ -1,3 +1,11 @@
+2007-03-11  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c (start_action, stop_action): Imply --no-wait if
+	we take the job id or name from an environment variable, since we'd
+	end up waiting for ourselves otherwise
+	* util/tests/test_initctl.c (test_start_action, test_stop_action):
+	Update test cases to make sure no-wait is implied.
+
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.3.8

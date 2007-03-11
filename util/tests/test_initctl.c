@@ -472,7 +472,9 @@ test_start_action (void)
 
 
 	/* Check that in the case of no arguments, the UPSTART_JOB_ID
-	 * environment variable is used (in preferences to UPSTART_JOB).
+	 * environment variable is used (in preferences to UPSTART_JOB);
+	 * this should imply the --no-wait flag, since otherwise it'd wait
+	 * for itself.
 	 */
 	TEST_FEATURE ("with single job to start from UPSTART_JOB_ID");
 	setenv ("UPSTART_JOB_ID", "1000", TRUE);
@@ -512,82 +514,82 @@ test_start_action (void)
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_STARTING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_STARTING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_PRE_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_PRE_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_SPAWNED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1100);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_SPAWNED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_POST_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1100);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_POST_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1100);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_FINISHED,
 				   1000, "foo", FALSE, -1, 0);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	/* Reap the child, check the output */
@@ -597,12 +599,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (start) waiting\n");
-	TEST_FILE_EQ (output, "foo (start) starting\n");
-	TEST_FILE_EQ (output, "foo (start) pre-start\n");
-	TEST_FILE_EQ (output, "foo (start) spawned, process 1100\n");
-	TEST_FILE_EQ (output, "foo (start) post-start, (main) process 1100\n");
-	TEST_FILE_EQ (output, "foo (start) running, process 1100\n");
+	TEST_FILE_EQ (output, "foo: goal changed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -611,7 +608,8 @@ test_start_action (void)
 
 
 	/* Check that if there are no arguments and UPSTART_JOB_ID is not set,
-	 * the UPSTART_JOB environment variable is used.
+	 * the UPSTART_JOB environment variable is used.  This should imply
+	 * the --no-wait flag, since otherwise it'd wait for itself.
 	 */
 	TEST_FEATURE ("with single job to start from UPSTART_JOB");
 	setenv ("UPSTART_JOB", "foo", TRUE);
@@ -650,82 +648,82 @@ test_start_action (void)
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_STARTING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_STARTING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_PRE_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_PRE_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_SPAWNED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1100);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_SPAWNED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_POST_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1100);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_POST_START);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_START, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1100);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_START, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_FINISHED,
 				   1000, "foo", FALSE, -1, 0);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	/* Reap the child, check the output */
@@ -735,12 +733,7 @@ test_start_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (start) waiting\n");
-	TEST_FILE_EQ (output, "foo (start) starting\n");
-	TEST_FILE_EQ (output, "foo (start) pre-start\n");
-	TEST_FILE_EQ (output, "foo (start) spawned, process 1100\n");
-	TEST_FILE_EQ (output, "foo (start) post-start, (main) process 1100\n");
-	TEST_FILE_EQ (output, "foo (start) running, process 1100\n");
+	TEST_FILE_EQ (output, "foo: goal changed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -2214,6 +2207,8 @@ test_stop_action (void)
 
 	/* Check that in the case of no arguments, the UPSTART_JOB_ID
 	 * environment variable is used (in preferences to UPSTART_JOB).
+	 * this should imply the --no-wait flag, since otherwise it'd wait
+	 * for itself.
 	 */
 	TEST_FEATURE ("with single job to stop from UPSTART_JOB_ID");
 	setenv ("UPSTART_JOB_ID", "1000", TRUE);
@@ -2253,87 +2248,87 @@ test_stop_action (void)
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_PRE_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_PRE_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_STOPPING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_STOPPING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_KILLED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_KILLED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_POST_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_POST_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_FINISHED,
 				   1000, "foo", FALSE, -1, 0);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	/* Reap the child, check the output */
@@ -2343,12 +2338,7 @@ test_stop_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (stop) running, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) pre-stop, (main) process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) stopping, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) killed, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) post-stop\n");
-	TEST_FILE_EQ (output, "foo (stop) waiting\n");
+	TEST_FILE_EQ (output, "foo: goal changed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -2357,7 +2347,8 @@ test_stop_action (void)
 
 
 	/* Check that if there are no arguments and UPSTART_JOB_ID is not set,
-	 * the UPSTART_JOB environment variable is used.
+	 * the UPSTART_JOB environment variable is used.  This should imply
+	 * the --no-wait flag, since otherwise it'd wait for itself.
 	 */
 	TEST_FEATURE ("with single job to stop from UPSTART_JOB");
 	setenv ("UPSTART_JOB", "foo", TRUE);
@@ -2396,87 +2387,87 @@ test_stop_action (void)
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_RUNNING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_PRE_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_PRE_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_STOPPING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_STOPPING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_KILLED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_PROCESS,
 				   PROCESS_MAIN, 1000);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_KILLED);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_POST_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_POST_STOP);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS,
 				   1000, "foo", JOB_STOP, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_STATUS_END,
 				   1000, "foo", JOB_STOP, JOB_WAITING);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	msg = upstart_message_new (NULL, pid, UPSTART_JOB_FINISHED,
 				   1000, "foo", FALSE, -1, 0);
-	assert (nih_io_message_send (msg, sock) > 0);
+	maybe_message_send (msg, sock);
 	nih_free (msg);
 
 	/* Reap the child, check the output */
@@ -2486,12 +2477,7 @@ test_stop_action (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FILE_EQ (output, "foo (stop) running, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) pre-stop, (main) process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) stopping, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) killed, process 1000\n");
-	TEST_FILE_EQ (output, "foo (stop) post-stop\n");
-	TEST_FILE_EQ (output, "foo (stop) waiting\n");
+	TEST_FILE_EQ (output, "foo: goal changed\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 

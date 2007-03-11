@@ -1541,12 +1541,16 @@ start_action (NihCommand   *command,
 				return 1;
 			}
 
+			no_wait = TRUE;
+
 			if (initctl_send (UPSTART_JOB_START, NULL, job_id) < 0)
 				return 1;
 
 			responses++;
 
 		} else if ((env = getenv ("UPSTART_JOB")) != NULL) {
+			no_wait = TRUE;
+
 			if (initctl_send (UPSTART_JOB_START, env, 0) < 0)
 				return 1;
 
@@ -1627,12 +1631,16 @@ stop_action (NihCommand   *command,
 				return 1;
 			}
 
+			no_wait = TRUE;
+
 			if (initctl_send (UPSTART_JOB_STOP, NULL, job_id) < 0)
 				return 1;
 
 			responses++;
 
 		} else if ((env = getenv ("UPSTART_JOB")) != NULL) {
+			no_wait = TRUE;
+
 			if (initctl_send (UPSTART_JOB_STOP, env, 0) < 0)
 				return 1;
 
