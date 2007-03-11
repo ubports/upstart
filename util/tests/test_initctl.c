@@ -48,14 +48,16 @@ NIH_BEGIN_EXTERN
 
 int upstart_disable_safeties;
 
-int env_option      (NihOption *option, const char *arg);
-int start_action    (NihCommand *command, char * const *args);
-int stop_action     (NihCommand *command, char * const *args);
-int status_action   (NihCommand *command, char * const *args);
-int list_action     (NihCommand *command, char * const *args);
-int emit_action     (NihCommand *command, char * const *args);
-int jobs_action     (NihCommand *command, char * const *args);
-int events_action   (NihCommand *command, char * const *args);
+int env_option          (NihOption *option, const char *arg);
+int start_action        (NihCommand *command, char * const *args);
+int stop_action         (NihCommand *command, char * const *args);
+int status_action       (NihCommand *command, char * const *args);
+int list_action         (NihCommand *command, char * const *args);
+int emit_action         (NihCommand *command, char * const *args);
+int jobs_action         (NihCommand *command, char * const *args);
+int events_action       (NihCommand *command, char * const *args);
+int version_action      (NihCommand *command, char * const *args);
+int log_priority_action (NihCommand *command, char * const *args);
 
 int control_sock;
 int destination_pid;
@@ -5917,6 +5919,382 @@ test_events_action (void)
 }
 
 
+void
+test_version_action (void)
+{
+	NihCommand    cmd;
+	NihIoMessage *msg;
+	size_t        len;
+	FILE         *output;
+	pid_t         pid;
+	char         *args[3];
+	int           ret, sock, status;
+
+
+	/* Check that the version command sends the version query command to
+	 * the server, and then prints the result received.
+	 */
+	TEST_FUNCTION ("version_action");
+	program_name = "test";
+
+	nih_error_push_context ();
+	nih_error_pop_context ();
+
+	output = tmpfile ();
+
+	sock = upstart_open ();
+	destination_pid = getpid ();
+
+	cmd.command = "version";
+	args[0] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = version_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_VERSION_QUERY */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 12);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x01", 12);
+
+	nih_free (msg);
+
+	/* Send back the typical message that upstart would reply with.
+	 */
+	msg = upstart_message_new (NULL, pid, UPSTART_VERSION,
+				   "upstart 0.5.0");
+	assert (nih_io_message_send (msg, sock) > 0);
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_EQ (output, "upstart 0.5.0\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+
+	close (sock);
+}
+
+void
+test_log_priority_action (void)
+{
+	NihCommand    cmd;
+	NihIoMessage *msg;
+	size_t        len;
+	FILE         *output;
+	pid_t         pid;
+	char         *args[3];
+	int           ret, sock, status;
+
+	TEST_FUNCTION ("log_priority_action");
+	program_name = "test";
+
+	nih_error_push_context ();
+	nih_error_pop_context ();
+
+	output = tmpfile ();
+
+	sock = upstart_open ();
+	destination_pid = getpid ();
+
+
+	/* Check that the log-priority command accepts "debug" as an argument,
+	 * sends the command to the server, and then exits.
+	 */
+	cmd.command = "log-priority";
+	args[0] = "debug";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_LOG_PRIORITY with the right level. */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 17);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x02u\0\0\0\x1", 17);
+
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that the log-priority command accepts "info" as an argument,
+	 * sends the command to the server, and then exits.
+	 */
+	cmd.command = "log-priority";
+	args[0] = "info";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_LOG_PRIORITY with the right level. */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 17);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x02u\0\0\0\x2", 17);
+
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that the log-priority command accepts "message" as an
+	 * argument, sends the command to the server, and then exits.
+	 */
+	cmd.command = "log-priority";
+	args[0] = "message";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_LOG_PRIORITY with the right level. */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 17);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x02u\0\0\0\x3", 17);
+
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that the log-priority command accepts "warn" as an argument,
+	 * sends the command to the server, and then exits.
+	 */
+	cmd.command = "log-priority";
+	args[0] = "warn";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_LOG_PRIORITY with the right level. */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 17);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x02u\0\0\0\x4", 17);
+
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that the log-priority command accepts "error" as an argument,
+	 * sends the command to the server, and then exits.
+	 */
+	cmd.command = "log-priority";
+	args[0] = "error";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_LOG_PRIORITY with the right level. */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 17);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x02u\0\0\0\x5", 17);
+
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that the log-priority command accepts "fatal" as an argument,
+	 * sends the command to the server, and then exits.
+	 */
+	cmd.command = "log-priority";
+	args[0] = "fatal";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDOUT (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Should receive UPSTART_LOG_PRIORITY with the right level. */
+	assert (msg = nih_io_message_recv (NULL, sock, &len));
+
+	TEST_EQ (msg->data->len, 17);
+	TEST_EQ_MEM (msg->data->buf, "upstart\n\0\0\x00\x02u\0\0\0\x6", 17);
+
+	nih_free (msg);
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that if the argumet is forgotten an error is output.
+	 */
+	TEST_FEATURE ("with no argument");
+	cmd.command = "log-priority";
+	args[0] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDERR (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 1);
+
+	TEST_FILE_EQ (output, "test: missing priority\n");
+	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	/* Check that if the argument isn't a vaid log level an error is
+	 * output.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	cmd.command = "log-priority";
+	args[0] = "wibble";
+	args[1] = NULL;
+
+	TEST_CHILD (pid) {
+		TEST_DIVERT_STDERR (output) {
+			upstart_disable_safeties = TRUE;
+
+			control_sock = upstart_open ();
+			ret = log_priority_action (&cmd, args);
+			exit (ret);
+		}
+	}
+
+	/* Reap the child, check the output */
+	waitpid (pid, &status, 0);
+	rewind (output);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 1);
+
+	TEST_FILE_EQ (output, "test: invalid priority\n");
+	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+
+	close (sock);
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -5929,6 +6307,8 @@ main (int   argc,
 	test_emit_action ();
 	test_jobs_action ();
 	test_events_action ();
+	test_version_action ();
+	test_log_priority_action ();
 
 	return 0;
 }

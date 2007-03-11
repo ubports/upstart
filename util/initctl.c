@@ -99,6 +99,9 @@ static void  job_info_output (const JobInfo *info, int with_name);
 static char *output_name     (uint32_t id, const char *name);
 
 /* Prototypes of response handler functions */
+static int handle_version          (void *data, pid_t pid,
+				    UpstartMessageType type,
+				    const char *version);
 static int handle_job              (void *data, pid_t pid,
 				    UpstartMessageType type,
 				    uint32_t id, const char *name);
@@ -154,14 +157,16 @@ static int  handle_unknown_message (void *data, pid_t pid,
 				    UpstartMessageType type, ...);
 
 /* Prototypes for option and command functions */
-int env_option      (NihOption *option, const char *arg);
-int start_action    (NihCommand *command, char * const *args);
-int stop_action     (NihCommand *command, char * const *args);
-int status_action   (NihCommand *command, char * const *args);
-int list_action     (NihCommand *command, char * const *args);
-int emit_action     (NihCommand *command, char * const *args);
-int jobs_action     (NihCommand *command, char * const *args);
-int events_action   (NihCommand *command, char * const *args);
+int env_option          (NihOption *option, const char *arg);
+int start_action        (NihCommand *command, char * const *args);
+int stop_action         (NihCommand *command, char * const *args);
+int status_action       (NihCommand *command, char * const *args);
+int list_action         (NihCommand *command, char * const *args);
+int emit_action         (NihCommand *command, char * const *args);
+int jobs_action         (NihCommand *command, char * const *args);
+int events_action       (NihCommand *command, char * const *args);
+int version_action      (NihCommand *command, char * const *args);
+int log_priority_action (NihCommand *command, char * const *args);
 
 
 /**
@@ -287,6 +292,9 @@ static JobInfo *current_job = NULL;
  * message.
  **/
 static UpstartMessage handlers[] = {
+	{ -1, UPSTART_VERSION,
+	  (UpstartMessageHandler)handle_version },
+
 	{ -1, UPSTART_JOB,
 	  (UpstartMessageHandler)handle_job },
 	{ -1, UPSTART_JOB_FINISHED,
@@ -642,6 +650,40 @@ output_name (uint32_t    id,
 }
 
 
+/**
+ * handle_version:
+ * @data: data passed to handler,
+ * @pid: origin of message,
+ * @type: message type,
+ * @version: package version string.
+ *
+ * Handles receipt of the UPSTART_VERSION reply from the server, which is
+ * sent in response to an UPSTART_VERSION_QUERY message.
+ *
+ * Output the version string received and mark it as a response.
+ *
+ * Returns: zero on success, negative value on error or positive value if the
+ * command should exit with that exit status.
+ **/
+static int
+handle_version (void               *data,
+		pid_t               pid,
+		UpstartMessageType  type,
+		const char         *version)
+{
+	nih_assert (pid > 0);
+	nih_assert (type == UPSTART_VERSION);
+	nih_assert (version != NULL);
+
+	if (! event_caused)
+		num_responses++;
+
+	event_caused = FALSE;
+
+	nih_message ("%s", version);
+
+	return 0;
+}
 
 /**
  * handle_job:
@@ -1840,6 +1882,79 @@ events_action (NihCommand   *command,
 	return initctl_recv (-1);
 }
 
+/**
+ * version_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "version" command; it requests the
+ * package version string from the init daemon and outputs the response.
+ *
+ * Returns: command exit status.
+ **/
+int
+version_action (NihCommand   *command,
+		char * const *args)
+{
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (initctl_send (UPSTART_VERSION_QUERY) < 0)
+		return 1;
+
+	return initctl_recv (1);
+}
+
+/**
+ * log_priority_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "log-priority" command; it takes a string
+ * log priority which it converts into a NihLogLevel to be sent to the server.
+ * No response is expected.
+ *
+ * Returns: command exit status.
+ **/
+int
+log_priority_action (NihCommand   *command,
+		     char * const *args)
+{
+	NihLogLevel priority;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (! args[0]) {
+		fprintf (stderr, _("%s: missing priority\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	if (! strcmp (args[0], "debug")) {
+		priority = NIH_LOG_DEBUG;
+	} else if (! strcmp (args[0], "info")) {
+		priority = NIH_LOG_INFO;
+	} else if (! strcmp (args[0], "message")) {
+		priority = NIH_LOG_MESSAGE;
+	} else if (! strcmp (args[0], "warn")) {
+		priority = NIH_LOG_WARN;
+	} else if (! strcmp (args[0], "error")) {
+		priority = NIH_LOG_ERROR;
+	} else if (! strcmp (args[0], "fatal")) {
+		priority = NIH_LOG_FATAL;
+	} else {
+		fprintf (stderr, _("%s: invalid priority\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	if (initctl_send (UPSTART_LOG_PRIORITY, priority) < 0)
+		return 1;
+
+	return 0;
+}
+
 
 #ifndef TEST
 /**
@@ -1850,8 +1965,6 @@ events_action (NihCommand   *command,
 static NihOption options[] = {
 	{ 'p', "pid", N_("destination process"),
 	  NULL, "PID", &destination_pid, nih_option_int },
-	{ 0, "show-ids", N_("show job and event ids, as well as names"),
-	  NULL, NULL, &show_ids, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -1865,6 +1978,8 @@ static NihOption options[] = {
 NihOption start_options[] = {
 	{ 'i', "id", N_("arguments are job ids, instead of names"),
 	  NULL, NULL, &by_id, NULL },
+	{ 0, "show-ids", N_("show job ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
 	{ 'n', "no-wait", N_("do not wait for job to start before exiting"),
 	  NULL, NULL, &no_wait, NULL },
 
@@ -1879,6 +1994,8 @@ NihOption start_options[] = {
 NihOption stop_options[] = {
 	{ 'i', "id", N_("arguments are job ids, instead of names"),
 	  NULL, NULL, &by_id, NULL },
+	{ 0, "show-ids", N_("show job ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
 	{ 'n', "no-wait", N_("do not wait for job to stop before exiting"),
 	  NULL, NULL, &no_wait, NULL },
 
@@ -1893,6 +2010,8 @@ NihOption stop_options[] = {
 NihOption status_options[] = {
 	{ 'i', "id", N_("arguments are job ids, instead of names"),
 	  NULL, NULL, &by_id, NULL },
+	{ 0, "show-ids", N_("show job ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -1903,6 +2022,9 @@ NihOption status_options[] = {
  * Command-line options accepted for the list command.
  **/
 NihOption list_options[] = {
+	{ 0, "show-ids", N_("show job ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
+
 	NIH_OPTION_LAST
 };
 
@@ -1912,6 +2034,8 @@ NihOption list_options[] = {
  * Command-line options accepted for the emit command.
  **/
 NihOption emit_options[] = {
+	{ 0, "show-ids", N_("show job and event ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
 	{ 'n', "no-wait", N_("do not wait for event to finish before exiting"),
 	  NULL, NULL, &no_wait, NULL },
 	{ 'e', NULL, N_("set environment variable in jobs changed by this event"),
@@ -1926,6 +2050,9 @@ NihOption emit_options[] = {
  * Command-line options accepted for the jobs command.
  **/
 NihOption jobs_options[] = {
+	{ 0, "show-ids", N_("show job ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
+
 	NIH_OPTION_LAST
 };
 
@@ -1935,6 +2062,27 @@ NihOption jobs_options[] = {
  * Command-line options accepted for the events command.
  **/
 NihOption events_options[] = {
+	{ 0, "show-ids", N_("show event ids, as well as names"),
+	  NULL, NULL, &show_ids, NULL },
+
+	NIH_OPTION_LAST
+};
+
+/**
+ * version_options:
+ *
+ * Command-line options accepted for the version command.
+ **/
+NihOption version_options[] = {
+	NIH_OPTION_LAST
+};
+
+/**
+ * log_priority_options:
+ *
+ * Command-line options accepted for the log-priority command.
+ **/
+NihOption log_priority_options[] = {
 	NIH_OPTION_LAST
 };
 
@@ -2006,6 +2154,28 @@ static NihCommand commands[] = {
 	  N_("Receive notification of emitted events."),
 	  NULL,
 	  &event_commands, events_options, events_action },
+
+	{ "version", NULL,
+	  N_("Request the version of the init daemon."),
+	  NULL,
+	  NULL, version_options, version_action },
+	{ "log-priority", N_("PRIORITY"),
+	  N_("Change the minimum priority of log messages from the init "
+	     "daemon"),
+	  N_("PRIORITY may be one of "
+	     "`debug' (messages useful for debugging upstart are logged, "
+	     "equivalent to --debug on kernel command-line); "
+	     "`info' (messages about job goal and state changes, as well "
+	     "as event emissions are logged, equivalent to --verbose on the "
+	     "kernel command-line); "
+	     "`message' (informational and debugging messages are suppressed, "
+	     "the default); "
+	     "`warn' (ordinary messages are suppressed whilst still "
+	     "logging warnings and errors); "
+	     "`error' (only errors are logged, equivalent to --quiet on "
+	     "the kernel command-line) or "
+	     "`fatal' (only fatal errors are logged)."),
+	  NULL, version_options, version_action },
 
 	NIH_COMMAND_LAST
 };

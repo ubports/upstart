@@ -1,5 +1,12 @@
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (handle_version): Handle receipt of the version
+	reply.
+	(version_action): Send the version-query message to the server and
+	expect one response.
+	(log_priority_action): Parse the single argument into an NihLogLevel
+	and send it to the server.
+
 	* init/control.c (control_version_query, control_log_priority):
 	Functions to handle the new messages from the server pov
 	* init/tests/test_control.c (test_version_query) 
