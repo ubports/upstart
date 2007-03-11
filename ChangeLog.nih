@@ -1,3 +1,101 @@
+2007-03-11  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/compiler.m4: Don't check for __thread unless --enable-threading
+	given to configure, instead define it to empty.
+
+	* TODO: Update.
+
+2007-03-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/logging.c: Make the current log priority available globally
+	through the nih_log_priority variable.
+	* nih/logging.h: Update.
+
+2007-03-08  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/macros.h (_n): Add a macro to wrap ngettext() for plural forms.
+
+2007-03-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_watch.c: Skip these tests if inotify is not
+	available, since there's not much we can do.
+
+2007-02-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tree.c (nih_tree_next, nih_tree_prev): Add non-recursive
+	functions to iterate a tree in-order either forwards or backwards.
+	* nih/tree.h (NIH_TREE_FOREACH): Standard macro for wrapping
+	nih_tree_next and turning it into a for loop.
+	* nih/tests/test_tree.c (test_next, test_foreach, test_prev): Test
+	things with a complex tree to see whether they work out ok.
+
+	* nih/list.h: Fix formatting and ordering.
+	* nih/list.c: Fix function ordering.
+
+	* nih/tree.c: Add generic code to implement pure binary trees.
+	* nih/tree.h: Structures, typedefs and prototypes.
+	* nih/tests/test_tree.c: Binary tree test suite.
+	* nih/libnih.h: Include tree.h
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link tree.c
+	(nihinclude_HEADERS): Install tree.h
+	(TESTS): Build and run binary tree test suite.
+	(test_tree_SOURCES, test_tree_LDFLAGS, test_tree_LDADD): Details for
+	binary tree test suite binary.
+
+2007-02-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/watch.c (INOTIFY_EVENTS): Use IN_CLOSE_WRITE instead of
+	IN_MODIFY; since that guarantees the file has actually been closed,
+	and is probably on the filesystem now.
+
+2007-02-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/signal.c: Add SIGUNUSED to the list of signals that might not
+	exist.
+
+	* nih/tests/test_option.c (test_parser): gcc doesn't like using
+	variables inside fixed for loops, so initialise it deliberately.
+	* nih/tests/test_command.c (test_help): Was mistakenly repeatedly
+	opening output.
+	(test_parser): Similar for loop issue.
+
+	* nih/signal.c: Update signal name list, some signals don't exist on
+	sparc and some turn up unexpectedly.
+
+2007-02-11  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* nih/hash.h (NIH_HASH_FOREACH, NIH_HASH_FOREACH_SAFE): Added missing
+	parenthesis around hash, in case it's a complicated expression with
+	unsurprising precedence results.
+
+2007-02-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_skip_whitespace): It turns out that when
+	parsing, it's often useful to skip any whitespace while retaining the
+	"step over newlines" behaviour.  Seperate it out into its own 
+	function.
+	(nih_config_next_token): Call the new function.
+	* nih/config.h: Add prototype.
+	* nih/tests/test_config.c (test_skip_whitespace): Check the function
+
+	* nih/config.c: Remove macro definitions
+	* nih/config.h: and make them public instead
+	* nih/tests/test_config.c: Use macros.
+
+	* nih/config.c (nih_config_next_token): Strange hybrid function,
+	it behaves like next_arg() but accepts the same arguments as token();
+	it skips whitespace, but only if the initial whitespace character is
+	in the delim argument.
+	(nih_config_next_arg): This becomes a wrapper around next_token.
+	* nih/config.h: Add prototype.
+	* nih/tests/test_config.c (test_next_token): Check the new function.
+
+	* nih/config.c (nih_config_next_token): Rename to nih_config_token,
+	since this doesn't behave like the next_arg() function, and we want
+	a similar token function that behaves like that.
+	* nih/config.h: Update.
+	* nih/tests/test_config.c (test_next_token): Rename and update.
+
 2007-02-09  Scott James Remnant  <scott@netsplit.com>
 
 	* nih/hash.h (NIH_HASH_FOREACH_SAFE): Oops, s/list/hash/

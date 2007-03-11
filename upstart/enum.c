@@ -40,7 +40,7 @@
  * Converts an enumerated job goal into the string used for the status
  * and for logging purposes.
  *
- * Returns: static string or NULL if state not known.
+ * Returns: static string or NULL if goal not known.
  **/
 const char *
 job_goal_name (JobGoal goal)
@@ -153,6 +153,63 @@ job_state_from_name (const char *state)
 		return JOB_POST_STOP;
 	} else if (! strcmp (state, "deleted")) {
 		return JOB_DELETED;
+	} else {
+		return -1;
+	}
+}
+
+
+/**
+ * process_name:
+ * @process: process type to convert.
+ *
+ * Converts an enumerated process type into the string used for the status
+ * and for logging purposes.
+ *
+ * Returns: static string or NULL if action not known.
+ **/
+const char *
+process_name (ProcessType process)
+{
+	switch (process) {
+	case PROCESS_MAIN:
+		return N_("main");
+	case PROCESS_PRE_START:
+		return N_("pre-start");
+	case PROCESS_POST_START:
+		return N_("post-start");
+	case PROCESS_PRE_STOP:
+		return N_("pre-stop");
+	case PROCESS_POST_STOP:
+		return N_("post-stop");
+	default:
+		return NULL;
+	}
+}
+
+/**
+ * process_from_name:
+ * @process: process string to convert.
+ *
+ * Converts a process type string into the enumeration.
+ *
+ * Returns: enumerated action or -1 if not known.
+ **/
+ProcessType
+process_from_name (const char *process)
+{
+	nih_assert (process != NULL);
+
+	if (! strcmp (process, "main")) {
+		return PROCESS_MAIN;
+	} else if (! strcmp (process, "pre-start")) {
+		return PROCESS_PRE_START;
+	} else if (! strcmp (process, "post-start")) {
+		return PROCESS_POST_START;
+	} else if (! strcmp (process, "pre-stop")) {
+		return PROCESS_PRE_STOP;
+	} else if (! strcmp (process, "post-stop")) {
+		return PROCESS_POST_STOP;
 	} else {
 		return -1;
 	}

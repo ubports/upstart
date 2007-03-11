@@ -35,11 +35,11 @@ build_triplet = @build@
 host_triplet = @host@
 @HAVE_VERSION_SCRIPT_ARG_TRUE@am__append_1 = @VERSION_SCRIPT_ARG@=$(srcdir)/libnih.ver
 TESTS = test_alloc$(EXEEXT) test_string$(EXEEXT) test_list$(EXEEXT) \
-	test_hash$(EXEEXT) test_timer$(EXEEXT) test_signal$(EXEEXT) \
-	test_child$(EXEEXT) test_io$(EXEEXT) test_file$(EXEEXT) \
-	test_watch$(EXEEXT) test_main$(EXEEXT) test_option$(EXEEXT) \
-	test_command$(EXEEXT) test_config$(EXEEXT) \
-	test_logging$(EXEEXT) test_error$(EXEEXT)
+	test_hash$(EXEEXT) test_tree$(EXEEXT) test_timer$(EXEEXT) \
+	test_signal$(EXEEXT) test_child$(EXEEXT) test_io$(EXEEXT) \
+	test_file$(EXEEXT) test_watch$(EXEEXT) test_main$(EXEEXT) \
+	test_option$(EXEEXT) test_command$(EXEEXT) \
+	test_config$(EXEEXT) test_logging$(EXEEXT) test_error$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1)
 subdir = nih
 DIST_COMMON = $(include_HEADERS) $(nihinclude_HEADERS) \
@@ -79,18 +79,18 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)" \
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libnih_la_LIBADD =
-am_libnih_la_OBJECTS = alloc.lo string.lo list.lo hash.lo timer.lo \
-	signal.lo child.lo io.lo file.lo watch.lo main.lo option.lo \
-	command.lo config.lo logging.lo error.lo
+am_libnih_la_OBJECTS = alloc.lo string.lo list.lo hash.lo tree.lo \
+	timer.lo signal.lo child.lo io.lo file.lo watch.lo main.lo \
+	option.lo command.lo config.lo logging.lo error.lo
 libnih_la_OBJECTS = $(am_libnih_la_OBJECTS)
 libnih_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libnih_la_LDFLAGS) $(LDFLAGS) -o $@
 am__EXEEXT_1 = test_alloc$(EXEEXT) test_string$(EXEEXT) \
-	test_list$(EXEEXT) test_hash$(EXEEXT) test_timer$(EXEEXT) \
-	test_signal$(EXEEXT) test_child$(EXEEXT) test_io$(EXEEXT) \
-	test_file$(EXEEXT) test_watch$(EXEEXT) test_main$(EXEEXT) \
-	test_option$(EXEEXT) test_command$(EXEEXT) \
+	test_list$(EXEEXT) test_hash$(EXEEXT) test_tree$(EXEEXT) \
+	test_timer$(EXEEXT) test_signal$(EXEEXT) test_child$(EXEEXT) \
+	test_io$(EXEEXT) test_file$(EXEEXT) test_watch$(EXEEXT) \
+	test_main$(EXEEXT) test_option$(EXEEXT) test_command$(EXEEXT) \
 	test_config$(EXEEXT) test_logging$(EXEEXT) test_error$(EXEEXT)
 am_test_alloc_OBJECTS = test_alloc.$(OBJEXT)
 test_alloc_OBJECTS = $(am_test_alloc_OBJECTS)
@@ -182,6 +182,12 @@ test_timer_DEPENDENCIES = libnih.la
 test_timer_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(test_timer_LDFLAGS) $(LDFLAGS) -o $@
+am_test_tree_OBJECTS = test_tree.$(OBJEXT)
+test_tree_OBJECTS = $(am_test_tree_OBJECTS)
+test_tree_DEPENDENCIES = libnih.la
+test_tree_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(test_tree_LDFLAGS) $(LDFLAGS) -o $@
 am_test_watch_OBJECTS = test_watch.$(OBJEXT)
 test_watch_OBJECTS = $(am_test_watch_OBJECTS)
 test_watch_DEPENDENCIES = libnih.la
@@ -207,7 +213,8 @@ SOURCES = $(libnih_la_SOURCES) $(test_alloc_SOURCES) \
 	$(test_list_SOURCES) $(test_logging_SOURCES) \
 	$(test_main_SOURCES) $(test_option_SOURCES) \
 	$(test_signal_SOURCES) $(test_string_SOURCES) \
-	$(test_timer_SOURCES) $(test_watch_SOURCES)
+	$(test_timer_SOURCES) $(test_tree_SOURCES) \
+	$(test_watch_SOURCES)
 DIST_SOURCES = $(libnih_la_SOURCES) $(test_alloc_SOURCES) \
 	$(test_child_SOURCES) $(test_command_SOURCES) \
 	$(test_config_SOURCES) $(test_error_SOURCES) \
@@ -215,7 +222,8 @@ DIST_SOURCES = $(libnih_la_SOURCES) $(test_alloc_SOURCES) \
 	$(test_list_SOURCES) $(test_logging_SOURCES) \
 	$(test_main_SOURCES) $(test_option_SOURCES) \
 	$(test_signal_SOURCES) $(test_string_SOURCES) \
-	$(test_timer_SOURCES) $(test_watch_SOURCES)
+	$(test_timer_SOURCES) $(test_tree_SOURCES) \
+	$(test_watch_SOURCES)
 includeHEADERS_INSTALL = $(INSTALL_HEADER)
 nihincludeHEADERS_INSTALL = $(INSTALL_HEADER)
 HEADERS = $(include_HEADERS) $(nihinclude_HEADERS)
@@ -379,6 +387,7 @@ libnih_la_SOURCES = \
 	string.c \
 	list.c \
 	hash.c \
+	tree.c \
 	timer.c \
 	signal.c \
 	child.c \
@@ -404,6 +413,7 @@ nihinclude_HEADERS = \
 	string.h \
 	list.h \
 	hash.h \
+	tree.h \
 	timer.h \
 	signal.h \
 	child.h \
@@ -432,6 +442,9 @@ test_list_LDADD = libnih.la
 test_hash_SOURCES = tests/test_hash.c
 test_hash_LDFLAGS = -static
 test_hash_LDADD = libnih.la
+test_tree_SOURCES = tests/test_tree.c
+test_tree_LDFLAGS = -static
+test_tree_LDADD = libnih.la
 test_timer_SOURCES = tests/test_timer.c
 test_timer_LDFLAGS = -static
 test_timer_LDADD = libnih.la
@@ -582,6 +595,9 @@ test_string$(EXEEXT): $(test_string_OBJECTS) $(test_string_DEPENDENCIES)
 test_timer$(EXEEXT): $(test_timer_OBJECTS) $(test_timer_DEPENDENCIES) 
 	@rm -f test_timer$(EXEEXT)
 	$(test_timer_LINK) $(test_timer_OBJECTS) $(test_timer_LDADD) $(LIBS)
+test_tree$(EXEEXT): $(test_tree_OBJECTS) $(test_tree_DEPENDENCIES) 
+	@rm -f test_tree$(EXEEXT)
+	$(test_tree_LINK) $(test_tree_OBJECTS) $(test_tree_LDADD) $(LIBS)
 test_watch$(EXEEXT): $(test_watch_OBJECTS) $(test_watch_DEPENDENCIES) 
 	@rm -f test_watch$(EXEEXT)
 	$(test_watch_LINK) $(test_watch_OBJECTS) $(test_watch_LDADD) $(LIBS)
@@ -621,8 +637,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_signal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_string.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_timer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_tree.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_watch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tree.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/watch.Plo@am__quote@
 
 .c.o:
@@ -855,6 +873,20 @@ test_timer.obj: tests/test_timer.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_timer.c' object='test_timer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_timer.obj `if test -f 'tests/test_timer.c'; then $(CYGPATH_W) 'tests/test_timer.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_timer.c'; fi`
+
+test_tree.o: tests/test_tree.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_tree.o -MD -MP -MF $(DEPDIR)/test_tree.Tpo -c -o test_tree.o `test -f 'tests/test_tree.c' || echo '$(srcdir)/'`tests/test_tree.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_tree.Tpo $(DEPDIR)/test_tree.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_tree.c' object='test_tree.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_tree.o `test -f 'tests/test_tree.c' || echo '$(srcdir)/'`tests/test_tree.c
+
+test_tree.obj: tests/test_tree.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_tree.obj -MD -MP -MF $(DEPDIR)/test_tree.Tpo -c -o test_tree.obj `if test -f 'tests/test_tree.c'; then $(CYGPATH_W) 'tests/test_tree.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_tree.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_tree.Tpo $(DEPDIR)/test_tree.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_tree.c' object='test_tree.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_tree.obj `if test -f 'tests/test_tree.c'; then $(CYGPATH_W) 'tests/test_tree.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_tree.c'; fi`
 
 test_watch.o: tests/test_watch.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_watch.o -MD -MP -MF $(DEPDIR)/test_watch.Tpo -c -o test_watch.o `test -f 'tests/test_watch.c' || echo '$(srcdir)/'`tests/test_watch.c

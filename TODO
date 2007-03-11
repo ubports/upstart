@@ -1,9 +1,5 @@
 High Priority:
 
- * cfg_watch_dir and its companion functions need testing; this shouldn't
-   be too hard, just create a config directory and move stuff around in
-   common patterns and see what happens to the jobs.
-
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
    long as we send things in this order:
@@ -24,18 +20,6 @@ High Priority:
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
 
- * notify_job is a little sub-optimal; if we notify at the top of the
-   job_change_state loop, we don't include the process information and
-   clients get notified *before* things like the events are emitted.
-
-   If we notify afterwards, then clients subscribed to the cause event
-   don't see the final state change (into waiting or running), and
-   they don't see it trying to go into starting in the case of respawning
-   too fast (maybe this bit is right though)
-
- * Process-less jobs was broken by the implementation of the three-states
-   for running -- add a test case for that.
-
 
 Medium Priority:
 
@@ -44,65 +28,6 @@ Medium Priority:
 
  * Likewise iterating through all the Jobs to find a pid is messy; we
    should have a lookup table for these too (see Job thoughts below).
-
- * If we can't KILL things, we shouldn't ignore that, we should treat
-   that as a failure and adjust the job again so it still shows up as
-   running
-    * force option?  ensures things are KILLed and failure to KILL ignored?
-
- * We may need to KILL scripts, e.g. post-start; especially when the goal
-   changes.  Or perhaps just after a timeout?  (see Job below)
-
- * Job and subscription IPC commands need to be grouped as has already
-   happened for the event commands, though note possible upcoming changes
-   to Job below.
-
- * There's no way to stop a single instance of job, it always tries to
-   stop the parent (which does nothing) and returns the list of instances.
-   Perhaps a way of dealing with this is to assign each job an id, and
-   use that as the unique identifier, instead of the name?
-
- * The job structure now has a nice JobProcess sub-structure for holding
-   information about what to run, but still has a job-level pid and aux_pid
-   field for holding the running process id.
-
-   How about we move the pid into the JobProcess structure?
-
-   Status information could then be sent as something like:
-
-    * Job name
-      * id
-      * Goal
-      * State
-        * Process name
-        * Process pid
-
-   With each indented bit repeated as many times as necessary (we'll need
-   some way to be able to add new fields in the middle though); perhaps
-   send them as separate messages?
-
-   This would make it really easy to implement actions, they just become
-   additional processes with a name and registration-assigned id (store
-   the whole lot in an array for convenience).
-
-   It'd also take a few of the strangenesses of using the state to identify
-   a process away.  failed_state would instead become a reference to the
-   failed *process*
-
-   The problem comes when a process is taken away by re-parsing the
-   configuration file; where do we put its pid?  (Maybe just mark the
-   structure some way, and cope with that)
-
- * If we have that kind of indented status information, we could make
-   JOB_START and JOB_STOP accept only a job/instance id.  The tool could
-   lookup use JOB_QUERY to obtain the instance id, that takes a name and
-   a list of fields to be returned and returns all matches.  JOB_QUERY
-   could also take an id for an exact match, or NULL to list all jobs;
-   and that way we lose a command (yay)
-
- * Perhaps when a configuration file is changed, the existing job structure
-   should be marked for deletion instead of updated; otherwise the job might
-   be stopped by a script or action it didn't know about when it was started!
 
  * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
    we encounter any problems write the error code to this pipe and die.
@@ -118,6 +43,10 @@ Low Priority:
    got cleaned up -- and maybe don't use putenv/setenv since they're a
    little strange.
 
+ * Need to add dependencies to jobs, which are files that must exist before
+   the job can be started (because Debian/Ubuntu like to litter config files
+   like jobs)
+
  * process_setup_console is due for an overhaul as well; especially if
    we want to be able to pass file descriptors in.  Am somewhat tempted
    to add a magic CONSOLE_DEFAULT option which tries fd, logging, null,
@@ -125,6 +54,15 @@ Low Priority:
 
  * We always want /dev/fd/NNN to be /dev/fd/3, we should have some way
    to instruct process_spawn to do that.
+
+ * We may need to KILL scripts, e.g. post-start; especially when the goal
+   changes.  Or perhaps just after a timeout?
+
+ * May need a way to force ignoring of the KILL signal, and assuming that
+   a job that won't die really has.
+
+ * Should be possible to configure things in one file, definings jobs with
+   a stanza rather than separate files.
 
  * Replace logd raise/wait/kill interlock with a pipe-based one?
 
@@ -162,3 +100,28 @@ Future Features:
    stats?
 
  * Actions: "reload" and optional replacements for "stop", "start", etc.
+
+   This is mostly just a matter of deciding policy for when they can be run,
+   and adding "user processes" onto the end of the job->process array.
+
+ * Alternative script interpreters; "start script python".
+
+   Would be done by making script a char *, and putting the interpreter into
+   command?
+
+ * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
+   which state do we keep it in while it's waiting?
+
+ * Apply event variables to keys, such as "uses" ?
+
+ * Watershed jobs
+
+ * How do we balance events, if two "added" happen we probably want two
+   "removed" to happen as well.  One way is to allow $... in the event
+   definitions which apply to earlier ones?
+
+ * Extend telinit to support --default or similar; moving the shell parsing
+   out of rc-default and just make that exec telinit with the right args.
+
+ * Event tree for "start on" and "stop on" -- need to solve when instances
+   are spawned and which event gets stored in cause first though.

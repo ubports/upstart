@@ -226,10 +226,9 @@ notify_unsubscribe (pid_t pid)
  * notify_job:
  * @job: job that changed state,
  *
- * Called when a job's state changes.  Notifies subscribed processes with
- * an UPSTART_JOB_STATUS message, and if the cause is set, also
- * sends notification to subscribed process for that event with an
- * UPSTART_EVENT_JOB_STATUS message.
+ * Called when a job's state changes.  Notifies all processes subscribed to
+ * that job, those subscribed to any job state change event and also those
+ * subscribed to the event that caused the change.
  **/
 void
 notify_job (Job *job)
@@ -241,10 +240,8 @@ notify_job (Job *job)
 	if (! control_io)
 		return;
 
-	/* First send to processes subscribed for the job. */
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
-		NihIoMessage       *message;
 
 		if (sub->type != NOTIFY_JOB)
 			continue;
@@ -252,18 +249,32 @@ notify_job (Job *job)
 		if (sub->job && (sub->job != job))
 			continue;
 
-		NIH_MUST (message = upstart_message_new (
-				  control_io, sub->pid, UPSTART_JOB_STATUS,
-				  job->name, job->goal, job->state, job->pid));
-		nih_io_send_message (control_io, message);
+		control_send_job_status (sub->pid, job);
 	}
 
-	if (! job->cause)
+	if (job->cause)
+		notify_job_event (job);
+}
+
+/**
+ * notify_job_event:
+ * @job: job that is changing state,
+ *
+ * Called when a job's state changes, and before the job's cause changes.
+ * Notifies all processes subscribed to the event, prefixing the job status
+ * message with an UPSTART_EVENT_CAUSED message to link the two.
+ **/
+void
+notify_job_event (Job *job)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->cause != NULL);
+
+	notify_init ();
+
+	if (! control_io)
 		return;
 
-	/* And then to processes subscribed for the cause event; only
-	 * send to those specifically subscribed, not to global.
-	 */
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
 		NihIoMessage       *message;
@@ -275,10 +286,52 @@ notify_job (Job *job)
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
-				  control_io, sub->pid,
-				  UPSTART_EVENT_JOB_STATUS, job->cause->id,
-				  job->name, job->goal, job->state, job->pid));
+				  control_io, sub->pid, UPSTART_EVENT_CAUSED,
+				  job->cause->id));
 		nih_io_send_message (control_io, message);
+
+		control_send_job_status (sub->pid, job);
+	}
+}
+
+/**
+ * notify_job_finished:
+ * @job: job that changed state,
+ *
+ * Called when a job's state reaches the goal rest state.  Notifies all
+ * processes subscribed to that job with a final status update followed by
+ * an UPSTART_JOB_FINISHED message and unsubscribes them from future
+ * notifications.
+ **/
+void
+notify_job_finished (Job *job)
+{
+	nih_assert (job != NULL);
+
+	notify_init ();
+
+	if (! control_io)
+		return;
+
+	NIH_LIST_FOREACH_SAFE (subscriptions, iter) {
+		NotifySubscription *sub = (NotifySubscription *)iter;
+		NihIoMessage       *message;
+
+		if (sub->type != NOTIFY_JOB)
+			continue;
+
+		if (sub->job != job)
+			continue;
+
+		control_send_job_status (sub->pid, job);
+
+		NIH_MUST (message = upstart_message_new (
+				  control_io, sub->pid, UPSTART_JOB_FINISHED,
+				  job->id, job->name, job->failed,
+				  job->failed_process, job->exit_status));
+		nih_io_send_message (control_io, message);
+
+		nih_list_free (&sub->entry);
 	}
 }
 
@@ -321,8 +374,9 @@ notify_event (EventEmission *emission)
  * notify_event_finished:
  * @emission: event emission now finished.
  *
- * Called when an event emission has finished.  Notifies subscribed processes
- * with an UPSTART_EVENT_FINISHED message.
+ * Called when an event emission has finished.  Notifies all processes
+ * subscribed to that event with an UPSTART_EVENT_FINISHED message
+ * and unsubscribes them from future notifications.
  **/
 void
 notify_event_finished (EventEmission *emission)
@@ -334,14 +388,14 @@ notify_event_finished (EventEmission *emission)
 	if (! control_io)
 		return;
 
-	NIH_LIST_FOREACH (subscriptions, iter) {
+	NIH_LIST_FOREACH_SAFE (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
 		NihIoMessage       *message;
 
 		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		if (sub->emission && (sub->emission != emission))
+		if (sub->emission != emission)
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
@@ -350,5 +404,7 @@ notify_event_finished (EventEmission *emission)
 				  emission->event.name,
 				  emission->event.args, emission->event.env));
 		nih_io_send_message (control_io, message);
+
+		nih_list_free (&sub->entry);
 	}
 }

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2007-02-10 20:58+0000\n"
+"POT-Creation-Date: 2007-03-11 19:08+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -204,7 +204,7 @@ msgstr ""
 msgid "starting"
 msgstr ""
 
-#: upstart/enum.c:99
+#: upstart/enum.c:99 upstart/enum.c:178
 msgid "pre-start"
 msgstr ""
 
@@ -212,7 +212,7 @@ msgstr ""
 msgid "spawned"
 msgstr ""
 
-#: upstart/enum.c:103
+#: upstart/enum.c:103 upstart/enum.c:180
 msgid "post-start"
 msgstr ""
 
@@ -220,7 +220,7 @@ msgstr ""
 msgid "running"
 msgstr ""
 
-#: upstart/enum.c:107
+#: upstart/enum.c:107 upstart/enum.c:182
 msgid "pre-stop"
 msgstr ""
 
@@ -232,7 +232,7 @@ msgstr ""
 msgid "killed"
 msgstr ""
 
-#: upstart/enum.c:113
+#: upstart/enum.c:113 upstart/enum.c:184
 msgid "post-stop"
 msgstr ""
 
@@ -240,7 +240,11 @@ msgstr ""
 msgid "deleted"
 msgstr ""
 
-#: upstart/message.c:662
+#: upstart/enum.c:176
+msgid "main"
+msgstr ""
+
+#: upstart/message.c:1030
 #, c-format
 msgid "Error while handling control message: %s"
 msgstr ""
@@ -257,206 +261,259 @@ msgstr ""
 msgid "Unknown message received"
 msgstr ""
 
-#: init/cfgfile.c:251
+#: init/cfgfile.c:1771
 msgid "unable to read"
 msgstr ""
 
-#: init/cfgfile.c:270
+#: init/cfgfile.c:1790
 #, c-format
 msgid "%s: 'pid file' ignored unless 'daemon' specified"
 msgstr ""
 
-#: init/cfgfile.c:276
+#: init/cfgfile.c:1796
 #, c-format
 msgid "%s: 'pid binary' ignored unless 'daemon' specified"
 msgstr ""
 
-#: init/cfgfile.c:1940
+#: init/cfgfile.c:1806
+#, c-format
+msgid "Replacing existing %s job"
+msgstr ""
+
+#: init/cfgfile.c:1852
 #, c-format
 msgid "Reading configuration from %s"
 msgstr ""
 
-#: init/cfgfile.c:1972
+#: init/cfgfile.c:1886
 msgid "Unable to watch configuration directory"
 msgstr ""
 
-#: init/control.c:200
+#: init/cfgfile.c:1998
+#, c-format
+msgid "Deleting %s job"
+msgstr ""
+
+#: init/control.c:216
 #, c-format
 msgid "Error on control socket: %s"
 msgstr ""
 
-#: init/control.c:247
+#: init/control.c:336
+msgid "Control request for our version"
+msgstr ""
+
+#: init/control.c:369
+msgid "Control request to change logging priority"
+msgstr ""
+
+#: init/control.c:406
+#, c-format
+msgid "Control request for jobs matching %s"
+msgstr ""
+
+#: init/control.c:408
+msgid "Control request for all jobs"
+msgstr ""
+
+#: init/control.c:470
+#, c-format
+msgid "Control request for status of %s"
+msgstr ""
+
+#: init/control.c:474
+#, c-format
+msgid "Control request for status of job #%zu"
+msgstr ""
+
+#: init/control.c:528
 #, c-format
 msgid "Control request to start %s"
 msgstr ""
 
-#: init/control.c:319
+#: init/control.c:532
+#, c-format
+msgid "Control request to start job #%zu"
+msgstr ""
+
+#: init/control.c:615
 #, c-format
 msgid "Control request to stop %s"
 msgstr ""
 
-#: init/control.c:391
+#: init/control.c:619
 #, c-format
-msgid "Control request for state of %s"
+msgid "Control request to stop job #%zu"
 msgstr ""
 
-#: init/control.c:445
-msgid "Control request to list jobs"
-msgstr ""
-
-#: init/control.c:485
-#, c-format
-msgid "Control request to subscribe %d to jobs"
-msgstr ""
-
-#: init/control.c:513
-#, c-format
-msgid "Control request to unsubscribe %d from jobs"
-msgstr ""
-
-#: init/control.c:541
-#, c-format
-msgid "Control request to subscribe %d to events"
-msgstr ""
-
-#: init/control.c:569
-#, c-format
-msgid "Control request to unsubscribe %d from events"
-msgstr ""
-
-#: init/control.c:613
+#: init/control.c:748
 #, c-format
 msgid "Control request to emit %s event"
 msgstr ""
 
-#: init/job.c:540
+#: init/control.c:779
+#, c-format
+msgid "Control request to subscribe %d to jobs"
+msgstr ""
+
+#: init/control.c:810
+#, c-format
+msgid "Control request to unsubscribe %d from jobs"
+msgstr ""
+
+#: init/control.c:840
+#, c-format
+msgid "Control request to subscribe %d to events"
+msgstr ""
+
+#: init/control.c:871
+#, c-format
+msgid "Control request to unsubscribe %d from events"
+msgstr ""
+
+#: init/event.c:279
+#, c-format
+msgid "Emission id %zu is not unique"
+msgstr ""
+
+#: init/event.c:490
+#, c-format
+msgid "Handling %s event"
+msgstr ""
+
+#: init/job.c:221
+#, c-format
+msgid "Job id %zu is not unique"
+msgstr ""
+
+#: init/job.c:720
 #, c-format
 msgid "%s goal changed from %s to %s"
 msgstr ""
 
-#: init/job.c:622
+#: init/job.c:805
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:643
+#: init/job.c:825 util/initctl.c:786
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job.c:1141
+#: init/job.c:1395
 msgid "Failed to spawn process"
 msgstr ""
 
-#: init/job.c:1150
+#: init/job.c:1404
 #, c-format
-msgid "Active %s process (%d)"
+msgid "Active %s %s process (%d)"
 msgstr ""
 
-#: init/job.c:1205
+#: init/job.c:1458
 #, c-format
-msgid "Sending TERM signal to %s process (%d)"
+msgid "Sending TERM signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job.c:1213
+#: init/job.c:1466
 #, c-format
-msgid "Failed to send TERM signal to %s process (%d): %s"
+msgid "Failed to send TERM signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job.c:1248
+#: init/job.c:1505
 #, c-format
-msgid "Sending KILL signal to %s process (%d)"
+msgid "Sending KILL signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job.c:1256
+#: init/job.c:1513
 #, c-format
-msgid "Failed to send KILL signal to %s process (%d): %s"
+msgid "Failed to send KILL signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job.c:1312
+#: init/job.c:1561
 #, c-format
-msgid "%s process (%d) killed by %s signal"
+msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job.c:1315
+#: init/job.c:1564
 #, c-format
-msgid "%s process (%d) killed by signal %d"
+msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job.c:1322
+#: init/job.c:1574
 #, c-format
-msgid "%s process (%d) terminated with status %d"
+msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job.c:1325
+#: init/job.c:1577
 #, c-format
-msgid "%s process (%d) exited normally"
+msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job.c:1394
+#: init/job.c:1617
 #, c-format
-msgid "%s process ended, respawning"
+msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job.c:1583
+#: init/job.c:1873
 #, c-format
 msgid "System has stalled, generating %s event"
 msgstr ""
 
-#: init/main.c:105
+#: init/main.c:124
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:107
+#: init/main.c:126
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:117 util/initctl.c:203 compat/sysv/reboot.c:203
+#: init/main.c:136 util/initctl.c:365 compat/sysv/reboot.c:203
 #: compat/sysv/shutdown.c:331 compat/sysv/telinit.c:91
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:126
+#: init/main.c:145
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:135
+#: init/main.c:154
 msgid "Unable to open control socket"
 msgstr ""
 
-#: init/main.c:147
+#: init/main.c:166
 msgid "Error parsing configuration"
 msgstr ""
 
-#: init/main.c:372
+#: init/main.c:400
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:376
+#: init/main.c:404
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:430
+#: init/main.c:435 init/main.c:562
+#, c-format
+msgid "Failed to re-execute %s: %s"
+msgstr ""
+
+#: init/main.c:509
 msgid "Event queue resumed"
 msgstr ""
 
-#: init/main.c:433
+#: init/main.c:512
 msgid "Event queue paused"
 msgstr ""
 
-#: init/main.c:457
+#: init/main.c:537
 #, c-format
 msgid "Re-executing %s"
-msgstr ""
-
-#: init/main.c:473
-#, c-format
-msgid "Failed to re-execute %s: %s"
 msgstr ""
 
 #: init/process.c:159
@@ -464,101 +521,239 @@ msgstr ""
 msgid "Unable to execute \"%s\" for %s: %s"
 msgstr ""
 
-#: init/process.c:330
+#: init/process.c:335
 #, c-format
 msgid "Unable to open logd socket: %s"
 msgstr ""
 
-#: init/process.c:351
+#: init/process.c:356
 #, c-format
 msgid "Unable to connect to logd: %s"
 msgstr ""
 
-#: init/process.c:363 init/process.c:371
+#: init/process.c:368 init/process.c:376
 #, c-format
 msgid "Unable to send name to logd: %s"
 msgstr ""
 
-#: init/process.c:404
+#: init/process.c:409
 #, c-format
 msgid "Failed to open console: %s"
 msgstr ""
 
-#: util/events.c:118
+#: util/initctl.c:395 compat/sysv/shutdown.c:526 compat/sysv/telinit.c:138
 #, c-format
-msgid "%s: missing event name\n"
+msgid "Unable to send message: %s"
 msgstr ""
 
-#: util/events.c:168 util/events.c:278 util/jobs.c:123 util/jobs.c:253
-#: util/jobs.c:311
+#: util/initctl.c:446
 #, c-format
-msgid "Communication error: %s"
+msgid "Unable to receive message: %s"
 msgstr ""
 
-#: util/events.c:373 util/jobs.c:351
+#: util/initctl.c:463
 #, c-format
-msgid "%s (%s) %s, process %d"
+msgid "Unable to handle message: %s"
 msgstr ""
 
-#: util/events.c:375 util/jobs.c:353
+#: util/initctl.c:533
 #, c-format
-msgid "%s (%s) %s"
+msgid "%s (instance)"
 msgstr ""
 
-#: util/events.c:415
+#: util/initctl.c:604
+#, c-format
+msgid "%s, process %d"
+msgstr ""
+
+#: util/initctl.c:606
+#, c-format
+msgid "%s, (main) process %d"
+msgstr ""
+
+#: util/initctl.c:619
+#, c-format
+msgid "\t%s process %d"
+msgstr ""
+
+#: util/initctl.c:730
+#, c-format
+msgid "%s: goal changed"
+msgstr ""
+
+#: util/initctl.c:792
+#, c-format
+msgid "%s %s process killed by %s signal"
+msgstr ""
+
+#: util/initctl.c:795
+#, c-format
+msgid "%s %s process killed by signal %d"
+msgstr ""
+
+#: util/initctl.c:800
+#, c-format
+msgid "%s %s process terminated with status %d"
+msgstr ""
+
+#: util/initctl.c:889
+#, c-format
+msgid "No jobs matching `%s'"
+msgstr ""
+
+#: util/initctl.c:893
+msgid "No jobs registered"
+msgstr ""
+
+#: util/initctl.c:1225
+#, c-format
+msgid "Unknown job: %s"
+msgstr ""
+
+#: util/initctl.c:1227
+#, c-format
+msgid "Unknown job: #%d"
+msgstr ""
+
+#: util/initctl.c:1270
+#, c-format
+msgid "Invalid job: %s"
+msgstr ""
+
+#: util/initctl.c:1313
+#, c-format
+msgid "Job not changed: %s"
+msgstr ""
+
+#: util/initctl.c:1461
 #, c-format
 msgid "%s event failed"
 msgstr ""
 
-#: util/initctl.c:126
+#: util/initctl.c:1580 util/initctl.c:1617 util/initctl.c:1670
+#: util/initctl.c:1707 util/initctl.c:1760
+#, c-format
+msgid "%s: invalid job id: %s\n"
+msgstr ""
+
+#: util/initctl.c:1602 util/initctl.c:1692 util/initctl.c:1748
+#, c-format
+msgid "%s: missing job name\n"
+msgstr ""
+
+#: util/initctl.c:1825
+#, c-format
+msgid "%s: missing event name\n"
+msgstr ""
+
+#: util/initctl.c:1929
+#, c-format
+msgid "%s: missing priority\n"
+msgstr ""
+
+#: util/initctl.c:1947
+#, c-format
+msgid "%s: invalid priority\n"
+msgstr ""
+
+#: util/initctl.c:1966
+msgid "destination process"
+msgstr ""
+
+#: util/initctl.c:1979 util/initctl.c:1995 util/initctl.c:2011
+msgid "arguments are job ids, instead of names"
+msgstr ""
+
+#: util/initctl.c:1981 util/initctl.c:1997 util/initctl.c:2013
+#: util/initctl.c:2025 util/initctl.c:2053
+msgid "show job ids, as well as names"
+msgstr ""
+
+#: util/initctl.c:1983
+msgid "do not wait for job to start before exiting"
+msgstr ""
+
+#: util/initctl.c:1999
+msgid "do not wait for job to stop before exiting"
+msgstr ""
+
+#: util/initctl.c:2037
+msgid "show job and event ids, as well as names"
+msgstr ""
+
+#: util/initctl.c:2039
+msgid "do not wait for event to finish before exiting"
+msgstr ""
+
+#: util/initctl.c:2041
+msgid "set environment variable in jobs changed by this event"
+msgstr ""
+
+#: util/initctl.c:2065
+msgid "show event ids, as well as names"
+msgstr ""
+
+#: util/initctl.c:2095
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:133
+#: util/initctl.c:2102
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:141 util/initctl.c:146 util/initctl.c:151
+#: util/initctl.c:2110 util/initctl.c:2117 util/initctl.c:2124
 msgid "JOB..."
 msgstr ""
 
-#: util/initctl.c:142
+#: util/initctl.c:2111
 msgid "Start jobs."
 msgstr ""
 
-#: util/initctl.c:143
-msgid "JOB is one or more job names that are to be started."
+#: util/initctl.c:2112
+msgid ""
+"JOB is one or more job names that are to be started.\n"
+"\n"
+"Alternatively if --by-id is given, JOB is one or more numeric job ids "
+"uniquely identifying a particular instance of a job."
 msgstr ""
 
-#: util/initctl.c:147
+#: util/initctl.c:2118
 msgid "Stop jobs."
 msgstr ""
 
-#: util/initctl.c:148
-msgid "JOB is one or more job names that are to be stopped."
+#: util/initctl.c:2119
+msgid ""
+"JOB is one or more job names that are to be stopped.\n"
+"\n"
+"Alternatively if --by-id is given, JOB is one or more numeric job ids "
+"uniquely identifying a particular instance of a job."
 msgstr ""
 
-#: util/initctl.c:152
+#: util/initctl.c:2125
 msgid "Query status of jobs."
 msgstr ""
 
-#: util/initctl.c:153
-msgid "JOB is one or more job names that are to be queried."
+#: util/initctl.c:2126
+msgid ""
+"JOB is one or more job names that are to be queried.\n"
+"\n"
+"Alternatively if --by-id is given, JOB is one or more numeric job ids "
+"uniquely identifying a particular instance of a job."
 msgstr ""
 
-#: util/initctl.c:157
+#: util/initctl.c:2132
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:161
+#: util/initctl.c:2136
 msgid "EVENT [ARG]..."
 msgstr ""
 
-#: util/initctl.c:162
+#: util/initctl.c:2137
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:163
+#: util/initctl.c:2138
 msgid ""
 "EVENT is the name of an event the init daemon should emit, which may have "
 "zero or more arguments specified by ARG.  These may be matched in the job "
@@ -569,31 +764,36 @@ msgid ""
 "taken from the environment or ignored if not present there."
 msgstr ""
 
-#: util/initctl.c:173
-msgid "EVENT"
-msgstr ""
-
-#: util/initctl.c:179
+#: util/initctl.c:2149
 msgid "Receive notification of job state changes."
 msgstr ""
 
-#: util/initctl.c:184
+#: util/initctl.c:2154
 msgid "Receive notification of emitted events."
 msgstr ""
 
-#: util/initctl.c:213 compat/sysv/shutdown.c:489 compat/sysv/telinit.c:128
-#, c-format
-msgid "Unable to establish control socket: %s"
+#: util/initctl.c:2159
+msgid "Request the version of the init daemon."
 msgstr ""
 
-#: util/jobs.c:114
-#, c-format
-msgid "%s: missing job name\n"
+#: util/initctl.c:2162
+msgid "PRIORITY"
 msgstr ""
 
-#: util/jobs.c:385
-#, c-format
-msgid "unknown job: %s"
+#: util/initctl.c:2163
+msgid "Change the minimum priority of log messages from the init daemon"
+msgstr ""
+
+#: util/initctl.c:2165
+msgid ""
+"PRIORITY may be one of `debug' (messages useful for debugging upstart are "
+"logged, equivalent to --debug on kernel command-line); `info' (messages "
+"about job goal and state changes, as well as event emissions are logged, "
+"equivalent to --verbose on the kernel command-line); "
+"`message' (informational and debugging messages are suppressed, the "
+"default); `warn' (ordinary messages are suppressed whilst still logging "
+"warnings and errors); `error' (only errors are logged, equivalent to --quiet "
+"on the kernel command-line) or `fatal' (only fatal errors are logged)."
 msgstr ""
 
 #: compat/sysv/reboot.c:140
@@ -825,9 +1025,9 @@ msgstr ""
 msgid "Unable to save pid to %s"
 msgstr ""
 
-#: compat/sysv/shutdown.c:526 compat/sysv/telinit.c:138
+#: compat/sysv/shutdown.c:489 compat/sysv/telinit.c:128
 #, c-format
-msgid "Unable to send message: %s"
+msgid "Unable to establish control socket: %s"
 msgstr ""
 
 #: compat/sysv/shutdown.c:550

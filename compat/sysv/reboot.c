@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -200,7 +200,7 @@ main (int   argc,
 	/* Check we're root */
 	setuid (geteuid ());
 	if (getuid ()) {
-		nih_error (_("Need to be root"));
+		nih_fatal (_("Need to be root"));
 		exit (1);
 	}
 
@@ -240,7 +240,7 @@ main (int   argc,
 		nih_info (_("Calling shutdown"));
 		execv (args[0], args);
 
-		nih_error (_("Unable to execute shutdown: %s"),
+		nih_fatal (_("Unable to execute shutdown: %s"),
 			   strerror (errno));
 		exit (1);
 	}

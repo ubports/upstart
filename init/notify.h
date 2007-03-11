@@ -34,7 +34,7 @@
  *
  * Types of changes we notify subscribed process about.
  **/
-typedef enum {
+typedef enum notify_event {
 	NOTIFY_JOB,
 	NOTIFY_EVENT
 } NotifyEvent;
@@ -86,6 +86,8 @@ NotifySubscription *notify_subscription_find (pid_t pid, NotifyEvent type,
 					      const void *ptr);
 
 void                notify_job               (Job *job);
+void                notify_job_event         (Job *job);
+void                notify_job_finished      (Job *job);
 void                notify_event             (EventEmission *emission);
 void                notify_event_finished    (EventEmission *emission);
 

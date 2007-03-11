@@ -40,7 +40,7 @@ digraph {
 	waiting -> starting [color=green];
 	waiting -> deleted [color=red];
 	starting -> pre_start [color=green];
-	starting -> waiting [color=red];
+	starting -> emit_stopped [color=red];
 	pre_start -> spawned [color=green];
 	pre_start -> stopping [color=red];
 	spawned -> post_start [color=green];

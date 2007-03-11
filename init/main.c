@@ -65,9 +65,18 @@ static void reset_console   (void);
 static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
+static void pwr_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
-static void term_handler    (const char *prog, NihSignal *signal);
+static void term_handler    (void *data, NihSignal *signal);
 
+
+/**
+ * argv0:
+ *
+ * Path to program executed, used for re-executing the init binary from the
+ * same location we were executed from.
+ **/
+static const char *argv0 = NULL;
 
 /**
  * restart:
@@ -77,6 +86,14 @@ static void term_handler    (const char *prog, NihSignal *signal);
  **/
 static int restart = FALSE;
 
+/**
+ * rescue:
+ *
+ * This is set to TRUE if we're being re-exec'd by an existing init process
+ * that has crashed.
+ **/
+static int rescue = FALSE;
+
 
 /**
  * options:
@@ -85,6 +102,7 @@ static int restart = FALSE;
  **/
 static NihOption options[] = {
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+	{ 0, "rescue", NULL, NULL, NULL, &rescue, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -100,7 +118,8 @@ main (int   argc,
 	char **args;
 	int    ret;
 
-	nih_main_init (argv[0]);
+	argv0 = argv[0];
+	nih_main_init (argv0);
 
 	nih_option_set_synopsis (_("Process management daemon."));
 	nih_option_set_help (
@@ -114,7 +133,7 @@ main (int   argc,
 
 	/* Check we're root */
 	if (getuid ()) {
-		nih_error (_("Need to be root"));
+		nih_fatal (_("Need to be root"));
 		exit (1);
 	}
 
@@ -123,7 +142,7 @@ main (int   argc,
 		execv (TELINIT, argv);
 		/* Ignore failure, probably just that telinit doesn't exist */
 
-		nih_error (_("Not being executed as init"));
+		nih_fatal (_("Not being executed as init"));
 		exit (1);
 	}
 
@@ -132,7 +151,7 @@ main (int   argc,
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s: %s", _("Unable to open control socket"),
+		nih_fatal ("%s: %s", _("Unable to open control socket"),
 			   err->message);
 		nih_free (err);
 
@@ -140,11 +159,11 @@ main (int   argc,
 	}
 
 	/* Read configuration */
-	if (cfg_watch_dir (CFG_DIR) < 0) {
+	if (cfg_watch_dir (CFG_DIR, NULL) == (void *)-1) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s: %s", _("Error parsing configuration"),
+		nih_fatal ("%s: %s", _("Error parsing configuration"),
 			   err->message);
 		nih_free (err);
 
@@ -192,7 +211,7 @@ main (int   argc,
 
 	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
 		nih_free (nih_error_get ());
-	if (! restart)
+	if (! (restart || rescue))
 		reset_console ();
 
 	/* Set the PATH environment variable */
@@ -203,7 +222,7 @@ main (int   argc,
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
 	 */
-	if (! restart)
+	if (! (restart || rescue))
 		nih_signal_reset ();
 
 	nih_signal_set_handler (SIGCHLD,  nih_signal_handler);
@@ -214,6 +233,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
 	nih_signal_set_handler (SIGINT,   nih_signal_handler);
 	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
+	nih_signal_set_handler (SIGPWR,   nih_signal_handler);
 	nih_signal_set_handler (SIGSEGV,  crash_handler);
 	nih_signal_set_handler (SIGABRT,  crash_handler);
 
@@ -234,10 +254,13 @@ main (int   argc,
 		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
 						  kbd_handler, NULL));
 
+	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
+	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
+
 	/* SIGTERM instructs us to re-exec ourselves */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
 					  (NihSignalHandler)term_handler,
-					  argv[0]));
+					  NULL));
 
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
@@ -255,7 +278,7 @@ main (int   argc,
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! restart) {
+	if (! (restart || rescue)) {
 		event_emit (STARTUP_EVENT, NULL, NULL);
 	} else {
 		sigset_t mask;
@@ -329,7 +352,12 @@ reset_console (void)
 static void
 crash_handler (int signum)
 {
-	pid_t pid;
+	NihError   *err;
+	const char *loglevel = NULL;
+	sigset_t    mask, oldmask;
+	pid_t       pid;
+
+	nih_assert (argv0 != NULL);
 
 	pid = fork ();
 	if (pid == 0) {
@@ -369,14 +397,49 @@ crash_handler (int signum)
 		/* Wait for the core to be generated */
 		waitpid (pid, NULL, 0);
 
-		nih_error (_("Caught %s, core dumped"),
+		nih_fatal (_("Caught %s, core dumped"),
 			   (signum == SIGSEGV
 			    ? "segmentation fault" : "abort"));
 	} else {
-		nih_error (_("Caught %s, unable to dump core"),
+		nih_fatal (_("Caught %s, unable to dump core"),
 			   (signum == SIGSEGV
 			    ? "segmentation fault" : "abort"));
 	}
+
+	/* There's no point carrying on from here; our state is almost
+	 * likely in tatters, so we'd just end up core-dumping again and
+	 * writing over the one that contains the real bug.  We can't
+	 * even re-exec properly, since we'd probably core dump while
+	 * trying to transfer the state.
+	 *
+	 * So we just do the only thing we can, block out all signals
+	 * and try and start again from scratch.
+	 */
+	sigfillset (&mask);
+	sigprocmask (SIG_BLOCK, &mask, &oldmask);
+
+	/* Argument list */
+	if (nih_log_priority <= NIH_LOG_DEBUG) {
+		loglevel = "--debug";
+	} else if (nih_log_priority <= NIH_LOG_INFO) {
+		loglevel = "--verbose";
+	} else if (nih_log_priority >= NIH_LOG_ERROR) {
+		loglevel = "--error";
+	} else {
+		loglevel = NULL;
+	}
+	execl (argv0, argv0, "--rescue", loglevel, NULL);
+	nih_error_raise_system ();
+
+	err = nih_error_get ();
+	nih_fatal (_("Failed to re-execute %s: %s"),
+		   "/sbin/init", err->message);
+	nih_free (err);
+
+	sigprocmask (SIG_SETMASK, &oldmask, NULL);
+
+	/* Oh Bugger */
+	exit (1);
 }
 
 /**
@@ -412,6 +475,22 @@ kbd_handler (void      *data,
 }
 
 /**
+ * pwr_handler:
+ * @data: unused,
+ * @signal: signal that called this handler.
+ *
+ * Handle having recieved the SIGPWR signal, sent to us when powstatd
+ * changes the /etc/powerstatus file.  We just generate a
+ * power-status-changed event and jobs read the file.
+ **/
+static void
+pwr_handler (void      *data,
+	     NihSignal *signal)
+{
+	event_emit (PWRSTATUS_EVENT, NULL, NULL);
+}
+
+/**
  * stop_handler:
  * @data: unused,
  * @signal: signal caught.
@@ -438,18 +517,19 @@ stop_handler (void      *data,
 
 /**
  * term_handler:
- * @argv0: program to run,
+ * @data: unused,
  * @signal: signal caught.
  *
  * This is called when we receive the TERM signal, which instructs us
  * to reexec ourselves.
  **/
 static void
-term_handler (const char *argv0,
-	      NihSignal  *signal)
+term_handler (void      *data,
+	      NihSignal *signal)
 {
-	NihError *err;
-	sigset_t  mask, oldmask;
+	NihError   *err;
+	const char *loglevel;
+	sigset_t    mask, oldmask;
 
 	nih_assert (argv0 != NULL);
 	nih_assert (signal != NULL);
@@ -466,7 +546,16 @@ term_handler (const char *argv0,
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
 	/* Argument list */
-	execl (argv0, argv0, "--restart", NULL);
+	if (nih_log_priority <= NIH_LOG_DEBUG) {
+		loglevel = "--debug";
+	} else if (nih_log_priority <= NIH_LOG_INFO) {
+		loglevel = "--verbose";
+	} else if (nih_log_priority >= NIH_LOG_ERROR) {
+		loglevel = "--error";
+	} else {
+		loglevel = NULL;
+	}
+	execl (argv0, argv0, "--restart", loglevel, NULL);
 	nih_error_raise_system ();
 
 	err = nih_error_get ();

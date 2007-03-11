@@ -33,7 +33,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 sbin_PROGRAMS = initctl$(EXEEXT)
-TESTS = test_jobs$(EXEEXT) test_events$(EXEEXT)
+TESTS = test_initctl$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1)
 subdir = util
 DIST_COMMON = $(dist_man_MANS) $(srcdir)/Makefile.am \
@@ -62,30 +62,23 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
-am__EXEEXT_1 = test_jobs$(EXEEXT) test_events$(EXEEXT)
+am__EXEEXT_1 = test_initctl$(EXEEXT)
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man8dir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
-am_initctl_OBJECTS = initctl.$(OBJEXT) jobs.$(OBJEXT) events.$(OBJEXT)
+am_initctl_OBJECTS = initctl.$(OBJEXT)
 initctl_OBJECTS = $(am_initctl_OBJECTS)
 initctl_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
 initctl_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(initctl_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am_test_events_OBJECTS = test_events.$(OBJEXT)
-test_events_OBJECTS = $(am_test_events_OBJECTS)
-test_events_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la \
-	events.o
-test_events_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(test_events_LDFLAGS) $(LDFLAGS) -o $@
-am_test_jobs_OBJECTS = test_jobs.$(OBJEXT)
-test_jobs_OBJECTS = $(am_test_jobs_OBJECTS)
-test_jobs_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la \
-	jobs.o
-test_jobs_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(test_jobs_LDFLAGS) $(LDFLAGS) -o $@
+am_test_initctl_OBJECTS = test_initctl-test_initctl.$(OBJEXT) \
+	test_initctl-initctl.$(OBJEXT)
+test_initctl_OBJECTS = $(am_test_initctl_OBJECTS)
+test_initctl_DEPENDENCIES = ../nih/libnih.la ../upstart/libupstart.la
+test_initctl_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_initctl_CFLAGS) \
+	$(CFLAGS) $(test_initctl_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -98,10 +91,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(initctl_SOURCES) $(test_events_SOURCES) \
-	$(test_jobs_SOURCES)
-DIST_SOURCES = $(initctl_SOURCES) $(test_events_SOURCES) \
-	$(test_jobs_SOURCES)
+SOURCES = $(initctl_SOURCES) $(test_initctl_SOURCES)
+DIST_SOURCES = $(initctl_SOURCES) $(test_initctl_SOURCES)
 man8dir = $(mandir)/man8
 NROFF = nroff
 MANS = $(dist_man_MANS)
@@ -263,21 +254,17 @@ dist_man_MANS = \
 	man/initctl.8
 
 initctl_SOURCES = \
-	initctl.c initctl.h \
-	jobs.c jobs.h \
-	events.c events.h
+	initctl.c
 
 initctl_LDFLAGS = -static
 initctl_LDADD = \
 	../nih/libnih.la \
 	../upstart/libupstart.la
 
-test_jobs_SOURCES = tests/test_jobs.c
-test_jobs_LDFLAGS = -static
-test_jobs_LDADD = ../nih/libnih.la ../upstart/libupstart.la jobs.o
-test_events_SOURCES = tests/test_events.c
-test_events_LDFLAGS = -static
-test_events_LDADD = ../nih/libnih.la ../upstart/libupstart.la events.o
+test_initctl_SOURCES = tests/test_initctl.c initctl.c
+test_initctl_CFLAGS = -DTEST
+test_initctl_LDFLAGS = -static
+test_initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 all: all-am
 
 .SUFFIXES:
@@ -349,12 +336,9 @@ clean-sbinPROGRAMS:
 initctl$(EXEEXT): $(initctl_OBJECTS) $(initctl_DEPENDENCIES) 
 	@rm -f initctl$(EXEEXT)
 	$(initctl_LINK) $(initctl_OBJECTS) $(initctl_LDADD) $(LIBS)
-test_events$(EXEEXT): $(test_events_OBJECTS) $(test_events_DEPENDENCIES) 
-	@rm -f test_events$(EXEEXT)
-	$(test_events_LINK) $(test_events_OBJECTS) $(test_events_LDADD) $(LIBS)
-test_jobs$(EXEEXT): $(test_jobs_OBJECTS) $(test_jobs_DEPENDENCIES) 
-	@rm -f test_jobs$(EXEEXT)
-	$(test_jobs_LINK) $(test_jobs_OBJECTS) $(test_jobs_LDADD) $(LIBS)
+test_initctl$(EXEEXT): $(test_initctl_OBJECTS) $(test_initctl_DEPENDENCIES) 
+	@rm -f test_initctl$(EXEEXT)
+	$(test_initctl_LINK) $(test_initctl_OBJECTS) $(test_initctl_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -362,11 +346,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/events.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/initctl.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jobs.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_events.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_jobs.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_initctl-initctl.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_initctl-test_initctl.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -389,33 +371,33 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
-test_events.o: tests/test_events.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_events.o -MD -MP -MF $(DEPDIR)/test_events.Tpo -c -o test_events.o `test -f 'tests/test_events.c' || echo '$(srcdir)/'`tests/test_events.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_events.Tpo $(DEPDIR)/test_events.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_events.c' object='test_events.o' libtool=no @AMDEPBACKSLASH@
+test_initctl-test_initctl.o: tests/test_initctl.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-test_initctl.o -MD -MP -MF $(DEPDIR)/test_initctl-test_initctl.Tpo -c -o test_initctl-test_initctl.o `test -f 'tests/test_initctl.c' || echo '$(srcdir)/'`tests/test_initctl.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_initctl-test_initctl.Tpo $(DEPDIR)/test_initctl-test_initctl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_initctl.c' object='test_initctl-test_initctl.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_events.o `test -f 'tests/test_events.c' || echo '$(srcdir)/'`tests/test_events.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-test_initctl.o `test -f 'tests/test_initctl.c' || echo '$(srcdir)/'`tests/test_initctl.c
 
-test_events.obj: tests/test_events.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_events.obj -MD -MP -MF $(DEPDIR)/test_events.Tpo -c -o test_events.obj `if test -f 'tests/test_events.c'; then $(CYGPATH_W) 'tests/test_events.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_events.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_events.Tpo $(DEPDIR)/test_events.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_events.c' object='test_events.obj' libtool=no @AMDEPBACKSLASH@
+test_initctl-test_initctl.obj: tests/test_initctl.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-test_initctl.obj -MD -MP -MF $(DEPDIR)/test_initctl-test_initctl.Tpo -c -o test_initctl-test_initctl.obj `if test -f 'tests/test_initctl.c'; then $(CYGPATH_W) 'tests/test_initctl.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_initctl.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_initctl-test_initctl.Tpo $(DEPDIR)/test_initctl-test_initctl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_initctl.c' object='test_initctl-test_initctl.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_events.obj `if test -f 'tests/test_events.c'; then $(CYGPATH_W) 'tests/test_events.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_events.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-test_initctl.obj `if test -f 'tests/test_initctl.c'; then $(CYGPATH_W) 'tests/test_initctl.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_initctl.c'; fi`
 
-test_jobs.o: tests/test_jobs.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_jobs.o -MD -MP -MF $(DEPDIR)/test_jobs.Tpo -c -o test_jobs.o `test -f 'tests/test_jobs.c' || echo '$(srcdir)/'`tests/test_jobs.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_jobs.Tpo $(DEPDIR)/test_jobs.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_jobs.c' object='test_jobs.o' libtool=no @AMDEPBACKSLASH@
+test_initctl-initctl.o: initctl.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-initctl.o -MD -MP -MF $(DEPDIR)/test_initctl-initctl.Tpo -c -o test_initctl-initctl.o `test -f 'initctl.c' || echo '$(srcdir)/'`initctl.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_initctl-initctl.Tpo $(DEPDIR)/test_initctl-initctl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='initctl.c' object='test_initctl-initctl.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_jobs.o `test -f 'tests/test_jobs.c' || echo '$(srcdir)/'`tests/test_jobs.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-initctl.o `test -f 'initctl.c' || echo '$(srcdir)/'`initctl.c
 
-test_jobs.obj: tests/test_jobs.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_jobs.obj -MD -MP -MF $(DEPDIR)/test_jobs.Tpo -c -o test_jobs.obj `if test -f 'tests/test_jobs.c'; then $(CYGPATH_W) 'tests/test_jobs.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_jobs.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_jobs.Tpo $(DEPDIR)/test_jobs.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_jobs.c' object='test_jobs.obj' libtool=no @AMDEPBACKSLASH@
+test_initctl-initctl.obj: initctl.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-initctl.obj -MD -MP -MF $(DEPDIR)/test_initctl-initctl.Tpo -c -o test_initctl-initctl.obj `if test -f 'initctl.c'; then $(CYGPATH_W) 'initctl.c'; else $(CYGPATH_W) '$(srcdir)/initctl.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_initctl-initctl.Tpo $(DEPDIR)/test_initctl-initctl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='initctl.c' object='test_initctl-initctl.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_jobs.obj `if test -f 'tests/test_jobs.c'; then $(CYGPATH_W) 'tests/test_jobs.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_jobs.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-initctl.obj `if test -f 'initctl.c'; then $(CYGPATH_W) 'initctl.c'; else $(CYGPATH_W) '$(srcdir)/initctl.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
