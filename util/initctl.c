@@ -76,18 +76,18 @@ typedef struct proc_info {
  **/
 typedef struct job_info JobInfo;
 struct job_info {
-	uint32_t  id;
-	char      *name;
-	int        instance;
+	unsigned int  id;
+	char         *name;
+	int           instance;
 
-	JobGoal    goal;
-	JobState   state;
+	JobGoal       goal;
+	JobState      state;
 
-	ProcInfo  *procs;
-	size_t     procs_sz;
+	ProcInfo     *procs;
+	size_t        procs_sz;
 
-	JobInfo  **jobs;
-	size_t     jobs_sz;
+	JobInfo     **jobs;
+	size_t        jobs_sz;
 };
 
 
@@ -96,7 +96,7 @@ static int   initctl_send    (UpstartMessageType type, ...);
 static int   initctl_recv    (int responses);
 static int   job_info_cmp    (const JobInfo **info1, const JobInfo **info2);
 static void  job_info_output (const JobInfo *info, int with_name);
-static char *output_name     (uint32_t id, const char *name);
+static char *output_name     (unsigned int id, const char *name);
 
 /* Prototypes of response handler functions */
 static int handle_version          (void *data, pid_t pid,
@@ -104,10 +104,10 @@ static int handle_version          (void *data, pid_t pid,
 				    const char *version);
 static int handle_job              (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name);
+				    unsigned int id, const char *name);
 static int handle_job_finished     (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name,
+				    unsigned int id, const char *name,
 				    int failed, ProcessType failed_process,
 				    int exit_status);
 static int handle_job_list         (void *data, pid_t pid,
@@ -118,40 +118,41 @@ static int handle_job_list_end     (void *data, pid_t pid,
 				    const char *pattern);
 static int handle_job_instance     (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, char *name);
+				    unsigned int id, char *name);
 static int handle_job_instance_end (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name);
+				    unsigned int id, const char *name);
 static int handle_job_status       (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, char *name,
+				    unsigned int id, char *name,
 				    JobGoal goal, JobState state);
 static int handle_job_process      (void *data, pid_t pid,
 				    UpstartMessageType type,
 				    ProcessType process, pid_t process_pid);
 static int handle_job_status_end   (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name,
+				    unsigned int id, const char *name,
 				    JobGoal goal, JobState state);
 static int handle_job_unknown      (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    const char *name, uint32_t id);
+				    const char *name, unsigned int id);
 static int handle_job_invalid      (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name);
+				    unsigned int id, const char *name);
 static int handle_job_unchanged    (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name);
+				    unsigned int id, const char *name);
 static int  handle_event           (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, const char *name,
+				    unsigned int id, const char *name,
 				    char * const *args, char * const *env);
 static int  handle_event_caused    (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id);
+				    unsigned int id);
 static int  handle_event_finished  (void *data, pid_t pid,
 				    UpstartMessageType type,
-				    uint32_t id, int failed, const char *name,
+				    unsigned int id, int failed,
+				    const char *name,
 				    char * const *args, char * const *env);
 static int  handle_unknown_message (void *data, pid_t pid,
 				    UpstartMessageType type, ...);
@@ -549,7 +550,7 @@ job_info_output (const JobInfo *info,
 					       job_state_name (info->state)));
 		nih_free (name);
 	} else if (show_ids) {
-		NIH_MUST (state = nih_sprintf (NULL, "    [#%zu] (%s) %s",
+		NIH_MUST (state = nih_sprintf (NULL, "    [#%u] (%s) %s",
 					       info->id,
 					       job_goal_name (info->goal),
 					       job_state_name (info->state)));
@@ -633,15 +634,15 @@ job_info_output (const JobInfo *info,
  * Returns: newly allocated string.
  **/
 static char *
-output_name (uint32_t    id,
-	     const char *name)
+output_name (unsigned int  id,
+	     const char   *name)
 {
 	char *str;
 
 	nih_assert (name != NULL);
 
 	if (show_ids) {
-		NIH_MUST (str = nih_sprintf (NULL, "%s [#%zu]", name, id));
+		NIH_MUST (str = nih_sprintf (NULL, "%s [#%u]", name, id));
 	} else {
 		NIH_MUST (str = nih_strdup (NULL, name));
 	}
@@ -710,7 +711,7 @@ static int
 handle_job (void               *data,
 	    pid_t               pid,
 	    UpstartMessageType  type,
-	    uint32_t            id,
+	    unsigned int        id,
 	    const char         *name)
 {
 	char *str;
@@ -763,7 +764,7 @@ static int
 handle_job_finished (void               *data,
 		     pid_t               pid,
 		     UpstartMessageType  type,
-		     uint32_t            id,
+		     unsigned int        id,
 		     const char         *name,
 		     int                 failed,
 		     ProcessType         failed_process,
@@ -928,7 +929,7 @@ static int
 handle_job_instance (void               *data,
 		     pid_t               pid,
 		     UpstartMessageType  type,
-		     uint32_t            id,
+		     unsigned int        id,
 		     char               *name)
 {
 	nih_assert (pid > 0);
@@ -983,7 +984,7 @@ static int
 handle_job_instance_end (void               *data,
 			 pid_t               pid,
 			 UpstartMessageType  type,
-			 uint32_t            id,
+			 unsigned int        id,
 			 const char         *name)
 {
 	nih_assert (pid > 0);
@@ -1040,7 +1041,7 @@ static int
 handle_job_status (void               *data,
 		   pid_t               pid,
 		   UpstartMessageType  type,
-		   uint32_t            id,
+		   unsigned int        id,
 		   char               *name,
 		   JobGoal             goal,
 		   JobState            state)
@@ -1145,7 +1146,7 @@ static int
 handle_job_status_end (void               *data,
 		       pid_t               pid,
 		       UpstartMessageType  type,
-		       uint32_t            id,
+		       unsigned int        id,
 		       const char         *name,
 		       JobGoal             goal,
 		       JobState            state)
@@ -1211,7 +1212,7 @@ handle_job_unknown (void               *data,
 		    pid_t               pid,
 		    UpstartMessageType  type,
 		    const char         *name,
-		    uint32_t            id)
+		    unsigned int        id)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_UNKNOWN);
@@ -1252,7 +1253,7 @@ static int
 handle_job_invalid (void               *data,
 		    pid_t               pid,
 		    UpstartMessageType  type,
-		    uint32_t            id,
+		    unsigned int        id,
 		    const char         *name)
 {
 	char *str;
@@ -1295,7 +1296,7 @@ static int
 handle_job_unchanged (void               *data,
 		      pid_t               pid,
 		      UpstartMessageType  type,
-		      uint32_t            id,
+		      unsigned int        id,
 		      const char         *name)
 {
 	char *str;
@@ -1340,7 +1341,7 @@ static int
 handle_event (void               *data,
 	      pid_t               pid,
 	      UpstartMessageType  type,
-	      uint32_t            id,
+	      unsigned int        id,
 	      const char         *name,
 	      char * const *      args,
 	      char * const *      env)
@@ -1401,7 +1402,7 @@ static int
 handle_event_caused (void               *data,
 		     pid_t               pid,
 		     UpstartMessageType  type,
-		     uint32_t            id)
+		     unsigned int        id)
 {
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_EVENT_CAUSED);
@@ -1440,7 +1441,7 @@ static int
 handle_event_finished (void               *data,
 		       pid_t               pid,
 		       UpstartMessageType  type,
-		       uint32_t            id,
+		       unsigned int        id,
 		       int                 failed,
 		       const char         *name,
 		       char * const *      args,

@@ -1,5 +1,15 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (output_name): Use an unsigned int for the job id,
+	which means we can use ordinary %u for the printf argument.
+	(handle_job, handle_job_finished, handle_job_instance) 
+	(handle_job_instance_end, handle_job_status) 
+	(handle_job_status_end, handle_job_unknown, handle_job_invalid) 
+	(handle_job_unchanged, handle_event, handle_event_caused) 
+	(handle_event_finished): Change argument type of id from uint32_t
+	to unsigned int.
+	(job_info_output): Change output type of id from %zu to %u
+
 	* upstart/message.c (upstart_message_handle): Use unsigned int for
 	ids, rather than a fixed-width type.
 	* upstart/tests/test_message.c (my_handler): Use unsigned int for
