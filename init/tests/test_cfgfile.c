@@ -4961,14 +4961,6 @@ test_watch_dir (void)
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
 
-	/* Make sure we have inotify before performing these tests... */
-	fd[0] = inotify_init ();
-	if (fd[0] < 0) {
-		printf ("SKIP: inotify not available\n");
-		goto no_inotify;
-	}
-	close (fd[0]);
-
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
@@ -4998,6 +4990,14 @@ test_watch_dir (void)
 	fprintf (jf, "exec /bin/tool\n");
 	fclose (jf);
 
+
+	/* Make sure we have inotify before performing these tests... */
+	fd[0] = inotify_init ();
+	if (fd[0] < 0) {
+		printf ("SKIP: inotify not available\n");
+		goto no_inotify;
+	}
+	close (fd[0]);
 
 	/* Check that we can watch a configuration directory with inotify,
 	 * and that any existing job definitions are parsed.  The watch

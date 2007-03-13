@@ -1881,7 +1881,7 @@ cfg_watch_dir (const char *dirname,
 	/* Walk worked; but inotify didn't ... if this is for any other
 	 * reason than inotify simply being not supported, we warn about it.
 	 */
-	if (err->number != EOPNOTSUPP)
+	if (err->number != ENOSYS)
 		nih_error ("%s: %s: %s", dirname,
 			   _("Unable to watch configuration directory"),
 			   err->message);
