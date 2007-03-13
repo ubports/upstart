@@ -518,7 +518,7 @@ job_info_output (const JobInfo *info,
 		 int            with_name)
 {
 	ProcInfo *proc, *proc_main;
-	char     *name, *state;
+	char     *name = NULL, *state;
 	size_t    i;
 
 	nih_assert (info != NULL);
@@ -530,7 +530,7 @@ job_info_output (const JobInfo *info,
 	 * then present the instances on lines by themselves.
 	 */
 	if (info->instance) {
-		if (with_name) {
+		if (name) {
 			nih_message (_("%s (instance)"), name);
 			nih_free (name);
 		}
@@ -544,7 +544,7 @@ job_info_output (const JobInfo *info,
 	/* All non-instance jobs have a goal and state, so we always include
 	 * that in the line; appending it to the name, or a whitespace prefix
 	 */
-	if (with_name) {
+	if (name) {
 		NIH_MUST (state = nih_sprintf (NULL, "%s (%s) %s", name,
 					       job_goal_name (info->goal),
 					       job_state_name (info->state)));

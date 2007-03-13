@@ -1,5 +1,11 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (job_info_output): Restructure so gcc doesn't think
+	name can be used uninitialised.
+	* init/tests/test_cfgfile.c (test_watch_dir): Correct an error where
+	i wouldn't be initialised if we skipped the inotify tests.
+
+	* util/initctl.c (job_info_output): Restructure so gcc doesn't think
 	* init/process.c (process_setup_environment): job id fits inside
 	a %u now
 

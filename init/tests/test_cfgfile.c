@@ -4955,7 +4955,7 @@ test_watch_dir (void)
 	FILE     *jf;
 	fd_set    readfds, writefds, exceptfds;
 	char      dirname[PATH_MAX], filename[PATH_MAX];
-	int       fd[4096], i, nfds;
+	int       fd[4096], nfds, i = 0;
 
 	TEST_FUNCTION ("cfg_watch_dir");
 	TEST_FILENAME (dirname);
