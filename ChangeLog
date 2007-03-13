@@ -1,3 +1,19 @@
+2007-03-13  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/wire.c (upstart_push_int, upstart_pop_int): Send over the
+	wire using a plain old integer type, instead of a fixed width type;
+	there's no advantage to using the fixed-width type and we could hurt
+	ourselves if we tried running on ILP64.
+	(upstart_push_unsigned, upstart_pop_unsigned): Likewise use a plain
+	unsigned int over the wire.
+	(upstart_push_string, upstart_pop_string): Use an unsigned int for
+	the length of the string, technically this means that we silently
+	truncate any string that's greater than 4GB on 64-bit platforms;
+	it's either that or make the test cases harder (we did this before
+	anyway).
+	(upstart_push_header, upstart_pop_header): Type is always an unsigned
+	int (best conversion from an enum)
+
 2007-03-11  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.3.9

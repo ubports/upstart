@@ -58,7 +58,7 @@
  * Write an integer @value to the @message given.
  *
  * Integers are transmitted across the wire as a single 'i' byte indicating
- * an integer followed by a signed 32-bit value, in network byte order.
+ * an integer followed by a signed value, in network byte order.
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -70,7 +70,7 @@ int
 upstart_push_int (NihIoMessage *message,
 		  int           value)
 {
-	int32_t wire_value;
+	int wire_value;
 
 	nih_assert (message != NULL);
 
@@ -92,7 +92,7 @@ upstart_push_int (NihIoMessage *message,
  * in the integer pointed to by @value and removing it from the message.
  *
  * Integers are transmitted across the wire as a single 'i' byte indicating
- * an integer followed by a signed 32-bit value, in network byte order.
+ * an integer followed by a signed value, in network byte order.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -100,7 +100,7 @@ int
 upstart_pop_int (NihIoMessage *message,
 		 int          *value)
 {
-	int32_t wire_value;
+	int wire_value;
 
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
@@ -134,7 +134,7 @@ upstart_pop_int (NihIoMessage *message,
  * Write an unsigned @value to the @message given.
  *
  * Unsigneds are transmitted across the wire as a single 'u' byte indicating
- * an unsigned followed by a 32-bit value, in network byte order.
+ * an unsigned followed by an unsigned value, in network byte order.
  *
  * Failure to allocate memory can result in the buffer contents containing
  * part of a message; if this happens, the entire message buffer should be
@@ -146,7 +146,7 @@ int
 upstart_push_unsigned (NihIoMessage *message,
 		       unsigned int  value)
 {
-	uint32_t wire_value;
+	unsigned int wire_value;
 
 	nih_assert (message != NULL);
 
@@ -168,7 +168,7 @@ upstart_push_unsigned (NihIoMessage *message,
  * in the variable pointed to by @value and removing it from the message.
  *
  * Unsigneds are transmitted across the wire as a single 'u' byte indicating
- * an unsigned followed by a 32-bit value, in network byte order.
+ * an unsigned followed by an unsigned value, in network byte order.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -176,7 +176,7 @@ int
 upstart_pop_unsigned (NihIoMessage *message,
 		      unsigned int *value)
 {
-	uint32_t wire_value;
+	unsigned int wire_value;
 
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
@@ -210,7 +210,7 @@ upstart_pop_unsigned (NihIoMessage *message,
  * Write a string @value to the @message given.
  *
  * Strings are transmitted across the wire as a single 's' byte indicating
- * a string followed by an unsigned 32-bit value containing the length and
+ * a string followed by an unsigned value containing the length and
  * that number of bytes containing the string itself, without any NULL
  * terminator.
  *
@@ -228,7 +228,7 @@ int
 upstart_push_string (NihIoMessage *message,
 		     const char   *value)
 {
-	uint32_t wire_len;
+	unsigned int wire_len;
 
 	nih_assert (message != NULL);
 
@@ -256,7 +256,7 @@ upstart_push_string (NihIoMessage *message,
  * with nih_alloc and store it in the variable pointed to by @value,
  * removing it from the message.
  *
- * Strings are transmitted across the wire as an unsigned 32-bit value
+ * Strings are transmitted across the wire as an unsigned value
  * containing the length, followed by that number of bytes containing the
  * string itself, without any NULL terminator.
  *
@@ -277,8 +277,8 @@ upstart_pop_string (NihIoMessage  *message,
 		    const void    *parent,
 		    char         **value)
 {
-	uint32_t wire_length;
-	size_t   length;
+	unsigned int wire_length;
+	size_t       length;
 
 	nih_assert (message != NULL);
 	nih_assert (value != NULL);
@@ -443,7 +443,7 @@ upstart_pop_array (NihIoMessage   *message,
  * Write a header for a @type message to @message given.
  *
  * The message header consists of a "magic" string ("upstart\n") followed
- * by the message type transmitted as a signed 32-bit value in network
+ * by the message type transmitted as an unsigned value in network
  * byte order.
  *
  * Failure to allocate memory can result in the buffer contents containing
@@ -456,7 +456,7 @@ int
 upstart_push_header (NihIoMessage       *message,
 		     UpstartMessageType  type)
 {
-	int32_t wire_type;
+	unsigned int wire_type;
 
 	nih_assert (message != NULL);
 
@@ -481,7 +481,7 @@ upstart_push_header (NihIoMessage       *message,
  * message.
  *
  * The message header consists of a "magic" string ("upstart\n") followed
- * by the message type transmitted as a signed 32-bit value in network
+ * by the message type transmitted as an unsigned value in network
  * byte order.
  *
  * Returns: zero on success, negative value on error.
@@ -490,7 +490,7 @@ int
 upstart_pop_header (NihIoMessage       *message,
 		    UpstartMessageType *type)
 {
-	int32_t wire_type;
+	unsigned int wire_type;
 
 	nih_assert (message != NULL);
 	nih_assert (type != NULL);
