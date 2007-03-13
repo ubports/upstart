@@ -2982,6 +2982,11 @@ test_run_process (void)
 	nih_list_free (&em->event.entry);
 
 
+	if (stat ("/dev/fd", &statbuf) < 0) {
+		printf ("SKIP: no /dev/fd\n");
+		goto no_devfd;
+	}
+
 	/* Check that a particularly long script is instead invoked by
 	 * using the /dev/fd feature, with the shell script fed to the
 	 * child process by an NihIo structure.
@@ -3119,6 +3124,8 @@ test_run_process (void)
 	}
 
 	nih_list_free (&em->event.entry);
+no_devfd:
+	;
 }
 
 

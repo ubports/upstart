@@ -1,5 +1,8 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_run_process): Skip /dev/fd test cases
+	if that's not available.
+
 	* init/tests/test_control.c (test_log_priority): Make sure we know
 	that the message has been sent before calling the watcher.
 
