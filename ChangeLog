@@ -1,5 +1,24 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_query, control_job_start) 
+	(control_job_stop): Change type of id argument to unsigned int,
+	and call printf with %u to output it.
+	* init/tests/test_control.c (check_job, check_job_instance) 
+	(check_job_instance_end, check_job_status__waiting) 
+	(check_job_status_end__waiting, check_job_status__starting) 
+	(check_job_status_end__starting, check_job_status__running) 
+	(check_job_status_end__running, check_job_status__pre_stop) 
+	(check_job_status_end__pre_stop, check_job_status__stopping) 
+	(check_job_status_end__stopping, check_job_status__deleted) 
+	(check_job_status_end__deleted, check_job_unknown) 
+	(check_job_invalid, check_job_unchanged, check_event): Change
+	type of id arguments to unsigned int.
+	(check_list): Change type of id to unsigned int.
+	* init/tests/test_notify.c (check_job_status) 
+	(check_job_status_end, check_job_finished, check_event) 
+	(check_event_caused, check_event_finished): Change type of id
+	arguments to unsigned int.
+
 	* init/job.h (Job): Change the type of the id to unsigned int.
 	* init/job.c (job_next_id): Change ids to be unsigned ints, and now
 	we can just use %u in the nih_error call.

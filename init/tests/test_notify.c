@@ -241,7 +241,7 @@ static int
 check_job_status (void               *data,
 		  pid_t               pid,
 		  UpstartMessageType  type,
-		  uint32_t            id,
+		  unsigned int        id,
 		  const char         *name,
 		  JobGoal             goal,
 		  JobState            state)
@@ -277,7 +277,7 @@ static int
 check_job_status_end (void               *data,
 		      pid_t               pid,
 		      UpstartMessageType  type,
-		      uint32_t            id,
+		      unsigned int        id,
 		      const char         *name,
 		      JobGoal             goal,
 		      JobState            state)
@@ -297,7 +297,7 @@ static int
 check_job_finished (void               *data,
 		    pid_t               pid,
 		    UpstartMessageType  type,
-		    uint32_t            id,
+		    unsigned int        id,
 		    const char         *name,
 		    int                 failed,
 		    ProcessType         failed_process,
@@ -320,7 +320,7 @@ static int
 check_event (void               *data,
 	     pid_t               pid,
 	     UpstartMessageType  type,
-	     uint32_t            id,
+	     unsigned int        id,
 	     const char         *name,
 	     char * const       *args,
 	     char * const       *env)
@@ -350,7 +350,7 @@ static int
 check_event_caused (void               *data,
 		    pid_t               pid,
 		    UpstartMessageType  type,
-		    uint32_t            id)
+		    unsigned int        id)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_EVENT_CAUSED);
@@ -364,7 +364,7 @@ static int
 check_event_finished (void               *data,
 		      pid_t               pid,
 		      UpstartMessageType  type,
-		      uint32_t            id,
+		      unsigned int        id,
 		      int                 failed,
 		      const char         *name,
 		      char * const       *args,

@@ -59,13 +59,13 @@ static int  control_job_find           (void *data, pid_t pid,
 					const char *pattern);
 static int  control_job_query          (void *data, pid_t pid,
 					UpstartMessageType type,
-					const char *name, uint32_t id);
+					const char *name, unsigned int id);
 static int  control_job_start          (void *data, pid_t pid,
 					UpstartMessageType type,
-					const char *name, uint32_t id);
+					const char *name, unsigned int id);
 static int  control_job_stop           (void *data, pid_t pid,
 					UpstartMessageType type,
-					const char *name, uint32_t id);
+					const char *name, unsigned int id);
 static int  control_event_emit         (void *data, pid_t pid,
 					UpstartMessageType type,
 					const char *name,
@@ -458,7 +458,7 @@ control_job_query (void                *data,
 		   pid_t                pid,
 		   UpstartMessageType   type,
 		   const char          *name,
-		   uint32_t             id)
+		   unsigned int         id)
 {
 	NihIoMessage *reply;
 	Job          *job;
@@ -471,7 +471,7 @@ control_job_query (void                *data,
 
 		job = job_find_by_name (name);
 	} else {
-		nih_info (_("Control request for status of job #%zu"), id);
+		nih_info (_("Control request for status of job #%u"), id);
 
 		job = job_find_by_id (id);
 	}
@@ -516,7 +516,7 @@ control_job_start (void                *data,
 		   pid_t                pid,
 		   UpstartMessageType   type,
 		   const char          *name,
-		   uint32_t             id)
+		   unsigned int         id)
 {
 	NihIoMessage *reply;
 	Job          *job;
@@ -529,7 +529,7 @@ control_job_start (void                *data,
 
 		job = job_find_by_name (name);
 	} else {
-		nih_info (_("Control request to start job #%zu"), id);
+		nih_info (_("Control request to start job #%u"), id);
 
 		job = job_find_by_id (id);
 	}
@@ -603,7 +603,7 @@ control_job_stop (void                *data,
 		  pid_t                pid,
 		  UpstartMessageType   type,
 		  const char          *name,
-		  uint32_t             id)
+		  unsigned int         id)
 {
 	NihIoMessage *reply;
 	Job          *job;
@@ -616,7 +616,7 @@ control_job_stop (void                *data,
 
 		job = job_find_by_name (name);
 	} else {
-		nih_info (_("Control request to stop job #%zu"), id);
+		nih_info (_("Control request to stop job #%u"), id);
 
 		job = job_find_by_id (id);
 	}

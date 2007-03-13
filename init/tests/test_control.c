@@ -267,7 +267,7 @@ static int
 check_job (void               *data,
 	   pid_t               pid,
 	   UpstartMessageType  type,
-	   uint32_t            id,
+	   unsigned int        id,
 	   const char         *name)
 {
 	TEST_EQ (pid, getppid ());
@@ -284,7 +284,7 @@ static int
 check_job_instance (void               *data,
 		    pid_t               pid,
 		    UpstartMessageType  type,
-		    uint32_t            id,
+		    unsigned int        id,
 		    const char         *name)
 {
 	TEST_EQ (pid, getppid ());
@@ -300,7 +300,7 @@ static int
 check_job_instance_end (void               *data,
 			pid_t               pid,
 			UpstartMessageType  type,
-			uint32_t            id,
+			unsigned int        id,
 			const char         *name)
 {
 	TEST_EQ (pid, getppid ());
@@ -317,7 +317,7 @@ static int
 check_job_status__waiting (void               *data,
 			   pid_t               pid,
 			   UpstartMessageType  type,
-			   uint32_t            id,
+			   unsigned int        id,
 			   const char         *name,
 			   JobGoal             goal,
 			   JobState            state)
@@ -337,7 +337,7 @@ static int
 check_job_status_end__waiting (void               *data,
 			       pid_t               pid,
 			       UpstartMessageType  type,
-			       uint32_t            id,
+			       unsigned int        id,
 			       const char         *name,
 			       JobGoal             goal,
 			       JobState            state)
@@ -358,7 +358,7 @@ static int
 check_job_status__starting (void               *data,
 			    pid_t               pid,
 			    UpstartMessageType  type,
-			    uint32_t            id,
+			    unsigned int        id,
 			    const char         *name,
 			    JobGoal             goal,
 			    JobState            state)
@@ -378,7 +378,7 @@ static int
 check_job_status_end__starting (void               *data,
 				pid_t               pid,
 				UpstartMessageType  type,
-				uint32_t            id,
+				unsigned int        id,
 				const char         *name,
 				JobGoal             goal,
 				JobState            state)
@@ -399,7 +399,7 @@ static int
 check_job_status__running (void               *data,
 			   pid_t               pid,
 			   UpstartMessageType  type,
-			   uint32_t            id,
+			   unsigned int        id,
 			   const char         *name,
 			   JobGoal             goal,
 			   JobState            state)
@@ -419,7 +419,7 @@ static int
 check_job_status_end__running (void               *data,
 			       pid_t               pid,
 			       UpstartMessageType  type,
-			       uint32_t            id,
+			       unsigned int        id,
 			       const char         *name,
 			       JobGoal             goal,
 			       JobState            state)
@@ -440,7 +440,7 @@ static int
 check_job_status__pre_stop (void               *data,
 			    pid_t               pid,
 			    UpstartMessageType  type,
-			    uint32_t            id,
+			    unsigned int        id,
 			    const char         *name,
 			    JobGoal             goal,
 			    JobState            state)
@@ -460,7 +460,7 @@ static int
 check_job_status_end__pre_stop (void               *data,
 				pid_t               pid,
 				UpstartMessageType  type,
-				uint32_t            id,
+				unsigned int        id,
 				const char         *name,
 				JobGoal             goal,
 				JobState            state)
@@ -481,7 +481,7 @@ static int
 check_job_status__stopping (void               *data,
 			    pid_t               pid,
 			    UpstartMessageType  type,
-			    uint32_t            id,
+			    unsigned int        id,
 			    const char         *name,
 			    JobGoal             goal,
 			    JobState            state)
@@ -501,7 +501,7 @@ static int
 check_job_status_end__stopping (void               *data,
 				pid_t               pid,
 				UpstartMessageType  type,
-				uint32_t            id,
+				unsigned int        id,
 				const char         *name,
 				JobGoal             goal,
 				JobState            state)
@@ -522,7 +522,7 @@ static int
 check_job_status__deleted (void               *data,
 			   pid_t               pid,
 			   UpstartMessageType  type,
-			   uint32_t            id,
+			   unsigned int        id,
 			   const char         *name,
 			   JobGoal             goal,
 			   JobState            state)
@@ -542,7 +542,7 @@ static int
 check_job_status_end__deleted (void               *data,
 			       pid_t               pid,
 			       UpstartMessageType  type,
-			       uint32_t            id,
+			       unsigned int        id,
 			       const char         *name,
 			       JobGoal             goal,
 			       JobState            state)
@@ -581,7 +581,7 @@ check_job_unknown (void               *data,
 		   pid_t               pid,
 		   UpstartMessageType  type,
 		   const char         *name,
-		   uint32_t            id)
+		   unsigned int        id)
 {
 	TEST_EQ (pid, getppid ());
 	TEST_EQ (type, UPSTART_JOB_UNKNOWN);
@@ -596,7 +596,7 @@ static int
 check_job_invalid (void               *data,
 		   pid_t               pid,
 		   UpstartMessageType  type,
-		   uint32_t            id,
+		   unsigned int        id,
 		   const char         *name)
 {
 	TEST_EQ (pid, getppid ());
@@ -612,7 +612,7 @@ static int
 check_job_unchanged (void               *data,
 		     pid_t               pid,
 		     UpstartMessageType  type,
-		     uint32_t            id,
+		     unsigned int        id,
 		     const char         *name)
 {
 	TEST_EQ (pid, getppid ());
@@ -629,7 +629,7 @@ static int
 check_event (void               *data,
 	     pid_t               pid,
 	     UpstartMessageType  type,
-	     uint32_t            id,
+	     unsigned int        id,
 	     const char         *name,
 	     char * const       *args,
 	     char * const       *env)
@@ -649,7 +649,7 @@ check_event (void               *data,
 static int                check_list_all = FALSE;
 static int                check_list_responses = 0;
 static UpstartMessageType last_type = -1;
-static uint32_t           last_job_id = 0, last_instance_id = 0;
+static unsigned int       last_job_id = 0, last_instance_id = 0;
 
 static int
 check_list (void               *data,
@@ -666,8 +666,8 @@ check_list (void               *data,
 
 	switch (type) {
 	case UPSTART_JOB_INSTANCE: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
 		if ((last_type != UPSTART_JOB_LIST)
 		    && (last_type != UPSTART_JOB_STATUS_END)
@@ -675,7 +675,7 @@ check_list (void               *data,
 			TEST_FAILED ("incorrect message order (%04x before %04x)",
 				     last_type, type);
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		if (id == 0xbeeb1003) {
@@ -689,15 +689,15 @@ check_list (void               *data,
 		break;
 	}
 	case UPSTART_JOB_INSTANCE_END: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
 		if ((last_type != UPSTART_JOB_INSTANCE)
 		    && (last_type != UPSTART_JOB_STATUS_END))
 			TEST_FAILED ("incorrect message order (%04x before %04x)",
 				     last_type, type);
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ (id, last_instance_id);
@@ -712,8 +712,8 @@ check_list (void               *data,
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
 		if ((last_type != UPSTART_JOB_LIST)
 		    && (last_type != UPSTART_JOB_STATUS_END)
@@ -721,7 +721,7 @@ check_list (void               *data,
 			TEST_FAILED ("incorrect message order (%04x before %04x)",
 				     last_type, type);
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		if (id == 0xbeeb1001) {
@@ -743,15 +743,15 @@ check_list (void               *data,
 		break;
 	}
 	case UPSTART_JOB_STATUS_END: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
 		if ((last_type != UPSTART_JOB_STATUS)
 		    && (last_type != UPSTART_JOB_PROCESS))
 			TEST_FAILED ("incorrect message order (%04x before %04x)",
 				     last_type, type);
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ (id, last_job_id);
@@ -780,7 +780,7 @@ check_list (void               *data,
 			TEST_FAILED ("incorrect message order (%04x before %04x)",
 				     last_type, type);
 
-		process = va_arg (args, unsigned);
+		process = va_arg (args, unsigned int);
 		process_pid = va_arg (args, int);
 
 		if (last_job_id == 0xbeeb1001) {
