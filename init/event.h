@@ -84,7 +84,7 @@ typedef struct event {
  **/
 typedef struct event_emission {
 	Event            event;
-	uint32_t         id;
+	unsigned int     id;
 	EventProgress    progress;
 
 	int              jobs;
@@ -171,9 +171,9 @@ typedef struct event_emission {
 
 NIH_BEGIN_EXTERN
 
-int      paused;
-uint32_t emission_id;
-int      emission_id_wrapped;
+int          paused;
+unsigned int emission_id;
+int          emission_id_wrapped;
 NihList *events;
 
 
@@ -190,7 +190,7 @@ int            event_match           (Event *event1, Event *event2);
 EventEmission *event_emit            (const char *name,
 				      char **args, char **env)
 	__attribute__ ((malloc));
-EventEmission *event_emit_find_by_id (uint32_t id);
+EventEmission *event_emit_find_by_id (unsigned int id);
 void           event_emit_finished   (EventEmission *emission);
 
 void           event_poll            (void);

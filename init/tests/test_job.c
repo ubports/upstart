@@ -764,8 +764,8 @@ test_find_by_pid (void)
 void
 test_find_by_id (void)
 {
-	Job      *job1, *job2, *job3, *ptr;
-	uint32_t  id;
+	Job          *job1, *job2, *job3, *ptr;
+	unsigned int  id;
 
 	TEST_FUNCTION ("job_find_by_id");
 	job1 = job_new (NULL, "foo");

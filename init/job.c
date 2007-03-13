@@ -81,8 +81,8 @@ static void        job_kill_timer    (ProcessType process, NihTimer *timer);
  * which case you should set job_id_wrapped and take care to check an id
  * isn't taken.
  **/
-uint32_t job_id = 0;
-int      job_id_wrapped = FALSE;
+unsigned int job_id = 0;
+int          job_id_wrapped = FALSE;
 
 /**
  * jobs:
@@ -195,21 +195,21 @@ job_process_copy (const void       *parent,
  * defined, at which point it becomes slightly less efficient.  If there
  * are currently 4 billion known jobs (!!) we lose the ability to generate
  * unique ids, and emit an error -- if we start seeing this in the field,
- * we can always increase the size to a 64-bit number or something.
+ * we can always move up to a larger type or something.
  *
  * Returns: next usable id.
  **/
-static inline uint32_t
+static inline unsigned int
 job_next_id (void)
 {
-	uint32_t id;
+	unsigned int id;
 
 	/* If we've wrapped the job_id counter, we can't just assume that
 	 * the current value isn't taken, we need to make sure that nothing
 	 * is using it first.
 	 */
 	if (job_id_wrapped) {
-		uint32_t start_id = job_id;
+		unsigned int start_id = job_id;
 
 		while (job_find_by_id (job_id)) {
 			job_id++;
@@ -218,7 +218,7 @@ job_next_id (void)
 			 * we're currently handling 4 billion events.
 			 */
 			if (job_id == start_id) {
-				nih_error (_("Job id %zu is not unique"),
+				nih_error (_("Job id %u is not unique"),
 					   job_id);
 				break;
 			}
@@ -635,7 +635,7 @@ job_find_by_pid (pid_t        pid,
  * Returns: job found or NULL if not known.
  **/
 Job *
-job_find_by_id (uint32_t id)
+job_find_by_id (unsigned int id)
 {
 	Job *job;
 

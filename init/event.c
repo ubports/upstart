@@ -65,8 +65,8 @@ int paused = FALSE;
  * in which case you should set emission_id_wrapped and take care to check
  * an id isn't taken.
  **/
-uint32_t emission_id = 0;
-int      emission_id_wrapped = FALSE;
+unsigned int emission_id = 0;
+int          emission_id_wrapped = FALSE;
 
 /**
  * events:
@@ -252,22 +252,21 @@ event_match (Event *event1,
  * generated, at which point it becomes slightly less efficient.  If there
  * are currently 4 billion events being handled (!!) we lose the ability
  * to generate unique ids, and emit an error -- if we start seeing this in
- * the field, we can always increase the size to a 64-bit number or
- * something.
+ * the field, we can always to a larger type or something.
  *
  * Returns: next usable id.
  **/
-static inline uint32_t
+static inline unsigned int
 event_emit_next_id (void)
 {
-	uint32_t id;
+	unsigned int id;
 
 	/* If we've wrapped the emission_id counter, we can't just assume that
 	 * the current value isn't taken, we need to make sure that nothing
 	 * is using it first.
 	 */
 	if (emission_id_wrapped) {
-		uint32_t start_id = emission_id;
+		unsigned int start_id = emission_id;
 
 		while (event_emit_find_by_id (emission_id)) {
 			emission_id++;
@@ -276,7 +275,7 @@ event_emit_next_id (void)
 			 * we're currently handling 4 billion events.
 			 */
 			if (emission_id == start_id) {
-				nih_error (_("Emission id %zu is not unique"),
+				nih_error (_("Emission id %u is not unique"),
 					   emission_id);
 				break;
 			}
@@ -376,7 +375,7 @@ event_emit (const char       *name,
  * Returns: emission found or NULL if not found.
  **/
 EventEmission *
-event_emit_find_by_id (uint32_t id)
+event_emit_find_by_id (unsigned int id)
 {
 	EventEmission *emission;
 

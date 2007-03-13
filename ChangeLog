@@ -1,5 +1,18 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Change the type of the id to unsigned int.
+	* init/job.c (job_next_id): Change ids to be unsigned ints, and now
+	we can just use %u in the nih_error call.
+	(job_find_by_id): Change argument to be unsigned int
+	* init/tests/test_job.c (test_find_by_id): Change id type to unsigned
+	int.
+	* init/event.h (Event): Change the type of the id to unsigned int.
+	* init/event.c (event_emit_next_id): Change ids to be unsigned ints,
+	and now we can just use %u in the nih_error call.
+	(event_emit_find_by_id): Change argument to be unsigned int
+	* init/tests/test_event.c (test_emit, test_emit_find_by_id) 
+	(check_event, check_event_finished): Change id type to unsigned int.
+
 	* util/initctl.c (output_name): Use an unsigned int for the job id,
 	which means we can use ordinary %u for the printf argument.
 	(handle_job, handle_job_finished, handle_job_instance) 

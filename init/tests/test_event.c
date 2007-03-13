@@ -212,7 +212,7 @@ test_emit (void)
 {
 	EventEmission  *emission;
 	char          **args, **env;
-	uint32_t        last_id = -1;
+	unsigned int    last_id = -1;
 
 	/* Check that we can request an event emission; the structure should
 	 * be allocated with nih_alloc(), placed in a list and all of the
@@ -261,7 +261,7 @@ void
 test_emit_find_by_id (void)
 {
 	EventEmission *emission, *ret;
-	uint32_t       id;
+	unsigned int   id;
 
 	TEST_FUNCTION ("event_emit_find_by_id");
 
@@ -333,7 +333,7 @@ static int
 check_event (void               *data,
 	     pid_t               pid,
 	     UpstartMessageType  type,
-	     uint32_t            id,
+	     unsigned int        id,
 	     const char         *name,
 	     char * const       *args,
 	     char * const       *env)
@@ -352,7 +352,7 @@ static int
 check_event_finished (void               *data,
 		      pid_t               pid,
 		      UpstartMessageType  type,
-		      uint32_t            id,
+		      unsigned int        id,
 		      int                 failed,
 		      const char         *name,
 		      char * const       *args,
