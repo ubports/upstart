@@ -146,30 +146,6 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Open control socket */
-	if (! control_open ()) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	/* Read configuration */
-	if (cfg_watch_dir (CFG_DIR, NULL) == (void *)-1) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Error parsing configuration"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
 
 	/* Clear our arguments from the command-line, so that we show up in
 	 * ps or top output as /sbin/init, with no extra flags.
@@ -273,6 +249,31 @@ main (int   argc,
 					  NULL));
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_free_deleted,
 					  NULL));
+
+
+	/* Open control socket */
+	if (! control_open ()) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Unable to open control socket"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	/* Read configuration */
+	if (cfg_watch_dir (CFG_DIR, NULL) == (void *)-1) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Error parsing configuration"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
 
 
 	/* Generate and run the startup event or read the state from the

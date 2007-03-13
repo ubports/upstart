@@ -1,5 +1,13 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Wait until we've closed inherited standard file
+	descriptors and opened the console instead before trying to open the
+	control socket; otherwise we end up closing it by accident if we
+	weren't opened with sufficient descriptors in the first place.
+	Also wait until we've set up the logger before trying to parse the
+	configuration.  In fact both of these things need to be pretty low
+	down the main() function.
+
 	* init/tests/test_job.c (test_run_process): Skip /dev/fd test cases
 	if that's not available.
 
