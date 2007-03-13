@@ -1095,7 +1095,7 @@ test_log_priority (void)
 {
 	NihIo *io;
 	pid_t  pid;
-	int    status;
+	int    status, wait_fd;
 
 	/* Check that we can handle a message from a child process changing
 	 * our logging priority.
@@ -1107,7 +1107,7 @@ test_log_priority (void)
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 
 	fflush (stdout);
-	TEST_CHILD (pid) {
+	TEST_CHILD_WAIT (pid, wait_fd) {
 		NihIoMessage *message;
 		int           sock;
 
@@ -1119,12 +1119,13 @@ test_log_priority (void)
 		assert (nih_io_message_send (message, sock) > 0);
 		nih_free (message);
 
+		/* Allow the parent to continue so it can receive it */
+		TEST_CHILD_RELEASE (wait_fd);
+
 		exit (0);
 	}
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
