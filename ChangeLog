@@ -1,5 +1,11 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.c (upstart_message_handle): Use unsigned int for
+	ids, rather than a fixed-width type.
+	* upstart/tests/test_message.c (my_handler): Use unsigned int for
+	the ids, and give "unsigned int" instead of "unsigned" to va_arg as
+	a matter of style.
+
 	* upstart/wire.c (upstart_push_int, upstart_pop_int): Send over the
 	wire using a plain old integer type, instead of a fixed width type;
 	there's no advantage to using the fixed-width type and we could hurt

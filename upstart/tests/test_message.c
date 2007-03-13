@@ -967,7 +967,7 @@ my_handler (void                *data,
 	case UPSTART_LOG_PRIORITY: {
 		NihLogLevel priority;
 
-		priority = va_arg (args, unsigned);
+		priority = va_arg (args, unsigned int);
 
 		TEST_EQ (priority, NIH_LOG_DEBUG);
 
@@ -997,11 +997,11 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_QUERY: {
-		char     *name;
-		uint32_t  id;
+		char         *name;
+		unsigned int  id;
 
 		name = va_arg (args, char *);
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 
 		TEST_EQ_STR (name, "test");
 		TEST_EQ_U (id, 0);
@@ -1011,11 +1011,11 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_START: {
-		char     *name;
-		uint32_t  id;
+		char         *name;
+		unsigned int  id;
 
 		name = va_arg (args, char *);
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 
 		TEST_EQ_STR (name, "test");
 		TEST_EQ_U (id, 0);
@@ -1025,11 +1025,11 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_STOP: {
-		char     *name;
-		uint32_t  id;
+		char         *name;
+		unsigned int  id;
 
 		name = va_arg (args, char *);
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 
 		TEST_EQ_P (name, NULL);
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1037,8 +1037,8 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
 		id = va_arg (args, unsigned);
 		name = va_arg (args, char *);
@@ -1051,16 +1051,16 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_FINISHED: {
-		uint32_t     id;
-		char        *name;
-		int          failed;
-		ProcessType  failed_process;
-		int          exit_status;
+		unsigned int  id;
+		char         *name;
+		int           failed;
+		ProcessType   failed_process;
+		int           exit_status;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 		failed = va_arg (args, int);
-		failed_process = va_arg (args, unsigned);
+		failed_process = va_arg (args, unsigned int);
 		exit_status = va_arg (args, int);
 
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1096,10 +1096,10 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_INSTANCE: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1110,10 +1110,10 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_INSTANCE_END: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1124,15 +1124,15 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
-		uint32_t  id;
-		char     *name;
-		JobGoal   goal;
-		JobState  state;
+		unsigned int  id;
+		char         *name;
+		JobGoal       goal;
+		JobState      state;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
-		goal = va_arg (args, unsigned);
-		state = va_arg (args, unsigned);
+		goal = va_arg (args, unsigned int);
+		state = va_arg (args, unsigned int);
 
 		TEST_EQ_U (id, 0xdeafbeef);
 		TEST_EQ_STR (name, "test");
@@ -1156,15 +1156,15 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_STATUS_END: {
-		uint32_t  id;
-		char     *name;
-		JobGoal   goal;
-		JobState  state;
+		unsigned int  id;
+		char         *name;
+		JobGoal       goal;
+		JobState      state;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
-		goal = va_arg (args, unsigned);
-		state = va_arg (args, unsigned);
+		goal = va_arg (args, unsigned int);
+		state = va_arg (args, unsigned int);
 
 		TEST_EQ_U (id, 0xdeafbeef);
 		TEST_EQ_STR (name, "test");
@@ -1176,11 +1176,11 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_UNKNOWN: {
-		char     *name;
-		uint32_t  id;
+		char         *name;
+		unsigned int  id;
 
 		name = va_arg (args, char *);
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 
 		TEST_EQ_STR (name, "test");
 		TEST_EQ_U (id, 0);
@@ -1190,10 +1190,10 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_INVALID: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1204,10 +1204,10 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_JOB_UNCHANGED: {
-		uint32_t  id;
-		char     *name;
+		unsigned int  id;
+		char         *name;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1245,10 +1245,10 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_EVENT: {
-		uint32_t  id;
-		char *    name, **argv, **env;
+		unsigned int  id;
+		char         *name, **argv, **env;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 		argv = va_arg (args, char **);
 		env = va_arg (args, char **);
@@ -1275,20 +1275,20 @@ my_handler (void                *data,
 		break;
 	}
 	case UPSTART_EVENT_CAUSED: {
-		uint32_t  id;
+		unsigned int id;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 
 		TEST_EQ_U (id, 0xdeafbeef);
 
 		break;
 	}
 	case UPSTART_EVENT_FINISHED: {
-		uint32_t  id;
-		int       failed;
-		char *    name, **argv, **env;
+		unsigned int  id;
+		int           failed;
+		char         *name, **argv, **env;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		failed = va_arg (args, int);
 		name = va_arg (args, char *);
 		argv = va_arg (args, char **);

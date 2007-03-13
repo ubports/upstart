@@ -588,8 +588,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_QUERY: {
-		char     *name = NULL;
-		uint32_t  id;
+		char         *name = NULL;
+		unsigned int  id;
 
 		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
 			if (name)
@@ -602,8 +602,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_START: {
-		char     *name = NULL;
-		uint32_t  id;
+		char         *name = NULL;
+		unsigned int  id;
 
 		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
 			if (name)
@@ -616,8 +616,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_STOP: {
-		char     *name = NULL;
-		uint32_t  id;
+		char         *name = NULL;
+		unsigned int  id;
 
 		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
 			if (name)
@@ -630,8 +630,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB: {
-		uint32_t  id;
-		char     *name = NULL;
+		unsigned int  id;
+		char         *name = NULL;
 
 		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
 			if (name)
@@ -647,11 +647,11 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_FINISHED: {
-		uint32_t     id;
-		char        *name = NULL;
-		int          failed;
-		ProcessType  failed_process;
-		int          exit_status;
+		unsigned int  id;
+		char         *name = NULL;
+		int           failed;
+		ProcessType   failed_process;
+		int           exit_status;
 
 		if (upstart_pop_pack (message, parent, "usiui",
 				      &id, &name, &failed, &failed_process,
@@ -696,8 +696,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_INSTANCE: {
-		uint32_t  id;
-		char     *name = NULL;
+		unsigned int  id;
+		char         *name = NULL;
 
 		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
 			if (name)
@@ -713,8 +713,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_INSTANCE_END: {
-		uint32_t  id;
-		char     *name = NULL;
+		unsigned int  id;
+		char         *name = NULL;
 
 		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
 			if (name)
@@ -730,10 +730,10 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_STATUS: {
-		uint32_t  id;
-		char     *name = NULL;
-		JobGoal   goal;
-		JobState  state;
+		unsigned int  id;
+		char         *name = NULL;
+		JobGoal       goal;
+		JobState      state;
 
 		if (upstart_pop_pack (message, parent, "usuu",
 				      &id, &name, &goal, &state)) {
@@ -760,10 +760,10 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_STATUS_END: {
-		uint32_t  id;
-		char     *name = NULL;
-		JobGoal   goal;
-		JobState  state;
+		unsigned int  id;
+		char         *name = NULL;
+		JobGoal       goal;
+		JobState      state;
 
 		if (upstart_pop_pack (message, parent, "usuu",
 				      &id, &name, &goal, &state)) {
@@ -780,8 +780,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_UNKNOWN: {
-		char     *name = NULL;
-		uint32_t  id;
+		char         *name = NULL;
+		unsigned int  id;
 
 		if (upstart_pop_pack (message, parent, "su", &name, &id)) {
 			if (name)
@@ -794,8 +794,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_INVALID: {
-		uint32_t  id;
-		char     *name = NULL;
+		unsigned int  id;
+		char         *name = NULL;
 
 		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
 			if (name)
@@ -811,8 +811,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_JOB_UNCHANGED: {
-		uint32_t  id;
-		char     *name = NULL;
+		unsigned int  id;
+		char         *name = NULL;
 
 		if (upstart_pop_pack (message, parent, "us", &id, &name)) {
 			if (name)
@@ -850,8 +850,8 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_EVENT: {
-		uint32_t  id;
-		char     *name = NULL, **args = NULL, **env = NULL;
+		unsigned int  id;
+		char         *name = NULL, **args = NULL, **env = NULL;
 
 		if (upstart_pop_pack (message, parent, "usaa",
 				      &id, &name, &args, &env)) {
@@ -872,7 +872,7 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_EVENT_CAUSED: {
-		uint32_t  id;
+		unsigned int id;
 
 		if (upstart_pop_pack (message, parent, "u", &id))
 			goto invalid;
@@ -881,9 +881,9 @@ upstart_message_handle (const void     *parent,
 		break;
 	}
 	case UPSTART_EVENT_FINISHED: {
-		uint32_t  id;
-		int       failed;
-		char     *name = NULL, **args = NULL, **env = NULL;
+		unsigned int  id;
+		int           failed;
+		char         *name = NULL, **args = NULL, **env = NULL;
 
 		if (upstart_pop_pack (message, parent, "uisaa",
 				      &id, &failed, &name, &args, &env)) {
