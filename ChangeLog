@@ -1,5 +1,10 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart/message.h: Style; always refer to "unsigned int" as
+	"unsigned int", and never "unsigned.
+	* upstart/tests/test_message.c (my_handler): Catch a stray couple
+	of "unsigned"s
+
 	* init/control.c (control_job_query, control_job_start) 
 	(control_job_stop): Change type of id argument to unsigned int,
 	and call printf with %u to output it.

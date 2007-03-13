@@ -1040,7 +1040,7 @@ my_handler (void                *data,
 		unsigned int  id;
 		char         *name;
 
-		id = va_arg (args, unsigned);
+		id = va_arg (args, unsigned int);
 		name = va_arg (args, char *);
 
 		TEST_EQ_U (id, 0xdeafbeef);
@@ -1147,7 +1147,7 @@ my_handler (void                *data,
 		ProcessType process;
 		pid_t       pid;
 
-		process = va_arg (args, unsigned);
+		process = va_arg (args, unsigned int);
 		pid = va_arg (args, int);
 
 		TEST_EQ (process, PROCESS_MAIN);

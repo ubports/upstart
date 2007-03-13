@@ -170,7 +170,7 @@ typedef enum upstart_message_type {
  * No arguments.
  *
  * UPSTART_LOG_PRIORITY:
- * @priority: new log priority (unsigned).
+ * @priority: new log priority (unsigned int).
  *
  * UPSTART_VERSION:
  * @version: full name and version of init daemon (char *).
@@ -181,25 +181,25 @@ typedef enum upstart_message_type {
  *
  * UPSTART_JOB_QUERY:
  * @name: name of job (char *),
- * @id: unique id of job (unsigned), if @name is NULL.
+ * @id: unique id of job (unsigned int), if @name is NULL.
  *
  * UPSTART_JOB_START:
  * @name: name of job (char *),
- * @id: unique id of job (unsigned), if @name is NULL.
+ * @id: unique id of job (unsigned int), if @name is NULL.
  *
  * UPSTART_JOB_STOP:
  * @name: name of job (char *),
- * @id: unique id of job (unsigned), if @name is NULL.
+ * @id: unique id of job (unsigned int), if @name is NULL.
  *
  * UPSTART_JOB:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of job (char *).
  *
  * UPSTART_JOB_FINISHED:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of job (char *),
  * @failed: whether the job failed (int),
- * @failed_process: type of process that failed (unsigned),
+ * @failed_process: type of process that failed (unsigned int),
  * @exit_status: exit status or signal of failed process (int).
  *
  * UPSTART_JOB_LIST:
@@ -209,39 +209,39 @@ typedef enum upstart_message_type {
  * @pattern: pattern sought or NULL (char *).
  *
  * UPSTART_JOB_INSTANCE:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of job (char *).
  *
  * UPSTART_JOB_INSTANCE_END:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of job (char *).
  *
  * UPSTART_JOB_STATUS:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of job (char *),
- * @goal: goal of job (unsigned),
- * @state: state of job (unsigned).
+ * @goal: goal of job (unsigned int),
+ * @state: state of job (unsigned int).
  *
  * UPSTART_JOB_PROCESS:
- * @type: type of process (unsigned),
+ * @type: type of process (unsigned int),
  * @pid: process id (int).
  *
  * UPSTART_JOB_STATUS_END:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of job (char *),
- * @goal: goal of job (unsigned),
- * @state: state of job (unsigned).
+ * @goal: goal of job (unsigned int),
+ * @state: state of job (unsigned int).
  *
  * UPSTART_JOB_UNKNOWN:
  * @name: name of unknown job (char *),
- * @id: unique id of job (unsigned), if @name is NULL.
+ * @id: unique id of job (unsigned int), if @name is NULL.
  *
  * UPSTART_JOB_INVALID:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of unknown job (char *).
  *
  * UPSTART_JOB_UNCHANGED:
- * @id: unique id of job (unsigned),
+ * @id: unique id of job (unsigned int),
  * @name: name of unknown job (char *).
  *
  *
@@ -251,16 +251,16 @@ typedef enum upstart_message_type {
  * @env: environment for event (char **).
  *
  * UPSTART_EVENT:
- * @id: unique id of event (unsigned),
+ * @id: unique id of event (unsigned int),
  * @name: name of event (char *),
  * @args: arguments to event (char **),
  * @env: environment for event (char **).
  *
  * UPSTART_EVENT_CAUSED:
- * @id: unique id of event (unsigned),
+ * @id: unique id of event (unsigned int),
  *
  * UPSTART_EVENT_FINISHED:
- * @id: unique id of event (unsigned),
+ * @id: unique id of event (unsigned int),
  * @failed: whether the event failed (int),
  * @name: name of event (char *),
  * @args: arguments to event (char **),
