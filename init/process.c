@@ -246,7 +246,7 @@ process_setup_environment (Job *job)
 		nih_free (term);
 	}
 
-	NIH_MUST (jobid = nih_sprintf (NULL, "%zu", job->id));
+	NIH_MUST (jobid = nih_sprintf (NULL, "%u", job->id));
 	if (setenv ("UPSTART_JOB_ID", jobid, TRUE) < 0)
 		nih_return_system_error (-1);
 	nih_free (jobid);

@@ -1,5 +1,8 @@
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): job id fits inside
+	a %u now
+
 	* upstart/message.h: Style; always refer to "unsigned int" as
 	"unsigned int", and never "unsigned.
 	* upstart/tests/test_message.c (my_handler): Catch a stray couple
