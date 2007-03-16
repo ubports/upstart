@@ -572,6 +572,8 @@ upstart_push_packv (NihIoMessage *message,
 			return ret;
 	}
 
+	va_end (args_copy);
+
 	return 0;
 }
 
@@ -676,6 +678,8 @@ upstart_pop_packv (NihIoMessage *message,
 		if (ret)
 			return ret;
 	}
+
+	va_end (args_copy);
 
 	return 0;
 }

@@ -1,3 +1,10 @@
+2007-03-16  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/message.c (upstart_message_newv): Add va_end to match
+	va_copy because the standard says so.
+	* upstart/wire.c (upstart_push_packv, upstart_pop_packv): Add
+	va_end here as well.
+
 2007-03-13  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c: Wait until we've closed inherited standard file

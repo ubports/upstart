@@ -386,6 +386,8 @@ upstart_message_newv (const void         *parent,
 		nih_assert_not_reached ();
 	}
 
+	va_end (args_copy);
+
 	return message;
 
 error:
