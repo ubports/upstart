@@ -57,7 +57,7 @@ typedef struct event_info {
 /**
  * EventProgress:
  *
- * This is used to record the progress of an event emission, starting at
+ * This is used to record the progress of an event, starting at
  * being pending, then being handled and finally waiting for the callback
  * to be called and any cleanup performed.
  **/
@@ -71,19 +71,18 @@ typedef enum event_progress {
 /**
  * Event:
  * @entry: list header,
- * @id: unique id assigned to each emission,
+ * @id: unique id assigned to each event,
  * @info: information about event,
- * @progress: progress of emission,
+ * @progress: progress of event,
  * @jobs: number of jobs holding this event,
  * @failed: whether this event has failed.
  *
- * Events aren't useful on their own; in order to change the state of jobs
- * they need to be first placed in the event queue, then emitted and only
- * freed and forgotten once all jobs changed have reached their goal state.
+ * This structure holds all the information on an active event, including
+ * the information contained within the event and the current progress of
+ * that event through the queue.
  *
- * This process is known as emission, and this structure holds all the
- * information on the emission of a single event; including the event
- * itself.
+ * Events are not removed from the queue until jobs are no longer referencing
+ * them.
  **/
 typedef struct event {
 	NihList          entry;
@@ -178,7 +177,7 @@ NIH_BEGIN_EXTERN
 
 int           paused;
 unsigned int  event_id;
-int           emission_id_wrapped;
+int           event_id_wrapped;
 NihList      *events;
 
 

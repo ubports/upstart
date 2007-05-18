@@ -214,7 +214,7 @@ test_new (void)
 	char         **args, **env;
 	unsigned int   last_id = -1;
 
-	/* Check that we can request an event emission; the structure should
+	/* Check that we can create a new event; the structure should
 	 * be allocated with nih_alloc(), placed in a list and all of the
 	 * details filled in.
 	 */
