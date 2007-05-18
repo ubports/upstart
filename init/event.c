@@ -163,33 +163,17 @@ event_copy (const void  *parent,
 		return NULL;
 
 	if (old_event->args) {
-		size_t   len;
-		char   **arg;
-
-		len = 0;
-		event->args = nih_str_array_new (event);
+		event->args = nih_str_array_copy (event, NULL,
+						  old_event->args);
 		if (! event->args)
 			goto error;
-
-		for (arg = old_event->args; arg && *arg; arg++)
-			if (! nih_str_array_add (&event->args, event,
-						 &len, *arg))
-				goto error;
 	}
 
 	if (old_event->env) {
-		size_t   len;
-		char   **env;
-
-		len = 0;
-		event->env = nih_str_array_new (event);
+		event->env = nih_str_array_copy (event, NULL,
+						 old_event->env);
 		if (! event->env)
 			goto error;
-
-		for (env = old_event->env; env && *env; env++)
-			if (! nih_str_array_add (&event->env, event,
-						 &len, *env))
-				goto error;
 	}
 
 	return event;
@@ -198,6 +182,7 @@ error:
 	nih_free (event);
 	return NULL;
 }
+
 
 /**
  * event_match:
@@ -524,13 +509,24 @@ event_finished (EventEmission *emission)
 
 		name = strrchr (emission->event.name, '/');
 		if ((! name) || strcmp (name, "/failed")) {
+			EventEmission *new_emission;
+
 			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
 						      emission->event.name));
-
-			event_emit (name, emission->event.args,
-				    emission->event.env);
-
+			new_emission = event_emit (name, NULL, NULL);
 			nih_free (name);
+
+			if (emission->event.args)
+				NIH_MUST (new_emission->event.args
+					  = nih_str_array_copy (
+						  new_emission, NULL,
+						  emission->event.args));
+
+			if (emission->event.env)
+				NIH_MUST (new_emission->event.env
+					  = nih_str_array_copy (
+						  new_emission, NULL,
+						  emission->event.env));
 		}
 	}
 

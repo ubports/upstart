@@ -486,17 +486,9 @@ job_copy (const void *parent,
 	job->console = old_job->console;
 
 	if (old_job->env) {
-		size_t   len;
-		char   **e;
-
-		len = 0;
-		job->env = nih_str_array_new (job);
+		job->env = nih_str_array_copy (job, NULL, old_job->env);
 		if (! job->env)
 			goto error;
-
-		for (e = old_job->env; e && *e; e++)
-			if (! nih_str_array_add (&job->env, job, &len, *e))
-				goto error;
 	}
 
 	job->umask = old_job->umask;
@@ -1317,8 +1309,7 @@ job_run_process (Job         *job,
 	 * the best way to deal with things like variables.
 	 */
 	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
-		struct stat   statbuf;
-		char        **arg;
+		struct stat  statbuf;
 
 		argc = 0;
 		NIH_MUST (argv = nih_str_array_new (NULL));
@@ -1374,9 +1365,8 @@ job_run_process (Job         *job,
 
 		/* Append arguments from the cause event if set. */
 		if (job->cause)
-			for (arg = job->cause->event.args; arg && *arg; arg++)
-				NIH_MUST (nih_str_array_add (&argv, NULL,
-							     &argc, *arg));
+			NIH_MUST (nih_str_array_append (&argv, NULL, &argc,
+							job->cause->event.args));
 	} else {
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
