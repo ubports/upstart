@@ -407,10 +407,10 @@ job_copy (const void *parent,
 	}
 
 	NIH_LIST_FOREACH (&old_job->start_events, iter) {
-		Event *old_event = (Event *)iter;
-		Event *event;
+		EventInfo *old_event = (EventInfo *)iter;
+		EventInfo *event;
 
-		event = event_copy (job, old_event);
+		event = event_info_copy (job, old_event);
 		if (! event)
 			goto error;
 
@@ -418,10 +418,10 @@ job_copy (const void *parent,
 	}
 
 	NIH_LIST_FOREACH (&old_job->stop_events, iter) {
-		Event *old_event = (Event *)iter;
-		Event *event;
+		EventInfo *old_event = (EventInfo *)iter;
+		EventInfo *event;
 
-		event = event_copy (job, old_event);
+		event = event_info_copy (job, old_event);
 		if (! event)
 			goto error;
 
@@ -429,10 +429,10 @@ job_copy (const void *parent,
 	}
 
 	NIH_LIST_FOREACH (&old_job->emits, iter) {
-		Event *old_event = (Event *)iter;
-		Event *event;
+		EventInfo *old_event = (EventInfo *)iter;
+		EventInfo *event;
 
-		event = event_copy (job, old_event);
+		event = event_info_copy (job, old_event);
 		if (! event)
 			goto error;
 
@@ -1769,7 +1769,7 @@ job_handle_event (EventEmission *emission)
 		 */
 		if ((! job->instance) || (job->instance_of != NULL)) {
 			NIH_LIST_FOREACH (&job->stop_events, iter) {
-				Event *stop_event = (Event *)iter;
+				EventInfo *stop_event = (EventInfo *)iter;
 
 				if (event_match (&emission->event, stop_event))
 					job_change_goal (job, JOB_STOP,
@@ -1782,7 +1782,7 @@ job_handle_event (EventEmission *emission)
 		 */
 		if ((! job->instance) || (job->instance_of == NULL)) {
 			NIH_LIST_FOREACH (&job->start_events, iter) {
-				Event *start_event = (Event *)iter;
+				EventInfo *start_event = (EventInfo *)iter;
 
 				if (event_match (&emission->event,
 						 start_event)) {
@@ -1848,7 +1848,7 @@ job_detect_stalled (void)
 		 * job handles the stalled event, otherwise we loop.
 		 */
 		NIH_LIST_FOREACH (&job->start_events, event_iter) {
-			Event *event = (Event *)event_iter;
+			EventInfo *event = (EventInfo *)event_iter;
 
 			if (! strcmp (event->name, STALLED_EVENT))
 

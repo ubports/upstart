@@ -1060,10 +1060,10 @@ test_stanza_post_stop (void)
 void
 test_stanza_start (void)
 {
-	Job   *job;
-	Event *event;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
+	Job       *job;
+	EventInfo *event;
+	FILE      *jf, *output;
+	char       filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_start");
 	program_name = "test";
@@ -1087,8 +1087,8 @@ test_stanza_start (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->start_events);
 
-	event = (Event *)job->start_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
 	nih_list_free (&job->entry);
@@ -1109,8 +1109,8 @@ test_stanza_start (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->start_events);
 
-	event = (Event *)job->start_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
 	TEST_ALLOC_PARENT (event->args, event);
@@ -1142,16 +1142,16 @@ test_stanza_start (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->start_events);
 
-	event = (Event *)job->start_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wobble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "waggle");
 
 	nih_list_free (&job->entry);
@@ -1230,10 +1230,10 @@ test_stanza_start (void)
 void
 test_stanza_stop (void)
 {
-	Job   *job;
-	Event *event;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
+	Job       *job;
+	EventInfo *event;
+	FILE      *jf, *output;
+	char       filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_stop");
 	program_name = "test";
@@ -1257,8 +1257,8 @@ test_stanza_stop (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->stop_events);
 
-	event = (Event *)job->stop_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
 	nih_list_free (&job->entry);
@@ -1279,8 +1279,8 @@ test_stanza_stop (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->stop_events);
 
-	event = (Event *)job->stop_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
 	TEST_ALLOC_PARENT (event->args, event);
@@ -1312,16 +1312,16 @@ test_stanza_stop (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->stop_events);
 
-	event = (Event *)job->stop_events.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wobble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "waggle");
 
 	nih_list_free (&job->entry);
@@ -1713,10 +1713,10 @@ test_stanza_version (void)
 void
 test_stanza_emits (void)
 {
-	Job   *job;
-	Event *event;
-	FILE  *jf, *output;
-	char   filename[PATH_MAX];
+	Job       *job;
+	EventInfo *event;
+	FILE      *jf, *output;
+	char       filename[PATH_MAX];
 
 	TEST_FUNCTION ("cfg_stanza_emits");
 	program_name = "test";
@@ -1739,8 +1739,8 @@ test_stanza_emits (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->emits);
 
-	event = (Event *)job->emits.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
 	nih_list_free (&job->entry);
@@ -1760,16 +1760,16 @@ test_stanza_emits (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->emits);
 
-	event = (Event *)job->emits.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wobble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "waggle");
 
 	nih_list_free (&job->entry);
@@ -1791,20 +1791,20 @@ test_stanza_emits (void)
 	TEST_ALLOC_SIZE (job, sizeof (Job));
 	TEST_LIST_NOT_EMPTY (&job->emits);
 
-	event = (Event *)job->emits.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wibble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wobble");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "waggle");
 
-	event = (Event *)event->entry.next;
-	TEST_ALLOC_SIZE (event, sizeof (Event));
+	event = (EventInfo *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 	TEST_EQ_STR (event->name, "wuggle");
 
 	nih_list_free (&job->entry);

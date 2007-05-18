@@ -564,7 +564,7 @@ cfg_stanza_post_stop (Job             *job,
  * @lineno: line number.
  *
  * Parse a start stanza from @file.  This stanza expects a second "on"
- * argument, followed by an event which is allocated as an Event structure
+ * argument, followed by an event which is allocated as an EventInfo structure
  * and stored in the start events list of the job.
  *
  * Returns: zero on success, negative value on error.
@@ -590,8 +590,8 @@ cfg_stanza_start (Job             *job,
 		return -1;
 
 	if (! strcmp (arg, "on")) {
-		Event *event;
-		char  *name;
+		EventInfo *event;
+		char      *name;
 
 		nih_free (arg);
 
@@ -599,7 +599,7 @@ cfg_stanza_start (Job             *job,
 		if (! name)
 			return -1;
 
-		NIH_MUST (event = event_new (job, name));
+		NIH_MUST (event = event_info_new (job, name, NULL, NULL));
 		nih_free (name);
 
 		event->args = nih_config_parse_args (event, file, len,
@@ -631,7 +631,7 @@ cfg_stanza_start (Job             *job,
  * @lineno: line number.
  *
  * Parse a stop stanza from @file.  This stanza expects a second "on"
- * argument, followed by an event which is allocated as an Event structure
+ * argument, followed by an event which is allocated as an EventInfo structure
  * and stored in the stop events list of the job.
  *
  * Returns: zero on success, negative value on error.
@@ -657,8 +657,8 @@ cfg_stanza_stop (Job             *job,
 		return -1;
 
 	if (! strcmp (arg, "on")) {
-		Event *event;
-		char  *name;
+		EventInfo *event;
+		char      *name;
 
 		nih_free (arg);
 
@@ -666,7 +666,7 @@ cfg_stanza_stop (Job             *job,
 		if (! name)
 			return -1;
 
-		NIH_MUST (event = event_new (job, name));
+		NIH_MUST (event = event_info_new (job, name, NULL, NULL));
 		nih_free (name);
 
 		event->args = nih_config_parse_args (event, file, len,
@@ -819,7 +819,7 @@ cfg_stanza_version (Job             *job,
  * arguments giving the names of additional events that can be emitted
  * by this job.
  *
- * Arguments are allocated as Event structures and stored in the emits
+ * Arguments are allocated as EventInfo structures and stored in the emits
  * list of the job.
  *
  * Returns: zero on success, negative value on error.
@@ -848,9 +848,9 @@ cfg_stanza_emits (Job             *job,
 		return -1;
 
 	for (arg = args; *arg; arg++) {
-		Event *event;
+		EventInfo *event;
 
-		NIH_MUST (event = event_new (job, *arg));
+		NIH_MUST (event = event_info_new (job, *arg, NULL, NULL));
 		nih_list_add (&job->emits, &event->entry);
 	}
 

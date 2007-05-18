@@ -234,7 +234,7 @@ test_copy (void)
 {
 	Job        *job, *copy;
 	JobProcess *process;
-	Event      *event;
+	EventInfo  *event;
 	int         i;
 
 	TEST_FUNCTION ("job_copy");
@@ -349,20 +349,20 @@ test_copy (void)
 	job->failed_process = PROCESS_MAIN;
 	job->exit_status = SIGSEGV << 8;
 
-	event = event_new (job, "foo");
+	event = event_info_new (job, "foo", NULL, NULL);
 	nih_list_add (&job->start_events, &event->entry);
 
-	event = event_new (job, "bar");
+	event = event_info_new (job, "bar", NULL, NULL);
 	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "frodo"));
 	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bilbo"));
 
 	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
 	nih_list_add (&job->start_events, &event->entry);
 
-	event = event_new (job, "baz");
+	event = event_info_new (job, "baz", NULL, NULL);
 	nih_list_add (&job->stop_events, &event->entry);
 
-	event = event_new (job, "wibble");
+	event = event_info_new (job, "wibble", NULL, NULL);
 	nih_list_add (&job->emits, &event->entry);
 
 	job->normalexit = nih_alloc (job, sizeof (int) * 2);
@@ -472,16 +472,16 @@ test_copy (void)
 
 		TEST_LIST_NOT_EMPTY (&copy->start_events);
 
-		event = (Event *)copy->start_events.next;
+		event = (EventInfo *)copy->start_events.next;
 		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 		TEST_EQ_STR (event->name, "foo");
 		TEST_EQ_P (event->args, NULL);
 		TEST_EQ_P (event->env, NULL);
 
-		event = (Event *)event->entry.next;
+		event = (EventInfo *)event->entry.next;
 		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 		TEST_EQ_STR (event->name, "bar");
 		TEST_ALLOC_PARENT (event->args, event);
 		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 3);
@@ -499,9 +499,9 @@ test_copy (void)
 
 		TEST_LIST_NOT_EMPTY (&copy->stop_events);
 
-		event = (Event *)copy->stop_events.next;
+		event = (EventInfo *)copy->stop_events.next;
 		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 		TEST_EQ_STR (event->name, "baz");
 		TEST_EQ_P (event->args, NULL);
 		TEST_EQ_P (event->env, NULL);
@@ -510,9 +510,9 @@ test_copy (void)
 
 		TEST_LIST_NOT_EMPTY (&copy->emits);
 
-		event = (Event *)copy->emits.next;
+		event = (EventInfo *)copy->emits.next;
 		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 		TEST_EQ_STR (event->name, "wibble");
 		TEST_EQ_P (event->args, NULL);
 		TEST_EQ_P (event->env, NULL);
@@ -4289,20 +4289,20 @@ void
 test_handle_event (void)
 {
 	Job            *job1, *job2;
-	Event          *event;
+	EventInfo      *event;
 	EventEmission  *em;
 
 	TEST_FUNCTION ("job_handle_event");
 	job1 = job_new (NULL, "foo");
 	job1->respawn_limit = 0;
 
-	event = event_new (job1, "wibble");
+	event = event_info_new (job1, "wibble", NULL, NULL);
 	nih_list_add (&job1->start_events, &event->entry);
 
 	job2 = job_new (NULL, "bar");
 	job2->respawn_limit = 0;
 
-	event = event_new (job2, "wibble");
+	event = event_info_new (job2, "wibble", NULL, NULL);
 	nih_list_add (&job2->stop_events, &event->entry);
 
 
@@ -4431,7 +4431,7 @@ void
 test_handle_event_finished (void)
 {
 	Job            *job1, *job2;
-	Event          *event;
+	EventInfo      *event;
 	EventEmission  *em;
 
 	TEST_FUNCTION ("job_handle_event_finished");
@@ -4442,7 +4442,7 @@ test_handle_event_finished (void)
 	job1->process[PROCESS_POST_STOP] = job_process_new (job1);
 	job1->process[PROCESS_POST_STOP]->command = "echo";
 
-	event = event_new (job1, "wibble");
+	event = event_info_new (job1, "wibble", NULL, NULL);
 	nih_list_add (&job1->start_events, &event->entry);
 
 	job2 = job_new (NULL, "bar");
@@ -4452,7 +4452,7 @@ test_handle_event_finished (void)
 	job2->process[PROCESS_POST_STOP] = job_process_new (job2);
 	job2->process[PROCESS_POST_STOP]->command = "echo";
 
-	event = event_new (job2, "wibble");
+	event = event_info_new (job2, "wibble", NULL, NULL);
 	nih_list_add (&job2->stop_events, &event->entry);
 
 
@@ -4532,7 +4532,7 @@ void
 test_detect_stalled (void)
 {
 	Job           *job1, *job2;
-	Event         *event;
+	EventInfo     *event;
 
 	TEST_FUNCTION ("job_detect_stalled");
 
@@ -4560,12 +4560,12 @@ test_detect_stalled (void)
 	 * stopped, which results in the stalled event being queued.
 	 */
 	TEST_FEATURE ("with stalled state");
-	event = event_new (job1, "stalled");
+	event = event_info_new (job1, "stalled", NULL, NULL);
 	nih_list_add (&job1->start_events, &event->entry);
 
 	job_detect_stalled ();
 
-	event = (Event *)events->prev;
+	event = (EventInfo *)events->prev;
 	TEST_EQ_STR (event->name, "stalled");
 	nih_list_free (&event->entry);
 

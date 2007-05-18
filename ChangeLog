@@ -1,5 +1,22 @@
 2007-05-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/cfgfile.c (cfg_stanza_start, cfg_stanza_stop) 
+	(cfg_stanza_emits): Convert to use EventInfo and event_info_*.
+	* init/job.c (job_copy): Use EventInfo and event_info_copy.
+	(job_handle_event, job_detect_stalled): Iterate EventInfo structures
+	* init/tests/test_cfgfile.c (test_stanza_start, test_stanza_stop) 
+	(test_stanza_emits): Update to use EventInfo
+	* init/tests/test_job.c (test_copy, test_handle_event) 
+	(test_handle_event_finished, test_detect_stalled): Update to use
+	EventInfo and event_info_new
+	* init/event.c (event_copy): Use nih_str_array_copy here, to make the
+	code somewhat simpler.
+	(event_finished): Copy the arguments and environment from the old
+	event, rather than stealing and reparenting.
+	* init/job.c (job_copy): Use nih_str_array_copy here too.
+	(job_run_process): Use nih_str_array_append to add the arguments from
+	the emission onto the command run.
+
 	* init/event.h (Event): Rename to EventInfo, since this structure
 	representations information about an event, rather than an actual
 	event in progress.
