@@ -255,10 +255,10 @@ process_setup_environment (Job *job)
 		nih_return_system_error (-1);
 
 	if (job->cause) {
-		if (setenv ("UPSTART_EVENT", job->cause->event.name, TRUE) < 0)
+		if (setenv ("UPSTART_EVENT", job->cause->info.name, TRUE) < 0)
 			nih_return_system_error (-1);
 
-		for (env = job->cause->event.env; env && *env; env++)
+		for (env = job->cause->info.env; env && *env; env++)
 			if (putenv (*env) < 0)
 				nih_return_system_error (-1);
 	}

@@ -116,11 +116,11 @@ notify_subscribe_job (const void *parent,
  * notify_subscribe_event:
  * @parent: parent of block,
  * @pid: process id to send to,
- * @emission: event emission to watch.
+ * @event: event to watch.
  *
  * Adjusts the subscription of process @pid by adding a subscription to
- * all changes caused by @emission, which may be NULL to indicate that
- * emission notification of events should be sent.
+ * all changes caused by @event, which may be NULL to indicate that
+ * notification of all events should be sent.
  *
  * The subscription is allocated with nih_alloc() and stored in a linked
  * list, with a destructor set to remove it should the object be freed.
@@ -136,9 +136,9 @@ notify_subscribe_job (const void *parent,
  * Returns: new EventSubscription object.
  **/
 NotifySubscription *
-notify_subscribe_event (const void    *parent,
-			pid_t          pid,
-			EventEmission *emission)
+notify_subscribe_event (const void *parent,
+			pid_t       pid,
+			Event      *event)
 {
 	NotifySubscription *sub;
 
@@ -151,7 +151,7 @@ notify_subscribe_event (const void    *parent,
 
 	sub->pid = pid;
 	sub->type = NOTIFY_EVENT;
-	sub->emission = emission;
+	sub->event = event;
 
 	nih_alloc_set_destructor (sub, (NihDestructor)nih_list_destructor);
 
@@ -164,7 +164,7 @@ notify_subscribe_event (const void    *parent,
  * notify_subscription_find:
  * @pid: process id subscribed,
  * @type: type of subscription,
- * @ptr: Job or EventEmission, depending on @type.
+ * @ptr: Job or Event, depending on @type.
  *
  * Finds the first subscription exactly matching the given details.
  *
@@ -188,7 +188,7 @@ notify_subscription_find (pid_t        pid,
 		if ((sub->type == NOTIFY_JOB) && (sub->job != ptr))
 			continue;
 
-		if ((sub->type == NOTIFY_EVENT) && (sub->emission != ptr))
+		if ((sub->type == NOTIFY_EVENT) && (sub->event != ptr))
 			continue;
 
 		return sub;
@@ -282,7 +282,7 @@ notify_job_event (Job *job)
 		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		if (sub->emission != job->cause)
+		if (sub->event != job->cause)
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
@@ -337,15 +337,15 @@ notify_job_finished (Job *job)
 
 /**
  * notify_event:
- * @emission: event emission now being handled.
+ * @event: event now being handled.
  *
  * Called when an event begins being handled.  Notifies subscribed processes
  * with an UPSTART_EVENT message.
  **/
 void
-notify_event (EventEmission *emission)
+notify_event (Event *event)
 {
-	nih_assert (emission != NULL);
+	nih_assert (event != NULL);
 
 	notify_init ();
 
@@ -359,29 +359,29 @@ notify_event (EventEmission *emission)
 		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		if (sub->emission && (sub->emission != emission))
+		if (sub->event && (sub->event != event))
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_EVENT,
-				  emission->id, emission->event.name,
-				  emission->event.args, emission->event.env));
+				  event->id, event->info.name,
+				  event->info.args, event->info.env));
 		nih_io_send_message (control_io, message);
 	}
 }
 
 /**
  * notify_event_finished:
- * @emission: event emission now finished.
+ * @event: event now finished.
  *
- * Called when an event emission has finished.  Notifies all processes
+ * Called when an event has finished.  Notifies all processes
  * subscribed to that event with an UPSTART_EVENT_FINISHED message
  * and unsubscribes them from future notifications.
  **/
 void
-notify_event_finished (EventEmission *emission)
+notify_event_finished (Event *event)
 {
-	nih_assert (emission != NULL);
+	nih_assert (event != NULL);
 
 	notify_init ();
 
@@ -395,14 +395,13 @@ notify_event_finished (EventEmission *emission)
 		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		if (sub->emission != emission)
+		if (sub->event != event)
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_EVENT_FINISHED,
-				  emission->id, emission->failed,
-				  emission->event.name,
-				  emission->event.args, emission->event.env));
+				  event->id, event->failed, event->info.name,
+				  event->info.args, event->info.env));
 		nih_io_send_message (control_io, message);
 
 		nih_list_free (&sub->entry);

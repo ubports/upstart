@@ -739,7 +739,7 @@ control_event_emit (void                *data,
 		    char               **args,
 		    char               **env)
 {
-	EventEmission *emission;
+	Event *event;
 
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_EVENT_EMIT);
@@ -747,9 +747,9 @@ control_event_emit (void                *data,
 
 	nih_info (_("Control request to emit %s event"), name);
 
-	emission = event_emit (name, args, env);
+	event = event_new (NULL, name, args, env);
 
-	notify_subscribe_event (emission, pid, emission);
+	notify_subscribe_event (event, pid, event);
 
 	return 0;
 }
@@ -823,7 +823,7 @@ control_unsubscribe_jobs (void               *data,
  * @type: message type received.
  *
  * This function is called when another process on the system requests that
- * it be subscribed to event emissions.
+ * it be subscribed to events.
  *
  * We add the subscription, no reply is sent.
  *
@@ -851,7 +851,7 @@ control_subscribe_events (void               *data,
  * @type: message type received.
  *
  * This function is called when another process on the system requests that
- * it be unsubscribed from event emissions.
+ * it be unsubscribed from events.
  *
  * We lookup their current subscription, and remove it if it exists.  No
  * reply is sent, and a non-existant subscription is ignored.

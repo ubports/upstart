@@ -94,31 +94,31 @@ void
 test_subscribe_event (void)
 {
 	NotifySubscription *sub;
-	EventEmission      *emission;
+	Event              *event;
 
 	TEST_FUNCTION ("notify_subscribe_event");
 
-	/* Check that we can add a new subscription on a specific event
-	 * emission; the structure returned should be allocated with
-	 * nih_alloc(), placed in the subscriptions list and have the
-	 * details filled out correctly.
+	/* Check that we can add a new subscription on a specific event;
+	 * the structure returned should be allocated with nih_alloc(),
+	 * placed in the subscriptions list and have the details
+	 * filled out correctly.
 	 */
-	TEST_FEATURE ("with subscription to emission");
-	emission = event_emit ("test", NULL, NULL);
+	TEST_FEATURE ("with subscription to event");
+	event = event_new (NULL, "test", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
-		sub = notify_subscribe_event (NULL, 1000, emission);
+		sub = notify_subscribe_event (NULL, 1000, event);
 
 		TEST_ALLOC_SIZE (sub, sizeof (NotifySubscription));
 		TEST_LIST_NOT_EMPTY (&sub->entry);
 		TEST_EQ (sub->pid, 1000);
 		TEST_EQ (sub->type, NOTIFY_EVENT);
-		TEST_EQ_P (sub->emission, emission);
+		TEST_EQ_P (sub->event, event);
 
 		nih_list_free (&sub->entry);
 	}
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 
 
 	/* Check that we can subscribe to any event by passing in NULL. */
@@ -130,7 +130,7 @@ test_subscribe_event (void)
 		TEST_LIST_NOT_EMPTY (&sub->entry);
 		TEST_EQ (sub->pid, 1000);
 		TEST_EQ (sub->type, NOTIFY_EVENT);
-		TEST_EQ_P (sub->emission, NULL);
+		TEST_EQ_P (sub->event, NULL);
 
 		nih_list_free (&sub->entry);
 	}
@@ -159,7 +159,7 @@ test_subscription_find (void)
 
 
 	/* Check that we can find an event subscription with the right pid
-	 * and EventEmission record.
+	 * and Event record.
 	 */
 	TEST_FEATURE ("with subscription to job");
 	ret = notify_subscription_find (1001, NOTIFY_EVENT, &sub2);
@@ -400,7 +400,7 @@ test_job (void)
 	pid_t               pid;
 	int                 wait_fd, status;
 	Job                *job;
-	EventEmission      *emission;
+	Event              *event;
 	NotifySubscription *sub;
 
 	TEST_FUNCTION ("notify_job");
@@ -479,10 +479,10 @@ test_job (void)
 	 * event id.
 	 */
 	TEST_FEATURE ("with subscription to cause event");
-	emission = event_emit ("test", NULL, NULL);
-	emission->id = 0xdeafbeef;
+	event = event_new (NULL, "test", NULL, NULL);
+	event->id = 0xdeafbeef;
 
-	job->cause = emission;
+	job->cause = event;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -530,7 +530,7 @@ test_job (void)
 		exit (0);
 	}
 
-	sub = notify_subscribe_event (NULL, pid, emission);
+	sub = notify_subscribe_event (NULL, pid, event);
 
 	notify_job (job);
 
@@ -557,7 +557,7 @@ test_job_event (void)
 	pid_t               pid;
 	int                 wait_fd, status;
 	Job                *job;
-	EventEmission      *emission;
+	Event              *event;
 	NotifySubscription *sub;
 
 	/* Check that processes subscribed to the job's cause event
@@ -577,10 +577,10 @@ test_job_event (void)
 	job->process[PROCESS_MAIN]->pid = 1000;
 	job->process[PROCESS_POST_STOP] = job_process_new (job);
 
-	emission = event_emit ("test", NULL, NULL);
-	emission->id = 0xdeafbeef;
+	event = event_new (NULL, "test", NULL, NULL);
+	event->id = 0xdeafbeef;
 
-	job->cause = emission;
+	job->cause = event;
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -628,7 +628,7 @@ test_job_event (void)
 		exit (0);
 	}
 
-	sub = notify_subscribe_event (NULL, pid, emission);
+	sub = notify_subscribe_event (NULL, pid, event);
 
 	notify_job (job);
 
@@ -755,7 +755,7 @@ test_event (void)
 	NihIo               *io;
 	pid_t                pid;
 	int                  wait_fd, status;
-	EventEmission       *emission;
+	Event               *event;
 	char               **args, **env;
 	NotifySubscription  *sub;
 
@@ -796,12 +796,12 @@ test_event (void)
 	env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
 
-	emission = event_emit ("snarf", args, env);
-	emission->id = 0xdeafbeef;
+	event = event_new (NULL, "snarf", args, env);
+	event->id = 0xdeafbeef;
 
-	sub = notify_subscribe_event (NULL, pid, emission);
+	sub = notify_subscribe_event (NULL, pid, event);
 
-	notify_event (emission);
+	notify_event (event);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 	while (! NIH_LIST_EMPTY (io->send_q))
@@ -811,7 +811,7 @@ test_event (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 	nih_list_free (&sub->entry);
 
 	control_close ();
@@ -825,7 +825,7 @@ test_event_finished (void)
 	NihIo               *io;
 	pid_t                pid;
 	int                  wait_fd, status;
-	EventEmission       *emission;
+	Event               *event;
 	char               **args, **env;
 	NotifySubscription  *sub;
 
@@ -867,16 +867,16 @@ test_event_finished (void)
 	env = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
 
-	emission = event_emit ("snarf", args, env);
-	emission->id = 0xdeafbeef;
-	emission->failed = FALSE;
+	event = event_new (NULL, "snarf", args, env);
+	event->id = 0xdeafbeef;
+	event->failed = FALSE;
 
-	sub = notify_subscribe_event (NULL, pid, emission);
+	sub = notify_subscribe_event (NULL, pid, event);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (sub, my_destructor);
 
-	notify_event_finished (emission);
+	notify_event_finished (event);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 	while (! NIH_LIST_EMPTY (io->send_q))
@@ -888,7 +888,7 @@ test_event_finished (void)
 
 	TEST_TRUE (destructor_called);
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 
 
 	control_close ();

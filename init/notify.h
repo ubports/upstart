@@ -46,11 +46,11 @@ typedef enum notify_event {
  * @pid: subscribed process,
  * @type: event subscribed to,
  * @job: job being watched,
- * @emission: event emission being watched.
+ * @event: event being watched.
  *
  * This structure is used to allow processes to subscribe to notification
  * of events or changes to job status.  @notify specifies which of @job
- * or @emission to look at, this can be NULL to indicate that all jobs
+ * or @event to look at, this can be NULL to indicate that all jobs
  * or events are interesting.
  **/
 typedef struct notify_subscription {
@@ -59,8 +59,8 @@ typedef struct notify_subscription {
 	NotifyEvent  type;
 
 	union {
-		Job           *job;
-		EventEmission *emission;
+		Job   *job;
+		Event *event;
 	};
 } NotifySubscription;
 
@@ -77,7 +77,7 @@ NotifySubscription *notify_subscribe_job     (const void *parent, pid_t pid,
 	__attribute__ ((malloc));
 
 NotifySubscription *notify_subscribe_event   (const void *parent, pid_t pid,
-					      EventEmission *emission)
+					      Event *event)
 	__attribute__ ((malloc));
 
 void                notify_unsubscribe       (pid_t pid);
@@ -88,8 +88,9 @@ NotifySubscription *notify_subscription_find (pid_t pid, NotifyEvent type,
 void                notify_job               (Job *job);
 void                notify_job_event         (Job *job);
 void                notify_job_finished      (Job *job);
-void                notify_event             (EventEmission *emission);
-void                notify_event_finished    (EventEmission *emission);
+
+void                notify_event             (Event *event);
+void                notify_event_finished    (Event *event);
 
 NIH_END_EXTERN
 

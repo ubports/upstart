@@ -847,8 +847,8 @@ test_instance (void)
 void
 test_change_goal (void)
 {
-	EventEmission *em;
-	Job           *job;
+	Event *event;
+	Job   *job;
 
 	TEST_FUNCTION ("job_change_goal");
 	program_name = "test";
@@ -902,15 +902,15 @@ test_change_goal (void)
 	 * and sets it to NULL in the job.
 	 */
 	TEST_FEATURE ("with existing cause");
-	em = event_emit ("foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
 		job->process[PROCESS_MAIN]->pid = 1;
-		job->cause = em;
-		em->progress = EVENT_HANDLING;
-		em->jobs = 1;
+		job->cause = event;
+		event->progress = EVENT_HANDLING;
+		event->jobs = 1;
 
 		job_change_goal (job, JOB_START, NULL);
 
@@ -920,11 +920,11 @@ test_change_goal (void)
 
 		TEST_EQ_P (job->cause, NULL);
 
-		TEST_EQ (em->jobs, 0);
-		TEST_EQ (em->progress, EVENT_FINISHED);
+		TEST_EQ (event->jobs, 0);
+		TEST_EQ (event->progress, EVENT_FINISHED);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 	job->cause = NULL;
 	job->process[PROCESS_MAIN]->pid = 0;
 
@@ -933,28 +933,28 @@ test_change_goal (void)
 	 * and sets the cause in the job.
 	 */
 	TEST_FEATURE ("with new cause");
-	em = event_emit ("foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 		job->process[PROCESS_POST_STOP]->pid = 1;
 		job->cause = NULL;
-		em->jobs = 0;
+		event->jobs = 0;
 
-		job_change_goal (job, JOB_START, em);
+		job_change_goal (job, JOB_START, event);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_STOP);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 1);
 
-		TEST_EQ_P (job->cause, em);
+		TEST_EQ_P (job->cause, event);
 
-		TEST_EQ (em->jobs, 1);
+		TEST_EQ (event->jobs, 1);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 	job->cause = NULL;
 	job->process[PROCESS_POST_STOP]->pid = 0;
 
@@ -1035,15 +1035,15 @@ test_change_goal (void)
 	 * event and sets it to NULL.
 	 */
 	TEST_FEATURE ("with existing cause");
-	em = event_emit ("foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 		job->process[PROCESS_MAIN]->pid = 1;
-		job->cause = em;
-		em->jobs = 1;
-		em->progress = EVENT_HANDLING;
+		job->cause = event;
+		event->jobs = 1;
+		event->progress = EVENT_HANDLING;
 
 		job_change_goal (job, JOB_STOP, NULL);
 
@@ -1052,11 +1052,11 @@ test_change_goal (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 		TEST_EQ_P (job->cause, NULL);
 
-		TEST_EQ (em->jobs, 0);
-		TEST_EQ (em->progress, EVENT_FINISHED);
+		TEST_EQ (event->jobs, 0);
+		TEST_EQ (event->progress, EVENT_FINISHED);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 	job->cause = NULL;
 	job->process[PROCESS_MAIN]->pid = 0;
 
@@ -1065,24 +1065,24 @@ test_change_goal (void)
 	 * and sets the job's cause.
 	 */
 	TEST_FEATURE ("with existing cause");
-	em = event_emit ("foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
 		job->cause = NULL;
-		em->jobs = 0;
+		event->jobs = 0;
 
-		job_change_goal (job, JOB_STOP, em);
+		job_change_goal (job, JOB_STOP, event);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->jobs, 1);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->jobs, 1);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 	job->cause = NULL;
 
 
@@ -1107,14 +1107,14 @@ test_change_goal (void)
 void
 test_change_state (void)
 {
-	FILE          *output;
-	Job           *job;
-	EventEmission *cause, *emission;
-	struct stat    statbuf;
-	char           dirname[PATH_MAX], filename[PATH_MAX];
-	JobProcess    *tmp;
-	pid_t          pid;
-	int            status;
+	FILE        *output;
+	Job         *job;
+	Event       *cause, *event;
+	struct stat  statbuf;
+	char         dirname[PATH_MAX], filename[PATH_MAX];
+	JobProcess  *tmp;
+	pid_t        pid;
+	int          status;
 
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
@@ -1137,8 +1137,8 @@ test_change_state (void)
 
 	event_init ();
 
-	cause = event_emit ("wibble", NULL, NULL);
-	nih_list_remove (&cause->event.entry);
+	cause = event_new (NULL, "wibble", NULL, NULL);
+	nih_list_remove (&cause->entry);
 
 
 	/* Check that a job can move from waiting to starting.  This
@@ -1163,14 +1163,14 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STARTING);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "starting");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "starting");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1214,14 +1214,14 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "respawn");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "respawn");
+		TEST_EQ_P (event->info.args[3], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1324,12 +1324,12 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "started");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1378,12 +1378,12 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "started");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1422,12 +1422,12 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "started");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1568,12 +1568,12 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "started");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1610,12 +1610,12 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "started");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1658,12 +1658,12 @@ test_change_state (void)
 
 		TEST_EQ (cause->jobs, 1);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "started");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1754,15 +1754,15 @@ test_change_state (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "ok");
-		TEST_EQ_P (emission->event.args[2], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopping");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "ok");
+		TEST_EQ_P (event->info.args[2], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1796,18 +1796,18 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopping");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1840,18 +1840,18 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=SEGV");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopping");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1884,18 +1884,18 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=33");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopping");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_SIGNAL=33");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1959,15 +1959,15 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "ok");
-		TEST_EQ_P (emission->event.args[2], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopping");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "ok");
+		TEST_EQ_P (event->info.args[2], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2145,16 +2145,16 @@ test_change_state (void)
 
 		TEST_EQ (cause->jobs, 1);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2193,16 +2193,16 @@ test_change_state (void)
 
 		TEST_EQ (cause->jobs, 1);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2234,14 +2234,14 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STARTING);
 
 		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "starting");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "starting");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_P (event->info.args[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2285,16 +2285,16 @@ test_change_state (void)
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2341,16 +2341,16 @@ test_change_state (void)
 
 		TEST_EQ (cause->jobs, 1);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2392,16 +2392,16 @@ test_change_state (void)
 
 		TEST_EQ (cause->jobs, 1);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "failed");
+		TEST_EQ_STR (event->info.args[2], "main");
+		TEST_EQ_P (event->info.args[3], NULL);
+		TEST_EQ_STR (event->info.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->info.env[1], NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2446,14 +2446,14 @@ test_change_state (void)
 
 		TEST_EQ (cause->jobs, 1);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "ok");
-		TEST_EQ_P (emission->event.args[2], NULL);
-		TEST_EQ_P (emission->event.env, NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->info.name, "stopped");
+		TEST_EQ_STR (event->info.args[0], "test");
+		TEST_EQ_STR (event->info.args[1], "ok");
+		TEST_EQ_P (event->info.args[2], NULL);
+		TEST_EQ_P (event->info.env, NULL);
+		nih_list_free (&event->entry);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2477,7 +2477,7 @@ test_change_state (void)
 
 	nih_list_free (&job->entry);
 
-	nih_list_free (&cause->event.entry);
+	nih_list_free (&cause->entry);
 	event_poll ();
 }
 
@@ -2797,7 +2797,7 @@ void
 test_run_process (void)
 {
 	Job           *job = NULL;
-	EventEmission *em;
+	Event         *event;
 	FILE          *output;
 	struct stat    statbuf;
 	char           filename[PATH_MAX], buf[80], **args;
@@ -2946,14 +2946,14 @@ test_run_process (void)
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	em = event_emit ("test", args, NULL);
+	event = event_new (NULL, "test", args, NULL);
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->cause = em;
+			job->cause = event;
 			job->process[PROCESS_MAIN] = job_process_new (job);
 			job->process[PROCESS_MAIN]->script = TRUE;
 			job->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -2979,7 +2979,7 @@ test_run_process (void)
 		nih_list_free (&job->entry);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 
 
 	if (stat ("/dev/fd", &statbuf) < 0) {
@@ -3060,14 +3060,14 @@ test_run_process (void)
 	args = nih_str_array_new (NULL);
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	em = event_emit ("test", args, NULL);
+	event = event_new (NULL, "test", args, NULL);
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->cause = em;
+			job->cause = event;
 			job->process[PROCESS_MAIN] = job_process_new (job);
 			job->process[PROCESS_MAIN]->script = TRUE;
 			job->process[PROCESS_MAIN]->command = nih_alloc (
@@ -3123,7 +3123,7 @@ test_run_process (void)
 		nih_list_free (&job->entry);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 no_devfd:
 	;
 }
@@ -3257,10 +3257,10 @@ my_destructor (void *ptr)
 void
 test_child_reaper (void)
 {
-	Job           *job;
-	EventEmission *em;
-	FILE          *output;
-	int            exitcodes[2] = { 100, SIGINT << 8 };
+	Job   *job;
+	Event *event;
+	FILE  *output;
+	int    exitcodes[2] = { 100, SIGINT << 8 };
 
 	TEST_FUNCTION ("job_child_reaper");
 	program_name = "test";
@@ -3270,7 +3270,7 @@ test_child_reaper (void)
 	job->process[PROCESS_MAIN] = job_process_new (job);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	em = event_emit ("foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
 
 
 	/* Check that the child reaper can be called with a pid that doesn't
@@ -3302,8 +3302,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3315,8 +3315,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3337,8 +3337,8 @@ test_child_reaper (void)
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3361,7 +3361,7 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3384,8 +3384,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 0;
 		job->process[PROCESS_PRE_START]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3404,8 +3404,8 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 	}
 
 	job->process[PROCESS_PRE_START]->pid = 0;
@@ -3423,8 +3423,8 @@ test_child_reaper (void)
 		job->state = JOB_PRE_START;
 		job->process[PROCESS_PRE_START]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3439,8 +3439,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
@@ -3465,8 +3465,8 @@ test_child_reaper (void)
 		job->state = JOB_PRE_START;
 		job->process[PROCESS_PRE_START]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3481,8 +3481,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
@@ -3512,8 +3512,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3556,8 +3556,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3572,8 +3572,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3603,8 +3603,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3619,8 +3619,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -3647,8 +3647,8 @@ test_child_reaper (void)
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3664,7 +3664,7 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3692,8 +3692,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3708,8 +3708,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3739,8 +3739,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3755,8 +3755,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3782,8 +3782,8 @@ test_child_reaper (void)
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3795,8 +3795,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3818,8 +3818,8 @@ test_child_reaper (void)
 		job->state = JOB_POST_STOP;
 		job->process[PROCESS_POST_STOP]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3832,7 +3832,7 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3851,8 +3851,8 @@ test_child_reaper (void)
 		job->state = JOB_POST_STOP;
 		job->process[PROCESS_POST_STOP]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3868,7 +3868,7 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_POST_STOP);
@@ -3892,8 +3892,8 @@ test_child_reaper (void)
 		job->state = JOB_POST_STOP;
 		job->process[PROCESS_POST_STOP]->pid = 1;
 
-		job->cause = em;
-		em->failed = TRUE;
+		job->cause = event;
+		event->failed = TRUE;
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -3909,7 +3909,7 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
 		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -3939,8 +3939,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->process[PROCESS_POST_START]->pid = 2;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3956,8 +3956,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3983,8 +3983,8 @@ test_child_reaper (void)
 		job->state = JOB_POST_START;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -3996,8 +3996,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4018,8 +4018,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->process[PROCESS_POST_START]->pid = 2;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4032,8 +4032,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4056,8 +4056,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->process[PROCESS_POST_START]->pid = 2;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4070,8 +4070,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4084,8 +4084,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4108,8 +4108,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->process[PROCESS_POST_START]->pid = 2;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4125,8 +4125,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -4144,8 +4144,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -4171,8 +4171,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->process[PROCESS_PRE_STOP]->pid = 2;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4188,8 +4188,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4215,8 +4215,8 @@ test_child_reaper (void)
 		job->state = JOB_PRE_STOP;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4228,8 +4228,8 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4250,8 +4250,8 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->process[PROCESS_PRE_STOP]->pid = 2;
 
-		job->cause = em;
-		em->failed = FALSE;
+		job->cause = event;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4264,8 +4264,8 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 2);
 
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4280,7 +4280,7 @@ test_child_reaper (void)
 
 	nih_list_free (&job->entry);
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 	event_poll ();
 }
 
@@ -4288,32 +4288,32 @@ test_child_reaper (void)
 void
 test_handle_event (void)
 {
-	Job            *job1, *job2;
-	EventInfo      *event;
-	EventEmission  *em;
+	Job       *job1, *job2;
+	Event     *event;
+	EventInfo *event_info;
 
 	TEST_FUNCTION ("job_handle_event");
 	job1 = job_new (NULL, "foo");
 	job1->respawn_limit = 0;
 
-	event = event_info_new (job1, "wibble", NULL, NULL);
-	nih_list_add (&job1->start_events, &event->entry);
+	event_info = event_info_new (job1, "wibble", NULL, NULL);
+	nih_list_add (&job1->start_events, &event_info->entry);
 
 	job2 = job_new (NULL, "bar");
 	job2->respawn_limit = 0;
 
-	event = event_info_new (job2, "wibble", NULL, NULL);
-	nih_list_add (&job2->stop_events, &event->entry);
+	event_info = event_info_new (job2, "wibble", NULL, NULL);
+	nih_list_add (&job2->stop_events, &event_info->entry);
 
 
 	/* Check that a non matching event has no effect on either job,
-	 * and doesn't result in the emission being given any jobs.
+	 * and doesn't result in the event being given any jobs.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL);
+	event = event_new (NULL, "biscuit", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
-		em->jobs = 0;
+		event->jobs = 0;
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
@@ -4323,9 +4323,9 @@ test_handle_event (void)
 		job2->state = JOB_RUNNING;
 		job2->cause = NULL;
 
-		job_handle_event (em);
+		job_handle_event (event);
 
-		TEST_EQ (em->jobs, 0);
+		TEST_EQ (event->jobs, 0);
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_WAITING);
@@ -4336,17 +4336,17 @@ test_handle_event (void)
 		TEST_EQ_P (job2->cause, NULL);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 
 
 	/* Check that a matching event results in the jobs being started or
 	 * stopped as appropriate.
 	 */
 	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL);
+	event = event_new (NULL, "wibble", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
-		em->jobs = 0;
+		event->jobs = 0;
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
@@ -4356,20 +4356,20 @@ test_handle_event (void)
 		job2->state = JOB_RUNNING;
 		job2->cause = NULL;
 
-		job_handle_event (em);
+		job_handle_event (event);
 
-		TEST_EQ (em->jobs, 2);
+		TEST_EQ (event->jobs, 2);
 
 		TEST_EQ (job1->goal, JOB_START);
 		TEST_EQ (job1->state, JOB_STARTING);
-		TEST_EQ_P (job1->cause, em);
+		TEST_EQ_P (job1->cause, event);
 
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_STOPPING);
-		TEST_EQ_P (job2->cause, em);
+		TEST_EQ_P (job2->cause, event);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 
 	nih_list_free (&job2->entry);
 
@@ -4381,18 +4381,18 @@ test_handle_event (void)
 	TEST_FEATURE ("with matching event for instance job");
 	job1->instance = TRUE;
 
-	em = event_emit ("wibble", NULL, NULL);
+	event = event_new (NULL, "wibble", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
-		em->jobs = 0;
+		event->jobs = 0;
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
 		job1->cause = NULL;
 
-		job_handle_event (em);
+		job_handle_event (event);
 
-		TEST_EQ (em->jobs, 1);
+		TEST_EQ (event->jobs, 1);
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_WAITING);
@@ -4414,12 +4414,12 @@ test_handle_event (void)
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_STARTING);
-		TEST_EQ_P (job2->cause, em);
+		TEST_EQ_P (job2->cause, event);
 
 		nih_list_free (&job2->entry);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 
 
 	nih_list_free (&job1->entry);
@@ -4430,9 +4430,9 @@ test_handle_event (void)
 void
 test_handle_event_finished (void)
 {
-	Job            *job1, *job2;
-	EventInfo      *event;
-	EventEmission  *em;
+	Job       *job1, *job2;
+	Event     *event;
+	EventInfo *event_info;
 
 	TEST_FUNCTION ("job_handle_event_finished");
 	job1 = job_new (NULL, "foo");
@@ -4442,8 +4442,8 @@ test_handle_event_finished (void)
 	job1->process[PROCESS_POST_STOP] = job_process_new (job1);
 	job1->process[PROCESS_POST_STOP]->command = "echo";
 
-	event = event_info_new (job1, "wibble", NULL, NULL);
-	nih_list_add (&job1->start_events, &event->entry);
+	event_info = event_info_new (job1, "wibble", NULL, NULL);
+	nih_list_add (&job1->start_events, &event_info->entry);
 
 	job2 = job_new (NULL, "bar");
 	job2->respawn_limit = 0;
@@ -4452,14 +4452,14 @@ test_handle_event_finished (void)
 	job2->process[PROCESS_POST_STOP] = job_process_new (job2);
 	job2->process[PROCESS_POST_STOP]->command = "echo";
 
-	event = event_info_new (job2, "wibble", NULL, NULL);
-	nih_list_add (&job2->stop_events, &event->entry);
+	event_info = event_info_new (job2, "wibble", NULL, NULL);
+	nih_list_add (&job2->stop_events, &event_info->entry);
 
 
 	/* Check that a non matching event has no effect on either job.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL);
+	event = event_new (NULL, "biscuit", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job1->goal = JOB_STOP;
@@ -4470,7 +4470,7 @@ test_handle_event_finished (void)
 		job2->state = JOB_STARTING;
 		job2->blocked = NULL;
 
-		job_handle_event_finished (em);
+		job_handle_event_finished (event);
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_STOPPING);
@@ -4481,27 +4481,27 @@ test_handle_event_finished (void)
 		TEST_EQ_P (job2->blocked, NULL);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 
 
 	/* Check that a matching event results in the jobs being unblocked
 	 * and then started or stopped as appropriate.
 	 */
 	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL);
+	event = event_new (NULL, "wibble", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		job1->goal = JOB_STOP;
 		job1->state = JOB_STOPPING;
 		job1->process[PROCESS_POST_STOP]->pid = 0;
-		job1->blocked = em;
+		job1->blocked = event;
 
 		job2->goal = JOB_START;
 		job2->state = JOB_STARTING;
 		job2->process[PROCESS_PRE_START]->pid = 0;
-		job2->blocked = em;
+		job2->blocked = event;
 
-		job_handle_event_finished (em);
+		job_handle_event_finished (event);
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_POST_STOP);
@@ -4518,7 +4518,7 @@ test_handle_event_finished (void)
 		waitpid (job2->process[PROCESS_PRE_START]->pid, NULL, 0);
 	}
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 
 
 	nih_list_free (&job2->entry);
@@ -4531,8 +4531,9 @@ test_handle_event_finished (void)
 void
 test_detect_stalled (void)
 {
-	Job           *job1, *job2;
-	EventInfo     *event;
+	Job       *job1, *job2;
+	EventInfo *event_info;
+	Event     *event;
 
 	TEST_FUNCTION ("job_detect_stalled");
 
@@ -4560,13 +4561,13 @@ test_detect_stalled (void)
 	 * stopped, which results in the stalled event being queued.
 	 */
 	TEST_FEATURE ("with stalled state");
-	event = event_info_new (job1, "stalled", NULL, NULL);
-	nih_list_add (&job1->start_events, &event->entry);
+	event_info = event_info_new (job1, "stalled", NULL, NULL);
+	nih_list_add (&job1->start_events, &event_info->entry);
 
 	job_detect_stalled ();
 
-	event = (EventInfo *)events->prev;
-	TEST_EQ_STR (event->name, "stalled");
+	event = (Event *)events->prev;
+	TEST_EQ_STR (event->info.name, "stalled");
 	nih_list_free (&event->entry);
 
 	TEST_LIST_EMPTY (events);

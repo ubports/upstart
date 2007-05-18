@@ -67,7 +67,7 @@
 
 /* Prototypes for static functions */
 static const char *job_name          (Job *job);
-static void        job_change_cause  (Job *job, EventEmission *emission);
+static void        job_change_cause  (Job *job, Event *event);
 static void        job_emit_event    (Job *job);
 static int         job_catch_runaway (Job *job);
 static void        job_kill_timer    (ProcessType process, NihTimer *timer);
@@ -681,13 +681,13 @@ job_instance (Job *job)
  * job_change_goal:
  * @job: job to change goal of,
  * @goal: goal to change to,
- * @emission: event emission causing change.
+ * @event: event causing the change.
  *
  * This function changes the current goal of a @job to the new @goal given,
  * performing any necessary state changes or actions (such as killing
  * the running process) to correctly enter the new goal.
  *
- * @emission is stored in the Job's cause member, and may be NULL.
+ * @event is stored in the Job's cause member, and may be NULL.
  * Any previous cause is unreferenced and allowed to finish handling
  * if it has no further references.
  *
@@ -697,9 +697,9 @@ job_instance (Job *job)
  * job.
  **/
 void
-job_change_goal (Job           *job,
-		 JobGoal        goal,
-		 EventEmission *emission)
+job_change_goal (Job     *job,
+		 JobGoal  goal,
+		 Event   *event)
 {
 	nih_assert (job != NULL);
 	nih_assert (job->state != JOB_DELETED);
@@ -713,7 +713,7 @@ job_change_goal (Job           *job,
 		  job_goal_name (job->goal), job_goal_name (goal));
 
 	job->goal = goal;
-	job_change_cause (job, emission);
+	job_change_cause (job, event);
 	notify_job (job);
 
 
@@ -741,19 +741,19 @@ job_change_goal (Job           *job,
 /**
  * job_change_cause:
  * @job: job to change,
- * @emission: emission to set.
+ * @event: event to set.
  *
- * Updates the reference to the emission that's causing @job to be started
- * or stopped to @emission, which may be NULL or even the same as the current
+ * Updates the reference to the event that's causing @job to be started
+ * or stopped to @event, which may be NULL or even the same as the current
  * one.
  **/
 static void
-job_change_cause (Job           *job,
-		  EventEmission *emission)
+job_change_cause (Job   *job,
+		  Event *event)
 {
 	nih_assert (job != NULL);
 
-	if (job->cause == emission)
+	if (job->cause == event)
 		return;
 
 	if (job->cause) {
@@ -763,7 +763,7 @@ job_change_cause (Job           *job,
 		event_emit_finished (job->cause);
 	}
 
-	job->cause = emission;
+	job->cause = event;
 	if (job->cause)
 		job->cause->jobs++;
 }
@@ -1100,11 +1100,11 @@ job_next_state (Job *job)
 static void
 job_emit_event (Job *job)
 {
-	EventEmission  *emission;
-	const char     *name;
-	int             stop = FALSE, block = FALSE;
-	char          **args = NULL, **env = NULL;
-	size_t          len;
+	Event       *event;
+	const char  *name;
+	int          stop = FALSE, block = FALSE;
+	char       **args = NULL, **env = NULL;
+	size_t       len;
 
 	nih_assert (job != NULL);
 
@@ -1176,10 +1176,10 @@ job_emit_event (Job *job)
 		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));
 	}
 
-	emission = event_emit (name, args, env);
+	event = event_new (NULL, name, args, env);
 
 	if (block)
-		job->blocked = emission;
+		job->blocked = event;
 }
 
 /**
@@ -1366,7 +1366,7 @@ job_run_process (Job         *job,
 		/* Append arguments from the cause event if set. */
 		if (job->cause)
 			NIH_MUST (nih_str_array_append (&argv, NULL, &argc,
-							job->cause->event.args));
+							job->cause->info.args));
 	} else {
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
@@ -1732,16 +1732,15 @@ job_child_reaper (void  *data,
 
 /**
  * job_handle_event:
- * @emission: event emission to be handled.
+ * @event: event to be handled.
  *
- * This function is called whenever the emission of an event reaches the
- * handling state.  It iterates the list of jobs and stops or starts any
- * necessary.
+ * This function is called whenever an event reaches the handling state.
+ * It iterates the list of jobs and stops or starts any necessary.
  **/
 void
-job_handle_event (EventEmission *emission)
+job_handle_event (Event *event)
 {
-	nih_assert (emission != NULL);
+	nih_assert (event != NULL);
 
 	job_init ();
 
@@ -1771,9 +1770,8 @@ job_handle_event (EventEmission *emission)
 			NIH_LIST_FOREACH (&job->stop_events, iter) {
 				EventInfo *stop_event = (EventInfo *)iter;
 
-				if (event_match (&emission->event, stop_event))
-					job_change_goal (job, JOB_STOP,
-							 emission);
+				if (event_match (&event->info, stop_event))
+					job_change_goal (job, JOB_STOP, event);
 			}
 		}
 
@@ -1784,13 +1782,12 @@ job_handle_event (EventEmission *emission)
 			NIH_LIST_FOREACH (&job->start_events, iter) {
 				EventInfo *start_event = (EventInfo *)iter;
 
-				if (event_match (&emission->event,
-						 start_event)) {
+				if (event_match (&event->info, start_event)) {
 					Job *instance;
 
 					instance = job_instance (job);
 					job_change_goal (instance, JOB_START,
-							 emission);
+							 event);
 				}
 			}
 		}
@@ -1799,24 +1796,23 @@ job_handle_event (EventEmission *emission)
 
 /**
  * job_handle_event_finished:
- * @emission: event emission that has finished.
+ * @event: event that has finished.
  *
- * This function is called whenever the emission of an event finishes.  It
- * iterates the list of jobs checking for any blocked by that event,
- * unblocking them and sending them to the next state.
- * necessary.
+ * This function is called whenever an event finishes.  It iterates the
+ * list of jobs checking for any blocked by that event, unblocking them
+ * and sending them to the next state.
  **/
 void
-job_handle_event_finished (EventEmission *emission)
+job_handle_event_finished (Event *event)
 {
-	nih_assert (emission != NULL);
+	nih_assert (event != NULL);
 
 	job_init ();
 
 	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
-		if (job->blocked != emission)
+		if (job->blocked != event)
 			continue;
 
 		job->blocked = NULL;
@@ -1862,7 +1858,7 @@ job_detect_stalled (void)
 	if (stalled && can_stall) {
 		nih_info (_("System has stalled, generating %s event"),
 			  STALLED_EVENT);
-		event_emit (STALLED_EVENT, NULL, NULL);
+		event_new (NULL, STALLED_EVENT, NULL, NULL);
 
 		nih_main_loop_interrupt ();
 	}

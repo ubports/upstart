@@ -280,7 +280,7 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! (restart || rescue)) {
-		event_emit (STARTUP_EVENT, NULL, NULL);
+		event_new (NULL, STARTUP_EVENT, NULL, NULL);
 	} else {
 		sigset_t mask;
 
@@ -456,7 +456,7 @@ static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_emit (CTRLALTDEL_EVENT, NULL, NULL);
+	event_new (NULL, CTRLALTDEL_EVENT, NULL, NULL);
 }
 
 /**
@@ -472,7 +472,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_emit (KBDREQUEST_EVENT, NULL, NULL);
+	event_new (NULL, KBDREQUEST_EVENT, NULL, NULL);
 }
 
 /**
@@ -488,7 +488,7 @@ static void
 pwr_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_emit (PWRSTATUS_EVENT, NULL, NULL);
+	event_new (NULL, PWRSTATUS_EVENT, NULL, NULL);
 }
 
 /**

@@ -98,12 +98,12 @@ child (enum child_tests  test,
 void
 test_spawn (void)
 {
-	FILE          *output;
-	char           function[PATH_MAX], filename[PATH_MAX], buf[80];
-	char          *env[2], *args[4], **em_env;
-	Job           *job;
-	EventEmission *em;
-	pid_t          pid;
+	FILE  *output;
+	char   function[PATH_MAX], filename[PATH_MAX], buf[80];
+	char  *env[2], *args[4];
+	Job   *job;
+	Event *event;
+	pid_t  pid;
 
 	TEST_FUNCTION ("process_spawn");
 	TEST_FILENAME (filename);
@@ -233,14 +233,15 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
-	em_env = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&em_env, NULL, NULL, "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&em_env, NULL, NULL, "TEA=YES"));
-	em = event_emit ("wibble", NULL, em_env);
+	event = event_new (NULL, "wibble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&event->info.env, event, NULL,
+				     "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&event->info.env, event, NULL,
+				     "TEA=YES"));
 
 	job = job_new (NULL, "test");
 	job->id = 1000;
-	job->cause = em;
+	job->cause = event;
 	job->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
@@ -262,7 +263,7 @@ test_spawn (void)
 	unlink (filename);
 
 	nih_list_free (&job->entry);
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 }
 
 

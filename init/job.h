@@ -167,8 +167,8 @@ struct job {
 	JobGoal         goal;
 	JobState        state;
 
-	EventEmission  *cause;
-	EventEmission  *blocked;
+	Event          *cause;
+	Event          *blocked;
 
 	int             failed;
 	ProcessType     failed_process;
@@ -236,8 +236,7 @@ Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 Job *       job_find_by_id            (unsigned int id);
 
 Job *       job_instance              (Job *job);
-void        job_change_goal           (Job *job, JobGoal goal,
-				       EventEmission *emission);
+void        job_change_goal           (Job *job, JobGoal goal, Event *event);
 
 void        job_change_state          (Job *job, JobState state);
 JobState    job_next_state            (Job *job);
@@ -250,8 +249,8 @@ void        job_kill_process          (Job *job, ProcessType process);
 void        job_child_reaper          (void *ptr, pid_t pid, int
 				       killed, int status);
 
-void        job_handle_event          (EventEmission *emission);
-void        job_handle_event_finished (EventEmission *emission);
+void        job_handle_event          (Event *event);
+void        job_handle_event_finished (Event *event);
 
 void        job_detect_stalled        (void);
 void        job_free_deleted          (void);

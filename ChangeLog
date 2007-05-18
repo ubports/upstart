@@ -1,5 +1,37 @@
 2007-05-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main, cad_handler, kbd_handler, pwr_handler): Use
+	event_new rather than event_emit.
+	* init/job.h (Job): Change type of cause and blocked to Event
+	* init/job.c (job_change_goal, job_change_cause, job_emit_event) 
+	(job_handle_event, job_handle_event_finished): Update all references
+	to EventEmission to use Event instead.
+	(job_detect_stalled): Call event_new instead of event_emit
+	(job_run_process): Use the info member of cause, not event member
+	* init/tests/test_job.c (test_change_goal, test_change_state) 
+	(test_run_process, test_child_reaper, test_handle_event) 
+	(test_handle_event_finished): Update all references to EventEmission
+	to use Event instead.
+	(test_detect_stalled): Correct to use right structure types.
+	* init/process.c (process_setup_environment): Use cause's info member,
+	rather than event member.
+	* init/tests/test_process.c (test_spawn): Update to use Event.
+	* init/notify.h (NotifySubscription): Change member to event
+	* init/notify.c (notify_subscribe_event) 
+	(notify_subscription_find, notify_job_event, notify_event) 
+	(notify_event_finished): Update functions to use event member and
+	Event structures.
+	* init/tests/test_notify.c (test_subscribe_event) 
+	(test_subscription_find, test_job, test_job_event, test_event) 
+	(test_event_finished): Update to use Event instead of EventEmission
+	* init/control.c (control_event_emit): Update to use event_new.
+	* init/tests/test_control.c (test_event_emit) 
+	(test_subscribe_events, test_unsubscribe_events): Update to use
+	Event rather than EventEmission.
+
+	* init/event.h: Fix up a few references.
+	* init/tests/test_event.c (test_new): Remove reference to emission.
+
 	* init/event.h (EventEmission): Rename to Event, and rename event
 	member to info.
 	* init/event.c (event_emit_next_id): Rename to event_next_id

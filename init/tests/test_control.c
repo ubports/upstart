@@ -2964,7 +2964,7 @@ test_event_emit (void)
 	NihIo              *io;
 	pid_t               pid;
 	int                 wait_fd, status;
-	EventEmission      *em;
+	Event              *event;
 	NotifySubscription *sub;
 
 	/* Check that we can handle a message from a child process requesting
@@ -3013,18 +3013,18 @@ test_event_emit (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	em = (EventEmission *)events->prev;
-	TEST_EQ_STR (em->event.name, "wibble");
-	TEST_EQ_STR (em->event.args[0], "foo");
-	TEST_EQ_STR (em->event.args[1], "bar");
-	TEST_EQ_P (em->event.args[2], NULL);
-	TEST_EQ_STR (em->event.env[0], "FOO=BAR");
-	TEST_EQ_P (em->event.env[1], NULL);
+	event = (Event *)events->prev;
+	TEST_EQ_STR (event->info.name, "wibble");
+	TEST_EQ_STR (event->info.args[0], "foo");
+	TEST_EQ_STR (event->info.args[1], "bar");
+	TEST_EQ_P (event->info.args[2], NULL);
+	TEST_EQ_STR (event->info.env[0], "FOO=BAR");
+	TEST_EQ_P (event->info.env[1], NULL);
 
-	sub = notify_subscription_find (pid, NOTIFY_EVENT, em);
+	sub = notify_subscription_find (pid, NOTIFY_EVENT, event);
 	TEST_NE_P (sub, NULL);
 
-	nih_list_free (&em->event.entry);
+	nih_list_free (&event->entry);
 	event_poll ();
 
 
@@ -3233,7 +3233,7 @@ test_subscribe_events (void)
 	NihIo              *io;
 	pid_t               pid;
 	int                 wait_fd, status;
-	EventEmission      *emission;
+	Event              *event;
 	NotifySubscription *sub;
 
 	/* Check that we can handle a message from a child process asking us
@@ -3278,9 +3278,9 @@ test_subscribe_events (void)
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
 	TEST_NE_P (sub, NULL);
 
-	emission = event_emit ("test", NULL, NULL);
-	emission->id = 0xdeafbeef;
-	notify_event (emission);
+	event = event_new (NULL, "test", NULL, NULL);
+	event->id = 0xdeafbeef;
+	notify_event (event);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 	while (! NIH_LIST_EMPTY (io->send_q))
@@ -3290,7 +3290,7 @@ test_subscribe_events (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 	nih_list_free (&sub->entry);
 
 
@@ -3304,7 +3304,7 @@ test_unsubscribe_events (void)
 	NihIo              *io;
 	pid_t               pid;
 	int                 wait_fd, status;
-	EventEmission      *emission;
+	Event              *event;
 	NotifySubscription *sub;
 
 	/* Check that we can handle a message from a child process asking us
@@ -3359,9 +3359,9 @@ test_unsubscribe_events (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (sub, my_destructor);
 
-	emission = event_emit ("test", NULL, NULL);
-	emission->id = 0xdeafbeef;
-	notify_event (emission);
+	event = event_new (NULL, "test", NULL, NULL);
+	event->id = 0xdeafbeef;
+	notify_event (event);
 
 	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 	while (! NIH_LIST_EMPTY (io->send_q))
@@ -3377,7 +3377,7 @@ test_unsubscribe_events (void)
 
 	TEST_TRUE (destructor_called);
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 
 
 	control_close ();
