@@ -44,8 +44,8 @@
 
 
 /* Prototypes for static functions */
-static void event_pending  (EventEmission *emission);
-static void event_finished (EventEmission *emission);
+static void event_pending  (Event *event);
+static void event_finished (Event *event);
 
 
 /**
@@ -58,21 +58,21 @@ int paused = FALSE;
 
 
 /**
- * emission_id
+ * event_id
  *
- * This counter is used to assign unique emission ids and is incremented
+ * This counter is used to assign unique event ids and is incremented
  * each time we use it.  After a while (4 billion events) it'll wrap over,
- * in which case you should set emission_id_wrapped and take care to check
+ * in which case you should set event_id_wrapped and take care to check
  * an id isn't taken.
  **/
-unsigned int emission_id = 0;
-int          emission_id_wrapped = FALSE;
+unsigned int event_id = 0;
+int          event_id_wrapped = FALSE;
 
 /**
  * events:
  *
  * This list holds the list of events in the process of pending, being
- * handled or awaiting cleanup; each item is an EventEmission structure.
+ * handled or awaiting cleanup; each item is an Event structure.
  **/
 NihList *events = NULL;
 
@@ -236,9 +236,9 @@ event_match (EventInfo *event1,
 
 
 /**
- * event_emit_next_id:
+ * event_next_id:
  *
- * Returns the current value of the emission_id counter, unless that has
+ * Returns the current value of the event_id counter, unless that has
  * been wrapped before, in which case it checks whether the value is
  * currently in use before returning it.  If the value is in use, it
  * increments the counter until it finds a value that isn't, or until it
@@ -253,26 +253,26 @@ event_match (EventInfo *event1,
  * Returns: next usable id.
  **/
 static inline unsigned int
-event_emit_next_id (void)
+event_next_id (void)
 {
 	unsigned int id;
 
-	/* If we've wrapped the emission_id counter, we can't just assume that
+	/* If we've wrapped the event_id counter, we can't just assume that
 	 * the current value isn't taken, we need to make sure that nothing
 	 * is using it first.
 	 */
-	if (emission_id_wrapped) {
-		unsigned int start_id = emission_id;
+	if (event_id_wrapped) {
+		unsigned int start_id = event_id;
 
-		while (event_emit_find_by_id (emission_id)) {
-			emission_id++;
+		while (event_find_by_id (event_id)) {
+			event_id++;
 
 			/* Make sure we don't end up in an infinite loop if
 			 * we're currently handling 4 billion events.
 			 */
-			if (emission_id == start_id) {
-				nih_error (_("Emission id %u is not unique"),
-					   emission_id);
+			if (event_id == start_id) {
+				nih_error (_("Event id %u is not unique"),
+					   event_id);
 				break;
 			}
 		}
@@ -282,106 +282,113 @@ event_emit_next_id (void)
 	 * going to get; increment the counter afterwards so the next time
 	 * this runs, we have moved forwards.
 	 */
-	id = emission_id++;
+	id = event_id++;
 
 	/* If incrementing the counter gave us zero, we consumed the entire
 	 * id space.  This means that in future we can't assume that the ids
 	 * are unique, next time we'll have to be more careful.
 	 */
-	if (! emission_id) {
-		if (! emission_id_wrapped)
-			nih_debug ("Wrapped emission_id counter");
+	if (! event_id) {
+		if (! event_id_wrapped)
+			nih_debug ("Wrapped event_id counter");
 
-		emission_id_wrapped = TRUE;
+		event_id_wrapped = TRUE;
 	}
 
 	return id;
 }
 
 /**
- * event_emit:
+ * event_new:
+ * @parent: parent of new event,
  * @name: name of event to emit,
  * @args: arguments to event,
  * @env: environment for event.
  *
- * Allocates an EventEmission structure for the event details given and
- * appends it to the queue of events pending emission.
+ * Allocates an Event structure for the event details given and
+ * appends it to the queue of events.
  *
  * Both @args and @env are optional, and may be NULL; if they are given,
- * then the array itself it reparented to belong to the emission structure
+ * then the array itself it reparented to belong to the event structure
  * and should not be modified.
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
  * are no longer any jobs referencing the event.
  *
- * Returns: new EventEmission structure in the pending queue.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: new Event structure pending in the queue.
  **/
-EventEmission *
-event_emit (const char       *name,
-	    char            **args,
-	    char            **env)
+Event *
+event_new (const void  *parent,
+	   const char  *name,
+	   char      **args,
+	   char      **env)
 {
-	EventEmission *emission;
+	Event *event;
 
 	nih_assert (name != NULL);
 	nih_assert (strlen (name) > 0);
 
 	event_init ();
 
-	NIH_MUST (emission = nih_new (NULL, EventEmission));
+	NIH_MUST (event = nih_new (parent, Event));
 
-	emission->id = event_emit_next_id ();
-	emission->progress = EVENT_PENDING;
+	event->id = event_next_id ();
+	event->progress = EVENT_PENDING;
 
-	emission->jobs = 0;
-	emission->failed = FALSE;
+	event->jobs = 0;
+	event->failed = FALSE;
 
 
 	/* Fill in the event details */
-	NIH_MUST (emission->event.name = nih_strdup (emission, name));
+	NIH_MUST (event->info.name = nih_strdup (event, name));
 
-	emission->event.args = args;
-	if (emission->event.args)
-		nih_alloc_reparent (emission->event.args, emission);
+	event->info.args = args;
+	if (event->info.args)
+		nih_alloc_reparent (event->info.args, event);
 
-	emission->event.env = env;
-	if (emission->event.env)
-		nih_alloc_reparent (emission->event.env, emission);
+	event->info.env = env;
+	if (event->info.env)
+		nih_alloc_reparent (event->info.env, event);
 
 
 	/* Place it in the pending list */
-	nih_list_init (&emission->event.entry);
-	nih_alloc_set_destructor (emission,
-				  (NihDestructor)nih_list_destructor);
+	nih_list_init (&event->entry);
+	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destructor);
 
 	nih_debug ("Pending %s event", name);
-	nih_list_add (events, &emission->event.entry);
+	nih_list_add (events, &event->entry);
 
-	return emission;
+	return event;
 }
 
 /**
- * event_emit_find_by_id:
+ * event_find_by_id:
  * @id: id to find.
  *
- * Finds the event emission with the given id in the list of events
- * currently being dealt with.
+ * Finds the event with the given id in the list of events currently being
+ * dealt with.
  *
- * Returns: emission found or NULL if not found.
+ * Returns: Event found or NULL if not found.
  **/
-EventEmission *
-event_emit_find_by_id (unsigned int id)
+Event *
+event_find_by_id (unsigned int id)
 {
-	EventEmission *emission;
+	Event *event;
 
 	event_init ();
 
 	NIH_LIST_FOREACH (events, iter) {
-		emission = (EventEmission *)iter;
+		event = (Event *)iter;
 
-		if (emission->id == id)
-			return emission;
+		if (event->id == id)
+			return event;
 	}
 
 	return NULL;
@@ -389,22 +396,22 @@ event_emit_find_by_id (unsigned int id)
 
 /**
  * event_emit_finished:
- * @emission: emission that has finished.
+ * @event: event that has finished.
  *
- * This function should be called after a job has released the @emission
+ * This function should be called after a job has released the @event
  * and decremented the jobs member.  If the jobs member has reached zero,
  * this moves the event into the finshed state so it can be cleaned up
  * when the queue is next run.
  **/
 void
-event_emit_finished (EventEmission *emission)
+event_emit_finished (Event *event)
 {
-	nih_assert (emission != NULL);
+	nih_assert (event != NULL);
 
-	if (emission->jobs)
+	if (event->jobs)
 		return;
 
-	emission->progress = EVENT_FINISHED;
+	event->progress = EVENT_FINISHED;
 }
 
 
@@ -436,7 +443,7 @@ event_poll (void)
 		poll_again = FALSE;
 
 		NIH_LIST_FOREACH_SAFE (events, iter) {
-			EventEmission *emission = (EventEmission *)iter;
+			Event *event = (Event *)iter;
 
 			/* Ignore events that we're handling, there's nothing
 			 * we can do to hurry them.
@@ -447,15 +454,15 @@ event_poll (void)
 			 * finished event, in case they added new events as
 			 * a side effect that we missed.
 			 */
-			switch (emission->progress) {
+			switch (event->progress) {
 			case EVENT_PENDING:
-				event_pending (emission);
+				event_pending (event);
 				poll_again = TRUE;
 				break;
 			case EVENT_HANDLING:
 				break;
 			case EVENT_FINISHED:
-				event_finished (emission);
+				event_finished (event);
 				poll_again = TRUE;
 				break;
 			default:
@@ -467,7 +474,7 @@ event_poll (void)
 
 /**
  * event_pending:
- * @emission: pending event.
+ * @event: pending event.
  *
  * This function is called for each event in the list that is in the pending
  * state.  Subscribers to emitted events are notified, and the event is
@@ -477,69 +484,69 @@ event_poll (void)
  * immediately finished.
  **/
 static void
-event_pending (EventEmission *emission)
+event_pending (Event *event)
 {
-	nih_assert (emission != NULL);
-	nih_assert (emission->progress == EVENT_PENDING);
+	nih_assert (event != NULL);
+	nih_assert (event->progress == EVENT_PENDING);
 
-	nih_info (_("Handling %s event"), emission->event.name);
-	emission->progress = EVENT_HANDLING;
+	nih_info (_("Handling %s event"), event->info.name);
+	event->progress = EVENT_HANDLING;
 
-	notify_event (emission);
-	job_handle_event (emission);
+	notify_event (event);
+	job_handle_event (event);
 
 	/* Make sure we don't hang on to events with no jobs.
 	 * (note that the progress might already be finished if all the jobs
 	 *  quickly skipped through their states and released it).
 	 */
-	event_emit_finished (emission);
+	event_emit_finished (event);
 }
 
 /**
  * event_finished:
- * @emission: finished event.
+ * @event: finished event.
  *
  * This function is called for each event in the list that is in the finished
  * state.  Subscribers and jobs are notified, then, if the event failed, a
- * new pending failed event is queued.  Finally the emission is freed and
+ * new pending failed event is queued.  Finally the event is freed and
  * removed from the list.
  **/
 static void
-event_finished (EventEmission *emission)
+event_finished (Event *event)
 {
-	nih_assert (emission != NULL);
-	nih_assert (emission->progress == EVENT_FINISHED);
+	nih_assert (event != NULL);
+	nih_assert (event->progress == EVENT_FINISHED);
 
-	nih_debug ("Finished %s event", emission->event.name);
+	nih_debug ("Finished %s event", event->info.name);
 
-	notify_event_finished (emission);
-	job_handle_event_finished (emission);
+	notify_event_finished (event);
+	job_handle_event_finished (event);
 
-	if (emission->failed) {
+	if (event->failed) {
 		char *name;
 
-		name = strrchr (emission->event.name, '/');
+		name = strrchr (event->info.name, '/');
 		if ((! name) || strcmp (name, "/failed")) {
-			EventEmission *new_emission;
+			Event *new_event;
 
 			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
-						      emission->event.name));
-			new_emission = event_emit (name, NULL, NULL);
+						      event->info.name));
+			new_event = event_new (NULL, name, NULL, NULL);
 			nih_free (name);
 
-			if (emission->event.args)
-				NIH_MUST (new_emission->event.args
+			if (event->info.args)
+				NIH_MUST (new_event->info.args
 					  = nih_str_array_copy (
-						  new_emission, NULL,
-						  emission->event.args));
+						  new_event, NULL,
+						  event->info.args));
 
-			if (emission->event.env)
-				NIH_MUST (new_emission->event.env
+			if (event->info.env)
+				NIH_MUST (new_event->info.env
 					  = nih_str_array_copy (
-						  new_emission, NULL,
-						  emission->event.env));
+						  new_event, NULL,
+						  event->info.env));
 		}
 	}
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 }

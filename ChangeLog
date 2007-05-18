@@ -1,5 +1,18 @@
 2007-05-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h (EventEmission): Rename to Event, and rename event
+	member to info.
+	* init/event.c (event_emit_next_id): Rename to event_next_id
+	(event_emit): Rename to event_new, and add standard parent argument.
+	(event_emit_find_by_id): Rename to event_find_by_id
+	(event_poll): Iterate over Events in the list
+	(event_pending, event_finished): Operate on Event
+	* init/tests/test_event.c (test_emit): Rename to test_new and
+	adjust for names and arguments.
+	(test_emit_find_by_id): Rename to test_find_by_id and adjust for
+	names.
+	(test_emit_finished, test_poll): Adjust names.
+
 	* init/cfgfile.c (cfg_stanza_start, cfg_stanza_stop) 
 	(cfg_stanza_emits): Convert to use EventInfo and event_info_*.
 	* init/job.c (job_copy): Use EventInfo and event_info_copy.

@@ -208,17 +208,17 @@ test_match (void)
 
 
 void
-test_emit (void)
+test_new (void)
 {
-	EventEmission  *emission;
-	char          **args, **env;
-	unsigned int    last_id = -1;
+	Event         *event;
+	char         **args, **env;
+	unsigned int   last_id = -1;
 
 	/* Check that we can request an event emission; the structure should
 	 * be allocated with nih_alloc(), placed in a list and all of the
 	 * details filled in.
 	 */
-	TEST_FUNCTION ("event_emit");
+	TEST_FUNCTION ("event_new");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			args = nih_str_array_new (NULL);
@@ -232,56 +232,56 @@ test_emit (void)
 						     "FOO=BAR"));
 		}
 
-		emission = event_emit ("test", args, env);
+		event = event_new (NULL, "test", args, env);
 
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_LIST_NOT_EMPTY (&emission->event.entry);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
 
-		TEST_NE (emission->id, last_id);
-		last_id = emission->id;
+		TEST_NE (event->id, last_id);
+		last_id = event->id;
 
-		TEST_EQ (emission->progress, EVENT_PENDING);
-		TEST_EQ (emission->jobs, 0);
-		TEST_EQ (emission->failed, FALSE);
+		TEST_EQ (event->progress, EVENT_PENDING);
+		TEST_EQ (event->jobs, 0);
+		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_STR (emission->event.name, "test");
-		TEST_ALLOC_PARENT (emission->event.name, emission);
+		TEST_EQ_STR (event->info.name, "test");
+		TEST_ALLOC_PARENT (event->info.name, event);
 
-		TEST_EQ_P (emission->event.args, args);
-		TEST_ALLOC_PARENT (emission->event.args, emission);
+		TEST_EQ_P (event->info.args, args);
+		TEST_ALLOC_PARENT (event->info.args, event);
 
-		TEST_EQ_P (emission->event.env, env);
-		TEST_ALLOC_PARENT (emission->event.env, emission);
+		TEST_EQ_P (event->info.env, env);
+		TEST_ALLOC_PARENT (event->info.env, event);
 
-		nih_list_free (&emission->event.entry);
+		nih_list_free (&event->entry);
 	}
 }
 
 void
-test_emit_find_by_id (void)
+test_find_by_id (void)
 {
-	EventEmission *emission, *ret;
-	unsigned int   id;
+	Event        *event, *ret;
+	unsigned int  id;
 
-	TEST_FUNCTION ("event_emit_find_by_id");
+	TEST_FUNCTION ("event_find_by_id");
 
-	/* Check that we can locate an emission in the pending queue by
-	 * its id, and have it returned.
+	/* Check that we can locate an event in the queue by its id, and
+	 * have it returned.
 	 */
 	TEST_FEATURE ("with id in pending queue");
-	emission = event_emit ("test", NULL, NULL);
+	event = event_new (NULL, "test", NULL, NULL);
 
-	ret = event_emit_find_by_id (emission->id);
+	ret = event_find_by_id (event->id);
 
-	TEST_EQ_P (ret, emission);
+	TEST_EQ_P (ret, event);
 
-	id = emission->id;
-	nih_list_free (&emission->event.entry);
+	id = event->id;
+	nih_list_free (&event->entry);
 
 
 	/* Check that we get NULL if the id isn't in either queue. */
 	TEST_FEATURE ("with id not in either queue");
-	ret = event_emit_find_by_id (id);
+	ret = event_find_by_id (id);
 
 	TEST_EQ_P (ret, NULL);
 }
@@ -289,33 +289,33 @@ test_emit_find_by_id (void)
 void
 test_emit_finished (void)
 {
-	EventEmission *emission;
+	Event *event;
 
 	TEST_FUNCTION ("event_emit_finished");
-	emission = event_emit ("test", NULL, NULL);
-	emission->progress = EVENT_HANDLING;
+	event = event_new (NULL, "test", NULL, NULL);
+	event->progress = EVENT_HANDLING;
 
 	/* Check that if an event has jobs remaining, the progress isn't
 	 * changed.
 	 */
 	TEST_FEATURE ("with remaining jobs");
-	emission->jobs = 1;
-	event_emit_finished (emission);
+	event->jobs = 1;
+	event_emit_finished (event);
 
-	TEST_EQ (emission->progress, EVENT_HANDLING);
+	TEST_EQ (event->progress, EVENT_HANDLING);
 
 
 	/* Check that if an event has no jobs remaining, the progress is
 	 * changed to finished.
 	 */
 	TEST_FEATURE ("with no remaining jobs");
-	emission->jobs = 0;
-	event_emit_finished (emission);
+	event->jobs = 0;
+	event_emit_finished (event);
 
-	TEST_EQ (emission->progress, EVENT_FINISHED);
+	TEST_EQ (event->progress, EVENT_FINISHED);
 
 
-	nih_list_free (&emission->event.entry);
+	nih_list_free (&event->entry);
 }
 
 
@@ -372,12 +372,12 @@ check_event_finished (void               *data,
 void
 test_poll (void)
 {
-	EventEmission      *em1;
-	Job                *job;
-	EventInfo          *event;
-	NihIo              *io;
-	int                 wait_fd, status;
-	pid_t               pid;
+	Event     *event;
+	Job       *job;
+	EventInfo *event_info;
+	NihIo     *io;
+	int        wait_fd, status;
+	pid_t      pid;
 
 	TEST_FUNCTION ("event_poll");
 	io = control_open ();
@@ -417,13 +417,13 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event = event_info_new (job, "test", NULL, NULL);
-	nih_list_add (&job->start_events, &event->entry);
+	event_info = event_info_new (job, "test", NULL, NULL);
+	nih_list_add (&job->start_events, &event_info->entry);
 
-	em1 = event_emit ("test", NULL, NULL);
-	em1->id = 0xdeafbeef;
+	event = event_new (NULL, "test", NULL, NULL);
+	event->id = 0xdeafbeef;
 
-	notify_subscribe_event (NULL, pid, em1);
+	notify_subscribe_event (NULL, pid, event);
 
 	event_poll ();
 
@@ -434,8 +434,8 @@ test_poll (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_EQ (em1->progress, EVENT_HANDLING);
-	TEST_EQ (em1->jobs, 1);
+	TEST_EQ (event->progress, EVENT_HANDLING);
+	TEST_EQ (event->jobs, 1);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
@@ -446,7 +446,7 @@ test_poll (void)
 	TEST_LIST_EMPTY (subscriptions);
 
 	nih_list_free (&job->entry);
-	nih_list_free (&em1->event.entry);
+	nih_list_free (&event->entry);
 
 
 	/* Check that having a handling event in the queue doesn't cause
@@ -454,13 +454,13 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with handling event");
 	TEST_ALLOC_FAIL {
-		em1 = event_emit ("test", NULL, NULL);
-		em1->progress = EVENT_HANDLING;
+		event = event_new (NULL, "test", NULL, NULL);
+		event->progress = EVENT_HANDLING;
 
 		event_poll ();
 
-		TEST_LIST_NOT_EMPTY (&em1->event.entry);
-		nih_list_free (&em1->event.entry);
+		TEST_LIST_NOT_EMPTY (&event->entry);
+		nih_list_free (&event->entry);
 	}
 
 
@@ -490,22 +490,22 @@ test_poll (void)
 		exit (0);
 	}
 
-	em1 = event_emit ("test", NULL, NULL);
-	em1->id = 0xdeafbeef;
+	event = event_new (NULL, "test", NULL, NULL);
+	event->id = 0xdeafbeef;
 
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
-	job->blocked = em1;
+	job->blocked = event;
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event_emit_finished (em1);
+	event_emit_finished (event);
 
 	destructor_called = 0;
-	nih_alloc_set_destructor (em1, my_destructor);
+	nih_alloc_set_destructor (event, my_destructor);
 
-	notify_subscribe_event (NULL, pid, em1);
+	notify_subscribe_event (NULL, pid, event);
 
 	event_poll ();
 
@@ -537,10 +537,10 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with no-op pending event");
 	TEST_ALLOC_FAIL {
-		em1 = event_emit ("test", NULL, NULL);
+		event = event_new (NULL, "test", NULL, NULL);
 
 		destructor_called = 0;
-		nih_alloc_set_destructor (em1, my_destructor);
+		nih_alloc_set_destructor (event, my_destructor);
 
 		event_poll ();
 
@@ -550,23 +550,23 @@ test_poll (void)
 
 	/* Check that a failed event causes another event to be emitted
 	 * that has "/failed" appended on the end.  We can obtain the
-	 * failed event emission by hooking a job on it, and using the
+	 * failed event by hooking a job on it, and using the
 	 * cause.
 	 */
 	TEST_FEATURE ("with failed event");
-	em1 = event_emit ("test", NULL, NULL);
-	em1->failed = TRUE;
-	em1->progress = EVENT_FINISHED;
+	event = event_new (NULL, "test", NULL, NULL);
+	event->failed = TRUE;
+	event->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event = event_info_new (job, "test/failed", NULL, NULL);
-	nih_list_add (&job->start_events, &event->entry);
+	event_info = event_info_new (job, "test/failed", NULL, NULL);
+	nih_list_add (&job->start_events, &event_info->entry);
 
 	destructor_called = 0;
-	nih_alloc_set_destructor (em1, my_destructor);
+	nih_alloc_set_destructor (event, my_destructor);
 
 	event_poll ();
 
@@ -578,7 +578,7 @@ test_poll (void)
 
 	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
-	TEST_EQ_STR (job->cause->event.name, "test/failed");
+	TEST_EQ_STR (job->cause->info.name, "test/failed");
 
 	event_emit_finished (job->cause);
 	event_poll ();
@@ -590,22 +590,22 @@ test_poll (void)
 	 * events (otherwise we could be there all night :p)
 	 */
 	TEST_FEATURE ("with failed failed event");
-	em1 = event_emit ("test/failed", NULL, NULL);
-	em1->failed = TRUE;
-	em1->progress = EVENT_FINISHED;
+	event = event_new (NULL, "test/failed", NULL, NULL);
+	event->failed = TRUE;
+	event->progress = EVENT_FINISHED;
 
 	job = job_new (NULL, "test");
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event = event_info_new (job, "test/failed", NULL, NULL);
-	nih_list_add (&job->start_events, &event->entry);
+	event_info = event_info_new (job, "test/failed", NULL, NULL);
+	nih_list_add (&job->start_events, &event_info->entry);
 
-	event = event_info_new (job, "test/failed/failed", NULL, NULL);
-	nih_list_add (&job->start_events, &event->entry);
+	event_info = event_info_new (job, "test/failed/failed", NULL, NULL);
+	nih_list_add (&job->start_events, &event_info->entry);
 
 	destructor_called = 0;
-	nih_alloc_set_destructor (em1, my_destructor);
+	nih_alloc_set_destructor (event, my_destructor);
 
 	event_poll ();
 
@@ -630,8 +630,8 @@ main (int   argc,
 	test_info_new ();
 	test_info_copy ();
 	test_match ();
-	test_emit ();
-	test_emit_find_by_id ();
+	test_new ();
+	test_find_by_id ();
 	test_emit_finished ();
 	test_poll ();
 

@@ -69,9 +69,10 @@ typedef enum event_progress {
 
 
 /**
- * EventEmission:
- * @event: event being emitted,
+ * Event:
+ * @entry: list header,
  * @id: unique id assigned to each emission,
+ * @info: information about event,
  * @progress: progress of emission,
  * @jobs: number of jobs holding this event,
  * @failed: whether this event has failed.
@@ -84,14 +85,16 @@ typedef enum event_progress {
  * information on the emission of a single event; including the event
  * itself.
  **/
-typedef struct event_emission {
-	EventInfo        event;
+typedef struct event {
+	NihList          entry;
 	unsigned int     id;
+
+	EventInfo        info;
 	EventProgress    progress;
 
 	int              jobs;
 	int              failed;
-} EventEmission;
+} Event;
 
 
 /**
@@ -173,30 +176,30 @@ typedef struct event_emission {
 
 NIH_BEGIN_EXTERN
 
-int          paused;
-unsigned int emission_id;
-int          emission_id_wrapped;
-NihList *events;
+int           paused;
+unsigned int  event_id;
+int           emission_id_wrapped;
+NihList      *events;
 
 
-void           event_init            (void);
+void       event_init       (void);
 
-EventInfo *    event_info_new        (const void *parent, const char *name,
-				      char **args, char **env)
+EventInfo *event_info_new   (const void *parent, const char *name,
+			     char **args, char **env)
 	__attribute__ ((warn_unused_result, malloc));
-EventInfo *    event_info_copy       (const void *parent,
-				      const EventInfo *old_event)
+EventInfo *event_info_copy  (const void *parent, const EventInfo *old_event)
 	__attribute__ ((warn_unused_result, malloc));
 
-int            event_match           (EventInfo *event1, EventInfo *event2);
+int        event_match      (EventInfo *event1, EventInfo *event2);
 
-EventEmission *event_emit            (const char *name,
-				      char **args, char **env)
+Event     *event_new        (const void *parent, const char *name,
+			     char **args, char **env)
 	__attribute__ ((malloc));
-EventEmission *event_emit_find_by_id (unsigned int id);
-void           event_emit_finished   (EventEmission *emission);
 
-void           event_poll            (void);
+Event     *event_find_by_id (unsigned int id);
+void       event_emit_finished   (Event *event);
+
+void       event_poll            (void);
 
 NIH_END_EXTERN
 
