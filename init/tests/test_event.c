@@ -43,25 +43,25 @@ extern int upstart_disable_safeties;
 
 
 void
-test_new (void)
+test_info_new (void)
 {
-	Event *event;
+	EventInfo *event;
 
 	/* Check that we can create a new Event structure, and have the
 	 * details filled in and returned.  It should not be placed in
 	 * any kind of list.
 	 */
-	TEST_FUNCTION ("event_new");
+	TEST_FUNCTION ("event_info_new");
 	event_poll ();
 	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test");
+		event = event_info_new (NULL, "test", NULL, NULL);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (event, NULL);
 			continue;
 		}
 
-		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
 		TEST_LIST_EMPTY (&event->entry);
 		TEST_EQ_STR (event->name, "test");
 		TEST_ALLOC_PARENT (event->name, event);
@@ -74,26 +74,26 @@ test_new (void)
 }
 
 void
-test_copy (void)
+test_info_copy (void)
 {
-	Event *event, *copy;
+	EventInfo *event, *copy;
 
 	TEST_FUNCTION ("event_copy");
-	event = event_new (NULL, "test");
+	event = event_info_new (NULL, "test", NULL, NULL);
 
 	/* Check that we can copy an event which does not have any arguments
 	 * or environment variables.
 	 */
 	TEST_FEATURE ("without arguments or environment");
 	TEST_ALLOC_FAIL {
-		copy = event_copy (NULL, event);
+		copy = event_info_copy (NULL, event);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (copy, NULL);
 			continue;
 		}
 
-		TEST_ALLOC_SIZE (copy, sizeof (Event));
+		TEST_ALLOC_SIZE (copy, sizeof (EventInfo));
 		TEST_LIST_EMPTY (&copy->entry);
 		TEST_ALLOC_PARENT (copy->name, copy);
 		TEST_EQ_STR (copy->name, "test");
@@ -114,14 +114,14 @@ test_copy (void)
 	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
 
 	TEST_ALLOC_FAIL {
-		copy = event_copy (NULL, event);
+		copy = event_info_copy (NULL, event);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (copy, NULL);
 			continue;
 		}
 
-		TEST_ALLOC_SIZE (copy, sizeof (Event));
+		TEST_ALLOC_SIZE (copy, sizeof (EventInfo));
 		TEST_LIST_EMPTY (&copy->entry);
 		TEST_ALLOC_PARENT (copy->name, copy);
 		TEST_EQ_STR (copy->name, "test");
@@ -149,16 +149,16 @@ test_copy (void)
 void
 test_match (void)
 {
-	Event *event1, *event2;
-	char  *args1[] = { "foo", "bar", "baz", NULL };
-	char  *args2[] = { "foo", "bar", "baz", NULL };
+	EventInfo *event1, *event2;
+	char      *args1[] = { "foo", "bar", "baz", NULL };
+	char      *args2[] = { "foo", "bar", "baz", NULL };
 
 	TEST_FUNCTION ("event_match");
 
 	/* Check that two events with different names do not match. */
 	TEST_FEATURE ("with different name events");
-	event1 = event_new (NULL, "foo");
-	event2 = event_new (NULL, "bar");
+	event1 = event_info_new (NULL, "foo", NULL, NULL);
+	event2 = event_info_new (NULL, "bar", NULL, NULL);
 
 	TEST_FALSE (event_match (event1, event2));
 
@@ -166,7 +166,7 @@ test_match (void)
 	/* Check that two events with the same names match. */
 	TEST_FEATURE ("with same name events");
 	nih_free (event2);
-	event2 = event_new (NULL, "foo");
+	event2 = event_info_new (NULL, "foo", NULL, NULL);
 
 	TEST_TRUE (event_match (event1, event2));
 
@@ -374,7 +374,7 @@ test_poll (void)
 {
 	EventEmission      *em1;
 	Job                *job;
-	Event              *event;
+	EventInfo          *event;
 	NihIo              *io;
 	int                 wait_fd, status;
 	pid_t               pid;
@@ -417,7 +417,7 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event = event_new (job, "test");
+	event = event_info_new (job, "test", NULL, NULL);
 	nih_list_add (&job->start_events, &event->entry);
 
 	em1 = event_emit ("test", NULL, NULL);
@@ -562,7 +562,7 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event = event_new (job, "test/failed");
+	event = event_info_new (job, "test/failed", NULL, NULL);
 	nih_list_add (&job->start_events, &event->entry);
 
 	destructor_called = 0;
@@ -598,10 +598,10 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event = event_new (job, "test/failed");
+	event = event_info_new (job, "test/failed", NULL, NULL);
 	nih_list_add (&job->start_events, &event->entry);
 
-	event = event_new (job, "test/failed/failed");
+	event = event_info_new (job, "test/failed/failed", NULL, NULL);
 	nih_list_add (&job->start_events, &event->entry);
 
 	destructor_called = 0;
@@ -627,8 +627,8 @@ int
 main (int   argc,
       char *argv[])
 {
-	test_new ();
-	test_copy ();
+	test_info_new ();
+	test_info_copy ();
 	test_match ();
 	test_emit ();
 	test_emit_find_by_id ();

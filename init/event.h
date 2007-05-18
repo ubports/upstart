@@ -29,6 +29,32 @@
 
 
 /**
+ * EventInfo:
+ * @entry: list header,
+ * @name: string name of the event,
+ * @args: NULL-terminated list of arguments,
+ * @env: NULL-terminated list of environment variables.
+ *
+ * Events are one of the core concepts of upstart; they occur whenever
+ * something, somewhere changes state.  They are idenitied by a unique
+ * @name string, and can carry further information in the form of @args
+ * and @env; both of which are passed to any jobs whose goal is changed
+ * by this event.
+ *
+ * This structure holds the event details, and is used both within the larger
+ * Event structure and to match events within jobs.
+ * the events themselves and to match events.
+ **/
+typedef struct event_info {
+	NihList   entry;
+
+	char     *name;
+	char    **args;
+	char    **env;
+} EventInfo;
+
+
+/**
  * EventProgress:
  *
  * This is used to record the progress of an event emission, starting at
@@ -41,30 +67,6 @@ typedef enum event_progress {
 	EVENT_FINISHED
 } EventProgress;
 
-
-/**
- * Event:
- * @entry: list header,
- * @name: string name of the event,
- * @args: NULL-terminated list of arguments,
- * @env: NULL-terminated list of environment variables.
- *
- * Events are one of the core concepts of upstart; they occur whenever
- * something, somewhere changes state.  They are idenitied by a unique
- * @name string, and can carry further information in the form of @args
- * and @env; both of which are passed to any jobs whose goal is changed
- * by this event.
- *
- * This structure represents an event, and is used both for the events
- * themselves and to match events.
- **/
-typedef struct event {
-	NihList   entry;
-
-	char     *name;
-	char    **args;
-	char    **env;
-} Event;
 
 /**
  * EventEmission:
@@ -83,7 +85,7 @@ typedef struct event {
  * itself.
  **/
 typedef struct event_emission {
-	Event            event;
+	EventInfo        event;
 	unsigned int     id;
 	EventProgress    progress;
 
@@ -179,13 +181,14 @@ NihList *events;
 
 void           event_init            (void);
 
-Event *        event_new             (const void *parent, const char *name)
+EventInfo *    event_info_new        (const void *parent, const char *name,
+				      char **args, char **env)
 	__attribute__ ((warn_unused_result, malloc));
-Event *        event_copy            (const void *parent,
-				      const Event *old_event)
+EventInfo *    event_info_copy       (const void *parent,
+				      const EventInfo *old_event)
 	__attribute__ ((warn_unused_result, malloc));
 
-int            event_match           (Event *event1, Event *event2);
+int            event_match           (EventInfo *event1, EventInfo *event2);
 
 EventEmission *event_emit            (const char *name,
 				      char **args, char **env)

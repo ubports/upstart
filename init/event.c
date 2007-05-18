@@ -91,13 +91,17 @@ event_init (void)
 
 
 /**
- * event_new:
+ * event_info_new:
  * @parent: parent of new event,
  * @name: name of new event.
  *
- * Allocates and returns a new Event structure with the @name given, but
- * does not place it in the event queue.  Use when a lone Event structure
+ * Allocates and returns a new EventInfo structure with the @name given, but
+ * does not place it in the event queue.  Use when a lone EventInfo structure
  * is needed, such as for matching events.
+ *
+ * Both @args and @env are optional, and may be NULL; if they are given,
+ * then the array itself is reparented to belong to the event structure
+ * and should not be modified afterwards.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -105,18 +109,20 @@ event_init (void)
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
- * Returns: newly allocated Event structure or NULL if insufficient memory.
+ * Returns: newly allocated EventInfo structure or NULL if insufficient memory.
  **/
-Event *
-event_new (const void *parent,
-	   const char *name)
+EventInfo *
+event_info_new (const void  *parent,
+		const char  *name,
+		char       **args,
+		char       **env)
 {
-	Event *event;
+	EventInfo *event;
 
 	nih_assert (name != NULL);
 	nih_assert (strlen (name) > 0);
 
-	event = nih_new (parent, Event);
+	event = nih_new (parent, EventInfo);
 	if (! event)
 		return NULL;
 
@@ -128,18 +134,23 @@ event_new (const void *parent,
 		return NULL;
 	}
 
-	event->args = NULL;
-	event->env = NULL;
+	event->args = args;
+	if (event->args)
+		nih_alloc_reparent (event->args, event);
+
+	event->env = env;
+	if (event->env)
+		nih_alloc_reparent (event->env, event);
 
 	return event;
 }
 
 /**
- * event_copy:
+ * event_info_copy:
  * @parent: parent of new event,
  * @old_event: event to copy.
  *
- * Allocates and returns a new Event structure which is an identical copy
+ * Allocates and returns a new EventInfo structure which is an identical copy
  * of @old_event.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
@@ -148,17 +159,17 @@ event_new (const void *parent,
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
- * Returns: newly allocated Event structure or NULL if insufficient memory.
+ * Returns: newly allocated EventInfo structure or NULL if insufficient memory.
  **/
-Event *
-event_copy (const void  *parent,
-	    const Event *old_event)
+EventInfo *
+event_info_copy (const void      *parent,
+		 const EventInfo *old_event)
 {
-	Event *event;
+	EventInfo *event;
 
 	nih_assert (old_event != NULL);
 
-	event = event_new (parent, old_event->name);
+	event = event_info_new (parent, old_event->name, NULL, NULL);
 	if (! event)
 		return NULL;
 
@@ -196,8 +207,8 @@ error:
  * Returns: TRUE if the events match, FALSE otherwise.
  **/
 int
-event_match (Event *event1,
-	     Event *event2)
+event_match (EventInfo *event1,
+	     EventInfo *event2)
 {
 	char **arg1, **arg2;
 
