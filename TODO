@@ -16,18 +16,23 @@ High Priority:
 
     * Leave the control socket open, clear the cloexec flag, and pass its
       file descriptor number to the new init process.
-    * Pass logger state to the new init process
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
 
 
 Medium Priority:
 
+ * EventEmission records need to hang around longer, since that's the source
+   of environment variables, etc.  We should only clear the cause when we
+   change the goal; otherwise we should just decrease the job count (while
+   maintaining a reference count).  This means events can be finished, but
+   still referenced. -- should also be freed when we reach "stop"
+
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
 
  * Likewise iterating through all the Jobs to find a pid is messy; we
-   should have a lookup table for these too (see Job thoughts below).
+   should have a lookup table for these too.
 
  * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
    we encounter any problems write the error code to this pipe and die.
@@ -112,9 +117,11 @@ Future Features:
  * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
    which state do we keep it in while it's waiting?
 
- * Apply event variables to keys, such as "uses" ?
+ * Apply event variables to keys, such as "uses" and "stop on"
 
- * Watershed jobs
+ * Watershed jobs (this actually might apply to events, since you might
+   want to try starting again if a particular event has come in since you
+   were last started)
 
  * How do we balance events, if two "added" happen we probably want two
    "removed" to happen as well.  One way is to allow $... in the event
@@ -125,3 +132,6 @@ Future Features:
 
  * Event tree for "start on" and "stop on" -- need to solve when instances
    are spawned and which event gets stored in cause first though.
+
+ * Instance names, appended to a running job's title and set in the job
+   definition using a variable from an event?
