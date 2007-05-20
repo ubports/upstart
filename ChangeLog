@@ -1,5 +1,11 @@
 2007-05-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_emit_event): Return the event that we emit; don't
+	bother tracking block status or setting blocked, leave that to the
+	state loop so things are more obvious.
+	(job_change_state): Set the blocked flag here for starting and stopping
+	to the return value of job_emit_event().
+
 	* init/event.c (event_ref, event_unref): Reference counting of events
 	so we don't free those we still need.
 	(event_block, event_unblock): Blocker counting that replaces the

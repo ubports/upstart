@@ -68,7 +68,8 @@
 /* Prototypes for static functions */
 static const char *job_name          (Job *job);
 static void        job_change_cause  (Job *job, Event *event);
-static void        job_emit_event    (Job *job);
+static Event *     job_emit_event    (Job *job)
+	__attribute__ ((malloc));
 static int         job_catch_runaway (Job *job);
 static void        job_kill_timer    (ProcessType process, NihTimer *timer);
 
@@ -838,7 +839,8 @@ job_change_state (Job      *job,
 			job->failed_process = -1;
 			job->exit_status = 0;
 
-			job_emit_event (job);
+			job->blocked = job_emit_event (job);
+			event_ref (job->blocked);
 
 			break;
 		case JOB_PRE_START:
@@ -914,7 +916,8 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_RUNNING)
 				    || (old_state == JOB_PRE_STOP));
 
-			job_emit_event (job);
+			job->blocked = job_emit_event (job);
+			event_ref (job->blocked);
 
 			break;
 		case JOB_KILLED:
@@ -1091,22 +1094,23 @@ job_next_state (Job *job)
  * @job: job generating the event.
  *
  * Called from a state change because it believes an event should be
- * emitted.  Constructs the event with the right arguments and environment,
- * adds it to the pending queue, and if the event should block, stores it
- * in the blocked member of @job.
+ * emitted.  Constructs the event with the right arguments and environment
+ * and adds it to the pending queue.
  *
  * The stopping and stopped events have an extra argument that is "ok" if
  * the job terminated successfully, or "failed" if it terminated with an
  * error.  If failed, a further argument indicates which process it was
  * that caused the failure and either an EXIT_STATUS or EXIT_SIGNAL
  * environment variable detailing it.
+ *
+ * Returns: new Event in the queue.
  **/
-static void
+static Event *
 job_emit_event (Job *job)
 {
 	Event       *event;
 	const char  *name;
-	int          stop = FALSE, block = FALSE;
+	int          stop = FALSE;
 	char       **args = NULL, **env = NULL;
 	size_t       len;
 
@@ -1115,7 +1119,6 @@ job_emit_event (Job *job)
 	switch (job->state) {
 	case JOB_STARTING:
 		name = JOB_STARTING_EVENT;
-		block = TRUE;
 		break;
 	case JOB_RUNNING:
 		name = JOB_STARTED_EVENT;
@@ -1123,7 +1126,6 @@ job_emit_event (Job *job)
 	case JOB_STOPPING:
 		name = JOB_STOPPING_EVENT;
 		stop = TRUE;
-		block = TRUE;
 		break;
 	case JOB_WAITING:
 		name = JOB_STOPPED_EVENT;
@@ -1182,10 +1184,7 @@ job_emit_event (Job *job)
 
 	event = event_new (NULL, name, args, env);
 
-	if (block) {
-		job->blocked = event;
-		event_ref (job->blocked);
-	}
+	return event;
 }
 
 /**
