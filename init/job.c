@@ -759,13 +759,15 @@ job_change_cause (Job   *job,
 	if (job->cause) {
 		notify_job_event (job);
 
-		job->cause->jobs--;
-		event_emit_finished (job->cause);
+		event_unblock (job->cause);
+		event_unref (job->cause);
 	}
 
 	job->cause = event;
-	if (job->cause)
-		job->cause->jobs++;
+	if (job->cause) {
+		event_ref (job->cause);
+		event_block (job->cause);
+	}
 }
 
 
@@ -793,6 +795,8 @@ job_change_state (Job      *job,
 
 	while (job->state != state) {
 		JobState old_state;
+
+		nih_assert (job->blocked == NULL);
 
 		nih_info (_("%s state changed from %s to %s"), job->name,
 			  job_state_name (job->state), job_state_name (state));
@@ -1178,8 +1182,10 @@ job_emit_event (Job *job)
 
 	event = event_new (NULL, name, args, env);
 
-	if (block)
+	if (block) {
 		job->blocked = event;
+		event_ref (job->blocked);
+	}
 }
 
 /**
@@ -1815,7 +1821,9 @@ job_handle_event_finished (Event *event)
 		if (job->blocked != event)
 			continue;
 
+		event_unref (job->blocked);
 		job->blocked = NULL;
+
 		job_change_state (job, job_next_state (job));
 	}
 }

@@ -64,7 +64,8 @@ typedef struct event_info {
 typedef enum event_progress {
 	EVENT_PENDING,
 	EVENT_HANDLING,
-	EVENT_FINISHED
+	EVENT_FINISHED,
+	EVENT_DONE
 } EventProgress;
 
 
@@ -74,25 +75,28 @@ typedef enum event_progress {
  * @id: unique id assigned to each event,
  * @info: information about event,
  * @progress: progress of event,
- * @jobs: number of jobs holding this event,
- * @failed: whether this event has failed.
+ * @failed: whether this event has failed,
+ * @refs: number of references to this event,
+ * @blockers: number of blockers for finishing.
  *
  * This structure holds all the information on an active event, including
  * the information contained within the event and the current progress of
  * that event through the queue.
  *
- * Events are not removed from the queue until jobs are no longer referencing
- * them.
+ * Events remain in the handling state while @blockers is non-zero, and
+ * are not freed while @refs is non-zero.
  **/
 typedef struct event {
 	NihList          entry;
 	unsigned int     id;
 
 	EventInfo        info;
-	EventProgress    progress;
 
-	int              jobs;
+	EventProgress    progress;
 	int              failed;
+
+	unsigned int     refs;
+	unsigned int     blockers;
 } Event;
 
 
@@ -196,7 +200,11 @@ Event     *event_new        (const void *parent, const char *name,
 	__attribute__ ((malloc));
 
 Event     *event_find_by_id (unsigned int id);
-void       event_emit_finished   (Event *event);
+
+void       event_ref        (Event *event);
+void       event_unref      (Event *event);
+void       event_block      (Event *event);
+void       event_unblock    (Event *event);
 
 void       event_poll            (void);
 

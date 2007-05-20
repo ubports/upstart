@@ -314,7 +314,11 @@ event_next_id (void)
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
- * are no longer any jobs referencing the event.
+ * are no longer anything referencing it.
+ *
+ * The event is created with nothing referencing or blocking it.  Be sure
+ * to call event_ref() or event_block() otherwise it will be automatically
+ * freed next time through the main loop.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -341,9 +345,10 @@ event_new (const void  *parent,
 
 	event->id = event_next_id ();
 	event->progress = EVENT_PENDING;
-
-	event->jobs = 0;
 	event->failed = FALSE;
+
+	event->refs = 0;
+	event->blockers = 0;
 
 
 	/* Fill in the event details */
@@ -394,24 +399,83 @@ event_find_by_id (unsigned int id)
 	return NULL;
 }
 
+
 /**
- * event_emit_finished:
- * @event: event that has finished.
+ * event_ref:
+ * @event: event to reference.
  *
- * This function should be called after a job has released the @event
- * and decremented the jobs member.  If the jobs member has reached zero,
- * this moves the event into the finshed state so it can be cleaned up
- * when the queue is next run.
+ * This function should be called by jobs that wish to hold a reference on
+ * the event without blocking it from finishing.
+ *
+ * Once the reference is no longer needed, you must call event_unref()
+ * otherwise it will never be freed.
  **/
 void
-event_emit_finished (Event *event)
+event_ref (Event *event)
 {
 	nih_assert (event != NULL);
 
-	if (event->jobs)
-		return;
+	event->refs++;
+}
 
-	event->progress = EVENT_FINISHED;
+/**
+ * event_unref:
+ * @event: event to unreference.
+ *
+ * This function should be called by jobs that are holding a reference on the
+ * event without blocking the it from finishing, and wish to discard
+ * that reference.
+ *
+ * It must match a previous call to event_ref().
+ **/
+void
+event_unref (Event *event)
+{
+	nih_assert (event != NULL);
+	nih_assert (event->refs > 0);
+
+	event->refs--;
+}
+
+
+/**
+ * event_block:
+ * @emission: event to block.
+ *
+ * This function should be called by jobs that wish to hold a reference on
+ * the event and block it from finishing.
+ *
+ * Once the reference is no longer needed, you must call event_unblock()
+ * to allow the event to be finished, and potentially freed.  If you wish
+ * to continue to hold the reference afterwards, call event_ref() along
+ * with the call to emission_unblock().
+ **/
+void
+event_block (Event *event)
+{
+	nih_assert (event != NULL);
+
+	event->blockers++;
+}
+
+/**
+ * event_unblock:
+ * @event: event to unblock.
+ *
+ * This function should be called by jobs that are holding a reference on the
+ * emission which blocks it from finishing, and wish to discard that reference.
+ *
+ * It must match a previous call to event_block().  If you wish to continue
+ * to hold the reference afterwards, call event_ref() along with the call
+ * to this function.
+ **/
+void
+event_unblock (Event *event)
+{
+	nih_assert (event != NULL);
+	nih_assert (event->blockers > 0);
+
+	event->blockers--;
 }
 
 
@@ -420,12 +484,15 @@ event_emit_finished (Event *event)
  *
  * This function is used to process the list of events; any in the pending
  * state are moved into the handling state and job states changed.  Any
- * in the finished state are cleaned up, with subscribers and jobs notified
- * that the event has completed.
+ * in the finished state will have subscribers and jobs notified that the
+ * event has completed.
+ *
+ * Events remain in the handling state while they have blocking jobs,
+ * and remain in the done state while they have references.
  *
  * This function will only return once the events list is empty, or all
- * events are in the handling state; so any time an event queues another,
- * it will be processed immediately.
+ * events are in the handling or done states; so any time an event queues
+ * another, it will be processed immediately.
  *
  * Normally this function is used as a main loop callback.
  **/
@@ -445,8 +512,9 @@ event_poll (void)
 		NIH_LIST_FOREACH_SAFE (events, iter) {
 			Event *event = (Event *)iter;
 
-			/* Ignore events that we're handling, there's nothing
-			 * we can do to hurry them.
+			/* Ignore events that we're handling and are not
+			 * blocked, or that are done but still have references,
+			 * there's nothing we can do to hurry them.
 			 *
 			 * Decide whether to poll again based on the state
 			 * before handling the event; that way we always loop
@@ -458,12 +526,24 @@ event_poll (void)
 			case EVENT_PENDING:
 				event_pending (event);
 				poll_again = TRUE;
-				break;
+
+				/* fall through */
 			case EVENT_HANDLING:
-				break;
+				if (event->blockers)
+					break;
+
+				event->progress = EVENT_FINISHED;
+				/* fall through */
 			case EVENT_FINISHED:
 				event_finished (event);
 				poll_again = TRUE;
+
+				/* fall through */
+			case EVENT_DONE:
+				if (event->refs)
+					break;
+
+				nih_list_free (&event->entry);
 				break;
 			default:
 				nih_assert_not_reached ();
@@ -494,12 +574,6 @@ event_pending (Event *event)
 
 	notify_event (event);
 	job_handle_event (event);
-
-	/* Make sure we don't hang on to events with no jobs.
-	 * (note that the progress might already be finished if all the jobs
-	 *  quickly skipped through their states and released it).
-	 */
-	event_emit_finished (event);
 }
 
 /**
@@ -548,5 +622,5 @@ event_finished (Event *event)
 		}
 	}
 
-	nih_list_free (&event->entry);
+	event->progress = EVENT_DONE;
 }

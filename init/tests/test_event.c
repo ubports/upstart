@@ -241,8 +241,10 @@ test_new (void)
 		last_id = event->id;
 
 		TEST_EQ (event->progress, EVENT_PENDING);
-		TEST_EQ (event->jobs, 0);
 		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
 
 		TEST_EQ_STR (event->info.name, "test");
 		TEST_ALLOC_PARENT (event->info.name, event);
@@ -286,34 +288,83 @@ test_find_by_id (void)
 	TEST_EQ_P (ret, NULL);
 }
 
+
 void
-test_emit_finished (void)
+test_ref (void)
 {
 	Event *event;
 
-	TEST_FUNCTION ("event_emit_finished");
+	/* Check that calling event_ref increments the number of references
+	 * that the event has, while leaving the blockers at zero.
+	 */
+	TEST_FUNCTION ("event_ref");
 	event = event_new (NULL, "test", NULL, NULL);
-	event->progress = EVENT_HANDLING;
+	event->refs = 4;
 
-	/* Check that if an event has jobs remaining, the progress isn't
-	 * changed.
+	event_ref (event);
+
+	TEST_EQ (event->refs, 5);
+	TEST_EQ (event->blockers, 0);
+
+	nih_list_free (&event->entry);
+}
+
+void
+test_unref (void)
+{
+	Event *event;
+
+	/* Check that calling event_unref decrements the number of references
+	 * that the event has, while leaving the blockers at zero.
 	 */
-	TEST_FEATURE ("with remaining jobs");
-	event->jobs = 1;
-	event_emit_finished (event);
+	TEST_FUNCTION ("event_unref");
+	event = event_new (NULL, "test", NULL, NULL);
+	event->refs = 4;
 
-	TEST_EQ (event->progress, EVENT_HANDLING);
+	event_unref (event);
 
+	TEST_EQ (event->refs, 3);
+	TEST_EQ (event->blockers, 0);
 
-	/* Check that if an event has no jobs remaining, the progress is
-	 * changed to finished.
+	nih_list_free (&event->entry);
+}
+
+void
+test_block (void)
+{
+	Event *event;
+
+	/* Check that calling event_block increments the number of blockers
+	 * that the event has, while leaving the references at zero.
 	 */
-	TEST_FEATURE ("with no remaining jobs");
-	event->jobs = 0;
-	event_emit_finished (event);
+	TEST_FUNCTION ("event_block");
+	event = event_new (NULL, "test", NULL, NULL);
+	event->blockers = 4;
 
-	TEST_EQ (event->progress, EVENT_FINISHED);
+	event_block (event);
 
+	TEST_EQ (event->blockers, 5);
+	TEST_EQ (event->refs, 0);
+
+	nih_list_free (&event->entry);
+}
+
+void
+test_unblock (void)
+{
+	Event *event;
+
+	/* Check that calling event_unblock increments the number of blockers
+	 * that the event has, while leaving the references at zero.
+	 */
+	TEST_FUNCTION ("event_unblock");
+	event = event_new (NULL, "test", NULL, NULL);
+	event->blockers = 4;
+
+	event_unblock (event);
+
+	TEST_EQ (event->blockers, 3);
+	TEST_EQ (event->refs, 0);
 
 	nih_list_free (&event->entry);
 }
@@ -389,7 +440,8 @@ test_poll (void)
 
 	/* Check that a pending event in the queue is handled, with any
 	 * subscribed processes being notified of the event and any
-	 * jobs started or stopped as a result.
+	 * jobs started or stopped as a result.  The event should remain
+	 * in the handling state while the job is blocking it.
 	 */
 	TEST_FEATURE ("with pending event");
 	fflush (stdout);
@@ -435,7 +487,8 @@ test_poll (void)
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_EQ (event->progress, EVENT_HANDLING);
-	TEST_EQ (event->jobs, 1);
+	TEST_EQ (event->refs, 1);
+	TEST_EQ (event->blockers, 1);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
@@ -449,13 +502,14 @@ test_poll (void)
 	nih_list_free (&event->entry);
 
 
-	/* Check that having a handling event in the queue doesn't cause
-	 * any problem.
+	/* Check that having a handling event in the queue which has blockers
+	 * doesn't cause any problem.
 	 */
-	TEST_FEATURE ("with handling event");
+	TEST_FEATURE ("with blocked handling event");
 	TEST_ALLOC_FAIL {
 		event = event_new (NULL, "test", NULL, NULL);
 		event->progress = EVENT_HANDLING;
+		event->blockers = 1;
 
 		event_poll ();
 
@@ -464,9 +518,9 @@ test_poll (void)
 	}
 
 
-	/* Check that events in the finished state are consumed, leaving
-	 * the list empty.  Subscribed processes should be notified, blocked
-	 * jobs should be releaed and the event should be freed.
+	/* Check that we finish unblocked handling events, leaving the list
+	 * empty.  Subscribed processes should be notified, blocked jobs
+	 * should be releaed and the event should be freed.
 	 */
 	TEST_FEATURE ("with finished event");
 	fflush (stdout);
@@ -492,6 +546,7 @@ test_poll (void)
 
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
+	event->progress = EVENT_HANDLING;
 
 	job = job_new (NULL, "test");
 	job->goal = JOB_START;
@@ -500,7 +555,7 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event_emit_finished (event);
+	event_ref (job->blocked);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (event, my_destructor);
@@ -531,8 +586,24 @@ test_poll (void)
 	TEST_LIST_EMPTY (subscriptions);
 
 
+	/* Check that a finished event with remaining references is held
+	 * in the done state, and not freed immediately.
+	 */
+	TEST_FEATURE ("with referenced event");
+	TEST_ALLOC_FAIL {
+		event = event_new (NULL, "test", NULL, NULL);
+		event->progress = EVENT_DONE;
+		event->refs = 1;
+
+		event_poll ();
+
+		TEST_LIST_NOT_EMPTY (&event->entry);
+		nih_list_free (&event->entry);
+	}
+
+
 	/* Check that a pending event which doesn't cause any jobs to be
-	 * changed goes straight into the finished state, thus getting
+	 * changed goes straight into the done state, thus getting
 	 * destroyed.
 	 */
 	TEST_FEATURE ("with no-op pending event");
@@ -580,7 +651,6 @@ test_poll (void)
 
 	TEST_EQ_STR (job->cause->info.name, "test/failed");
 
-	event_emit_finished (job->cause);
 	event_poll ();
 
 	nih_list_free (&job->entry);
@@ -632,7 +702,10 @@ main (int   argc,
 	test_match ();
 	test_new ();
 	test_find_by_id ();
-	test_emit_finished ();
+	test_ref ();
+	test_unref ();
+	test_block ();
+	test_unblock ();
 	test_poll ();
 
 	return 0;

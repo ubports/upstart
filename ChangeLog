@@ -1,3 +1,35 @@
+2007-05-20  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_ref, event_unref): Reference counting of events
+	so we don't free those we still need.
+	(event_block, event_unblock): Blocker counting that replaces the
+	previous jobs member.
+	(event_new): Initialise refs and blockers fields.
+	(event_emit_finished): Remove this function.
+	(event_poll): Handle the new done state, and deal with the blockers
+	and references counts; turns out that we can fall all the way through
+	this switch if these are zero without needing to check again.
+	(event_pending): Remove call to event_emit_finished, the event_poll()
+	loop handles this case now.
+	(event_finished): Set progress to done on the way out.
+	* init/event.h (EventProgress): Add new done state
+	(Event): Add refs and blockers members, replacing jobs
+	* init/tests/test_event.c (test_new): Check refs and blockers are
+	initialised to zero.
+	(test_ref, test_unref, test_block, test_unblock): Check the ref
+	counting function behaviours.
+	(test_emit_finished): Drop this function since it's not used
+	* init/job.c (job_change_cause): Reference and block the event,
+	and unblock and unreference before changing.
+	(job_emit_event): Reference the event that blocks the job from
+	continuing.
+	(job_handle_event_finished): Unreference the blocking event again.
+	(job_change_state): Make sure that blocked has been cleared before
+	allowing a state change.
+	* init/tests/test_job.c: Change tests to use refs/blockers on the
+	cause event when counting, and also to follow the status of blocked
+	since that is now ref-counted as well.
+
 2007-05-18  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c (main, cad_handler, kbd_handler, pwr_handler): Use
