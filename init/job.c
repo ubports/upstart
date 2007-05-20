@@ -1775,7 +1775,7 @@ job_handle_event (Event *event)
 			NIH_LIST_FOREACH (&job->stop_events, iter) {
 				EventInfo *stop_event = (EventInfo *)iter;
 
-				if (event_match (&event->info, stop_event))
+				if (event_match (event, stop_event))
 					job_change_goal (job, JOB_STOP, event);
 			}
 		}
@@ -1787,7 +1787,7 @@ job_handle_event (Event *event)
 			NIH_LIST_FOREACH (&job->start_events, iter) {
 				EventInfo *start_event = (EventInfo *)iter;
 
-				if (event_match (&event->info, start_event)) {
+				if (event_match (event, start_event)) {
 					Job *instance;
 
 					instance = job_instance (job);

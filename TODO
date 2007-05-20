@@ -4,7 +4,7 @@ High Priority:
    the structures in memory more sane, this should be easier again, as
    long as we send things in this order:
 
-    * EventEmission queue
+    * Event queue
     * Job hash (referencing cause and blocked events by id, also need to
       ensure we handle instance jobs proeprly)
     * NotifySubscription list (which references both events by id and jobs
@@ -22,11 +22,10 @@ High Priority:
 
 Medium Priority:
 
- * EventEmission records need to hang around longer, since that's the source
-   of environment variables, etc.  We should only clear the cause when we
-   change the goal; otherwise we should just decrease the job count (while
-   maintaining a reference count).  This means events can be finished, but
-   still referenced. -- should also be freed when we reach "stop"
+ * The cause event in the Job needs to hang around longer, since that's the
+   source of environment variables, etc.  We should only clear it when we
+   change the goal; otherwise we should just unblock it without unrefing it.
+   (but keep it when goal is stop?)
 
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.

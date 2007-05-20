@@ -193,7 +193,7 @@ EventInfo *event_info_new   (const void *parent, const char *name,
 EventInfo *event_info_copy  (const void *parent, const EventInfo *old_event)
 	__attribute__ ((warn_unused_result, malloc));
 
-int        event_match      (EventInfo *event1, EventInfo *event2);
+int        event_match      (Event *event, EventInfo *info);
 
 Event     *event_new        (const void *parent, const char *name,
 			     char **args, char **env)

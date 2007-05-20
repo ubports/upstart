@@ -197,36 +197,36 @@ error:
 
 /**
  * event_match:
- * @event1: first event,
- * @event2: second event.
+ * @event: event to match,
+ * @info: information to match against.
  *
- * Compares @event1 and @event2 to see whether they are identical in name,
- * and whether @event1 contains at least the number of arguments given in
- * @event2, and that each of those arguments matches as a glob.
+ * Compares @event against @info to see whether they are identical in name,
+ * and whether @event contains at least the number of arguments given in
+ * @info, and that each of those arguments matches as a glob.
  *
  * Returns: TRUE if the events match, FALSE otherwise.
  **/
 int
-event_match (EventInfo *event1,
-	     EventInfo *event2)
+event_match (Event     *event,
+	     EventInfo *info)
 {
 	char **arg1, **arg2;
 
-	nih_assert (event1 != NULL);
-	nih_assert (event2 != NULL);
+	nih_assert (event != NULL);
+	nih_assert (info != NULL);
 
 	/* Names must match */
-	if (strcmp (event1->name, event2->name))
+	if (strcmp (event->info.name, info->name))
 		return FALSE;
 
 	/* Match arguments using the second argument as a glob */
-	for (arg1 = event1->args, arg2 = event2->args;
+	for (arg1 = event->info.args, arg2 = info->args;
 	     arg1 && arg2 && *arg1 && *arg2; arg1++, arg2++)
 		if (fnmatch (*arg2, *arg1, 0))
 			return FALSE;
 
-	/* Must be at least the same number of arguments in event1 as
-	 * there are in event2
+	/* Must be at least the same number of arguments in event as
+	 * there are in info
 	 */
 	if (arg2 && *arg2)
 		return FALSE;

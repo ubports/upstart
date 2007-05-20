@@ -1,5 +1,16 @@
 2007-05-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_match): Change to accept Event as the first
+	argument and EventInfo as the second, making it obvious that this
+	matches a received Event against known EventInfo rather than just
+	comparing two info structs (since the order matters).
+	* init/event.h: Update prototype.
+	* init/tests/test_event.c (test_match): Update test accordingly.
+	(test_poll): Fix typo.
+	* init/job.c (job_handle_event): Pass in the event as the first
+	argument to event_match, rather than its info.
+	* TODO: Update.
+
 	* init/job.c (job_emit_event): Return the event that we emit; don't
 	bother tracking block status or setting blocked, leave that to the
 	state loop so things are more obvious.

@@ -149,7 +149,8 @@ test_info_copy (void)
 void
 test_match (void)
 {
-	EventInfo *event1, *event2;
+	Event     *event;
+	EventInfo *info;
 	char      *args1[] = { "foo", "bar", "baz", NULL };
 	char      *args2[] = { "foo", "bar", "baz", NULL };
 
@@ -157,53 +158,53 @@ test_match (void)
 
 	/* Check that two events with different names do not match. */
 	TEST_FEATURE ("with different name events");
-	event1 = event_info_new (NULL, "foo", NULL, NULL);
-	event2 = event_info_new (NULL, "bar", NULL, NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
+	info = event_info_new (NULL, "bar", NULL, NULL);
 
-	TEST_FALSE (event_match (event1, event2));
+	TEST_FALSE (event_match (event, info));
 
 
 	/* Check that two events with the same names match. */
 	TEST_FEATURE ("with same name events");
-	nih_free (event2);
-	event2 = event_info_new (NULL, "foo", NULL, NULL);
+	nih_free (info);
+	info = event_info_new (NULL, "foo", NULL, NULL);
 
-	TEST_TRUE (event_match (event1, event2));
+	TEST_TRUE (event_match (event, info));
 
 
 	/* Check that two events with the same arguments lists match. */
 	TEST_FEATURE ("with same argument lists");
-	event1->args = args1;
-	event2->args = args2;
+	event->info.args = args1;
+	info->args = args2;
 
-	TEST_TRUE (event_match (event1, event2));
+	TEST_TRUE (event_match (event, info));
 
 
-	/* Check that the argument list in event2 may be shorter. */
-	TEST_FEATURE ("with shorter list in event2");
+	/* Check that the argument list in info may be shorter. */
+	TEST_FEATURE ("with shorter list in info");
 	args2[2] = NULL;
 
-	TEST_TRUE (event_match (event1, event2));
+	TEST_TRUE (event_match (event, info));
 
 
-	/* Check that the argument list in event1 may not be shorter. */
-	TEST_FEATURE ("with shorter list in event1");
+	/* Check that the argument list in event may not be shorter. */
+	TEST_FEATURE ("with shorter list in event");
 	args2[2] = args1[2];
 	args1[2] = NULL;
 
-	TEST_FALSE (event_match (event1, event2));
+	TEST_FALSE (event_match (event, info));
 
 
-	/* Check that the second events argument lists may be globs. */
+	/* Check that the info argument lists may be globs. */
 	TEST_FEATURE ("with globs in arguments");
 	args1[2] = args2[2];
 	args2[2] = "b?z*";
 
-	TEST_TRUE (event_match (event1, event2));
+	TEST_TRUE (event_match (event, info));
 
 
-	nih_free (event2);
-	nih_free (event1);
+	nih_free (info);
+	nih_list_free (&event->entry);
 }
 
 
@@ -520,7 +521,7 @@ test_poll (void)
 
 	/* Check that we finish unblocked handling events, leaving the list
 	 * empty.  Subscribed processes should be notified, blocked jobs
-	 * should be releaed and the event should be freed.
+	 * should be released and the event should be freed.
 	 */
 	TEST_FEATURE ("with finished event");
 	fflush (stdout);
