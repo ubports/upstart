@@ -4888,32 +4888,6 @@ test_read_job (void)
 	TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
 
 
-	/* Check that a job may not use options that normally affect daemon
-	 * if it doesn't use daemon itself.  It gets warnings.
-	 */
-	TEST_FEATURE ("with daemon options and not daemon");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "pid file /var/run/foo.pid\n");
-	fprintf (jf, "pid binary /lib/foo/foo.bin\n");
-	fclose (jf);
-
-	TEST_DIVERT_STDERR (output) {
-		job = cfg_read_job (NULL, filename, "test");
-	}
-	rewind (output);
-
-	TEST_ERROR_EQ (output,
-		       " 'pid file' ignored unless 'daemon' specified\n");
-	TEST_ERROR_EQ (output,
-		       " 'pid binary' ignored unless 'daemon' specified\n");
-	TEST_FILE_END (output);
-
-	TEST_FILE_RESET (output);
-
-	nih_list_free (&job->entry);
-
-
 	/* Check that a non-existant file is caught properly. */
 	TEST_FEATURE ("with non-existant file");
 	unlink (filename);

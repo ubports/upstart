@@ -58,6 +58,10 @@
 
 
 /* Prototypes for static functions */
+static Job * cfg_parse_job             (const void *parent, const char *name,
+					NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
 static int   cfg_parse_exec            (JobProcess *proc,
 					NihConfigStanza *stanza,
 					const char *file, size_t len,
@@ -203,6 +207,78 @@ static NihConfigStanza stanzas[] = {
 	NIH_CONFIG_LAST
 };
 
+
+/**
+ * cfg_parse_job:
+ * @parent: parent of new job,
+ * @name: name of new job,
+ * @stanza: stanza found or NULL,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * This function is used to parse a job definition from @file, for a job
+ * named @name.  A sequence of stanzas is expected, defining the parameters
+ * of the job.
+ *
+ * If an existing job already exists with the given @name, and the new job
+ * is parsed successfully, then the new job is marked as a replacement for
+ * the old one.
+ *
+ * Returns: newly allocated Job structure on success, NULL on raised error.
+ **/
+static Job *
+cfg_parse_job (const void      *parent,
+	       const char      *name,
+	       NihConfigStanza *stanza,
+	       const char      *file,
+	       size_t           len,
+	       size_t          *pos,
+	       size_t          *lineno)
+{
+	Job *job, *old_job;
+
+	nih_assert (name != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	/* Look for an old job with that name */
+	old_job = job_find_by_name (name);
+
+	/* Allocate a new structure */
+	NIH_MUST (job = job_new (parent, name));
+
+	/* Parse the file, if we can't parse the new file, we just return now
+	 * without ditching the old job if there is one.
+	 */
+	if (nih_config_parse_file (file, len, pos, lineno, stanzas, job) < 0) {
+		nih_list_free (&job->entry);
+		return NULL;
+	}
+
+	/* Deal with the case where we're reloading an existing	job; we
+	 * mark the existing job as deleted, rather than copying in old data,
+	 * since we don't want to mis-match scripts or configuration.
+	 */
+	if (old_job) {
+		nih_info (_("Replacing existing %s job"), job->name);
+
+		if ((old_job->replacement != NULL)
+		    && (old_job->replacement != (void *)-1)) {
+			nih_debug ("Discarding previous replacement");
+			nih_list_free (&old_job->replacement->entry);
+		}
+
+		old_job->replacement = job;
+		job->replacement_for = old_job;
+
+		if (job_should_replace (old_job))
+			job_change_state (old_job, job_next_state (old_job));
+	}
+
+	return job;
+}
 
 /**
  * cfg_parse_exec:
@@ -1734,24 +1810,27 @@ cfg_read_job (const void *parent,
 	      const char *filename,
 	      const char *name)
 {
-	Job    *job, *old_job;
-	size_t  lineno;
+	Job        *job = NULL;
+	NihError   *err;
+	const char *file;
+	size_t      len, lineno, pos;
 
 	nih_assert (filename != NULL);
-	nih_assert (name != NULL);
 
-	/* Look for an old job with that name */
-	old_job = job_find_by_name (name);
+	/* Map the file into memory */
+	nih_debug ("Loading %s from %s", name, filename);
+	file = nih_file_map (filename, O_RDONLY | O_NOCTTY, &len);
+	if (! file)
+		goto error;
 
-	/* Allocate a new structure */
-	NIH_MUST (job = job_new (parent, name));
-	nih_debug ("Loading %s from %s", job->name, filename);
-
-	/* Parse the file, if we can't parse the new file, we just return now
-	 * without ditching the old job if there is one.
+	/* Parse the entire file as a job definition, and catch any errors
+	 * that occur, giving the line-number where they happen in the
+	 * message.
 	 */
+	pos = 0;
 	lineno = 1;
-	if (nih_config_parse (filename, NULL, &lineno, stanzas, job) < 0) {
+	job = cfg_parse_job (NULL, name, NULL, file, len, &pos, &lineno);
+	if (! job) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -1772,51 +1851,20 @@ cfg_read_job (const void *parent,
 				   err->message);
 			break;
 		}
-
-		nih_list_free (&job->entry);
 		nih_free (err);
-
-		return NULL;
 	}
 
-
-	/* Now we sanity check the job, checking for things that will
-	 * cause assertions or bad behaviour later on, or just general
-	 * warnings
+	/* Unmap the file, this shouldn't fail, but if so output an error and
+	 * return the job.
 	 */
+	if (nih_file_unmap ((void *)file, len) < 0)
+		goto error;
 
-	/* pid file makes no sense unless daemon */
-	if (job->pid_file && (! job->daemon)) {
-		nih_warn (_("%s: 'pid file' ignored unless 'daemon' specified"),
-			  filename);
-	}
-
-	/* pid binary makes no sense unless daemon */
-	if (job->pid_binary && (! job->daemon)) {
-		nih_warn (_("%s: 'pid binary' ignored unless 'daemon' specified"),
-			  filename);
-	}
-
-
-	/* Deal with the case where we're reloading an existing	job; we
-	 * mark the existing job as deleted, rather than copying in old data,
-	 * since we don't want to mis-match scripts or configuration.
-	 */
-	if (old_job) {
-		nih_info (_("Replacing existing %s job"), job->name);
-
-		if ((old_job->replacement != NULL)
-		    && (old_job->replacement != (void *)-1)) {
-			nih_debug ("Discarding previous replacement");
-			nih_list_free (&old_job->replacement->entry);
-		}
-
-		old_job->replacement = job;
-		job->replacement_for = old_job;
-
-		if (job_should_replace (old_job))
-			job_change_state (old_job, job_next_state (old_job));
-	}
+	return job;
+error:
+	err = nih_error_get ();
+	nih_error ("%s: %s: %s", filename, _("unable to read"), err->message);
+	nih_free (err);
 
 	return job;
 }

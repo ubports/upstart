@@ -1,3 +1,17 @@
+2007-05-27  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c (cfg_read_job): Separate out the job-handling code
+	into a new function that we could call from a stanza if we want
+	later; this one now just maps the file into memory and deals with
+	exceptions from the parsing.
+	(cfg_parse_job): Function containing the seperated out code; parses
+	a new job, marking it as a replacement for any existing job with the
+	same name.  Drop the warnings for using pid options without a daemon,
+	since these are actually useful for other things later.
+	* init/tests/test_cfgfile.c (test_read_job): Drop the check on
+	unexpected daemon options, since we don't issue these warnings
+	anymore.
+
 2007-05-20  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.c (event_match): Change to accept Event as the first
