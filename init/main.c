@@ -56,7 +56,6 @@
 #include "job.h"
 #include "event.h"
 #include "control.h"
-#include "cfgfile.h"
 #include "paths.h"
 
 
@@ -263,18 +262,7 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Read configuration */
-	if (cfg_watch_dir (CFG_DIR, NULL) == (void *)-1) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Error parsing configuration"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
+	/* FIXME: Read configuration */
 
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us

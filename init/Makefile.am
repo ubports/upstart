@@ -22,7 +22,7 @@ init_SOURCES = \
 	event.c event.h \
 	control.c control.h \
 	notify.c notify.h \
-	cfgfile.c cfgfile.h
+	parse_job.c parse_job.h
 
 init_LDFLAGS = -static
 init_LDADD = \
@@ -39,7 +39,7 @@ TESTS = \
 	test_event \
 	test_control \
 	test_notify \
-	test_cfgfile
+	test_parse_job
 
 check_PROGRAMS = $(TESTS)
 
@@ -73,11 +73,11 @@ test_notify_LDADD = \
 	../nih/libnih.la ../upstart/libupstart.la \
 	process.o job.o event.o control.o notify.o
 
-test_cfgfile_SOURCES = tests/test_cfgfile.c
-test_cfgfile_LDFLAGS = -static
-test_cfgfile_LDADD = \
+test_parse_job_SOURCES = tests/test_parse_job.c
+test_parse_job_LDFLAGS = -static
+test_parse_job_LDADD = \
 	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o cfgfile.o
+	process.o job.o event.o control.o notify.o parse_job.o
 
 
 clean-local:

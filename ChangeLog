@@ -1,3 +1,28 @@
+2007-06-03  Scott James Remnant  <scott@netsplit.com>
+
+	* init/cfgfile.c, init/cfgfile.h, init/tests/test_cfgfile.c: Rename
+	to parse_job and strip out all functions except the parsing and stanza
+	ones.
+	* init/Makefile.am (init_SOURCES): Build and link parse_job.c and h
+	(TESTS): Run the parse job test suite
+	(test_cfgfile_SOURCES, test_cfgfile_LDFLAGS, test_cfgfile_LDADD):
+	Rename and update.
+	* init/parse_job.c: Rename all cfg_stanza_*() functions to just
+	stanza_*(), rename all cfg_parse_*() functions to just parse_*().
+	(parse_job, parse_process, stanza_exec, stanza_script, stanza_start)
+	(stanza_stop, stanza_emits, stanza_normal, stanza_env, stanza_limit):
+	Don't use NIH_MUST, it's fine to be out of memory and we should fail
+	in that case with a useful error.  The user can always reload the
+	config file.
+	(cfg_read_job, cfg_watch_dir, cfg_job_name, cfg_create_modify_handler)
+	(cfg_delete_handler, cfg_visitor): Drop these functions for now.
+	* init/parse_job.h: Update so it just contains the one prototype.
+	* init/tests/test_parse_job.c: Update all tests to pass a string
+	to parse_job(), and check errors raised; rather than mucking around
+	with file descriptors all of the time.  Spend the effort while we're
+	in here to run TEST_ALLOC_FAIL where we can.
+	* init/main.c: Drop config file loading for now since it's missing.
+
 2007-05-27  Scott James Remnant  <scott@netsplit.com>
 
 	* init/cfgfile.h (CFG_DIR): Drop this define, since it's in paths.h

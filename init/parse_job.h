@@ -18,25 +18,20 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef INIT_CFGFILE_H
-#define INIT_CFGFILE_H
+#ifndef INIT_PARSE_JOB_H
+#define INIT_PARSE_JOB_H
 
 #include <nih/macros.h>
-
-#include <nih/watch.h>
 
 #include "job.h"
 
 
 NIH_BEGIN_EXTERN
 
-Job *     cfg_read_job  (const void *parent, const char *filename,
-			 const char *jobname)
-	__attribute__ ((malloc));
-
-NihWatch *cfg_watch_dir (const char *dirname, const char *prefix)
-	__attribute__ ((malloc, warn_unused_result));
+Job *parse_job (const void *parent, const char *name,
+		const char *file, size_t len, size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 
-#endif /* INIT_CFGFILE_H */
+#endif /* INIT_PARSE_JOB_H */
