@@ -1,5 +1,10 @@
 2007-06-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_run_process): Add a test case for a
+	crasher when the event has no arguments.
+	* init/job.c (job_run_process): Fix the bug, we need to check the
+	arguments before trying to append them.
+
 	* init/cfgfile.c, init/cfgfile.h, init/tests/test_cfgfile.c: Rename
 	to parse_job and strip out all functions except the parsing and stanza
 	ones.

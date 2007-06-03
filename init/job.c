@@ -1369,7 +1369,7 @@ job_run_process (Job         *job,
 		}
 
 		/* Append arguments from the cause event if set. */
-		if (job->cause)
+		if (job->cause && job->cause->info.args)
 			NIH_MUST (nih_str_array_append (&argv, NULL, &argc,
 							job->cause->info.args));
 	} else {

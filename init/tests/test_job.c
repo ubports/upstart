@@ -3191,6 +3191,44 @@ test_run_process (void)
 	nih_list_free (&event->entry);
 
 
+	/* Check that an event without arguments doesn't cause any problems */
+	TEST_FEATURE ("with cause without arguments");
+	event = event_new (NULL, "test", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->cause = event;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"exec > %s\necho $0\necho $@", filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+	nih_list_free (&event->entry);
+
+
 	if (stat ("/dev/fd", &statbuf) < 0) {
 		printf ("SKIP: no /dev/fd\n");
 		goto no_devfd;
