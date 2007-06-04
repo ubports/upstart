@@ -28,19 +28,19 @@ endif
 
 reboot_SOURCES = reboot.c
 reboot_LDFLAGS = -static
-reboot_LDADD = ../../nih/libnih.la ../../upstart/libupstart.la
+reboot_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 runlevel_SOURCES = runlevel.c
 runlevel_LDFLAGS = -static
-runlevel_LDADD = ../../nih/libnih.la
+runlevel_LDADD = ../../nih/libnih.la $(LTLIBINTL)
 
 shutdown_SOURCES = shutdown.c
 shutdown_LDFLAGS = -static
-shutdown_LDADD = ../../nih/libnih.la ../../upstart/libupstart.la
+shutdown_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 telinit_SOURCES = telinit.c
 telinit_LDFLAGS = -static
-telinit_LDADD = ../../nih/libnih.la ../../upstart/libupstart.la
+telinit_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 
 install-data-hook:

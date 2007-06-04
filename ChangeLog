@@ -1,3 +1,14 @@
+2007-06-04  Scott James Remnant  <scott@netsplit.com>
+
+	* upstart/Makefile.am (libupstart_la_LIBADD): Add $(LTLIBINTL)
+	* init/Makefile.am (init_LDADD): Reorder and add $(LTLIBINTL)
+	* util/Makefile.am (initctl_LDADD): Reorder and add $(LTLIBINTL)
+	* compat/sysv/Makefile.am (reboot_LDADD): Reorder and add $(LTLIBINTL)
+	(runlevel_LDADD): add $(LTLIBINTL)
+	(shutdown_LDADD): Reorder and add $(LTLIBINTL)
+	(telinit_LDADD): Reorder and add $(LTLIBINTL)
+	* logd/Makefile.am (logd_LDADD): Add $(LTLIBINTL)
+
 2007-06-03  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_run_process): Add a test case for a

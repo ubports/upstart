@@ -21,7 +21,8 @@ libupstart_la_LDFLAGS += @VERSION_SCRIPT_ARG@=$(srcdir)/libupstart.ver
 endif
 
 libupstart_la_LIBADD = \
-	../nih/libnih.la
+	../nih/libnih.la \
+	$(LTLIBINTL)
 
 EXTRA_DIST = libupstart.ver
 

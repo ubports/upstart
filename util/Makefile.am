@@ -18,8 +18,9 @@ initctl_SOURCES = \
 
 initctl_LDFLAGS = -static
 initctl_LDADD = \
+	../upstart/libupstart.la \
 	../nih/libnih.la \
-	../upstart/libupstart.la
+	$(LTLIBINTL)
 
 
 install-data-hook:
@@ -41,7 +42,7 @@ check_PROGRAMS = $(TESTS)
 test_initctl_SOURCES = tests/test_initctl.c initctl.c
 test_initctl_CFLAGS = -DTEST
 test_initctl_LDFLAGS = -static
-test_initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+test_initctl_LDADD = ../upstart/libupstart.la ../nih/libnih.la
 
 
 clean-local:

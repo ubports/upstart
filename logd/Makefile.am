@@ -27,7 +27,8 @@ logd_SOURCES = \
 
 logd_LDFLAGS = -static
 logd_LDADD = \
-	../nih/libnih.la
+	../nih/libnih.la \
+	$(LTLIBINTL)
 
 
 TESTS =

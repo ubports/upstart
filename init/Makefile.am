@@ -26,8 +26,9 @@ init_SOURCES = \
 
 init_LDFLAGS = -static
 init_LDADD = \
+	../upstart/libupstart.la \
 	../nih/libnih.la \
-	../upstart/libupstart.la
+	$(LTLIBINTL)
 
 
 EXTRA_DIST = init.supp
@@ -46,38 +47,38 @@ check_PROGRAMS = $(TESTS)
 test_job_SOURCES = tests/test_job.c
 test_job_LDFLAGS = -static
 test_job_LDADD = \
-	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o
+	process.o job.o event.o control.o notify.o \
+	../upstart/libupstart.la ../nih/libnih.la
 
 test_process_SOURCES = tests/test_process.c
 test_process_LDFLAGS = -static
 test_process_LDADD = \
-	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o
+	process.o job.o event.o control.o notify.o \
+	../upstart/libupstart.la ../nih/libnih.la
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDFLAGS = -static
 test_event_LDADD = \
-	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o
+	process.o job.o event.o control.o notify.o \
+	../upstart/libupstart.la ../nih/libnih.la
 
 test_control_SOURCES = tests/test_control.c
 test_control_LDFLAGS = -static
 test_control_LDADD = \
-	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o
+	process.o job.o event.o control.o notify.o \
+	../upstart/libupstart.la ../nih/libnih.la
 
 test_notify_SOURCES = tests/test_notify.c
 test_notify_LDFLAGS = -static
 test_notify_LDADD = \
-	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o
+	process.o job.o event.o control.o notify.o \
+	../upstart/libupstart.la ../nih/libnih.la
 
 test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDFLAGS = -static
 test_parse_job_LDADD = \
-	../nih/libnih.la ../upstart/libupstart.la \
-	process.o job.o event.o control.o notify.o parse_job.o
+	process.o job.o event.o control.o notify.o parse_job.o \
+	../upstart/libupstart.la ../nih/libnih.la
 
 
 clean-local:
