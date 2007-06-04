@@ -1,3 +1,7 @@
+2007-06-04  Michael Biebl  <mbiebl@gmail.com>
+
+	* POTFILES.in: Remove init/cfgfile.c; add init/parse_job.c
+
 2007-03-09  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Add nih/tree.c; remove util/events.c and util/jobs.c

@@ -25,12 +25,12 @@ upstart/wire.c
 
 upstart/errors.h
 
-init/cfgfile.c
 init/control.c
 init/event.c
 init/job.c
 init/main.c
 init/notify.c
+init/parse_job.c
 init/process.c
 
 util/initctl.c
