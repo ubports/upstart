@@ -326,6 +326,76 @@ test_stanza_exec (void)
 	}
 
 
+	/* Check that the last of duplicate exec stanzas is used. */
+	TEST_FEATURE ("with duplicates");
+	strcpy (buf, "exec /sbin/daemon -d\n");
+	strcpy (buf, "exec /sbin/daemon -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_MAIN];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that an exec stanza overrides a previous script stanza. */
+	TEST_FEATURE ("with exec following script");
+	strcpy (buf, "script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "exec /sbin/daemon -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_MAIN];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that an exec stanza without any arguments results in a
 	 * syntax error.
 	 */
@@ -341,25 +411,6 @@ test_stanza_exec (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (lineno, 1);
-	nih_free (err);
-
-
-	/* Check that duplicate occurances of the exec stanza
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicates");
-	strcpy (buf, "exec /sbin/daemon -d\n");
-	strcat (buf, "exec /sbin/daemon\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 2);
 	nih_free (err);
 }
 
@@ -411,46 +462,78 @@ test_stanza_script (void)
 	}
 
 
-	/* Check that multiple script stanzas result in a syntax error.
-	 */
+	/* Check that the last of multiple script stanzas is used. */
 	TEST_FEATURE ("with multiple blocks");
-	strcpy (buf, "script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
 	strcat (buf, "script\n");
 	strcat (buf, "    ls\n");
 	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
-	nih_free (err);
-
-
-	/* Check that script and exec stanzas result in a syntax error.
-	 */
-	TEST_FEATURE ("with multiple blocks");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "script\n");
+	strcpy (buf, "script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
 
-	TEST_EQ_P (job, NULL);
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
 
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 2);
-	nih_free (err);
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_MAIN];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a script stanza overrides a previous exec stanza. */
+	TEST_FEATURE ("with script following exec");
+	strcpy (buf, "exec /sbin/daemon -d \"foo\"\n");
+	strcpy (buf, "script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_MAIN];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
 
 
 	/* Check that a script stanza with an extra argument results
@@ -517,6 +600,187 @@ test_stanza_pre_start (void)
 	}
 
 
+	/* Check that the last of multiple pre-start exec stanzas is used. */
+	TEST_FEATURE ("with multiple exec");
+	strcpy (buf, "pre-start exec /bin/tool -d\n");
+	strcpy (buf, "pre-start exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a pre-start script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	strcpy (buf, "pre-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple pre-start script stanzas is used. */
+	TEST_FEATURE ("with multiple script");
+	strcpy (buf, "pre-start script\n");
+	strcat (buf, "    ls\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "pre-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a script stanza overrides any previous exec stanza. */
+	TEST_FEATURE ("with script following exec");
+	strcpy (buf, "pre-start exec /bin/tool -d \"foo\"\n");
+	strcpy (buf, "pre-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that an exec stanza overrides any previous script stanza. */
+	TEST_FEATURE ("with exec following script");
+	strcpy (buf, "pre-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "pre-start exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a pre-start exec stanza without any arguments results
 	 * in a syntax error.
 	 */
@@ -532,72 +796,6 @@ test_stanza_pre_start (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (lineno, 1);
-	nih_free (err);
-
-
-	/* Check that duplicate occurances of the pre-start exec stanza
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicates");
-	strcpy (buf, "pre-start exec /bin/tool -d\n");
-	strcat (buf, "pre-start exec /bin/tool\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a pre-start script stanza begins a block which
-	 * is stored in the process.
-	 */
-	TEST_FEATURE ("with script and block");
-	strcpy (buf, "pre-start script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	process = job->process[PROCESS_PRE_START];
-	TEST_ALLOC_PARENT (process, job->process);
-	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-	TEST_EQ (process->script, TRUE);
-	TEST_ALLOC_PARENT (process->command, process);
-	TEST_EQ_STR (process->command, "echo\n");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that multiple pre-start script stanzas result
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with multiple blocks");
-	strcpy (buf, "pre-start script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-	strcat (buf, "pre-start script\n");
-	strcat (buf, "    ls\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
 	nih_free (err);
 
 
@@ -704,6 +902,187 @@ test_stanza_post_start (void)
 	}
 
 
+	/* Check that the last of multiple post-start exec stanzas is used. */
+	TEST_FEATURE ("with multiple exec");
+	strcpy (buf, "post-start exec /bin/tool -d\n");
+	strcpy (buf, "post-start exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a post-start script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	strcpy (buf, "post-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple post-start script stanzas is used. */
+	TEST_FEATURE ("with multiple script");
+	strcpy (buf, "post-start script\n");
+	strcat (buf, "    ls\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "post-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a script stanza overrides any previous exec stanza. */
+	TEST_FEATURE ("with script following exec");
+	strcpy (buf, "post-start exec /bin/tool -d \"foo\"\n");
+	strcpy (buf, "post-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that an exec stanza overrides any previous script stanza. */
+	TEST_FEATURE ("with exec following script");
+	strcpy (buf, "post-start script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "post-start exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_START];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a post-start exec stanza without any arguments results
 	 * in a syntax error.
 	 */
@@ -719,72 +1098,6 @@ test_stanza_post_start (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (lineno, 1);
-	nih_free (err);
-
-
-	/* Check that duplicate occurances of the post-start exec stanza
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicates");
-	strcpy (buf, "post-start exec /bin/tool -d\n");
-	strcat (buf, "post-start exec /bin/tool\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a post-start script stanza begins a block which
-	 * is stored in the process.
-	 */
-	TEST_FEATURE ("with script and block");
-	strcpy (buf, "post-start script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	process = job->process[PROCESS_POST_START];
-	TEST_ALLOC_PARENT (process, job->process);
-	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-	TEST_EQ (process->script, TRUE);
-	TEST_ALLOC_PARENT (process->command, process);
-	TEST_EQ_STR (process->command, "echo\n");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that multiple post-start script stanzas result
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with multiple blocks");
-	strcpy (buf, "post-start script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-	strcat (buf, "post-start script\n");
-	strcat (buf, "    ls\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
 	nih_free (err);
 
 
@@ -891,6 +1204,187 @@ test_stanza_pre_stop (void)
 	}
 
 
+	/* Check that the last of multiple pre-stop exec stanzas is used. */
+	TEST_FEATURE ("with multiple exec");
+	strcpy (buf, "pre-stop exec /bin/tool -d\n");
+	strcpy (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a pre-stop script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple pre-stop script stanzas is used. */
+	TEST_FEATURE ("with multiple script");
+	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "    ls\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a script stanza overrides any previous exec stanza. */
+	TEST_FEATURE ("with script following exec");
+	strcpy (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
+	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that an exec stanza overrides any previous script stanza. */
+	TEST_FEATURE ("with exec following script");
+	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_PRE_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a pre-stop exec stanza without any arguments results
 	 * in a syntax error.
 	 */
@@ -906,72 +1400,6 @@ test_stanza_pre_stop (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (lineno, 1);
-	nih_free (err)
-;
-
-	/* Check that duplicate occurances of the pre-stop exec stanza
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicates");
-	strcpy (buf, "pre-stop exec /bin/tool -d\n");
-	strcat (buf, "pre-stop exec /bin/tool\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a pre-stop script stanza begins a block which
-	 * is stored in the process.
-	 */
-	TEST_FEATURE ("with script and block");
-	strcpy (buf, "pre-stop script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	process = job->process[PROCESS_PRE_STOP];
-	TEST_ALLOC_PARENT (process, job->process);
-	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-	TEST_EQ (process->script, TRUE);
-	TEST_ALLOC_PARENT (process->command, process);
-	TEST_EQ_STR (process->command, "echo\n");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that multiple pre-stop script stanzas result
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with multiple blocks");
-	strcpy (buf, "pre-stop script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-	strcat (buf, "pre-stop script\n");
-	strcat (buf, "    ls\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
 	nih_free (err);
 
 
@@ -1078,6 +1506,187 @@ test_stanza_post_stop (void)
 	}
 
 
+	/* Check that the last of multiple post-stop exec stanzas is used. */
+	TEST_FEATURE ("with multiple exec");
+	strcpy (buf, "post-stop exec /bin/tool -d\n");
+	strcpy (buf, "post-stop exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a post-stop script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	strcpy (buf, "post-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple post-stop script stanzas is used. */
+	TEST_FEATURE ("with multiple script");
+	strcpy (buf, "post-stop script\n");
+	strcat (buf, "    ls\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "post-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a script stanza overrides any previous exec stanza. */
+	TEST_FEATURE ("with script following exec");
+	strcpy (buf, "post-stop exec /bin/tool -d \"foo\"\n");
+	strcpy (buf, "post-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, TRUE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "echo\n");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that an exec stanza overrides any previous script stanza. */
+	TEST_FEATURE ("with exec following script");
+	strcpy (buf, "post-stop script\n");
+	strcat (buf, "    echo\n");
+	strcat (buf, "end script\n");
+	strcpy (buf, "post-stop exec /bin/tool -d \"foo\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		process = job->process[PROCESS_POST_STOP];
+		TEST_ALLOC_PARENT (process, job->process);
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+		TEST_EQ (process->script, FALSE);
+		TEST_ALLOC_PARENT (process->command, process);
+		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a post-stop exec stanza without any arguments results
 	 * in a syntax error.
 	 */
@@ -1093,72 +1702,6 @@ test_stanza_post_stop (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (lineno, 1);
-	nih_free (err);
-
-
-	/* Check that duplicate occurances of the post-stop exec stanza
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicates");
-	strcpy (buf, "post-stop exec /bin/tool -d\n");
-	strcat (buf, "post-stop exec /bin/tool\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a post-stop script stanza begins a block which
-	 * is stored in the process.
-	 */
-	TEST_FEATURE ("with script and block");
-	strcpy (buf, "post-stop script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	process = job->process[PROCESS_POST_STOP];
-	TEST_ALLOC_PARENT (process, job->process);
-	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-	TEST_EQ (process->script, TRUE);
-	TEST_ALLOC_PARENT (process->command, process);
-	TEST_EQ_STR (process->command, "echo\n");
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that multiple post-stop script stanzas result
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with multiple blocks");
-	strcpy (buf, "post-stop script\n");
-	strcat (buf, "    echo\n");
-	strcat (buf, "end script\n");
-	strcat (buf, "post-stop script\n");
-	strcat (buf, "    ls\n");
-	strcat (buf, "end script\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
 	nih_free (err);
 
 
@@ -1645,6 +2188,37 @@ test_stanza_description (void)
 	}
 
 
+	/* Check that the last of duplicate description stanzas is used. */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "description \"an example job\"\n");
+	strcat (buf, "description \"a test job\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->description, job);
+		TEST_EQ_STR (job->description, "a test job");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a description stanza without an argument results in
 	 * a syntax error.
 	 */
@@ -1681,26 +2255,6 @@ test_stanza_description (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
-
-
-	/* Check that a repeated description stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "description \"a test job\"\n");
-	strcat (buf, "description \"ya ya\"\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
 }
 
 void
@@ -1718,7 +2272,7 @@ test_stanza_author (void)
 	 */
 	TEST_FEATURE ("with single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author \"a test job\"\n");
+	strcat (buf, "author \"joe bloggs\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1739,7 +2293,38 @@ test_stanza_author (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->author, job);
-		TEST_EQ_STR (job->author, "a test job");
+		TEST_EQ_STR (job->author, "joe bloggs");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple author stanzas is used. */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "author \"john doe\"\n");
+	strcat (buf, "author \"joe bloggs\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->author, job);
+		TEST_EQ_STR (job->author, "joe bloggs");
 
 		nih_list_free (&job->entry);
 	}
@@ -1769,7 +2354,7 @@ test_stanza_author (void)
 	 */
 	TEST_FEATURE ("with extra argument");
 	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author \"a test job\" \"ya ya\"\n");
+	strcat (buf, "author \"joe bloggs\" \"john doe\"\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1780,26 +2365,6 @@ test_stanza_author (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a repeated author stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author \"a test job\"\n");
-	strcat (buf, "author \"ya ya\"\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
 	nih_free (err);
 }
 
@@ -1818,7 +2383,7 @@ test_stanza_version (void)
 	 */
 	TEST_FEATURE ("with single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version \"a test job\"\n");
+	strcat (buf, "version \"1.0\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1839,7 +2404,38 @@ test_stanza_version (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->version, job);
-		TEST_EQ_STR (job->version, "a test job");
+		TEST_EQ_STR (job->version, "1.0");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple version stanzas is used. */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "version \"0.8\"\n");
+	strcat (buf, "version \"1.0\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->version, job);
+		TEST_EQ_STR (job->version, "1.0");
 
 		nih_list_free (&job->entry);
 	}
@@ -1869,7 +2465,7 @@ test_stanza_version (void)
 	 */
 	TEST_FEATURE ("with extra argument");
 	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version \"a test job\" \"ya ya\"\n");
+	strcat (buf, "version \"1.0\" \"0.8\"\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1880,26 +2476,6 @@ test_stanza_version (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a repeated version stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version \"a test job\"\n");
-	strcat (buf, "version \"ya ya\"\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
 	nih_free (err);
 }
 
@@ -2098,6 +2674,36 @@ test_stanza_daemon (void)
 	}
 
 
+	/* Check that the daemon stanza can be used multiple times. */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "daemon\n");
+	strcat (buf, "daemon\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_TRUE (job->daemon);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a daemon stanza with arguments results in a syntax
 	 * error.
 	 */
@@ -2114,26 +2720,6 @@ test_stanza_daemon (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that duplicate occurances of the daemon stanza results in
-	 * a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "daemon\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
 	nih_free (err);
 }
 
@@ -2177,11 +2763,75 @@ test_stanza_respawn (void)
 	}
 
 
+	/* Check that a respawn stanza with no arguments can be used multiple
+	 * times.
+	 */
+	TEST_FEATURE ("with multiple no argument stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "respawn\n");
+	strcat (buf, "respawn\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_TRUE (job->respawn);
+		TEST_TRUE (job->service);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a respawn stanza with the limit argument and numeric
 	 * rate and timeout results in it being stored in the job.
 	 */
 	TEST_FEATURE ("with limit and two arguments");
 	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "respawn limit 10 120\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->respawn_limit, 10);
+		TEST_EQ (job->respawn_interval, 120);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the most recent of multiple respawn stanzas is used. */
+	TEST_FEATURE ("with multiple limit and two argument stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "respawn limit 5 60\n");
 	strcat (buf, "respawn limit 10 120\n");
 
 	TEST_ALLOC_FAIL {
@@ -2361,46 +3011,6 @@ test_stanza_respawn (void)
 	nih_free (err);
 
 
-	/* Check that duplicate occurances of the respawn stanza without
-	 * arguments results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate without arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn\n");
-	strcat (buf, "respawn\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
-
-
-	/* Check that duplicate respawn limit stanzas results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with duplicate limit stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 10 120\n");
-	strcat (buf, "respawn limit 20 90\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
-
-
 	/* Check that a respawn limit stanza with an extra argument results
 	 * in a syntax error.
 	 */
@@ -2480,6 +3090,100 @@ test_stanza_service (void)
 	}
 
 
+	/* Check that multiple service stanzas are permitted. */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "service\n");
+	strcat (buf, "service\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_TRUE (job->service);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that we can specify both of the respawn and service stanzas.
+	 */
+	TEST_FEATURE ("with respawn followed by service");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "respawn\n");
+	strcat (buf, "service\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_TRUE (job->respawn);
+		TEST_TRUE (job->service);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that we can specify both of the service and respawn stanzas.
+	 */
+	TEST_FEATURE ("with service followed by respawn");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "service\n");
+	strcat (buf, "respawn\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_TRUE (job->respawn);
+		TEST_TRUE (job->service);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a service stanza with arguments results in a syntax
 	 * error.
 	 */
@@ -2497,45 +3201,6 @@ test_stanza_service (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
-
-
-	/* Check that duplicate occurances of the service stanza results
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "service\n");
-	strcat (buf, "service\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
-
-
-	/* Check that we can specify the service and respawn stanzas.
-	 */
-	TEST_FEATURE ("with no arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn\n");
-	strcat (buf, "service\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_ALLOC_SIZE (job, sizeof (Job));
-
-	TEST_TRUE (job->respawn);
-	TEST_TRUE (job->service);
-
-	nih_list_free (&job->entry);
 }
 
 void
@@ -2552,6 +3217,37 @@ test_stanza_instance (void)
 	 */
 	TEST_FEATURE ("with no argument");
 	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "instance\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_TRUE (job->instance);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that multiple instance stanzas are permitted.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "instance\n");
 	strcat (buf, "instance\n");
 
 	TEST_ALLOC_FAIL {
@@ -2595,26 +3291,6 @@ test_stanza_instance (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
-
-
-	/* Check that duplicate occurances of the instance stanza result
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "instance\n");
-	strcat (buf, "instance\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
 }
 
 void
@@ -2633,6 +3309,39 @@ test_stanza_pid (void)
 	TEST_FEATURE ("with file and single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
 	strcat (buf, "daemon\n");
+	strcat (buf, "pid file /var/run/daemon.pid\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->pid_file, job);
+		TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple pid stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple file and single argument stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "daemon\n");
+	strcat (buf, "pid file /var/run/daemon/main.pid\n");
 	strcat (buf, "pid file /var/run/daemon.pid\n");
 
 	TEST_ALLOC_FAIL {
@@ -2693,12 +3402,77 @@ test_stanza_pid (void)
 	}
 
 
+	/* Check that the last of multiple pid stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple binary and single argument stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "daemon\n");
+	strcat (buf, "pid binary /usr/bin/daemon.real\n");
+	strcat (buf, "pid binary /usr/lib/daemon\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->pid_binary, job);
+		TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a pid stanza with the timeout argument and a numeric
 	 * timeout results in it being stored in the job.
 	 */
 	TEST_FEATURE ("with timeout and single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
 	strcat (buf, "daemon\n");
+	strcat (buf, "pid timeout 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->pid_timeout, 10);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple pid timeout stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple timeout and single argument stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "daemon\n");
+	strcat (buf, "pid timeout 5\n");
 	strcat (buf, "pid timeout 10\n");
 
 	TEST_ALLOC_FAIL {
@@ -2946,66 +3720,6 @@ test_stanza_pid (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 3);
 	nih_free (err);
-
-
-	/* Check that a repeated pid file stanza results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate file stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid file /var/run/daemon.pid\n");
-	strcat (buf, "pid file /var/run/daemon/daemon.pid\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
-	nih_free (err);
-
-
-	/* Check that a repeated pid binary stanza results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate binary stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid binary /usr/lib/daemon\n");
-	strcat (buf, "pid binary /usr/lib/daemon/daemon\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
-	nih_free (err);
-
-
-	/* Check that a repeated pid timeout stanza results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate timeout stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout 99\n");
-	strcat (buf, "pid timeout 100\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 4);
-	nih_free (err);
 }
 
 void
@@ -3023,6 +3737,37 @@ test_stanza_kill (void)
 	 */
 	TEST_FEATURE ("with timeout and single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "kill timeout 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->kill_timeout, 10);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple kill stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple timeout and single argument stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "kill timeout 5\n");
 	strcat (buf, "kill timeout 10\n");
 
 	TEST_ALLOC_FAIL {
@@ -3180,26 +3925,6 @@ test_stanza_kill (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a repeated kill timeout stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate timeout stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout 99\n");
-	strcat (buf, "kill timeout 100\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
 	nih_free (err);
 }
 
@@ -3618,6 +4343,37 @@ test_stanza_console (void)
 	}
 
 
+	/* Check that the last of multiple console stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "console output\n");
+	strcat (buf, "console logged\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->console, CONSOLE_LOGGED);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that an unknown argument raises a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
@@ -3653,28 +4409,6 @@ test_stanza_console (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
-
-
-#if 0
-	/* Check that duplicate occurances of the console stanza result
-	 * in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console owner\n");
-	strcat (buf, "console output\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
-#endif
 }
 
 void
@@ -3838,6 +4572,37 @@ test_stanza_umask (void)
 	}
 
 
+	/* Check that the last of multiple umask stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "umask 0644\n");
+	strcat (buf, "umask 0755\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->umask, 0755);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that a umask stanza without an argument results in a syntax
 	 * error.
 	 */
@@ -3951,25 +4716,6 @@ test_stanza_umask (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
-
-
-	/* Check that a repeated umask stanza results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask 0755\n");
-	strcat (buf, "umask 0711\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
 }
 
 void
@@ -4039,6 +4785,37 @@ test_stanza_nice (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->nice, -10);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple nice stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "nice -10\n");
+	strcat (buf, "nice 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->nice, 10);
 
 		nih_list_free (&job->entry);
 	}
@@ -4155,25 +4932,6 @@ test_stanza_nice (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a repeated nice stanza results in a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice 10\n");
-	strcat (buf, "nice -12\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
 	nih_free (err);
 }
 
@@ -4677,6 +5435,39 @@ test_stanza_limit (void)
 	}
 
 
+	/* Check that the last of multiple stanzas for the same limit is used.
+	 */
+	TEST_FEATURE ("with multiple of a single limit");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "limit core 5 10\n");
+	strcat (buf, "limit core 10 20\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that the hard resource limit can be set to unlimited with
 	 * a special argument of that name
 	 */
@@ -4895,26 +5686,6 @@ test_stanza_limit (void)
 	nih_free (err);
 
 
-	/* Check that duplicate occurances of the limit stanza with the
-	 * same reousrce is a syntax error.
-	 */
-	TEST_FEATURE ("with duplicate resource");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10 20\n");
-	strcat (buf, "limit core 15 30\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
-
-
 	/* Check that a limit stanza with an extra argument results
 	 * in a syntax error.
 	 */
@@ -4949,6 +5720,38 @@ test_stanza_chroot (void)
 	 */
 	TEST_FEATURE ("with single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "chroot /chroot/daemon\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->chroot, job);
+		TEST_EQ_STR (job->chroot, "/chroot/daemon");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple chroot stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "chroot /var/daemon\n");
 	strcat (buf, "chroot /chroot/daemon\n");
 
 	TEST_ALLOC_FAIL {
@@ -5012,26 +5815,6 @@ test_stanza_chroot (void)
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
-
-
-	/* Check that a repeated chroot stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chroot /chroot/daemon\n");
-	strcat (buf, "chroot /var/lib/daemon\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
-	nih_free (err);
 }
 
 void
@@ -5049,6 +5832,38 @@ test_stanza_chdir (void)
 	 */
 	TEST_FEATURE ("with single argument");
 	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "chdir /var/lib/daemon\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_PARENT (job->chdir, job);
+		TEST_EQ_STR (job->chdir, "/var/lib/daemon");
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of multiple chdir stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "chdir /var/daemon\n");
 	strcat (buf, "chdir /var/lib/daemon\n");
 
 	TEST_ALLOC_FAIL {
@@ -5111,26 +5926,6 @@ test_stanza_chdir (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (lineno, 2);
-	nih_free (err);
-
-
-	/* Check that a repeated chdir stanza results in a syntax
-	 * error.
-	 */
-	TEST_FEATURE ("with duplicate stanza");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chdir /var/lib/daemon\n");
-	strcat (buf, "chdir /var/run/daemon\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_DUPLICATE_VALUE);
-	TEST_EQ (lineno, 3);
 	nih_free (err);
 }
 

@@ -31,11 +31,9 @@ enum {
 
 	/* Errors while parsing configuration files */
 	CFG_ILLEGAL_VALUE,
-	CFG_DUPLICATE_VALUE,
 };
 
 /* Error strings for defined messages */
 #define CFG_ILLEGAL_VALUE_STR           N_("Illegal value")
-#define CFG_DUPLICATE_VALUE_STR		N_("Duplicate value")
 
 #endif /* INIT_ERRORS_H */

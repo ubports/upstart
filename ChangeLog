@@ -1,5 +1,35 @@
 2007-06-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (stanza_description, stanza_author, stanza_version)
+	(stanza_chroot, stanza_chdir, stanza_pid): Instead of erroring when
+	the string has already been allocated, free it and replace it with the
+	new one. Attempting to forbid duplicates is just too inconsistent,
+	especially for the integer ones which we compare against the default;
+	using the last one allows us to be entirely consistent.
+	(stanza_daemon, stanza_respawn, stanza_service, stanza_instance):
+	Don't error if the flag is already set, just ignore it.
+	(stanza_respawn, stanza_pid, stanza_kill, stanza_console) 
+	(stanza_umask, stanza_nice): Don't compare the current value against
+	the default, just overwrite it!
+	(parse_exec, parse_script): Free existing process command string
+	before setting a new one over the top.
+	(parse_process, stanza_exec, stanza_script, stanza_limit): Instead of
+	erroring if the structure is already set and allocated, just don't
+	allocate a new one and allow its members to be overwritten.
+	* init/tests/test_parse_job.c (test_stanza_exec) 
+	(test_stanza_script, test_stanza_pre_start) 
+	(test_stanza_post_start, test_stanza_pre_stop) 
+	(test_stanza_post_stop, test_stanza_description) 
+	(test_stanza_author, test_stanza_version, test_stanza_daemon) 
+	(test_stanza_respawn, test_stanza_service, test_stanza_instance) 
+	(test_stanza_pid, test_stanza_kill, test_stanza_console) 
+	(test_stanza_umask, test_stanza_nice, test_stanza_limit) 
+	(test_stanza_chroot, test_stanza_chdir): Replace tests that check
+	for an error in the case of duplicate stanzas with tests that make
+	sure the last of the duplicates is used.
+	* init/errors.h (CFG_DUPLICATE_VALUE, CFG_DUPLICATE_VALUE_STR): Drop
+	this error, since we don't consider this a problem anymore.
+
 	* upstart/Makefile.am (libupstart_la_LIBADD): Add $(LTLIBINTL)
 	* init/Makefile.am (init_LDADD): Reorder and add $(LTLIBINTL)
 	* util/Makefile.am (initctl_LDADD): Reorder and add $(LTLIBINTL)

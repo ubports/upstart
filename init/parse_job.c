@@ -316,6 +316,9 @@ parse_exec (JobProcess      *proc,
 		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
+	if (proc->command)
+		nih_free (proc->command);
+
 	proc->script = FALSE;
 	proc->command = nih_config_parse_command (proc, file, len,
 						  pos, lineno);
@@ -360,6 +363,9 @@ parse_script (JobProcess      *proc,
 	if (nih_config_skip_comment (file, len, pos, lineno) < 0)
 		return -1;
 
+	if (proc->command)
+		nih_free (proc->command);
+
 	proc->script = TRUE;
 	proc->command = nih_config_parse_block (proc, file, len,
 						pos, lineno, "script");
@@ -402,20 +408,18 @@ parse_process (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[process])
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
 	arg = nih_config_next_token (NULL, file, len, pos, lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
 		return -1;
 
-	job->process[process] = job_process_new (job->process);
 	if (! job->process[process]) {
-		nih_error_raise_system ();
-		nih_free (arg);
-		return -1;
+		job->process[process] = job_process_new (job->process);
+		if (! job->process[process]) {
+			nih_error_raise_system ();
+			nih_free (arg);
+			return -1;
+		}
 	}
 
 	if (! strcmp (arg, "exec")) {
@@ -464,13 +468,11 @@ stanza_exec (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[PROCESS_MAIN])
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	if (! job->process[PROCESS_MAIN])
-		nih_return_system_error (-1);
+	if (! job->process[PROCESS_MAIN]) {
+		job->process[PROCESS_MAIN] = job_process_new (job->process);
+		if (! job->process[PROCESS_MAIN])
+			nih_return_system_error (-1);
+	}
 
 	return parse_exec (job->process[PROCESS_MAIN], stanza,
 			   file, len, pos, lineno);
@@ -503,13 +505,11 @@ stanza_script (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->process[PROCESS_MAIN])
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	if (! job->process[PROCESS_MAIN])
-		nih_return_system_error (-1);
+	if (! job->process[PROCESS_MAIN]) {
+		job->process[PROCESS_MAIN] = job_process_new (job->process);
+		if (! job->process[PROCESS_MAIN])
+			nih_return_system_error (-1);
+	}
 
 	return parse_script (job->process[PROCESS_MAIN], stanza,
 			     file, len, pos, lineno);
@@ -812,8 +812,7 @@ stanza_description (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->description)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
+		nih_free (job->description);
 
 	job->description = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->description)
@@ -851,8 +850,7 @@ stanza_author (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->author)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
+		nih_free (job->author);
 
 	job->author = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->author)
@@ -890,8 +888,7 @@ stanza_version (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->version)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
+		nih_free (job->version);
 
 	job->version = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->version)
@@ -986,10 +983,6 @@ stanza_daemon (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->daemon)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
 	job->daemon = TRUE;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
@@ -1027,10 +1020,6 @@ stanza_respawn (Job             *job,
 
 	/* Deal with the no-argument form first */
 	if (! nih_config_has_token (file, len, pos, lineno)) {
-		if (job->respawn)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
-
 		job->respawn = TRUE;
 		job->service = TRUE;
 
@@ -1048,11 +1037,6 @@ stanza_respawn (Job             *job,
 		char *endptr;
 
 		nih_free (arg);
-
-		if ((job->respawn_limit != JOB_DEFAULT_RESPAWN_LIMIT)
-		    || (job->respawn_interval != JOB_DEFAULT_RESPAWN_INTERVAL))
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
 
 		/* Parse the limit value */
 		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
@@ -1119,10 +1103,6 @@ stanza_service (Job             *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	if (job->service && (! job->respawn))
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
 	job->service = TRUE;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
@@ -1154,10 +1134,6 @@ stanza_instance (Job             *job,
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
-
-	if (job->instance)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
 
 	job->instance = TRUE;
 
@@ -1204,8 +1180,7 @@ stanza_pid (Job             *job,
 		nih_free (arg);
 
 		if (job->pid_file)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
+			nih_free (job->pid_file);
 
 		job->pid_file = nih_config_next_arg (job, file, len,
 						     pos, lineno);
@@ -1218,8 +1193,7 @@ stanza_pid (Job             *job,
 		nih_free (arg);
 
 		if (job->pid_binary)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
+			nih_free (job->pid_binary);
 
 		job->pid_binary = nih_config_next_arg (job, file, len,
 						       pos, lineno);
@@ -1232,10 +1206,6 @@ stanza_pid (Job             *job,
 		char *endptr;
 
 		nih_free (arg);
-
-		if (job->pid_timeout != JOB_DEFAULT_PID_TIMEOUT)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
 
 		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
 		if (! arg)
@@ -1298,10 +1268,6 @@ stanza_kill (Job             *job,
 		char *endptr;
 
 		nih_free (arg);
-
-		if (job->kill_timeout != JOB_DEFAULT_KILL_TIMEOUT)
-			nih_return_error (-1, CFG_DUPLICATE_VALUE,
-					  _(CFG_DUPLICATE_VALUE_STR));
 
 		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
 		if (! arg)
@@ -1443,14 +1409,6 @@ stanza_console (Job             *job,
 	if (! arg)
 		return -1;
 
-	/*
-	if (job->console != CONSOLE_LOGGED) {
-		nih_free (arg);
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-	}
-	*/
-
 	if (! strcmp (arg, "logged")) {
 		job->console = CONSOLE_LOGGED;
 	} else if (! strcmp (arg, "output")) {
@@ -1548,12 +1506,6 @@ stanza_umask (Job             *job,
 	if (! arg)
 		return -1;
 
-	if (job->umask != JOB_DEFAULT_UMASK) {
-		nih_free (arg);
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-	}
-
 	mask = strtoul (arg, &endptr, 8);
 	if (*endptr || (mask & ~0777)) {
 		nih_free (arg);
@@ -1601,12 +1553,6 @@ stanza_nice (Job             *job,
 	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
 	if (! arg)
 		return -1;
-
-	if (job->nice) {
-		nih_free (arg);
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-	}
 
 	nice = strtol (arg, &endptr, 10);
 	if (*endptr || (nice < -20) || (nice > 19)) {
@@ -1694,14 +1640,11 @@ stanza_limit (Job             *job,
 	nih_free (arg);
 
 
-	if (job->limits[resource])
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
-
-	job->limits[resource] = nih_new (job, struct rlimit);
-	if (! job->limits[resource])
-		nih_return_system_error (-1);
-
+	if (! job->limits[resource]) {
+		job->limits[resource] = nih_new (job, struct rlimit);
+		if (! job->limits[resource])
+			nih_return_system_error (-1);
+	}
 
 	/* Parse the soft limit value */
 	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
@@ -1770,8 +1713,7 @@ stanza_chroot (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->chroot)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
+		nih_free (job->chroot);
 
 	job->chroot = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->chroot)
@@ -1808,8 +1750,7 @@ stanza_chdir (Job             *job,
 	nih_assert (pos != NULL);
 
 	if (job->chdir)
-		nih_return_error (-1, CFG_DUPLICATE_VALUE,
-				  _(CFG_DUPLICATE_VALUE_STR));
+		nih_free (job->chdir);
 
 	job->chdir = nih_config_next_arg (job, file, len, pos, lineno);
 	if (! job->chdir)
