@@ -1,3 +1,17 @@
+2007-06-05  Scott James Remnant  <scott@netsplit.com>
+
+	* init/conf.c: Make a start on the new configuration management
+	routines, which will allow finer-grained tracking of configuration
+	and support mandatory reloading.
+	(conf_source_new, conf_file_new, conf_item_new): Start off with the
+	functions to allocate the tracking structures we need to use.
+	* init/conf.h: Structures and prototypes
+	* init/tests/test_conf.c: Test suite for allocation functions.
+	* init/Makefile.am (init_SOURCES): Build and link conf.c and conf.h
+	(TESTS): Run the conf test suite.
+	(test_conf_SOURCES, test_conf_LDFLAGS, test_conf_LDADD): Details for
+	the conf test suite.
+
 2007-06-04  Scott James Remnant  <scott@netsplit.com>
 
 	* init/parse_job.c (stanza_description, stanza_author, stanza_version)
