@@ -30,10 +30,18 @@ enum {
 	UPSTART_ERROR_START = NIH_ERROR_APPLICATION_START,
 
 	/* Errors while parsing configuration files */
-	CFG_ILLEGAL_VALUE,
+	PARSE_ILLEGAL_INTERVAL,
+	PARSE_ILLEGAL_EXIT,
+	PARSE_ILLEGAL_UMASK,
+	PARSE_ILLEGAL_NICE,
+	PARSE_ILLEGAL_LIMIT,
 };
 
 /* Error strings for defined messages */
-#define CFG_ILLEGAL_VALUE_STR           N_("Illegal value")
+#define PARSE_ILLEGAL_INTERVAL_STR	N_("Illegal interval, expected number of seconds")
+#define PARSE_ILLEGAL_EXIT_STR		N_("Illegal exit status, expected integer")
+#define PARSE_ILLEGAL_UMASK_STR		N_("Illegal file creation mask, expected octal integer")
+#define PARSE_ILLEGAL_NICE_STR		N_("Illegal nice value, expected -20 to 19")
+#define PARSE_ILLEGAL_LIMIT_STR		N_("Illegal limit, expected 'unlimited' or integer")
 
 #endif /* INIT_ERRORS_H */

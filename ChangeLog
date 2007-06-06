@@ -1,5 +1,18 @@
 2007-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (stanza_respawn): Permit the word "unlimited",
+	raise a specific error for illegal limit and illegal interval.
+	(stanza_pid, stanza_kill, stanza_normal, stanza_umask) 
+	(stanza_nice, stanza_limit): Raise specific errors rather than
+	a generic "illegal value" error.
+	* init/tests/test_parse_job.c (test_stanza_respawn): Check that
+	we can use "unlimited", also check for new error return.
+	(test_stanza_pid, test_stanza_kill, test_stanza_normal) 
+	(test_stanza_umask, test_stanza_nice, test_stanza_limit): Check
+	for new specific errors.
+	* init/errors.h: Replace CFG_ILLEGAL_VALUE with a series of parse
+	errors.
+
 	* init/conf.c: Comments.
 
 	* init/conf.c (conf_item_set): Call out to conf_item_delete() to

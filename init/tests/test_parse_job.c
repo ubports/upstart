@@ -2828,6 +2828,38 @@ test_stanza_respawn (void)
 	}
 
 
+	/* Check that a respawn stanza with the limit argument can have
+	 * the single word unlimited after it.
+	 */
+	TEST_FEATURE ("with limit and unlimited");
+	strcpy (buf, "exec /sbin/daemon\n");
+	strcat (buf, "respawn limit unlimited\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_EQ (job->respawn_limit, 0);
+		TEST_EQ (job->respawn_interval, 0);
+
+		nih_list_free (&job->entry);
+	}
+
+
 	/* Check that the most recent of multiple respawn stanzas is used. */
 	TEST_FEATURE ("with multiple limit and two argument stanzas");
 	strcpy (buf, "exec /sbin/daemon\n");
@@ -2911,7 +2943,7 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -2930,7 +2962,7 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -2949,7 +2981,7 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -2968,7 +3000,7 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -2987,7 +3019,7 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -3006,7 +3038,7 @@ test_stanza_respawn (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -3614,7 +3646,7 @@ test_stanza_pid (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 3);
 	nih_free (err);
 
@@ -3634,7 +3666,7 @@ test_stanza_pid (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 3);
 	nih_free (err);
 
@@ -3654,7 +3686,7 @@ test_stanza_pid (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 3);
 	nih_free (err);
 
@@ -3865,7 +3897,7 @@ test_stanza_kill (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -3884,7 +3916,7 @@ test_stanza_kill (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -3903,7 +3935,7 @@ test_stanza_kill (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4128,7 +4160,7 @@ test_stanza_normal (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_EXIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4147,7 +4179,7 @@ test_stanza_normal (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_EXIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4166,7 +4198,7 @@ test_stanza_normal (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_EXIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4636,7 +4668,7 @@ test_stanza_umask (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4655,7 +4687,7 @@ test_stanza_umask (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4674,7 +4706,7 @@ test_stanza_umask (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4693,7 +4725,7 @@ test_stanza_umask (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4854,7 +4886,7 @@ test_stanza_nice (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4873,7 +4905,7 @@ test_stanza_nice (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4892,7 +4924,7 @@ test_stanza_nice (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -4911,7 +4943,7 @@ test_stanza_nice (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -5624,7 +5656,7 @@ test_stanza_limit (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -5643,7 +5675,7 @@ test_stanza_limit (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -5662,7 +5694,7 @@ test_stanza_limit (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 
@@ -5681,7 +5713,7 @@ test_stanza_limit (void)
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, CFG_ILLEGAL_VALUE);
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
 	TEST_EQ (lineno, 2);
 	nih_free (err);
 

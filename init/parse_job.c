@@ -1043,27 +1043,33 @@ stanza_respawn (Job             *job,
 		if (! arg)
 			return -1;
 
-		job->respawn_limit = strtol (arg, &endptr, 10);
-		if (*endptr || (job->respawn_limit < 0)) {
+		if (strcmp (arg, "unlimited")) {
+			job->respawn_limit = strtol (arg, &endptr, 10);
+			if (*endptr || (job->respawn_limit < 0)) {
+				nih_free (arg);
+
+				nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
+						  _(PARSE_ILLEGAL_LIMIT_STR));
+			}
 			nih_free (arg);
 
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
+			/* Parse the timeout value */
+			arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+			if (! arg)
+				return -1;
+
+			job->respawn_interval = strtol (arg, &endptr, 10);
+			if (*endptr || (job->respawn_interval < 0)) {
+				nih_free (arg);
+
+				nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
+						  _(PARSE_ILLEGAL_INTERVAL_STR));
+			}
+		} else {
+			job->respawn_limit = 0;
+			job->respawn_interval = 0;
 		}
-		nih_free (arg);
 
-		/* Parse the timeout value */
-		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
-		if (! arg)
-			return -1;
-
-		job->respawn_interval = strtol (arg, &endptr, 10);
-		if (*endptr || (job->respawn_interval < 0)) {
-			nih_free (arg);
-
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
-		}
 		nih_free (arg);
 
 		return nih_config_skip_comment (file, len, pos, lineno);
@@ -1215,8 +1221,8 @@ stanza_pid (Job             *job,
 		if (*endptr || (job->pid_timeout < 0)) {
 			nih_free (arg);
 
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
+			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
+					  _(PARSE_ILLEGAL_INTERVAL_STR));
 		}
 		nih_free (arg);
 
@@ -1277,8 +1283,8 @@ stanza_kill (Job             *job,
 		if (*endptr || (job->kill_timeout < 0)) {
 			nih_free (arg);
 
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
+			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
+					  _(PARSE_ILLEGAL_INTERVAL_STR));
 		}
 		nih_free (arg);
 
@@ -1349,8 +1355,8 @@ stanza_normal (Job             *job,
 				status = strtoul (arg, &endptr, 10);
 				if (*endptr || (status > INT_MAX)) {
 					nih_free (arg);
-					nih_return_error (-1,CFG_ILLEGAL_VALUE,
-							  _(CFG_ILLEGAL_VALUE_STR));
+					nih_return_error (-1, PARSE_ILLEGAL_EXIT,
+							  _(PARSE_ILLEGAL_EXIT_STR));
 				}
 			} else {
 				status = signum << 8;
@@ -1510,8 +1516,8 @@ stanza_umask (Job             *job,
 	if (*endptr || (mask & ~0777)) {
 		nih_free (arg);
 
-		nih_return_error (-1, CFG_ILLEGAL_VALUE,
-				  _(CFG_ILLEGAL_VALUE_STR));
+		nih_return_error (-1, PARSE_ILLEGAL_UMASK,
+				  _(PARSE_ILLEGAL_UMASK_STR));
 	}
 	nih_free (arg);
 
@@ -1558,8 +1564,8 @@ stanza_nice (Job             *job,
 	if (*endptr || (nice < -20) || (nice > 19)) {
 		nih_free (arg);
 
-		nih_return_error (-1, CFG_ILLEGAL_VALUE,
-				  _(CFG_ILLEGAL_VALUE_STR));
+		nih_return_error (-1, PARSE_ILLEGAL_NICE,
+				  _(PARSE_ILLEGAL_NICE_STR));
 	}
 	nih_free (arg);
 
@@ -1656,8 +1662,8 @@ stanza_limit (Job             *job,
 		if (*endptr) {
 			nih_free (arg);
 
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
+			nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
+					  _(PARSE_ILLEGAL_LIMIT_STR));
 		}
 	} else {
 		job->limits[resource]->rlim_cur = RLIM_INFINITY;
@@ -1674,8 +1680,8 @@ stanza_limit (Job             *job,
 		if (*endptr) {
 			nih_free (arg);
 
-			nih_return_error (-1, CFG_ILLEGAL_VALUE,
-					  _(CFG_ILLEGAL_VALUE_STR));
+			nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
+					  _(PARSE_ILLEGAL_LIMIT_STR));
 		}
 	} else {
 		job->limits[resource]->rlim_max = RLIM_INFINITY;
