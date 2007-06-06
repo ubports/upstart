@@ -1,3 +1,33 @@
+2007-06-06  Scott James Remnant  <scott@netsplit.com>
+
+	* init/conf.c (conf_file_new): Rename to conf_file_get; in practice
+	we never just want to allocate one of these, we always want to
+	return the existing entry if it exists.
+	(conf_item_new): Rename to conf_item_set; again in practice we always
+	want to update an existing item.  This function will grow the "deal
+	with replacement" stuff.
+	(conf_reload): Start putting in place the code that will allow
+	mandatory reloads, as well as initial setup.  This function iterates
+	over the sources and deals with errors.
+	(conf_source_reload): Function to reload an individual source, calls
+	out to one of the following two functions and will eventually perform
+	the deleted items scan.
+	(conf_source_reload_file): Set up a watch on a file, and reload it.
+	(conf_source_reload_dir): Set up a watch on a directory and reload it.
+	(conf_file_filter): Filter for watching parent directory of files.
+	(conf_create_modify_handler): File creation and modification handler.
+	(conf_delete_handler): File deletion handler.
+	(conf_file_visitor): Tree walk handler.
+	(conf_reload_path): Function that deals with files themselves,
+	currently just sorts out the ConfFile structure and maps the file
+	into memory.
+	* init/conf.h: Add new prototypes, update existing ones.
+	* init/tests/test_conf.c (test_file_new): Rename to test_file_get,
+	also test repeated calls when already in the table.
+	(test_item_new): Rename to test_item_set, also test repeated calls
+	when already in the table.
+	(test_source_reload): Start of test for reloading sources.
+
 2007-06-05  Scott James Remnant  <scott@netsplit.com>
 
 	* init/conf.c: Make a start on the new configuration management

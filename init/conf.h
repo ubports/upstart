@@ -128,17 +128,20 @@ NIH_BEGIN_EXTERN
 
 NihHash *conf_sources;
 
-void        conf_init       (void);
+void        conf_init          (void);
 
-ConfSource *conf_source_new (const void *parent, const char *path,
-			     ConfSourceType type)
+ConfSource *conf_source_new    (const void *parent, const char *path,
+				ConfSourceType type)
 	__attribute__ ((warn_unused_result, malloc));
-ConfFile *  conf_file_new   (const void *parent, ConfSource *source,
-			     const char *path)
-	__attribute__ ((warn_unused_result, malloc));
-ConfItem *  conf_item_new   (const void *parent, ConfFile *file,
-			     const char *name)
-	__attribute__ ((warn_unused_result, malloc));
+ConfFile *  conf_file_get      (ConfSource *source, const char *path)
+	__attribute__ ((warn_unused_result));
+ConfItem *  conf_item_set      (ConfSource *source, ConfFile *conf_file,
+				const char *name, void *data)
+	__attribute__ ((warn_unused_result));
+
+void        conf_reload        (void);
+int         conf_source_reload (ConfSource *source)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

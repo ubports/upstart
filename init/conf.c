@@ -25,14 +25,47 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <errno.h>
+#include <libgen.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>
 #include <nih/hash.h>
 #include <nih/string.h>
+#include <nih/io.h>
+#include <nih/file.h>
+#include <nih/watch.h>
 #include <nih/logging.h>
+#include <nih/error.h>
 
 #include "conf.h"
+
+
+/* Prototypes for static functions */
+static int  conf_source_reload_file    (ConfSource *source)
+	__attribute__ ((warn_unused_result));
+static int  conf_source_reload_dir     (ConfSource *source)
+	__attribute__ ((warn_unused_result));
+
+static int  conf_file_filter           (ConfSource *source, const char *path);
+static void conf_create_modify_handler (ConfSource *source, NihWatch *watch,
+					const char *path,
+					struct stat *statbuf);
+static void conf_delete_handler        (ConfSource *source, NihWatch *watch,
+					const char *path);
+static int  conf_file_visitor          (ConfSource *source,
+					const char *dirname, const char *path,
+					struct stat *statbuf)
+	__attribute__ ((warn_unused_result));
+
+static int  conf_reload_path           (ConfSource *source, const char *path)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -73,8 +106,9 @@ conf_init (void)
  * table, indexed by @path.
  *
  * Configuration is not parsed immediately, instead you must call
- * conf_reload() to set up any watches and load the configuration.  Normally
- * this is called once after setting up all sources.
+ * conf_source_reload() on this source to set up any watches and load the
+ * current configuration.  Normally you would set up all of the sources and
+ * then call conf_reload() which will load them all.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -124,101 +158,537 @@ conf_source_new (const void     *parent,
 }
 
 /**
- * conf_file_new:
- * @parent: parent of new block,
- * @source: source to attach to,
+ * conf_file_get:
+ * @source: configuration source,
  * @path: path to file.
  *
- * Allocates and returns a new ConfFile structure for the given @path and
- * places it in the files hash table of the given @source.
+ * Looks up the ConfFile entry in @source for @path, or allocates a new
+ * structure and places it in the files hash table before returning it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * The flag of the returned ConfFile will be set to that of the @source.
  *
- * Returns: newly allocated ConfFile structure or NULL if insufficient memory.
+ * Returns: existing or newly allocated ConfFile structure,
+ * or NULL if insufficient memory.
  **/
 ConfFile *
-conf_file_new (const void *parent,
-	       ConfSource *source,
+conf_file_get (ConfSource *source,
 	       const char *path)
 {
-	ConfFile *file;
+	ConfFile *conf_file;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
 
-	file = nih_new (parent, ConfFile);
-	if (! file)
-		return NULL;
+	conf_file = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! conf_file) {
+		conf_file = nih_new (source, ConfFile);
+		if (! conf_file)
+			return NULL;
 
-	nih_list_init (&file->entry);
+		nih_list_init (&conf_file->entry);
 
-	file->path = nih_strdup (file, path);
-	if (! file->path) {
-		nih_free (file);
-		return NULL;
+		conf_file->path = nih_strdup (conf_file, path);
+		if (! conf_file->path) {
+			nih_free (conf_file);
+			return NULL;
+		}
+
+		conf_file->items = nih_hash_new (source, 0,
+						 (NihKeyFunction)nih_hash_string_key);
+		if (! conf_file->items) {
+			nih_free (conf_file);
+			return NULL;
+		}
+
+		nih_hash_add (source->files, &conf_file->entry);
 	}
 
-	file->flag = source->flag;
-	file->items = nih_hash_new (source, 0,
-				    (NihKeyFunction)nih_hash_string_key);
-	if (! file->items) {
-		nih_free (file);
-		return NULL;
-	}
+	conf_file->flag = source->flag;
 
-	nih_hash_add (source->files, &file->entry);
-
-	return file;
+	return conf_file;
 }
 
 /**
- * conf_item_new:
- * @parent: parent of new block,
- * @file: file to attach to,
- * @name: name of item.
+ * conf_item_set:
+ * @source: configuration source,
+ * @conf_file: file to attach to,
+ * @name: name of item,
+ * @data: item data pointer.
  *
- * Allocates and returns a new ConfItem structure for the given @name and
- * places it in the items hash table of the given @file.  It is up to the
- * caller to set the pointer to the actual item.
+ * Looks up the existing ConfItem entry in @conf_file for @name, or
+ * allocates a new structure and places it in the items hash table before
+ * returning it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * The flag of the returned ConfItem will be set to that of the @conf_file.
  *
- * Returns: newly allocated ConfItem structure or NULL if insufficient memory.
+ * Returns: existing or newly allocated ConfItem structure,
+ * or NULL if insufficient memory.
  **/
 ConfItem *
-conf_item_new (const void *parent,
-	       ConfFile   *file,
-	       const char *name)
+conf_item_set (ConfSource *source,
+	       ConfFile   *conf_file,
+	       const char *name,
+	       void       *data)
 {
 	ConfItem *item;
 
-	nih_assert (file != NULL);
+	nih_assert (source != NULL);
+	nih_assert (conf_file != NULL);
 	nih_assert (name != NULL);
 
-	item = nih_new (parent, ConfItem);
-	if (! item)
-		return NULL;
+	item = (ConfItem *)nih_hash_lookup (conf_file->items, name);
+	if (! item) {
+		item = nih_new (conf_file, ConfItem);
+		if (! item)
+			return NULL;
 
-	nih_list_init (&item->entry);
+		nih_list_init (&item->entry);
 
-	item->name = nih_strdup (item, name);
-	if (! item->name) {
-		nih_free (item);
-		return NULL;
+		item->name = nih_strdup (item, name);
+		if (! item->name) {
+			nih_free (item);
+			return NULL;
+		}
+
+		item->data = NULL;
+
+		nih_hash_add (conf_file->items, &item->entry);
 	}
 
-	item->flag = file->flag;
-	item->data = NULL;
+	item->flag = conf_file->flag;
 
-	nih_hash_add (file->items, &item->entry);
+	if (item->data) {
+		/* FIXME deal with existing data */
+	}
+
+	item->data = data;
 
 	return item;
+}
+
+
+/**
+ * conf_reload:
+ *
+ * Reloads all configuration sources.
+ *
+ * Watches on new configuration sources are established so that future
+ * changes will be automatically detected with inotify.  Then for both
+ * new and existing sources, the current state is parsed.
+ *
+ * Any errors are logged through the usual mechanism, and not returned,
+ * since some configuration may have been parsed; and it's possible to
+ * parse no configuration without error.
+ **/
+void
+conf_reload (void)
+{
+	conf_init ();
+
+	NIH_HASH_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (conf_source_reload (source) < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s: %s", source->path,
+				   _("Unable to load configuration"),
+				   err->message);
+			nih_free (err);
+		}
+	}
+}
+
+/**
+ * conf_source_reload:
+ * @source: configuration source to reload.
+ *
+ * Reloads the given configuration @source.
+ *
+ * If not already established, an inotify watch is created so that future
+ * changes to this source are automatically detected and parsed.  For files,
+ * this watch is actually on the parent directory, since we need to watch
+ * out for editors that rename over the top, etc.
+ *
+ * We then parse the current state of the source.  The flag member is
+ * toggled first, and this is propogated to all new and modified files and
+ * items that we find as a result of parsing.  Once done, we scan for
+ * anything with the wrong flag, and delete them.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+conf_source_reload (ConfSource *source)
+{
+	int ret;
+
+	nih_assert (source != NULL);
+
+	source->flag = (! source->flag);
+
+	switch (source->type) {
+	case CONF_FILE:
+		ret = conf_source_reload_file (source);
+		break;
+	case CONF_DIR:
+	case CONF_JOB_DIR:
+		ret = conf_source_reload_dir (source);
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	/* FIXME: scan for deleted stuff.
+	 *
+	 * Do this whether there's an error or not, since an error means
+	 * everything got deleted anyway!
+	 */
+
+	return ret;
+}
+
+/**
+ * conf_source_reload_file:
+ * @source: configuration source to reload.
+ *
+ * Reloads the configuration file specified by @source.
+ *
+ * If not already established, an inotify watch is created on the parent
+ * directory so that future changes to the file are automatically detected
+ * and parsed.  It is the parent directory because we need to watch out for
+ * editors that rename over the top, etc.
+ *
+ * We then parse the current state of the file, propogating the value of
+ * the flag member to all items that we find so that deletions can be
+ * detected by the calling function.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+conf_source_reload_file (ConfSource *source)
+{
+	NihError *err = NULL;
+
+	nih_assert (source != NULL);
+	nih_assert (source->type == CONF_FILE);
+
+	if (! source->watch) {
+		char *dpath, *dname;
+
+		NIH_MUST (dpath = nih_strdup (NULL, source->path));
+		dname = dirname (dpath);
+
+		source->watch = nih_watch_new (source, dname, FALSE, FALSE,
+					       (NihFileFilter)conf_file_filter,
+					       (NihCreateHandler)conf_create_modify_handler,
+					       (NihModifyHandler)conf_create_modify_handler,
+					       (NihDeleteHandler)conf_delete_handler,
+					       source);
+
+		nih_free (dpath);
+
+		/* If successful mark the file descriptor close-on-exec,
+		 * otherwise stash the error for comparison with a later
+		 * failure to parse the file.
+		 */
+		if (source->watch) {
+			nih_io_set_cloexec (source->watch->fd);
+		} else {
+			err = nih_error_get ();
+		}
+	}
+
+	/* Parse the file itself.  If this fails, then we can discard the
+	 * inotify error, since this one will be better.
+	 */
+	if (conf_reload_path (source, source->path) < 0) {
+		if (err)
+			nih_free (err);
+
+		return -1;
+	}
+
+	/* We were able to parse the file, but were not able to set up an
+	 * inotify watch.  This isn't critical, so we just warn about it,
+	 * unless this is simply that inotify isn't supported, in which case
+	 * we do nothing.
+	 */
+	if (err) {
+		if (err->number != ENOSYS)
+			nih_warn ("%s: %s: %s", source->path,
+				  _("Unable to watch configuration file"),
+				  err->message);
+
+		nih_free (err);
+	}
+
+	return 0;
+}
+
+/**
+ * conf_source_reload_dir:
+ * @source: configuration source to reload.
+ *
+ * Reloads the configuration directory specified by @source.
+ *
+ * If not already established, an inotify watch is created on the directory
+ * so that future changes to the structure or files within it are
+ * automatically parsed.  This has the side-effect of parsing the current
+ * tree.
+ *
+ * Otherwise we walk the tree ourselves and parse all files that we find,
+ * propogating the value of the flag member to all files and items so that
+ * deletion can be detected by the calling function.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+conf_source_reload_dir (ConfSource *source)
+{
+	NihError *err = NULL;
+
+	nih_assert (source != NULL);
+	nih_assert (source->type != CONF_FILE);
+
+	if (! source->watch) {
+		source->watch = nih_watch_new (source, source->path,
+					       TRUE, TRUE, nih_file_ignore,
+					       (NihCreateHandler)conf_create_modify_handler,
+					       (NihModifyHandler)conf_create_modify_handler,
+					       (NihDeleteHandler)conf_delete_handler,
+					       source);
+
+		/* If successful, the directory tree will have been walked
+		 * already; so just mark the file descriptor close-on-exec
+		 * and return; otherwise we'll try and walk ourselves, so
+		 * stash the error for comparison.
+		 */
+		if (source->watch) {
+			nih_io_set_cloexec (source->watch->fd);
+			return 0;
+		} else {
+			err = nih_error_get ();
+		}
+	}
+
+	/* We're either performing a mandatory reload, or we failed to set
+	 * up an inotify watch; walk the directory tree the old fashioned
+	 * way.  If this fails too, then we can discard the inotify error
+	 * since this one will be better.
+	 */
+	if (nih_dir_walk (source->path, nih_file_ignore,
+			  (NihFileVisitor)conf_file_visitor, NULL,
+			  source) < 0) {
+		if (err)
+			nih_free (err);
+
+		return -1;
+	}
+
+	/* We were able to walk the directory, but were not able to set up
+	 * an inotify watch.  This isn't critical, so we just warn about it,
+	 * unless this is simply that inotify isn't supported, in which case
+	 * we do nothing.
+	 */
+	if (err) {
+		if (err->number != ENOSYS)
+			nih_warn ("%s: %s: %s", source->path,
+				  _("Unable to watch configuration directory"),
+				  err->message);
+
+		nih_free (err);
+	}
+
+	return 0;
+}
+
+
+/**
+ * conf_file_filter:
+ * @source: configuration source,
+ * @path: path to check.
+ *
+ * When we watch the parent directory of a file for changes, we receive
+ * notification about all changes to that directory.  We only care about
+ * those that affect the path in @source, so we use this function to filter
+ * out all others.
+ *
+ * Returns: FALSE if @path matches @source, TRUE otherwise.
+ **/
+static int
+conf_file_filter (ConfSource *source,
+		  const char *path)
+{
+	nih_assert (source != NULL);
+	nih_assert (path != NULL);
+
+	if (! strcmp (source->path, path))
+		return FALSE;
+
+	return TRUE;
+}
+
+/**
+ * conf_create_modify_handler:
+ * @source: configuration source,
+ * @watch: NihWatch for source,
+ * @path: full path to modified file,
+ * @statbuf: stat of @path.
+ *
+ * This function will be called whenever a file is created in a directory
+ * that we're watching, moved into the directory we're watching, or is
+ * modified.  This works for both directory and file sources, since the
+ * watch for the latter is on the parent and filtered to only return the
+ * path that we're interested in.
+ *
+ * After checking that it was a regular file that was changed, we reload it;
+ * we expect this to fail sometimes since the file may be only partially
+ * written.
+  **/
+static void
+conf_create_modify_handler (ConfSource  *source,
+			    NihWatch    *watch,
+			    const char  *path,
+			    struct stat *statbuf)
+{
+	nih_assert (source != NULL);
+	nih_assert (watch != NULL);
+	nih_assert (path != NULL);
+	nih_assert (statbuf != NULL);
+
+	if (! S_ISREG (statbuf->st_mode))
+		return;
+
+	if (conf_reload_path (source, path) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s: %s", path,
+			   _("Error while loading configuration file"),
+			   err->message);
+		nih_free (err);
+	}
+}
+
+/**
+ * conf_delete_handler:
+ * @source: configuration source,
+ * @watch: NihWatch for source,
+ * @path: full path to deleted file.
+ *
+ * This function will be called whenever a file is removed or moved out
+ * of a directory that we're watching.  This works for both directory and
+ * file sources, since the watch for the latter is on the parent and
+ * filtered to only return the path that we're interested in.
+ *
+ * FIXME document what this does!
+  **/
+static void
+conf_delete_handler (ConfSource *source,
+		     NihWatch   *watch,
+		     const char *path)
+{
+	ConfFile *file;
+
+	nih_assert (source != NULL);
+	nih_assert (watch != NULL);
+	nih_assert (path != NULL);
+
+	/* Lookup the file in the source; if we haven't parsed it, there's
+	 * no point worrying about it.
+	 */
+	file = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! file)
+		return;
+
+	/* FIXME delete all of the items */
+}
+
+/**
+ * conf_file_visitor:
+ * @source: configuration source,
+ * @dirname: top-level directory being walked,
+ * @path: path found in directory,
+ * @statbuf: stat of @path.
+ *
+ * This function is called when walking a directory tree for each file
+ * found within it.
+ *
+ * After checking that it's a regular file, we reload it.
+ *
+ * Returns: always zero.
+ **/
+static int
+conf_file_visitor (ConfSource  *source,
+		   const char  *dirname,
+		   const char  *path,
+		   struct stat *statbuf)
+{
+	nih_assert (source != NULL);
+	nih_assert (dirname != NULL);
+	nih_assert (path != NULL);
+	nih_assert (statbuf != NULL);
+
+	if (! S_ISREG (statbuf->st_mode))
+		return 0;
+
+	if (conf_reload_path (source, path) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s: %s", path,
+			   _("Error while loading configuration file"),
+			   err->message);
+		nih_free (err);
+	}
+
+	return 0;
+}
+
+
+/**
+ * conf_reload_path:
+ * @source: configuration source,
+ * @path: path of file to be reloaded.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+conf_reload_path (ConfSource *source,
+		  const char *path)
+{
+	ConfFile   *conf_file;
+	const char *file;
+	size_t      len, pos, lineno;
+
+	nih_assert (source != NULL);
+	nih_assert (path != NULL);
+
+	NIH_MUST (conf_file = conf_file_get (source, path));
+
+	/* Map the file into memory for parsing. */
+	file = nih_file_map (conf_file->path, O_RDONLY | O_NOCTTY, &len);
+	if (! file)
+		return -1;
+
+	pos = 0;
+	lineno = 1;
+
+	/* Job file: construct item name from path with dirname stripped
+	 * out.  Call parse function to parse it, create item structure,
+	 * add it to the file hash table.
+	 *
+	 * Mixed file: call parse function, stanzas will deal with the
+	 * name, item, and addition.
+	 */
+
+	/* Unmap the file again; in theory this shouldn't fail, but if
+	 * it does, return an error condition even though we've actually
+	 * loaded some of the new things.
+	 */
+	if (nih_file_unmap ((void *)file, len) < 0)
+		return -1;
+
+	return 0;
 }
