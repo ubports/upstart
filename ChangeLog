@@ -1,5 +1,7 @@
 2007-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c: Comments.
+
 	* init/conf.c (conf_item_set): Call out to conf_item_delete() to
 	handle unsetting of an item's data.
 	(conf_source_reload): Add code to deal with mandatory reloading,

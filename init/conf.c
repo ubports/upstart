@@ -604,7 +604,8 @@ conf_create_modify_handler (ConfSource  *source,
  * file sources, since the watch for the latter is on the parent and
  * filtered to only return the path that we're interested in.
  *
- * FIXME document what this does!
+ * We lookup the file in our hash table, and if we can find it, perform
+ * the usual deletion on all of its items and the file itself.
   **/
 static void
 conf_delete_handler (ConfSource *source,
@@ -698,6 +699,8 @@ conf_reload_path (ConfSource *source,
 	pos = 0;
 	lineno = 1;
 
+	/* FIXME implement! */
+
 	/* Job file: construct item name from path with dirname stripped
 	 * out.  Call parse function to parse it, create item structure,
 	 * add it to the file hash table.
@@ -752,4 +755,6 @@ conf_item_delete (ConfItem *item)
 	nih_assert (item != NULL);
 
 	item->data = NULL;
+
+	/* FIXME implement! */
 }
