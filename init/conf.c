@@ -67,6 +67,9 @@ static int  conf_file_visitor          (ConfSource *source,
 static int  conf_reload_path           (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result));
 
+static void conf_file_delete           (ConfFile *conf_file);
+static void conf_item_delete           (ConfItem *item);
+
 
 /**
  * conf_sources:
@@ -257,9 +260,8 @@ conf_item_set (ConfSource *source,
 
 	item->flag = conf_file->flag;
 
-	if (item->data) {
-		/* FIXME deal with existing data */
-	}
+	if (item->data)
+		conf_item_delete (item);
 
 	item->data = data;
 
@@ -325,8 +327,10 @@ conf_source_reload (ConfSource *source)
 
 	nih_assert (source != NULL);
 
+	/* Toggle the flag so we can detect deleted files and items. */
 	source->flag = (! source->flag);
 
+	/* Reload the source itself. */
 	switch (source->type) {
 	case CONF_FILE:
 		ret = conf_source_reload_file (source);
@@ -339,11 +343,29 @@ conf_source_reload (ConfSource *source)
 		nih_assert_not_reached ();
 	}
 
-	/* FIXME: scan for deleted stuff.
-	 *
-	 * Do this whether there's an error or not, since an error means
-	 * everything got deleted anyway!
+	/* Scan for any files or items that were lost since the last time
+	 * we reloaded.  This is simple to do; any file that has the wrong
+	 * flag is deleted along with all of its items, any file with the
+	 * right flag has its items individually checked and any with the
+	 * wrong flag are deleted.
 	 */
+	NIH_HASH_FOREACH_SAFE (source->files, iter) {
+		ConfFile *conf_file = (ConfFile *)iter;
+
+		if (conf_file->flag != source->flag) {
+			conf_file_delete (conf_file);
+			nih_list_free (&conf_file->entry);
+		} else {
+			NIH_HASH_FOREACH_SAFE (conf_file->items, item_iter) {
+				ConfItem *item = (ConfItem *)item_iter;
+
+				if (item->flag != conf_file->flag) {
+					conf_item_delete (item);
+					nih_list_free (&item->entry);
+				}
+			}
+		}
+	}
 
 	return ret;
 }
@@ -589,7 +611,7 @@ conf_delete_handler (ConfSource *source,
 		     NihWatch   *watch,
 		     const char *path)
 {
-	ConfFile *file;
+	ConfFile *conf_file;
 
 	nih_assert (source != NULL);
 	nih_assert (watch != NULL);
@@ -598,11 +620,12 @@ conf_delete_handler (ConfSource *source,
 	/* Lookup the file in the source; if we haven't parsed it, there's
 	 * no point worrying about it.
 	 */
-	file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! file)
+	conf_file = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! conf_file)
 		return;
 
-	/* FIXME delete all of the items */
+	conf_file_delete (conf_file);
+	nih_list_free (&conf_file->entry);
 }
 
 /**
@@ -691,4 +714,42 @@ conf_reload_path (ConfSource *source,
 		return -1;
 
 	return 0;
+}
+
+
+/**
+ * conf_file_delete:
+ * @conf_file: file to be deleted.
+ *
+ * Handle deletion of a configuration file.  This will delete all items
+ * registered against it.
+ **/
+static void
+conf_file_delete (ConfFile *conf_file)
+{
+	nih_assert (conf_file != NULL);
+
+	/* Delete all items parsed from here. */
+	NIH_HASH_FOREACH_SAFE (conf_file->items, iter) {
+		ConfItem *item = (ConfItem *)iter;
+
+		conf_item_delete (item);
+		nih_list_free (&item->entry);
+	}
+}
+
+/**
+ * conf_item_delete:
+ * @item: item to be deleted.
+ *
+ * Handle deletion of a single item in a configuration file.  This will
+ * arrange for the item to be unregistered and deleted through the most
+ * appropriate means.
+ **/
+static void
+conf_item_delete (ConfItem *item)
+{
+	nih_assert (item != NULL);
+
+	item->data = NULL;
 }

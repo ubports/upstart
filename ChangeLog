@@ -1,5 +1,14 @@
 2007-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_item_set): Call out to conf_item_delete() to
+	handle unsetting of an item's data.
+	(conf_source_reload): Add code to deal with mandatory reloading,
+	calls conf_file_delete() and/or conf_item_delete() as appropriate.
+	(conf_delete_handler): Call conf_file_delete() on the ConfFile that
+	we find.
+	(conf_file_delete): Function to delete all items in a file.
+	(conf_item_delete): Placeholder function to delete an item.
+
 	* init/conf.c (conf_file_new): Rename to conf_file_get; in practice
 	we never just want to allocate one of these, we always want to
 	return the existing entry if it exists.
