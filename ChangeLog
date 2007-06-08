@@ -15,7 +15,6 @@
 	intelligent decisions.
 	(conf_file_delete): Takes a source and passes it to conf_item_delete
 	(conf_delete_handler): Pass both source and file to conf_file_delet
-
 	* init/tests/test_conf.c (test_file_get): Check that the items
 	list is empty; rather than the hash being unallocated.
 	(test_item_set): Rename back to test_item_new and only allocate a
