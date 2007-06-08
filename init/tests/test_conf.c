@@ -87,7 +87,7 @@ void
 test_file_get (void)
 {
 	ConfSource *source;
-	ConfFile   *conf_file, *ptr;
+	ConfFile   *file, *ptr;
 
 	TEST_FUNCTION ("conf_file_get");
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
@@ -98,25 +98,25 @@ test_file_get (void)
 	 */
 	TEST_FEATURE ("with new path");
 	TEST_ALLOC_FAIL {
-		conf_file = conf_file_get (source, "/tmp/foo");
+		file = conf_file_get (source, "/tmp/foo");
 
 		if (test_alloc_failed) {
-			TEST_EQ_P (conf_file, NULL);
+			TEST_EQ_P (file, NULL);
 			continue;
 		}
 
-		TEST_ALLOC_SIZE (conf_file, sizeof (ConfFile));
-		TEST_ALLOC_PARENT (conf_file, source);
-		TEST_LIST_NOT_EMPTY (&conf_file->entry);
-		TEST_ALLOC_PARENT (conf_file->path, conf_file);
-		TEST_EQ_STR (conf_file->path, "/tmp/foo");
-		TEST_EQ (conf_file->flag, source->flag);
-		TEST_NE_P (conf_file->items, NULL);
+		TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+		TEST_ALLOC_PARENT (file, source);
+		TEST_LIST_NOT_EMPTY (&file->entry);
+		TEST_ALLOC_PARENT (file->path, file);
+		TEST_EQ_STR (file->path, "/tmp/foo");
+		TEST_EQ (file->flag, source->flag);
+		TEST_LIST_EMPTY (&file->items);
 
 		TEST_EQ_P ((void *)nih_hash_lookup (source->files, "/tmp/foo"),
-			   conf_file);
+			   file);
 
-		nih_list_free (&conf_file->entry);
+		nih_list_free (&file->entry);
 	}
 
 
@@ -124,7 +124,7 @@ test_file_get (void)
 	 * source, and that the flag is updated to the new value.
 	 */
 	TEST_FEATURE ("with existing path");
-	conf_file = conf_file_get (source, "/tmp/foo");
+	file = conf_file_get (source, "/tmp/foo");
 	source->flag = (! source->flag);
 
 	TEST_ALLOC_FAIL {
@@ -135,45 +135,42 @@ test_file_get (void)
 			continue;
 		}
 
-		TEST_EQ_P (ptr, conf_file);
+		TEST_EQ_P (ptr, file);
 
-		TEST_ALLOC_SIZE (conf_file, sizeof (ConfFile));
-		TEST_ALLOC_PARENT (conf_file, source);
-		TEST_LIST_NOT_EMPTY (&conf_file->entry);
-		TEST_ALLOC_PARENT (conf_file->path, conf_file);
-		TEST_EQ_STR (conf_file->path, "/tmp/foo");
-		TEST_EQ (conf_file->flag, source->flag);
-		TEST_NE_P (conf_file->items, NULL);
+		TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+		TEST_ALLOC_PARENT (file, source);
+		TEST_LIST_NOT_EMPTY (&file->entry);
+		TEST_ALLOC_PARENT (file->path, file);
+		TEST_EQ_STR (file->path, "/tmp/foo");
+		TEST_EQ (file->flag, source->flag);
+		TEST_LIST_EMPTY (&file->items);
 
 		TEST_EQ_P ((void *)nih_hash_lookup (source->files, "/tmp/foo"),
-			   conf_file);
+			   file);
 	}
 
-	nih_list_free (&conf_file->entry);
+	nih_list_free (&file->entry);
 	nih_list_free (&source->entry);
 }
 
 void
-test_item_set (void)
+test_item_new (void)
 {
 	ConfSource *source;
-	ConfFile   *conf_file;
-	ConfItem   *item, *ptr;
-	Job        *job1, *job2;
+	ConfFile   *file;
+	ConfItem   *item;
 
-	TEST_FUNCTION ("conf_item_set");
+	TEST_FUNCTION ("conf_item_new");
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
-	conf_file = conf_file_get (source, "/tmp/foo");
+	file = conf_file_get (source, "/tmp/foo");
 
 	/* Check that we can request a new Confitem structure, it should be
-	 * allocated with nih_alloc and placed into the items hash table of
+	 * allocated with nih_alloc and placed into the items list of
 	 * the file, with the flag copied.
 	 */
 	TEST_FEATURE ("with new item");
-	job1 = job_new (NULL, "foo");
-
 	TEST_ALLOC_FAIL {
-		item = conf_item_set (source, conf_file, "foo", job1);
+		item = conf_item_new (source, file, CONF_JOB);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (item, NULL);
@@ -181,51 +178,16 @@ test_item_set (void)
 		}
 
 		TEST_ALLOC_SIZE (item, sizeof (ConfItem));
-		TEST_ALLOC_PARENT (item, conf_file);
+		TEST_ALLOC_PARENT (item, file);
 		TEST_LIST_NOT_EMPTY (&item->entry);
-		TEST_ALLOC_PARENT (item->name, item);
-		TEST_EQ_STR (item->name, "foo");
-		TEST_EQ (item->flag, conf_file->flag);
-		TEST_EQ_P (item->data, job1);
-
-		TEST_EQ_P ((void *)nih_hash_lookup (conf_file->items, "foo"),
-			   item);
+		TEST_EQ (item->type, CONF_JOB);
+		TEST_EQ (item->flag, file->flag);
+		TEST_EQ_P (item->data, NULL);
 
 		nih_list_free (&item->entry);
 	}
 
-	/* Check that we can retrieve an existing ConfItem for a given name,
-	 * and that the flag and data are both updated to the new value.
-	 */
-	TEST_FEATURE ("with existing item");
-	item = conf_item_set (source, conf_file, "foo", job1);
-	source->flag = (! source->flag);
-
-	job2 = job_new (NULL, "foo");
-
-	TEST_ALLOC_FAIL {
-		ptr = conf_item_set (source, conf_file, "foo", job2);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (ptr, NULL);
-			continue;
-		}
-
-		TEST_EQ_P (ptr, item);
-
-		TEST_ALLOC_SIZE (item, sizeof (ConfItem));
-		TEST_ALLOC_PARENT (item, conf_file);
-		TEST_LIST_NOT_EMPTY (&item->entry);
-		TEST_ALLOC_PARENT (item->name, item);
-		TEST_EQ_STR (item->name, "foo");
-		TEST_EQ (item->flag, conf_file->flag);
-		TEST_EQ_P (item->data, job2);
-
-		TEST_EQ_P ((void *)nih_hash_lookup (conf_file->items, "foo"),
-			   item);
-	}
-
-	nih_list_free (&conf_file->entry);
+	nih_list_free (&file->entry);
 	nih_list_free (&source->entry);
 }
 
@@ -307,7 +269,8 @@ main (int   argc,
 {
 	test_source_new ();
 	test_file_get ();
-	test_item_set ();
+	test_item_new ();
+
 	test_source_reload ();
 
 	return 0;

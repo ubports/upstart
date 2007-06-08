@@ -44,6 +44,17 @@ typedef enum conf_source_type {
 	CONF_JOB_DIR,
 } ConfSourceType;
 
+/**
+ * ConfItemType:
+ *
+ * Various different types of parsed items are supported as well, defining
+ * which member of the union should be used.  Some ConfSourceTypes fix the
+ * type of all of their items.
+ **/
+typedef enum conf_item_type {
+	CONF_JOB,
+} ConfItemType;
+
 
 /**
  * ConfSource:
@@ -78,7 +89,7 @@ typedef struct conf_source {
  * @entry: list header,
  * @path: path to file,
  * @flag: reload flag,
- * @items: hash table of items.
+ * @items: list of items.
  *
  * This structure represents a file within a source, either the file itself
  * or a single file in the directory tree.  These are tracked independantly
@@ -87,20 +98,20 @@ typedef struct conf_source {
  * The @flag member is used to support mandatory reloading; when the file is
  * created and parsed, it is set to the same value as the source's.  Then
  * the source can trivially see which files have been lost, since they have
- * the wrong flag value.  We use the same method for the @items hash.
+ * the wrong flag value.  We use the same method for the @items list.
  **/
 typedef struct conf_file {
 	NihList  entry;
 	char    *path;
 
 	int      flag;
-	NihHash *items;
+	NihList  items;
 } ConfFile;
 
 /**
  * ConfItem:
  * @entry: list header,
- * @name: item name,
+ * @type: item type,
  * @flag: reload flag,
  * @data: pointer to actual item.
  *
@@ -113,10 +124,10 @@ typedef struct conf_file {
  * lost, since they have the wrong flag value.
  **/
 typedef struct conf_item {
-	NihList  entry;
-	char    *name;
+	NihList       entry;
+	ConfItemType  type;
 
-	int      flag;
+	int           flag;
 	union {
 		void *data;
 		Job  *job;
@@ -135,8 +146,8 @@ ConfSource *conf_source_new    (const void *parent, const char *path,
 	__attribute__ ((warn_unused_result, malloc));
 ConfFile *  conf_file_get      (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result));
-ConfItem *  conf_item_set      (ConfSource *source, ConfFile *conf_file,
-				const char *name, void *data)
+ConfItem *  conf_item_new      (ConfSource *source, ConfFile *conf_file,
+				ConfItemType type)
 	__attribute__ ((warn_unused_result));
 
 void        conf_reload        (void);

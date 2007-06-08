@@ -43,8 +43,11 @@
 #include <nih/watch.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih/errors.h>
 
+#include "parse_job.h"
 #include "conf.h"
+#include "errors.h"
 
 
 /* Prototypes for static functions */
@@ -67,8 +70,9 @@ static int  conf_file_visitor          (ConfSource *source,
 static int  conf_reload_path           (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result));
 
-static void conf_file_delete           (ConfFile *conf_file);
-static void conf_item_delete           (ConfItem *item);
+static void conf_file_delete           (ConfSource *source, ConfFile *file);
+static void conf_item_delete           (ConfSource *source, ConfFile *file,
+					ConfItem *item);
 
 
 /**
@@ -177,93 +181,70 @@ ConfFile *
 conf_file_get (ConfSource *source,
 	       const char *path)
 {
-	ConfFile *conf_file;
+	ConfFile *file;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
 
-	conf_file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! conf_file) {
-		conf_file = nih_new (source, ConfFile);
-		if (! conf_file)
+	file = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! file) {
+		file = nih_new (source, ConfFile);
+		if (! file)
 			return NULL;
 
-		nih_list_init (&conf_file->entry);
+		nih_list_init (&file->entry);
 
-		conf_file->path = nih_strdup (conf_file, path);
-		if (! conf_file->path) {
-			nih_free (conf_file);
-			return NULL;
-		}
-
-		conf_file->items = nih_hash_new (source, 0,
-						 (NihKeyFunction)nih_hash_string_key);
-		if (! conf_file->items) {
-			nih_free (conf_file);
+		file->path = nih_strdup (file, path);
+		if (! file->path) {
+			nih_free (file);
 			return NULL;
 		}
 
-		nih_hash_add (source->files, &conf_file->entry);
+		nih_list_init (&file->items);
+
+		nih_hash_add (source->files, &file->entry);
 	}
 
-	conf_file->flag = source->flag;
+	file->flag = source->flag;
 
-	return conf_file;
+	return file;
 }
 
 /**
- * conf_item_set:
+ * conf_item_new:
  * @source: configuration source,
- * @conf_file: file to attach to,
- * @name: name of item,
- * @data: item data pointer.
+ * @file: file to attach to,
+ * @type: type of item.
  *
- * Looks up the existing ConfItem entry in @conf_file for @name, or
- * allocates a new structure and places it in the items hash table before
- * returning it.
+ * Allocates and returns a new ConfItem structure for the given @source
+ * and @file, with @type indicating what kind of data will be attached
+ * to this item.  Setting the data pointer is the job of the caller.
  *
- * The flag of the returned ConfItem will be set to that of the @conf_file.
+ * The returned structure is automatically placed in the @file items list.
  *
- * Returns: existing or newly allocated ConfItem structure,
- * or NULL if insufficient memory.
+ * Returns: newly allocated ConfItem structure or NULL if insufficient memory.
  **/
 ConfItem *
-conf_item_set (ConfSource *source,
-	       ConfFile   *conf_file,
-	       const char *name,
-	       void       *data)
+conf_item_new (ConfSource   *source,
+	       ConfFile     *file,
+	       ConfItemType  type)
 {
 	ConfItem *item;
 
 	nih_assert (source != NULL);
-	nih_assert (conf_file != NULL);
-	nih_assert (name != NULL);
+	nih_assert (file != NULL);
 
-	item = (ConfItem *)nih_hash_lookup (conf_file->items, name);
-	if (! item) {
-		item = nih_new (conf_file, ConfItem);
-		if (! item)
-			return NULL;
+	item = nih_new (file, ConfItem);
+	if (! item)
+		return NULL;
 
-		nih_list_init (&item->entry);
+	nih_list_init (&item->entry);
 
-		item->name = nih_strdup (item, name);
-		if (! item->name) {
-			nih_free (item);
-			return NULL;
-		}
+	item->type = type;
+	item->flag = file->flag;
+	item->data = NULL;
 
-		item->data = NULL;
-
-		nih_hash_add (conf_file->items, &item->entry);
-	}
-
-	item->flag = conf_file->flag;
-
-	if (item->data)
-		conf_item_delete (item);
-
-	item->data = data;
+	nih_list_add (&file->items, &item->entry);
 
 	return item;
 }
@@ -350,17 +331,17 @@ conf_source_reload (ConfSource *source)
 	 * wrong flag are deleted.
 	 */
 	NIH_HASH_FOREACH_SAFE (source->files, iter) {
-		ConfFile *conf_file = (ConfFile *)iter;
+		ConfFile *file = (ConfFile *)iter;
 
-		if (conf_file->flag != source->flag) {
-			conf_file_delete (conf_file);
-			nih_list_free (&conf_file->entry);
+		if (file->flag != source->flag) {
+			conf_file_delete (source, file);
+			nih_list_free (&file->entry);
 		} else {
-			NIH_HASH_FOREACH_SAFE (conf_file->items, item_iter) {
+			NIH_LIST_FOREACH_SAFE (&file->items, item_iter) {
 				ConfItem *item = (ConfItem *)item_iter;
 
-				if (item->flag != conf_file->flag) {
-					conf_item_delete (item);
+				if (item->flag != file->flag) {
+					conf_item_delete (source, file, item);
 					nih_list_free (&item->entry);
 				}
 			}
@@ -612,7 +593,7 @@ conf_delete_handler (ConfSource *source,
 		     NihWatch   *watch,
 		     const char *path)
 {
-	ConfFile *conf_file;
+	ConfFile *file;
 
 	nih_assert (source != NULL);
 	nih_assert (watch != NULL);
@@ -621,12 +602,12 @@ conf_delete_handler (ConfSource *source,
 	/* Lookup the file in the source; if we haven't parsed it, there's
 	 * no point worrying about it.
 	 */
-	conf_file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! conf_file)
+	file = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! file)
 		return;
 
-	conf_file_delete (conf_file);
-	nih_list_free (&conf_file->entry);
+	conf_file_delete (source, file);
+	nih_list_free (&file->entry);
 }
 
 /**
@@ -682,38 +663,101 @@ static int
 conf_reload_path (ConfSource *source,
 		  const char *path)
 {
-	ConfFile   *conf_file;
-	const char *file;
+	ConfFile   *file;
+	ConfItem   *item;
+	const char *buf, *name;
 	size_t      len, pos, lineno;
+	NihError   *err = NULL;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
 
-	NIH_MUST (conf_file = conf_file_get (source, path));
+	NIH_MUST (file = conf_file_get (source, path));
 
 	/* Map the file into memory for parsing. */
-	file = nih_file_map (conf_file->path, O_RDONLY | O_NOCTTY, &len);
-	if (! file)
+	buf = nih_file_map (file->path, O_RDONLY | O_NOCTTY, &len);
+	if (! buf)
 		return -1;
 
+	/* Parse the file buffer, registering items found against the
+	 * ConfFile; the existing items are removed later.
+	 */
 	pos = 0;
 	lineno = 1;
 
-	/* FIXME implement! */
+	switch (source->type) {
+	case CONF_FILE:
+	case CONF_DIR:
+		/* Parse the file, this deals with item creation itself
+		 * since only it knows the item types and names.
+		 */
+#if 0
+		if (parse_file (buf, len, &pos, &lineno) < 0)
+			err = nih_error_get ();
+#endif
 
-	/* Job file: construct item name from path with dirname stripped
-	 * out.  Call parse function to parse it, create item structure,
-	 * add it to the file hash table.
-	 *
-	 * Mixed file: call parse function, stanzas will deal with the
-	 * name, item, and addition.
+		break;
+	case CONF_JOB_DIR:
+		/* Construct the job name by taking the path and removing
+		 * the directory name from the front.
+		 */
+		name = path;
+		if (! strncmp (name, source->path, strlen (source->path)))
+			path += strlen (source->path);
+
+		while (*name == '/')
+			name++;
+
+		/* Create a new job item and parse the buffer to produce
+		 * the job definition.  Discard the item if this fails.
+		 */
+		NIH_MUST (item = conf_item_new (source, file, CONF_JOB));
+		item->job = parse_job (NULL, name, buf, len, &pos, &lineno);
+		if (! item->job) {
+			err = nih_error_get ();
+
+			nih_list_free (&item->entry);
+		}
+
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	/* Deal with any errors that occurred; we don't consider these
+	 * to be hard failures, so we warn about the problem here.  This
+	 * means we can also give the path and line number, since the
+	 * error would've been raised at the right point.
 	 */
+	if (err) {
+		switch (err->number) {
+		case NIH_CONFIG_EXPECTED_TOKEN:
+		case NIH_CONFIG_UNEXPECTED_TOKEN:
+		case NIH_CONFIG_TRAILING_SLASH:
+		case NIH_CONFIG_UNTERMINATED_QUOTE:
+		case NIH_CONFIG_UNTERMINATED_BLOCK:
+		case NIH_CONFIG_UNKNOWN_STANZA:
+		case PARSE_ILLEGAL_INTERVAL:
+		case PARSE_ILLEGAL_EXIT:
+		case PARSE_ILLEGAL_UMASK:
+		case PARSE_ILLEGAL_NICE:
+		case PARSE_ILLEGAL_LIMIT:
+			nih_error ("%s:%zi: %s", path, lineno, err->message);
+			break;
+		default:
+			nih_error ("%s: %s: %s", path,
+				   _("Error while parsing configuration file"),
+				   err->message);
+			break;
+		}
+		nih_free (err);
+	}
 
 	/* Unmap the file again; in theory this shouldn't fail, but if
 	 * it does, return an error condition even though we've actually
 	 * loaded some of the new things.
 	 */
-	if (nih_file_unmap ((void *)file, len) < 0)
+	if (nih_file_unmap ((void *)buf, len) < 0)
 		return -1;
 
 	return 0;
@@ -722,27 +766,32 @@ conf_reload_path (ConfSource *source,
 
 /**
  * conf_file_delete:
- * @conf_file: file to be deleted.
+ * @source: configuration source,
+ * @file: file to be deleted.
  *
  * Handle deletion of a configuration file.  This will delete all items
  * registered against it.
  **/
 static void
-conf_file_delete (ConfFile *conf_file)
+conf_file_delete (ConfSource *source,
+		  ConfFile   *file)
 {
-	nih_assert (conf_file != NULL);
+	nih_assert (source != NULL);
+	nih_assert (file != NULL);
 
 	/* Delete all items parsed from here. */
-	NIH_HASH_FOREACH_SAFE (conf_file->items, iter) {
+	NIH_LIST_FOREACH_SAFE (&file->items, iter) {
 		ConfItem *item = (ConfItem *)iter;
 
-		conf_item_delete (item);
+		conf_item_delete (source, file, item);
 		nih_list_free (&item->entry);
 	}
 }
 
 /**
  * conf_item_delete:
+ * @source: configuration source,
+ * @file: configuration file,
  * @item: item to be deleted.
  *
  * Handle deletion of a single item in a configuration file.  This will
@@ -750,11 +799,27 @@ conf_file_delete (ConfFile *conf_file)
  * appropriate means.
  **/
 static void
-conf_item_delete (ConfItem *item)
+conf_item_delete (ConfSource *source,
+		  ConfFile   *file,
+		  ConfItem   *item)
 {
+	nih_assert (source != NULL);
+	nih_assert (file != NULL);
 	nih_assert (item != NULL);
 
-	item->data = NULL;
+	switch (item->type) {
+	case CONF_JOB:
+		if (item->job->replacement != (void *)-1) {
+			nih_list_free (&item->job->replacement->entry);
 
-	/* FIXME implement! */
+			item->job->replacement = NULL;
+		}
+
+		item->job->replacement = (void *)-1;
+
+		if (job_should_replace (item->job))
+			job_change_state (item->job, job_next_state (item->job));
+
+		break;
+	}
 }

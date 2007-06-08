@@ -1,3 +1,26 @@
+2007-06-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/conf.h (ConfItem): Drop the name and replace it with a type.
+	(ConfItemType): Enum for different types of configuration items
+	(ConfFile): Change items from a hash table to a list.
+	* init/conf.c (conf_file_get): Initialise the items member as a list.
+	(conf_item_set): Rename to conf_item_new again.
+	(conf_item_new): Allocates a new ConfItem and adds it to the file's
+	list, we won't reuse items anymore since it doesn't really make sense.
+	(conf_source_reload): Adjust clean-up code now that items is a list.
+	(conf_reload_path): Work out the name of jobs found by filename,
+	allocate a new item for them and parse the job into it.  Perform
+	handling of errors by outputting a warning.
+	(conf_item_delete): Takes both source and file so we can make
+	intelligent decisions.
+	(conf_file_delete): Takes a source and passes it to conf_item_delete
+	(conf_delete_handler): Pass both source and file to conf_file_delet
+
+	* init/tests/test_conf.c (test_file_get): Check that the items
+	list is empty; rather than the hash being unallocated.
+	(test_item_set): Rename back to test_item_new and only allocate a
+	single item which should get added to the list.
+
 2007-06-06  Scott James Remnant  <scott@netsplit.com>
 
 	* init/parse_job.c (stanza_respawn): Permit the word "unlimited",
