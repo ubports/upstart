@@ -835,7 +835,21 @@ conf_item_free (ConfItem *item)
 
 	switch (item->type) {
 	case CONF_JOB:
-		item->job->replacement = (void *)-1;
+		/* NB:
+		 *
+		 * If it doesn't have a replacement already, mark it for
+		 * deletion.
+		 *
+		 * FIXME: what if we're the replacement for another job?
+		 * (copy our replacement to be that one's replacement)
+		 */
+		if (! item->job->replacement)
+			item->job->replacement = (void *)-1;
+
+		/*
+		if (item->job->replacement_for) {
+			item->job->replacement_for->replacement = item->job->replacement;
+		*/
 
 		if (job_should_replace (item->job))
 			job_change_state (item->job, job_next_state (item->job));

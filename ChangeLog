@@ -1,5 +1,12 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_item_free): Don't overwrite any previous
+	replacement, only mark us for deletion if we wouldn't otherwise
+	be replaced.  Add some commented possible code for testing.
+	* init/tests/test_conf.c (test_source_reload): Test replacement of
+	jobs works properly; test modification with direct write and with
+	atomic rename replace; test deletion.
+
 	* init/conf.c (conf_reload_path): It turns out that the flag trick
 	doesn't work for items since we often reparse them within the same
 	file tag (it works with files because they're atomic and reparsed).

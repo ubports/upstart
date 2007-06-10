@@ -201,11 +201,11 @@ test_source_reload (void)
 	ConfSource *source;
 	ConfFile   *file;
 	ConfItem   *item;
-	Job        *job;
+	Job        *job, *old_job;
 	FILE       *f;
 	int         ret, fd[4096], i = 0, nfds;
 	char        job_dirname[PATH_MAX];
-	char        filename[PATH_MAX];
+	char        tmpname[PATH_MAX], filename[PATH_MAX];
 	fd_set      readfds, writefds, exceptfds;
 
 	TEST_FUNCTION ("conf_source_reload");
@@ -371,7 +371,7 @@ test_source_reload (void)
 	 * direct writing technique, it will be automatically parsed and
 	 * loaded.
 	 */
-	TEST_FEATURE ("with new file in directory");
+	TEST_FEATURE ("with new file in directory (direct write)");
 	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
 	ret = conf_source_reload (source);
 
@@ -416,12 +416,158 @@ test_source_reload (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
+	TEST_EQ_P (job->replacement, NULL);
+	TEST_EQ_P (job->replacement_for, NULL);
+
 	TEST_EQ_P (item->entry.next, &file->items);
 
+	old_job = job;
+
+
+	/* Check that a file in the directory we're watching can be modified
+	 * using the direct writing technique; it should be parsed and the
+	 * previous job marked for deletion.
+	 */
+	TEST_FEATURE ("with modified job (direct write)");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  sleep 5\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "sleep 5\n");
+
+	TEST_EQ_P (job->replacement, NULL);
+	TEST_EQ_P (job->replacement_for, NULL);
+
+	TEST_EQ_P (old_job->replacement, job);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+	TEST_EQ_P (item->entry.next, &file->items);
+
+	old_job = job;
+
+
+	/* Check that a file in the directory we're watching can be modified
+	 * using the write and then rename technique; it should be parsed and
+	 * the previous job marked for deletion.
+	 */
+	TEST_FEATURE ("with modified job (atomic rename)");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	strcpy (tmpname, job_dirname);
+	strcat (tmpname, "/frodo/.bar.swp");
+
+	f = fopen (tmpname, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  sleep 15\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	rename (tmpname, filename);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "sleep 15\n");
+
+	TEST_EQ_P (job->replacement, NULL);
+	TEST_EQ_P (job->replacement_for, NULL);
+
+	TEST_EQ_P (old_job->replacement, job);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+	TEST_EQ_P (item->entry.next, &file->items);
+
+	old_job = job;
+
+
+	/* Check that we can delete a file from the directory, the metadata
+	 * for it should be lost and the job should be queued for deletion.
+	 */
+	TEST_FEATURE ("with deleted job");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
 
 	unlink (filename);
-	conf_source_free (source);
 
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_EQ_P (file, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (job, NULL);
+
+	TEST_EQ_P (old_job->replacement, (void *)-1);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+
+	conf_source_free (source);
 
 	/* Consume all available inotify instances so that the following
 	 * tests run without inotify.
@@ -558,6 +704,14 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, job_dirname);
+	strcat (filename, "/foo");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec /sbin/daemon --foo\n");
+	fprintf (f, "respawn\n");
+	fclose (f);
+
+	strcpy (filename, job_dirname);
 	strcat (filename, "/frodo/foo");
 
 	unlink (filename);
@@ -597,7 +751,8 @@ no_inotify:
 	TEST_TRUE (job->respawn);
 	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
-	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
+		     "/sbin/daemon --foo");
 
 	nih_list_free (&job->entry);
 	nih_list_free (&item->entry);
