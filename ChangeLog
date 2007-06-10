@@ -1,5 +1,13 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload_path): Fix bug with job name generation.
+	Allow non-parsing errors to be returned from the function.
+	(conf_item_delete): Drop all replacement management code, we'll put
+	this back through testing.
+	* init/tests/test_conf.c (test_source_reload): Test reloading adds
+	the right inotify watch and parses the files, also check that loading
+	without inotify and mandatory reloading work.
+
 	* init/conf.c (conf_source_reload): Move the item deletion detection
 	code from this function, where it would only happen on a mandatory
 	reload

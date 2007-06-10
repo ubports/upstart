@@ -42,6 +42,8 @@
 #include <nih/list.h>
 #include <nih/hash.h>
 #include <nih/watch.h>
+#include <nih/main.h>
+#include <nih/logging.h>
 #include <nih/error.h>
 
 #include "conf.h"
@@ -196,20 +198,48 @@ void
 test_source_reload (void)
 {
 	ConfSource *source;
+	ConfFile   *file;
+	ConfItem   *item;
+	Job        *job;
 	FILE       *f;
 	int         ret, fd[4096], i = 0;
-	char        dirname[PATH_MAX], filename[PATH_MAX];
+	char        job_dirname[PATH_MAX];
+	char        filename[PATH_MAX];
 
 	TEST_FUNCTION ("conf_source_reload");
-	TEST_FILENAME (dirname);
-	mkdir (dirname, 0755);
+	program_name = "test";
+	nih_log_set_priority (NIH_LOG_FATAL);
 
-	strcpy (filename, dirname);
+	TEST_FILENAME (job_dirname);
+	mkdir (job_dirname, 0755);
+
+	strcpy (filename, job_dirname);
 	strcat (filename, "/foo");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /sbin/daemon\n");
 	fprintf (f, "respawn\n");
+	fclose (f);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "script\n");
+	fprintf (f, "  echo\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo");
+
+	mkdir (filename, 0755);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec /bin/tool\n");
 	fclose (f);
 
 	/* Make sure that we have inotify before performing some tests... */
@@ -220,30 +250,123 @@ test_source_reload (void)
 	close (fd[0]);
 
 
-	/* Check that we can reload a new file source.  An inotify watch
-	 * should be established on the parent directory, and its file
-	 * descriptor set to be closed on exec.
+	/* Check that we can load a job directory source for the first time.
+	 * An inotify watch should be established on the directory, the
+	 * descriptor set to be closed-on-exec, and all entries in the
+	 * directory parsed.
 	 */
-	TEST_FEATURE ("with new file source");
-	strcpy (filename, dirname);
+	TEST_FEATURE ("with new job directory");
+	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_ALLOC_SIZE (source->watch, sizeof (NihWatch));
+	TEST_EQ_STR (source->watch->path, job_dirname);
+	TEST_EQ_P (source->watch->data, source);
+
+	TEST_TRUE (fcntl (source->watch->fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_EQ (source->flag, TRUE);
+
+	strcpy (filename, job_dirname);
 	strcat (filename, "/foo");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			source = conf_source_new (NULL, filename, CONF_FILE);
-		}
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
 
-		ret = conf_source_reload (source);
+	item = (ConfItem *)file->items.next;
 
-		TEST_EQ (ret, 0);
-		TEST_ALLOC_SIZE (source->watch, sizeof (NihWatch));
-		TEST_EQ_STR (source->watch->path, dirname);
-		TEST_EQ_P (source->watch->data, source);
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
 
-		TEST_TRUE (fcntl (source->watch->fd, F_GETFD) & FD_CLOEXEC);
+	job = job_find_by_name ("foo");
+	TEST_EQ_P (item->job, job);
 
-		nih_list_free (&source->entry);
-	}
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/foo");
+	TEST_EQ_P (item->job, job);
+
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	TEST_HASH_EMPTY (source->files);
+
+	nih_list_free (&source->entry);
 
 
 	/* Consume all available inotify instances so that the following
@@ -255,11 +378,280 @@ test_source_reload (void)
 no_inotify:
 
 
-	strcpy (filename, dirname);
+	/* Check that we can load a job directory source for the first time.
+	 * Even though we don't have inotify, all entries in the directory
+	 * should still be parsed.
+	 */
+	TEST_FEATURE ("with new job directory but no inotify");
+	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_EQ (source->flag, TRUE);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/foo");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("foo");
+	TEST_EQ_P (item->job, job);
+
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/foo");
+	TEST_EQ_P (item->job, job);
+
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	TEST_HASH_EMPTY (source->files);
+
+	nih_list_free (&source->entry);
+
+
+	/* Check that we can perform a mandatory reload of the directory,
+	 * having made some changes in between.  Entries that were added
+	 * should be parsed into the tree, and entries that were deleted
+	 * should have been lost.
+	 */
+	TEST_FEATURE ("with reload of job directory");
+	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_EQ (source->flag, TRUE);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+
+	unlink (filename);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec /bin/tool --foo\n");
+	fclose (f);
+
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_EQ (source->flag, FALSE);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/foo");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("foo");
+	TEST_EQ_P (item->job, job);
+
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+
+	job = job_find_by_name ("frodo/foo");
+	TEST_EQ_P (job, NULL);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_EQ (item->flag, file->flag);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
+
+	nih_list_free (&job->entry);
+	nih_list_free (&item->entry);
+
+	TEST_LIST_EMPTY (&file->items);
+
+	nih_list_free (&file->entry);
+
+
+	TEST_HASH_EMPTY (source->files);
+
+	nih_list_free (&source->entry);
+
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+	unlink (filename);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo");
+	rmdir (filename);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+	unlink (filename);
+
+	strcpy (filename, job_dirname);
 	strcat (filename, "/foo");
 	unlink (filename);
 
-	rmdir (dirname);
+	rmdir (job_dirname);
 }
 
 

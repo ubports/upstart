@@ -681,7 +681,7 @@ conf_reload_path (ConfSource *source,
 		 * since only it knows the item types and names.
 		 */
 #if 0
-		if (parse_file (buf, len, &pos, &lineno) < 0)
+		if (parse_conf (buf, len, &pos, &lineno) < 0)
 			err = nih_error_get ();
 #endif
 
@@ -692,7 +692,7 @@ conf_reload_path (ConfSource *source,
 		 */
 		name = path;
 		if (! strncmp (name, source->path, strlen (source->path)))
-			path += strlen (source->path);
+			name += strlen (source->path);
 
 		while (*name == '/')
 			name++;
@@ -713,10 +713,9 @@ conf_reload_path (ConfSource *source,
 		nih_assert_not_reached ();
 	}
 
-	/* Deal with any errors that occurred; we don't consider these
-	 * to be hard failures, so we warn about the problem here.  This
-	 * means we can also give the path and line number, since the
-	 * error would've been raised at the right point.
+	/* Deal with any parsing errors that occurred; we don't consider
+	 * these to be hard failures, which means we can warn about them
+	 * here and give the path and line number along with the warning.
 	 */
 	if (err) {
 		switch (err->number) {
@@ -732,14 +731,10 @@ conf_reload_path (ConfSource *source,
 		case PARSE_ILLEGAL_NICE:
 		case PARSE_ILLEGAL_LIMIT:
 			nih_error ("%s:%zi: %s", path, lineno, err->message);
-			break;
-		default:
-			nih_error ("%s: %s: %s", path,
-				   _("Error while parsing configuration file"),
-				   err->message);
+			nih_free (err);
+			err = NULL;
 			break;
 		}
-		nih_free (err);
 	}
 
 	/* Delete the old items from the file, these are easy to detect
@@ -758,8 +753,16 @@ conf_reload_path (ConfSource *source,
 	 * it does, return an error condition even though we've actually
 	 * loaded some of the new things.
 	 */
-	if (nih_file_unmap ((void *)buf, len) < 0)
+	if (nih_file_unmap ((void *)buf, len) < 0) {
+		if (err)
+			nih_free (err);
 		return -1;
+	}
+
+	if (err) {
+		nih_error_raise_again (err);
+		return -1;
+	}
 
 	return 0;
 }
@@ -810,12 +813,6 @@ conf_item_delete (ConfSource *source,
 
 	switch (item->type) {
 	case CONF_JOB:
-		if (item->job->replacement != (void *)-1) {
-			nih_list_free (&item->job->replacement->entry);
-
-			item->job->replacement = NULL;
-		}
-
 		item->job->replacement = (void *)-1;
 
 		if (job_should_replace (item->job))
