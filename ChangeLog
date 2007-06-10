@@ -1,5 +1,8 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Add a handler for the SIGHUP signal
+	(hup_handler): Handler for SIGHUP, just calls conf_reload().
+
 	* init/main.c (main): Read the configuration again.
 
 	* TODO: Update.

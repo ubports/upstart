@@ -66,6 +66,7 @@ static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
+static void hup_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
 static void term_handler    (void *data, NihSignal *signal);
 
@@ -233,10 +234,11 @@ main (int   argc,
 	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
 	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
 
+	/* SIGHUP instructs us to re-load our configuration */
+	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
+
 	/* SIGTERM instructs us to re-exec ourselves */
-	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
-					  (NihSignalHandler)term_handler,
-					  NULL));
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
 
 	/* Reap all children that die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
@@ -481,6 +483,22 @@ pwr_handler (void      *data,
 	     NihSignal *signal)
 {
 	event_new (NULL, PWRSTATUS_EVENT, NULL, NULL);
+}
+
+/**
+ * hup_handler:
+ * @data: unused,
+ * @signal: signal that called this handler.
+ *
+ * Handle having recieved the SIGHUP signal, which we use to instruct us to
+ * reload our configuration.
+ **/
+static void
+hup_handler (void      *data,
+	     NihSignal *signal)
+{
+	nih_info (_("Reloading configuration"));
+	conf_reload ();
 }
 
 /**
