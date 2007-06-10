@@ -1,3 +1,11 @@
+2007-06-10  Scott James Remnant  <scott@netsplit.com>
+
+	* init/conf.c (conf_source_reload): Move the item deletion detection
+	code from this function, where it would only happen on a mandatory
+	reload
+	(conf_reload_path): to this function, where it will happen every time
+	the file is parsed; which is actually what we want.
+
 2007-06-08  Scott James Remnant  <scott@netsplit.com>
 
 	* init/conf.h (ConfItem): Drop the name and replace it with a type.

@@ -324,11 +324,9 @@ conf_source_reload (ConfSource *source)
 		nih_assert_not_reached ();
 	}
 
-	/* Scan for any files or items that were lost since the last time
-	 * we reloaded.  This is simple to do; any file that has the wrong
-	 * flag is deleted along with all of its items, any file with the
-	 * right flag has its items individually checked and any with the
-	 * wrong flag are deleted.
+	/* Scan for files that have been deleted since the last time we
+	 * reloaded; these are simple to detect, as they will have the wrong
+	 * flag.
 	 */
 	NIH_HASH_FOREACH_SAFE (source->files, iter) {
 		ConfFile *file = (ConfFile *)iter;
@@ -336,15 +334,6 @@ conf_source_reload (ConfSource *source)
 		if (file->flag != source->flag) {
 			conf_file_delete (source, file);
 			nih_list_free (&file->entry);
-		} else {
-			NIH_LIST_FOREACH_SAFE (&file->items, item_iter) {
-				ConfItem *item = (ConfItem *)item_iter;
-
-				if (item->flag != file->flag) {
-					conf_item_delete (source, file, item);
-					nih_list_free (&item->entry);
-				}
-			}
 		}
 	}
 
@@ -751,6 +740,18 @@ conf_reload_path (ConfSource *source,
 			break;
 		}
 		nih_free (err);
+	}
+
+	/* Delete the old items from the file, these are easy to detect
+	 * as only the new items will have the right flag.
+	 */
+	NIH_LIST_FOREACH_SAFE (&file->items, item_iter) {
+		ConfItem *item = (ConfItem *)item_iter;
+
+		if (item->flag != file->flag) {
+			conf_item_delete (source, file, item);
+			nih_list_free (&item->entry);
+		}
 	}
 
 	/* Unmap the file again; in theory this shouldn't fail, but if
