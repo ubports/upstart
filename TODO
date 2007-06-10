@@ -19,6 +19,25 @@ High Priority:
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
 
+ * Replace the current job replacement/replacement_for pointers, and the jobs
+   hash table, with a centralised name registry.  Each name should have a
+   current holder, and list of available holders, and we should be able to
+   elect a new current.
+
+ * Configuration reloading needs to happen with the HUP signal and with an
+   initctl command.
+
+ * Support configuration files that define jobs with the "job" stanza.
+
+ * SysV-compat stuff should have a common code that reads and writes from
+   utmp used by all of the pieces:
+   * reboot would check the runlevel and run shutdown in certain levels
+   * extend telinit to support --default to pick up the runlevel from
+     inittab, kernel cmdline, etc.
+   * drop runlevel --set, instead telinit will update utmp itself and then
+     emit the event including RUNLEVEL and PREVLEVEL as environment
+   * Thus the rc jobs would be just exec /etc/init.d/rc 3
+
 
 Medium Priority:
 
@@ -37,6 +56,10 @@ Medium Priority:
    we encounter any problems write the error code to this pipe and die.
    Then from above, we can read this pipe to determine whether the job
    failed before or after the exec.  (Might be a cleaner way to do this).
+
+ * Interval for respawn limit should be settable to "ever" to support maximum
+   possible number of restarts before the job is disabled.  Though how does
+   one reset it?
 
 
 Low Priority:
@@ -65,9 +88,6 @@ Low Priority:
  * May need a way to force ignoring of the KILL signal, and assuming that
    a job that won't die really has.
 
- * Should be possible to configure things in one file, definings jobs with
-   a stanza rather than separate files.
-
  * Replace logd raise/wait/kill interlock with a pipe-based one?
 
  * Replace logd with something else that's more standard in the system,
@@ -87,6 +107,10 @@ Unfinished Features:
 
 
 Future Features:
+
+ * Instances; sometimes you want a given number of instances running, with
+   each one being able to determine which instance it was (maybe file events
+   is the way to solve this?)
 
  * Per-user services; will need to use PAM to set up the session.
    We want to do this for "root-user services" but not for jobs/tasks
@@ -125,9 +149,6 @@ Future Features:
  * How do we balance events, if two "added" happen we probably want two
    "removed" to happen as well.  One way is to allow $... in the event
    definitions which apply to earlier ones?
-
- * Extend telinit to support --default or similar; moving the shell parsing
-   out of rc-default and just make that exec telinit with the right args.
 
  * Event tree for "start on" and "stop on" -- need to solve when instances
    are spawned and which event gets stored in cause first though.
