@@ -567,7 +567,183 @@ test_source_reload (void)
 	TEST_EQ (old_job->state, JOB_DELETED);
 
 
+	/* Check that if a running job is modified, it is not immediately
+	 * replaced, and instead is marked as the future replacement.
+	 */
+	TEST_FEATURE ("with modification to running job");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  sleep 5\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_NE_P (job, NULL);
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	old_job = job;
+
+	f = fopen (filename, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  sleep 15\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (job, old_job);
+	TEST_NE_P (job, item->job);
+
+	TEST_TRUE (item->job->respawn);
+	TEST_NE_P (item->job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (item->job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (item->job->process[PROCESS_MAIN]->command, "sleep 15\n");
+
+	TEST_EQ_P (item->job->replacement, NULL);
+	TEST_EQ_P (item->job->replacement_for, job);
+
+	TEST_EQ_P (job->replacement, item->job);
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_EQ_P (item->entry.next, &file->items);
+
+	old_job = item->job;
+
+
+	/* Check that if we modify a job that is a replacement for a running
+	 * job, the new job is marked as a replacement for the running job
+	 * itself rather than having two levels of replacement.  The previous
+	 * replacement should be marked for deletion.
+	 */
+	TEST_FEATURE ("with modification to replacement for running job");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  sleep 10\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_NE_P (job, item->job);
+
+	TEST_TRUE (item->job->respawn);
+	TEST_NE_P (item->job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (item->job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (item->job->process[PROCESS_MAIN]->command, "sleep 10\n");
+
+	TEST_EQ_P (item->job->replacement, NULL);
+	TEST_EQ_P (item->job->replacement_for, job);
+
+	TEST_EQ_P (job->replacement, item->job);
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_EQ (old_job->replacement, (void *)-1);
+	TEST_EQ (old_job->replacement_for, job);
+
+	TEST_EQ_P (item->entry.next, &file->items);
+
+	old_job = item->job;
+
+
+	/* Check that if we delete a job that is a replacement for a running
+	 * job, the running job itself is marked for deletion rather than
+	 * having two levels of replacement.  The previous replacement should
+	 * be marked for deletion.
+	 */
+	TEST_FEATURE ("with deletion of replacement for running job");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	unlink (filename);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_NE_P (job, NULL);
+
+	TEST_EQ_P (job->replacement, (void *)-1);
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_EQ (old_job->replacement, (void *)-1);
+	TEST_EQ (old_job->replacement_for, job);
+
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+
+
 	conf_source_free (source);
+	job_free_deleted ();
 
 	/* Consume all available inotify instances so that the following
 	 * tests run without inotify.
@@ -836,6 +1012,7 @@ no_inotify:
 	TEST_HASH_EMPTY (source->files);
 
 	conf_source_free (source);
+	job_free_deleted ();
 
 
 	strcpy (filename, job_dirname);

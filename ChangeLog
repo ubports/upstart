@@ -1,5 +1,17 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_item_free): Fix this up; when deleting an item
+	from a source, we first mark it for deletion unless it's already
+	marked for replacement.  Then if it's the replacement for something
+	else, we mark that to be replaced by whatever we're being replaced
+	by (so there are no references to us) and change that state if
+	necessary.  Finally we replace our own item and free the record
+	before returning.
+	* init/tests/test_conf.c (test_source_reload): Check that we handle
+	the cases of modiciation of a running job, modification of a
+	replacement of a running job and deletion of a replacement for a
+	running job.
+
 	* init/parse_job.c (parse_job): Instead of freeing the previous
 	replacement, which could leave invalid references to it, mark it
 	for deletion and change the state.

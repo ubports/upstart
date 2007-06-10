@@ -823,8 +823,9 @@ conf_file_free (ConfFile *file)
  * conf_item_free:
  * @item: configuration item to be deleted and freed.
  *
- * Removes @item from its containing file and frees the memory allocated
- * for it.
+ * Handles the replacement and deletion of the item itself then removes
+ * @item from its containing file list and frees the memory allocated for
+ * it.
  *
  * Returns: return value from destructor, or 0.
  **/
@@ -835,22 +836,26 @@ conf_item_free (ConfItem *item)
 
 	switch (item->type) {
 	case CONF_JOB:
-		/* NB:
-		 *
-		 * If it doesn't have a replacement already, mark it for
-		 * deletion.
-		 *
-		 * FIXME: what if we're the replacement for another job?
-		 * (copy our replacement to be that one's replacement)
+		/* If the item being deleted hasn't already been marked for
+		 * replacement, mark it for deletion.
 		 */
 		if (! item->job->replacement)
 			item->job->replacement = (void *)-1;
 
-		/*
-		if (item->job->replacement_for) {
-			item->job->replacement_for->replacement = item->job->replacement;
-		*/
+		/* If the item being deleted is the replacement for another,
+		 * cut out the middle man and make that item's replacement
+		 * the same as our own replacement (ie. probably deletion)
+		 */
+		if (item->job->replacement_for
+		    && (item->job->replacement_for->replacement == item->job)) {
+			Job *old_job = item->job->replacement_for;
 
+			old_job->replacement = item->job->replacement;
+			if (job_should_replace (old_job))
+				job_change_state (old_job, job_next_state (old_job));
+		}
+
+		/* Move towards deletion if we can */
 		if (job_should_replace (item->job))
 			job_change_state (item->job, job_next_state (item->job));
 
