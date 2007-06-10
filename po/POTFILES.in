@@ -25,6 +25,7 @@ upstart/wire.c
 
 upstart/errors.h
 
+init/conf.c
 init/control.c
 init/event.c
 init/job.c
