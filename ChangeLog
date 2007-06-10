@@ -1,5 +1,7 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): Read the configuration again.
+
 	* TODO: Update.
 
 	* init/tests/test_conf.c (test_source_reload_dir): Reset the priority

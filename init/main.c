@@ -56,6 +56,7 @@
 #include "job.h"
 #include "event.h"
 #include "control.h"
+#include "conf.h"
 #include "paths.h"
 
 
@@ -262,7 +263,10 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* FIXME: Read configuration */
+	/* Read configuration */
+	NIH_MUST (conf_source_new (NULL, CFG_DIR, CONF_JOB_DIR));
+
+	conf_reload ();
 
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
