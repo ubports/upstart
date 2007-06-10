@@ -1,5 +1,8 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp (conf-init): Add valgrind suppression for the
+	configuration sources hash table.
+
 	* init/conf.c (conf_item_free): Don't overwrite any previous
 	replacement, only mark us for deletion if we wouldn't otherwise
 	be replaced.  Add some commented possible code for testing.
