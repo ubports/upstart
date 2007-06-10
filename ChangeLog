@@ -1,5 +1,13 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (parse_job): Instead of freeing the previous
+	replacement, which could leave invalid references to it, mark it
+	for deletion and change the state.
+	* init/tests/test_parse_job.c (test_parse_job): Adjust the test so
+	that we hold a reference to the replacement job and make sure that
+	the state is changed to deleted, rather than checking for a destructor
+	being called on it.
+
 	* init/init.supp (conf-init): Add valgrind suppression for the
 	configuration sources hash table.
 

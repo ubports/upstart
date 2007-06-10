@@ -267,7 +267,11 @@ parse_job (const void *parent,
 		if ((old_job->replacement != NULL)
 		    && (old_job->replacement != (void *)-1)) {
 			nih_debug ("Discarding previous replacement");
-			nih_list_free (&old_job->replacement->entry);
+			old_job->replacement->replacement = (void *)-1;
+
+			if (job_should_replace (old_job->replacement))
+				job_change_state (old_job->replacement,
+						  job_next_state (old_job->replacement));
 		}
 
 		old_job->replacement = job;

@@ -37,19 +37,10 @@
 #include "errors.h"
 
 
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-	return 0;
-}
-
 void
 test_parse_job (void)
 {
-	Job        *job, *new_job;
+	Job        *job, *new_job, *old_job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -128,11 +119,7 @@ test_parse_job (void)
 			job->state = JOB_RUNNING;
 			job->process[PROCESS_MAIN]->pid = 1000;
 
-			job->replacement = job_new (NULL, "wibble");
-
-			destructor_called = 0;
-			nih_alloc_set_destructor (job->replacement,
-						  my_destructor);
+			old_job = job->replacement = job_new (NULL, "wibble");
 		}
 
 		strcpy (buf, "exec /sbin/daemon --daemon\n");
@@ -149,10 +136,10 @@ test_parse_job (void)
 			TEST_EQ (err->number, ENOMEM);
 			nih_free (err);
 
-			TEST_FALSE (destructor_called);
 			TEST_NE_P (job->replacement, NULL);
 
 			nih_list_free (&job->entry);
+			nih_list_free (&old_job->entry);
 			continue;
 		}
 
@@ -175,11 +162,13 @@ test_parse_job (void)
 		TEST_EQ (new_job->state, JOB_WAITING);
 		TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_TRUE (destructor_called);
-
 		TEST_EQ_P (job->replacement, new_job);
 		TEST_EQ_P (new_job->replacement_for, job);
 
+		TEST_EQ (old_job->goal, JOB_STOP);
+		TEST_EQ (old_job->state, JOB_DELETED);
+
+		nih_list_free (&old_job->entry);
 		nih_list_free (&new_job->entry);
 		nih_list_free (&job->entry);
 	}
