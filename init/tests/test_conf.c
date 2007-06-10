@@ -1759,6 +1759,308 @@ no_inotify:
 
 	conf_source_free (source);
 	job_free_deleted ();
+
+
+	nih_log_set_priority (NIH_LOG_MESSAGE);
+
+	/* Release consumed instances */
+	for (i = 0; i < 4096; i++) {
+		if (fd[i] < 0)
+			break;
+
+		close (fd[i]);
+	}
+}
+
+
+static int destructor_called = 0;
+
+static int
+my_destructor (void *ptr)
+{
+	destructor_called++;
+
+	return 100;
+}
+
+void
+test_source_free (void)
+{
+	ConfSource *source;
+	ConfFile   *file;
+	char        dirname[PATH_MAX];
+	int         ret, fd;
+
+	TEST_FUNCTION ("conf_source_free");
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+
+	/* Make sure that we have inotify before performing some tests... */
+	if ((fd = inotify_init ()) < 0) {
+		printf ("SKIP: inotify not available\n");
+		goto no_inotify;
+	}
+	close (fd);
+
+
+	/* Check that when the source is freed, the associated watch structure
+	 * is freed along with its io destructor, and the return value of the
+	 * destructors are returned.
+	 */
+	TEST_FEATURE ("with attached watch");
+	source = conf_source_new (NULL, dirname, CONF_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (source, my_destructor);
+	nih_alloc_set_destructor (source->watch, my_destructor);
+	nih_alloc_set_destructor (source->watch->io, my_destructor);
+
+	ret = conf_source_free (source);
+
+	TEST_EQ (ret, 100);
+	TEST_EQ (destructor_called, 3);
+
+
+no_inotify:
+	/* Check that we can free a source that has no attached watch.
+	 * The destructor should be called, and the return value returned.
+	 */
+	TEST_FEATURE ("with no watch");
+	source = conf_source_new (NULL, dirname, CONF_DIR);
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (source, my_destructor);
+
+	ret = conf_source_free (source);
+
+	TEST_EQ (ret, 100);
+	TEST_EQ (destructor_called, 1);
+
+
+	/* Check that files attached to the source are freed as well. */
+	TEST_FEATURE ("with attached files");
+	source = conf_source_new (NULL, dirname, CONF_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	destructor_called = 0;
+
+	file = conf_file_get (source, "/path/to/file1");
+	nih_alloc_set_destructor (file, my_destructor);
+
+	file = conf_file_get (source, "/path/to/file2");
+	nih_alloc_set_destructor (file, my_destructor);
+
+	ret = conf_source_free (source);
+
+	TEST_EQ (ret, 0);
+	TEST_EQ (destructor_called, 2);
+
+
+	unlink (dirname);
+}
+
+void
+test_file_free (void)
+{
+	ConfSource *source;
+	ConfFile   *file;
+	ConfItem   *item;
+	int         ret;
+
+	/* Check that when a file is freed, the attached items are also
+	 * freed and the return value from the destructor is returned.
+	 * The file should have been removed from its containing list.
+	 */
+	TEST_FUNCTION ("conf_file_free");
+	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
+	file = conf_file_get (source, "/path/to/file");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (file, my_destructor);
+
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "foo");
+	nih_alloc_set_destructor (item, my_destructor);
+
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "bar");
+	nih_alloc_set_destructor (item, my_destructor);
+
+	ret = conf_file_free (file);
+
+	TEST_EQ (ret, 100);
+	TEST_EQ (destructor_called, 3);
+
+	TEST_EQ_P (nih_hash_lookup (source->files, "/path/to/file"), NULL);
+
+	conf_source_free (source);
+	job_free_deleted ();
+}
+
+void
+test_item_free (void)
+{
+	ConfSource *source;
+	ConfFile   *file;
+	ConfItem   *item;
+	Job        *job, *old_job;
+	int         ret;
+
+	TEST_FUNCTION ("conf_item_free");
+	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
+	file = conf_file_get (source, "/path/to/file");
+
+
+	/* Check that when a job item is freed, the attached job is
+	 * marked to be deleted and the state change invoked.
+	 */
+	TEST_FEATURE ("with stopped job");
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "foo");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (item, my_destructor);
+
+	job = item->job;
+
+	ret = conf_item_free (item);
+
+	TEST_EQ (ret, 100);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (job->replacement, (void *)-1);
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+
+	/* Check that a job that already has a replacement is not altered
+	 * and instead just has its state change pushed.
+	 */
+	TEST_FEATURE ("with stopped job with replacement");
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "foo");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (item, my_destructor);
+
+	job = item->job;
+	job->replacement = job_new (NULL, "foo");
+	old_job = job->replacement;
+	old_job->replacement_for = job;
+
+	ret = conf_item_free (item);
+
+	TEST_EQ (ret, 100);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (job->replacement, old_job);
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+	TEST_EQ_P (old_job->replacement_for, NULL);
+
+	nih_list_free (&old_job->entry);
+
+
+	/* Check that when a job item is freed, if the attached job is running
+	 * then it is only marked for deletion and the state is left alone.
+	 */
+	TEST_FEATURE ("with running job");
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "foo");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (item, my_destructor);
+
+	job = item->job;
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	ret = conf_item_free (item);
+
+	TEST_EQ (ret, 100);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (job->replacement, (void *)-1);
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	job->goal = JOB_STOP;
+	job->state = JOB_DELETED;
+
+
+	/* Check that a running job that already has a replacement is not
+	 * altered at all.
+	 */
+	TEST_FEATURE ("with running job with replacement");
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "foo");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (item, my_destructor);
+
+	job = item->job;
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	job->replacement = job_new (NULL, "foo");
+	old_job = job->replacement;
+	old_job->replacement_for = job;
+
+	ret = conf_item_free (item);
+
+	TEST_EQ (ret, 100);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (job->replacement, old_job);
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_EQ_P (old_job->replacement_for, job);
+
+	nih_list_free (&old_job->entry);
+
+
+	/* If the job attached to the item is actually a replacement for
+	 * another already, then cut out the middle man and mark it to
+	 * be replaced by our replacement, and change its state.
+	 */
+	TEST_FEATURE ("with replacement job");
+	old_job = job_new (NULL, "foo");
+
+	item = conf_item_new (source, file, CONF_JOB);
+	item->job = job_new (NULL, "foo");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (item, my_destructor);
+
+	job = item->job;
+	job->replacement_for = old_job;
+	old_job->replacement = job;
+
+	ret = conf_item_free (item);
+
+	TEST_EQ (ret, 100);
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (job->replacement, (void *)-1);
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+	TEST_EQ_P (old_job->replacement, (void *)-1);
+	TEST_EQ (old_job->goal, JOB_STOP);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+	nih_list_free (&old_job->entry);
+
+
+	conf_source_free (source);
+	job_free_deleted ();
 }
 
 
@@ -1770,6 +2072,9 @@ main (int   argc,
 	test_file_get ();
 	test_item_new ();
 	test_source_reload_dir ();
+	test_source_free ();
+	test_file_free ();
+	test_item_free ();
 
 	return 0;
 }

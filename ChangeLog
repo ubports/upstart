@@ -1,5 +1,11 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_conf.c (test_source_reload_dir): Reset the priority
+	and clean up consumed inotify instances.
+	(test_source_free, test_file_free, test_item_free): Test the free
+	functions on their own, paying special attention to conf_item_free()
+	even though this really duplicates other tests.
+
 	* init/conf.c (conf_reload_path): In the case where we fail to map
 	the file into memory, we still need to purge all the items that
 	previously existed.
