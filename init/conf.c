@@ -70,10 +70,6 @@ static int  conf_file_visitor          (ConfSource *source,
 static int  conf_reload_path           (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result));
 
-static void conf_file_delete           (ConfSource *source, ConfFile *file);
-static void conf_item_delete           (ConfSource *source, ConfFile *file,
-					ConfItem *item);
-
 
 /**
  * conf_sources:
@@ -331,10 +327,8 @@ conf_source_reload (ConfSource *source)
 	NIH_HASH_FOREACH_SAFE (source->files, iter) {
 		ConfFile *file = (ConfFile *)iter;
 
-		if (file->flag != source->flag) {
-			conf_file_delete (source, file);
-			nih_list_free (&file->entry);
-		}
+		if (file->flag != source->flag)
+			conf_file_free (file);
 	}
 
 	return ret;
@@ -595,8 +589,7 @@ conf_delete_handler (ConfSource *source,
 	if (! file)
 		return;
 
-	conf_file_delete (source, file);
-	nih_list_free (&file->entry);
+	conf_file_free (file);
 }
 
 /**
@@ -743,10 +736,8 @@ conf_reload_path (ConfSource *source,
 	NIH_LIST_FOREACH_SAFE (&file->items, item_iter) {
 		ConfItem *item = (ConfItem *)item_iter;
 
-		if (item->flag != file->flag) {
-			conf_item_delete (source, file, item);
-			nih_list_free (&item->entry);
-		}
+		if (item->flag != file->flag)
+			conf_item_free (item);
 	}
 
 	/* Unmap the file again; in theory this shouldn't fail, but if
@@ -769,46 +760,41 @@ conf_reload_path (ConfSource *source,
 
 
 /**
- * conf_file_delete:
- * @source: configuration source,
- * @file: file to be deleted.
+ * conf_file_free:
+ * @file: configuration file to be deleted and freed.
  *
- * Handle deletion of a configuration file.  This will delete all items
- * registered against it.
+ * Frees all items held by @file and then removes @file from its containing
+ * source and frees the memory allocated for it.
+ *
+ * Returns: return value from destructor, or 0.
  **/
-static void
-conf_file_delete (ConfSource *source,
-		  ConfFile   *file)
+int
+conf_file_free (ConfFile *file)
 {
-	nih_assert (source != NULL);
 	nih_assert (file != NULL);
 
 	/* Delete all items parsed from here. */
 	NIH_LIST_FOREACH_SAFE (&file->items, iter) {
 		ConfItem *item = (ConfItem *)iter;
 
-		conf_item_delete (source, file, item);
-		nih_list_free (&item->entry);
+		conf_item_free (item);
 	}
+
+	return nih_list_free (&file->entry);
 }
 
 /**
- * conf_item_delete:
- * @source: configuration source,
- * @file: configuration file,
- * @item: item to be deleted.
+ * conf_item_free:
+ * @item: configuration item to be deleted and freed.
  *
- * Handle deletion of a single item in a configuration file.  This will
- * arrange for the item to be unregistered and deleted through the most
- * appropriate means.
+ * Removes @item from its containing file and frees the memory allocated
+ * for it.
+ *
+ * Returns: return value from destructor, or 0.
  **/
-static void
-conf_item_delete (ConfSource *source,
-		  ConfFile   *file,
-		  ConfItem   *item)
+int
+conf_item_free (ConfItem *item)
 {
-	nih_assert (source != NULL);
-	nih_assert (file != NULL);
 	nih_assert (item != NULL);
 
 	switch (item->type) {
@@ -820,4 +806,6 @@ conf_item_delete (ConfSource *source,
 
 		break;
 	}
+
+	return nih_list_free (&item->entry);
 }

@@ -1,5 +1,11 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_file_delete): Rename to conf_file_free and match
+	the pattern of those kinds of functions.
+	(conf_item_delete): Likewise rename to conf_item_free and match the
+	pattern of these kinds of functions.
+	* init/conf.h: Add prototypes.
+
 	* init/conf.c (conf_reload_path): Fix bug with job name generation.
 	Allow non-parsing errors to be returned from the function.
 	(conf_item_delete): Drop all replacement management code, we'll put

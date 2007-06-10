@@ -154,6 +154,9 @@ void        conf_reload        (void);
 int         conf_source_reload (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
+int         conf_file_free     (ConfFile *file);
+int         conf_item_free     (ConfItem *item);
+
 NIH_END_EXTERN
 
 #endif /* INIT_CONF_H */
