@@ -1,5 +1,15 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload_path): In the case where we fail to map
+	the file into memory, we still need to purge all the items that
+	previously existed.
+	* init/tests/test_conf.c (test_source_reload): Rename to
+	test_source_reload_dir, so that we can keep this and the file
+	tests separate to make it easier to deal with.
+	(test_source_reload_dir): Add tests for physical and parse errors
+	when re-loading jobs with and without inotify, and for inotify-based
+	modification handling of jobs.
+
 	* init/tests/test_conf.c (test_source_reload): Add test for walk
 	of non-existant directory with and without inotify; also test for
 	what happens when the top-level directory is deleted, again with

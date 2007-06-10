@@ -669,10 +669,19 @@ conf_reload_path (ConfSource *source,
 
 	NIH_MUST (file = conf_file_get (source, path));
 
-	/* Map the file into memory for parsing. */
+	/* Map the file into memory for parsing.  If this fails, then we
+	 * delete all the current items since there's clearly a problem.
+	 */
 	buf = nih_file_map (file->path, O_RDONLY | O_NOCTTY, &len);
-	if (! buf)
+	if (! buf) {
+		NIH_LIST_FOREACH_SAFE (&file->items, iter) {
+			ConfItem *item = (ConfItem *)iter;
+
+			conf_item_free (item);
+		}
+
 		return -1;
+	}
 
 	/* If we've parsed this file before, we'll have a list of old items
 	 * that once existed and need to be cleaned up once we've parsed
@@ -770,6 +779,9 @@ conf_reload_path (ConfSource *source,
 		return -1;
 	}
 
+	/* If we had any unknown error from parsing the file, raise it again
+	 * and return an error condition.
+	 */
 	if (err) {
 		nih_error_raise_again (err);
 		return -1;
