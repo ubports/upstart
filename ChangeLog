@@ -1,5 +1,18 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload_path): It turns out that the flag trick
+	doesn't work for items since we often reparse them within the same
+	file tag (it works with files because they're atomic and reparsed).
+	Store the old items in a different list instead.
+	(conf_source_free): We need to be careful about freeing sources,
+	so have a function to do it properly.
+	(conf_item_new): Since the flag member isn't useful, don't bother
+	setting it.
+	* init/conf.h: Add conf_source_free prototype.
+	(ConfFile): Remove flag member.
+	* init/tests/test_conf.c (test_source_reload): Add test for inotify
+	create detection.
+
 	* init/conf.c (conf_file_delete): Rename to conf_file_free and match
 	the pattern of those kinds of functions.
 	(conf_item_delete): Likewise rename to conf_item_free and match the

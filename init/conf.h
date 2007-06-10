@@ -70,7 +70,7 @@ typedef enum conf_item_type {
  *
  * Normally inotify is used to watch the source for changes and load them
  * automatically, however mandatory reloading is also supported; for this
- * the @flag member is toggled, and copied to all files and items reloaded;
+ * the @flag member is toggled, and copied to all files reloaded;
  * any that are in the old state are deleted.
  **/
 typedef struct conf_source {
@@ -98,7 +98,7 @@ typedef struct conf_source {
  * The @flag member is used to support mandatory reloading; when the file is
  * created and parsed, it is set to the same value as the source's.  Then
  * the source can trivially see which files have been lost, since they have
- * the wrong flag value.  We use the same method for the @items list.
+ * the wrong flag value.
  **/
 typedef struct conf_file {
 	NihList  entry;
@@ -112,22 +112,15 @@ typedef struct conf_file {
  * ConfItem:
  * @entry: list header,
  * @type: item type,
- * @flag: reload flag,
  * @data: pointer to actual item.
  *
  * This structure represents an item defined within a configuration file,
  * the @data pointer points to the actual item structure itself.
- *
- * The @flag member is used to support mandatory reloading; when the item
- * is first created, or reparsed, it is set to the same value as the file's.
- * Then the file can trivially see which items defined within it have been
- * lost, since they have the wrong flag value.
  **/
 typedef struct conf_item {
 	NihList       entry;
 	ConfItemType  type;
 
-	int           flag;
 	union {
 		void *data;
 		Job  *job;
@@ -154,6 +147,7 @@ void        conf_reload        (void);
 int         conf_source_reload (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
+int         conf_source_free   (ConfSource *source);
 int         conf_file_free     (ConfFile *file);
 int         conf_item_free     (ConfItem *item);
 

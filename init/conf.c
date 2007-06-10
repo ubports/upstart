@@ -113,6 +113,9 @@ conf_init (void)
  * current configuration.  Normally you would set up all of the sources and
  * then call conf_reload() which will load them all.
  *
+ * Since a source has attached files, items and inotify watches, you should
+ * use conf_source_free() to free it and not attempt to free it directly.
+ *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned block will be freed too.  If you have clean-up
@@ -237,7 +240,6 @@ conf_item_new (ConfSource   *source,
 	nih_list_init (&item->entry);
 
 	item->type = type;
-	item->flag = file->flag;
 	item->data = NULL;
 
 	nih_list_add (&file->items, &item->entry);
@@ -646,6 +648,7 @@ conf_reload_path (ConfSource *source,
 		  const char *path)
 {
 	ConfFile   *file;
+	NihList     old_items;
 	ConfItem   *item;
 	const char *buf, *name;
 	size_t      len, pos, lineno;
@@ -660,6 +663,15 @@ conf_reload_path (ConfSource *source,
 	buf = nih_file_map (file->path, O_RDONLY | O_NOCTTY, &len);
 	if (! buf)
 		return -1;
+
+	/* If we've parsed this file before, we'll have a list of old items
+	 * that once existed and need to be cleaned up once we've parsed
+	 * the new items.  The easiest way to identify them is to put
+	 * them into a different list for safe-keeping.
+	 */
+	nih_list_init (&old_items);
+	nih_list_add (&old_items, file->items.next);
+	nih_list_remove (&file->items);
 
 	/* Parse the file buffer, registering items found against the
 	 * ConfFile; the existing items are removed later.
@@ -730,14 +742,12 @@ conf_reload_path (ConfSource *source,
 		}
 	}
 
-	/* Delete the old items from the file, these are easy to detect
-	 * as only the new items will have the right flag.
+	/* Delete the old items now we've parsed in the list of new ones.
 	 */
-	NIH_LIST_FOREACH_SAFE (&file->items, item_iter) {
-		ConfItem *item = (ConfItem *)item_iter;
+	NIH_LIST_FOREACH_SAFE (&old_items, iter) {
+		ConfItem *item = (ConfItem *)iter;
 
-		if (item->flag != file->flag)
-			conf_item_free (item);
+		conf_item_free (item);
 	}
 
 	/* Unmap the file again; in theory this shouldn't fail, but if
@@ -758,6 +768,32 @@ conf_reload_path (ConfSource *source,
 	return 0;
 }
 
+
+/**
+ * conf_source_free:
+ * @source: configuration source to be freed.
+ *
+ * Frees the watch held by @source, all files parsed by source and the items
+ * helped by them, and then frees the source itself.
+ *
+ * Returns: return value from destructor, or 0.
+ **/
+int
+conf_source_free (ConfSource *source)
+{
+	nih_assert (source != NULL);
+
+	NIH_HASH_FOREACH_SAFE (source->files, iter) {
+		ConfFile *file = (ConfFile *)iter;
+
+		conf_file_free (file);
+	}
+
+	if (source->watch)
+		nih_watch_free (source->watch);
+
+	return nih_list_free (&source->entry);
+}
 
 /**
  * conf_file_free:

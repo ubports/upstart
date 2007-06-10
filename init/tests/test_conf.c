@@ -30,6 +30,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/select.h>
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -41,6 +42,7 @@
 #include <nih/alloc.h>
 #include <nih/list.h>
 #include <nih/hash.h>
+#include <nih/io.h>
 #include <nih/watch.h>
 #include <nih/main.h>
 #include <nih/logging.h>
@@ -183,7 +185,6 @@ test_item_new (void)
 		TEST_ALLOC_PARENT (item, file);
 		TEST_LIST_NOT_EMPTY (&item->entry);
 		TEST_EQ (item->type, CONF_JOB);
-		TEST_EQ (item->flag, file->flag);
 		TEST_EQ_P (item->data, NULL);
 
 		nih_list_free (&item->entry);
@@ -202,9 +203,10 @@ test_source_reload (void)
 	ConfItem   *item;
 	Job        *job;
 	FILE       *f;
-	int         ret, fd[4096], i = 0;
+	int         ret, fd[4096], i = 0, nfds;
 	char        job_dirname[PATH_MAX];
 	char        filename[PATH_MAX];
+	fd_set      readfds, writefds, exceptfds;
 
 	TEST_FUNCTION ("conf_source_reload");
 	program_name = "test";
@@ -281,7 +283,6 @@ test_source_reload (void)
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("foo");
@@ -313,7 +314,6 @@ test_source_reload (void)
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("bar");
@@ -345,7 +345,6 @@ test_source_reload (void)
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("frodo/foo");
@@ -363,10 +362,65 @@ test_source_reload (void)
 
 	nih_list_free (&file->entry);
 
-
 	TEST_HASH_EMPTY (source->files);
 
-	nih_list_free (&source->entry);
+	conf_source_free (source);
+
+
+	/* Check that if we create a new file in the directory, using the
+	 * direct writing technique, it will be automatically parsed and
+	 * loaded.
+	 */
+	TEST_FEATURE ("with new file in directory");
+	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  echo\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+
+	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+	TEST_ALLOC_PARENT (file, source);
+	TEST_EQ (file->flag, source->flag);
+	TEST_LIST_NOT_EMPTY (&file->items);
+
+	item = (ConfItem *)file->items.next;
+
+	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
+	TEST_ALLOC_PARENT (item, file);
+	TEST_NE_P (item->job, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (item->job, job);
+
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+	TEST_EQ_P (item->entry.next, &file->items);
+
+
+	unlink (filename);
+	conf_source_free (source);
 
 
 	/* Consume all available inotify instances so that the following
@@ -404,7 +458,6 @@ no_inotify:
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("foo");
@@ -436,7 +489,6 @@ no_inotify:
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("bar");
@@ -468,7 +520,6 @@ no_inotify:
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("frodo/foo");
@@ -489,7 +540,7 @@ no_inotify:
 
 	TEST_HASH_EMPTY (source->files);
 
-	nih_list_free (&source->entry);
+	conf_source_free (source);
 
 
 	/* Check that we can perform a mandatory reload of the directory,
@@ -538,7 +589,6 @@ no_inotify:
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("foo");
@@ -570,7 +620,6 @@ no_inotify:
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("bar");
@@ -611,7 +660,6 @@ no_inotify:
 
 	TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 	TEST_ALLOC_PARENT (item, file);
-	TEST_EQ (item->flag, file->flag);
 	TEST_NE_P (item->job, NULL);
 
 	job = job_find_by_name ("frodo/bar");
@@ -632,7 +680,7 @@ no_inotify:
 
 	TEST_HASH_EMPTY (source->files);
 
-	nih_list_free (&source->entry);
+	conf_source_free (source);
 
 
 	strcpy (filename, job_dirname);
