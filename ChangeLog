@@ -1,5 +1,13 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_conf.c (test_source_reload): Add test for walk
+	of non-existant directory with and without inotify; also test for
+	what happens when the top-level directory is deleted, again with
+	and without inotify.
+	* init/conf.c (conf_delete_handler): Handle the case of the top-level
+	directory being deleted by freeing the watch (so next time we asked
+	to reload, we can restore it).
+
 	* init/tests/test_conf.c (test_source_reload): Add a test for
 	deletion of a running job.
 

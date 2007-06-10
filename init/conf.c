@@ -584,12 +584,22 @@ conf_delete_handler (ConfSource *source,
 	nih_assert (watch != NULL);
 	nih_assert (path != NULL);
 
-	/* Lookup the file in the source; if we haven't parsed it, there's
-	 * no point worrying about it.
+	/* Lookup the file in the source.  If we haven't parsed it, this
+	 * could actually mean that it was the top-level directory itself
+	 * that was deleted, in which case we free the watch, otherwise
+	 * it's probably a directory or something, so just ignore it.
 	 */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! file)
+	if (! file) {
+		if (! strcmp (path, source->path)) {
+			nih_warn ("%s: %s", source->path,
+				  _("Configuration directory deleted"));
+			nih_watch_free (source->watch);
+			source->watch = NULL;
+		}
+
 		return;
+	}
 
 	conf_file_free (file);
 }

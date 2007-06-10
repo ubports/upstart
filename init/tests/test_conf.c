@@ -207,6 +207,7 @@ test_source_reload (void)
 	char        job_dirname[PATH_MAX];
 	char        tmpname[PATH_MAX], filename[PATH_MAX];
 	fd_set      readfds, writefds, exceptfds;
+	NihError   *err;
 
 	TEST_FUNCTION ("conf_source_reload");
 	program_name = "test";
@@ -799,6 +800,83 @@ test_source_reload (void)
 	conf_source_free (source);
 	job_free_deleted ();
 
+
+	/* Check that we catch errors attempting to watch and walk a
+	 * directory that doesn't exist.
+	 */
+	TEST_FEATURE ("with non-existant directory");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/wibble");
+
+	source = conf_source_new (NULL, filename, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_LT (ret, 0);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, ENOENT);
+	nih_free (err);
+
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_HASH_EMPTY (source->files);
+
+	conf_source_free (source);
+
+
+	/* Check that we can catch the deletion of the top-level directory,
+	 * which results in the files and directories themselves being
+	 * deleted and the watch being removed from the source structure.
+	 */
+	TEST_FEATURE ("with deletion of top-level directory");
+	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+	unlink (filename);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo");
+	rmdir (filename);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+	unlink (filename);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/foo");
+	unlink (filename);
+
+	rmdir (job_dirname);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_HASH_EMPTY (source->files);
+
+	job = job_find_by_name ("foo");
+	TEST_EQ (job, NULL);
+
+	job = job_find_by_name ("bar");
+	TEST_EQ (job, NULL);
+
+	job = job_find_by_name ("frodo/foo");
+	TEST_EQ (job, NULL);
+
+	conf_source_free (source);
+	job_free_deleted ();
+
+
 	/* Consume all available inotify instances so that the following
 	 * tests run without inotify.
 	 */
@@ -806,6 +884,39 @@ test_source_reload (void)
 		if ((fd[i] = inotify_init ()) < 0)
 			break;
 no_inotify:
+
+
+	TEST_FILENAME (job_dirname);
+	mkdir (job_dirname, 0755);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/foo");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec /sbin/daemon\n");
+	fprintf (f, "respawn\n");
+	fclose (f);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "script\n");
+	fprintf (f, "  echo\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo");
+
+	mkdir (filename, 0755);
+
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/foo");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec /bin/tool\n");
+	fclose (f);
 
 
 	/* Check that we can load a job directory source for the first time.
@@ -1069,6 +1180,38 @@ no_inotify:
 	job_free_deleted ();
 
 
+	/* Check that we catch errors attempting to walk a directory that
+	 * doesn't exist.
+	 */
+	TEST_FEATURE ("with non-existant directory and no inotify");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/wibble");
+
+	source = conf_source_new (NULL, filename, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_LT (ret, 0);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, ENOENT);
+	nih_free (err);
+
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_HASH_EMPTY (source->files);
+
+	conf_source_free (source);
+
+
+	/* Check that if we mandatory reload a non-existant directory, all
+	 * files, items and jobs are deleted.
+	 */
+	TEST_FEATURE ("with reload of deleted directory");
+	source = conf_source_new (NULL, job_dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
 	strcpy (filename, job_dirname);
 	strcat (filename, "/frodo/bar");
 	unlink (filename);
@@ -1086,6 +1229,29 @@ no_inotify:
 	unlink (filename);
 
 	rmdir (job_dirname);
+
+	ret = conf_source_reload (source);
+
+	TEST_LT (ret, 0);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, ENOENT);
+	nih_free (err);
+
+	TEST_EQ_P (source->watch, NULL);
+
+	TEST_HASH_EMPTY (source->files);
+
+	job = job_find_by_name ("foo");
+	TEST_EQ (job, NULL);
+
+	job = job_find_by_name ("bar");
+	TEST_EQ (job, NULL);
+
+	job = job_find_by_name ("frodo/foo");
+	TEST_EQ (job, NULL);
+
+	conf_source_free (source);
 }
 
 
