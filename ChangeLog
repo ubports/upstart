@@ -1,5 +1,8 @@
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_conf.c (test_source_reload): Add a test for
+	deletion of a running job.
+
 	* init/conf.c (conf_item_free): Fix this up; when deleting an item
 	from a source, we first mark it for deletion unless it's already
 	marked for replacement.  Then if it's the replacement for something

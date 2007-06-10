@@ -739,7 +739,61 @@ test_source_reload (void)
 	TEST_EQ (old_job->replacement_for, job);
 
 	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
+	job->state = JOB_DELETED;
+
+
+	/* Check that if a running job is deleted, it is not immediately
+	 * freed, and instead is marked to be when stopped.
+	 */
+	TEST_FEATURE ("with deletion of running job");
+	strcpy (filename, job_dirname);
+	strcat (filename, "/frodo/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "respawn\n");
+	fprintf (f, "script\n");
+	fprintf (f, "  sleep 5\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_NE_P (job, NULL);
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	old_job = job;
+
+	unlink (filename);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+
+	job = job_find_by_name ("frodo/bar");
+	TEST_EQ_P (job, old_job);
+
+	TEST_EQ_P (job->replacement, (void *)-1);
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	job->goal = JOB_STOP;
+	job->state = JOB_DELETED;
 
 
 	conf_source_free (source);
