@@ -46,6 +46,7 @@
 #include <nih/errors.h>
 
 #include "parse_job.h"
+#include "parse_conf.h"
 #include "conf.h"
 #include "errors.h"
 
@@ -654,6 +655,21 @@ conf_file_visitor (ConfSource  *source,
  * @source: configuration source,
  * @path: path of file to be reloaded.
  *
+ * This function is used to parse the file at @path in the context of the
+ * given configuration @source.  Necessary ConfFile and ConfItem structures
+ * are allocated and attached to the @source as appropriate.
+ *
+ * Depending on the type of the @source, this can parse jobs directly (in
+ * which case they are named after the relative part of the path) or mixed
+ * configuration files which define the names specifically.
+ *
+ * If the file has been parsed before, then any existing items are deleted
+ * and freed if the file fails to load, or after the new items have been
+ * parsed.  Items are not reused for the same apparent item between reloads,
+ * since there's no real meaning to it.
+ *
+ * Physical errors are returned, parse errors are not.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 static int
@@ -692,7 +708,7 @@ conf_reload_path (ConfSource *source,
 	 * them into a different list for safe-keeping.
 	 */
 	nih_list_init (&old_items);
-	nih_list_add (&old_items, file->items.next);
+	nih_list_add (&file->items, &old_items);
 	nih_list_remove (&file->items);
 
 	/* Parse the file buffer, registering items found against the
@@ -707,10 +723,9 @@ conf_reload_path (ConfSource *source,
 		/* Parse the file, this deals with item creation itself
 		 * since only it knows the item types and names.
 		 */
-#if 0
-		if (parse_conf (buf, len, &pos, &lineno) < 0)
+		nih_debug ("Loading configuration from %s", path);
+		if (parse_conf (file, buf, len, &pos, &lineno) < 0)
 			err = nih_error_get ();
-#endif
 
 		break;
 	case CONF_JOB_DIR:

@@ -1,5 +1,16 @@
 2007-06-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload_path): Call parse_conf for mixed files
+	and directories.  Make a correction to the old_items code, was
+	passing the wrong arguments to nih_list_add; the effect we wanted
+	was that we add the old items head into the list, and remove the
+	existing head (what we did was add the first item to the old_items
+	list and then cut the rest out).
+	* init/tests/test_conf.c (test_source_reload_dir): Rename to
+	test_source_reload_job_dir, since that's what this does.
+	(test_source_reload_conf_dir): Add another function that tests
+	directories of mixed configuration.
+
 	* init/parse_conf.c (parse_conf): Parse a configuration file that
 	defines jobs by name.
 	(stanza_job): Job stanza, slightly trickier than it would appear to
