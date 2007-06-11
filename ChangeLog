@@ -1,3 +1,20 @@
+2007-06-11  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am (init_SOURCES): Build and link parse_conf.c and
+	parse_conf.h
+	(TESTS): Build and run parse_conf tests
+	(test_parse_conf_SOURCES, test_parse_conf_LDFLAGS) 
+	(test_parse_conf_LDADD): Details for parse_conf test suite.
+	(test_conf_LDADD): Add parse_conf.o and conf.o since this calls
+	them now.
+	* init/conf.c (conf_item_new): Drop source parameter, since it's
+	unused in the function and makes it harder to call this when we
+	only have one data pointer.
+	(conf_reload_path): Drop source from conf_item_new() call.
+	* init/conf.h: Update prototype.
+	* init/tests/test_conf.c (test_item_new, test_item_free) 
+	(test_file_free): Drop source parameter from calls.
+
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c (main): Add a handler for the SIGHUP signal

@@ -174,7 +174,7 @@ test_item_new (void)
 	 */
 	TEST_FEATURE ("with new item");
 	TEST_ALLOC_FAIL {
-		item = conf_item_new (source, file, CONF_JOB);
+		item = conf_item_new (file, CONF_JOB);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (item, NULL);
@@ -1884,11 +1884,11 @@ test_file_free (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (file, my_destructor);
 
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 	nih_alloc_set_destructor (item, my_destructor);
 
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "bar");
 	nih_alloc_set_destructor (item, my_destructor);
 
@@ -1921,7 +1921,7 @@ test_item_free (void)
 	 * marked to be deleted and the state change invoked.
 	 */
 	TEST_FEATURE ("with stopped job");
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
 	destructor_called = 0;
@@ -1943,7 +1943,7 @@ test_item_free (void)
 	 * and instead just has its state change pushed.
 	 */
 	TEST_FEATURE ("with stopped job with replacement");
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
 	destructor_called = 0;
@@ -1972,7 +1972,7 @@ test_item_free (void)
 	 * then it is only marked for deletion and the state is left alone.
 	 */
 	TEST_FEATURE ("with running job");
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
 	destructor_called = 0;
@@ -1999,7 +1999,7 @@ test_item_free (void)
 	 * altered at all.
 	 */
 	TEST_FEATURE ("with running job with replacement");
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
 	destructor_called = 0;
@@ -2033,7 +2033,7 @@ test_item_free (void)
 	TEST_FEATURE ("with replacement job");
 	old_job = job_new (NULL, "foo");
 
-	item = conf_item_new (source, file, CONF_JOB);
+	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
 	destructor_called = 0;

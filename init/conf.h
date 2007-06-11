@@ -139,8 +139,7 @@ ConfSource *conf_source_new    (const void *parent, const char *path,
 	__attribute__ ((warn_unused_result, malloc));
 ConfFile *  conf_file_get      (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result));
-ConfItem *  conf_item_new      (ConfSource *source, ConfFile *conf_file,
-				ConfItemType type)
+ConfItem *  conf_item_new      (ConfFile *conf_file, ConfItemType type)
 	__attribute__ ((warn_unused_result));
 
 void        conf_reload        (void);

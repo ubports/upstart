@@ -211,12 +211,11 @@ conf_file_get (ConfSource *source,
 
 /**
  * conf_item_new:
- * @source: configuration source,
  * @file: file to attach to,
  * @type: type of item.
  *
- * Allocates and returns a new ConfItem structure for the given @source
- * and @file, with @type indicating what kind of data will be attached
+ * Allocates and returns a new ConfItem structure for the given @file,
+ * with @type indicating what kind of data will be attached
  * to this item.  Setting the data pointer is the job of the caller.
  *
  * The returned structure is automatically placed in the @file items list.
@@ -224,13 +223,11 @@ conf_file_get (ConfSource *source,
  * Returns: newly allocated ConfItem structure or NULL if insufficient memory.
  **/
 ConfItem *
-conf_item_new (ConfSource   *source,
-	       ConfFile     *file,
+conf_item_new (ConfFile     *file,
 	       ConfItemType  type)
 {
 	ConfItem *item;
 
-	nih_assert (source != NULL);
 	nih_assert (file != NULL);
 
 	item = nih_new (file, ConfItem);
@@ -724,7 +721,7 @@ conf_reload_path (ConfSource *source,
 		/* Create a new job item and parse the buffer to produce
 		 * the job definition.  Discard the item if this fails.
 		 */
-		NIH_MUST (item = conf_item_new (source, file, CONF_JOB));
+		NIH_MUST (item = conf_item_new (file, CONF_JOB));
 		item->job = parse_job (NULL, name, buf, len, &pos, &lineno);
 		if (! item->job) {
 			err = nih_error_get ();
