@@ -23,6 +23,7 @@ init_SOURCES = \
 	control.c control.h \
 	notify.c notify.h \
 	parse_job.c parse_job.h \
+	parse_conf.c parse_conf.h \
 	conf.c conf.h
 
 init_LDFLAGS = -static
@@ -42,6 +43,7 @@ TESTS = \
 	test_control \
 	test_notify \
 	test_parse_job \
+	test_parse_conf \
 	test_conf
 
 check_PROGRAMS = $(TESTS)
@@ -82,10 +84,18 @@ test_parse_job_LDADD = \
 	process.o job.o event.o control.o notify.o parse_job.o \
 	../upstart/libupstart.la ../nih/libnih.la
 
+test_parse_conf_SOURCES = tests/test_parse_conf.c
+test_parse_conf_LDFLAGS = -static
+test_parse_conf_LDADD = \
+	process.o job.o event.o control.o notify.o parse_job.o parse_conf.o \
+	conf.o \
+	../upstart/libupstart.la ../nih/libnih.la
+
 test_conf_SOURCES = tests/test_conf.c
 test_conf_LDFLAGS = -static
 test_conf_LDADD = \
-	process.o job.o event.o control.o notify.o parse_job.o conf.o \
+	process.o job.o event.o control.o notify.o parse_job.o parse_conf.o \
+	conf.o \
 	../upstart/libupstart.la ../nih/libnih.la
 
 

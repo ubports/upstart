@@ -1,5 +1,21 @@
 2007-06-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_conf.c (parse_conf): Parse a configuration file that
+	defines jobs by name.
+	(stanza_job): Job stanza, slightly trickier than it would appear to
+	need to be, to parse the block in-place and keep pos/lineno
+	consistent.
+	* init/parse_conf.h: Prototype for external function.
+	* init/tests/test_parse_conf.c: Test suite for mixed configuration
+	parsing.
+	* init/Makefile.am (init_SOURCES): Build and link parse_conf.c and
+	parse_conf.h
+	(TESTS): Build and run parse_conf tests
+	(test_parse_conf_SOURCES, test_parse_conf_LDFLAGS) 
+	(test_parse_conf_LDADD): Details for parse_conf test suite.
+	(test_conf_LDADD): Add parse_conf.o and conf.o since this calls
+	them now.
+
 	* init/conf.c (conf_source_reload, conf_source_reload) 
 	(conf_reload_path): Add some debugging messages.
 
