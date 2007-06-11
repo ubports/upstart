@@ -305,6 +305,8 @@ conf_source_reload (ConfSource *source)
 
 	nih_assert (source != NULL);
 
+	nih_info (_("Loading configuration from %s"), source->path);
+
 	/* Toggle the flag so we can detect deleted files and items. */
 	source->flag = (! source->flag);
 
@@ -328,8 +330,10 @@ conf_source_reload (ConfSource *source)
 	NIH_HASH_FOREACH_SAFE (source->files, iter) {
 		ConfFile *file = (ConfFile *)iter;
 
-		if (file->flag != source->flag)
+		if (file->flag != source->flag) {
+			nih_info (_("Handling deletion of %s"), file->path);
 			conf_file_free (file);
+		}
 	}
 
 	return ret;
@@ -723,6 +727,7 @@ conf_reload_path (ConfSource *source,
 		/* Create a new job item and parse the buffer to produce
 		 * the job definition.  Discard the item if this fails.
 		 */
+		nih_debug ("Loading %s from %s", name, path);
 		NIH_MUST (item = conf_item_new (file, CONF_JOB));
 		item->job = parse_job (NULL, name, buf, len, &pos, &lineno);
 		if (! item->job) {

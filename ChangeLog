@@ -1,5 +1,8 @@
 2007-06-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_source_reload, conf_source_reload) 
+	(conf_reload_path): Add some debugging messages.
+
 	* init/conf.c (conf_source_new): Add missing call to conf_init()
 
 	* init/conf.c (conf_item_new): Drop source parameter, since it's
