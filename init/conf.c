@@ -134,6 +134,8 @@ conf_source_new (const void     *parent,
 
 	nih_assert (path != NULL);
 
+	conf_init ();
+
 	source = nih_new (parent, ConfSource);
 	if (! source)
 		return NULL;

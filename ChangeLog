@@ -1,12 +1,7 @@
 2007-06-11  Scott James Remnant  <scott@netsplit.com>
 
-	* init/Makefile.am (init_SOURCES): Build and link parse_conf.c and
-	parse_conf.h
-	(TESTS): Build and run parse_conf tests
-	(test_parse_conf_SOURCES, test_parse_conf_LDFLAGS) 
-	(test_parse_conf_LDADD): Details for parse_conf test suite.
-	(test_conf_LDADD): Add parse_conf.o and conf.o since this calls
-	them now.
+	* init/conf.c (conf_source_new): Add missing call to conf_init()
+
 	* init/conf.c (conf_item_new): Drop source parameter, since it's
 	unused in the function and makes it harder to call this when we
 	only have one data pointer.
