@@ -273,9 +273,10 @@ conf_reload (void)
 			NihError *err;
 
 			err = nih_error_get ();
-			nih_error ("%s: %s: %s", source->path,
-				   _("Unable to load configuration"),
-				   err->message);
+			if (err->number != ENOENT)
+				nih_error ("%s: %s: %s", source->path,
+					   _("Unable to load configuration"),
+					   err->message);
 			nih_free (err);
 		}
 	}

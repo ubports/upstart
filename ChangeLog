@@ -1,5 +1,8 @@
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload): Ignore ENOENT, it's not interesting
+	in the general case.
+
 	* init/tests/test_conf.c (test_source_reload): Test the general
 	reload function.
 
