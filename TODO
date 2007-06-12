@@ -24,10 +24,8 @@ High Priority:
    current holder, and list of available holders, and we should be able to
    elect a new current.
 
- * Configuration reloading needs to happen with the HUP signal and with an
-   initctl command.
-
- * Support configuration files that define jobs with the "job" stanza.
+ * Configuration reloading needs to happen with an initctl command;
+   we also need to support re-exec via initctl as well.
 
  * SysV-compat stuff should have a common code that reads and writes from
    utmp used by all of the pieces:
@@ -118,7 +116,8 @@ Future Features:
  * Passing of environment and file descriptors from event over control
    socket.
 
- * Register services over the control socket.
+ * Register jobs over the control socket, ideal way is to register some kind
+   of automatic source and attach them to that.
 
  * Temporal events ("15m after startup")
 

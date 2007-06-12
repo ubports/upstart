@@ -1,5 +1,7 @@
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/Makefile.am (AM_CPPFLAGS): Define CONFDIR to be
 	$(sysconfdir)/init, replacing the old CFG_DIR definition.
 	* init/paths.h (CFG_DIR): Replace with CONFDIR definition,
