@@ -503,8 +503,8 @@ conf_source_reload_dir (ConfSource *source)
  *
  * When we watch the parent directory of a file for changes, we receive
  * notification about all changes to that directory.  We only care about
- * those that affect the path in @source, so we use this function to filter
- * out all others.
+ * those that affect the path in @source, and the path that we're watching,
+ * so we use this function to filter out all others.
  *
  * Returns: FALSE if @path matches @source, TRUE otherwise.
  **/
@@ -516,6 +516,9 @@ conf_file_filter (ConfSource *source,
 	nih_assert (path != NULL);
 
 	if (! strcmp (source->path, path))
+		return FALSE;
+
+	if (! strcmp (source->watch->path, path))
 		return FALSE;
 
 	return TRUE;
@@ -595,7 +598,7 @@ conf_delete_handler (ConfSource *source,
 	 */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
 	if (! file) {
-		if (! strcmp (path, source->path)) {
+		if (! strcmp (watch->path, path)) {
 			nih_warn ("%s: %s", source->path,
 				  _("Configuration directory deleted"));
 			nih_watch_free (source->watch);

@@ -1,5 +1,16 @@
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_conf.c (test_source_free): s/unlink/rmdir/
+	(test_source_reload_file): Test that configuration files work, and
+	are parsed with anything alongside ignored automatically.
+	* init/conf.c (conf_file_filter): As well as not filtering out the
+	source path itself, we also need to not filter out the path we're
+	watching which is different in the case of files; we need to know
+	about it because we handle its removal.
+	(conf_delete_handler): Compare the path deleted against the path
+	we're watching, rather than the source path, since this means the
+	watch needs to be freed.
+
 	* compat/sysv/shutdown.c: Use nih pidfile functions since they're
 	more reliable than doing it ourselves.
 
