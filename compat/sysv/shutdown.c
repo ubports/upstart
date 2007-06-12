@@ -54,14 +54,6 @@
 
 
 /**
- * PID_FILE:
- *
- * Where we store our process id so that a running shutdown can be detected
- * or cancelled.
- **/
-#define PID_FILE "/var/run/shutdown.pid"
-
-/**
  * ETC_NOLOGIN:
  *
  * File we write to to prevent logins.
@@ -191,7 +183,6 @@ main (int   argc,
 	char   **args, *message, *msg;
 	int      arg;
 	size_t   messagelen;
-	FILE    *pidfile;
 	pid_t    pid = 0;
 
 	nih_main_init (argv[0]);
@@ -332,14 +323,10 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Look for an existing pid file */
-	pidfile = fopen (PID_FILE, "r");
-	if (pidfile) {
-		fscanf (pidfile, "%d", &pid);
-		fclose (pidfile);
-	}
-
-	/* Deal with the existing process */
+	/* Look for an existing pid file and deal with the existing
+	 * process if there is one.
+	 */
+	pid = nih_main_read_pidfile ();
 	if (pid > 0) {
 		if (cancel) {
 			if (kill (pid, SIGINT) < 0) {
@@ -378,13 +365,13 @@ main (int   argc,
 		shutdown_now ();
 
 	/* Save our pid so we can be interrupted later */
-	unlink (PID_FILE);
-	pidfile = fopen (PID_FILE, "w");
-	if (pidfile) {
-		fprintf (pidfile, "%d\n", getpid ());
-		fclose (pidfile);
-	} else {
-		nih_warn (_("Unable to save pid to %s"), PID_FILE);
+	if (nih_main_write_pidfile (getpid ()) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn ("%s: %s: %s", nih_main_get_pidfile(),
+			  _("Unable to write pid file"), err->message);
+		nih_free (err);
 	}
 
 
@@ -527,8 +514,8 @@ shutdown_now (void)
 		exit (1);
 	}
 
-	unlink (PID_FILE);
 	unlink (ETC_NOLOGIN);
+	nih_main_unlink_pidfile ();
 
 	exit (0);
 }
@@ -548,8 +535,8 @@ cancel_callback (void      *data,
 		 NihSignal *signal)
 {
 	nih_error (_("Shutdown cancelled"));
-	unlink (PID_FILE);
 	unlink (ETC_NOLOGIN);
+	nih_main_unlink_pidfile ();
 	exit (0);
 }
 
