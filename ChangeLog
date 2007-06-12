@@ -1,5 +1,13 @@
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/paths.h: Remove extra /, oops.
+	* init/Makefile.am (install-data-local): Make destination
+	configuration directories as part of "make install".
+	(AM_CPPFLAGS): Define LEGACY_CONFDIR to be $(sysconfdir)/event.d
+	* logd/Makefile.am (jobs.d/logd): Replace mkdir_p with MKDIR_P
+	* init/main.c: Use macro to pick up /etc/event.d so it can be moved
+	by configure
+
 	* TODO: Update.
 
 	* init/Makefile.am (AM_CPPFLAGS): Define CONFDIR to be

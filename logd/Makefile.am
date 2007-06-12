@@ -37,7 +37,7 @@ check_PROGRAMS = $(TESTS)
 
 
 jobs.d/logd: jobs.d/logd.in
-	$(mkdir_p) jobs.d
+	$(MKDIR_P) jobs.d
 	$(do_subst) < $< > $@
 
 

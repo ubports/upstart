@@ -1,8 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 
+initconfdir = $(sysconfdir)/init
+
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
-	-DCONFDIR="\"$(sysconfdir)/init\"" \
+	-DCONFDIR="\"$(initconfdir)\"" \
+	-DLEGACY_CONFDIR="\"$(sysconfdir)/event.d\"" \
 	-DTELINIT="\"$(sbindir)/telinit\"" \
 	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
 	-I$(top_srcdir)/intl
@@ -98,6 +101,12 @@ test_conf_LDADD = \
 	conf.o \
 	../upstart/libupstart.la ../nih/libnih.la
 
+
+install-data-local:
+	$(MKDIR_P) $(DESTDIR)$(initconfdir)
+	$(MKDIR_P) $(DESTDIR)$(initconfdir)/conf.d
+	$(MKDIR_P) $(DESTDIR)$(initconfdir)/jobs.d
+	$(MKDIR_P) $(DESTDIR)$(sysconfdir)/event.d
 
 clean-local:
 	rm -f *.gcno *.gcda

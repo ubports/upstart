@@ -269,7 +269,9 @@ main (int   argc,
 	NIH_MUST (conf_source_new (NULL, CONFDIR "/init.conf", CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, CONFDIR "/conf.d", CONF_DIR));
 	NIH_MUST (conf_source_new (NULL, CONFDIR "/jobs.d", CONF_JOB_DIR));
-	NIH_MUST (conf_source_new (NULL, "/etc/event.d", CONF_JOB_DIR));
+#ifdef LEGACY_CONFDIR
+	NIH_MUST (conf_source_new (NULL, LEGACY_CONFDIR, CONF_JOB_DIR));
+#endif /* LEGACY_CONFDIR */
 
 	conf_reload ();
 

@@ -61,4 +61,4 @@ compat/sysv/telinit
 compat/sysv/test_*
 logd/logd
 logd/test_*
-logd/event.d/logd
+logd/jobs.d/logd

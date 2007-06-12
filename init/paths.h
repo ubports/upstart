@@ -1,4 +1,4 @@
-//* upstart
+/* upstart
  *
  * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
