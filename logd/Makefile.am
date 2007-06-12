@@ -6,12 +6,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/intl
 
 
-eventdir = $(sysconfdir)/event.d
-event_DATA = \
-	event.d/logd
+jobsdir = $(sysconfdir)/init/jobs.d
+jobs_DATA = \
+	jobs.d/logd
 
-CLEANFILES = $(event_DATA)
-EXTRA_DIST = event.d/logd.in
+CLEANFILES = $(jobs_DATA)
+EXTRA_DIST = jobs.d/logd.in
 
 do_subst = sed -e '\,[@]sbindir[@],{s,[@]sbindir[@],$(sbindir),g;s,//*,/,g}'
 
@@ -36,8 +36,8 @@ TESTS =
 check_PROGRAMS = $(TESTS)
 
 
-event.d/logd: event.d/logd.in
-	$(mkdir_p) event.d
+jobs.d/logd: jobs.d/logd.in
+	$(mkdir_p) jobs.d
 	$(do_subst) < $< > $@
 
 

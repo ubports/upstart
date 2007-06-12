@@ -1,5 +1,17 @@
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (AM_CPPFLAGS): Define CONFDIR to be
+	$(sysconfdir)/init, replacing the old CFG_DIR definition.
+	* init/paths.h (CFG_DIR): Replace with CONFDIR definition,
+	and set the default to /etc/init
+	* init/main.c: Load configuration from /etc/init/init.conf,
+	/etc/init/conf.d and /etc/init/jobs.d; retain loading from /etc/event.d
+	for the time being.
+	* init/man/init.8: Change reference to directory.
+	* logd/Makefile.am: Replace references of eventdir with jobsdir,
+	and event.d with jobs.d
+	* logd/event.d: Rename to logd/jobs.d
+
 	* init/conf.c (conf_reload): Ignore ENOENT, it's not interesting
 	in the general case.
 

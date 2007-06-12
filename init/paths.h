@@ -1,4 +1,4 @@
-/* upstart
+//* upstart
  *
  * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -62,12 +62,12 @@
 
 
 /**
- * CFG_DIR:
+ * CONFDIR:
  *
- * Directory to find configuration files in.
+ * Top-level directory of the system configuration files.
  **/
-#ifndef CFG_DIR
-#define CFG_DIR "/etc/event.d"
+#ifndef CONFDIR
+#define CONFDIR "/etc/init"
 #endif
 
 
