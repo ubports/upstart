@@ -4420,6 +4420,68 @@ no_inotify:
 }
 
 
+void
+test_source_reload (void)
+{
+	FILE       *f;
+	ConfSource *source1, *source2, *source3;
+	char        dirname[PATH_MAX], filename[PATH_MAX];
+
+	/* Check that we can reload all sources, and that errors are warned
+	 * about and not returned.
+	 */
+	TEST_FUNCTION ("conf_source_reload");
+	nih_log_set_priority (NIH_LOG_FATAL);
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo");
+	source1 = conf_source_new (NULL, filename, CONF_FILE);
+
+	f = fopen (filename, "w");
+	fprintf (f, "job foo\n");
+	fprintf (f, "  respawn\n");
+	fprintf (f, "  exec /sbin/daemon\n");
+	fprintf (f, "end job\n");
+	fclose (f);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+	mkdir (filename, 0755);
+
+	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "script\n");
+	fprintf (f, "  echo\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/baz");
+	source3 = conf_source_new (NULL, filename, CONF_DIR);
+
+	conf_reload ();
+
+	TEST_HASH_NOT_EMPTY (source1->files);
+
+	TEST_HASH_NOT_EMPTY (source2->files);
+
+	TEST_HASH_EMPTY (source3->files);
+
+	conf_source_free (source1);
+	conf_source_free (source2);
+	conf_source_free (source3);
+
+	nih_log_set_priority (NIH_LOG_MESSAGE);
+}
+
+
 static int destructor_called = 0;
 
 static int
@@ -4721,6 +4783,7 @@ main (int   argc,
 	test_source_reload_job_dir ();
 	test_source_reload_conf_dir ();
 	test_source_reload_file ();
+	test_source_reload ();
 	test_source_free ();
 	test_file_free ();
 	test_item_free ();

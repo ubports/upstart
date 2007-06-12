@@ -1,5 +1,8 @@
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_conf.c (test_source_reload): Test the general
+	reload function.
+
 	* init/tests/test_conf.c (test_source_free): s/unlink/rmdir/
 	(test_source_reload_file): Test that configuration files work, and
 	are parsed with anything alongside ignored automatically.
