@@ -1,3 +1,7 @@
+2007-06-13  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update utmp/wtmp thoughts.
+
 2007-06-12  Scott James Remnant  <scott@netsplit.com>
 
 	* init/paths.h: Remove extra /, oops.

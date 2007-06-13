@@ -27,14 +27,20 @@ High Priority:
  * Configuration reloading needs to happen with an initctl command;
    we also need to support re-exec via initctl as well.
 
- * SysV-compat stuff should have a common code that reads and writes from
-   utmp used by all of the pieces:
-   * reboot would check the runlevel and run shutdown in certain levels
-   * extend telinit to support --default to pick up the runlevel from
-     inittab, kernel cmdline, etc.
-   * drop runlevel --set, instead telinit will update utmp itself and then
-     emit the event including RUNLEVEL and PREVLEVEL as environment
-   * Thus the rc jobs would be just exec /etc/init.d/rc 3
+ * Handling of utmp and wtmp needs to be somewhat better.
+   - common function to read/write to utmp and wtmp
+   - should be able to read current runlevel (as runlevel does right now)
+   - should be able to set current runlevel (as runlevel does right now)
+   - move runlevel setting code into telinit before it emits the event,
+     which should include RUNLEVEL and PREVLEVEL in the environment
+   - shutdown should write a shutdown entry
+   - reboot should check the current runlevel, and exec shutdown based on 
+     that, as well as -f
+   - reboot should write the wtmp shutdown record
+   - somehow on startup we should write the reboot record as early as we
+     can
+   - init needs to grow "utmp XXX", which maintains INIT_PROCESS and
+     DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
 
 
 Medium Priority:
