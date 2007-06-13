@@ -31,6 +31,7 @@ init/event.c
 init/job.c
 init/main.c
 init/notify.c
+init/parse_conf.c
 init/parse_job.c
 init/process.c
 

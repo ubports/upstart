@@ -1,3 +1,7 @@
+2007-06-13  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add init/parse_conf.c
+
 2007-06-10  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Add init/conf.c
