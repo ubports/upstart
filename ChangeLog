@@ -1,5 +1,8 @@
 2007-06-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c (notify_event, notify_event_finished): Drop
+	"->info." from event references.
+
 	* init/process.c (process_setup_environment): Drop "->info." from
 	cause references
 	* init/tests/test_process.c (test_spawn): Likewise.

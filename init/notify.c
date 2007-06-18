@@ -364,8 +364,8 @@ notify_event (Event *event)
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_EVENT,
-				  event->id, event->info.name,
-				  event->info.args, event->info.env));
+				  event->id, event->name,
+				  event->args, event->env));
 		nih_io_send_message (control_io, message);
 	}
 }
@@ -400,8 +400,8 @@ notify_event_finished (Event *event)
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_EVENT_FINISHED,
-				  event->id, event->failed, event->info.name,
-				  event->info.args, event->info.env));
+				  event->id, event->failed, event->name,
+				  event->args, event->env));
 		nih_io_send_message (control_io, message);
 
 		nih_list_free (&sub->entry);
