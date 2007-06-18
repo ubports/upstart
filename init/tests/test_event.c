@@ -43,172 +43,6 @@ extern int upstart_disable_safeties;
 
 
 void
-test_info_new (void)
-{
-	EventInfo *event;
-
-	/* Check that we can create a new Event structure, and have the
-	 * details filled in and returned.  It should not be placed in
-	 * any kind of list.
-	 */
-	TEST_FUNCTION ("event_info_new");
-	event_poll ();
-	TEST_ALLOC_FAIL {
-		event = event_info_new (NULL, "test", NULL, NULL);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (event, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_LIST_EMPTY (&event->entry);
-		TEST_EQ_STR (event->name, "test");
-		TEST_ALLOC_PARENT (event->name, event);
-
-		TEST_EQ_P (event->args, NULL);
-		TEST_EQ_P (event->env, NULL);
-
-		nih_list_free (&event->entry);
-	}
-}
-
-void
-test_info_copy (void)
-{
-	EventInfo *event, *copy;
-
-	TEST_FUNCTION ("event_copy");
-	event = event_info_new (NULL, "test", NULL, NULL);
-
-	/* Check that we can copy an event which does not have any arguments
-	 * or environment variables.
-	 */
-	TEST_FEATURE ("without arguments or environment");
-	TEST_ALLOC_FAIL {
-		copy = event_info_copy (NULL, event);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (EventInfo));
-		TEST_LIST_EMPTY (&copy->entry);
-		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_STR (copy->name, "test");
-		TEST_EQ_P (copy->args, NULL);
-		TEST_EQ_P (copy->env, NULL);
-
-		nih_list_free (&copy->entry);
-	}
-
-
-	/* Check that we can copy an event which does have arguments and
-	 * environment; and that the arrays are copies not references.
-	 */
-	TEST_FEATURE ("with arguments and environment");
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bar"));
-
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
-
-	TEST_ALLOC_FAIL {
-		copy = event_info_copy (NULL, event);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (EventInfo));
-		TEST_LIST_EMPTY (&copy->entry);
-		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_STR (copy->name, "test");
-
-		TEST_ALLOC_PARENT (copy->args, copy);
-		TEST_ALLOC_SIZE (copy->args, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (copy->args[0], copy->args);
-		TEST_ALLOC_PARENT (copy->args[1], copy->args);
-		TEST_EQ_STR (copy->args[0], "foo");
-		TEST_EQ_STR (copy->args[1], "bar");
-		TEST_EQ_P (copy->args[2], NULL);
-
-		TEST_ALLOC_PARENT (copy->env, copy);
-		TEST_ALLOC_SIZE (copy->env, sizeof (char *) * 2);
-		TEST_ALLOC_PARENT (copy->env[0], copy->env);
-		TEST_EQ_STR (copy->env[0], "FOO=BAR");
-		TEST_EQ_P (copy->env[1], NULL);
-
-		nih_list_free (&copy->entry);
-	}
-
-	nih_list_free (&event->entry);
-}
-
-void
-test_match (void)
-{
-	Event     *event;
-	EventInfo *info;
-	char      *args1[] = { "foo", "bar", "baz", NULL };
-	char      *args2[] = { "foo", "bar", "baz", NULL };
-
-	TEST_FUNCTION ("event_match");
-
-	/* Check that two events with different names do not match. */
-	TEST_FEATURE ("with different name events");
-	event = event_new (NULL, "foo", NULL, NULL);
-	info = event_info_new (NULL, "bar", NULL, NULL);
-
-	TEST_FALSE (event_match (event, info));
-
-
-	/* Check that two events with the same names match. */
-	TEST_FEATURE ("with same name events");
-	nih_free (info);
-	info = event_info_new (NULL, "foo", NULL, NULL);
-
-	TEST_TRUE (event_match (event, info));
-
-
-	/* Check that two events with the same arguments lists match. */
-	TEST_FEATURE ("with same argument lists");
-	event->info.args = args1;
-	info->args = args2;
-
-	TEST_TRUE (event_match (event, info));
-
-
-	/* Check that the argument list in info may be shorter. */
-	TEST_FEATURE ("with shorter list in info");
-	args2[2] = NULL;
-
-	TEST_TRUE (event_match (event, info));
-
-
-	/* Check that the argument list in event may not be shorter. */
-	TEST_FEATURE ("with shorter list in event");
-	args2[2] = args1[2];
-	args1[2] = NULL;
-
-	TEST_FALSE (event_match (event, info));
-
-
-	/* Check that the info argument lists may be globs. */
-	TEST_FEATURE ("with globs in arguments");
-	args1[2] = args2[2];
-	args2[2] = "b?z*";
-
-	TEST_TRUE (event_match (event, info));
-
-
-	nih_free (info);
-	nih_list_free (&event->entry);
-}
-
-
-void
 test_new (void)
 {
 	Event         *event;
@@ -220,6 +54,8 @@ test_new (void)
 	 * details filled in.
 	 */
 	TEST_FUNCTION ("event_new");
+	event_init ();
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			args = nih_str_array_new (NULL);
@@ -247,14 +83,14 @@ test_new (void)
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 
-		TEST_EQ_STR (event->info.name, "test");
-		TEST_ALLOC_PARENT (event->info.name, event);
+		TEST_EQ_STR (event->name, "test");
+		TEST_ALLOC_PARENT (event->name, event);
 
-		TEST_EQ_P (event->info.args, args);
-		TEST_ALLOC_PARENT (event->info.args, event);
+		TEST_EQ_P (event->args, args);
+		TEST_ALLOC_PARENT (event->args, event);
 
-		TEST_EQ_P (event->info.env, env);
-		TEST_ALLOC_PARENT (event->info.env, event);
+		TEST_EQ_P (event->env, env);
+		TEST_ALLOC_PARENT (event->env, event);
 
 		nih_list_free (&event->entry);
 	}
@@ -424,12 +260,12 @@ check_event_finished (void               *data,
 void
 test_poll (void)
 {
-	Event     *event;
-	Job       *job;
-	EventInfo *event_info;
-	NihIo     *io;
-	int        wait_fd, status;
-	pid_t      pid;
+	Event         *event;
+	EventOperator *oper;
+	Job           *job;
+	NihIo         *io;
+	int            wait_fd, status;
+	pid_t          pid;
 
 	TEST_FUNCTION ("event_poll");
 	io = control_open ();
@@ -470,8 +306,8 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event_info = event_info_new (job, "test", NULL, NULL);
-	nih_list_add (&job->start_events, &event_info->entry);
+	job->start_events = event_operator_new (job, EVENT_MATCH,
+						"test", NULL);
 
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
@@ -634,8 +470,8 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event_info = event_info_new (job, "test/failed", NULL, NULL);
-	nih_list_add (&job->start_events, &event_info->entry);
+	job->start_events = event_operator_new (job, EVENT_MATCH,
+						"test/failed", NULL);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (event, my_destructor);
@@ -650,7 +486,7 @@ test_poll (void)
 
 	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
-	TEST_EQ_STR (job->cause->info.name, "test/failed");
+	TEST_EQ_STR (job->start_events->event->name, "test/failed");
 
 	event_poll ();
 
@@ -669,11 +505,15 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	event_info = event_info_new (job, "test/failed", NULL, NULL);
-	nih_list_add (&job->start_events, &event_info->entry);
+	job->start_events = event_operator_new (job, EVENT_OR, NULL, NULL);
 
-	event_info = event_info_new (job, "test/failed/failed", NULL, NULL);
-	nih_list_add (&job->start_events, &event_info->entry);
+	oper = event_operator_new (job, EVENT_MATCH,
+				   "test/failed", NULL);
+	nih_tree_add (&job->start_events->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job, EVENT_MATCH,
+				   "test/failed/failed", NULL);
+	nih_tree_add (&job->start_events->node, &oper->node, NIH_TREE_RIGHT);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (event, my_destructor);
@@ -694,13 +534,746 @@ test_poll (void)
 }
 
 
+void
+test_operator_new (void)
+{
+	EventOperator  *oper;
+	char          **args;
+
+	TEST_FUNCTION ("event_operator_new");
+
+
+	/* Check that we can create a new EventOperator structure to match
+	 * an event, and have the details filled in and returned.  It
+	 * should not be placed into any tree structure.
+	 */
+	TEST_FEATURE ("with EVENT_MATCH");
+	TEST_ALLOC_FAIL {
+		oper = event_operator_new (NULL, EVENT_MATCH, "test", NULL);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (oper, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_STR (oper->name, "test");
+		TEST_ALLOC_PARENT (oper->name, oper);
+
+		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		nih_free (oper);
+	}
+
+
+	/* Check that arguments passed to event_operator_new are reparented
+	 * to belong to the structure itself.
+	 */
+	TEST_FEATURE ("with EVENT_MATCH and arguments");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			args = nih_str_array_new (NULL);
+			NIH_MUST (nih_str_array_add (&args, NULL,
+						     NULL, "foo"));
+			NIH_MUST (nih_str_array_add (&args, NULL,
+						     NULL, "bar"));
+		}
+
+		oper = event_operator_new (NULL, EVENT_MATCH, "test", args);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (oper, NULL);
+			TEST_ALLOC_PARENT (args, NULL);
+			nih_free (args);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_STR (oper->name, "test");
+		TEST_ALLOC_PARENT (oper->name, oper);
+
+		TEST_EQ_P (oper->args, args);
+		TEST_ALLOC_PARENT (oper->args, oper);
+
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		nih_free (oper);
+	}
+
+
+	/* Check that an ordinary operator needs no name attached. */
+	TEST_FEATURE ("with EVENT_OR");
+	TEST_ALLOC_FAIL {
+		oper = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (oper, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->name, NULL);
+		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		nih_free (oper);
+	}
+}
+
+void
+test_operator_copy (void)
+{
+	EventOperator *oper, *copy;
+
+	TEST_FUNCTION ("event_operator_copy");
+	event_init ();
+
+	/* Check that we can copy a plain event operator, the value should
+	 * be copied as well, and the other fields left as NULL.
+	 */
+	TEST_FEATURE ("with EVENT_OR");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			oper = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+			oper->value = TRUE;
+		}
+
+		copy = event_operator_copy (NULL, oper);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			nih_free (oper);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_EQ_P (copy->node.parent, NULL);
+		TEST_EQ_P (copy->node.left, NULL);
+		TEST_EQ_P (copy->node.right, NULL);
+		TEST_EQ (copy->type, EVENT_OR);
+		TEST_EQ (copy->value, TRUE);
+		TEST_EQ_P (copy->name, NULL);
+		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->event, NULL);
+		TEST_EQ (copy->blocked, FALSE);
+
+		nih_free (copy);
+		nih_free (oper);
+	}
+
+
+	/* Check that we can copy and EVENT_MATCH operator which does not
+	 * have any arguments or matched event.
+	 */
+	TEST_FEATURE ("with EVENT_MATCH and no arguments or event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			oper = event_operator_new (NULL, EVENT_MATCH,
+						   "test", NULL);
+			oper->value = TRUE;
+		}
+
+		copy = event_operator_copy (NULL, oper);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			nih_free (oper);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_EQ_P (copy->node.parent, NULL);
+		TEST_EQ_P (copy->node.left, NULL);
+		TEST_EQ_P (copy->node.right, NULL);
+		TEST_EQ (copy->type, EVENT_MATCH);
+		TEST_EQ (copy->value, TRUE);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->event, NULL);
+		TEST_EQ (copy->blocked, FALSE);
+
+		nih_free (copy);
+		nih_free (oper);
+	}
+
+
+	/* Check that arguments to an EVENT_MATCH operator are also copied,
+	 * and each argument within the array copied too.
+	 */
+	TEST_FEATURE ("with EVENT_MATCH and arguments");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			oper = event_operator_new (NULL, EVENT_MATCH,
+						   "test", NULL);
+			oper->value = TRUE;
+
+			NIH_MUST (nih_str_array_add (&oper->args, oper,
+						     NULL, "FOO=foo"));
+			NIH_MUST (nih_str_array_add (&oper->args, oper,
+						     NULL, "BAR=bar"));
+		}
+
+		copy = event_operator_copy (NULL, oper);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			nih_free (oper);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_EQ_P (copy->node.parent, NULL);
+		TEST_EQ_P (copy->node.left, NULL);
+		TEST_EQ_P (copy->node.right, NULL);
+		TEST_EQ (copy->type, EVENT_MATCH);
+		TEST_EQ (copy->value, TRUE);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_ALLOC_PARENT (copy->name, copy);
+
+		TEST_ALLOC_PARENT (copy->args, copy);
+		TEST_ALLOC_SIZE (copy->args, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (copy->args[0], copy->args);
+		TEST_ALLOC_PARENT (copy->args[1], copy->args);
+		TEST_EQ_STR (copy->args[0], "FOO=foo");
+		TEST_EQ_STR (copy->args[1], "BAR=bar");
+		TEST_EQ_P (copy->args[2], NULL);
+
+		TEST_EQ_P (copy->event, NULL);
+		TEST_EQ (copy->blocked, FALSE);
+
+		nih_free (copy);
+		nih_free (oper);
+	}
+
+
+	/* Check that if the EVENT_MATCH operator has a referenced event,
+	 * the event is copied and referenced a second time.
+	 */
+	TEST_FEATURE ("with EVENT_MATCH and referenced event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			oper = event_operator_new (NULL, EVENT_MATCH,
+						   "test", NULL);
+			oper->value = TRUE;
+
+			oper->event = event_new (oper, "test", NULL, NULL);
+			event_ref (oper->event);
+		}
+
+		copy = event_operator_copy (NULL, oper);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			nih_free (oper);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_EQ_P (copy->node.parent, NULL);
+		TEST_EQ_P (copy->node.left, NULL);
+		TEST_EQ_P (copy->node.right, NULL);
+		TEST_EQ (copy->type, EVENT_MATCH);
+		TEST_EQ (copy->value, TRUE);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_P (copy->args, NULL);
+
+		TEST_EQ_P (copy->event, oper->event);
+		TEST_EQ (copy->event->refs, 2);
+		TEST_EQ (copy->event->blockers, 0);
+		TEST_EQ (copy->blocked, FALSE);
+
+		event_unref (copy->event);
+		nih_free (copy);
+
+		event_unref (oper->event);
+		nih_free (oper);
+	}
+
+
+	/* Check that if the EVENT_MATCH operator has a blocked event,
+	 * the event is copied and referenced and blocked a second time.
+	 */
+	TEST_FEATURE ("with EVENT_MATCH and blocked event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			oper = event_operator_new (NULL, EVENT_MATCH,
+						   "test", NULL);
+			oper->value = TRUE;
+
+			oper->event = event_new (oper, "test", NULL, NULL);
+			event_ref (oper->event);
+
+			event_block (oper->event);
+			oper->blocked = TRUE;
+		}
+
+		copy = event_operator_copy (NULL, oper);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			nih_free (oper);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_EQ_P (copy->node.parent, NULL);
+		TEST_EQ_P (copy->node.left, NULL);
+		TEST_EQ_P (copy->node.right, NULL);
+		TEST_EQ (copy->type, EVENT_MATCH);
+		TEST_EQ (copy->value, TRUE);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_P (copy->args, NULL);
+
+		TEST_EQ_P (copy->event, oper->event);
+		TEST_EQ (copy->event->refs, 2);
+		TEST_EQ (copy->event->blockers, 2);
+		TEST_EQ (copy->blocked, TRUE);
+
+		event_unblock (copy->event);
+		event_unref (copy->event);
+		nih_free (copy);
+
+		event_unblock (oper->event);
+		event_unref (oper->event);
+		nih_free (oper);
+	}
+
+	event_poll ();
+}
+
+
+void
+test_operator_update (void)
+{
+	EventOperator *oper1, *oper2, *oper3;
+
+	TEST_FUNCTION ("event_operator_update");
+	oper1 = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+	oper2 = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	oper3 = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
+
+	nih_tree_add (&oper1->node, &oper2->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper1->node, &oper3->node, NIH_TREE_RIGHT);
+
+
+	/* Check that EVENT_OR is FALSE if both children are FALSE. */
+	TEST_FEATURE ("with EVENT_OR and both children FALSE");
+	oper1->value = oper2->value = oper3->value = FALSE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, FALSE);
+
+
+	/* Check that EVENT_OR is TRUE if only the left child is TRUE. */
+	TEST_FEATURE ("with EVENT_OR and only left child TRUE");
+	oper1->value = oper3->value = FALSE;
+	oper2->value = TRUE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, TRUE);
+
+
+	/* Check that EVENT_OR is TRUE if only the right child is TRUE. */
+	TEST_FEATURE ("with EVENT_OR and only right child TRUE");
+	oper1->value = oper2->value = FALSE;
+	oper3->value = TRUE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, TRUE);
+
+
+	/* Check that EVENT_OR is TRUE if both children are TRUE. */
+	TEST_FEATURE ("with EVENT_OR and both children TRUE");
+	oper1->value = FALSE;
+	oper2->value = oper3->value = TRUE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, TRUE);
+
+
+	/* Check that EVENT_AND is FALSE if both children are FALSE. */
+	TEST_FEATURE ("with EVENT_AND and both children FALSE");
+	oper1->type = EVENT_AND;
+	oper1->value = oper2->value = oper3->value = FALSE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, FALSE);
+
+
+	/* Check that EVENT_AND is FALSE if only the left child is TRUE. */
+	TEST_FEATURE ("with EVENT_AND and only left child TRUE");
+	oper1->value = oper3->value = FALSE;
+	oper2->value = TRUE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, FALSE);
+
+
+	/* Check that EVENT_AND is FALSE if only the right child is TRUE. */
+	TEST_FEATURE ("with EVENT_AND and only right child TRUE");
+	oper1->value = oper2->value = FALSE;
+	oper3->value = TRUE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, FALSE);
+
+
+	/* Check that EVENT_AND is TRUE if both children are TRUE. */
+	TEST_FEATURE ("with EVENT_AND and both children TRUE");
+	oper1->value = FALSE;
+	oper2->value = oper3->value = TRUE;
+
+	event_operator_update (oper1);
+
+	TEST_EQ (oper1->value, TRUE);
+
+
+	nih_free (oper1);
+	nih_free (oper2);
+	nih_free (oper3);
+}
+
+void
+test_operator_match (void)
+{
+	EventOperator *oper;
+	Event         *event;
+	char          *args1[] = { "foo", "bar", "baz", NULL };
+	char          *args2[] = { "foo", "bar", "baz", NULL };
+
+	TEST_FUNCTION ("event_operator_match");
+	event = event_new (NULL, "foo", NULL, NULL);
+
+	/* Check that two events with different names do not match. */
+	TEST_FEATURE ("with different name events");
+	oper = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
+
+	TEST_FALSE (event_operator_match (oper, event));
+
+	nih_free (oper);
+
+
+	/* Check that two events with the same names match. */
+	TEST_FEATURE ("with same name events");
+	oper = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that two events with the same arguments lists match. */
+	TEST_FEATURE ("with same argument lists");
+	oper->args = args1;
+	event->args = args2;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that the argument list in the operator may be shorter. */
+	TEST_FEATURE ("with shorter list in operator");
+	args1[2] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that the argument list in event may not be shorter. */
+	TEST_FEATURE ("with shorter list in event");
+	args1[2] = args2[2];
+	args2[2] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event));
+
+
+	/* Check that the opeartor argument lists may be globs. */
+	TEST_FEATURE ("with globs in operator arguments");
+	args2[2] = args1[2];
+	args1[2] = "b?z*";
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	nih_free (oper);
+	nih_list_free (&event->entry);
+}
+
+
+void
+test_operator_handle (void)
+{
+	EventOperator *oper1, *oper2, *oper3, *oper4, *oper5;
+	Event         *event;
+	int            ret;
+
+	TEST_FUNCTION ("event_operator_handle");
+	oper1 = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+	oper2 = event_operator_new (NULL, EVENT_AND, NULL, NULL);
+	oper3 = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	oper4 = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
+	oper5 = event_operator_new (NULL, EVENT_MATCH, "baz", NULL);
+
+	nih_tree_add (&oper1->node, &oper2->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper3->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper4->node, NIH_TREE_RIGHT);
+	nih_tree_add (&oper1->node, &oper5->node, NIH_TREE_RIGHT);
+
+
+	/* Check that a non-matching event doesn't touch the tree. */
+	TEST_FEATURE ("with non-matching event");
+	event = event_new (NULL, "frodo", NULL, NULL);
+	ret = event_operator_handle (oper1, event);
+
+	TEST_EQ (ret, FALSE);
+	TEST_EQ (oper1->value, FALSE);
+	TEST_EQ (oper2->value, FALSE);
+	TEST_EQ (oper3->value, FALSE);
+	TEST_EQ_P (oper3->event, NULL);
+	TEST_EQ (oper3->blocked, FALSE);
+	TEST_EQ (oper4->value, FALSE);
+	TEST_EQ_P (oper4->event, NULL);
+	TEST_EQ (oper4->blocked, FALSE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ_P (oper5->event, NULL);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event->refs, 0);
+	TEST_EQ (event->blockers, 0);
+
+
+	/* Check that matching an event in the tree results in the event
+	 * being referenced and blocked, and stored in the operator.
+	 * The tree value should not be updated since the expression is not
+	 * TRUE.
+	 */
+	TEST_FEATURE ("with matching event");
+	event = event_new (NULL, "foo", NULL, NULL);
+	ret = event_operator_handle (oper1, event);
+
+	TEST_EQ (ret, TRUE);
+	TEST_EQ (oper1->value, FALSE);
+	TEST_EQ (oper2->value, FALSE);
+	TEST_EQ (oper3->value, TRUE);
+	TEST_EQ_P (oper3->event, event);
+	TEST_EQ (oper3->blocked, TRUE);
+	TEST_EQ (oper4->value, FALSE);
+	TEST_EQ_P (oper4->event, NULL);
+	TEST_EQ (oper4->blocked, FALSE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ_P (oper5->event, NULL);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event->refs, 1);
+	TEST_EQ (event->blockers, 1);
+
+
+	/* Check that matching an event in the tree results in the event
+	 * being referenced and blocked, and stored in the operator.
+	 * Since the event tips the balance, it should update the expression.
+	 */
+	TEST_FEATURE ("with matching event and complete expression");
+	event = event_new (NULL, "bar", NULL, NULL);
+	ret = event_operator_handle (oper1, event);
+
+	TEST_EQ (ret, TRUE);
+	TEST_EQ (oper1->value, TRUE);
+	TEST_EQ (oper2->value, TRUE);
+	TEST_EQ (oper3->value, TRUE);
+	TEST_NE_P (oper3->event, NULL);
+	TEST_EQ (oper3->blocked, TRUE);
+	TEST_EQ (oper4->value, TRUE);
+	TEST_EQ_P (oper4->event, event);
+	TEST_EQ (oper4->blocked, TRUE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ_P (oper5->event, NULL);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event->refs, 1);
+	TEST_EQ (event->blockers, 1);
+
+
+	event_operator_reset (oper1);
+
+	nih_free (oper1);
+	nih_free (oper2);
+	nih_free (oper3);
+	nih_free (oper4);
+	nih_free (oper5);
+
+	event_poll ();
+}
+
+void
+test_operator_unblock (void)
+{
+	EventOperator *oper1, *oper2, *oper3, *oper4, *oper5;
+	Event         *event1, *event2;
+
+	/* Check that we can unblock all of the events in the tree, but that
+	 * the references remain.
+	 */
+	TEST_FUNCTION ("event_operator_unblock");
+	oper1 = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+	oper2 = event_operator_new (NULL, EVENT_AND, NULL, NULL);
+	oper3 = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	oper4 = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
+	oper5 = event_operator_new (NULL, EVENT_MATCH, "baz", NULL);
+
+	nih_tree_add (&oper1->node, &oper2->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper3->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper4->node, NIH_TREE_RIGHT);
+	nih_tree_add (&oper1->node, &oper5->node, NIH_TREE_RIGHT);
+
+	event1 = event_new (NULL, "foo", NULL, NULL);
+	event2 = event_new (NULL, "bar", NULL, NULL);
+
+	event_operator_handle (oper1, event1);
+	event_operator_handle (oper1, event2);
+
+	TEST_EQ (oper1->value, TRUE);
+	TEST_EQ (oper2->value, TRUE);
+	TEST_EQ (oper3->value, TRUE);
+	TEST_EQ_P (oper3->event, event1);
+	TEST_EQ (oper3->blocked, TRUE);
+	TEST_EQ (oper4->value, TRUE);
+	TEST_EQ (oper4->event, event2);
+	TEST_EQ (oper4->blocked, TRUE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event1->refs, 1);
+	TEST_EQ (event1->blockers, 1);
+	TEST_EQ (event2->refs, 1);
+	TEST_EQ (event2->blockers, 1);
+
+	event_operator_unblock (oper1);
+
+	TEST_EQ (oper1->value, TRUE);
+	TEST_EQ (oper2->value, TRUE);
+	TEST_EQ (oper3->value, TRUE);
+	TEST_EQ_P (oper3->event, event1);
+	TEST_EQ (oper3->blocked, FALSE);
+	TEST_EQ (oper4->value, TRUE);
+	TEST_EQ (oper4->event, event2);
+	TEST_EQ (oper4->blocked, FALSE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event1->refs, 1);
+	TEST_EQ (event1->blockers, 0);
+	TEST_EQ (event2->refs, 1);
+	TEST_EQ (event2->blockers, 0);
+
+	event_operator_reset (oper1);
+
+	nih_free (oper1);
+	nih_free (oper2);
+	nih_free (oper3);
+	nih_free (oper4);
+	nih_free (oper5);
+
+	event_poll ();
+}
+
+void
+test_operator_reset (void)
+{
+	EventOperator *oper1, *oper2, *oper3, *oper4, *oper5;
+	Event         *event1, *event2;
+
+	/* Check that we can reset all of the operators in the tree,
+	 * discarding any events that were referenced or blocked and setting
+	 * all the values back to FALSE.
+	 */
+	TEST_FUNCTION ("event_operator_reset");
+	oper1 = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+	oper2 = event_operator_new (NULL, EVENT_AND, NULL, NULL);
+	oper3 = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	oper4 = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
+	oper5 = event_operator_new (NULL, EVENT_MATCH, "baz", NULL);
+
+	nih_tree_add (&oper1->node, &oper2->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper3->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper4->node, NIH_TREE_RIGHT);
+	nih_tree_add (&oper1->node, &oper5->node, NIH_TREE_RIGHT);
+
+	event1 = event_new (NULL, "foo", NULL, NULL);
+	event2 = event_new (NULL, "bar", NULL, NULL);
+
+	event_operator_handle (oper1, event1);
+	event_operator_handle (oper1, event2);
+
+	TEST_EQ (oper1->value, TRUE);
+	TEST_EQ (oper2->value, TRUE);
+	TEST_EQ (oper3->value, TRUE);
+	TEST_EQ_P (oper3->event, event1);
+	TEST_EQ (oper3->blocked, TRUE);
+	TEST_EQ (oper4->value, TRUE);
+	TEST_EQ (oper4->event, event2);
+	TEST_EQ (oper4->blocked, TRUE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event1->refs, 1);
+	TEST_EQ (event1->blockers, 1);
+	TEST_EQ (event2->refs, 1);
+	TEST_EQ (event2->blockers, 1);
+
+	event_operator_reset (oper1);
+
+	TEST_EQ (oper1->value, FALSE);
+	TEST_EQ (oper2->value, FALSE);
+	TEST_EQ (oper3->value, FALSE);
+	TEST_EQ_P (oper3->event, NULL);
+	TEST_EQ (oper3->blocked, FALSE);
+	TEST_EQ (oper4->value, FALSE);
+	TEST_EQ (oper4->event, NULL);
+	TEST_EQ (oper4->blocked, FALSE);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ (oper5->blocked, FALSE);
+
+	TEST_EQ (event1->refs, 0);
+	TEST_EQ (event1->blockers, 0);
+	TEST_EQ (event2->refs, 0);
+	TEST_EQ (event2->blockers, 0);
+
+	nih_free (oper1);
+	nih_free (oper2);
+	nih_free (oper3);
+	nih_free (oper4);
+	nih_free (oper5);
+
+	event_poll ();
+}
+
+
 int
 main (int   argc,
       char *argv[])
 {
-	test_info_new ();
-	test_info_copy ();
-	test_match ();
 	test_new ();
 	test_find_by_id ();
 	test_ref ();
@@ -708,6 +1281,14 @@ main (int   argc,
 	test_block ();
 	test_unblock ();
 	test_poll ();
+
+	test_operator_new ();
+	test_operator_copy ();
+	test_operator_update ();
+	test_operator_match ();
+	test_operator_handle ();
+	test_operator_unblock ();
+	test_operator_reset ();
 
 	return 0;
 }

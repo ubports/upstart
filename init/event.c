@@ -91,151 +91,6 @@ event_init (void)
 
 
 /**
- * event_info_new:
- * @parent: parent of new event,
- * @name: name of new event.
- *
- * Allocates and returns a new EventInfo structure with the @name given, but
- * does not place it in the event queue.  Use when a lone EventInfo structure
- * is needed, such as for matching events.
- *
- * Both @args and @env are optional, and may be NULL; if they are given,
- * then the array itself is reparented to belong to the event structure
- * and should not be modified afterwards.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: newly allocated EventInfo structure or NULL if insufficient memory.
- **/
-EventInfo *
-event_info_new (const void  *parent,
-		const char  *name,
-		char       **args,
-		char       **env)
-{
-	EventInfo *event;
-
-	nih_assert (name != NULL);
-	nih_assert (strlen (name) > 0);
-
-	event = nih_new (parent, EventInfo);
-	if (! event)
-		return NULL;
-
-	nih_list_init (&event->entry);
-
-	event->name = nih_strdup (event, name);
-	if (! event->name) {
-		nih_free (event);
-		return NULL;
-	}
-
-	event->args = args;
-	if (event->args)
-		nih_alloc_reparent (event->args, event);
-
-	event->env = env;
-	if (event->env)
-		nih_alloc_reparent (event->env, event);
-
-	return event;
-}
-
-/**
- * event_info_copy:
- * @parent: parent of new event,
- * @old_event: event to copy.
- *
- * Allocates and returns a new EventInfo structure which is an identical copy
- * of @old_event.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: newly allocated EventInfo structure or NULL if insufficient memory.
- **/
-EventInfo *
-event_info_copy (const void      *parent,
-		 const EventInfo *old_event)
-{
-	EventInfo *event;
-
-	nih_assert (old_event != NULL);
-
-	event = event_info_new (parent, old_event->name, NULL, NULL);
-	if (! event)
-		return NULL;
-
-	if (old_event->args) {
-		event->args = nih_str_array_copy (event, NULL,
-						  old_event->args);
-		if (! event->args)
-			goto error;
-	}
-
-	if (old_event->env) {
-		event->env = nih_str_array_copy (event, NULL,
-						 old_event->env);
-		if (! event->env)
-			goto error;
-	}
-
-	return event;
-
-error:
-	nih_free (event);
-	return NULL;
-}
-
-
-/**
- * event_match:
- * @event: event to match,
- * @info: information to match against.
- *
- * Compares @event against @info to see whether they are identical in name,
- * and whether @event contains at least the number of arguments given in
- * @info, and that each of those arguments matches as a glob.
- *
- * Returns: TRUE if the events match, FALSE otherwise.
- **/
-int
-event_match (Event     *event,
-	     EventInfo *info)
-{
-	char **arg1, **arg2;
-
-	nih_assert (event != NULL);
-	nih_assert (info != NULL);
-
-	/* Names must match */
-	if (strcmp (event->info.name, info->name))
-		return FALSE;
-
-	/* Match arguments using the second argument as a glob */
-	for (arg1 = event->info.args, arg2 = info->args;
-	     arg1 && arg2 && *arg1 && *arg2; arg1++, arg2++)
-		if (fnmatch (*arg2, *arg1, 0))
-			return FALSE;
-
-	/* Must be at least the same number of arguments in event as
-	 * there are in info
-	 */
-	if (arg2 && *arg2)
-		return FALSE;
-
-	return TRUE;
-}
-
-
-/**
  * event_next_id:
  *
  * Returns the current value of the event_id counter, unless that has
@@ -352,15 +207,15 @@ event_new (const void  *parent,
 
 
 	/* Fill in the event details */
-	NIH_MUST (event->info.name = nih_strdup (event, name));
+	NIH_MUST (event->name = nih_strdup (event, name));
 
-	event->info.args = args;
-	if (event->info.args)
-		nih_alloc_reparent (event->info.args, event);
+	event->args = args;
+	if (event->args)
+		nih_alloc_reparent (event->args, event);
 
-	event->info.env = env;
-	if (event->info.env)
-		nih_alloc_reparent (event->info.env, event);
+	event->env = env;
+	if (event->env)
+		nih_alloc_reparent (event->env, event);
 
 
 	/* Place it in the pending list */
@@ -569,7 +424,7 @@ event_pending (Event *event)
 	nih_assert (event != NULL);
 	nih_assert (event->progress == EVENT_PENDING);
 
-	nih_info (_("Handling %s event"), event->info.name);
+	nih_info (_("Handling %s event"), event->name);
 	event->progress = EVENT_HANDLING;
 
 	notify_event (event);
@@ -591,7 +446,7 @@ event_finished (Event *event)
 	nih_assert (event != NULL);
 	nih_assert (event->progress == EVENT_FINISHED);
 
-	nih_debug ("Finished %s event", event->info.name);
+	nih_debug ("Finished %s event", event->name);
 
 	notify_event_finished (event);
 	job_handle_event_finished (event);
@@ -599,28 +454,359 @@ event_finished (Event *event)
 	if (event->failed) {
 		char *name;
 
-		name = strrchr (event->info.name, '/');
+		name = strrchr (event->name, '/');
 		if ((! name) || strcmp (name, "/failed")) {
 			Event *new_event;
 
 			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
-						      event->info.name));
+						      event->name));
 			new_event = event_new (NULL, name, NULL, NULL);
 			nih_free (name);
 
-			if (event->info.args)
-				NIH_MUST (new_event->info.args
-					  = nih_str_array_copy (
-						  new_event, NULL,
-						  event->info.args));
+			if (event->args)
+				NIH_MUST (new_event->args = nih_str_array_copy (
+						  new_event, NULL, event->args));
 
-			if (event->info.env)
-				NIH_MUST (new_event->info.env
-					  = nih_str_array_copy (
-						  new_event, NULL,
-						  event->info.env));
+			if (event->env)
+				NIH_MUST (new_event->env = nih_str_array_copy (
+						  new_event, NULL, event->env));
 		}
 	}
 
 	event->progress = EVENT_DONE;
+}
+
+
+/**
+ * event_operator_new:
+ * @parent: parent of new operator,
+ * @type: type of operator,
+ * @name: name of event to match.
+ * @args: arguments of event to match.
+ *
+ * Allocates and returns a new EventOperator structure with the @type given,
+ * if @type is EVENT_MATCH then the operator will be used to match an event
+ * with the given @name and @arguments using event_match().
+ *
+ * @args is optional, and may be NULL; if given, then the array itself is
+ * reparented to belong to the EventOperator structure and should not be
+ * modified.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated EventOperator structure,
+ * or NULL if insufficient memory.
+ **/
+EventOperator *
+event_operator_new (const void         *parent,
+		    EventOperatorType   type,
+		    const char         *name,
+		    char              **args)
+{
+	EventOperator *oper;
+
+	nih_assert ((type == EVENT_MATCH) || (name == NULL));
+	nih_assert ((type == EVENT_MATCH) || (args == NULL));
+	nih_assert ((type != EVENT_MATCH) || (name != NULL));
+
+	oper = nih_new (parent, EventOperator);
+	if (! oper)
+		return NULL;
+
+	nih_tree_init (&oper->node);
+
+	oper->type = type;
+	oper->value = FALSE;
+
+	if (oper->type == EVENT_MATCH) {
+		oper->name = nih_strdup (oper, name);
+		if (! oper->name) {
+			nih_free (oper);
+			return NULL;
+		}
+
+		oper->args = args;
+		if (oper->args)
+			nih_alloc_reparent (oper->args, oper);
+	} else {
+		oper->name = NULL;
+		oper->args = NULL;
+	}
+
+	oper->event = NULL;
+	oper->blocked = FALSE;
+
+	return oper;
+}
+
+/**
+ * event_operator_copy:
+ * @parent: parent of new operator,
+ * @old_oper: operator to copy.
+ *
+ * Allocates and returns a new EventOperator structure which is an identical
+ * copy of @old_oper; including any matched state or events.
+ *
+ * If @old_oper is referencing or blocking an event, that status is also
+ * copied into the newly returned operator; which will hold an additional
+ * reference, and additional block if appropriate, on the event.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated EventOperator structure,
+ * or NULL if insufficient memory.
+ **/
+EventOperator *
+event_operator_copy (const void          *parent,
+		     const EventOperator *old_oper)
+{
+	EventOperator *oper;
+
+	nih_assert (old_oper != NULL);
+
+	oper = event_operator_new (parent, old_oper->type,
+				   old_oper->name, NULL);
+	if (! oper)
+		return NULL;
+
+	oper->value = old_oper->value;
+
+	if (old_oper->args) {
+		oper->args = nih_str_array_copy (oper, NULL, old_oper->args);
+		if (! oper->args) {
+			nih_free (oper);
+			return NULL;
+		}
+	}
+
+	if (old_oper->event) {
+		oper->event = old_oper->event;
+		event_ref (oper->event);
+
+		oper->blocked = old_oper->blocked;
+		if (oper->blocked)
+			event_block (oper->event);
+	}
+
+	return oper;
+}
+
+
+/**
+ * event_operator_update:
+ * @oper: operator to update.
+ *
+ * Updates the value of @oper to reflect the value of its child nodes
+ * when combined with the particular operation this represents.
+ *
+ * This may only be called if the type of @oper is EVENT_OR or EVENT_AND.
+ **/
+void
+event_operator_update (EventOperator *oper)
+{
+	EventOperator *left, *right;
+
+	nih_assert (oper != NULL);
+	nih_assert (oper->node.left != NULL);
+	nih_assert (oper->node.right != NULL);
+
+	left = (EventOperator *)oper->node.left;
+	right = (EventOperator *)oper->node.right;
+
+	switch (oper->type) {
+	case EVENT_OR:
+		oper->value = (left->value || right->value);
+		break;
+	case EVENT_AND:
+		oper->value = (left->value && right->value);
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+}
+
+/**
+ * event_operator_match:
+ * @oper: operator to match against.
+ * @event: event to match.
+ *
+ * Compares @oper against @event to see whether they are identical in name,
+ * and whether @event contains at least the number of arguments given in
+ * @oper, and that each of those arguments matches as a glob.
+ *
+ * This may only be called if the type of @oper is EVENT_MATCH.
+ *
+ * Returns: TRUE if the events match, FALSE otherwise.
+ **/
+int
+event_operator_match (EventOperator *oper,
+		      Event         *event)
+{
+	char **arg1, **arg2;
+
+	nih_assert (oper != NULL);
+	nih_assert (oper->type == EVENT_MATCH);
+	nih_assert (oper->node.left == NULL);
+	nih_assert (oper->node.right == NULL);
+	nih_assert (event != NULL);
+
+	/* Names must match */
+	if (strcmp (oper->name, event->name))
+		return FALSE;
+
+	/* Match arguments using the operator's argument as a glob */
+	for (arg1 = oper->args, arg2 = event->args;
+	     arg1 && arg2 && *arg1 && *arg2; arg1++, arg2++)
+		if (fnmatch (*arg1, *arg2, 0))
+			return FALSE;
+
+	/* Must be at least the same number of arguments in event as
+	 * there are in oper
+	 */
+	if (arg1 && *arg1)
+		return FALSE;
+
+	return TRUE;
+}
+
+
+/**
+ * event_operator_handle:
+ * @root: operator tree to update,
+ * @event: event to match against.
+ *
+ * Handles the emission of @event, matching it against EVENT_MATCH nodes in
+ * the EventOperator tree rooted at @oper, and updating the values of other
+ * nodes to match.
+ *
+ * If @event is matched within this tree, it will be referenced and blocked
+ * by the nodes that match it.  The blockage can be cleared by using
+ * event_operator_unblock() and the references cleared by using
+ * event_operator_reset().
+ *
+ * Note that this returns to indicate whether a successful match was made;
+ * you should also check the value of @oper to make sure you react to this,
+ * as that still may be FALSE.
+ *
+ * Returns: TRUE if @event matched an entry in the tree under @oper, FALSE
+ * otherwise.
+ **/
+int
+event_operator_handle (EventOperator *root,
+		       Event         *event)
+{
+	int ret = FALSE;
+
+	nih_assert (root != NULL);
+	nih_assert (event != NULL);
+
+	/* A post-order traversal will give us the nodes in exactly the
+	 * order we want.  We get a chance to update all of a node's children
+	 * before we update the node itself.  Simply iterate the tree and
+	 * update the nodes.
+	 */
+	NIH_TREE_FOREACH_POST (&root->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		switch (oper->type) {
+		case EVENT_OR:
+		case EVENT_AND:
+			event_operator_update (oper);
+			break;
+		case EVENT_MATCH:
+			if (event_operator_match (oper, event)) {
+				oper->value = TRUE;
+
+				oper->event = event;
+				event_ref (oper->event);
+
+				event_block (oper->event);
+				oper->blocked = TRUE;
+
+				ret = TRUE;
+			}
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+
+	}
+
+	return ret;
+}
+
+/**
+ * event_operator_unblock:
+ * @root: operator tree to update.
+ *
+ * Updates the EventOperator tree rooted at @oper, unblocking any events
+ * that were matched while retaining the references on them.
+ *
+ * This makes no change to the values of the operator tree.
+ **/
+void
+event_operator_unblock (EventOperator *root)
+{
+	nih_assert (root != NULL);
+
+	NIH_TREE_FOREACH_POST (&root->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		if (oper->type != EVENT_MATCH)
+			continue;
+
+		if (oper->event && oper->blocked) {
+			event_unblock (oper->event);
+			oper->blocked = FALSE;
+		}
+	}
+}
+
+/**
+ * event_operator_reset:
+ * @root: operator tree to update.
+ *
+ * Resets the EventOperator tree rooted at @oper, unblocking and
+ * unreferencing any events that were matched by the tree and changing
+ * the values of other operators to match.
+ **/
+void
+event_operator_reset (EventOperator *root)
+{
+	nih_assert (root != NULL);
+
+	/* A post-order iteration means we visit children first, perfect! */
+	NIH_TREE_FOREACH_POST (&root->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		switch (oper->type) {
+		case EVENT_OR:
+		case EVENT_AND:
+			event_operator_update (oper);
+			break;
+		case EVENT_MATCH:
+			oper->value = FALSE;
+
+			if (oper->event) {
+				if (oper->blocked) {
+					event_unblock (oper->event);
+					oper->blocked = FALSE;
+				}
+
+				event_unref (oper->event);
+				oper->event = NULL;
+			}
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+	}
 }

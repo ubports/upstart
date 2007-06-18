@@ -1,3 +1,46 @@
+2007-06-18  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.h (Event): Directly include the name, args and env
+	fields rather than using an interim structure; this makes more sense
+	since we use them differently than a match does.
+	(EventOperatorType, EventOperator): New structure to build event
+	expression trees that combine a match with "or" and "and" boolean
+	operators; solve some problems by holding the reference and blocker
+	on the matched event inside this structure directly and provide
+	methods to unblock and reset them.
+	(EventInfo): Drop this structure completely now that it is unused.
+	* init/event.c (event_info_new): Rename this structure to
+	event_operator_new() and initialise the new fields properly.
+	(event_info_copy): Likewise rename to event_operator_copy and deal
+	with copying event references and blockers over to the new structure,
+	since the state is useful to copy.
+	(event_match): Rename to event_operator_match and switch the arguments
+	around since it makes slightly more sense that way.
+	(event_operator_update): Function to update the value of an EVENT_OR
+	or EVENT_AND operator based on the value of the two children.
+	(event_operator_handle): Function to iterate an entire expression
+	tree looking for a given event, and update the values of other
+	operators if matched.
+	(event_operator_unblock): Function to iterate an expression tree
+	and release any events we're blocking.
+	(event_operator_reset): Function to iterate an expression tree,
+	unreferencing any events and resetting all values back to FALSE.
+	(event_new, event_pending, event_finished): Update references to
+	the Event structure to discard the intermediate "->info."
+	* init/tests/test_event.c (test_info_new): Rename to
+	test_operator_new() and test various features of the function added
+	in the converstion.
+	(test_info_copy): Likewise rename to test_operator_copy() and add a
+	few more tests, especially that blockers and references are copied.
+	(test_match): Rename to test_operator_match() and adjust argument
+	order to match the change.
+	(test_new) Call event_init() to avoid a valgrind error and update
+	references to drop "->info."
+	(test_poll): Use EventOperators in the job to test event polling,
+	rather than the old structures.
+	(test_operator_update, test_operator_handle, test_operator_unblock)
+	(test_operator_reset): Test behaviour of the new functions.
+
 2007-06-13  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update utmp/wtmp thoughts.

@@ -25,33 +25,8 @@
 
 #include <nih/macros.h>
 #include <nih/list.h>
+#include <nih/tree.h>
 #include <nih/main.h>
-
-
-/**
- * EventInfo:
- * @entry: list header,
- * @name: string name of the event,
- * @args: NULL-terminated list of arguments,
- * @env: NULL-terminated list of environment variables.
- *
- * Events are one of the core concepts of upstart; they occur whenever
- * something, somewhere changes state.  They are idenitied by a unique
- * @name string, and can carry further information in the form of @args
- * and @env; both of which are passed to any jobs whose goal is changed
- * by this event.
- *
- * This structure holds the event details, and is used both within the larger
- * Event structure and to match events within jobs.
- * the events themselves and to match events.
- **/
-typedef struct event_info {
-	NihList   entry;
-
-	char     *name;
-	char    **args;
-	char    **env;
-} EventInfo;
 
 
 /**
@@ -68,16 +43,23 @@ typedef enum event_progress {
 	EVENT_DONE
 } EventProgress;
 
-
 /**
  * Event:
  * @entry: list header,
  * @id: unique id assigned to each event,
- * @info: information about event,
+ * @name: string name of the event,
+ * @args: NULL-terminated list of arguments,
+ * @env: NULL-terminated list of environment variables.
  * @progress: progress of event,
  * @failed: whether this event has failed,
  * @refs: number of references to this event,
  * @blockers: number of blockers for finishing.
+ *
+ * Events are one of the core concepts of upstart; they occur whenever
+ * something, somewhere changes state.  They are idenitied by a unique
+ * @name string, and can carry further information in the form of @args
+ * and @env; both of which are passed to any jobs whose goal is changed
+ * by this event.
  *
  * This structure holds all the information on an active event, including
  * the information contained within the event and the current progress of
@@ -90,7 +72,9 @@ typedef struct event {
 	NihList          entry;
 	unsigned int     id;
 
-	EventInfo        info;
+ 	char            *name;
+	char           **args;
+	char           **env;
 
 	EventProgress    progress;
 	int              failed;
@@ -98,6 +82,55 @@ typedef struct event {
 	unsigned int     refs;
 	unsigned int     blockers;
 } Event;
+
+
+/**
+ * EventOperatorType:
+ *
+ * This is used to distinguish between the different boolean behaviours of
+ * the EventOperator structure.
+ **/
+typedef enum event_operator_type {
+	EVENT_OR,
+	EVENT_AND,
+	EVENT_MATCH
+} EventOperatorType;
+
+/**
+ * EventOperator:
+ * @node: tree node,
+ * @type: operator type,
+ * @value: operator value,
+ * @name: name of event to match (EVENT_MATCH only),
+ * @args: arguments of event to match (EVENT_MATCH only),
+ * @event: event matched (EVENT_MATCH only),
+ * @blocked: whether @event is blocked (EVENT_MATCH only).
+ *
+ * This structure is used to build up an event expression tree; the leaf
+ * nodes are all of EVENT_MATCH type which match a specific event, the other
+ * nodes are built up of EVENT_OR and EVENT_AND operators that combine the
+ * EventOperators to their left and right in interesting ways.
+ *
+ * @value indicates whether this operator is currently TRUE or FALSE.
+ * For EVENT_MATCH operators, a TRUE @value means that @event is set to
+ * the matched event; for EVENT_OR and EVENT_AND operators, @value is set
+ * depending on the value of both immediate children.
+ *
+ * Once an event has been matched, the @event member is set and a reference
+ * held until the structure is cleared.
+ **/
+typedef struct event_operator {
+	NihTree             node;
+	EventOperatorType   type;
+
+	int                 value;
+
+	char               *name;
+	char              **args;
+
+	Event              *event;
+	int                 blocked;
+} EventOperator;
 
 
 /**
@@ -185,28 +218,35 @@ int           event_id_wrapped;
 NihList      *events;
 
 
-void       event_init       (void);
+void           event_init             (void);
 
-EventInfo *event_info_new   (const void *parent, const char *name,
-			     char **args, char **env)
-	__attribute__ ((warn_unused_result, malloc));
-EventInfo *event_info_copy  (const void *parent, const EventInfo *old_event)
-	__attribute__ ((warn_unused_result, malloc));
-
-int        event_match      (Event *event, EventInfo *info);
-
-Event     *event_new        (const void *parent, const char *name,
-			     char **args, char **env)
+Event         *event_new              (const void *parent, const char *name,
+				       char **args, char **env)
 	__attribute__ ((malloc));
 
-Event     *event_find_by_id (unsigned int id);
+Event         *event_find_by_id       (unsigned int id);
 
-void       event_ref        (Event *event);
-void       event_unref      (Event *event);
-void       event_block      (Event *event);
-void       event_unblock    (Event *event);
+void           event_ref              (Event *event);
+void           event_unref            (Event *event);
+void           event_block            (Event *event);
+void           event_unblock          (Event *event);
 
-void       event_poll            (void);
+void           event_poll             (void);
+
+EventOperator *event_operator_new     (const void *parent,
+				       EventOperatorType type,
+				       const char *name, char **args)
+	__attribute__ ((warn_unused_result, malloc));
+EventOperator *event_operator_copy    (const void *parent,
+				       const EventOperator *old_oper)
+	__attribute__ ((warn_unused_result, malloc));
+
+void           event_operator_update  (EventOperator *oper);
+int            event_operator_match   (EventOperator *oper, Event *event);
+
+int            event_operator_handle  (EventOperator *root, Event *event);
+void           event_operator_unblock (EventOperator *root);
+void           event_operator_reset   (EventOperator *root);
 
 NIH_END_EXTERN
 
