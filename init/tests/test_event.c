@@ -640,6 +640,7 @@ void
 test_operator_copy (void)
 {
 	EventOperator *oper, *copy;
+	EventOperator *oper1, *oper2, *copy1, *copy2;
 
 	TEST_FUNCTION ("event_operator_copy");
 	event_init ();
@@ -829,6 +830,10 @@ test_operator_copy (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (copy, NULL);
+			TEST_EQ (oper->event->refs, 1);
+			TEST_EQ (oper->event->blockers, 1);
+			event_unblock (oper->event);
+			event_unref (oper->event);
 			nih_free (oper);
 			continue;
 		}
@@ -854,6 +859,114 @@ test_operator_copy (void)
 
 		event_unblock (oper->event);
 		event_unref (oper->event);
+		nih_free (oper);
+	}
+
+	/* Check that if the operator has children, these are copied as
+	 * well, including their state.
+	 */
+	TEST_FEATURE ("with children");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			oper = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+			oper->value = TRUE;
+
+			oper1 = event_operator_new (NULL, EVENT_MATCH,
+						    "foo", NULL);
+			oper1->value = TRUE;
+			oper1->event = event_new (oper1, "foo", NULL, NULL);
+			event_ref (oper1->event);
+
+			event_block (oper1->event);
+			oper1->blocked = TRUE;
+			nih_tree_add (&oper->node, &oper1->node,
+				      NIH_TREE_LEFT);
+
+			oper2 = event_operator_new (NULL, EVENT_MATCH,
+						    "bar", NULL);
+			oper2->value = TRUE;
+			oper2->event = event_new (oper2, "foo", NULL, NULL);
+			event_ref (oper2->event);
+
+			event_block (oper2->event);
+			oper2->blocked = TRUE;
+			nih_tree_add (&oper->node, &oper2->node,
+				      NIH_TREE_RIGHT);
+		}
+
+		copy = event_operator_copy (NULL, oper);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			nih_free (oper);
+			TEST_EQ (oper1->event->refs, 1);
+			TEST_EQ (oper1->event->blockers, 1);
+			nih_free (oper1);
+			TEST_EQ (oper2->event->refs, 1);
+			TEST_EQ (oper2->event->blockers, 1);
+			nih_free (oper2);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_EQ_P (copy->node.parent, NULL);
+		TEST_NE_P (copy->node.left, NULL);
+		TEST_NE_P (copy->node.right, NULL);
+		TEST_EQ (copy->type, EVENT_OR);
+		TEST_EQ (copy->value, TRUE);
+		TEST_EQ_P (copy->name, NULL);
+		TEST_EQ_P (copy->args, NULL);
+
+		copy1 = (EventOperator *)copy->node.left;
+		TEST_ALLOC_SIZE (copy1, sizeof (EventOperator));
+		TEST_EQ_P (copy1->node.parent, &copy->node);
+		TEST_EQ_P (copy1->node.left, NULL);
+		TEST_EQ_P (copy1->node.right, NULL);
+		TEST_EQ (copy1->type, EVENT_MATCH);
+		TEST_EQ (copy1->value, TRUE);
+		TEST_EQ_STR (copy1->name, "foo");
+		TEST_ALLOC_PARENT (copy1->name, copy1);
+		TEST_EQ_P (copy1->args, NULL);
+
+		TEST_EQ_P (copy1->event, oper1->event);
+		TEST_EQ (copy1->event->refs, 2);
+		TEST_EQ (copy1->event->blockers, 2);
+		TEST_EQ (copy1->blocked, TRUE);
+
+		event_unblock (copy1->event);
+		event_unref (copy1->event);
+		nih_free (copy1);
+
+		copy2 = (EventOperator *)copy->node.right;
+		TEST_ALLOC_SIZE (copy2, sizeof (EventOperator));
+		TEST_EQ_P (copy2->node.parent, &copy->node);
+		TEST_EQ_P (copy2->node.left, NULL);
+		TEST_EQ_P (copy2->node.right, NULL);
+		TEST_EQ (copy2->type, EVENT_MATCH);
+		TEST_EQ (copy2->value, TRUE);
+		TEST_EQ_STR (copy2->name, "bar");
+		TEST_ALLOC_PARENT (copy2->name, copy2);
+		TEST_EQ_P (copy2->args, NULL);
+
+		TEST_EQ_P (copy2->event, oper2->event);
+		TEST_EQ (copy2->event->refs, 2);
+		TEST_EQ (copy2->event->blockers, 2);
+		TEST_EQ (copy2->blocked, TRUE);
+
+		event_unblock (copy2->event);
+		event_unref (copy2->event);
+		nih_free (copy2);
+
+		nih_free (copy);
+
+		event_unblock (oper1->event);
+		event_unref (oper1->event);
+		nih_free (oper1);
+
+		event_unblock (oper2->event);
+		event_unref (oper2->event);
+		nih_free (oper2);
+
 		nih_free (oper);
 	}
 

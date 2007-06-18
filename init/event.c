@@ -561,6 +561,9 @@ event_operator_new (const void         *parent,
  * that would need to be run, you can assign a destructor function using
  * the nih_alloc_set_destructor() function.
  *
+ * If @old_oper has children, these will be copied as well, and will be
+ * given the same @parent.
+ *
  * Returns: newly allocated EventOperator structure,
  * or NULL if insufficient memory.
  **/
@@ -568,7 +571,7 @@ EventOperator *
 event_operator_copy (const void          *parent,
 		     const EventOperator *old_oper)
 {
-	EventOperator *oper;
+	EventOperator *oper, *child;
 
 	nih_assert (old_oper != NULL);
 
@@ -581,10 +584,8 @@ event_operator_copy (const void          *parent,
 
 	if (old_oper->args) {
 		oper->args = nih_str_array_copy (oper, NULL, old_oper->args);
-		if (! oper->args) {
-			nih_free (oper);
-			return NULL;
-		}
+		if (! oper->args)
+			goto error;
 	}
 
 	if (old_oper->event) {
@@ -596,7 +597,41 @@ event_operator_copy (const void          *parent,
 			event_block (oper->event);
 	}
 
+	if (old_oper->node.left) {
+		child = event_operator_copy (
+			parent, (EventOperator *)old_oper->node.left);
+		if (! child)
+			goto error;
+
+		nih_tree_add (&oper->node, &child->node, NIH_TREE_LEFT);
+	}
+
+
+	if (old_oper->node.right) {
+		child = event_operator_copy (
+			parent, (EventOperator *)old_oper->node.right);
+		if (! child)
+			goto error;
+
+		nih_tree_add (&oper->node, &child->node, NIH_TREE_RIGHT);
+	}
+
 	return oper;
+
+error:
+	if (oper->event) {
+		if (oper->blocked)
+			event_unblock (oper->event);
+		event_unref (oper->event);
+	}
+
+	if (oper->node.left) {
+		event_operator_reset ((EventOperator *)oper->node.left);
+		nih_free (oper->node.left);
+	}
+
+	nih_free (oper);
+	return NULL;
 }
 
 

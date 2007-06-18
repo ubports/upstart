@@ -1,5 +1,9 @@
 2007-06-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_copy): Copy the children nodes as well.
+	* init/tests/test_event.c (test_operator_copy): Test copying
+	with children nodes.
+
 	* init/tests/test_control.c (test_event_emit): Drop "->info."
 
 	* init/notify.c (notify_event, notify_event_finished): Drop
