@@ -116,8 +116,8 @@ typedef struct job_process {
  * @failed: whether the last process ran failed,
  * @failed_process: the last process that failed,
  * @exit_status: exit status of the last failed process,
- * @start_events: list of events that can start this job,
- * @stop_events; list of events that can stop this job.
+ * @start_on: event operator expression that can start this job,
+ * @stop_on; event operator expression that can stop this job.
  * @emits: list of additional events that this job can emit,
  * @process: processes to be run,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
@@ -174,8 +174,8 @@ struct job {
 	ProcessType     failed_process;
 	int             exit_status;
 
-	NihList         start_events;
-	NihList         stop_events;
+	EventOperator  *start_on;
+	EventOperator  *stop_on;
 	NihList         emits;
 
 	JobProcess    **process;

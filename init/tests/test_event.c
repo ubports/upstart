@@ -306,8 +306,7 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	job->start_events = event_operator_new (job, EVENT_MATCH,
-						"test", NULL);
+	job->start_on = event_operator_new (job, EVENT_MATCH, "test", NULL);
 
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
@@ -324,8 +323,8 @@ test_poll (void)
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_EQ (event->progress, EVENT_HANDLING);
-	TEST_EQ (event->refs, 1);
-	TEST_EQ (event->blockers, 1);
+	TEST_EQ (event->refs, 2); /* 1 */
+	TEST_EQ (event->blockers, 2); /* 1 */
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
@@ -470,8 +469,8 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	job->start_events = event_operator_new (job, EVENT_MATCH,
-						"test/failed", NULL);
+	job->start_on = event_operator_new (job, EVENT_MATCH,
+					    "test/failed", NULL);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (event, my_destructor);
@@ -486,7 +485,7 @@ test_poll (void)
 
 	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
-	TEST_EQ_STR (job->start_events->event->name, "test/failed");
+	TEST_EQ_STR (job->start_on->event->name, "test/failed");
 
 	event_poll ();
 
@@ -505,15 +504,15 @@ test_poll (void)
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
 
-	job->start_events = event_operator_new (job, EVENT_OR, NULL, NULL);
+	job->start_on = event_operator_new (job, EVENT_OR, NULL, NULL);
 
 	oper = event_operator_new (job, EVENT_MATCH,
 				   "test/failed", NULL);
-	nih_tree_add (&job->start_events->node, &oper->node, NIH_TREE_LEFT);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
 
 	oper = event_operator_new (job, EVENT_MATCH,
 				   "test/failed/failed", NULL);
-	nih_tree_add (&job->start_events->node, &oper->node, NIH_TREE_RIGHT);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	destructor_called = 0;
 	nih_alloc_set_destructor (event, my_destructor);

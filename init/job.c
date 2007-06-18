@@ -308,8 +308,9 @@ job_new (const void *parent,
 	job->failed_process = -1;
 	job->exit_status = 0;
 
-	nih_list_init (&job->start_events);
-	nih_list_init (&job->stop_events);
+	job->start_on = NULL;
+	job->stop_on = NULL;
+
 	nih_list_init (&job->emits);
 
 	job->process = nih_alloc (job, sizeof (JobProcess *)*PROCESS_LAST);
@@ -407,37 +408,31 @@ job_copy (const void *parent,
 			goto error;
 	}
 
-	NIH_LIST_FOREACH (&old_job->start_events, iter) {
-		EventInfo *old_event = (EventInfo *)iter;
-		EventInfo *event;
-
-		event = event_info_copy (job, old_event);
-		if (! event)
+	if (old_job->start_on) {
+		job->start_on = event_operator_copy (job, old_job->start_on);
+		if (! job->start_on)
 			goto error;
-
-		nih_list_add (&job->start_events, &event->entry);
 	}
 
-	NIH_LIST_FOREACH (&old_job->stop_events, iter) {
-		EventInfo *old_event = (EventInfo *)iter;
-		EventInfo *event;
-
-		event = event_info_copy (job, old_event);
-		if (! event)
+	if (old_job->stop_on) {
+		job->stop_on = event_operator_copy (job, old_job->stop_on);
+		if (! job->stop_on)
 			goto error;
-
-		nih_list_add (&job->stop_events, &event->entry);
 	}
 
 	NIH_LIST_FOREACH (&old_job->emits, iter) {
-		EventInfo *old_event = (EventInfo *)iter;
-		EventInfo *event;
+		NihListEntry *old_emits = (NihListEntry *)iter;
+		NihListEntry *emits;
 
-		event = event_info_copy (job, old_event);
-		if (! event)
+		emits = nih_list_entry_new (job);
+		if (! emits)
 			goto error;
 
-		nih_list_add (&job->emits, &event->entry);
+		emits->str = nih_strdup (emits, old_emits->str);
+		if (! emits->str)
+			goto error;
+
+		nih_list_add (&job->emits, &emits->entry);
 	}
 
 	for (i = 0; i < PROCESS_LAST; i++) {
@@ -1369,9 +1364,9 @@ job_run_process (Job         *job,
 		}
 
 		/* Append arguments from the cause event if set. */
-		if (job->cause && job->cause->info.args)
+		if (job->cause && job->cause->args)
 			NIH_MUST (nih_str_array_append (&argv, NULL, &argc,
-							job->cause->info.args));
+							job->cause->args));
 	} else {
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
@@ -1772,28 +1767,23 @@ job_handle_event (Event *event)
 		 * the master of an instance job since they're always stopped.
 		 */
 		if ((! job->instance) || (job->instance_of != NULL)) {
-			NIH_LIST_FOREACH (&job->stop_events, iter) {
-				EventInfo *stop_event = (EventInfo *)iter;
-
-				if (event_match (event, stop_event))
-					job_change_goal (job, JOB_STOP, event);
-			}
+			if (job->stop_on
+			    && event_operator_handle (job->stop_on, event)
+			    && job->stop_on->value)
+				job_change_goal (job, JOB_STOP, event);
 		}
 
 		/* And there's no point matching the start events for an
 		 * instance of a job, since they're always running.
 		 */
 		if ((! job->instance) || (job->instance_of == NULL)) {
-			NIH_LIST_FOREACH (&job->start_events, iter) {
-				EventInfo *start_event = (EventInfo *)iter;
+			if (job->start_on
+			    && event_operator_handle (job->start_on, event)
+			    && job->start_on->value) {
+				Job *instance;
 
-				if (event_match (event, start_event)) {
-					Job *instance;
-
-					instance = job_instance (job);
-					job_change_goal (instance, JOB_START,
-							 event);
-				}
+				instance = job_instance (job);
+				job_change_goal (instance, JOB_START, event);
 			}
 		}
 	}
@@ -1850,12 +1840,14 @@ job_detect_stalled (void)
 		/* Check the start events to make sure that at least one
 		 * job handles the stalled event, otherwise we loop.
 		 */
-		NIH_LIST_FOREACH (&job->start_events, event_iter) {
-			EventInfo *event = (EventInfo *)event_iter;
+		if (job->start_on) {
+			NIH_TREE_FOREACH_POST (&job->start_on->node, oper_iter) {
+				EventOperator *oper = (EventOperator *)oper_iter;
 
-			if (! strcmp (event->name, STALLED_EVENT))
-
-				can_stall = TRUE;
+				if ((oper->type == EVENT_MATCH)
+				    && (! strcmp (oper->name, STALLED_EVENT)))
+					can_stall = TRUE;
+			}
 		}
 
 		if ((job->goal != JOB_STOP) || (job->state != JOB_WAITING))

@@ -1,5 +1,30 @@
 2007-06-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Replace the start_events and stop_events NihLists
+	with start_on and stop_on EventOperators.
+	* init/job.c (job_new): Drop list initialising, and instead just set
+	the new start_on/stop_on members to NULL.
+	(job_copy): Copy the entire event operator tree to the new job,
+	including references and blockers.  emits has changed to a list of
+	NihListEntry with embedded strings, so copy them that way.
+	(job_run_process): Drop "->info."
+	(job_handle_event): Instead of iterating the events lists, call
+	event_operator_handle and check the return value and top node value.
+	(job_detect_stalled): Modify to iterate the start_on tree.
+	* init/tests/test_job.c (test_change_state, test_detect_stalled): 
+	Drop references to "->info." since we can get the variables directly.
+	(test_new): Check that start_on and stop_on are NULL.
+	(test_copy): Adjust tests of copying start_on and stop_on trees as
+	well as the emits list.
+	(test_handle_event, test_handle_event_finished) 
+	(test_detect_stalled): Change references from start_events to start_on,
+	stop_events to stop_on and construct using EventOperators instead.
+	(test_handle_event): Update number of blockers now that the event
+	expressions themselves will block the event.
+	* init/tests/test_event.c (test_poll): Update number of blockers since
+	both the events and cause will block it for now; also change
+	start_events and stop_events to start_on and stop_on respectively.
+
 	* init/event.c (event_operator_copy): Copy the children nodes as well.
 	* init/tests/test_event.c (test_operator_copy): Test copying
 	with children nodes.
