@@ -1,5 +1,9 @@
 2007-06-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Drop "->info." from
+	cause references
+	* init/tests/test_process.c (test_spawn): Likewise.
+
 	* init/event.h (Event): Directly include the name, args and env
 	fields rather than using an interim structure; this makes more sense
 	since we use them differently than a match does.

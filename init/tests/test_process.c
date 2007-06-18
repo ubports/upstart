@@ -234,10 +234,8 @@ test_spawn (void)
 	putenv ("BAR=baz");
 
 	event = event_new (NULL, "wibble", NULL, NULL);
-	NIH_MUST (nih_str_array_add (&event->info.env, event, NULL,
-				     "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&event->info.env, event, NULL,
-				     "TEA=YES"));
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "TEA=YES"));
 
 	job = job_new (NULL, "test");
 	job->id = 1000;
