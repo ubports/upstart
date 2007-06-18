@@ -3014,12 +3014,12 @@ test_event_emit (void)
 		exit (1);
 
 	event = (Event *)events->prev;
-	TEST_EQ_STR (event->info.name, "wibble");
-	TEST_EQ_STR (event->info.args[0], "foo");
-	TEST_EQ_STR (event->info.args[1], "bar");
-	TEST_EQ_P (event->info.args[2], NULL);
-	TEST_EQ_STR (event->info.env[0], "FOO=BAR");
-	TEST_EQ_P (event->info.env[1], NULL);
+	TEST_EQ_STR (event->name, "wibble");
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_P (event->args[2], NULL);
+	TEST_EQ_STR (event->env[0], "FOO=BAR");
+	TEST_EQ_P (event->env[1], NULL);
 
 	sub = notify_subscription_find (pid, NOTIFY_EVENT, event);
 	TEST_NE_P (sub, NULL);

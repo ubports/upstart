@@ -1,5 +1,7 @@
 2007-06-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_control.c (test_event_emit): Drop "->info."
+
 	* init/notify.c (notify_event, notify_event_finished): Drop
 	"->info." from event references.
 
