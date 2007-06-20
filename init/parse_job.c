@@ -405,44 +405,57 @@ parse_process (Job             *job,
 	       size_t          *pos,
 	       size_t          *lineno)
 {
-	char *arg;
+	char   *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
-				     NIH_CONFIG_CNLWS, FALSE);
-	if (! arg)
-		return -1;
-
+	/* Allocate a new JobProcess structure if we need to */
 	if (! job->process[process]) {
 		job->process[process] = job_process_new (job->process);
-		if (! job->process[process]) {
-			nih_error_raise_system ();
-			nih_free (arg);
-			return -1;
-		}
+		if (! job->process[process])
+			nih_return_system_error (-1);
 	}
+
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno:  1);
+
+	/* Parse the next argument to find out what type of process this is */
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		goto finish;
 
 	if (! strcmp (arg, "exec")) {
 		nih_free (arg);
 
-		return parse_exec (job->process[process], stanza,
-				   file, len, pos, lineno);
+		ret = parse_exec (job->process[process], stanza,
+				  file, len, &a_pos, &a_lineno);
 	} else if (! strcmp (arg, "script")) {
 		nih_free (arg);
 
-		return parse_script (job->process[process], stanza,
-				     file, len, pos, lineno);
+		ret = parse_script (job->process[process], stanza,
+				    file, len, &a_pos, &a_lineno);
 	} else {
 		nih_free (arg);
 
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
+
+
 
 
 /**
@@ -666,17 +679,22 @@ stanza_start (Job             *job,
 	      size_t          *pos,
 	      size_t          *lineno)
 {
-	char *arg;
+	char   *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "on")) {
 		EventInfo *event;
@@ -713,6 +731,13 @@ stanza_start (Job             *job,
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -738,17 +763,22 @@ stanza_stop (Job             *job,
 	     size_t          *pos,
 	     size_t          *lineno)
 {
-	char *arg;
+	char   *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "on")) {
 		EventInfo *event;
@@ -785,6 +815,13 @@ stanza_stop (Job             *job,
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1015,7 +1052,9 @@ stanza_respawn (Job             *job,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	char *arg;
+	char   *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
@@ -1032,20 +1071,28 @@ stanza_respawn (Job             *job,
 
 
 	/* Take the next argument, a sub-stanza keyword. */
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "limit")) {
 		char *endptr;
 
 		nih_free (arg);
 
+		/* Update error position to the limit value */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
 		/* Parse the limit value */
-		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 		if (! arg)
-			return -1;
+			goto finish;
 
 		if (strcmp (arg, "unlimited")) {
 			job->respawn_limit = strtol (arg, &endptr, 10);
@@ -1057,10 +1104,16 @@ stanza_respawn (Job             *job,
 			}
 			nih_free (arg);
 
+			/* Update error position to the timeout value */
+			*pos = a_pos;
+			if (lineno)
+				*lineno = a_lineno;
+
 			/* Parse the timeout value */
-			arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+			arg = nih_config_next_arg (NULL, file, len,
+						   &a_pos, &a_lineno);
 			if (! arg)
-				return -1;
+				goto finish;
 
 			job->respawn_interval = strtol (arg, &endptr, 10);
 			if (*endptr || (job->respawn_interval < 0)) {
@@ -1076,7 +1129,7 @@ stanza_respawn (Job             *job,
 
 		nih_free (arg);
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else {
 		nih_free (arg);
@@ -1084,6 +1137,13 @@ stanza_respawn (Job             *job,
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1174,17 +1234,22 @@ stanza_pid (Job             *job,
 	    size_t          *pos,
 	    size_t          *lineno)
 {
-	char *arg;
+	char   *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "file")) {
 		nih_free (arg);
@@ -1193,11 +1258,11 @@ stanza_pid (Job             *job,
 			nih_free (job->pid_file);
 
 		job->pid_file = nih_config_next_arg (job, file, len,
-						     pos, lineno);
+						     &a_pos, &a_lineno);
 		if (! job->pid_file)
-			return -1;
+			goto finish;
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else if (! strcmp (arg, "binary")) {
 		nih_free (arg);
@@ -1206,20 +1271,25 @@ stanza_pid (Job             *job,
 			nih_free (job->pid_binary);
 
 		job->pid_binary = nih_config_next_arg (job, file, len,
-						       pos, lineno);
+						       &a_pos, &a_lineno);
 		if (! job->pid_binary)
-			return -1;
+			goto finish;
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else if (! strcmp (arg, "timeout")) {
 		char *endptr;
 
 		nih_free (arg);
 
-		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		/* Update error position to the timeout value */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
+		arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 		if (! arg)
-			return -1;
+			goto finish;
 
 		job->pid_timeout = strtol (arg, &endptr, 10);
 		if (*endptr || (job->pid_timeout < 0)) {
@@ -1230,7 +1300,7 @@ stanza_pid (Job             *job,
 		}
 		nih_free (arg);
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else {
 		nih_free (arg);
@@ -1238,6 +1308,12 @@ stanza_pid (Job             *job,
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1262,26 +1338,36 @@ stanza_kill (Job             *job,
 	     size_t          *pos,
 	     size_t          *lineno)
 {
-	char *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
+	char   *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "timeout")) {
 		char *endptr;
 
 		nih_free (arg);
 
-		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		/* Update error position to the timeout value */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
+		arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 		if (! arg)
-			return -1;
+			goto finish;
 
 		job->kill_timeout = strtol (arg, &endptr, 10);
 		if (*endptr || (job->kill_timeout < 0)) {
@@ -1292,7 +1378,7 @@ stanza_kill (Job             *job,
 		}
 		nih_free (arg);
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else {
 		nih_free (arg);
@@ -1300,6 +1386,13 @@ stanza_kill (Job             *job,
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1329,17 +1422,22 @@ stanza_normal (Job             *job,
 	       size_t          *pos,
 	       size_t          *lineno)
 {
-	char *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
+	char   *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
 				     NIH_CONFIG_CNLWS, FALSE);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "exit")) {
 		nih_free (arg);
@@ -1349,10 +1447,15 @@ stanza_normal (Job             *job,
 			char          *endptr;
 			int           *new_ne, signum;
 
+			/* Update error position to the exit status */
+			*pos = a_pos;
+			if (lineno)
+				*lineno = a_lineno;
+
 			arg = nih_config_next_arg (NULL, file, len,
-						   pos, lineno);
+						   &a_pos, &a_lineno);
 			if (! arg)
-				return -1;
+				goto finish;
 
 			signum = nih_signal_from_name (arg);
 			if (signum < 0) {
@@ -1375,15 +1478,22 @@ stanza_normal (Job             *job,
 
 			job->normalexit = new_ne;
 			job->normalexit[job->normalexit_len++] = (int) status;
-		} while (nih_config_has_token (file, len, pos, lineno));
+		} while (nih_config_has_token (file, len, &a_pos, &a_lineno));
 
-		return nih_config_skip_comment (file, len, pos, lineno);
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 	} else {
 		nih_free (arg);
 
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1408,16 +1518,21 @@ stanza_console (Job             *job,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	char *arg;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
+	char   *arg;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "logged")) {
 		job->console = CONSOLE_LOGGED;
@@ -1436,7 +1551,14 @@ stanza_console (Job             *job,
 
 	nih_free (arg);
 
-	return nih_config_skip_comment (file, len, pos, lineno);
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1462,7 +1584,7 @@ stanza_env (Job             *job,
 	    size_t          *pos,
 	    size_t          *lineno)
 {
-	char  *env;
+	char *env;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
@@ -1506,15 +1628,20 @@ stanza_umask (Job             *job,
 {
 	char          *arg, *endptr;
 	unsigned long  mask;
+	size_t         a_pos, a_lineno;
+	int            ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	mask = strtoul (arg, &endptr, 8);
 	if (*endptr || (mask & ~0777)) {
@@ -1527,7 +1654,14 @@ stanza_umask (Job             *job,
 
 	job->umask = (mode_t)mask;
 
-	return nih_config_skip_comment (file, len, pos, lineno);
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1552,17 +1686,22 @@ stanza_nice (Job             *job,
 	     size_t          *pos,
 	     size_t          *lineno)
 {
-	char *arg, *endptr;
-	long  nice;
+	char   *arg, *endptr;
+	long    nice;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	nice = strtol (arg, &endptr, 10);
 	if (*endptr || (nice < -20) || (nice > 19)) {
@@ -1575,7 +1714,14 @@ stanza_nice (Job             *job,
 
 	job->nice = (int)nice;
 
-	return nih_config_skip_comment (file, len, pos, lineno);
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**
@@ -1600,17 +1746,22 @@ stanza_limit (Job             *job,
 	      size_t          *pos,
 	      size_t          *lineno)
 {
-	int   resource;
-	char *arg, *endptr;
+	int     resource;
+	char   *arg, *endptr;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
 
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (! strcmp (arg, "as")) {
 		resource = RLIMIT_AS;
@@ -1656,10 +1807,15 @@ stanza_limit (Job             *job,
 			nih_return_system_error (-1);
 	}
 
+	/* Update error position to the soft limit value */
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
 	/* Parse the soft limit value */
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (strcmp (arg, "unlimited")) {
 		job->limits[resource]->rlim_cur = strtoul (arg, &endptr, 10);
@@ -1674,10 +1830,15 @@ stanza_limit (Job             *job,
 	}
 	nih_free (arg);
 
+	/* Update error position to the hard limit value */
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
 	/* Parse the hard limit value */
-	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
 	if (! arg)
-		return -1;
+		goto finish;
 
 	if (strcmp (arg, "unlimited")) {
 		job->limits[resource]->rlim_max = strtoul (arg, &endptr, 10);
@@ -1692,7 +1853,14 @@ stanza_limit (Job             *job,
 	}
 	nih_free (arg);
 
-	return nih_config_skip_comment (file, len, pos, lineno);
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**

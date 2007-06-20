@@ -75,6 +75,9 @@ test_parse_job (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_EMPTY (&job->start_events);
 		TEST_LIST_EMPTY (&job->stop_events);
@@ -142,6 +145,9 @@ test_parse_job (void)
 			nih_list_free (&old_job->entry);
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (new_job, sizeof (Job));
 		TEST_LIST_EMPTY (&job->start_events);
@@ -214,6 +220,9 @@ test_parse_job (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (new_job, sizeof (Job));
 		TEST_LIST_EMPTY (&job->start_events);
 		TEST_LIST_EMPTY (&job->stop_events);
@@ -261,6 +270,9 @@ test_parse_job (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
 
@@ -302,6 +314,9 @@ test_stanza_exec (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_MAIN];
@@ -335,6 +350,9 @@ test_stanza_exec (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -372,6 +390,9 @@ test_stanza_exec (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_MAIN];
@@ -399,6 +420,7 @@ test_stanza_exec (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 4);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -438,6 +460,9 @@ test_stanza_script (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_MAIN];
@@ -453,10 +478,10 @@ test_stanza_script (void)
 
 	/* Check that the last of multiple script stanzas is used. */
 	TEST_FEATURE ("with multiple blocks");
-	strcat (buf, "script\n");
+	strcpy (buf, "script\n");
 	strcat (buf, "    ls\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "script\n");
+	strcat (buf, "script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -475,6 +500,9 @@ test_stanza_script (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 7);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -492,7 +520,7 @@ test_stanza_script (void)
 	/* Check that a script stanza overrides a previous exec stanza. */
 	TEST_FEATURE ("with script following exec");
 	strcpy (buf, "exec /sbin/daemon -d \"foo\"\n");
-	strcpy (buf, "script\n");
+	strcat (buf, "script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -511,6 +539,9 @@ test_stanza_script (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -539,6 +570,7 @@ test_stanza_script (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 7);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -576,6 +608,9 @@ test_stanza_pre_start (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_PRE_START];
@@ -592,7 +627,7 @@ test_stanza_pre_start (void)
 	/* Check that the last of multiple pre-start exec stanzas is used. */
 	TEST_FEATURE ("with multiple exec");
 	strcpy (buf, "pre-start exec /bin/tool -d\n");
-	strcpy (buf, "pre-start exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "pre-start exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -609,6 +644,9 @@ test_stanza_pre_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -647,6 +685,9 @@ test_stanza_pre_start (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_PRE_START];
@@ -665,7 +706,7 @@ test_stanza_pre_start (void)
 	strcpy (buf, "pre-start script\n");
 	strcat (buf, "    ls\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "pre-start script\n");
+	strcat (buf, "pre-start script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -684,6 +725,9 @@ test_stanza_pre_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 7);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -701,7 +745,7 @@ test_stanza_pre_start (void)
 	/* Check that a script stanza overrides any previous exec stanza. */
 	TEST_FEATURE ("with script following exec");
 	strcpy (buf, "pre-start exec /bin/tool -d \"foo\"\n");
-	strcpy (buf, "pre-start script\n");
+	strcat (buf, "pre-start script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -720,6 +764,9 @@ test_stanza_pre_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -739,7 +786,7 @@ test_stanza_pre_start (void)
 	strcpy (buf, "pre-start script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "pre-start exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "pre-start exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -756,6 +803,9 @@ test_stanza_pre_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -784,6 +834,7 @@ test_stanza_pre_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 14);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -792,8 +843,7 @@ test_stanza_pre_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with argument to script");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "pre-start script foo\n");
+	strcpy (buf, "pre-start script foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -803,7 +853,8 @@ test_stanza_pre_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -811,8 +862,7 @@ test_stanza_pre_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "pre-start foo\n");
+	strcpy (buf, "pre-start foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -822,7 +872,8 @@ test_stanza_pre_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -830,8 +881,7 @@ test_stanza_pre_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "pre-start\n");
+	strcpy (buf, "pre-start\n");
 
 	pos = 0;
 	lineno = 1;
@@ -841,7 +891,8 @@ test_stanza_pre_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -878,6 +929,9 @@ test_stanza_post_start (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_POST_START];
@@ -894,7 +948,7 @@ test_stanza_post_start (void)
 	/* Check that the last of multiple post-start exec stanzas is used. */
 	TEST_FEATURE ("with multiple exec");
 	strcpy (buf, "post-start exec /bin/tool -d\n");
-	strcpy (buf, "post-start exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "post-start exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -911,6 +965,9 @@ test_stanza_post_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -949,6 +1006,9 @@ test_stanza_post_start (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_POST_START];
@@ -967,7 +1027,7 @@ test_stanza_post_start (void)
 	strcpy (buf, "post-start script\n");
 	strcat (buf, "    ls\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "post-start script\n");
+	strcat (buf, "post-start script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -986,6 +1046,9 @@ test_stanza_post_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 7);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1003,7 +1066,7 @@ test_stanza_post_start (void)
 	/* Check that a script stanza overrides any previous exec stanza. */
 	TEST_FEATURE ("with script following exec");
 	strcpy (buf, "post-start exec /bin/tool -d \"foo\"\n");
-	strcpy (buf, "post-start script\n");
+	strcat (buf, "post-start script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -1022,6 +1085,9 @@ test_stanza_post_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1041,7 +1107,7 @@ test_stanza_post_start (void)
 	strcpy (buf, "post-start script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "post-start exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "post-start exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1058,6 +1124,9 @@ test_stanza_post_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1086,6 +1155,7 @@ test_stanza_post_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 15);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -1094,8 +1164,7 @@ test_stanza_post_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with argument to script");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "post-start script foo\n");
+	strcpy (buf, "post-start script foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1105,7 +1174,8 @@ test_stanza_post_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 18);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1113,8 +1183,7 @@ test_stanza_post_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "post-start foo\n");
+	strcpy (buf, "post-start foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1124,7 +1193,8 @@ test_stanza_post_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1132,8 +1202,7 @@ test_stanza_post_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "post-start\n");
+	strcpy (buf, "post-start\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1143,7 +1212,8 @@ test_stanza_post_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -1180,6 +1250,9 @@ test_stanza_pre_stop (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_PRE_STOP];
@@ -1196,7 +1269,7 @@ test_stanza_pre_stop (void)
 	/* Check that the last of multiple pre-stop exec stanzas is used. */
 	TEST_FEATURE ("with multiple exec");
 	strcpy (buf, "pre-stop exec /bin/tool -d\n");
-	strcpy (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1213,6 +1286,9 @@ test_stanza_pre_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1251,6 +1327,9 @@ test_stanza_pre_stop (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_PRE_STOP];
@@ -1269,7 +1348,7 @@ test_stanza_pre_stop (void)
 	strcpy (buf, "pre-stop script\n");
 	strcat (buf, "    ls\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "pre-stop script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -1288,6 +1367,9 @@ test_stanza_pre_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 7);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1305,7 +1387,7 @@ test_stanza_pre_stop (void)
 	/* Check that a script stanza overrides any previous exec stanza. */
 	TEST_FEATURE ("with script following exec");
 	strcpy (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
-	strcpy (buf, "pre-stop script\n");
+	strcat (buf, "pre-stop script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -1324,6 +1406,9 @@ test_stanza_pre_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1343,7 +1428,7 @@ test_stanza_pre_stop (void)
 	strcpy (buf, "pre-stop script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "pre-stop exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1360,6 +1445,9 @@ test_stanza_pre_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1388,6 +1476,7 @@ test_stanza_pre_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 13);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -1396,8 +1485,7 @@ test_stanza_pre_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with argument to script");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "pre-stop script foo\n");
+	strcpy (buf, "pre-stop script foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1407,7 +1495,8 @@ test_stanza_pre_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1415,8 +1504,7 @@ test_stanza_pre_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "pre-stop foo\n");
+	strcpy (buf, "pre-stop foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1426,7 +1514,8 @@ test_stanza_pre_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1434,8 +1523,7 @@ test_stanza_pre_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "pre-stop\n");
+	strcpy (buf, "pre-stop\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1445,7 +1533,8 @@ test_stanza_pre_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -1482,6 +1571,9 @@ test_stanza_post_stop (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_POST_STOP];
@@ -1498,7 +1590,7 @@ test_stanza_post_stop (void)
 	/* Check that the last of multiple post-stop exec stanzas is used. */
 	TEST_FEATURE ("with multiple exec");
 	strcpy (buf, "post-stop exec /bin/tool -d\n");
-	strcpy (buf, "post-stop exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "post-stop exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1515,6 +1607,9 @@ test_stanza_post_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1553,6 +1648,9 @@ test_stanza_post_stop (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		process = job->process[PROCESS_POST_STOP];
@@ -1571,7 +1669,7 @@ test_stanza_post_stop (void)
 	strcpy (buf, "post-stop script\n");
 	strcat (buf, "    ls\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "post-stop script\n");
+	strcat (buf, "post-stop script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -1590,6 +1688,9 @@ test_stanza_post_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 7);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1607,7 +1708,7 @@ test_stanza_post_stop (void)
 	/* Check that a script stanza overrides any previous exec stanza. */
 	TEST_FEATURE ("with script following exec");
 	strcpy (buf, "post-stop exec /bin/tool -d \"foo\"\n");
-	strcpy (buf, "post-stop script\n");
+	strcat (buf, "post-stop script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
 
@@ -1626,6 +1727,9 @@ test_stanza_post_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1645,7 +1749,7 @@ test_stanza_post_stop (void)
 	strcpy (buf, "post-stop script\n");
 	strcat (buf, "    echo\n");
 	strcat (buf, "end script\n");
-	strcpy (buf, "post-stop exec /bin/tool -d \"foo\"\n");
+	strcat (buf, "post-stop exec /bin/tool -d \"foo\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1662,6 +1766,9 @@ test_stanza_post_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -1690,6 +1797,7 @@ test_stanza_post_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 14);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -1698,8 +1806,7 @@ test_stanza_post_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with argument to script");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "post-stop script foo\n");
+	strcpy (buf, "post-stop script foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1709,7 +1816,8 @@ test_stanza_post_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1717,8 +1825,7 @@ test_stanza_post_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "post-stop foo\n");
+	strcpy (buf, "post-stop foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1728,7 +1835,8 @@ test_stanza_post_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1736,8 +1844,7 @@ test_stanza_post_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "post-stop\n");
+	strcpy (buf, "post-stop\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1747,7 +1854,8 @@ test_stanza_post_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -1755,7 +1863,6 @@ void
 test_stanza_start (void)
 {
 	Job       *job;
-	EventInfo *event;
 	NihError  *err;
 	size_t     pos, lineno;
 	char       buf[1024];
@@ -1767,8 +1874,7 @@ test_stanza_start (void)
 	 * start events list.
 	 */
 	TEST_FEATURE ("with on and single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "start on wibble\n");
+	strcpy (buf, "start on wibble\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1785,6 +1891,9 @@ test_stanza_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->start_events);
@@ -1802,8 +1911,7 @@ test_stanza_start (void)
 	 * arguments for the event.
 	 */
 	TEST_FEATURE ("with on and multiple arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "start on wibble foo bar b?z*\n");
+	strcpy (buf, "start on wibble foo bar b?z*\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1820,6 +1928,9 @@ test_stanza_start (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->start_events);
@@ -1846,8 +1957,7 @@ test_stanza_start (void)
 	 * to the last.
 	 */
 	TEST_FEATURE ("with multiple on stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "start on wibble\n");
+	strcpy (buf, "start on wibble\n");
 	strcat (buf, "start on wobble\n");
 	strcat (buf, "start on waggle\n");
 
@@ -1867,6 +1977,9 @@ test_stanza_start (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->start_events);
 
@@ -1885,13 +1998,11 @@ test_stanza_start (void)
 		nih_list_free (&job->entry);
 	}
 
-
 	/* Check that a start stanza without a second-level argument results
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "start\n");
+	strcpy (buf, "start\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1901,7 +2012,8 @@ test_stanza_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1909,8 +2021,7 @@ test_stanza_start (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "start foo\n");
+	strcpy (buf, "start foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1920,7 +2031,8 @@ test_stanza_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -1928,8 +2040,7 @@ test_stanza_start (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with on and missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "start on\n");
+	strcpy (buf, "start on\n");
 
 	pos = 0;
 	lineno = 1;
@@ -1939,7 +2050,8 @@ test_stanza_start (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -1947,7 +2059,6 @@ void
 test_stanza_stop (void)
 {
 	Job       *job;
-	EventInfo *event;
 	NihError  *err;
 	size_t     pos, lineno;
 	char       buf[1024];
@@ -1959,8 +2070,7 @@ test_stanza_stop (void)
 	 * stop events list.
 	 */
 	TEST_FEATURE ("with on and single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "stop on wibble\n");
+	strcpy (buf, "stop on wibble\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -1977,6 +2087,9 @@ test_stanza_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->stop_events);
@@ -1994,8 +2107,7 @@ test_stanza_stop (void)
 	 * arguments for the event.
 	 */
 	TEST_FEATURE ("with on and multiple arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "stop on wibble foo bar b?z*\n");
+	strcpy (buf, "stop on wibble foo bar b?z*\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2012,6 +2124,9 @@ test_stanza_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->stop_events);
@@ -2038,8 +2153,7 @@ test_stanza_stop (void)
 	 * to the last.
 	 */
 	TEST_FEATURE ("with multiple on stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "stop on wibble\n");
+	strcpy (buf, "stop on wibble\n");
 	strcat (buf, "stop on wobble\n");
 	strcat (buf, "stop on waggle\n");
 
@@ -2058,6 +2172,9 @@ test_stanza_stop (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->stop_events);
@@ -2082,8 +2199,7 @@ test_stanza_stop (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "stop\n");
+	strcpy (buf, "stop\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2093,7 +2209,8 @@ test_stanza_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2101,8 +2218,7 @@ test_stanza_stop (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "stop foo\n");
+	strcpy (buf, "stop foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2112,7 +2228,8 @@ test_stanza_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2120,8 +2237,7 @@ test_stanza_stop (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with on and missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "stop on\n");
+	strcpy (buf, "stop on\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2131,7 +2247,8 @@ test_stanza_stop (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -2149,8 +2266,7 @@ test_stanza_description (void)
 	 * being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "description \"a test job\"\n");
+	strcpy (buf, "description \"a test job\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2167,6 +2283,9 @@ test_stanza_description (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2179,8 +2298,7 @@ test_stanza_description (void)
 
 	/* Check that the last of duplicate description stanzas is used. */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "description \"an example job\"\n");
+	strcpy (buf, "description \"an example job\"\n");
 	strcat (buf, "description \"a test job\"\n");
 
 	TEST_ALLOC_FAIL {
@@ -2198,6 +2316,9 @@ test_stanza_description (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2212,8 +2333,7 @@ test_stanza_description (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "description\n");
+	strcpy (buf, "description\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2223,7 +2343,8 @@ test_stanza_description (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2231,8 +2352,7 @@ test_stanza_description (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "description \"a test job\" \"ya ya\"\n");
+	strcpy (buf, "description \"a test job\" \"ya ya\"\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2242,7 +2362,8 @@ test_stanza_description (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 25);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -2260,8 +2381,7 @@ test_stanza_author (void)
 	 * being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author \"joe bloggs\"\n");
+	strcpy (buf, "author \"joe bloggs\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2278,6 +2398,9 @@ test_stanza_author (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2290,8 +2413,7 @@ test_stanza_author (void)
 
 	/* Check that the last of multiple author stanzas is used. */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author \"john doe\"\n");
+	strcpy (buf, "author \"john doe\"\n");
 	strcat (buf, "author \"joe bloggs\"\n");
 
 	TEST_ALLOC_FAIL {
@@ -2309,6 +2431,9 @@ test_stanza_author (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2323,8 +2448,7 @@ test_stanza_author (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author\n");
+	strcpy (buf, "author\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2334,7 +2458,8 @@ test_stanza_author (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2342,8 +2467,7 @@ test_stanza_author (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "author \"joe bloggs\" \"john doe\"\n");
+	strcpy (buf, "author \"joe bloggs\" \"john doe\"\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2353,7 +2477,8 @@ test_stanza_author (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 20);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -2371,8 +2496,7 @@ test_stanza_version (void)
 	 * being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version \"1.0\"\n");
+	strcpy (buf, "version \"1.0\"\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2389,6 +2513,9 @@ test_stanza_version (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2401,8 +2528,7 @@ test_stanza_version (void)
 
 	/* Check that the last of multiple version stanzas is used. */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version \"0.8\"\n");
+	strcpy (buf, "version \"0.8\"\n");
 	strcat (buf, "version \"1.0\"\n");
 
 	TEST_ALLOC_FAIL {
@@ -2420,6 +2546,9 @@ test_stanza_version (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2434,8 +2563,7 @@ test_stanza_version (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version\n");
+	strcpy (buf, "version\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2445,7 +2573,8 @@ test_stanza_version (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2453,8 +2582,7 @@ test_stanza_version (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "version \"1.0\" \"0.8\"\n");
+	strcpy (buf, "version \"1.0\" \"0.8\"\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2464,7 +2592,8 @@ test_stanza_version (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -2483,8 +2612,7 @@ test_stanza_emits (void)
 	 * the named event being added to the emits list.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "emits wibble\n");
+	strcpy (buf, "emits wibble\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2501,6 +2629,9 @@ test_stanza_emits (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->emits);
@@ -2517,8 +2648,7 @@ test_stanza_emits (void)
 	 * all of the named events being added to the emits list.
 	 */
 	TEST_FEATURE ("with multiple arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "emits wibble wobble waggle\n");
+	strcpy (buf, "emits wibble wobble waggle\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2535,6 +2665,9 @@ test_stanza_emits (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->emits);
@@ -2559,8 +2692,7 @@ test_stanza_emits (void)
 	 * to the last.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "emits wibble\n");
+	strcpy (buf, "emits wibble\n");
 	strcat (buf, "emits wobble waggle\n");
 	strcat (buf, "emits wuggle\n");
 
@@ -2579,6 +2711,9 @@ test_stanza_emits (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->emits);
@@ -2607,8 +2742,7 @@ test_stanza_emits (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "emits\n");
+	strcpy (buf, "emits\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2618,7 +2752,8 @@ test_stanza_emits (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -2636,8 +2771,7 @@ test_stanza_daemon (void)
 	 * daemon flag.
 	 */
 	TEST_FEATURE ("with no arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
+	strcpy (buf, "daemon\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2654,6 +2788,9 @@ test_stanza_daemon (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2665,8 +2802,7 @@ test_stanza_daemon (void)
 
 	/* Check that the daemon stanza can be used multiple times. */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
+	strcpy (buf, "daemon\n");
 	strcat (buf, "daemon\n");
 
 	TEST_ALLOC_FAIL {
@@ -2684,6 +2820,9 @@ test_stanza_daemon (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2697,8 +2836,7 @@ test_stanza_daemon (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon foo\n");
+	strcpy (buf, "daemon foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2708,7 +2846,8 @@ test_stanza_daemon (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -2724,8 +2863,7 @@ test_stanza_respawn (void)
 
 	/* Check that a respawn stanza sets the job's respawn and service */
 	TEST_FEATURE ("with no argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn\n");
+	strcpy (buf, "respawn\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2742,6 +2880,9 @@ test_stanza_respawn (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2756,8 +2897,7 @@ test_stanza_respawn (void)
 	 * times.
 	 */
 	TEST_FEATURE ("with multiple no argument stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn\n");
+	strcpy (buf, "respawn\n");
 	strcat (buf, "respawn\n");
 
 	TEST_ALLOC_FAIL {
@@ -2775,6 +2915,9 @@ test_stanza_respawn (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2789,8 +2932,7 @@ test_stanza_respawn (void)
 	 * rate and timeout results in it being stored in the job.
 	 */
 	TEST_FEATURE ("with limit and two arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 10 120\n");
+	strcpy (buf, "respawn limit 10 120\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2807,6 +2949,9 @@ test_stanza_respawn (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -2821,8 +2966,7 @@ test_stanza_respawn (void)
 	 * the single word unlimited after it.
 	 */
 	TEST_FEATURE ("with limit and unlimited");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit unlimited\n");
+	strcpy (buf, "respawn limit unlimited\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -2840,6 +2984,9 @@ test_stanza_respawn (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->respawn_limit, 0);
@@ -2851,8 +2998,7 @@ test_stanza_respawn (void)
 
 	/* Check that the most recent of multiple respawn stanzas is used. */
 	TEST_FEATURE ("with multiple limit and two argument stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 5 60\n");
+	strcpy (buf, "respawn limit 5 60\n");
 	strcat (buf, "respawn limit 10 120\n");
 
 	TEST_ALLOC_FAIL {
@@ -2871,6 +3017,9 @@ test_stanza_respawn (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->respawn_limit, 10);
@@ -2884,8 +3033,7 @@ test_stanza_respawn (void)
 	 * interval results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and missing second argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 10\n");
+	strcpy (buf, "respawn limit 10\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2895,7 +3043,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2903,8 +3052,7 @@ test_stanza_respawn (void)
 	 * arguments results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and missing arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit\n");
+	strcpy (buf, "respawn limit\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2914,7 +3062,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2922,8 +3071,7 @@ test_stanza_respawn (void)
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and non-integer interval argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 10 foo\n");
+	strcpy (buf, "respawn limit 10 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2933,7 +3081,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2941,8 +3090,7 @@ test_stanza_respawn (void)
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and non-integer limit argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit foo 120\n");
+	strcpy (buf, "respawn limit foo 120\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2952,7 +3100,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2960,8 +3109,7 @@ test_stanza_respawn (void)
 	 * interval argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and alphanumeric interval argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 10 99foo\n");
+	strcpy (buf, "respawn limit 10 99foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2971,7 +3119,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2979,8 +3128,7 @@ test_stanza_respawn (void)
 	 * limit argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and alphanumeric limit argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 99foo 120\n");
+	strcpy (buf, "respawn limit 99foo 120\n");
 
 	pos = 0;
 	lineno = 1;
@@ -2990,7 +3138,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -2998,8 +3147,7 @@ test_stanza_respawn (void)
 	 * value results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and negative interval argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 10 -1\n");
+	strcpy (buf, "respawn limit 10 -1\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3009,7 +3157,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3017,8 +3166,7 @@ test_stanza_respawn (void)
 	 * value results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and negative interval argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit -1 120\n");
+	strcpy (buf, "respawn limit -1 120\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3028,7 +3176,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3036,8 +3185,7 @@ test_stanza_respawn (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument to limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn limit 0 1 foo\n");
+	strcpy (buf, "respawn limit 0 1 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3047,16 +3195,16 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 18);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
 	/* Check that a respawn stanza with an unknown second argument
 	 * results in a syntax error.
 	 */
-	TEST_FEATURE ("with extra argument to limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn foo bar\n");
+	TEST_FEATURE ("with unknown argument to limit");
+	strcpy (buf, "respawn foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3066,7 +3214,8 @@ test_stanza_respawn (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -3084,8 +3233,7 @@ test_stanza_service (void)
 	 * service flag.
 	 */
 	TEST_FEATURE ("with no arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "service\n");
+	strcpy (buf, "service\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3102,6 +3250,9 @@ test_stanza_service (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3113,8 +3264,7 @@ test_stanza_service (void)
 
 	/* Check that multiple service stanzas are permitted. */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "service\n");
+	strcpy (buf, "service\n");
 	strcat (buf, "service\n");
 
 	TEST_ALLOC_FAIL {
@@ -3132,6 +3282,9 @@ test_stanza_service (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3144,8 +3297,7 @@ test_stanza_service (void)
 	/* Check that we can specify both of the respawn and service stanzas.
 	 */
 	TEST_FEATURE ("with respawn followed by service");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "respawn\n");
+	strcpy (buf, "respawn\n");
 	strcat (buf, "service\n");
 
 	TEST_ALLOC_FAIL {
@@ -3163,6 +3315,9 @@ test_stanza_service (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3176,8 +3331,7 @@ test_stanza_service (void)
 	/* Check that we can specify both of the service and respawn stanzas.
 	 */
 	TEST_FEATURE ("with service followed by respawn");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "service\n");
+	strcpy (buf, "service\n");
 	strcat (buf, "respawn\n");
 
 	TEST_ALLOC_FAIL {
@@ -3195,6 +3349,9 @@ test_stanza_service (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3209,8 +3366,7 @@ test_stanza_service (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "service foo\n");
+	strcpy (buf, "service foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3220,7 +3376,8 @@ test_stanza_service (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -3237,8 +3394,7 @@ test_stanza_instance (void)
 	/* Check that an instance stanza sets the job's instance flag.
 	 */
 	TEST_FEATURE ("with no argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "instance\n");
+	strcpy (buf, "instance\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3255,6 +3411,9 @@ test_stanza_instance (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3267,8 +3426,7 @@ test_stanza_instance (void)
 	/* Check that multiple instance stanzas are permitted.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "instance\n");
+	strcpy (buf, "instance\n");
 	strcat (buf, "instance\n");
 
 	TEST_ALLOC_FAIL {
@@ -3286,6 +3444,9 @@ test_stanza_instance (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3299,8 +3460,7 @@ test_stanza_instance (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "instance foo\n");
+	strcpy (buf, "instance foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3310,7 +3470,8 @@ test_stanza_instance (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -3328,9 +3489,7 @@ test_stanza_pid (void)
 	 * results in the filename being stored in the job.
 	 */
 	TEST_FEATURE ("with file and single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid file /var/run/daemon.pid\n");
+	strcpy (buf, "pid file /var/run/daemon.pid\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3347,6 +3506,9 @@ test_stanza_pid (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3360,9 +3522,7 @@ test_stanza_pid (void)
 	/* Check that the last of multiple pid stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple file and single argument stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid file /var/run/daemon/main.pid\n");
+	strcpy (buf, "pid file /var/run/daemon/main.pid\n");
 	strcat (buf, "pid file /var/run/daemon.pid\n");
 
 	TEST_ALLOC_FAIL {
@@ -3380,6 +3540,9 @@ test_stanza_pid (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3394,9 +3557,7 @@ test_stanza_pid (void)
 	 * results in the filename being stored in the job.
 	 */
 	TEST_FEATURE ("with binary and single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid binary /usr/lib/daemon\n");
+	strcpy (buf, "pid binary /usr/lib/daemon\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3413,6 +3574,9 @@ test_stanza_pid (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3426,9 +3590,7 @@ test_stanza_pid (void)
 	/* Check that the last of multiple pid stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple binary and single argument stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid binary /usr/bin/daemon.real\n");
+	strcpy (buf, "pid binary /usr/bin/daemon.real\n");
 	strcat (buf, "pid binary /usr/lib/daemon\n");
 
 	TEST_ALLOC_FAIL {
@@ -3446,6 +3608,9 @@ test_stanza_pid (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3460,9 +3625,7 @@ test_stanza_pid (void)
 	 * timeout results in it being stored in the job.
 	 */
 	TEST_FEATURE ("with timeout and single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout 10\n");
+	strcpy (buf, "pid timeout 10\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3479,6 +3642,9 @@ test_stanza_pid (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3491,9 +3657,7 @@ test_stanza_pid (void)
 	/* Check that the last of multiple pid timeout stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple timeout and single argument stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout 5\n");
+	strcpy (buf, "pid timeout 5\n");
 	strcat (buf, "pid timeout 10\n");
 
 	TEST_ALLOC_FAIL {
@@ -3511,6 +3675,9 @@ test_stanza_pid (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3524,9 +3691,7 @@ test_stanza_pid (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid\n");
+	strcpy (buf, "pid\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3536,7 +3701,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 3);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3544,9 +3710,7 @@ test_stanza_pid (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown second argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid foo\n");
+	strcpy (buf, "pid foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3556,7 +3720,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3564,9 +3729,7 @@ test_stanza_pid (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with file and missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid file\n");
+	strcpy (buf, "pid file\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3576,7 +3739,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3584,9 +3748,7 @@ test_stanza_pid (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with binary and missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid binary\n");
+	strcpy (buf, "pid binary\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3596,7 +3758,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3604,9 +3767,7 @@ test_stanza_pid (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout\n");
+	strcpy (buf, "pid timeout\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3616,7 +3777,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3624,9 +3786,7 @@ test_stanza_pid (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and non-integer argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout foo\n");
+	strcpy (buf, "pid timeout foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3636,7 +3796,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3644,9 +3805,7 @@ test_stanza_pid (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and alphanumeric argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout 99foo\n");
+	strcpy (buf, "pid timeout 99foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3656,7 +3815,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3664,9 +3824,7 @@ test_stanza_pid (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and negative argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout -1\n");
+	strcpy (buf, "pid timeout -1\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3676,7 +3834,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3685,9 +3844,7 @@ test_stanza_pid (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with file and extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid file /var/run/daemon.pid foo\n");
+	strcpy (buf, "pid file /var/run/daemon.pid foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3697,7 +3854,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 29);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3706,9 +3864,7 @@ test_stanza_pid (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with binary and extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid binary /usr/lib/daemon foo\n");
+	strcpy (buf, "pid binary /usr/lib/daemon foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3718,7 +3874,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 27);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3727,9 +3884,7 @@ test_stanza_pid (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with timeout and extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "daemon\n");
-	strcat (buf, "pid timeout 99 foo\n");
+	strcpy (buf, "pid timeout 99 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3739,7 +3894,8 @@ test_stanza_pid (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 3);
+	TEST_EQ (pos, 15);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -3757,8 +3913,7 @@ test_stanza_kill (void)
 	 * timeout results in it being stored in the job.
 	 */
 	TEST_FEATURE ("with timeout and single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout 10\n");
+	strcpy (buf, "kill timeout 10\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3775,6 +3930,9 @@ test_stanza_kill (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3787,8 +3945,7 @@ test_stanza_kill (void)
 	/* Check that the last of multiple kill stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple timeout and single argument stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout 5\n");
+	strcpy (buf, "kill timeout 5\n");
 	strcat (buf, "kill timeout 10\n");
 
 	TEST_ALLOC_FAIL {
@@ -3806,6 +3963,9 @@ test_stanza_kill (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -3819,8 +3979,7 @@ test_stanza_kill (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill\n");
+	strcpy (buf, "kill\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3830,7 +3989,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3838,8 +3998,7 @@ test_stanza_kill (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown second argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill foo\n");
+	strcpy (buf, "kill foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3849,7 +4008,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3857,8 +4017,7 @@ test_stanza_kill (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout\n");
+	strcpy (buf, "kill timeout\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3868,7 +4027,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3876,8 +4036,7 @@ test_stanza_kill (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and non-integer argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout foo\n");
+	strcpy (buf, "kill timeout foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3887,7 +4046,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3895,8 +4055,7 @@ test_stanza_kill (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and alphanumeric argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout 99foo\n");
+	strcpy (buf, "kill timeout 99foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3906,7 +4065,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3914,8 +4074,7 @@ test_stanza_kill (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with timeout and negative argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout -1\n");
+	strcpy (buf, "kill timeout -1\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3925,7 +4084,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -3934,8 +4094,7 @@ test_stanza_kill (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with timeout and extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "kill timeout 99 foo\n");
+	strcpy (buf, "kill timeout 99 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -3945,7 +4104,8 @@ test_stanza_kill (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -3964,8 +4124,7 @@ test_stanza_normal (void)
 	 * should be allocated.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit 99\n");
+	strcpy (buf, "normal exit 99\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3982,6 +4141,9 @@ test_stanza_normal (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4001,8 +4163,7 @@ test_stanza_normal (void)
 	 * to the normalexit array.
 	 */
 	TEST_FEATURE ("with single argument containing signal name");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit INT\n");
+	strcpy (buf, "normal exit INT\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4019,6 +4180,9 @@ test_stanza_normal (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4038,8 +4202,7 @@ test_stanza_normal (void)
 	 * have been increased in size.
 	 */
 	TEST_FEATURE ("with multiple arguments");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit 99 100 101 SIGTERM\n");
+	strcpy (buf, "normal exit 99 100 101 SIGTERM\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4056,6 +4219,9 @@ test_stanza_normal (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4077,8 +4243,7 @@ test_stanza_normal (void)
 	 * appending to the array.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit 99\n");
+	strcpy (buf, "normal exit 99\n");
 	strcat (buf, "normal exit 100 101\n");
 	strcat (buf, "normal exit QUIT\n");
 	strcat (buf, "normal exit 900\n");
@@ -4098,6 +4263,9 @@ test_stanza_normal (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4120,8 +4288,7 @@ test_stanza_normal (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit\n");
+	strcpy (buf, "normal exit\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4131,7 +4298,8 @@ test_stanza_normal (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4139,8 +4307,7 @@ test_stanza_normal (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with non-integer argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit foo\n");
+	strcpy (buf, "normal exit foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4150,7 +4317,8 @@ test_stanza_normal (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_EXIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4158,8 +4326,7 @@ test_stanza_normal (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with alphanumeric argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit 99foo\n");
+	strcpy (buf, "normal exit 99foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4169,7 +4336,8 @@ test_stanza_normal (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_EXIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4177,8 +4345,7 @@ test_stanza_normal (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with negative argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal exit -1\n");
+	strcpy (buf, "normal exit -1\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4188,7 +4355,8 @@ test_stanza_normal (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_EXIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4196,8 +4364,7 @@ test_stanza_normal (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal wibble\n");
+	strcpy (buf, "normal wibble\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4207,7 +4374,8 @@ test_stanza_normal (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4215,8 +4383,7 @@ test_stanza_normal (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing exit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "normal\n");
+	strcpy (buf, "normal\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4226,7 +4393,8 @@ test_stanza_normal (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -4244,8 +4412,7 @@ test_stanza_console (void)
 	 * CONSOLE_LOGGED.
 	 */
 	TEST_FEATURE ("with logged argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console logged\n");
+	strcpy (buf, "console logged\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4262,6 +4429,9 @@ test_stanza_console (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4275,8 +4445,7 @@ test_stanza_console (void)
 	 * CONSOLE_OUTPUT.
 	 */
 	TEST_FEATURE ("with output argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console output\n");
+	strcpy (buf, "console output\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4293,6 +4462,9 @@ test_stanza_console (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4306,8 +4478,7 @@ test_stanza_console (void)
 	 * CONSOLE_OWNER.
 	 */
 	TEST_FEATURE ("with owner argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console owner\n");
+	strcpy (buf, "console owner\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4324,6 +4495,9 @@ test_stanza_console (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4337,8 +4511,7 @@ test_stanza_console (void)
 	 * CONSOLE_NONE.
 	 */
 	TEST_FEATURE ("with none argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console none\n");
+	strcpy (buf, "console none\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4356,6 +4529,9 @@ test_stanza_console (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->console, CONSOLE_NONE);
@@ -4367,8 +4543,7 @@ test_stanza_console (void)
 	/* Check that the last of multiple console stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console output\n");
+	strcpy (buf, "console output\n");
 	strcat (buf, "console logged\n");
 
 	TEST_ALLOC_FAIL {
@@ -4387,6 +4562,9 @@ test_stanza_console (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->console, CONSOLE_LOGGED);
@@ -4398,8 +4576,7 @@ test_stanza_console (void)
 	/* Check that an unknown argument raises a syntax error.
 	 */
 	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console wibble\n");
+	strcpy (buf, "console wibble\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4409,7 +4586,8 @@ test_stanza_console (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4417,8 +4595,7 @@ test_stanza_console (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "console owner foo\n");
+	strcpy (buf, "console owner foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4428,7 +4605,8 @@ test_stanza_console (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -4446,8 +4624,7 @@ test_stanza_env (void)
 	 * being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "env FOO=BAR\n");
+	strcpy (buf, "env FOO=BAR\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4465,6 +4642,9 @@ test_stanza_env (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->env, job);
@@ -4480,8 +4660,7 @@ test_stanza_env (void)
 	 * the job.
 	 */
 	TEST_FEATURE ("with repeated stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "env FOO=BAR\n");
+	strcpy (buf, "env FOO=BAR\n");
 	strcat (buf, "env BAZ=QUUX\n");
 	strcat (buf, "env FRODO=BILBO\n");
 
@@ -4501,6 +4680,9 @@ test_stanza_env (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->env, job);
@@ -4518,8 +4700,7 @@ test_stanza_env (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "env\n");
+	strcpy (buf, "env\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4529,7 +4710,8 @@ test_stanza_env (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 3);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4537,8 +4719,7 @@ test_stanza_env (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "env FOO=BAR oops\n");
+	strcpy (buf, "env FOO=BAR oops\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4548,7 +4729,8 @@ test_stanza_env (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -4566,8 +4748,7 @@ test_stanza_umask (void)
 	 * in it being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask 0755\n");
+	strcpy (buf, "umask 0755\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4584,6 +4765,9 @@ test_stanza_umask (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4596,8 +4780,7 @@ test_stanza_umask (void)
 	/* Check that the last of multiple umask stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask 0644\n");
+	strcpy (buf, "umask 0644\n");
 	strcat (buf, "umask 0755\n");
 
 	TEST_ALLOC_FAIL {
@@ -4615,6 +4798,9 @@ test_stanza_umask (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4628,8 +4814,7 @@ test_stanza_umask (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask\n");
+	strcpy (buf, "umask\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4639,7 +4824,8 @@ test_stanza_umask (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4647,8 +4833,7 @@ test_stanza_umask (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with non-octal argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask 999\n");
+	strcpy (buf, "umask 999\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4658,7 +4843,8 @@ test_stanza_umask (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4666,8 +4852,7 @@ test_stanza_umask (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with non-integer argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask foo\n");
+	strcpy (buf, "umask foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4677,7 +4862,8 @@ test_stanza_umask (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4685,8 +4871,7 @@ test_stanza_umask (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with alphanumeric argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask 99foo\n");
+	strcpy (buf, "umask 99foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4696,7 +4881,8 @@ test_stanza_umask (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4704,8 +4890,7 @@ test_stanza_umask (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with negative argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask -1\n");
+	strcpy (buf, "umask -1\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4715,7 +4900,8 @@ test_stanza_umask (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_UMASK);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4724,8 +4910,7 @@ test_stanza_umask (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "umask 0755 foo\n");
+	strcpy (buf, "umask 0755 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4735,7 +4920,8 @@ test_stanza_umask (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -4753,8 +4939,7 @@ test_stanza_nice (void)
 	 * in it being stored in the job.
 	 */
 	TEST_FEATURE ("with positive argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice 10\n");
+	strcpy (buf, "nice 10\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4771,6 +4956,9 @@ test_stanza_nice (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -4784,8 +4972,7 @@ test_stanza_nice (void)
 	 * in it being stored in the job.
 	 */
 	TEST_FEATURE ("with positive argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice -10\n");
+	strcpy (buf, "nice -10\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4803,6 +4990,9 @@ test_stanza_nice (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->nice, -10);
@@ -4814,8 +5004,7 @@ test_stanza_nice (void)
 	/* Check that the last of multiple nice stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice -10\n");
+	strcpy (buf, "nice -10\n");
 	strcat (buf, "nice 10\n");
 
 	TEST_ALLOC_FAIL {
@@ -4834,6 +5023,9 @@ test_stanza_nice (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_EQ (job->nice, 10);
@@ -4846,8 +5038,7 @@ test_stanza_nice (void)
 	 * error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice\n");
+	strcpy (buf, "nice\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4857,7 +5048,8 @@ test_stanza_nice (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4865,8 +5057,7 @@ test_stanza_nice (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with overly large argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice 20\n");
+	strcpy (buf, "nice 20\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4876,7 +5067,8 @@ test_stanza_nice (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4884,8 +5076,7 @@ test_stanza_nice (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with overly small argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice -21\n");
+	strcpy (buf, "nice -21\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4895,7 +5086,8 @@ test_stanza_nice (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4903,8 +5095,7 @@ test_stanza_nice (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with non-integer argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice foo\n");
+	strcpy (buf, "nice foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4914,7 +5105,8 @@ test_stanza_nice (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4922,8 +5114,7 @@ test_stanza_nice (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with alphanumeric argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice 12foo\n");
+	strcpy (buf, "nice 12foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4933,7 +5124,8 @@ test_stanza_nice (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_NICE);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -4941,8 +5133,7 @@ test_stanza_nice (void)
 	 * argument afterwards results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "nice 10 foo\n");
+	strcpy (buf, "nice 10 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4952,7 +5143,8 @@ test_stanza_nice (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -4969,8 +5161,7 @@ test_stanza_limit (void)
 	/* Check that the limit as stanza sets the RLIMIT_AS resource.
 	 */
 	TEST_FEATURE ("with as limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit as 10 20\n");
+	strcpy (buf, "limit as 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4987,6 +5178,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5001,8 +5195,7 @@ test_stanza_limit (void)
 	/* Check that the limit core stanza sets the RLIMIT_CORE resource.
 	 */
 	TEST_FEATURE ("with core limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10 20\n");
+	strcpy (buf, "limit core 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5019,6 +5212,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5033,8 +5229,7 @@ test_stanza_limit (void)
 	/* Check that the limit as stanza sets the RLIMIT_CPU resource.
 	 */
 	TEST_FEATURE ("with cpu limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit cpu 10 20\n");
+	strcpy (buf, "limit cpu 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5051,6 +5246,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5065,8 +5263,7 @@ test_stanza_limit (void)
 	/* Check that the limit data stanza sets the RLIMIT_DATA resource.
 	 */
 	TEST_FEATURE ("with data limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit data 10 20\n");
+	strcpy (buf, "limit data 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5083,6 +5280,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5097,8 +5297,7 @@ test_stanza_limit (void)
 	/* Check that the limit fsize stanza sets the RLIMIT_FSIZE resource.
 	 */
 	TEST_FEATURE ("with fsize limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit fsize 10 20\n");
+	strcpy (buf, "limit fsize 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5115,6 +5314,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5130,8 +5332,7 @@ test_stanza_limit (void)
 	 * resource.
 	 */
 	TEST_FEATURE ("with memlock limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit memlock 10 20\n");
+	strcpy (buf, "limit memlock 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5148,6 +5349,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5163,8 +5367,7 @@ test_stanza_limit (void)
 	 * resource.
 	 */
 	TEST_FEATURE ("with msgqueue limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit msgqueue 10 20\n");
+	strcpy (buf, "limit msgqueue 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5181,6 +5384,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5195,8 +5401,7 @@ test_stanza_limit (void)
 	/* Check that the limit nice stanza sets the RLIMIT_NICE resource.
 	 */
 	TEST_FEATURE ("with nice limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit nice 10 20\n");
+	strcpy (buf, "limit nice 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5213,6 +5418,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5228,8 +5436,7 @@ test_stanza_limit (void)
 	 * resource.
 	 */
 	TEST_FEATURE ("with nofile limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit nofile 10 20\n");
+	strcpy (buf, "limit nofile 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5246,6 +5453,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5260,8 +5470,7 @@ test_stanza_limit (void)
 	/* Check that the limit nproc stanza sets the RLIMIT_NPROC resource.
 	 */
 	TEST_FEATURE ("with nproc limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit nproc 10 20\n");
+	strcpy (buf, "limit nproc 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5278,6 +5487,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5292,8 +5504,7 @@ test_stanza_limit (void)
 	/* Check that the limit rss stanza sets the RLIMIT_RSS resource.
 	 */
 	TEST_FEATURE ("with rss limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit rss 10 20\n");
+	strcpy (buf, "limit rss 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5310,6 +5521,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5324,8 +5538,7 @@ test_stanza_limit (void)
 	/* Check that the limit rtprio stanza sets the RLIMIT_RTPRIO resource.
 	 */
 	TEST_FEATURE ("with rtprio limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit rtprio 10 20\n");
+	strcpy (buf, "limit rtprio 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5342,6 +5555,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5357,8 +5573,7 @@ test_stanza_limit (void)
 	 * resource.
 	 */
 	TEST_FEATURE ("with sigpending limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit sigpending 10 20\n");
+	strcpy (buf, "limit sigpending 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5375,6 +5590,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5389,8 +5607,7 @@ test_stanza_limit (void)
 	/* Check that the limit stack stanza sets the RLIMIT_STACK resource.
 	 */
 	TEST_FEATURE ("with stack limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit stack 10 20\n");
+	strcpy (buf, "limit stack 10 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5407,6 +5624,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5422,8 +5642,7 @@ test_stanza_limit (void)
 	 * refer to different resources, all are set.
 	 */
 	TEST_FEATURE ("with multiple limits");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10 20\n");
+	strcpy (buf, "limit core 10 20\n");
 	strcat (buf, "limit cpu 15 30\n");
 
 	TEST_ALLOC_FAIL {
@@ -5442,6 +5661,9 @@ test_stanza_limit (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
@@ -5459,8 +5681,7 @@ test_stanza_limit (void)
 	/* Check that the last of multiple stanzas for the same limit is used.
 	 */
 	TEST_FEATURE ("with multiple of a single limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 5 10\n");
+	strcpy (buf, "limit core 5 10\n");
 	strcat (buf, "limit core 10 20\n");
 
 	TEST_ALLOC_FAIL {
@@ -5479,6 +5700,9 @@ test_stanza_limit (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
@@ -5493,8 +5717,7 @@ test_stanza_limit (void)
 	 * a special argument of that name
 	 */
 	TEST_FEATURE ("with unlimited hard limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10 unlimited\n");
+	strcpy (buf, "limit core 10 unlimited\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5511,6 +5734,9 @@ test_stanza_limit (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5526,8 +5752,7 @@ test_stanza_limit (void)
 	 * a special argument of that name
 	 */
 	TEST_FEATURE ("with unlimited soft limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core unlimited 20\n");
+	strcpy (buf, "limit core unlimited 20\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5545,6 +5770,9 @@ test_stanza_limit (void)
 			continue;
 		}
 
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
@@ -5559,8 +5787,7 @@ test_stanza_limit (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with missing hard limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10\n");
+	strcpy (buf, "limit core 10\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5570,7 +5797,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5578,8 +5806,7 @@ test_stanza_limit (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing soft limit");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core\n");
+	strcpy (buf, "limit core\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5589,7 +5816,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5597,8 +5825,7 @@ test_stanza_limit (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with unknown resource type");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit foo\n");
+	strcpy (buf, "limit foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5608,7 +5835,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5616,8 +5844,7 @@ test_stanza_limit (void)
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing resource type");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit\n");
+	strcpy (buf, "limit\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5627,7 +5854,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5635,8 +5863,7 @@ test_stanza_limit (void)
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with non-integer hard value argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10 foo\n");
+	strcpy (buf, "limit core 10 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5646,7 +5873,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5654,8 +5882,7 @@ test_stanza_limit (void)
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with non-integer soft value argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core foo 20\n");
+	strcpy (buf, "limit core foo 20\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5665,7 +5892,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5673,8 +5901,7 @@ test_stanza_limit (void)
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with alphanumeric hard value argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 10 99foo\n");
+	strcpy (buf, "limit core 10 99foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5684,7 +5911,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5692,8 +5920,7 @@ test_stanza_limit (void)
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with alphanumeric soft value argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit core 99foo 20\n");
+	strcpy (buf, "limit core 99foo 20\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5703,7 +5930,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5711,8 +5939,7 @@ test_stanza_limit (void)
 	 * in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "limit cpu 10 20 foo\n");
+	strcpy (buf, "limit core 10 20 foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5722,7 +5949,8 @@ test_stanza_limit (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -5740,8 +5968,7 @@ test_stanza_chroot (void)
 	 * being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chroot /chroot/daemon\n");
+	strcpy (buf, "chroot /chroot/daemon\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5758,6 +5985,9 @@ test_stanza_chroot (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5771,8 +6001,7 @@ test_stanza_chroot (void)
 	/* Check that the last of multiple chroot stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chroot /var/daemon\n");
+	strcpy (buf, "chroot /var/daemon\n");
 	strcat (buf, "chroot /chroot/daemon\n");
 
 	TEST_ALLOC_FAIL {
@@ -5790,6 +6019,9 @@ test_stanza_chroot (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5804,8 +6036,7 @@ test_stanza_chroot (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chroot\n");
+	strcpy (buf, "chroot\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5815,7 +6046,8 @@ test_stanza_chroot (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5823,8 +6055,7 @@ test_stanza_chroot (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chroot /chroot/daemon foo\n");
+	strcpy (buf, "chroot /chroot/daemon foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5834,7 +6065,8 @@ test_stanza_chroot (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 22);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 
@@ -5852,8 +6084,7 @@ test_stanza_chdir (void)
 	 * being stored in the job.
 	 */
 	TEST_FEATURE ("with single argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chdir /var/lib/daemon\n");
+	strcpy (buf, "chdir /var/lib/daemon\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5870,6 +6101,9 @@ test_stanza_chdir (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5883,8 +6117,7 @@ test_stanza_chdir (void)
 	/* Check that the last of multiple chdir stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chdir /var/daemon\n");
+	strcpy (buf, "chdir /var/daemon\n");
 	strcat (buf, "chdir /var/lib/daemon\n");
 
 	TEST_ALLOC_FAIL {
@@ -5902,6 +6135,9 @@ test_stanza_chdir (void)
 
 			continue;
 		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 
@@ -5916,8 +6152,7 @@ test_stanza_chdir (void)
 	 * a syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chdir\n");
+	strcpy (buf, "chdir\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5927,7 +6162,8 @@ test_stanza_chdir (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
@@ -5935,8 +6171,7 @@ test_stanza_chdir (void)
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "exec /sbin/daemon\n");
-	strcat (buf, "chdir /var/lib/daemon foo\n");
+	strcpy (buf, "chdir /var/lib/daemon foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -5946,7 +6181,8 @@ test_stanza_chdir (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (lineno, 2);
+	TEST_EQ (pos, 22);
+	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
 

@@ -1,3 +1,14 @@
+2007-06-20  Scott James Remnant  <scott@netsplit.com>
+
+	* init/parse_job.c: Where the stanza function parses an argument and
+	can possibly reject it, save the position and line number and do not
+	return that unless we're happy with the argument.  This ensures errors
+	are raised pointing *at* the argument, rather than past it.
+	* init/tests/test_parse_job.c: Fix several test case errors where
+	the buffer was built incorrectly.  Pedantically check pos and lineno
+	after successful parsing, and after errors, to make sure they are
+	where they should be.
+
 2007-06-18  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.h (Job): Replace the start_events and stop_events NihLists
