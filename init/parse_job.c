@@ -951,8 +951,8 @@ stanza_version (Job             *job,
  * arguments giving the names of additional events that can be emitted
  * by this job.
  *
- * Arguments are allocated as EventInfo structures and stored in the emits
- * list of the job.
+ * Arguments are allocated as NihListEntry structures, with the argument
+ * as the string, and stored in the emits list of the job.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -980,16 +980,19 @@ stanza_emits (Job             *job,
 		return -1;
 
 	for (arg = args; *arg; arg++) {
-		EventInfo *event;
+		NihListEntry *emits;
 
-		event = event_info_new (job, *arg, NULL, NULL);
-		if (! event) {
+		emits = nih_list_entry_new (job);
+		if (! emits) {
 			nih_error_raise_system ();
 			nih_free (args);
 			return -1;
 		}
 
-		nih_list_add (&job->emits, &event->entry);
+		emits->str = *arg;
+		nih_alloc_reparent (emits->str, emits);
+
+		nih_list_add (&job->emits, &emits->entry);
 	}
 
 	nih_free (args);

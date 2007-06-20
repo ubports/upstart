@@ -1,5 +1,12 @@
 2007-06-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (stanza_emits): Each entry in the emits list
+	is now an NihListEntry with the event name as the string data
+	pointer, rather than an EventInfo structure (since that structure
+	is gone).
+	* init/tests/test_parse_job.c (test_stanza_emits): Update test
+	case to check for NihListEntry structures.
+
 	* init/parse_job.c: Where the stanza function parses an argument and
 	can possibly reject it, save the position and line number and do not
 	return that unless we're happy with the argument.  This ensures errors

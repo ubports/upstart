@@ -2600,11 +2600,11 @@ test_stanza_version (void)
 void
 test_stanza_emits (void)
 {
-	Job       *job;
-	EventInfo *event;
-	NihError  *err;
-	size_t     pos, lineno;
-	char       buf[1024];
+	Job          *job;
+	NihListEntry *emits;
+	NihError     *err;
+	size_t        pos, lineno;
+	char          buf[1024];
 
 	TEST_FUNCTION ("stanza_emits");
 
@@ -2636,9 +2636,10 @@ test_stanza_emits (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->emits);
 
-		event = (EventInfo *)job->emits.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		emits = (NihListEntry *)job->emits.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "wibble");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
 		nih_list_free (&job->entry);
 	}
@@ -2672,17 +2673,20 @@ test_stanza_emits (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->emits);
 
-		event = (EventInfo *)job->emits.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		emits = (NihListEntry *)job->emits.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "wibble");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wobble");
+		emits = (NihListEntry *)emits->entry.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "wobble");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "waggle");
+		emits = (NihListEntry *)emits->entry.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "waggle");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
 		nih_list_free (&job->entry);
 	}
@@ -2718,21 +2722,25 @@ test_stanza_emits (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->emits);
 
-		event = (EventInfo *)job->emits.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		emits = (NihListEntry *)job->emits.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "wibble");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wobble");
+		emits = (NihListEntry *)emits->entry.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "wobble");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "waggle");
+		emits = (NihListEntry *)emits->entry.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "waggle");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wuggle");
+		emits = (NihListEntry *)emits->entry.next;
+		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
+		TEST_EQ_STR (emits->str, "wuggle");
+		TEST_ALLOC_PARENT (emits->str, emits);
 
 		nih_list_free (&job->entry);
 	}
