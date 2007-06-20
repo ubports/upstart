@@ -50,18 +50,42 @@
 
 
 /* Prototypes for static functions */
-static int parse_exec         (JobProcess *proc, NihConfigStanza *stanza,
-			       const char *file, size_t len,
-			       size_t *pos, size_t *lineno)
+static int            parse_exec        (JobProcess *proc,
+					 NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int parse_script       (JobProcess *proc, NihConfigStanza *stanza,
-			       const char *file, size_t len,
-			       size_t *pos, size_t *lineno)
+static int            parse_script      (JobProcess *proc,
+					 NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int parse_process      (Job *job, ProcessType process,
-			       NihConfigStanza *stanza,
-			       const char *file, size_t len,
-			       size_t *pos, size_t *lineno)
+static int            parse_process     (Job *job, ProcessType process,
+					 NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
+static EventOperator *parse_on          (Job *job, NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result, malloc));
+static int            parse_on_operator (Job *job, NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno,
+					 NihList *stack, EventOperator **root)
+	__attribute__ ((warn_unused_result));
+static int            parse_on_paren    (Job *job, NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno,
+					 NihList *stack, EventOperator **root,
+					 size_t *paren)
+	__attribute__ ((warn_unused_result));
+static int            parse_on_operand  (Job *job, NihConfigStanza *stanza,
+					 const char *file, size_t len,
+					 size_t *pos, size_t *lineno,
+					 NihList *stack, EventOperator **root)
+	__attribute__ ((warn_unused_result));
+static int            parse_on_collect  (NihList *stack, EventOperator **root)
 	__attribute__ ((warn_unused_result));
 
 static int stanza_exec        (Job *job, NihConfigStanza *stanza,
@@ -456,6 +480,488 @@ finish:
 }
 
 
+/**
+ * parse_on:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * This function is used to parse the arguments to an "on" stanza as an
+ * event expression.  Names and arguments to events, intermixed with
+ * operators and grouped by parentheses are expected to follow and are
+ * allocated as a tree of EventOperator structures, the root of which is
+ * returned.
+ *
+ * Returns: EventOperator at root of expression tree on success, NULL
+ * on raised error.
+ **/
+static EventOperator *
+parse_on (Job             *job,
+	  NihConfigStanza *stanza,
+	  const char      *file,
+	  size_t           len,
+	  size_t          *pos,
+	  size_t          *lineno)
+{
+	NihList        stack;
+	EventOperator *root = NULL;
+	size_t         on_pos, on_lineno, paren = 0;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	nih_list_init (&stack);
+
+	on_pos = *pos;
+	on_lineno = (lineno ? *lineno : 1);
+
+	/* Parse all of the tokens that we find following the configuration
+	 * stanza; unlike other stanzas we happily parse multiple lines
+	 * provided that we're inside parens, and we permit comments at the
+	 * end of those lines.
+	 */
+	do {
+		nih_config_skip_whitespace (file, len, &on_pos, &on_lineno);
+
+		do {
+			/* Update error position */
+			*pos = on_pos;
+			if (lineno)
+				*lineno = on_lineno;
+
+			/* Peek at the first character, since open and
+			 * close parens aren't picked up by our normal
+			 * tokeniser.
+			 */
+			if ((*pos < len) && strchr ("()", file[*pos])) {
+				if (parse_on_paren (job, stanza, file, len,
+						    &on_pos, &on_lineno,
+						    &stack, &root,
+						    &paren) < 0) {
+					root = NULL;
+					goto finish;
+				}
+
+			/* Otherwise it's either an operator or operand;
+			 * parse it as an operator first, that function
+			 * handles transfer to parse_on_operand() in the
+			 * case of unrecognised token.
+			 */
+			} else if (parse_on_operator (job, stanza, file, len,
+						      &on_pos, &on_lineno,
+						      &stack, &root) < 0) {
+				root = NULL;
+				goto finish;
+			}
+
+		} while (nih_config_has_token (file, len,
+					       &on_pos, &on_lineno));
+
+		if (nih_config_skip_comment (file, len,
+					     &on_pos, &on_lineno) < 0)
+			nih_assert_not_reached ();
+	} while ((on_pos < len) && paren);
+
+	/* The final operator and operand should be still on the stack and
+	 * need collecting.
+	 */
+	if (parse_on_collect (&stack, &root) < 0)
+		return NULL;
+
+	/* If the stack isn't empty, then we've hit an open parenthesis and
+	 * not found a matching close one.  We've probably parsed the entire
+	 * file by accident!
+	 */
+	if (! NIH_LIST_EMPTY (&stack)) {
+		nih_error_raise (PARSE_MISMATCHED_PARENS,
+				 _(PARSE_MISMATCHED_PARENS_STR));
+		root = NULL;
+		goto finish;
+	}
+
+finish:
+	*pos = on_pos;
+	if (lineno)
+		*lineno = on_lineno;
+
+	return root;
+}
+
+/**
+ * parse_on_operator:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number,
+ * @stack: input operator stack,
+ * @root: output operator.
+ *
+ * This function parses a single token from the arguments of the "or"
+ * stanza.  If the token is not a valid operator, this will call
+ * parse_on_operand() instead.
+ *
+ * Operators are pushed onto @stack after collecting any existing operators
+ * and operands on the stack, and placing them as the operator's left child.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+parse_on_operator (Job              *job,
+		   NihConfigStanza  *stanza,
+		   const char       *file,
+		   size_t            len,
+		   size_t           *pos,
+		   size_t           *lineno,
+		   NihList          *stack,
+		   EventOperator   **root)
+{
+	size_t             a_pos, a_lineno;
+	char              *arg;
+	EventOperatorType  type;
+	EventOperator     *oper;
+	NihListEntry      *item;
+	int                ret = -1;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (stack != NULL);
+	nih_assert (root != NULL);
+
+	/* Get the next token to see whether it's an operator keyword that
+	 * we recognise, don't dequote since this allows people to quote
+	 * operators to turn them into ordinary operands.
+	 */
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
+				     "()" NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		goto finish;
+
+	/* Compare token against known operators; if it isn't, then rewind
+	 * back to the starting position and deal with it as an operand.
+	 */
+	if (! strcmp (arg, "and")) {
+		nih_free (arg);
+
+		type = EVENT_AND;
+	} else if (! strcmp (arg, "or")) {
+		nih_free (arg);
+
+		type = EVENT_OR;
+	} else {
+		nih_free (arg);
+
+		return parse_on_operand (job, stanza, file, len, pos, lineno,
+					 stack, root);
+	}
+
+	/* Before we push the new operator onto the stack, we need to collect
+	 * any existing operators and operands.
+	 */
+	if (parse_on_collect (stack, root) < 0)
+		return -1;
+
+	/* Create the new operator, placing the existing root node as its
+	 * left-hand child.
+	 */
+	oper = event_operator_new (job, type, NULL, NULL);
+	if (! oper)
+		nih_return_system_error (-1);
+
+	nih_alloc_reparent (*root, oper);
+	nih_tree_add (&oper->node, &(*root)->node, NIH_TREE_LEFT);
+	*root = NULL;
+
+	/* Push the new operator onto the stack */
+	item = nih_list_entry_new (oper);
+	if (! item)
+		nih_return_system_error (-1);
+
+	item->data = oper;
+	nih_list_add_after (stack, &item->entry);
+
+	ret = 0;
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
+}
+
+/**
+ * parse_on_paren:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number,
+ * @stack: input operator stack,
+ * @root: output operator,
+ * @paren: number of nested parenthese.
+ *
+ * This function deals with an open or close parenthesis in the arguments
+ * of the "on" stanza; it must only be called when the character at the
+ * current position is either.
+ *
+ * @paren is incremented for each open parenthesis, and decremented for
+ * each close one.  This is a gross check for whether the parsing is
+ * currently within a grouping, and used by parse_on() to ignore newlines
+ * within them.
+ *
+ * An open parenthesis pushes a NULL operator onto the stack, this stops
+ * parse_on_collect() from collecting beyond it.
+ *
+ * A close parenthesis collects all operators on the stack up to the
+ * first (matching) marker, and removes the marker.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+parse_on_paren (Job              *job,
+		NihConfigStanza  *stanza,
+		const char       *file,
+		size_t            len,
+		size_t           *pos,
+		size_t           *lineno,
+		NihList          *stack,
+		EventOperator   **root,
+		size_t           *paren)
+{
+	NihListEntry  *item;
+	EventOperator *oper;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (stack != NULL);
+	nih_assert (root != NULL);
+	nih_assert (paren != NULL);
+
+	switch (file[*pos]) {
+	case '(':
+		(*paren)++;
+
+		/* An open parenthesis may only occur if we're in a valid
+		 * state for an operand; we must have no items on the stack,
+		 * or an open parenthesis on the stack, or an operator
+		 * on the stack; and must have nothing collected.
+		 */
+		item = (! NIH_LIST_EMPTY (stack)
+			? (NihListEntry *)stack->next: NULL);
+		oper = (item ? (EventOperator *)item->data : NULL);
+		if (*root || (item && oper && (oper->type == EVENT_MATCH)))
+			nih_return_error (-1, PARSE_EXPECTED_OPERATOR,
+					  _(PARSE_EXPECTED_OPERATOR_STR));
+
+		/* We push a NULL item onto the operator stack to denote
+		 * the beginning of a parenthesis group, this prevents us
+		 * popping past it later.
+		 */
+		item = nih_list_entry_new (job);
+		if (! item)
+			nih_return_system_error (-1);
+
+		nih_list_add_after (stack, &item->entry);
+		break;
+	case ')':
+		(*paren)--;
+
+		/* Collect up to the first open paren marker. */
+		if (parse_on_collect (stack, root) < 0)
+			return -1;
+
+		/* If we run out of stack, then we have mismatched parens. */
+		if (NIH_LIST_EMPTY (stack))
+			nih_return_error (-1, PARSE_MISMATCHED_PARENS,
+					  _(PARSE_MISMATCHED_PARENS_STR));
+
+		/* The top item on the stack should be the open parenthesis
+		 * marker, which we want to discard.
+		 */
+		nih_list_free (stack->next);
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	/* Skip over the paren and any following whitespace */
+	(*pos)++;
+	nih_config_skip_whitespace (file, len, pos, lineno);
+
+	return 0;
+}
+
+/**
+ * parse_on_operand:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number,
+ * @stack: input operator stack,
+ * @root: output operator.
+ *
+ * This function parses a single operand to the "or" stanza.  An operand
+ * is any token not considered an operator, such as the name of an event
+ * or arguments to that event.
+ *
+ * If the item on the top of @stack is an EVENT_MATCH operator, the operand
+ * is added to that operator's argument list; otherwise the operand is
+ * treated as the name of an event and a new EVENT_MATCH operator pushed
+ * onto the stack.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+parse_on_operand (Job              *job,
+		  NihConfigStanza  *stanza,
+		  const char       *file,
+		  size_t            len,
+		  size_t           *pos,
+		  size_t           *lineno,
+		  NihList          *stack,
+		  EventOperator   **root)
+{
+	EventOperator *oper;
+	NihListEntry  *item;
+	char          *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (stack != NULL);
+	nih_assert (root != NULL);
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     "()" NIH_CONFIG_CNLWS, TRUE);
+	if (! arg)
+		return -1;
+
+	/* Look at the item on the top of the stack; if it is an
+	 * EVENT_MATCH operator then the operand is an argument to that event;
+	 * otherwise if the stack is empty, or the top item is an operator
+	 * of some kind, then the operand begins a new EVENT_MATCH operator.
+	 */
+	item = (! NIH_LIST_EMPTY (stack) ? (NihListEntry *)stack->next: NULL);
+	oper = (item ? (EventOperator *)item->data : NULL);
+	if ((! item) || (! oper) || (oper->type != EVENT_MATCH)) {
+		/* Argument is the name of an event to be matched; create
+		 * an EventOperator to match it and push it onto the stack.
+		 *
+		 * We get away with not popping anything here because we
+		 * know that we can never end up with two events on the top
+		 * of the stack.
+		 */
+		oper = event_operator_new (job, EVENT_MATCH, arg, NULL);
+		if (! oper) {
+			nih_error_raise_system ();
+			nih_free (arg);
+			return -1;
+		}
+
+		nih_free (arg);
+
+		item = nih_list_entry_new (oper);
+		if (! item)
+			nih_return_system_error (-1);
+
+		item->data = oper;
+		nih_list_add_after (stack, &item->entry);
+	} else {
+		/* Argument is an argument to the event on the top of the
+		 * stack, so append it to the existing argument, array
+		 * by reparenting the parsed string.
+		 */
+		if (! nih_str_array_addp (&oper->args, oper, NULL, arg)) {
+			nih_error_raise_system ();
+			nih_free (arg);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * parse_on_collect:
+ * @stack: input operator stack,
+ * @root: output operator.
+ *
+ * This function collects the input operators from @stack, up until the
+ * beginning of the stack or a group within it (denoted by a stack item
+ * with NULL data), and places the collected operator tree in @root.
+ *
+ * @root may point to a NULL pointer, or to a previously collected
+ * operator; in which case it will become the right-hand child of the
+ * operator on the top of the stack.
+ *
+ * On return from this function, @root will always point to a non-NULL
+ * pointer since it is an error to fail to collect from the stack.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+parse_on_collect (NihList          *stack,
+		  EventOperator   **root)
+{
+	nih_assert (stack != NULL);
+	nih_assert (root != NULL);
+
+	NIH_LIST_FOREACH_SAFE (stack, iter) {
+		NihListEntry  *item = (NihListEntry *)iter;
+		EventOperator *oper = (EventOperator *)item->data;
+
+		/* Stop on the opening of a parenthesis group */
+		if (! oper)
+			break;
+
+		/* Remove the item from the stack */
+		nih_list_free (&item->entry);
+
+		/* Make the existing root node a child of the new operator;
+		 * there must be one for operators, and must not be one for
+		 * event matches.
+		 */
+		if ((oper->type != EVENT_MATCH) && (*root)) {
+			nih_alloc_reparent (*root, oper);
+			nih_tree_add (&oper->node, &(*root)->node,
+				      NIH_TREE_RIGHT);
+		} else if (oper->type != EVENT_MATCH) {
+			nih_return_error (-1, PARSE_EXPECTED_EVENT,
+					  _(PARSE_EXPECTED_EVENT_STR));
+		} else if (*root) {
+			nih_return_error (-1, PARSE_EXPECTED_OPERATOR,
+					  _(PARSE_EXPECTED_OPERATOR_STR));
+		}
+
+		/* Make the operator the new root */
+		*root = oper;
+	}
+
+	/* If we failed to collect any operands, an event was expected */
+	if (! *root)
+		nih_return_error (-1, PARSE_EXPECTED_EVENT,
+				  _(PARSE_EXPECTED_EVENT_STR));
+
+	return 0;
+}
 
 
 /**
@@ -697,33 +1203,17 @@ stanza_start (Job             *job,
 		goto finish;
 
 	if (! strcmp (arg, "on")) {
-		EventInfo *event;
-		char      *name;
-
 		nih_free (arg);
 
-		name = nih_config_next_arg (NULL, file, len, pos, lineno);
-		if (! name)
-			return -1;
+		if (job->start_on)
+			nih_free (job->start_on);
 
-		event = event_info_new (job, name, NULL, NULL);
-		if (! event) {
-			nih_error_raise_system ();
-			nih_free (name);
-			return -1;
-		}
-		nih_free (name);
+		job->start_on = parse_on (job, stanza, file, len,
+					  &a_pos, &a_lineno);
+		if (! job->start_on)
+			goto finish;
 
-		event->args = nih_config_parse_args (event, file, len,
-						     pos, lineno);
-		if (! event->args) {
-			nih_free (event);
-			return -1;
-		}
-
-		nih_list_add (&job->start_events, &event->entry);
-
-		return 0;
+		ret = 0;
 
 	} else {
 		nih_free (arg);
@@ -781,33 +1271,17 @@ stanza_stop (Job             *job,
 		goto finish;
 
 	if (! strcmp (arg, "on")) {
-		EventInfo *event;
-		char      *name;
-
 		nih_free (arg);
 
-		name = nih_config_next_arg (NULL, file, len, pos, lineno);
-		if (! name)
-			return -1;
+		if (job->stop_on)
+			nih_free (job->stop_on);
 
-		event = event_info_new (job, name, NULL, NULL);
-		if (! event) {
-			nih_error_raise_system ();
-			nih_free (name);
-			return -1;
-		}
-		nih_free (name);
+		job->stop_on = parse_on (job, stanza, file, len,
+					 &a_pos, &a_lineno);
+		if (! job->stop_on)
+			goto finish;
 
-		event->args = nih_config_parse_args (event, file, len,
-						     pos, lineno);
-		if (! event->args) {
-			nih_free (event);
-			return -1;
-		}
-
-		nih_list_add (&job->stop_events, &event->entry);
-
-		return 0;
+		ret = 0;
 
 	} else {
 		nih_free (arg);

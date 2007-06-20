@@ -777,6 +777,9 @@ conf_reload_path (ConfSource *source,
 		case PARSE_ILLEGAL_UMASK:
 		case PARSE_ILLEGAL_NICE:
 		case PARSE_ILLEGAL_LIMIT:
+		case PARSE_EXPECTED_EVENT:
+		case PARSE_EXPECTED_OPERATOR:
+		case PARSE_MISMATCHED_PARENS:
 			nih_error ("%s:%zi: %s", path, lineno, err->message);
 			nih_free (err);
 			err = NULL;

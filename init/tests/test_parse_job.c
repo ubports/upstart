@@ -79,8 +79,8 @@ test_parse_job (void)
 		TEST_EQ (lineno, 5);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_EMPTY (&job->start_events);
-		TEST_LIST_EMPTY (&job->stop_events);
+		TEST_EQ_P (job->start_on, NULL);
+		TEST_EQ_P (job->stop_on, NULL);
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -150,8 +150,8 @@ test_parse_job (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (new_job, sizeof (Job));
-		TEST_LIST_EMPTY (&job->start_events);
-		TEST_LIST_EMPTY (&job->stop_events);
+		TEST_EQ_P (new_job->start_on, NULL);
+		TEST_EQ_P (new_job->stop_on, NULL);
 
 		process = new_job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, new_job->process);
@@ -224,8 +224,8 @@ test_parse_job (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (new_job, sizeof (Job));
-		TEST_LIST_EMPTY (&job->start_events);
-		TEST_LIST_EMPTY (&job->stop_events);
+		TEST_EQ_P (new_job->start_on, NULL);
+		TEST_EQ_P (new_job->stop_on, NULL);
 
 		process = new_job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, new_job->process);
@@ -1862,18 +1862,18 @@ test_stanza_post_stop (void)
 void
 test_stanza_start (void)
 {
-	Job       *job;
-	NihError  *err;
-	size_t     pos, lineno;
-	char       buf[1024];
+	Job           *job;
+	EventOperator *oper;
+	NihError      *err;
+	size_t         pos, lineno;
+	char           buf[1024];
 
 	TEST_FUNCTION ("stanza_start");
 
-	/* Check that a start stanza with an on argument followed by an
-	 * event name results in the named event being added to the
-	 * start events list.
+	/* Check that a start on stanza may have a single event name,
+	 * which will be the sole operator in the expression.
 	 */
-	TEST_FEATURE ("with on and single argument");
+	TEST_FEATURE ("with event name");
 	strcpy (buf, "start on wibble\n");
 
 	TEST_ALLOC_FAIL {
@@ -1896,21 +1896,29 @@ test_stanza_start (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&job->start_events);
 
-		event = (EventInfo *)job->start_events.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
 
 		nih_list_free (&job->entry);
 	}
 
 
-	/* Check that all arguments to the start on stanza are consumed,
-	 * with additional arguments after the first being treated as
-	 * arguments for the event.
+	/* Check that a start on stanza may have an event name followed
+	 * by multiple arguments,the event will be the sole operator in
+	 * the expression, and have the additional arguments as arguments
+	 * to the event.
 	 */
-	TEST_FEATURE ("with on and multiple arguments");
+	TEST_FEATURE ("with event name and arguments");
 	strcpy (buf, "start on wibble foo bar b?z*\n");
 
 	TEST_ALLOC_FAIL {
@@ -1933,32 +1941,403 @@ test_stanza_start (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&job->start_events);
 
-		event = (EventInfo *)job->start_events.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
 
-		TEST_ALLOC_PARENT (event->args, event);
-		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
-		TEST_ALLOC_PARENT (event->args[0], event->args);
-		TEST_ALLOC_PARENT (event->args[1], event->args);
-		TEST_ALLOC_PARENT (event->args[2], event->args);
-		TEST_EQ_STR (event->args[0], "foo");
-		TEST_EQ_STR (event->args[1], "bar");
-		TEST_EQ_STR (event->args[2], "b?z*");
-		TEST_EQ_P (event->args[3], NULL);
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 4);
+		TEST_EQ_STR (oper->args[0], "foo");
+		TEST_EQ_STR (oper->args[1], "bar");
+		TEST_EQ_STR (oper->args[2], "b?z*");
+		TEST_EQ_P (oper->args[3], NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
 
 		nih_list_free (&job->entry);
 	}
 
 
-	/* Check that repeated start on stanzas are permitted, each appending
-	 * to the last.
+	/* Check that a start on stanza may have a multiple events seperated
+	 * by an operator; the operator will be the root of the expression,
+	 * with the two events as its children.
 	 */
+	TEST_FEATURE ("with operator and two events");
+	strcpy (buf, "start on wibble or wobble\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a start on stanza may have a multiple events seperated
+	 * by an operator, and that those events may have arguments; the
+	 * operator will be the root of the expression, with the two events
+	 * as its children.
+	 */
+	TEST_FEATURE ("with operator and two events with arguments");
+	strcpy (buf, "start on wibble foo bar and wobble frodo bilbo\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_AND);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->args[0], "foo");
+		TEST_EQ_STR (oper->args[1], "bar");
+		TEST_EQ_P (oper->args[2], NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->args[0], "frodo");
+		TEST_EQ_STR (oper->args[1], "bilbo");
+		TEST_EQ_P (oper->args[2], NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a start on stanza may have a multiple events seperated
+	 * by multiple operators; the operators should be left-associative,
+	 * and stack up.
+	 */
+	TEST_FEATURE ("with multiple operators");
+	strcpy (buf, "start on wibble or wobble or wiggle\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->type, EVENT_OR);
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.left->left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->start_on->node.left);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.left->right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->start_on->node.left);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wiggle");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a start on stanza may have groups of operators
+	 * placed with parentheses, altering the expression structure.
+	 */
+	TEST_FEATURE ("with parentheses");
+	strcpy (buf, "start on wibble or (wobble or wiggle)\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.right->left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right->right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wiggle");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a start on stanza may have nested groups of parentheses,
+	 * and that newlines are treated as whitespace within them.
+	 */
+	TEST_FEATURE ("with nested parentheses");
+	strcpy (buf, "start on (wibble\n");
+	strcat (buf, "          or (wobble or wiggle))\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, &job->start_on->node);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->start_on->node.right->left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right->right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wiggle");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of repeated start on stanzas is used. */
 	TEST_FEATURE ("with multiple on stanzas");
-	strcpy (buf, "start on wibble\n");
-	strcat (buf, "start on wobble\n");
+	strcpy (buf, "start on wibble or wiggle\n");
+	strcat (buf, "start on wobble and wave\n");
 	strcat (buf, "start on waggle\n");
 
 	TEST_ALLOC_FAIL {
@@ -1981,22 +2360,22 @@ test_stanza_start (void)
 		TEST_EQ (lineno, 4);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&job->start_events);
 
-		event = (EventInfo *)job->start_events.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wobble");
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "waggle");
+		TEST_EQ_P (oper->args, NULL);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "waggle");
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
 
 		nih_list_free (&job->entry);
 	}
+
 
 	/* Check that a start stanza without a second-level argument results
 	 * in a syntax error.
@@ -2053,23 +2432,192 @@ test_stanza_start (void)
 	TEST_EQ (pos, 8);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
+
+
+	/* Check that starting the expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at start of expression");
+	strcpy (buf, "start on or foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that ending the expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at end of expression");
+	strcpy (buf, "start on foo or\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that two operators in a row result in a syntax error. */
+	TEST_FEATURE ("with consecutive operators");
+	strcpy (buf, "start on foo or and bar\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that starting a group expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at start of group");
+	strcpy (buf, "start on foo or (or foo)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that ending a group expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at end of group");
+	strcpy (buf, "start on foo or (bar or)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 23);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that failing to start a group expression results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing open paren");
+	strcpy (buf, "start on foo or bar or foo)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_MISMATCHED_PARENS);
+	TEST_EQ (pos, 26);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that failing to end a group expression results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing close paren");
+	strcpy (buf, "start on foo or (bar or foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_MISMATCHED_PARENS);
+	TEST_EQ (pos, 28);
+	TEST_EQ (lineno, 2);
+	nih_free (err);
+
+
+	/* Check that a group expression following an event name results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with group immediately after event");
+	strcpy (buf, "start on frodo (foo or bar)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_OPERATOR);
+	TEST_EQ (pos, 15);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an event name following a group expression results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with event immediately after group");
+	strcpy (buf, "start on (foo or bar) frodo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_OPERATOR);
+	TEST_EQ (pos, 22);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
 }
 
 void
 test_stanza_stop (void)
 {
-	Job       *job;
-	NihError  *err;
-	size_t     pos, lineno;
-	char       buf[1024];
+	Job           *job;
+	EventOperator *oper;
+	NihError      *err;
+	size_t         pos, lineno;
+	char           buf[1024];
 
 	TEST_FUNCTION ("stanza_stop");
 
-	/* Check that a stop stanza with an on argument followed by an
-	 * event name results in the named event being added to the
-	 * stop events list.
+	/* Check that a stop on stanza may have a single event name,
+	 * which will be the sole operator in the expression.
 	 */
-	TEST_FEATURE ("with on and single argument");
+	TEST_FEATURE ("with event name");
 	strcpy (buf, "stop on wibble\n");
 
 	TEST_ALLOC_FAIL {
@@ -2092,21 +2640,29 @@ test_stanza_stop (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&job->stop_events);
 
-		event = (EventInfo *)job->stop_events.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
 
 		nih_list_free (&job->entry);
 	}
 
 
-	/* Check that all arguments to the stop on stanza are consumed,
-	 * with additional arguments after the first being treated as
-	 * arguments for the event.
+	/* Check that a stop on stanza may have an event name followed
+	 * by multiple arguments,the event will be the sole operator in
+	 * the expression, and have the additional arguments as arguments
+	 * to the event.
 	 */
-	TEST_FEATURE ("with on and multiple arguments");
+	TEST_FEATURE ("with event name and arguments");
 	strcpy (buf, "stop on wibble foo bar b?z*\n");
 
 	TEST_ALLOC_FAIL {
@@ -2129,32 +2685,403 @@ test_stanza_stop (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&job->stop_events);
 
-		event = (EventInfo *)job->stop_events.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
 
-		TEST_ALLOC_PARENT (event->args, event);
-		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
-		TEST_ALLOC_PARENT (event->args[0], event->args);
-		TEST_ALLOC_PARENT (event->args[1], event->args);
-		TEST_ALLOC_PARENT (event->args[2], event->args);
-		TEST_EQ_STR (event->args[0], "foo");
-		TEST_EQ_STR (event->args[1], "bar");
-		TEST_EQ_STR (event->args[2], "b?z*");
-		TEST_EQ_P (event->args[3], NULL);
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 4);
+		TEST_EQ_STR (oper->args[0], "foo");
+		TEST_EQ_STR (oper->args[1], "bar");
+		TEST_EQ_STR (oper->args[2], "b?z*");
+		TEST_EQ_P (oper->args[3], NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
 
 		nih_list_free (&job->entry);
 	}
 
 
-	/* Check that repeated stop on stanzas are permitted, each appending
-	 * to the last.
+	/* Check that a stop on stanza may have a multiple events seperated
+	 * by an operator; the operator will be the root of the expression,
+	 * with the two events as its children.
 	 */
+	TEST_FEATURE ("with operator and two events");
+	strcpy (buf, "stop on wibble or wobble\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a stop on stanza may have a multiple events seperated
+	 * by an operator, and that those events may have arguments; the
+	 * operator will be the root of the expression, with the two events
+	 * as its children.
+	 */
+	TEST_FEATURE ("with operator and two events with arguments");
+	strcpy (buf, "stop on wibble foo bar and wobble frodo bilbo\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_AND);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->args[0], "foo");
+		TEST_EQ_STR (oper->args[1], "bar");
+		TEST_EQ_P (oper->args[2], NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->args[0], "frodo");
+		TEST_EQ_STR (oper->args[1], "bilbo");
+		TEST_EQ_P (oper->args[2], NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a stop on stanza may have a multiple events seperated
+	 * by multiple operators; the operators should be left-associative,
+	 * and stack up.
+	 */
+	TEST_FEATURE ("with multiple operators");
+	strcpy (buf, "stop on wibble or wobble or wiggle\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.left;
+		TEST_EQ (oper->type, EVENT_OR);
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.left->left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->stop_on->node.left);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.left->right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->stop_on->node.left);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wiggle");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a stop on stanza may have groups of operators
+	 * placed with parentheses, altering the expression structure.
+	 */
+	TEST_FEATURE ("with parentheses");
+	strcpy (buf, "stop on wibble or (wobble or wiggle)\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.right->left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right->right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wiggle");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a stop on stanza may have nested groups of parentheses,
+	 * and that newlines are treated as whitespace within them.
+	 */
+	TEST_FEATURE ("with nested parentheses");
+	strcpy (buf, "stop on (wibble\n");
+	strcat (buf, "          or (wobble or wiggle))\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right;
+		TEST_EQ (oper->type, EVENT_OR);
+
+		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
+		TEST_ALLOC_SIZE (oper->node.left, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.left, oper);
+		TEST_ALLOC_SIZE (oper->node.right, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (oper->node.right, oper);
+
+		oper = (EventOperator *)job->stop_on->node.right->left;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wobble");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		oper = (EventOperator *)job->stop_on->node.right->right;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wiggle");
+		TEST_EQ_P (oper->args, NULL);
+
+		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that the last of repeated stop on stanzas is used. */
 	TEST_FEATURE ("with multiple on stanzas");
-	strcpy (buf, "stop on wibble\n");
-	strcat (buf, "stop on wobble\n");
+	strcpy (buf, "stop on wibble or wiggle\n");
+	strcat (buf, "stop on wobble and wave\n");
 	strcat (buf, "stop on waggle\n");
 
 	TEST_ALLOC_FAIL {
@@ -2177,19 +3104,18 @@ test_stanza_stop (void)
 		TEST_EQ (lineno, 4);
 
 		TEST_ALLOC_SIZE (job, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&job->stop_events);
 
-		event = (EventInfo *)job->stop_events.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wibble");
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "wobble");
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "waggle");
+		TEST_EQ_P (oper->args, NULL);
 
-		event = (EventInfo *)event->entry.next;
-		TEST_ALLOC_SIZE (event, sizeof (EventInfo));
-		TEST_EQ_STR (event->name, "waggle");
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
 
 		nih_list_free (&job->entry);
 	}
@@ -2248,6 +3174,175 @@ test_stanza_stop (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that starting the expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at start of expression");
+	strcpy (buf, "stop on or foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that ending the expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at end of expression");
+	strcpy (buf, "stop on foo or\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that two operators in a row result in a syntax error. */
+	TEST_FEATURE ("with consecutive operators");
+	strcpy (buf, "stop on foo or and bar\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 15);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that starting a group expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at start of group");
+	strcpy (buf, "stop on foo or (or foo)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that ending a group expression with an operator results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with operator at end of group");
+	strcpy (buf, "stop on foo or (bar or)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_EVENT);
+	TEST_EQ (pos, 22);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that failing to start a group expression results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing open paren");
+	strcpy (buf, "stop on foo or bar or foo)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_MISMATCHED_PARENS);
+	TEST_EQ (pos, 25);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that failing to end a group expression results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing close paren");
+	strcpy (buf, "stop on foo or (bar or foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_MISMATCHED_PARENS);
+	TEST_EQ (pos, 27);
+	TEST_EQ (lineno, 2);
+	nih_free (err);
+
+
+	/* Check that a group expression following an event name results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with group immediately after event");
+	strcpy (buf, "stop on frodo (foo or bar)\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_OPERATOR);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an event name following a group expression results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with event immediately after group");
+	strcpy (buf, "stop on (foo or bar) frodo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_OPERATOR);
+	TEST_EQ (pos, 21);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }

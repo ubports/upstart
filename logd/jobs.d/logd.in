@@ -6,9 +6,7 @@
 description	"service logging daemon"
 author		"Scott James Remnant <scott@ubuntu.com>"
 
-stop on runlevel 0
-stop on runlevel 1
-stop on runlevel 6
+stop on runlevel [016]
 
 console output
 

@@ -35,6 +35,9 @@ enum {
 	PARSE_ILLEGAL_UMASK,
 	PARSE_ILLEGAL_NICE,
 	PARSE_ILLEGAL_LIMIT,
+	PARSE_EXPECTED_EVENT,
+	PARSE_EXPECTED_OPERATOR,
+	PARSE_MISMATCHED_PARENS,
 };
 
 /* Error strings for defined messages */
@@ -43,5 +46,8 @@ enum {
 #define PARSE_ILLEGAL_UMASK_STR		N_("Illegal file creation mask, expected octal integer")
 #define PARSE_ILLEGAL_NICE_STR		N_("Illegal nice value, expected -20 to 19")
 #define PARSE_ILLEGAL_LIMIT_STR		N_("Illegal limit, expected 'unlimited' or integer")
+#define PARSE_EXPECTED_EVENT_STR	N_("Expected event")
+#define PARSE_EXPECTED_OPERATOR_STR	N_("Expected operator")
+#define PARSE_MISMATCHED_PARENS_STR	N_("Mismatched parentheses")
 
 #endif /* INIT_ERRORS_H */
