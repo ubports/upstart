@@ -155,8 +155,5 @@ Future Features:
    "removed" to happen as well.  One way is to allow $... in the event
    definitions which apply to earlier ones?
 
- * Event tree for "start on" and "stop on" -- need to solve when instances
-   are spawned and which event gets stored in cause first though.
-
  * Instance names, appended to a running job's title and set in the job
    definition using a variable from an event?
