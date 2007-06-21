@@ -562,7 +562,7 @@ event_operator_new (const void         *parent,
  * the nih_alloc_set_destructor() function.
  *
  * If @old_oper has children, these will be copied as well, and will be
- * given the same @parent.
+ * given their parent as their nih_alloc() parent.
  *
  * Returns: newly allocated EventOperator structure,
  * or NULL if insufficient memory.
@@ -599,7 +599,7 @@ event_operator_copy (const void          *parent,
 
 	if (old_oper->node.left) {
 		child = event_operator_copy (
-			parent, (EventOperator *)old_oper->node.left);
+			oper, (EventOperator *)old_oper->node.left);
 		if (! child)
 			goto error;
 
@@ -609,7 +609,7 @@ event_operator_copy (const void          *parent,
 
 	if (old_oper->node.right) {
 		child = event_operator_copy (
-			parent, (EventOperator *)old_oper->node.right);
+			oper, (EventOperator *)old_oper->node.right);
 		if (! child)
 			goto error;
 

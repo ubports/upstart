@@ -908,6 +908,7 @@ test_operator_copy (void)
 		}
 
 		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (copy, NULL);
 		TEST_EQ_P (copy->node.parent, NULL);
 		TEST_NE_P (copy->node.left, NULL);
 		TEST_NE_P (copy->node.right, NULL);
@@ -918,6 +919,7 @@ test_operator_copy (void)
 
 		copy1 = (EventOperator *)copy->node.left;
 		TEST_ALLOC_SIZE (copy1, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (copy1, copy);
 		TEST_EQ_P (copy1->node.parent, &copy->node);
 		TEST_EQ_P (copy1->node.left, NULL);
 		TEST_EQ_P (copy1->node.right, NULL);
@@ -938,6 +940,7 @@ test_operator_copy (void)
 
 		copy2 = (EventOperator *)copy->node.right;
 		TEST_ALLOC_SIZE (copy2, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (copy2, copy);
 		TEST_EQ_P (copy2->node.parent, &copy->node);
 		TEST_EQ_P (copy2->node.left, NULL);
 		TEST_EQ_P (copy2->node.right, NULL);

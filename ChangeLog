@@ -1,5 +1,12 @@
 2007-06-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_copy): Change to making the parent
+	of copies nodes be the actual tree parent, rather than the top
+	parent; otherwise you can't free an entire tree in one go.
+	* init/tests/test_event.c (test_operator_copy): Check parents of
+	copied nodes.
+	* init/tests/test_job.c (test_copy): Update parent checks here too.
+
 	* init/tests/test_job.c (test_copy): Make sure that the job copy
 	references and blocks the event; and in the event of failure, doesn't
 	* init/job.c (job_copy): Reset the start_on and stop_on expressions

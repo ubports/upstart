@@ -490,7 +490,7 @@ test_copy (void)
 		TEST_EQ (oper->type, EVENT_OR);
 
 		oper = (EventOperator *)copy->start_on->node.left;
-		TEST_ALLOC_PARENT (oper, copy);
+		TEST_ALLOC_PARENT (oper, copy->start_on);
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "foo");
@@ -501,7 +501,7 @@ test_copy (void)
 		TEST_EQ (oper->event->blockers, 2);
 
 		oper = (EventOperator *)copy->start_on->node.right;
-		TEST_ALLOC_PARENT (oper, copy);
+		TEST_ALLOC_PARENT (oper, copy->start_on);
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "bar");
