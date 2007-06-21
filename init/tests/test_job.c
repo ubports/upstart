@@ -1294,6 +1294,9 @@ test_change_state (void)
 		job->process[PROCESS_POST_STOP], "touch %s/stop", dirname);
 	job->respawn_limit = 0;
 
+	job->start_on = event_operator_new (job, EVENT_MATCH, "wibble", NULL);
+	job->stop_on = event_operator_new (job, EVENT_MATCH, "wibble", NULL);
+
 	event_init ();
 
 	cause = event_new (NULL, "wibble", NULL, NULL);
@@ -1311,8 +1314,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_POST_STOP;
@@ -1323,11 +1332,21 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1359,8 +1378,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1379,11 +1404,15 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1425,8 +1454,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1447,11 +1482,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1479,8 +1524,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1501,11 +1552,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1540,8 +1601,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1562,11 +1629,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1601,8 +1678,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1613,11 +1696,21 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1653,8 +1746,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1675,11 +1774,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1709,8 +1818,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1732,11 +1847,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1763,8 +1888,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1776,11 +1907,21 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1802,7 +1943,7 @@ test_change_state (void)
 
 
 	/* Check that a task can move from post-start to running, which will
-	 * emit the started event but leave the cause alone.
+	 * emit the started event but leave events blocked and referenced.
 	 */
 	TEST_FEATURE ("post-start to running");
 	TEST_ALLOC_FAIL {
@@ -1812,8 +1953,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1825,11 +1972,21 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1851,8 +2008,10 @@ test_change_state (void)
 
 
 	/* Check that a service can move from post-start to running, which
-	 * will emit the started event and clear the cause since the job
-	 * has reached the desired state.
+	 * will emit the started event and unblock the events that caused
+	 * us to start since the job has reached the desired state.  The
+	 * event should stay referenced in the expression since it might
+	 * be useful for respawning later.
 	 */
 	TEST_FEATURE ("post-start to running for service");
 	job->service = TRUE;
@@ -1862,12 +2021,16 @@ test_change_state (void)
 		job->state = JOB_POST_START;
 		job->process[PROCESS_MAIN]->pid = 1;
 
-		cause->blockers = 2;
-		cause->refs = 2;
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->start_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1879,11 +2042,17 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 1);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1922,8 +2091,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1945,11 +2120,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1976,8 +2161,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1989,11 +2180,21 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2026,8 +2227,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2038,11 +2245,21 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2077,8 +2294,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2089,11 +2312,21 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2128,8 +2361,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2140,11 +2379,21 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2167,18 +2416,24 @@ test_change_state (void)
 	}
 
 
-	/* Check that a job can move from pre-stop back to starting again,
-	 * which should only clear the cause.
+	/* Check that a job can move from pre-stop back to running again;
+	 * clearing the block and reference on the events that stopped it.
 	 */
-	TEST_FEATURE ("pre-stop to stopping");
+	TEST_FEATURE ("pre-stop to running");
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_PRE_STOP;
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2190,11 +2445,15 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2215,8 +2474,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2227,11 +2492,21 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2266,8 +2541,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2283,11 +2564,21 @@ test_change_state (void)
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2316,8 +2607,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2338,11 +2635,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2367,8 +2674,14 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2389,11 +2702,21 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
+		TEST_EQ (cause->blockers, 2); /* 1 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->stop_on);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2406,7 +2729,8 @@ test_change_state (void)
 	/* Check that a job without a stop process can move from killed
 	 * to post-stop, skipping over that state, and instead going all
 	 * the way through to the waiting state.  Because we get there,
-	 * we should get a stopped event emitted, and the cause forgotten.
+	 * we should get a stopped event emitted, and both the events
+	 * that started and stopped the job forgotten.
 	 */
 	TEST_FEATURE ("killed to post-stop without process");
 	tmp = job->process[PROCESS_POST_STOP];
@@ -2418,8 +2742,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2430,11 +2765,19 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2470,8 +2813,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2482,11 +2836,19 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2511,7 +2873,8 @@ test_change_state (void)
 
 	/* Check that a job can move from post-stop to starting.  This
 	 * should emit the starting event and block on it, as well as clear
-	 * any failed state information; but not the cause.
+	 * any failed state information; but only unblock and unreference the
+	 * stop events, the start events should remain referenced.
 	 */
 	TEST_FEATURE ("post-stop to starting");
 	TEST_ALLOC_FAIL {
@@ -2520,8 +2883,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2532,11 +2906,25 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
+		TEST_EQ (cause->blockers, 1); /* 0 */
+		TEST_EQ (cause->refs, 2); /* 1 */
+
 		TEST_EQ_P (job->cause, cause);
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+		job->cause = NULL;
+
+		event_operator_reset (job->start_on);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2558,7 +2946,8 @@ test_change_state (void)
 	/* Check that if a job tries to move from post-stop to starting too
 	 * many times in a given period then it is caught, a message is
 	 * output and the job sent back to stopped and waiting.  We get
-	 * a stopped event, and the cause is cleared.
+	 * a stopped event, and any blocks and references on start or stop
+	 * events are cleared.
 	 */
 	TEST_FEATURE ("post-stop to starting too fast");
 	job->respawn_limit = 10;
@@ -2570,8 +2959,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2588,11 +2988,19 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2636,8 +3044,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2648,11 +3067,19 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_DELETED);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2691,8 +3118,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2703,11 +3141,19 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_DELETED);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2749,8 +3195,19 @@ test_change_state (void)
 
 		job->cause = cause;
 		job->blocked = NULL;
-		cause->refs = 1;
-		cause->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->cause);
+		job->stop_on->blocked = TRUE;
+		event_block (job->cause);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2761,11 +3218,19 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_DELETED);
 
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->refs, 0);
+
 		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->refs, 0);
+		TEST_EQ (job->start_on->value, FALSE);
+		TEST_EQ_P (job->start_on->event, NULL);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));

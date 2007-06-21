@@ -1,5 +1,15 @@
 2007-06-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_state): Include tests on a job's
+	start_on and stop_on event expression trees, and make sure that events
+	are unblocked and unreferenced at the appropriate moments.
+	* init/job.c (job_change_state): Unblock the events that started the
+	job in running (if a service), and reset when we reach waiting (leave
+	referenced otherwise so the environment is always present).
+	Unblock and unreference the events that stopped the job in
+	starting (for restarting), running (if coming from pre-stop) and
+	waiting.
+	
 	* init/tests/test_job.c (test_handle_event): Rewrite tests using
 	event expressions, and make sure events are referenced and blocked
 	correctly matching how jobs are affected.  Include tests for correct

@@ -846,6 +846,9 @@ job_change_state (Job      *job,
 			job->failed_process = -1;
 			job->exit_status = 0;
 
+			if (job->stop_on)
+				event_operator_reset (job->stop_on);
+
 			job->blocked = job_emit_event (job);
 			event_ref (job->blocked);
 
@@ -890,6 +893,9 @@ job_change_state (Job      *job,
 
 			if (old_state == JOB_PRE_STOP) {
 				notify_job_finished (job);
+
+				if (job->stop_on)
+					event_operator_reset (job->stop_on);
 				break;
 			}
 
@@ -902,6 +908,9 @@ job_change_state (Job      *job,
 			if (job->service) {
 				notify_job_finished (job);
 				job_change_cause (job, NULL);
+
+				if (job->start_on)
+					event_operator_unblock (job->start_on);
 			}
 
 			break;
@@ -957,6 +966,11 @@ job_change_state (Job      *job,
 
 			notify_job_finished (job);
 			job_change_cause (job, NULL);
+
+			if (job->start_on)
+				event_operator_reset (job->start_on);
+			if (job->stop_on)
+				event_operator_reset (job->stop_on);
 
 			/* Mark the job as deleted if it's an instance or
 			 * should be replaced by another.
