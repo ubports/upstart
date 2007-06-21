@@ -656,6 +656,10 @@ job_find_by_id (unsigned int id)
  * It is illegal to attempt to obtain an instance of a deleted job,
  * instance job or replacement job.
  *
+ * Instance jobs are exact copies of their master job, with a clean state.
+ * The state of the start expression is transferred to the instance, and
+ * the parent expression state reset.
+ *
  * Returns: new instance, or @job for non-instance jobs.
  **/
 Job *
@@ -671,6 +675,9 @@ job_instance (Job *job)
 	if (job->instance) {
 		NIH_MUST (instance = job_copy (NULL, job));
 		instance->instance_of = job;
+
+		if (job->start_on)
+			event_operator_reset (job->start_on);
 
 		return instance;
 	} else {

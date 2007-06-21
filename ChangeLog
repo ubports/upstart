@@ -1,5 +1,14 @@
 2007-06-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_handle_event): Rewrite tests using
+	event expressions, and make sure events are referenced and blocked
+	correctly matching how jobs are affected.  Include tests for correct
+	instance behaviour.
+	(test_instance): Make sure that instances copy across the expression
+	state, and reset the parent.
+	* init/job.c (job_instance): After spawning a new instance, reset
+	the start_on expression of the master job.
+
 	* init/event.c (event_operator_copy): Change to making the parent
 	of copies nodes be the actual tree parent, rather than the top
 	parent; otherwise you can't free an entire tree in one go.

@@ -823,7 +823,8 @@ test_find_by_id (void)
 void
 test_instance (void)
 {
-	Job *job, *ptr;
+	Job           *job, *ptr;
+	EventOperator *oper;
 
 	TEST_FUNCTION ("job_instance");
 
@@ -831,13 +832,60 @@ test_instance (void)
 	job->process[PROCESS_MAIN] = job_process_new (job);
 	job->process[PROCESS_MAIN]->command = "echo";
 
+	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
 
-	/* Check that we get an ordinary job returned as-is. */
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "foo", NULL);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "bar", NULL);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
+
+
+	/* Check that we get an ordinary job returned as-is; with the event
+	 * expression remaining correctly referenced.
+	 */
 	TEST_FEATURE ("with non-instance job");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job->start_on->value = TRUE;
+
+			oper = (EventOperator *)job->start_on->node.left;
+			oper->value = TRUE;
+			oper->event = event_new (oper, "foo", NULL, NULL);
+			event_ref (oper->event);
+			oper->blocked = TRUE;
+			event_block (oper->event);
+
+			oper = (EventOperator *)job->start_on->node.right;
+			oper->value = TRUE;
+			oper->event = event_new (oper, "bar", NULL, NULL);
+			event_ref (oper->event);
+			oper->blocked = TRUE;
+			event_block (oper->event);
+		}
+
 		ptr = job_instance (job);
 
 		TEST_EQ_P (ptr, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ (oper->blocked, TRUE);
+		TEST_NE_P (oper->event, NULL);
+		TEST_EQ (oper->event->refs, 1);
+		TEST_EQ (oper->event->blockers, 1);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ (oper->blocked, TRUE);
+		TEST_NE_P (oper->event, NULL);
+		TEST_EQ (oper->event->refs, 1);
+		TEST_EQ (oper->event->blockers, 1);
+
+		event_operator_reset (job->start_on);
 	}
 
 
@@ -846,17 +894,68 @@ test_instance (void)
 	job->instance = TRUE;
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job->start_on->value = TRUE;
+
+			oper = (EventOperator *)job->start_on->node.left;
+			oper->value = TRUE;
+			oper->event = event_new (oper, "foo", NULL, NULL);
+			event_ref (oper->event);
+			oper->blocked = TRUE;
+			event_block (oper->event);
+
+			oper = (EventOperator *)job->start_on->node.right;
+			oper->value = TRUE;
+			oper->event = event_new (oper, "bar", NULL, NULL);
+			event_ref (oper->event);
+			oper->blocked = TRUE;
+			event_block (oper->event);
+		}
+
 		ptr = job_instance (job);
 
 		TEST_NE_P (ptr, job);
 		TEST_EQ (ptr->instance, TRUE);
 		TEST_EQ_P (ptr->instance_of, job);
 
+		oper = job->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = ptr->start_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)ptr->start_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ (oper->blocked, TRUE);
+		TEST_NE_P (oper->event, NULL);
+		TEST_EQ (oper->event->refs, 1);
+		TEST_EQ (oper->event->blockers, 1);
+
+		oper = (EventOperator *)ptr->start_on->node.right;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ (oper->blocked, TRUE);
+		TEST_NE_P (oper->event, NULL);
+		TEST_EQ (oper->event->refs, 1);
+		TEST_EQ (oper->event->blockers, 1);
+
+		event_operator_reset (ptr->start_on);
+
 		nih_list_free (&ptr->entry);
 	}
 
 
 	nih_list_free (&job->entry);
+	event_poll ();
 }
 
 void
@@ -4776,20 +4875,36 @@ test_child_reaper (void)
 void
 test_handle_event (void)
 {
-	Job   *job1, *job2;
-	Event *event;
+	Job           *job1, *job2;
+	Event         *event, *event2;
+	EventOperator *oper;
 
 	TEST_FUNCTION ("job_handle_event");
 	job1 = job_new (NULL, "foo");
 	job1->respawn_limit = 0;
 
-	job1->start_on = event_operator_new (job1, EVENT_MATCH,
-					     "wibble", NULL);
+	job1->start_on = event_operator_new (job1, EVENT_AND, NULL, NULL);
+
+	oper = event_operator_new (job1->start_on, EVENT_MATCH,
+				   "wibble", NULL);
+	nih_tree_add (&job1->start_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job1->start_on, EVENT_MATCH,
+				   "wobble", NULL);
+	nih_tree_add (&job1->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	job2 = job_new (NULL, "bar");
 	job2->respawn_limit = 0;
 
-	job2->stop_on = event_operator_new (job2, EVENT_MATCH, "wibble", NULL);
+	job2->stop_on = event_operator_new (job2, EVENT_OR, NULL, NULL);
+
+	oper = event_operator_new (job2->stop_on, EVENT_MATCH,
+				   "wibble", NULL);
+	nih_tree_add (&job2->stop_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job2->stop_on, EVENT_MATCH,
+				   "wobble", NULL);
+	nih_tree_add (&job2->stop_on->node, &oper->node, NIH_TREE_RIGHT);
 
 
 	/* Check that a non matching event has no effect on either job,
@@ -4822,19 +4937,46 @@ test_handle_event (void)
 		TEST_EQ_P (job1->cause, NULL);
 		TEST_EQ_P (job1->blocked, NULL);
 
+		oper = job1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)job1->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		oper = (EventOperator *)job1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_RUNNING);
 		TEST_EQ_P (job2->cause, NULL);
 		TEST_EQ_P (job2->blocked, NULL);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
 	}
 
 	nih_list_free (&event->entry);
 
 
-	/* Check that a matching event results in the jobs being started or
-	 * stopped as appropriate.
+	/* Check that a matching event is recorded against the operator that
+	 * matches it, but only affects the job if it completes the
+	 * expression.
 	 */
-	TEST_FEATURE ("with matching event");
+	TEST_FEATURE ("with matching event to stop");
 	event = event_new (NULL, "wibble", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
@@ -4853,15 +4995,26 @@ test_handle_event (void)
 
 		job_handle_event (event);
 
-		TEST_EQ (event->blockers, 4); /* 2 */
-		TEST_EQ (event->refs, 4); /* 2 */
+		TEST_EQ (event->blockers, 3); /* 2 */
+		TEST_EQ (event->refs, 3); /* 2 */
 
-		TEST_EQ (job1->goal, JOB_START);
-		TEST_EQ (job1->state, JOB_STARTING);
-		TEST_EQ_P (job1->cause, event);
-		TEST_NE_P (job1->blocked, NULL);
-		TEST_EQ (job1->blocked->refs, 1);
-		event_unref (job1->blocked);
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_WAITING);
+		TEST_EQ_P (job1->cause, NULL);
+		TEST_EQ_P (job1->blocked, NULL);
+
+		oper = job1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)job1->start_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_STOPPING);
@@ -4869,25 +5022,127 @@ test_handle_event (void)
 		TEST_NE_P (job2->blocked, NULL);
 		TEST_EQ (job2->blocked->refs, 1);
 		event_unref (job2->blocked);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		event_operator_reset (job1->start_on);
+		event_operator_reset (job2->stop_on);
 	}
 
 	nih_list_free (&event->entry);
+
+
+	/* Check that a second event can complete an expression and affect
+	 * the job.
+	 */
+	TEST_FEATURE ("with matching event to start");
+	event = event_new (NULL, "wibble", NULL, NULL);
+	event2 = event_new (NULL, "wobble", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		event->blockers = 0;
+		event->refs = 0;
+
+		event2->blockers = 0;
+		event2->refs = 0;
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->cause = NULL;
+		job1->blocked = NULL;
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->cause = NULL;
+		job2->blocked = NULL;
+
+		job_handle_event (event);
+		job_handle_event (event2);
+
+		TEST_EQ (event->blockers, 3); /* 2 */
+		TEST_EQ (event->refs, 3); /* 2 */
+
+		TEST_EQ (event2->blockers, 3); /* 2 */
+		TEST_EQ (event2->refs, 3); /* 2 */
+
+		TEST_EQ (job1->goal, JOB_START);
+		TEST_EQ (job1->state, JOB_STARTING);
+		TEST_EQ_P (job1->cause, event2);
+		TEST_NE_P (job1->blocked, NULL);
+		TEST_EQ (job1->blocked->refs, 1);
+		event_unref (job1->blocked);
+
+		oper = job1->start_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job1->start_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job1->start_on->node.right;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event2);
+		TEST_EQ (oper->blocked, TRUE);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_EQ_P (job2->cause, event);
+		TEST_NE_P (job2->blocked, NULL);
+		TEST_EQ (job2->blocked->refs, 1);
+		event_unref (job2->blocked);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event2);
+		TEST_EQ (oper->blocked, TRUE);
+
+		event_operator_reset (job1->start_on);
+		event_operator_reset (job2->stop_on);
+	}
+
+	nih_list_free (&event->entry);
+	nih_list_free (&event2->entry);
 
 	nih_list_free (&job2->entry);
 
 
 	/* Check that a matching event for an instance job results in the
 	 * job itself being unchanged, but a new job being created that's
-	 * an instance of the first and that one being started.
+	 * an instance of the first and that one being started.  Only the
+	 * new job should be referencing the event.
 	 */
 	TEST_FEATURE ("with matching event for instance job");
 	job1->instance = TRUE;
 
 	event = event_new (NULL, "wibble", NULL, NULL);
+	event2 = event_new (NULL, "wobble", NULL, NULL);
 
 	TEST_ALLOC_FAIL {
 		event->blockers = 0;
 		event->refs = 0;
+
+		event2->blockers = 0;
+		event2->refs = 0;
 
 		job1->goal = JOB_STOP;
 		job1->state = JOB_WAITING;
@@ -4895,14 +5150,31 @@ test_handle_event (void)
 		job1->blocked = NULL;
 
 		job_handle_event (event);
+		job_handle_event (event2);
 
-		TEST_EQ (event->blockers, 3); /* 1 */
-		TEST_EQ (event->refs, 3); /* 1 */
+		TEST_EQ (event->blockers, 1); /* 1 */
+		TEST_EQ (event->refs, 1); /* 1 */
+
+		TEST_EQ (event2->blockers, 2); /* 1 */
+		TEST_EQ (event2->refs, 2); /* 1 */
 
 		TEST_EQ (job1->goal, JOB_STOP);
 		TEST_EQ (job1->state, JOB_WAITING);
 		TEST_EQ_P (job1->cause, NULL);
 		TEST_EQ_P (job1->blocked, NULL);
+
+		oper = job1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)job1->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		oper = (EventOperator *)job1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
 
 		job2 = NULL;
 		NIH_HASH_FOREACH (jobs, iter) {
@@ -4920,15 +5192,31 @@ test_handle_event (void)
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_STARTING);
-		TEST_EQ_P (job2->cause, event);
+		TEST_EQ_P (job2->cause, event2);
 		TEST_NE_P (job2->blocked, NULL);
 		TEST_EQ (job2->blocked->refs, 1);
 		event_unref (job2->blocked);
+
+		oper = job2->start_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->start_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->start_on->node.right;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event2);
+		TEST_EQ (oper->blocked, TRUE);
+
+		event_operator_reset (job2->start_on);
 
 		nih_list_free (&job2->entry);
 	}
 
 	nih_list_free (&event->entry);
+	nih_list_free (&event2->entry);
 
 
 	nih_list_free (&job1->entry);
