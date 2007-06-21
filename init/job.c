@@ -518,6 +518,11 @@ job_copy (const void *parent,
 	return job;
 
 error:
+	if (job->start_on)
+		event_operator_reset (job->start_on);
+	if (job->stop_on)
+		event_operator_reset (job->stop_on);
+
 	nih_list_free (&job->entry);
 	return NULL;
 }

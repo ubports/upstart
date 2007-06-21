@@ -331,7 +331,8 @@ test_copy (void)
 
 
 	/* Check that we can create a copy of an existing structure which
-	 * has the same configured details, but a clean state.
+	 * has the same configured details, but a clean state except for
+	 * the event expressions which should be copied.
 	 */
 	TEST_FEATURE ("with configured");
 	job = job_new (NULL, "test");
@@ -356,6 +357,11 @@ test_copy (void)
 	job->start_on = event_operator_new (job, EVENT_OR, NULL, NULL);
 
 	oper = event_operator_new (job, EVENT_MATCH, "foo", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (oper, "foo", NULL, NULL);
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
 	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
 
 	oper = event_operator_new (job, EVENT_MATCH, "bar", NULL);
@@ -445,6 +451,10 @@ test_copy (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (copy, NULL);
+
+			oper = (EventOperator *)job->start_on->node.left;
+			TEST_EQ (oper->event->refs, 1);
+			TEST_EQ (oper->event->blockers, 1);
 			continue;
 		}
 
@@ -485,6 +495,10 @@ test_copy (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "foo");
 		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ (oper->blocked, TRUE);
+		TEST_EQ (oper->event->refs, 2);
+		TEST_EQ (oper->event->blockers, 2);
 
 		oper = (EventOperator *)copy->start_on->node.right;
 		TEST_ALLOC_PARENT (oper, copy);
@@ -586,10 +600,14 @@ test_copy (void)
 		TEST_ALLOC_PARENT (copy->chdir, copy);
 		TEST_EQ_STR (copy->chdir, job->chdir);
 
+		event_operator_reset (copy->start_on);
 		nih_list_free (&copy->entry);
 	}
 
+	event_operator_reset (job->start_on);
 	nih_list_free (&job->entry);
+
+	event_poll ();
 }
 
 
