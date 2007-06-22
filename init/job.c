@@ -686,8 +686,7 @@ job_instance (Job *job)
 /**
  * job_change_goal:
  * @job: job to change goal of,
- * @goal: goal to change to,
- * @event: event causing the change.
+ * @goal: goal to change to.
  *
  * This function changes the current goal of a @job to the new @goal given,
  * performing any necessary state changes or actions (such as killing
@@ -700,8 +699,7 @@ job_instance (Job *job)
  **/
 void
 job_change_goal (Job     *job,
-		 JobGoal  goal,
-		 Event   *event)
+		 JobGoal  goal)
 {
 	nih_assert (job != NULL);
 	nih_assert (job->state != JOB_DELETED);
@@ -790,7 +788,7 @@ job_change_state (Job      *job,
 				nih_warn (_("%s respawning too fast, stopped"),
 					  job->name);
 
-				job_change_goal (job, JOB_STOP, NULL);
+				job_change_goal (job, JOB_STOP);
 				state = job_next_state (job);
 
 				if (! job->failed) {
@@ -1732,7 +1730,7 @@ job_child_reaper (void  *data,
 		if (job->state == JOB_RUNNING)
 			state = FALSE;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 	}
 
 	if (state)
@@ -1780,7 +1778,7 @@ job_handle_event (Event *event)
 			if (job->stop_on
 			    && event_operator_handle (job->stop_on, event)
 			    && job->stop_on->value)
-				job_change_goal (job, JOB_STOP, event);
+				job_change_goal (job, JOB_STOP);
 		}
 
 		/* And there's no point matching the start events for an
@@ -1793,7 +1791,7 @@ job_handle_event (Event *event)
 				Job *instance;
 
 				instance = job_instance (job);
-				job_change_goal (instance, JOB_START, event);
+				job_change_goal (instance, JOB_START);
 			}
 		}
 	}

@@ -981,7 +981,7 @@ test_change_goal (void)
 		job->state = JOB_WAITING;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
@@ -1003,7 +1003,7 @@ test_change_goal (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_KILLED);
@@ -1025,7 +1025,7 @@ test_change_goal (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1047,7 +1047,7 @@ test_change_goal (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -1070,7 +1070,7 @@ test_change_goal (void)
 		job->state = JOB_RUNNING;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -1091,7 +1091,7 @@ test_change_goal (void)
 		job->process[PROCESS_PRE_START]->pid = 1;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_START);
@@ -1110,7 +1110,7 @@ test_change_goal (void)
 		job->state = JOB_WAITING;
 		job->blocked = NULL;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -2177,7 +2177,7 @@ test_change_state (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 		job_change_state (job, JOB_RUNNING);
 
 		TEST_EQ (job->goal, JOB_START);

@@ -111,7 +111,6 @@ typedef struct job_process {
  * @instance_of: job this is an instance of,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
- * @cause: cause of last goal change,
  * @blocked: emitted event we're waiting to finish,
  * @failed: whether the last process ran failed,
  * @failed_process: the last process that failed,
@@ -167,7 +166,6 @@ struct job {
 	JobGoal         goal;
 	JobState        state;
 
-	Event          *cause;
 	Event          *blocked;
 
 	int             failed;
@@ -236,7 +234,7 @@ Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 Job *       job_find_by_id            (unsigned int id);
 
 Job *       job_instance              (Job *job);
-void        job_change_goal           (Job *job, JobGoal goal, Event *event);
+void        job_change_goal           (Job *job, JobGoal goal);
 
 void        job_change_state          (Job *job, JobState state);
 JobState    job_next_state            (Job *job);

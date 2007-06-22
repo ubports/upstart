@@ -576,7 +576,7 @@ control_job_start (void                *data,
 					       job->id, job->name));
 	nih_io_send_message (control_io, reply);
 
-	job_change_goal (job, JOB_START, NULL);
+	job_change_goal (job, JOB_START);
 
 	return 0;
 }
@@ -663,7 +663,7 @@ control_job_stop (void                *data,
 						       job->id, job->name));
 		nih_io_send_message (control_io, reply);
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 	} else {
 		int has_instance = FALSE;
@@ -689,7 +689,7 @@ control_job_stop (void                *data,
 					  instance->id, instance->name));
 			nih_io_send_message (control_io, reply);
 
-			job_change_goal (instance, JOB_STOP, NULL);
+			job_change_goal (instance, JOB_STOP);
 		}
 
 		/* If no instances were running, we send back

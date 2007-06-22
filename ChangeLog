@@ -1,5 +1,16 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h: Update prototype of job_change_goal.
+	(Job): Remove cause member.
+	* init/job.c (job_change_goal): Drop additional argument since cause
+	is no longer used.
+	(job_change_state, job_child_reaper, job_handle_event): Only pass
+	two arguments to job_change_goal.
+	* init/control.c (control_job_start, control_job_stop): Only pass
+	two argumenst to job_change_goal.
+	* init/tests/test_job.c (test_change_goal, test_change_state): Only
+	pass two arguments to job_change_goal.
+
 	* init/job.c (job_new): Drop setting of cause.
 	(job_change_cause): Drop this function entirely.
 	(job_change_goal, job_change_state): Drop calls to job_change_cause
