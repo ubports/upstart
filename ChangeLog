@@ -1,5 +1,16 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_new): Drop setting of cause.
+	(job_change_cause): Drop this function entirely.
+	(job_change_goal, job_change_state): Drop calls to job_change_cause
+	(job_change_state, job_child_reaper): Don't pass job->cause to
+	job_change_goal calls.
+
+	* init/tests/test_job.c: Remove all tests that checked the value of
+	job->cause, since that variable is going away.
+	(test_change_goal): Remove the specific tests that checked whether
+	cause was updated or not.
+
 	* init/job.c (job_run_process): Replace the arguments from the event
 	with a list of event names.
 	* init/tests/test_job.c (test_run_process): Update test case to

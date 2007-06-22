@@ -67,7 +67,6 @@
 
 /* Prototypes for static functions */
 static const char *job_name          (Job *job);
-static void        job_change_cause  (Job *job, Event *event);
 static Event *     job_emit_event    (Job *job)
 	__attribute__ ((malloc));
 static int         job_catch_runaway (Job *job);
@@ -301,7 +300,6 @@ job_new (const void *parent,
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
-	job->cause = NULL;
 	job->blocked = NULL;
 
 	job->failed = FALSE;
@@ -695,10 +693,6 @@ job_instance (Job *job)
  * performing any necessary state changes or actions (such as killing
  * the running process) to correctly enter the new goal.
  *
- * @event is stored in the Job's cause member, and may be NULL.
- * Any previous cause is unreferenced and allowed to finish handling
- * if it has no further references.
- *
  * Before starting a job, you should call job_instance() to ensure that you
  * have a job that can be started, as you may not attempt to change the
  * goal of an instance master.  You may also not change the goal of a deleted
@@ -721,7 +715,6 @@ job_change_goal (Job     *job,
 		  job_goal_name (job->goal), job_goal_name (goal));
 
 	job->goal = goal;
-	job_change_cause (job, event);
 	notify_job (job);
 
 
@@ -744,27 +737,6 @@ job_change_goal (Job     *job,
 
 		break;
 	}
-}
-
-/**
- * job_change_cause:
- * @job: job to change,
- * @event: event to set.
- *
- * Updates the reference to the event that's causing @job to be started
- * or stopped to @event, which may be NULL or even the same as the current
- * one.
- **/
-static void
-job_change_cause (Job   *job,
-		  Event *event)
-{
-	nih_assert (job != NULL);
-
-	if (job->cause == event)
-		return;
-
-	job->cause = event;
 }
 
 
@@ -818,7 +790,7 @@ job_change_state (Job      *job,
 				nih_warn (_("%s respawning too fast, stopped"),
 					  job->name);
 
-				job_change_goal (job, JOB_STOP, job->cause);
+				job_change_goal (job, JOB_STOP, NULL);
 				state = job_next_state (job);
 
 				if (! job->failed) {
@@ -891,12 +863,10 @@ job_change_state (Job      *job,
 			job_emit_event (job);
 
 			/* If we're a service, our goal is to be running;
-			 * notify subscribed processes that we reached it,
-			 * and change the cause.
+			 * notify subscribed processes that we reached it.
 			 */
 			if (job->service) {
 				notify_job_finished (job);
-				job_change_cause (job, NULL);
 
 				if (job->start_on)
 					event_operator_unblock (job->start_on);
@@ -954,7 +924,6 @@ job_change_state (Job      *job,
 			job_emit_event (job);
 
 			notify_job_finished (job);
-			job_change_cause (job, NULL);
 
 			if (job->start_on)
 				event_operator_reset (job->start_on);
@@ -1763,7 +1732,7 @@ job_child_reaper (void  *data,
 		if (job->state == JOB_RUNNING)
 			state = FALSE;
 
-		job_change_goal (job, JOB_STOP, job->cause);
+		job_change_goal (job, JOB_STOP, NULL);
 	}
 
 	if (state)
