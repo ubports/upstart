@@ -1,5 +1,13 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_process.c (test_kill): Make sure that all processes
+	in the process group are killed, rather than just the lone one.
+	* init/process.c (process_kill): Send the signal to all processes
+	in the same process group as the pid.
+	* init/tests/test_job.c (test_change_state, test_kill_process):
+	After spawning a child, call setpgid() to put it in its own process
+	group otherwise we could end up TERMing ourselves.
+
 	* init/tests/test_job.c (test_child_reaper): Update test cases to
 	include checking of the start_on and stop_on expression trees.
 	* init/job.c (job_child_reaper): Mark all blocked events in the

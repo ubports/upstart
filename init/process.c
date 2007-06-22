@@ -296,7 +296,7 @@ process_kill (Job   *job,
 
 	signal = (force ? SIGKILL : SIGTERM);
 
-	if (kill (pid, signal) < 0)
+	if (kill (-pid, signal) < 0)
 		nih_return_system_error (-1);
 
 	return 0;

@@ -2538,6 +2538,7 @@ test_change_state (void)
 			pause ();
 		}
 		pid = job->process[PROCESS_MAIN]->pid;
+		setpgid (pid, pid);
 
 		job->cause = cause;
 		job->blocked = NULL;
@@ -3986,6 +3987,7 @@ test_kill_process (void)
 			pause ();
 		}
 		pid = job->process[PROCESS_MAIN]->pid;
+		setpgid (pid, pid);
 
 		job_kill_process (job, PROCESS_MAIN);
 
@@ -4034,6 +4036,7 @@ test_kill_process (void)
 				pause ();
 		}
 		pid = job->process[PROCESS_MAIN]->pid;
+		setpgid (pid, pid);
 
 		job_kill_process (job, PROCESS_MAIN);
 

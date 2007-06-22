@@ -269,22 +269,34 @@ void
 test_kill (void)
 {
 	Job   *job;
-	pid_t  pid;
+	pid_t  pid1, pid2;
 	int    ret, status;
 
 	TEST_FUNCTION ("process_kill");
 	job = job_new (NULL, "test");
 
 	/* Check that when we normally kill the process, the TERM signal
-	 * is sent to it.
+	 * is sent to all processes in its process group.
 	 */
 	TEST_FEATURE ("with TERM signal");
-	TEST_CHILD (pid) {
+	TEST_CHILD (pid1) {
+		pause ();
+	}
+	TEST_CHILD (pid2) {
 		pause ();
 	}
 
-	ret = process_kill (job, pid, FALSE);
-	waitpid (pid, &status, 0);
+	setpgid (pid1, pid1);
+	setpgid (pid2, pid1);
+
+	ret = process_kill (job, pid1, FALSE);
+	waitpid (pid1, &status, 0);
+
+	TEST_EQ (ret, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGTERM);
+
+	waitpid (pid2, &status, 0);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (WIFSIGNALED (status));
@@ -295,12 +307,25 @@ test_kill (void)
 	 * instead.
 	 */
 	TEST_FEATURE ("with KILL signal");
-	TEST_CHILD (pid) {
+	TEST_CHILD (pid1) {
+		pause ();
+	}
+	TEST_CHILD (pid2) {
 		pause ();
 	}
 
-	ret = process_kill (job, pid, TRUE);
-	waitpid (pid, &status, 0);
+	setpgid (pid1, pid1);
+	setpgid (pid2, pid1);
+
+	ret = process_kill (job, pid1, TRUE);
+	waitpid (pid1, &status, 0);
+
+	TEST_EQ (ret, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+	ret = process_kill (job, pid1, TRUE);
+	waitpid (pid2, &status, 0);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (WIFSIGNALED (status));
