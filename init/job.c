@@ -1378,10 +1378,19 @@ job_run_process (Job         *job,
 			script = NULL;
 		}
 
-		/* Append arguments from the cause event if set. */
-		if (job->cause && job->cause->args)
-			NIH_MUST (nih_str_array_append (&argv, NULL, &argc,
-							job->cause->args));
+		/* Append the list of event names as arguments */
+		if (job->start_on) {
+			NIH_TREE_FOREACH (&job->start_on->node, iter) {
+				EventOperator *oper = (EventOperator *)iter;
+
+				if ((oper->type == EVENT_MATCH)
+				    && oper->value
+				    && oper->event)
+					NIH_MUST (nih_str_array_add (
+							  &argv, NULL, &argc,
+							  oper->event->name));
+			}
+		}
 	} else {
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.

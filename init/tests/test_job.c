@@ -3471,10 +3471,10 @@ void
 test_run_process (void)
 {
 	Job           *job = NULL;
-	Event         *event;
+	EventOperator *oper;
 	FILE          *output;
 	struct stat    statbuf;
-	char           filename[PATH_MAX], buf[80], **args;
+	char           filename[PATH_MAX], buf[80];
 	int            status, first;
 
 	TEST_FUNCTION ("job_run_process");
@@ -3613,26 +3613,37 @@ test_run_process (void)
 	}
 
 
-	/* Check that a small shell script will have arguments from the
-	 * cause passed to it, if one exists.
+	/* Check that a small shell script will have arguments passed to
+	 * it listing the events that caused it to start.
 	 */
-	TEST_FEATURE ("with small script and cause");
-	args = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	event = event_new (NULL, "test", args, NULL);
-
+	TEST_FEATURE ("with small script and start events");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->cause = event;
 			job->process[PROCESS_MAIN] = job_process_new (job);
 			job->process[PROCESS_MAIN]->script = TRUE;
 			job->process[PROCESS_MAIN]->command = nih_sprintf (
 				job->process[PROCESS_MAIN],
 				"exec > %s\necho $0\necho $@", filename);
+
+			job->start_on = event_operator_new (
+				job, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				job->start_on, EVENT_MATCH, "foo", NULL);
+			oper->value = TRUE;
+			oper->event = event_new (oper, "foo", NULL, NULL);
+			nih_tree_add (&job->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				job->start_on, EVENT_MATCH, "bar", NULL);
+			oper->value = TRUE;
+			oper->event = event_new (oper, "bar", NULL, NULL);
+			nih_tree_add (&job->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
 		}
 
 		job_run_process (job, PROCESS_MAIN);
@@ -3652,46 +3663,6 @@ test_run_process (void)
 
 		nih_list_free (&job->entry);
 	}
-
-	nih_list_free (&event->entry);
-
-
-	/* Check that an event without arguments doesn't cause any problems */
-	TEST_FEATURE ("with cause without arguments");
-	event = event_new (NULL, "test", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->cause = event;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"exec > %s\necho $0\necho $@", filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "/bin/sh\n");
-		TEST_FILE_EQ (output, "\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-	nih_list_free (&event->entry);
 
 
 	if (stat ("/dev/fd", &statbuf) < 0) {
@@ -3765,21 +3736,15 @@ test_run_process (void)
 	}
 
 
-	/* Check that a long shell script will have arguments from the
-	 * cause passed to it, if one exists.
+	/* Check that a long shell script will have arguments passed to it
+	 * listing the events that caused it to start.
 	 */
-	TEST_FEATURE ("with long script and cause");
-	args = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	event = event_new (NULL, "test", args, NULL);
-
+	TEST_FEATURE ("with long script and start events");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (NULL, "test");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
-			job->cause = event;
 			job->process[PROCESS_MAIN] = job_process_new (job);
 			job->process[PROCESS_MAIN]->script = TRUE;
 			job->process[PROCESS_MAIN]->command = nih_alloc (
@@ -3789,6 +3754,23 @@ test_run_process (void)
 			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
 				strcat (job->process[PROCESS_MAIN]->command,
 					"# this just bulks it out a bit");
+
+			job->start_on = event_operator_new (
+				job, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				job->start_on, EVENT_MATCH, "foo", NULL);
+			oper->value = TRUE;
+			oper->event = event_new (oper, "foo", NULL, NULL);
+			nih_tree_add (&job->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				job->start_on, EVENT_MATCH, "bar", NULL);
+			oper->value = TRUE;
+			oper->event = event_new (oper, "bar", NULL, NULL);
+			nih_tree_add (&job->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
 		}
 
 		job_run_process (job, PROCESS_MAIN);
@@ -3834,8 +3816,6 @@ test_run_process (void)
 
 		nih_list_free (&job->entry);
 	}
-
-	nih_list_free (&event->entry);
 no_devfd:
 	;
 }

@@ -1,5 +1,10 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Replace the arguments from the event
+	with a list of event names.
+	* init/tests/test_job.c (test_run_process): Update test case to
+	supply arguments from the list of events.
+
 	* init/process.c (process_setup_environment): Drop the UPSTART_EVENT
 	environment variable; it doesn't make sense when you can have multiple
 	events.
