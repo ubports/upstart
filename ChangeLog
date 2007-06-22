@@ -1,5 +1,11 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_reaper): Update test cases to
+	include checking of the start_on and stop_on expression trees.
+	* init/job.c (job_child_reaper): Mark all blocked events in the
+	start_on and stop_on trees as failed; since these are copies of
+	the cause event, we can drop that setting already.
+
 	* TODO: Update again, still thinking about the atomicity of event
 	expressions.
 

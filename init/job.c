@@ -1726,17 +1726,34 @@ job_child_reaper (void  *data,
 	 * and environment to the stop and stopped events generated for the
 	 * job.
 	 *
-	 * In addition, mark the cause event failed as well; this is
-	 * reported to the emitted of the event, and also causes a failed
-	 * event to be generated.
+	 * In addition, mark the events that caused the state change as
+	 * failed as well; this is reported to the emitter of the event,
+	 * and also causes a failed event to be generated.
 	 */
 	if (failed && (! job->failed)) {
 		job->failed = TRUE;
 		job->failed_process = process;
 		job->exit_status = status;
 
-		if (job->cause)
-			job->cause->failed = TRUE;
+		if (job->start_on) {
+			NIH_TREE_FOREACH (&job->start_on->node, iter) {
+				EventOperator *oper = (EventOperator *)iter;
+
+				if ((oper->type == EVENT_MATCH) && oper->value
+				    && oper->event && oper->blocked)
+					oper->event->failed = TRUE;
+			}
+		}
+
+		if (job->stop_on) {
+			NIH_TREE_FOREACH (&job->stop_on->node, iter) {
+				EventOperator *oper = (EventOperator *)iter;
+
+				if ((oper->type == EVENT_MATCH) && oper->value
+				    && oper->event && oper->blocked)
+					oper->event->failed = TRUE;
+			}
+		}
 	}
 
 	/* Change the goal to stop; normally this doesn't have any

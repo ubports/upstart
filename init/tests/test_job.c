@@ -4096,6 +4096,8 @@ test_child_reaper (void)
 	job->process[PROCESS_MAIN] = job_process_new (job);
 	job->process[PROCESS_MAIN]->command = "echo";
 
+	job->start_on = event_operator_new (job, EVENT_MATCH, "foo", NULL);
+
 	event = event_new (NULL, "foo", NULL, NULL);
 
 
@@ -4107,7 +4109,23 @@ test_child_reaper (void)
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = event;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
 		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
 
 		job_child_reaper (NULL, 999, FALSE, 0);
 
@@ -4115,7 +4133,25 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->cause, event);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
 	}
 
 	job->process[PROCESS_MAIN]->pid = 0;
@@ -4132,11 +4168,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4148,14 +4190,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4171,17 +4222,26 @@ test_child_reaper (void)
 	 * still not be considered failed.
 	 */
 	TEST_FEATURE ("with kill timer");
+	job->stop_on = job->start_on;
+	job->start_on = NULL;
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4203,12 +4263,16 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (event->failed, FALSE);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->failed, FALSE);
 
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4216,6 +4280,8 @@ test_child_reaper (void)
 	}
 
 	job->process[PROCESS_MAIN]->pid = 0;
+	job->start_on = job->stop_on;
+	job->stop_on = NULL;
 
 
 	/* Check that we can reap the pre-start process of the job, and if it
@@ -4232,11 +4298,17 @@ test_child_reaper (void)
 		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4251,16 +4323,25 @@ test_child_reaper (void)
 
 		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->cause, event);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
+
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_EQ_P (job->cause, event);
-		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
-
-		TEST_EQ_P (job->blocked, NULL);
 	}
 
 	job->process[PROCESS_PRE_START]->pid = 0;
@@ -4279,11 +4360,17 @@ test_child_reaper (void)
 		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4298,14 +4385,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, TRUE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
@@ -4331,11 +4427,17 @@ test_child_reaper (void)
 		job->process[PROCESS_PRE_START]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4350,14 +4452,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, TRUE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
@@ -4388,11 +4499,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4407,18 +4524,27 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
+		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->cause, event);
-		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
-
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output,
 			      "test: test main process ended, respawning\n");
@@ -4445,11 +4571,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4464,14 +4596,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4502,11 +4643,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4521,14 +4668,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, TRUE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -4550,17 +4706,26 @@ test_child_reaper (void)
 	 * it's probably failed because of the TERM or KILL signal).
 	 */
 	TEST_FEATURE ("with killed running process");
+	job->stop_on = job->start_on;
+	job->start_on = NULL;
+
 	TEST_ALLOC_FAIL {
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4575,12 +4740,16 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (event->failed, FALSE);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->failed, FALSE);
 
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4593,6 +4762,8 @@ test_child_reaper (void)
 	}
 
 	job->process[PROCESS_MAIN]->pid = 0;
+	job->start_on = job->stop_on;
+	job->stop_on = NULL;
 
 
 	/* Check that a running task that fails with an exit status
@@ -4609,11 +4780,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4628,14 +4805,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4666,11 +4852,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4685,14 +4877,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4719,11 +4920,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4735,14 +4942,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4756,6 +4972,9 @@ test_child_reaper (void)
 	 * in the waiting state.
 	 */
 	TEST_FEATURE ("with post-stop process");
+	job->stop_on = job->start_on;
+	job->start_on = NULL;
+
 	job->process[PROCESS_POST_STOP] = job_process_new (job);
 	job->process[PROCESS_POST_STOP]->command = "echo";
 
@@ -4765,11 +4984,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_STOP]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4781,12 +5006,16 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (event->failed, FALSE);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->failed, FALSE);
 
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4806,11 +5035,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_STOP]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4825,12 +5060,16 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (event->failed, TRUE);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->failed, TRUE);
 
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_POST_STOP);
@@ -4855,11 +5094,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_STOP]->pid = 1;
 
 		job->cause = event;
-		event->failed = TRUE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = TRUE;
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -4874,12 +5119,16 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_WAITING);
 		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (event->failed, TRUE);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->failed, TRUE);
 
+		TEST_EQ_P (job->cause, NULL);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -4892,6 +5141,8 @@ test_child_reaper (void)
 	}
 
 	job->process[PROCESS_POST_STOP]->pid = 0;
+	job->start_on = job->stop_on;
+	job->stop_on = NULL;
 
 
 	/* Check that we can reap the post-start task of the job, the
@@ -4910,11 +5161,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4930,12 +5187,21 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4962,11 +5228,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -4978,14 +5250,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5007,11 +5288,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -5024,12 +5311,21 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5053,11 +5349,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -5070,12 +5372,16 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5088,14 +5394,23 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5119,11 +5434,17 @@ test_child_reaper (void)
 		job->process[PROCESS_POST_START]->pid = 2;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -5139,12 +5460,16 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, TRUE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -5162,14 +5487,23 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, TRUE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->start_on);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -5186,6 +5520,9 @@ test_child_reaper (void)
 	 * but the aux pid should be.
 	 */
 	TEST_FEATURE ("with pre-stop process");
+	job->stop_on = job->start_on;
+	job->start_on = NULL;
+
 	job->process[PROCESS_PRE_STOP] = job_process_new (job);
 	job->process[PROCESS_PRE_STOP]->command = "echo";
 
@@ -5196,11 +5533,17 @@ test_child_reaper (void)
 		job->process[PROCESS_PRE_STOP]->pid = 2;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -5216,14 +5559,23 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, event);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->stop_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5250,11 +5602,17 @@ test_child_reaper (void)
 		job->process[PROCESS_MAIN]->pid = 1;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -5266,14 +5624,23 @@ test_child_reaper (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
+
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, event);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->stop_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5295,11 +5662,17 @@ test_child_reaper (void)
 		job->process[PROCESS_PRE_STOP]->pid = 2;
 
 		job->cause = event;
-		event->failed = FALSE;
-		event->refs = 1;
-		event->blockers = 1;
+		event_ref (job->cause);
+		event_block (job->cause);
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = event;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
 
 		job->blocked = NULL;
+		event->failed = FALSE;
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -5312,12 +5685,21 @@ test_child_reaper (void)
 		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 2);
 
-		TEST_EQ_P (job->cause, event);
+		TEST_EQ (event->blockers, 2); /* 1 */
+		TEST_EQ (event->refs, 2); /* 1 */
 		TEST_EQ (event->failed, FALSE);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->refs, 1);
 
+		TEST_EQ_P (job->cause, event);
 		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, event);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_unref (job->cause);
+		event_unblock (job->cause);
+
+		event_operator_reset (job->stop_on);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
