@@ -420,6 +420,8 @@ test_job (void)
 	job->process[PROCESS_MAIN]->pid = 1000;
 	job->process[PROCESS_POST_STOP] = job_process_new (job);
 
+	job->start_on = event_operator_new (job, EVENT_MATCH, "test", NULL);
+
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
 		NihIoMessage *message;
@@ -482,7 +484,11 @@ test_job (void)
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
 
-	job->cause = event;
+	job->start_on->value = TRUE;
+	job->start_on->event = event;
+	event_ref (job->start_on->event);
+	job->start_on->blocked = TRUE;
+	event_block (job->start_on->event);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -541,6 +547,8 @@ test_job (void)
 	waitpid (pid, &status, 0);
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
+
+	event_operator_reset (job->start_on);
 
 	nih_list_free (&job->entry);
 	nih_list_free (&sub->entry);
@@ -560,10 +568,6 @@ test_job_event (void)
 	Event              *event;
 	NotifySubscription *sub;
 
-	/* Check that processes subscribed to the job's cause event
-	 * receive an event caused message that includes the event id
-	 * followed by the job status message set.
-	 */
 	TEST_FUNCTION ("notify_job_event");
 	io = control_open ();
 	upstart_disable_safeties = TRUE;
@@ -577,10 +581,23 @@ test_job_event (void)
 	job->process[PROCESS_MAIN]->pid = 1000;
 	job->process[PROCESS_POST_STOP] = job_process_new (job);
 
+	job->start_on = event_operator_new (job, EVENT_MATCH, "test", NULL);
+	job->stop_on = event_operator_new (job, EVENT_MATCH, "test", NULL);
+
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
 
-	job->cause = event;
+
+	/* Check that processes subscribed to the job's start event
+	 * receive an event caused message that includes the event id
+	 * followed by the job status message set.
+	 */
+	TEST_FEATURE ("with start event");
+	job->start_on->value = TRUE;
+	job->start_on->event = event;
+	event_ref (job->start_on->event);
+	job->start_on->blocked = TRUE;
+	event_block (job->start_on->event);
 
 	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
@@ -640,9 +657,86 @@ test_job_event (void)
 	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
 		exit (1);
 
-	nih_list_free (&job->entry);
 	nih_list_free (&sub->entry);
 
+	event_operator_reset (job->start_on);
+
+
+	/* Check that processes subscribed to the job's stop event
+	 * receive an event caused message that includes the event id
+	 * followed by the job status message set.
+	 */
+	TEST_FEATURE ("with stop event");
+	job->stop_on->value = TRUE;
+	job->stop_on->event = event;
+	event_ref (job->stop_on->event);
+	job->stop_on->blocked = TRUE;
+	event_block (job->stop_on->event);
+
+	fflush (stdout);
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		NihIoMessage *message;
+		int           sock;
+		size_t        len;
+
+		sock = upstart_open ();
+
+		/* Release the parent so we can receive the job notification */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* Should receive UPSTART_EVENT_CAUSED */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_event_caused,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_PROCESS */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_process,
+						       NULL));
+		nih_free (message);
+
+		/* Should receive UPSTART_JOB_STATUS_END */
+		message = nih_io_message_recv (NULL, sock, &len);
+		assert0 (upstart_message_handle_using (message, message,
+						       (UpstartMessageHandler)
+						       check_job_status_end,
+						       NULL));
+		nih_free (message);
+
+		exit (0);
+	}
+
+	sub = notify_subscribe_event (NULL, pid, event);
+
+	notify_job (job);
+
+	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	while (! NIH_LIST_EMPTY (io->send_q))
+		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+
+	waitpid (pid, &status, 0);
+	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
+		exit (1);
+
+	nih_list_free (&sub->entry);
+
+	event_operator_reset (job->stop_on);
+
+
+	nih_list_free (&job->entry);
 
 	control_close ();
 	upstart_disable_safeties = FALSE;

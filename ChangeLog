@@ -1,5 +1,15 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/notify.c (notify_job): Call notify_job_event regardless,
+	since this now looks over the start_on and stop_on fields.
+	(notify_job_event): Rewrite to iterate over start_on and stop_on,
+	and notifying for each cause event found.
+	(notify_job_event_caused): Static function that is the guts of the
+	above function.
+	* init/tests/test_notify.c (test_job, test_job_event): Modify tests
+	to refer exclusively to the start_on/stop_on expressions rather than
+	the cause.
+
 	* init/job.c (job_change_cause): Only notify the job event and
 	update the cause member, we don't need to ref or block it anymore
 	since that's handled by start_on and stop_on.

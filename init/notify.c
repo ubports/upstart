@@ -42,6 +42,10 @@
 #include "notify.h"
 
 
+/* Prototypes for static functions */
+static void notify_job_event_caused (Job *job, Event *event);
+
+
 /**
  * subscriptions:
  *
@@ -252,28 +256,62 @@ notify_job (Job *job)
 		control_send_job_status (sub->pid, job);
 	}
 
-	if (job->cause)
-		notify_job_event (job);
+	notify_job_event (job);
 }
 
 /**
  * notify_job_event:
  * @job: job that is changing state,
  *
- * Called when a job's state changes, and before the job's cause changes.
- * Notifies all processes subscribed to the event, prefixing the job status
+ * Called when a job's state changes, and before events are unblocked.
+ * Notifies all processes subscribed to the events, prefixing the job status
  * message with an UPSTART_EVENT_CAUSED message to link the two.
  **/
 void
 notify_job_event (Job *job)
 {
 	nih_assert (job != NULL);
-	nih_assert (job->cause != NULL);
 
 	notify_init ();
 
 	if (! control_io)
 		return;
+
+	if (job->start_on) {
+		NIH_TREE_FOREACH (&job->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			if ((oper->type == EVENT_MATCH) && oper->value
+			    && oper->event && oper->blocked)
+				notify_job_event_caused (job, oper->event);
+		}
+	}
+
+	if (job->stop_on) {
+		NIH_TREE_FOREACH (&job->stop_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			if ((oper->type == EVENT_MATCH) && oper->value
+			    && oper->event && oper->blocked)
+				notify_job_event_caused (job, oper->event);
+		}
+	}
+}
+
+/**
+ * notify_job_event_caused:
+ * @job: job that is changing state,
+ * @event: cause event.
+ *
+ * Notifies all processes subscribed to the @event, prefixing the job status
+ * message with an UPSTART_EVENT_CAUSED message to link the two.
+ **/
+static void
+notify_job_event_caused (Job   *job,
+			 Event *event)
+{
+	nih_assert (job != NULL);
+	nih_assert (event != NULL);
 
 	NIH_LIST_FOREACH (subscriptions, iter) {
 		NotifySubscription *sub = (NotifySubscription *)iter;
@@ -282,12 +320,12 @@ notify_job_event (Job *job)
 		if (sub->type != NOTIFY_EVENT)
 			continue;
 
-		if (sub->event != job->cause)
+		if (sub->event != event)
 			continue;
 
 		NIH_MUST (message = upstart_message_new (
 				  control_io, sub->pid, UPSTART_EVENT_CAUSED,
-				  job->cause->id));
+				  event->id));
 		nih_io_send_message (control_io, message);
 
 		control_send_job_status (sub->pid, job);
