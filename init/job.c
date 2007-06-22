@@ -764,9 +764,6 @@ job_change_cause (Job   *job,
 	if (job->cause == event)
 		return;
 
-	if (job->cause)
-		notify_job_event (job);
-
 	job->cause = event;
 }
 

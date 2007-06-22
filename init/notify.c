@@ -371,6 +371,8 @@ notify_job_finished (Job *job)
 
 		nih_list_free (&sub->entry);
 	}
+
+	notify_job_event (job);
 }
 
 /**

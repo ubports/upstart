@@ -1,5 +1,10 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_cause): Don't notify the job event
+	subscribers when changing the cause.
+	* init/notify.c (notify_job_finished): Instead notify them when
+	the job reaches a rest state.
+
 	* init/notify.c (notify_job): Call notify_job_event regardless,
 	since this now looks over the start_on and stop_on fields.
 	(notify_job_event): Rewrite to iterate over start_on and stop_on,
