@@ -1,5 +1,66 @@
 High Priority:
 
+ * The "Event Expression"/"State" code isn't complete yet, and has atomicity
+   issues.
+   * Using start_on/stop_on to store referenced events for the environment
+     isn't going to work; it means that it's trivial for jobs to be re-started
+     or re-stopped by just one event rather than the whole sequence.  As soon
+     as the sequence is complete, we should transfer the events that matter to
+     a "state instance" and use *that* for the environment.
+
+     * This works for the "start state", but not for the "stop state": I
+       actually don't mind this on the whole, because it means the
+       pre-stop/post-stop will actually get the environment of the start
+       bits of the job as well.  It's not perfect though, because we still
+       need to somehow fail the stop events in the event that there's an
+       error stopping (err, is this ever true?) even if not, we still need
+       to unblock the buggers.
+
+   * All of this doesn't sit well with restarting; for example, what if a getty
+     instance is started by tty-added tty1 ... tty-removed tty1, and then the
+     same event happens again?  possibly while the instance is still running
+     or stopping!
+
+     * Maybe states/jobs should specify what makes an instance unique - and
+       this becomes the instance arguments?
+
+     * See also instance names.
+
+     * This needs event variables for keys!  If we have the "environment"
+       of a job, this starts to become possible.
+
+   * One way would be to always combine an EventOperator set with an
+     "EventState" when the operator becomes true, the current values are
+     copied into the EventState and the operator tree automatically reset. 
+     You would then unblock and unreference the EventState part, not the
+     EventOperator part (which is always blocked or empty).
+
+     * This makes the combined thing atomic and repeatable.
+
+     * We'd need one for both start and stop (since we'd need to know the state
+       that caused us to stop).
+
+     * We'd have to reset the operator and state if we're started manually or
+       stopped manually?  This isn't true right now, and I'm not sure what the
+       desired result is.
+
+     * Event States themselves need this for the instances, since if we permit
+       instances to restart, we do need to track their "start" events not to
+       mention their "stop" events.
+
+   * Make sure that event subscribers get notified of the job event, but
+     don't get notified twice!
+
+ * Configuration isn't finished yet either.
+
+   * Replace the current job replacement/replacement_for pointers, and the
+     jobs hash table, with a centralised name registry.  Each name should
+     have a current holder, and list of available holders, and we should
+     be able to elect a new current.
+
+   * Configuration reloading needs to happen with an initctl command;
+     we also need to support re-exec via initctl as well.
+
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
    long as we send things in this order:
@@ -19,49 +80,6 @@ High Priority:
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
 
- * Replace the current job replacement/replacement_for pointers, and the jobs
-   hash table, with a centralised name registry.  Each name should have a
-   current holder, and list of available holders, and we should be able to
-   elect a new current.
-
- * Configuration reloading needs to happen with an initctl command;
-   we also need to support re-exec via initctl as well.
-
- * Using start_on/stop_on to store referenced events for the environment
-   isn't going to work; it means that it's trivial for jobs to be re-started
-   or re-stopped by just one event rather than the whole sequence.  As soon
-   as the sequence is complete, we should transfer the events that matter to
-   a "state instance" and use *that* for the environment.
-
- * This works for the "start state", but not for the "stop state": I actually
-   don't mind this on the whole, because it means the pre-stop/post-stop will
-   actually get the environment of the start bits of the job as well.  It's
-   not perfect though, because we still need to somehow fail the stop events
-   in the event that there's an error stopping (err, is this ever true?) even
-   if not, we still need to unblock the buggers.
-
- * All of this doesn't sit well with restarting; for example, what if a getty
-   instance is started by tty-added tty1 ... tty-removed tty1, and then the
-   same event happens again?  possibly while the instance is still running
-   or stopping!
-
- * One way would be to always combine an EventOperator set with an "EventState"
-   when the operator becomes true, the current values are copied into the
-   EventState and the operator tree automatically reset.  You would then
-   unblock and unreference the EventState part, not the EventOperator part.
-
- * This makes the combined thing atomic and repeatable.
-
- * We'd need one for both start and stop (since we'd need to know the state
-   that caused us to stop).
-
- * We'd have to reset the operator and state if we're started manually or
-   stopped manually?
-
- * Event States themselves need this for the instances, since if we permit
-   instances to restart, we do need to track their "start" events not to
-   mention their "stop" events.
-
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
    - should be able to read current runlevel (as runlevel does right now)
@@ -79,11 +97,6 @@ High Priority:
 
 
 Medium Priority:
-
- * The cause event in the Job needs to hang around longer, since that's the
-   source of environment variables, etc.  We should only clear it when we
-   change the goal; otherwise we should just unblock it without unrefing it.
-   (but keep it when goal is stop?)
 
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
@@ -180,15 +193,6 @@ Future Features:
  * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
    which state do we keep it in while it's waiting?
 
- * Apply event variables to keys, such as "uses" and "stop on"
-
  * Watershed jobs (this actually might apply to events, since you might
    want to try starting again if a particular event has come in since you
    were last started)
-
- * How do we balance events, if two "added" happen we probably want two
-   "removed" to happen as well.  One way is to allow $... in the event
-   definitions which apply to earlier ones?
-
- * Instance names, appended to a running job's title and set in the job
-   definition using a variable from an event?

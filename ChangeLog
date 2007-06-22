@@ -1,5 +1,7 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/job.h: Update prototype of job_change_goal.
 	(Job): Remove cause member.
 	* init/job.c (job_change_goal): Drop additional argument since cause
