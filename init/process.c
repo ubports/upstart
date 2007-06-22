@@ -254,13 +254,19 @@ process_setup_environment (Job *job)
 	if (setenv ("UPSTART_JOB", job->name, TRUE) < 0)
 		nih_return_system_error (-1);
 
-	if (job->cause) {
-		if (setenv ("UPSTART_EVENT", job->cause->name, TRUE) < 0)
-			nih_return_system_error (-1);
+	/* Put all environment from the job's start events */
+	if (job->start_on) {
+		NIH_TREE_FOREACH (&job->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
 
-		for (env = job->cause->env; env && *env; env++)
-			if (putenv (*env) < 0)
-				nih_return_system_error (-1);
+			if ((oper->type == EVENT_MATCH)
+			    && oper->value
+			    && oper->event)
+				for (env = oper->event->env;
+				     env && *env; env++)
+					if (putenv (*env) < 0)
+						nih_return_system_error (-1);
+		}
 	}
 
 	for (env = job->env; env && *env; env++)

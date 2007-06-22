@@ -98,12 +98,12 @@ child (enum child_tests  test,
 void
 test_spawn (void)
 {
-	FILE  *output;
-	char   function[PATH_MAX], filename[PATH_MAX], buf[80];
-	char  *env[2], *args[4];
-	Job   *job;
-	Event *event;
-	pid_t  pid;
+	FILE          *output;
+	char           function[PATH_MAX], filename[PATH_MAX], buf[80];
+	char          *env[2], *args[4];
+	Job           *job;
+	EventOperator *oper;
+	pid_t          pid;
 
 	TEST_FUNCTION ("process_spawn");
 	TEST_FILENAME (filename);
@@ -225,24 +225,48 @@ test_spawn (void)
 	nih_list_free (&job->entry);
 
 
-	/* Check that a job's environment includes the UPSTART_EVENT variable
-	 * and any event environment if the cause member is set, but this
-	 * should not override those specified in the job.
+	/* Check that a job's environment includes the variables from all
+	 * events that started the job, but not overriding those specified
+	 * in the job.
 	 */
-	TEST_FEATURE ("with environment and cause");
+	TEST_FEATURE ("with environment from start events");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
-	putenv ("BAR=baz");
-
-	event = event_new (NULL, "wibble", NULL, NULL);
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "TEA=YES"));
+	putenv ("BAZ=baz");
+	putenv ("COFFEE=YES");
 
 	job = job_new (NULL, "test");
 	job->id = 1000;
-	job->cause = event;
 	job->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
+
+	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (job, "wibble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "TEA=YES"));
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (job, "wobble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "BAR=ORANGE"));
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "COFFEE=NO"));
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
+
+
 	pid = process_spawn (job, args);
 
 	waitpid (pid, NULL, 0);
@@ -252,16 +276,16 @@ test_spawn (void)
 	TEST_FILE_EQ_N (output, "TERM=");
 	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
 	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
-	TEST_FILE_EQ (output, "UPSTART_EVENT=wibble\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
 	TEST_FILE_EQ (output, "TEA=YES\n");
+	TEST_FILE_EQ (output, "BAR=ORANGE\n");
+	TEST_FILE_EQ (output, "COFFEE=NO\n");
 	TEST_FILE_END (output);
 
 	fclose (output);
 	unlink (filename);
 
 	nih_list_free (&job->entry);
-	nih_list_free (&event->entry);
 }
 
 

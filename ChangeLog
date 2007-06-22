@@ -1,5 +1,11 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_setup_environment): Drop the UPSTART_EVENT
+	environment variable; it doesn't make sense when you can have multiple
+	events.
+	(process_setup_environment): Put all variables from the job's start
+	events into the job's environment; replacing the UPSTART_EVENT variable
+
 	* init/job.c (job_change_cause): Don't notify the job event
 	subscribers when changing the cause.
 	* init/notify.c (notify_job_finished): Instead notify them when
