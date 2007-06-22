@@ -1,5 +1,16 @@
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_cause): Only notify the job event and
+	update the cause member, we don't need to ref or block it anymore
+	since that's handled by start_on and stop_on.
+	* init/tests/test_job.c (test_change_goal): Drop checks on cause
+	being referenced and blocked.
+	(test_change_state, test_child_reaper, test_handle_event): Update
+	test cases to not reference ->cause, and not count any references
+	or blockers towards it.
+	* init/tests/test_event.c (test_poll): Update expected reference
+	and block counts for events handled by jobs.
+	
 	* init/tests/test_process.c (test_kill): Make sure that all processes
 	in the process group are killed, rather than just the lone one.
 	* init/process.c (process_kill): Send the signal to all processes

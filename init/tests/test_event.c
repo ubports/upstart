@@ -323,8 +323,8 @@ test_poll (void)
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_EQ (event->progress, EVENT_HANDLING);
-	TEST_EQ (event->refs, 2); /* 1 */
-	TEST_EQ (event->blockers, 2); /* 1 */
+	TEST_EQ (event->refs, 1);
+	TEST_EQ (event->blockers, 1);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);

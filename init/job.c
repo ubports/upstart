@@ -764,18 +764,10 @@ job_change_cause (Job   *job,
 	if (job->cause == event)
 		return;
 
-	if (job->cause) {
+	if (job->cause)
 		notify_job_event (job);
 
-		event_unblock (job->cause);
-		event_unref (job->cause);
-	}
-
 	job->cause = event;
-	if (job->cause) {
-		event_ref (job->cause);
-		event_block (job->cause);
-	}
 }
 
 
