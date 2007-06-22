@@ -27,6 +27,41 @@ High Priority:
  * Configuration reloading needs to happen with an initctl command;
    we also need to support re-exec via initctl as well.
 
+ * Using start_on/stop_on to store referenced events for the environment
+   isn't going to work; it means that it's trivial for jobs to be re-started
+   or re-stopped by just one event rather than the whole sequence.  As soon
+   as the sequence is complete, we should transfer the events that matter to
+   a "state instance" and use *that* for the environment.
+
+ * This works for the "start state", but not for the "stop state": I actually
+   don't mind this on the whole, because it means the pre-stop/post-stop will
+   actually get the environment of the start bits of the job as well.  It's
+   not perfect though, because we still need to somehow fail the stop events
+   in the event that there's an error stopping (err, is this ever true?) even
+   if not, we still need to unblock the buggers.
+
+ * All of this doesn't sit well with restarting; for example, what if a getty
+   instance is started by tty-added tty1 ... tty-removed tty1, and then the
+   same event happens again?  possibly while the instance is still running
+   or stopping!
+
+ * One way would be to always combine an EventOperator set with an "EventState"
+   when the operator becomes true, the current values are copied into the
+   EventState and the operator tree automatically reset.  You would then
+   unblock and unreference the EventState part, not the EventOperator part.
+
+ * This makes the combined thing atomic and repeatable.
+
+ * We'd need one for both start and stop (since we'd need to know the state
+   that caused us to stop).
+
+ * We'd have to reset the operator and state if we're started manually or
+   stopped manually?
+
+ * Event States themselves need this for the instances, since if we permit
+   instances to restart, we do need to track their "start" events not to
+   mention their "stop" events.
+
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
    - should be able to read current runlevel (as runlevel does right now)

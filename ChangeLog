@@ -1,3 +1,8 @@
+2007-06-22  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update again, still thinking about the atomicity of event
+	expressions.
+
 2007-06-21  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_change_state): Include tests on a job's
