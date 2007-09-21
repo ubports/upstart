@@ -1,3 +1,9 @@
+2007-09-21  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_detect_stalled, job_free_deleted): Call job_init()
+	on entry, since we don't have a Job pointer passed to us, we need
+	to make sure we don't dereference a potentially NULL list.
+
 2007-06-22  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update.

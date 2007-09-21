@@ -1842,6 +1842,8 @@ job_detect_stalled (void)
 	if (paused)
 		return;
 
+	job_init ();
+
 	NIH_HASH_FOREACH (jobs, iter) {
 		Job *job = (Job *)iter;
 
@@ -1884,6 +1886,8 @@ job_detect_stalled (void)
 void
 job_free_deleted (void)
 {
+	job_init ();
+
 	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		Job *job = (Job *)iter;
 
