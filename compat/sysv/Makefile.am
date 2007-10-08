@@ -43,6 +43,7 @@ telinit_LDFLAGS = -static
 telinit_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 
+if COMPAT_SYSV
 install-data-hook:
 	ln -sf reboot.8 $(DESTDIR)$(man8dir)/halt.8
 	ln -sf reboot.8 $(DESTDIR)$(man8dir)/poweroff.8
@@ -50,6 +51,7 @@ install-data-hook:
 install-exec-hook:
 	ln -sf reboot $(DESTDIR)$(sbindir)/halt
 	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
+endif
 
 
 TESTS = 
