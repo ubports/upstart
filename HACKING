@@ -29,7 +29,7 @@ source.
 If you checked upstart out from Bazaar-NG you will also need to check
 libnih out from the following URL:
 
-	http://www.netsplit.com/bzr/libnih/
+	http://bazaar.launchpad.net/~keybuk/libnih/main
 
 and from the upstart working directory run the nihify script found in
 the libnih working directory, usually just:
