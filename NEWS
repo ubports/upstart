@@ -1,3 +1,31 @@
+0.3.9  2007-10-11  "Highway to the Danger Zone"
+
+	* Fixed crasher caused by starting a job with a no-arguments event.
+
+	* Initialisation order changed so that the control socket is opened
+	  and configuration parsed after inherited file descriptors are closed
+	  and the console opened.  Otherwise if we inherit fewer than the
+	  standard three file descriptors (e.g. from OpenVZ) we closed our
+	  own control socket, etc.  (Bug: #87173)
+
+	* Kill all processes in a supervised process's process group so that
+	  we catch looping or sleeping processes that a shell is waiting
+	  for.  (Bug: #121733)
+
+	* Missing inotify support detected correctly and warning suppressed.
+
+	* Stanza names in configuration may no longer be placed inside quotes.
+
+	* Fix dangling halt and poweroff symlinks when Upstart compiled
+	  without --enable-compat=sysv.  (Bug: #93356)
+
+	* Fix that --with-included-gettext did not include libintl.a
+	  as it should have.  (Bug: #117848)
+
+	* Updated hacking requirements to Automake 1.10 and Gettext 0.16.1
+	  since this version of Automake makes it easier for package
+	  maintainers because it causes us to ship libtool.m4 ourselves.
+
 0.3.8  2007-03-11  "I had a little drink about an hour ago"
 
 	* Fix an assertion error that occurred whenever a stop event for an
