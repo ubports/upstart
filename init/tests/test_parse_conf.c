@@ -98,7 +98,7 @@ test_parse_conf (void)
 		TEST_EQ_STR (item->job->process[PROCESS_MAIN]->command,
 			     "/sbin/daemon -d");
 
-		conf_item_free (item);
+		nih_free (item);
 
 		item = (ConfItem *)file->items.next;
 
@@ -115,12 +115,12 @@ test_parse_conf (void)
 		TEST_EQ_STR (item->job->process[PROCESS_MAIN]->command,
 			     "echo\n");
 
-		conf_item_free (item);
+		nih_free (item);
 
 		TEST_LIST_EMPTY (&file->items);
 	}
 
-	conf_source_free (source);
+	nih_free (source);
 }
 
 
@@ -184,7 +184,7 @@ test_stanza_job (void)
 		TEST_EQ_STR (item->job->process[PROCESS_MAIN]->command,
 			     "echo\n");
 
-		conf_item_free (item);
+		nih_free (item);
 
 		TEST_LIST_EMPTY (&file->items);
 	}
@@ -284,7 +284,7 @@ test_stanza_job (void)
 	TEST_EQ (lineno, 4);
 
 
-	conf_source_free (source);
+	nih_free (source);
 }
 
 

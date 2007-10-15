@@ -1,3 +1,67 @@
+2007-10-16  Scott James Remnant  <scott@netsplit.com>
+
+	Update to catch up with changes in libnih that make code a little
+	bit easier to follow (we hope).
+
+	* init/tests/test_process.c (test_spawn, test_kill): Replace calls
+	to nih_list_free() with nih_free()
+	* init/event.c (event_poll): Replace nih_list_free with nih_free
+	since the former function has gone from libnih.
+	(event_new): Adjust setting of the destructor.
+	(event_operator_new): Set destructor for the tree node.
+	* init/tests/test_event.c (test_new, test_find_by_id, test_ref)
+	(test_unref, test_block, test_unblock, test_poll)
+	(test_operator_match): Replace nih_list_free with nih_free.
+	(test_poll): Use TEST_FREE_TAG and TEST_FREE rather than abusing
+	destructors.
+	* init/job.c (job_new): Set destructor to nih_list_destroy.
+	(job_copy, job_free_deleted): Use nih_free instead of nih_list_free
+	* init/tests/test_job.c (test_new, test_copy, test_find_by_name)
+	(test_find_by_pid, test_find_by_id, test_instance)
+	(test_change_goal, test_change_state, test_next_state)
+	(test_should_replace, test_run_process, test_kill_process)
+	(test_child_reaper, test_handle_event)
+	(test_handle_event_finished, test_detect_stalled)
+	(test_free_deleted): Replace all uses of nih_list_free with nih_free
+	(test_child_reaper, test_free_deleted): Replace destructor abuse
+	with TEST_FREE, etc.
+	* init/conf.c (conf_reload_path): Use nih_free instead of nih_list_free
+	(conf_source_new, conf_file_get, conf_item_new): Set destructor
+	(conf_source_reload, conf_delete_handler): Use nih_free not the
+	custom conf_file_free() function.
+	(conf_reload_path): Use nih_free not the custom conf_item_free()
+	function.
+	(conf_delete_handler): Use nih_free not nih_watch_free()
+	(conf_source_free, conf_file_free): Drop these functions, since
+	all the free chaining happens properly with destructors.
+	(conf_item_free): Rename to conf_item_destroy and turn into destructor
+	* init/conf.h: Update prototypes.
+	* init/tests/test_conf.c (test_source_new, test_file_get)
+	(test_item_new, test_source_reload_job_dir)
+	(test_source_reload_conf_dir, test_source_reload_file)
+	(test_item_free): Replace nih_list_free calls with nih_free
+	(test_source_reload_job_dir, test_source_reload_conf_dir)
+	(test_source_reload_file, test_source_reload, test_item_free): Replace
+	calls to conf_source_free with nih_free
+	(test_source_free, test_file_free): Drop functions.
+	(test_item_free): Rename to test_item_destroy
+	(test_item_new): Assign a job before freeing, otherwise the destroy
+	function will foul up as it expects one.
+	* init/parse_conf.c (stanza_job): Replace nih_list_free with nih_free
+	* init/tests/test_parse_conf.c (test_parse_conf)
+	(test_stanza_job): Replace conf_source_free() with nih_free()
+	(test_parse_conf, test_stanza_job): Replace conf_item_free()
+	with nih_free()
+	* init/parse_job.c (parse_job, parse_on_paren, parse_on_collect):
+	Replace nih_list_free with nih_free
+	(parse_on): always cut out the stack head before returning (it won't
+	be empty on error) otherwise we end up with a bunch of list entries
+	pointing to it -- and it's way out of scope when we try and free them
+	(parse_on_operator, parse_on_operand): Use the job as the context
+	not the operator for consistency of freeing.
+	* init/tests/test_parse_job.c: Replace all instances of nih_list_free
+	with nih_free (too many functions to list).
+
 2007-10-15  Scott James Remnant  <scott@netsplit.com>
 
 	Strip out all of the IPC code, removing it and consigning it to the

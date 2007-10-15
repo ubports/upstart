@@ -146,9 +146,7 @@ void        conf_reload        (void);
 int         conf_source_reload (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
-int         conf_source_free   (ConfSource *source);
-int         conf_file_free     (ConfFile *file);
-int         conf_item_free     (ConfItem *item);
+int         conf_item_destroy  (ConfItem *item);
 
 NIH_END_EXTERN
 

@@ -275,7 +275,7 @@ parse_job (const void *parent,
 	 * without ditching the old job if there is one.
 	 */
 	if (nih_config_parse_file (file, len, pos, lineno, stanzas, job) < 0) {
-		nih_list_free (&job->entry);
+		nih_free (job);
 		return NULL;
 	}
 
@@ -566,10 +566,13 @@ parse_on (Job             *job,
 	} while ((on_pos < len) && paren);
 
 	/* The final operator and operand should be still on the stack and
-	 * need collecting.
+	 * need collecting; if not, take the stack pointer out before
+	 * returning otherwise we'll try and access it.
 	 */
-	if (parse_on_collect (&stack, &root) < 0)
+	if (parse_on_collect (&stack, &root) < 0) {
+		nih_list_remove (&stack);
 		return NULL;
+	}
 
 	/* If the stack isn't empty, then we've hit an open parenthesis and
 	 * not found a matching close one.  We've probably parsed the entire
@@ -582,7 +585,13 @@ parse_on (Job             *job,
 		goto finish;
 	}
 
+
 finish:
+	/* Remove the stack pointer from the list of items, otherwise we'll
+	 * return it and we'll try and access it when freed.
+	 */
+	nih_list_remove (&stack);
+
 	*pos = on_pos;
 	if (lineno)
 		*lineno = on_lineno;
@@ -682,7 +691,7 @@ parse_on_operator (Job              *job,
 	*root = NULL;
 
 	/* Push the new operator onto the stack */
-	item = nih_list_entry_new (oper);
+	item = nih_list_entry_new (job);
 	if (! item)
 		nih_return_system_error (-1);
 
@@ -791,7 +800,7 @@ parse_on_paren (Job              *job,
 		/* The top item on the stack should be the open parenthesis
 		 * marker, which we want to discard.
 		 */
-		nih_list_free (stack->next);
+		nih_free (stack->next);
 		break;
 	default:
 		nih_assert_not_reached ();
@@ -876,7 +885,7 @@ parse_on_operand (Job              *job,
 
 		nih_free (arg);
 
-		item = nih_list_entry_new (oper);
+		item = nih_list_entry_new (job);
 		if (! item)
 			nih_return_system_error (-1);
 
@@ -931,7 +940,7 @@ parse_on_collect (NihList          *stack,
 			break;
 
 		/* Remove the item from the stack */
-		nih_list_free (&item->entry);
+		nih_free (item);
 
 		/* Make the existing root node a child of the new operator;
 		 * there must be one for operators, and must not be one for

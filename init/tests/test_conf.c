@@ -83,7 +83,7 @@ test_source_new (void)
 		TEST_EQ_P ((void *)nih_hash_lookup (conf_sources, "/tmp"),
 			   source);
 
-		nih_list_free (&source->entry);
+		nih_free (source);
 	}
 }
 
@@ -120,7 +120,7 @@ test_file_get (void)
 		TEST_EQ_P ((void *)nih_hash_lookup (source->files, "/tmp/foo"),
 			   file);
 
-		nih_list_free (&file->entry);
+		nih_free (file);
 	}
 
 
@@ -153,8 +153,8 @@ test_file_get (void)
 			   file);
 	}
 
-	nih_list_free (&file->entry);
-	nih_list_free (&source->entry);
+	nih_free (file);
+	nih_free (source);
 }
 
 void
@@ -187,11 +187,11 @@ test_item_new (void)
 		TEST_EQ (item->type, CONF_JOB);
 		TEST_EQ_P (item->data, NULL);
 
-		nih_list_free (&item->entry);
+		nih_free (item);
 	}
 
-	nih_list_free (&file->entry);
-	nih_list_free (&source->entry);
+	nih_free (file);
+	nih_free (source);
 }
 
 
@@ -294,12 +294,12 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -325,12 +325,12 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -356,16 +356,16 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -894,7 +894,7 @@ test_source_reload_job_dir (void)
 	strcat (filename, "/foo");
 
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -929,7 +929,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -955,12 +955,12 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -986,16 +986,16 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 	strcpy (filename, dirname);
@@ -1035,7 +1035,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1061,12 +1061,12 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1092,16 +1092,16 @@ test_source_reload_job_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1125,7 +1125,7 @@ test_source_reload_job_dir (void)
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1178,7 +1178,7 @@ test_source_reload_job_dir (void)
 	job = job_find_by_name ("frodo/foo");
 	TEST_EQ (job, NULL);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1260,12 +1260,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1291,12 +1291,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1322,17 +1322,17 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1401,12 +1401,12 @@ no_inotify:
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/sbin/daemon --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1432,12 +1432,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1472,17 +1472,17 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1513,7 +1513,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1539,12 +1539,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1570,16 +1570,16 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 	strcpy (filename, dirname);
@@ -1615,7 +1615,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1641,12 +1641,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1672,16 +1672,16 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1705,7 +1705,7 @@ no_inotify:
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1757,7 +1757,7 @@ no_inotify:
 	job = job_find_by_name ("frodo/foo");
 	TEST_EQ (job, NULL);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -1883,8 +1883,8 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	item = (ConfItem *)file->items.next;
 
@@ -1900,12 +1900,12 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1931,12 +1931,12 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -1962,16 +1962,16 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2241,7 +2241,7 @@ test_source_reload_conf_dir (void)
 	strcat (filename, "/foo");
 
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2276,7 +2276,7 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2302,12 +2302,12 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2333,16 +2333,16 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 	strcpy (filename, dirname);
@@ -2390,7 +2390,7 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2416,12 +2416,12 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2447,16 +2447,16 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2480,7 +2480,7 @@ test_source_reload_conf_dir (void)
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2536,7 +2536,7 @@ test_source_reload_conf_dir (void)
 	job = job_find_by_name ("woggle");
 	TEST_EQ (job, NULL);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2629,8 +2629,8 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	item = (ConfItem *)file->items.next;
 
@@ -2646,12 +2646,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2677,12 +2677,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2708,17 +2708,17 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2791,15 +2791,15 @@ no_inotify:
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/sbin/daemon --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
 	job = job_find_by_name ("wobble");
 	TEST_EQ_P (job, NULL);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2825,12 +2825,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2865,17 +2865,17 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -2906,7 +2906,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2932,12 +2932,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -2963,16 +2963,16 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 	strcpy (filename, dirname);
@@ -3010,7 +3010,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -3036,12 +3036,12 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -3067,16 +3067,16 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/bin/tool --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -3100,7 +3100,7 @@ no_inotify:
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -3155,7 +3155,7 @@ no_inotify:
 	job = job_find_by_name ("wuggle");
 	TEST_EQ (job, NULL);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -3268,8 +3268,8 @@ test_source_reload_file (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 
 	item = (ConfItem *)file->items.next;
@@ -3286,12 +3286,12 @@ test_source_reload_file (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 
 	strcpy (filename, dirname);
@@ -3305,7 +3305,7 @@ test_source_reload_file (void)
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -3843,7 +3843,7 @@ test_source_reload_file (void)
 	TEST_EQ (old_job->goal, JOB_STOP);
 	TEST_EQ (old_job->state, JOB_DELETED);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -3894,11 +3894,11 @@ test_source_reload_file (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 	strcpy (filename, dirname);
@@ -3946,11 +3946,11 @@ test_source_reload_file (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -3984,11 +3984,11 @@ test_source_reload_file (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4036,7 +4036,7 @@ test_source_reload_file (void)
 	job = job_find_by_name ("wobble");
 	TEST_EQ (job, NULL);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4115,8 +4115,8 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "/sbin/daemon");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	item = (ConfItem *)file->items.next;
 
@@ -4132,19 +4132,19 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	job = job_find_by_name ("waggle");
 	TEST_EQ_P (job, NULL);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4210,8 +4210,8 @@ no_inotify:
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
 		     "/sbin/daemon --foo");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	item = (ConfItem *)file->items.next;
 
@@ -4227,19 +4227,19 @@ no_inotify:
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
 
-	nih_list_free (&job->entry);
-	nih_list_free (&item->entry);
+	nih_free (item);
+	nih_free (job);
 
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	job = job_find_by_name ("wobble");
 	TEST_EQ_P (job, NULL);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4272,11 +4272,11 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 	chmod (filename, 0644);
@@ -4316,11 +4316,11 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4349,11 +4349,11 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4388,7 +4388,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_LIST_EMPTY (&file->items);
 
-	nih_list_free (&file->entry);
+	nih_free (file);
 
 	TEST_HASH_EMPTY (source->files);
 
@@ -4398,7 +4398,7 @@ no_inotify:
 	job = job_find_by_name ("wobble");
 	TEST_EQ (job, NULL);
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 
 
@@ -4474,154 +4474,23 @@ test_source_reload (void)
 
 	TEST_HASH_EMPTY (source3->files);
 
-	conf_source_free (source1);
-	conf_source_free (source2);
-	conf_source_free (source3);
+	nih_free (source1);
+	nih_free (source2);
+	nih_free (source3);
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 }
 
 
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-
-	return 100;
-}
-
 void
-test_source_free (void)
-{
-	ConfSource *source;
-	ConfFile   *file;
-	char        dirname[PATH_MAX];
-	int         ret, fd;
-
-	TEST_FUNCTION ("conf_source_free");
-	TEST_FILENAME (dirname);
-	mkdir (dirname, 0755);
-
-
-	/* Make sure that we have inotify before performing some tests... */
-	if ((fd = inotify_init ()) < 0) {
-		printf ("SKIP: inotify not available\n");
-		goto no_inotify;
-	}
-	close (fd);
-
-
-	/* Check that when the source is freed, the associated watch structure
-	 * is freed along with its io destructor, and the return value of the
-	 * destructors are returned.
-	 */
-	TEST_FEATURE ("with attached watch");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
-	ret = conf_source_reload (source);
-
-	TEST_EQ (ret, 0);
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (source, my_destructor);
-	nih_alloc_set_destructor (source->watch, my_destructor);
-	nih_alloc_set_destructor (source->watch->io, my_destructor);
-
-	ret = conf_source_free (source);
-
-	TEST_EQ (ret, 100);
-	TEST_EQ (destructor_called, 3);
-
-
-no_inotify:
-	/* Check that we can free a source that has no attached watch.
-	 * The destructor should be called, and the return value returned.
-	 */
-	TEST_FEATURE ("with no watch");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (source, my_destructor);
-
-	ret = conf_source_free (source);
-
-	TEST_EQ (ret, 100);
-	TEST_EQ (destructor_called, 1);
-
-
-	/* Check that files attached to the source are freed as well. */
-	TEST_FEATURE ("with attached files");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
-	ret = conf_source_reload (source);
-
-	TEST_EQ (ret, 0);
-
-	destructor_called = 0;
-
-	file = conf_file_get (source, "/path/to/file1");
-	nih_alloc_set_destructor (file, my_destructor);
-
-	file = conf_file_get (source, "/path/to/file2");
-	nih_alloc_set_destructor (file, my_destructor);
-
-	ret = conf_source_free (source);
-
-	TEST_EQ (ret, 0);
-	TEST_EQ (destructor_called, 2);
-
-
-	rmdir (dirname);
-}
-
-void
-test_file_free (void)
-{
-	ConfSource *source;
-	ConfFile   *file;
-	ConfItem   *item;
-	int         ret;
-
-	/* Check that when a file is freed, the attached items are also
-	 * freed and the return value from the destructor is returned.
-	 * The file should have been removed from its containing list.
-	 */
-	TEST_FUNCTION ("conf_file_free");
-	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
-	file = conf_file_get (source, "/path/to/file");
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (file, my_destructor);
-
-	item = conf_item_new (file, CONF_JOB);
-	item->job = job_new (NULL, "foo");
-	nih_alloc_set_destructor (item, my_destructor);
-
-	item = conf_item_new (file, CONF_JOB);
-	item->job = job_new (NULL, "bar");
-	nih_alloc_set_destructor (item, my_destructor);
-
-	ret = conf_file_free (file);
-
-	TEST_EQ (ret, 100);
-	TEST_EQ (destructor_called, 3);
-
-	TEST_EQ_P (nih_hash_lookup (source->files, "/path/to/file"), NULL);
-
-	conf_source_free (source);
-	job_free_deleted ();
-}
-
-void
-test_item_free (void)
+test_item_destroy (void)
 {
 	ConfSource *source;
 	ConfFile   *file;
 	ConfItem   *item;
 	Job        *job, *old_job;
-	int         ret;
 
-	TEST_FUNCTION ("conf_item_free");
+	TEST_FUNCTION ("conf_item_destroy");
 	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
 	file = conf_file_get (source, "/path/to/file");
 
@@ -4633,15 +4502,9 @@ test_item_free (void)
 	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (item, my_destructor);
-
 	job = item->job;
 
-	ret = conf_item_free (item);
-
-	TEST_EQ (ret, 100);
-	TEST_TRUE (destructor_called);
+	nih_free (item);
 
 	TEST_EQ_P (job->replacement, (void *)-1);
 	TEST_EQ (job->goal, JOB_STOP);
@@ -4655,18 +4518,12 @@ test_item_free (void)
 	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (item, my_destructor);
-
 	job = item->job;
 	job->replacement = job_new (NULL, "foo");
 	old_job = job->replacement;
 	old_job->replacement_for = job;
 
-	ret = conf_item_free (item);
-
-	TEST_EQ (ret, 100);
-	TEST_TRUE (destructor_called);
+	nih_free (item);
 
 	TEST_EQ_P (job->replacement, old_job);
 	TEST_EQ (job->goal, JOB_STOP);
@@ -4674,7 +4531,7 @@ test_item_free (void)
 
 	TEST_EQ_P (old_job->replacement_for, NULL);
 
-	nih_list_free (&old_job->entry);
+	nih_free (old_job);
 
 
 	/* Check that when a job item is freed, if the attached job is running
@@ -4684,17 +4541,11 @@ test_item_free (void)
 	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (item, my_destructor);
-
 	job = item->job;
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
-	ret = conf_item_free (item);
-
-	TEST_EQ (ret, 100);
-	TEST_TRUE (destructor_called);
+	nih_free (item);
 
 	TEST_EQ_P (job->replacement, (void *)-1);
 	TEST_EQ (job->goal, JOB_START);
@@ -4711,9 +4562,6 @@ test_item_free (void)
 	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (item, my_destructor);
-
 	job = item->job;
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
@@ -4721,10 +4569,7 @@ test_item_free (void)
 	old_job = job->replacement;
 	old_job->replacement_for = job;
 
-	ret = conf_item_free (item);
-
-	TEST_EQ (ret, 100);
-	TEST_TRUE (destructor_called);
+	nih_free (item);
 
 	TEST_EQ_P (job->replacement, old_job);
 	TEST_EQ (job->goal, JOB_START);
@@ -4732,7 +4577,7 @@ test_item_free (void)
 
 	TEST_EQ_P (old_job->replacement_for, job);
 
-	nih_list_free (&old_job->entry);
+	nih_free (old_job);
 
 
 	/* If the job attached to the item is actually a replacement for
@@ -4745,17 +4590,11 @@ test_item_free (void)
 	item = conf_item_new (file, CONF_JOB);
 	item->job = job_new (NULL, "foo");
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (item, my_destructor);
-
 	job = item->job;
 	job->replacement_for = old_job;
 	old_job->replacement = job;
 
-	ret = conf_item_free (item);
-
-	TEST_EQ (ret, 100);
-	TEST_TRUE (destructor_called);
+	nih_free (item);
 
 	TEST_EQ_P (job->replacement, (void *)-1);
 	TEST_EQ (job->goal, JOB_STOP);
@@ -4765,10 +4604,10 @@ test_item_free (void)
 	TEST_EQ (old_job->goal, JOB_STOP);
 	TEST_EQ (old_job->state, JOB_DELETED);
 
-	nih_list_free (&old_job->entry);
+	nih_free (old_job);
 
 
-	conf_source_free (source);
+	nih_free (source);
 	job_free_deleted ();
 }
 
@@ -4784,9 +4623,7 @@ main (int   argc,
 	test_source_reload_conf_dir ();
 	test_source_reload_file ();
 	test_source_reload ();
-	test_source_free ();
-	test_file_free ();
-	test_item_free ();
+	test_item_destroy ();
 
 	return 0;
 }

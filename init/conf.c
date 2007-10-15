@@ -114,14 +114,9 @@ conf_init (void)
  * current configuration.  Normally you would set up all of the sources and
  * then call conf_reload() which will load them all.
  *
- * Since a source has attached files, items and inotify watches, you should
- * use conf_source_free() to free it and not attempt to free it directly.
- *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * Returns: newly allocated ConfSource structure or NULL if
  * insufficient memory.
@@ -160,6 +155,8 @@ conf_source_new (const void     *parent,
 		nih_free (source);
 		return NULL;
 	}
+
+	nih_alloc_set_destructor (source, (NihDestructor)nih_list_destroy);
 
 	nih_hash_add (conf_sources, &source->entry);
 
@@ -204,6 +201,9 @@ conf_file_get (ConfSource *source,
 
 		nih_list_init (&file->items);
 
+		nih_alloc_set_destructor (file,
+					  (NihDestructor)nih_list_destroy);
+
 		nih_hash_add (source->files, &file->entry);
 	}
 
@@ -241,6 +241,8 @@ conf_item_new (ConfFile     *file,
 
 	item->type = type;
 	item->data = NULL;
+
+	nih_alloc_set_destructor (item, (NihDestructor)conf_item_destroy);
 
 	nih_list_add (&file->items, &item->entry);
 
@@ -334,7 +336,7 @@ conf_source_reload (ConfSource *source)
 
 		if (file->flag != source->flag) {
 			nih_info (_("Handling deletion of %s"), file->path);
-			conf_file_free (file);
+			nih_free (file);
 		}
 	}
 
@@ -602,14 +604,14 @@ conf_delete_handler (ConfSource *source,
 		if (! strcmp (watch->path, path)) {
 			nih_warn ("%s: %s", source->path,
 				  _("Configuration directory deleted"));
-			nih_watch_free (source->watch);
+			nih_free (source->watch);
 			source->watch = NULL;
 		}
 
 		return;
 	}
 
-	conf_file_free (file);
+	nih_free (file);
 }
 
 /**
@@ -700,7 +702,7 @@ conf_reload_path (ConfSource *source,
 		NIH_LIST_FOREACH_SAFE (&file->items, iter) {
 			ConfItem *item = (ConfItem *)iter;
 
-			conf_item_free (item);
+			nih_free (item);
 		}
 
 		return -1;
@@ -752,7 +754,7 @@ conf_reload_path (ConfSource *source,
 		if (! item->job) {
 			err = nih_error_get ();
 
-			nih_list_free (&item->entry);
+			nih_free (item);
 		}
 
 		break;
@@ -792,7 +794,7 @@ conf_reload_path (ConfSource *source,
 	NIH_LIST_FOREACH_SAFE (&old_items, iter) {
 		ConfItem *item = (ConfItem *)iter;
 
-		conf_item_free (item);
+		nih_free (item);
 	}
 
 	/* Unmap the file again; in theory this shouldn't fail, but if
@@ -818,72 +820,26 @@ conf_reload_path (ConfSource *source,
 
 
 /**
- * conf_source_free:
- * @source: configuration source to be freed.
+ * conf_item_destructor:
+ * @item: configuration item to be destroyed.
  *
- * Frees the watch held by @source, all files parsed by source and the items
- * helped by them, and then frees the source itself.
+ * Handles the replacement and deletion of the item itself.
  *
- * Returns: return value from destructor, or 0.
+ * Normally used or called from an nih_alloc() destructor so that the list
+ * item is automatically removed from its containing list when freed.
+ *
+ * Returns: zero.
  **/
 int
-conf_source_free (ConfSource *source)
-{
-	nih_assert (source != NULL);
-
-	NIH_HASH_FOREACH_SAFE (source->files, iter) {
-		ConfFile *file = (ConfFile *)iter;
-
-		conf_file_free (file);
-	}
-
-	if (source->watch)
-		nih_watch_free (source->watch);
-
-	return nih_list_free (&source->entry);
-}
-
-/**
- * conf_file_free:
- * @file: configuration file to be deleted and freed.
- *
- * Frees all items held by @file and then removes @file from its containing
- * source and frees the memory allocated for it.
- *
- * Returns: return value from destructor, or 0.
- **/
-int
-conf_file_free (ConfFile *file)
-{
-	nih_assert (file != NULL);
-
-	/* Delete all items parsed from here. */
-	NIH_LIST_FOREACH_SAFE (&file->items, iter) {
-		ConfItem *item = (ConfItem *)iter;
-
-		conf_item_free (item);
-	}
-
-	return nih_list_free (&file->entry);
-}
-
-/**
- * conf_item_free:
- * @item: configuration item to be deleted and freed.
- *
- * Handles the replacement and deletion of the item itself then removes
- * @item from its containing file list and frees the memory allocated for
- * it.
- *
- * Returns: return value from destructor, or 0.
- **/
-int
-conf_item_free (ConfItem *item)
+conf_item_destroy (ConfItem *item)
 {
 	nih_assert (item != NULL);
 
 	switch (item->type) {
 	case CONF_JOB:
+		if (! item->job)
+			break;
+
 		/* If the item being deleted hasn't already been marked for
 		 * replacement, mark it for deletion.
 		 */
@@ -910,5 +866,7 @@ conf_item_free (ConfItem *item)
 		break;
 	}
 
-	return nih_list_free (&item->entry);
+	nih_list_destroy (&item->entry);
+
+	return 0;
 }

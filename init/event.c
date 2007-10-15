@@ -176,9 +176,7 @@ event_next_id (void)
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * Returns: new Event structure pending in the queue.
  **/
@@ -197,12 +195,16 @@ event_new (const void  *parent,
 
 	NIH_MUST (event = nih_new (parent, Event));
 
+	nih_list_init (&event->entry);
+
 	event->id = event_next_id ();
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
 
 	event->refs = 0;
 	event->blockers = 0;
+
+	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destroy);
 
 
 	/* Fill in the event details */
@@ -218,9 +220,6 @@ event_new (const void  *parent,
 
 
 	/* Place it in the pending list */
-	nih_list_init (&event->entry);
-	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destructor);
-
 	nih_debug ("Pending %s event", name);
 	nih_list_add (events, &event->entry);
 
@@ -397,7 +396,7 @@ event_poll (void)
 				if (event->refs)
 					break;
 
-				nih_list_free (&event->entry);
+				nih_free (event);
 				break;
 			default:
 				nih_assert_not_reached ();
@@ -491,12 +490,10 @@ event_finished (Event *event)
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
- * Returns: newly allocated EventOperator structure,
- * or NULL if insufficient memory.
+ * Returns: newly allocated EventOperator structure, or NULL if
+ * insufficient memory.
  **/
 EventOperator *
 event_operator_new (const void         *parent,
@@ -515,6 +512,8 @@ event_operator_new (const void         *parent,
 		return NULL;
 
 	nih_tree_init (&oper->node);
+
+	nih_alloc_set_destructor (oper, (NihDestructor)nih_tree_destroy);
 
 	oper->type = type;
 	oper->value = FALSE;
@@ -554,9 +553,7 @@ event_operator_new (const void         *parent,
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * If @old_oper has children, these will be copied as well, and will be
  * given their parent as their nih_alloc() parent.

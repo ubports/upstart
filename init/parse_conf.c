@@ -174,7 +174,7 @@ stanza_job (ConfFile        *conffile,
 
 	item->job = parse_job (NULL, name, file, b_end, pos, lineno);
 	if (! item->job) {
-		nih_list_free (&item->entry);
+		nih_free (item);
 		nih_free (name);
 		return -1;
 	}

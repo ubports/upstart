@@ -225,7 +225,7 @@ test_new (void)
 		TEST_EQ_P (job->chroot, NULL);
 		TEST_EQ_P (job->chdir, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 }
 
@@ -321,10 +321,10 @@ test_copy (void)
 		TEST_EQ_P (copy->chroot, NULL);
 		TEST_EQ_P (copy->chdir, NULL);
 
-		nih_list_free (&copy->entry);
+		nih_free (copy);
 	}
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 
 	/* Check that we can create a copy of an existing structure which
@@ -596,11 +596,11 @@ test_copy (void)
 		TEST_EQ_STR (copy->chdir, job->chdir);
 
 		event_operator_reset (copy->start_on);
-		nih_list_free (&copy->entry);
+		nih_free (copy);
 	}
 
 	event_operator_reset (job->start_on);
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 	event_poll ();
 }
@@ -660,9 +660,9 @@ test_find_by_name (void)
 	 * bad happens.
 	 */
 	TEST_FEATURE ("with empty job list");
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	nih_free (job3);
+	nih_free (job2);
+	nih_free (job1);
 	ptr = job_find_by_name ("foo");
 
 	TEST_EQ_P (ptr, NULL);
@@ -754,10 +754,10 @@ test_find_by_pid (void)
 	 * have pids.
 	 */
 	TEST_FEATURE ("with no pids in job table");
-	nih_list_free (&job5->entry);
-	nih_list_free (&job4->entry);
-	nih_list_free (&job3->entry);
-	nih_list_free (&job1->entry);
+	nih_free (job5);
+	nih_free (job4);
+	nih_free (job3);
+	nih_free (job1);
 	ptr = job_find_by_pid (20, NULL);
 
 	TEST_EQ_P (ptr, NULL);
@@ -765,7 +765,7 @@ test_find_by_pid (void)
 
 	/* Check that we get NULL if there are no jobs in the hash. */
 	TEST_FEATURE ("with empty job table");
-	nih_list_free (&job2->entry);
+	nih_free (job2);
 	ptr = job_find_by_pid (20, NULL);
 
 	TEST_EQ_P (ptr, NULL);
@@ -806,9 +806,9 @@ test_find_by_id (void)
 	TEST_FEATURE ("with empty job table");
 	id = job1->id;
 
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	nih_free (job3);
+	nih_free (job2);
+	nih_free (job1);
 	ptr = job_find_by_id (id);
 
 	TEST_EQ_P (ptr, NULL);
@@ -945,11 +945,11 @@ test_instance (void)
 
 		event_operator_reset (ptr->start_on);
 
-		nih_list_free (&ptr->entry);
+		nih_free (ptr);
 	}
 
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 	event_poll ();
 }
 
@@ -1118,7 +1118,7 @@ test_change_goal (void)
 	}
 
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 	event_poll ();
 }
 
@@ -1207,7 +1207,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1271,7 +1271,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[3], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1407,7 +1407,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1476,7 +1476,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1535,7 +1535,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1722,7 +1722,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1779,7 +1779,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1841,7 +1841,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1968,7 +1968,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[2], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2028,7 +2028,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2087,7 +2087,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2146,7 +2146,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2244,7 +2244,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[2], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2309,7 +2309,7 @@ test_change_state (void)
 
 		TEST_NE_P (job->kill_timer, NULL);
 
-		nih_list_free (&job->kill_timer->entry);
+		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
 	}
 
@@ -2491,7 +2491,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2558,7 +2558,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2622,7 +2622,7 @@ test_change_state (void)
 		TEST_EQ_P (event->args[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2698,7 +2698,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2773,7 +2773,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2782,7 +2782,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 1);
 	}
 
-	nih_list_free (&job->instance_of->entry);
+	nih_free (job->instance_of);
 	job->instance_of = NULL;
 
 
@@ -2843,7 +2843,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2854,7 +2854,7 @@ test_change_state (void)
 		TEST_EQ_P (job->replacement->replacement_for, NULL);
 	}
 
-	nih_list_free (&job->replacement->entry);
+	nih_free (job->replacement);
 	job->replacement = NULL;
 
 
@@ -2914,7 +2914,7 @@ test_change_state (void)
 		TEST_EQ_P (event->env, NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
-		nih_list_free (&event->entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2928,17 +2928,17 @@ test_change_state (void)
 		TEST_EQ (job->instance_of->replacement->replacement_for, NULL);
 	}
 
-	nih_list_free (&job->instance_of->replacement->entry);
-	nih_list_free (&job->instance_of->entry);
+	nih_free (job->instance_of->replacement);
+	nih_free (job->instance_of);
 	job->instance_of = NULL;
 
 
 	fclose (output);
 	rmdir (dirname);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
-	nih_list_free (&cause->entry);
+	nih_free (cause);
 	event_poll ();
 }
 
@@ -3172,7 +3172,7 @@ test_next_state (void)
 	TEST_EQ (job_next_state (job), JOB_WAITING);
 
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 }
 
 
@@ -3248,9 +3248,9 @@ test_should_replace (void)
 	TEST_TRUE (replace);
 
 
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	nih_free (job3);
+	nih_free (job2);
+	nih_free (job1);
 }
 
 
@@ -3291,7 +3291,7 @@ test_run_process (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 
 		unlink (filename);
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3327,7 +3327,7 @@ test_run_process (void)
 		fclose (output);
 		unlink (filename);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 	/* Check that we can run a small shell script, and that it's run
@@ -3362,7 +3362,7 @@ test_run_process (void)
 		fclose (output);
 		unlink (filename);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3396,7 +3396,7 @@ test_run_process (void)
 		fclose (output);
 		unlink (filename);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3448,7 +3448,7 @@ test_run_process (void)
 		fclose (output);
 		unlink (filename);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3519,7 +3519,7 @@ test_run_process (void)
 		fclose (output);
 		unlink (filename);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3601,7 +3601,7 @@ test_run_process (void)
 		fclose (output);
 		unlink (filename);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 no_devfd:
 	;
@@ -3722,18 +3722,9 @@ test_kill_process (void)
 		event_poll ();
 	}
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 }
 
-
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-	return 0;
-}
 
 void
 test_child_reaper (void)
@@ -3863,6 +3854,8 @@ test_child_reaper (void)
 	 */
 	TEST_FEATURE ("with kill timer");
 	TEST_ALLOC_FAIL {
+		NihTimer *timer;
+
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
 		job->process[PROCESS_MAIN]->pid = 1;
@@ -3881,15 +3874,15 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_ALLOC_SAFE {
-			destructor_called = 0;
-			job->kill_timer = (void *) nih_strdup (job, "test");
-			nih_alloc_set_destructor (job->kill_timer,
-						  my_destructor);
+			timer = (void *) nih_strdup (job, "test");
 		}
+
+		TEST_FREE_TAG (timer);
+		job->kill_timer = timer;
 
 		job_child_reaper (NULL, 1, FALSE, 0);
 
-		TEST_TRUE (destructor_called);
+		TEST_FREE (timer);
 		TEST_EQ_P (job->kill_timer, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
@@ -5171,9 +5164,9 @@ test_child_reaper (void)
 
 	fclose (output);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 	event_poll ();
 }
 
@@ -5271,7 +5264,7 @@ test_handle_event (void)
 		TEST_EQ (oper->blocked, FALSE);
 	}
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 
 
 	/* Check that a matching event is recorded against the operator that
@@ -5338,7 +5331,7 @@ test_handle_event (void)
 		event_operator_reset (job2->stop_on);
 	}
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 
 
 	/* Check that a second event can complete an expression and affect
@@ -5414,10 +5407,10 @@ test_handle_event (void)
 		event_operator_reset (job2->stop_on);
 	}
 
-	nih_list_free (&event->entry);
-	nih_list_free (&event2->entry);
+	nih_free (event);
+	nih_free (event2);
 
-	nih_list_free (&job2->entry);
+	nih_free (job2);
 
 
 	/* Check that a matching event for an instance job results in the
@@ -5503,14 +5496,14 @@ test_handle_event (void)
 
 		event_operator_reset (job2->start_on);
 
-		nih_list_free (&job2->entry);
+		nih_free (job2);
 	}
 
-	nih_list_free (&event->entry);
-	nih_list_free (&event2->entry);
+	nih_free (event);
+	nih_free (event2);
 
 
-	nih_list_free (&job1->entry);
+	nih_free (job1);
 
 	event_poll ();
 }
@@ -5567,7 +5560,7 @@ test_handle_event_finished (void)
 		TEST_EQ_P (job2->blocked, NULL);
 	}
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 
 
 	/* Check that a matching event results in the jobs being unblocked
@@ -5609,11 +5602,11 @@ test_handle_event_finished (void)
 		waitpid (job2->process[PROCESS_PRE_START]->pid, NULL, 0);
 	}
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 
 
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	nih_free (job2);
+	nih_free (job1);
 
 	event_poll ();
 }
@@ -5658,7 +5651,7 @@ test_detect_stalled (void)
 
 	event = (Event *)events->prev;
 	TEST_EQ_STR (event->name, "stalled");
-	nih_list_free (&event->entry);
+	nih_free (event);
 
 	TEST_LIST_EMPTY (events);
 
@@ -5708,8 +5701,8 @@ test_detect_stalled (void)
 	TEST_LIST_EMPTY (events);
 
 
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
+	nih_free (job1);
+	nih_free (job2);
 	event_poll ();
 }
 
@@ -5731,32 +5724,31 @@ test_free_deleted ()
 	job3->goal = JOB_STOP;
 	job3->state = JOB_STOPPING;
 
-	nih_alloc_set_destructor (job1, my_destructor);
-	nih_alloc_set_destructor (job2, my_destructor);
-	nih_alloc_set_destructor (job3, my_destructor);
+	TEST_FREE_TAG (job1);
+	TEST_FREE_TAG (job2);
+	TEST_FREE_TAG (job3);
 
 
 	/* Check that only those jobs in the deleted state are removed from
 	 * the list and freed.
 	 */
 	TEST_FEATURE ("with single deleted job");
-	destructor_called = 0;
-
 	job_free_deleted ();
 
-	TEST_EQ (destructor_called, 1);
+	TEST_NOT_FREE (job1);
+	TEST_FREE (job2);
+	TEST_NOT_FREE (job3);
 
 
 	/* Check that if there are no jobs to be deleted, nothing happens. */
 	TEST_FEATURE ("with no deleted jobs");
-	destructor_called = 0;
-
 	job_free_deleted ();
 
-	TEST_EQ (destructor_called, 0);
+	TEST_NOT_FREE (job1);
+	TEST_NOT_FREE (job3);
 
-	nih_list_free (&job1->entry);
-	nih_list_free (&job3->entry);
+	nih_free (job1);
+	nih_free (job3);
 }
 
 

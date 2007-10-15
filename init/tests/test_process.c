@@ -146,7 +146,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 
 	/* Check that a job spawned with no console has the file descriptors
@@ -170,7 +170,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 
 	/* Check that a job with an alternate working directory is run from
@@ -192,7 +192,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 
 	/* Check that a job is run in a consistent environment containing
@@ -222,7 +222,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 
 	/* Check that a job's environment includes the variables from all
@@ -285,7 +285,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 }
 
 
@@ -356,7 +356,7 @@ test_kill (void)
 	TEST_EQ (WTERMSIG (status), SIGKILL);
 
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 }
 
 

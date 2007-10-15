@@ -115,9 +115,7 @@ job_init (void)
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * Returns: newly allocated JobProcess structure or NULL if insufficient
  * memory.
@@ -148,9 +146,7 @@ job_process_new (const void *parent)
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * Returns: newly allocated job process structure or NULL if insufficient
  * memory.
@@ -253,13 +249,11 @@ job_next_id (void)
  * appends it to the internal list of registered jobs.  It is up to the
  * caller to ensure that @name is unique amongst the job list.
  *
- * The job can be removed using nih_list_free().
+ * The job can be removed using nih_free().
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * Returns: newly allocated job structure or NULL if insufficient memory.
  **/
@@ -280,6 +274,8 @@ job_new (const void *parent,
 		return NULL;
 
 	nih_list_init (&job->entry);
+
+	nih_alloc_set_destructor (job, (NihDestructor)nih_list_destroy);
 
 	job->id = job_next_id ();
 	job->name = nih_strdup (job, name);
@@ -364,13 +360,11 @@ job_new (const void *parent,
  * Allocates and returns a new Job structure which is a copy of the
  * configuration details of @old_job, but with a clean state.
  *
- * The job can be removed using nih_list_free().
+ * The job can be removed using nih_free().
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * is freed, the returned block will be freed too.
  *
  * Returns: newly allocated job structure or NULL if insufficient memory.
  **/
@@ -520,7 +514,7 @@ error:
 	if (job->stop_on)
 		event_operator_reset (job->stop_on);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 	return NULL;
 }
 
@@ -1884,6 +1878,6 @@ job_free_deleted (void)
 			continue;
 
 		nih_debug ("Deleting %s job", job->name);
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 }

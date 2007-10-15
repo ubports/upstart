@@ -94,7 +94,7 @@ test_parse_job (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "rm /var/lock/daemon\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -139,8 +139,8 @@ test_parse_job (void)
 
 			TEST_NE_P (job->replacement, NULL);
 
-			nih_list_free (&job->entry);
-			nih_list_free (&old_job->entry);
+			nih_free (job);
+			nih_free (old_job);
 			continue;
 		}
 
@@ -172,9 +172,9 @@ test_parse_job (void)
 		TEST_EQ (old_job->goal, JOB_STOP);
 		TEST_EQ (old_job->state, JOB_DELETED);
 
-		nih_list_free (&old_job->entry);
-		nih_list_free (&new_job->entry);
-		nih_list_free (&job->entry);
+		nih_free (old_job);
+		nih_free (new_job);
+		nih_free (job);
 	}
 
 
@@ -214,7 +214,7 @@ test_parse_job (void)
 			TEST_EQ (job->state, JOB_WAITING);
 			TEST_EQ_P (job->replacement, NULL);
 
-			nih_list_free (&job->entry);
+			nih_free (job);
 			continue;
 		}
 
@@ -242,8 +242,8 @@ test_parse_job (void)
 		TEST_EQ_P (job->replacement, new_job);
 		TEST_EQ_P (new_job->replacement_for, NULL);
 
-		nih_list_free (&new_job->entry);
-		nih_list_free (&job->entry);
+		nih_free (new_job);
+		nih_free (job);
 	}
 
 
@@ -274,7 +274,7 @@ test_parse_job (void)
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 }
 
@@ -324,7 +324,7 @@ test_stanza_exec (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -361,7 +361,7 @@ test_stanza_exec (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -400,7 +400,7 @@ test_stanza_exec (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -470,7 +470,7 @@ test_stanza_script (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -511,7 +511,7 @@ test_stanza_script (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -550,7 +550,7 @@ test_stanza_script (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -618,7 +618,7 @@ test_stanza_pre_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -655,7 +655,7 @@ test_stanza_pre_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -695,7 +695,7 @@ test_stanza_pre_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -736,7 +736,7 @@ test_stanza_pre_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -775,7 +775,7 @@ test_stanza_pre_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -814,7 +814,7 @@ test_stanza_pre_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -939,7 +939,7 @@ test_stanza_post_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -976,7 +976,7 @@ test_stanza_post_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1016,7 +1016,7 @@ test_stanza_post_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1057,7 +1057,7 @@ test_stanza_post_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1096,7 +1096,7 @@ test_stanza_post_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1135,7 +1135,7 @@ test_stanza_post_start (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1260,7 +1260,7 @@ test_stanza_pre_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1297,7 +1297,7 @@ test_stanza_pre_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1337,7 +1337,7 @@ test_stanza_pre_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1378,7 +1378,7 @@ test_stanza_pre_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1417,7 +1417,7 @@ test_stanza_pre_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1456,7 +1456,7 @@ test_stanza_pre_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1581,7 +1581,7 @@ test_stanza_post_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1618,7 +1618,7 @@ test_stanza_post_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1658,7 +1658,7 @@ test_stanza_post_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1699,7 +1699,7 @@ test_stanza_post_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1738,7 +1738,7 @@ test_stanza_post_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "echo\n");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1777,7 +1777,7 @@ test_stanza_post_stop (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1907,7 +1907,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -1957,7 +1957,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2019,7 +2019,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2090,7 +2090,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2169,7 +2169,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2248,7 +2248,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2328,7 +2328,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2371,7 +2371,7 @@ test_stanza_start (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2651,7 +2651,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2701,7 +2701,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2763,7 +2763,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2834,7 +2834,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2913,7 +2913,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -2992,7 +2992,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3072,7 +3072,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3115,7 +3115,7 @@ test_stanza_stop (void)
 		TEST_EQ_P (oper->node.left, NULL);
 		TEST_EQ_P (oper->node.right, NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3385,7 +3385,7 @@ test_stanza_description (void)
 		TEST_ALLOC_PARENT (job->description, job);
 		TEST_EQ_STR (job->description, "a test job");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3418,7 +3418,7 @@ test_stanza_description (void)
 		TEST_ALLOC_PARENT (job->description, job);
 		TEST_EQ_STR (job->description, "a test job");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3500,7 +3500,7 @@ test_stanza_author (void)
 		TEST_ALLOC_PARENT (job->author, job);
 		TEST_EQ_STR (job->author, "joe bloggs");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3533,7 +3533,7 @@ test_stanza_author (void)
 		TEST_ALLOC_PARENT (job->author, job);
 		TEST_EQ_STR (job->author, "joe bloggs");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3615,7 +3615,7 @@ test_stanza_version (void)
 		TEST_ALLOC_PARENT (job->version, job);
 		TEST_EQ_STR (job->version, "1.0");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3648,7 +3648,7 @@ test_stanza_version (void)
 		TEST_ALLOC_PARENT (job->version, job);
 		TEST_EQ_STR (job->version, "1.0");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3734,7 +3734,7 @@ test_stanza_emits (void)
 		TEST_EQ_STR (emits->str, "wibble");
 		TEST_ALLOC_PARENT (emits->str, emits);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3781,7 +3781,7 @@ test_stanza_emits (void)
 		TEST_EQ_STR (emits->str, "waggle");
 		TEST_ALLOC_PARENT (emits->str, emits);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3835,7 +3835,7 @@ test_stanza_emits (void)
 		TEST_EQ_STR (emits->str, "wuggle");
 		TEST_ALLOC_PARENT (emits->str, emits);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3897,7 +3897,7 @@ test_stanza_daemon (void)
 
 		TEST_TRUE (job->daemon);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3929,7 +3929,7 @@ test_stanza_daemon (void)
 
 		TEST_TRUE (job->daemon);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -3990,7 +3990,7 @@ test_stanza_respawn (void)
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4025,7 +4025,7 @@ test_stanza_respawn (void)
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4059,7 +4059,7 @@ test_stanza_respawn (void)
 		TEST_EQ (job->respawn_limit, 10);
 		TEST_EQ (job->respawn_interval, 120);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4093,7 +4093,7 @@ test_stanza_respawn (void)
 		TEST_EQ (job->respawn_limit, 0);
 		TEST_EQ (job->respawn_interval, 0);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4126,7 +4126,7 @@ test_stanza_respawn (void)
 		TEST_EQ (job->respawn_limit, 10);
 		TEST_EQ (job->respawn_interval, 120);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4359,7 +4359,7 @@ test_stanza_service (void)
 
 		TEST_TRUE (job->service);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4391,7 +4391,7 @@ test_stanza_service (void)
 
 		TEST_TRUE (job->service);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4425,7 +4425,7 @@ test_stanza_service (void)
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4459,7 +4459,7 @@ test_stanza_service (void)
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4520,7 +4520,7 @@ test_stanza_instance (void)
 
 		TEST_TRUE (job->instance);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4553,7 +4553,7 @@ test_stanza_instance (void)
 
 		TEST_TRUE (job->instance);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4616,7 +4616,7 @@ test_stanza_pid (void)
 		TEST_ALLOC_PARENT (job->pid_file, job);
 		TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4650,7 +4650,7 @@ test_stanza_pid (void)
 		TEST_ALLOC_PARENT (job->pid_file, job);
 		TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4684,7 +4684,7 @@ test_stanza_pid (void)
 		TEST_ALLOC_PARENT (job->pid_binary, job);
 		TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4718,7 +4718,7 @@ test_stanza_pid (void)
 		TEST_ALLOC_PARENT (job->pid_binary, job);
 		TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4751,7 +4751,7 @@ test_stanza_pid (void)
 
 		TEST_EQ (job->pid_timeout, 10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -4784,7 +4784,7 @@ test_stanza_pid (void)
 
 		TEST_EQ (job->pid_timeout, 10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5039,7 +5039,7 @@ test_stanza_kill (void)
 
 		TEST_EQ (job->kill_timeout, 10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5072,7 +5072,7 @@ test_stanza_kill (void)
 
 		TEST_EQ (job->kill_timeout, 10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5255,7 +5255,7 @@ test_stanza_normal (void)
 
 		TEST_EQ (job->normalexit[0], 99);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5294,7 +5294,7 @@ test_stanza_normal (void)
 
 		TEST_EQ (job->normalexit[0], SIGINT << 8);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5336,7 +5336,7 @@ test_stanza_normal (void)
 		TEST_EQ (job->normalexit[2], 101);
 		TEST_EQ (job->normalexit[3], SIGTERM << 8);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5381,7 +5381,7 @@ test_stanza_normal (void)
 		TEST_EQ (job->normalexit[3], SIGQUIT << 8);
 		TEST_EQ (job->normalexit[4], 900);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5538,7 +5538,7 @@ test_stanza_console (void)
 
 		TEST_EQ (job->console, CONSOLE_LOGGED);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5571,7 +5571,7 @@ test_stanza_console (void)
 
 		TEST_EQ (job->console, CONSOLE_OUTPUT);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5604,7 +5604,7 @@ test_stanza_console (void)
 
 		TEST_EQ (job->console, CONSOLE_OWNER);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5637,7 +5637,7 @@ test_stanza_console (void)
 
 		TEST_EQ (job->console, CONSOLE_NONE);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5670,7 +5670,7 @@ test_stanza_console (void)
 
 		TEST_EQ (job->console, CONSOLE_LOGGED);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5753,7 +5753,7 @@ test_stanza_env (void)
 		TEST_EQ_STR (job->env[0], "FOO=BAR");
 		TEST_EQ_P (job->env[1], NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5793,7 +5793,7 @@ test_stanza_env (void)
 		TEST_EQ_STR (job->env[2], "FRODO=BILBO");
 		TEST_EQ_P (job->env[3], NULL);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5874,7 +5874,7 @@ test_stanza_umask (void)
 
 		TEST_EQ (job->umask, 0755);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -5907,7 +5907,7 @@ test_stanza_umask (void)
 
 		TEST_EQ (job->umask, 0755);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6065,7 +6065,7 @@ test_stanza_nice (void)
 
 		TEST_EQ (job->nice, 10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6098,7 +6098,7 @@ test_stanza_nice (void)
 
 		TEST_EQ (job->nice, -10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6131,7 +6131,7 @@ test_stanza_nice (void)
 
 		TEST_EQ (job->nice, 10);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6289,7 +6289,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_AS]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_AS]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6323,7 +6323,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6357,7 +6357,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6391,7 +6391,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_DATA]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_DATA]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6425,7 +6425,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6460,7 +6460,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6495,7 +6495,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6529,7 +6529,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_NICE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_NICE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6564,7 +6564,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6598,7 +6598,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6632,7 +6632,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_RSS]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_RSS]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6666,7 +6666,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6701,7 +6701,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6735,7 +6735,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_STACK]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_STACK]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6775,7 +6775,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 15);
 		TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 30);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6810,7 +6810,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6845,7 +6845,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, RLIM_INFINITY);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -6880,7 +6880,7 @@ test_stanza_limit (void)
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, RLIM_INFINITY);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -7095,7 +7095,7 @@ test_stanza_chroot (void)
 		TEST_ALLOC_PARENT (job->chroot, job);
 		TEST_EQ_STR (job->chroot, "/chroot/daemon");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -7129,7 +7129,7 @@ test_stanza_chroot (void)
 		TEST_ALLOC_PARENT (job->chroot, job);
 		TEST_EQ_STR (job->chroot, "/chroot/daemon");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -7211,7 +7211,7 @@ test_stanza_chdir (void)
 		TEST_ALLOC_PARENT (job->chdir, job);
 		TEST_EQ_STR (job->chdir, "/var/lib/daemon");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 
@@ -7245,7 +7245,7 @@ test_stanza_chdir (void)
 		TEST_ALLOC_PARENT (job->chdir, job);
 		TEST_EQ_STR (job->chdir, "/var/lib/daemon");
 
-		nih_list_free (&job->entry);
+		nih_free (job);
 	}
 
 

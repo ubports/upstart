@@ -85,7 +85,7 @@ test_new (void)
 		TEST_EQ_P (event->env, env);
 		TEST_ALLOC_PARENT (event->env, event);
 
-		nih_list_free (&event->entry);
+		nih_free (event);
 	}
 }
 
@@ -108,7 +108,7 @@ test_find_by_id (void)
 	TEST_EQ_P (ret, event);
 
 	id = event->id;
-	nih_list_free (&event->entry);
+	nih_free (event);
 
 
 	/* Check that we get NULL if the id isn't in either queue. */
@@ -136,7 +136,7 @@ test_ref (void)
 	TEST_EQ (event->refs, 5);
 	TEST_EQ (event->blockers, 0);
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 }
 
 void
@@ -156,7 +156,7 @@ test_unref (void)
 	TEST_EQ (event->refs, 3);
 	TEST_EQ (event->blockers, 0);
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 }
 
 void
@@ -176,7 +176,7 @@ test_block (void)
 	TEST_EQ (event->blockers, 5);
 	TEST_EQ (event->refs, 0);
 
-	nih_list_free (&event->entry);
+	nih_free (event);
 }
 
 void
@@ -196,18 +196,7 @@ test_unblock (void)
 	TEST_EQ (event->blockers, 3);
 	TEST_EQ (event->refs, 0);
 
-	nih_list_free (&event->entry);
-}
-
-
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-
-	return 0;
+	nih_free (event);
 }
 
 void
@@ -249,8 +238,8 @@ test_poll (void)
 
 	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
 
-	nih_list_free (&job->entry);
-	nih_list_free (&event->entry);
+	nih_free (job);
+	nih_free (event);
 
 
 	/* Check that having a handling event in the queue which has blockers
@@ -265,7 +254,7 @@ test_poll (void)
 		event_poll ();
 
 		TEST_LIST_NOT_EMPTY (&event->entry);
-		nih_list_free (&event->entry);
+		nih_free (event);
 	}
 
 
@@ -287,8 +276,7 @@ test_poll (void)
 
 	event_ref (job->blocked);
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (event, my_destructor);
+	TEST_FREE_TAG (event);
 
 	event_poll ();
 
@@ -302,7 +290,7 @@ test_poll (void)
 
 	TEST_EQ_P (job->blocked, NULL);
 
-	TEST_TRUE (destructor_called);
+	TEST_FREE (event);
 
 
 	/* Check that a finished event with remaining references is held
@@ -317,7 +305,7 @@ test_poll (void)
 		event_poll ();
 
 		TEST_LIST_NOT_EMPTY (&event->entry);
-		nih_list_free (&event->entry);
+		nih_free (event);
 	}
 
 
@@ -329,12 +317,11 @@ test_poll (void)
 	TEST_ALLOC_FAIL {
 		event = event_new (NULL, "test", NULL, NULL);
 
-		destructor_called = 0;
-		nih_alloc_set_destructor (event, my_destructor);
+		TEST_FREE_TAG (event);
 
 		event_poll ();
 
-		TEST_TRUE (destructor_called);
+		TEST_FREE (event);
 	}
 
 
@@ -355,12 +342,11 @@ test_poll (void)
 	job->start_on = event_operator_new (job, EVENT_MATCH,
 					    "test/failed", NULL);
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (event, my_destructor);
+	TEST_FREE_TAG (event);
 
 	event_poll ();
 
-	TEST_TRUE (destructor_called);
+	TEST_FREE (event);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
@@ -372,7 +358,7 @@ test_poll (void)
 
 	event_poll ();
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 
 
 	/* Check that failed events do not, themselves, emit new failed
@@ -397,18 +383,17 @@ test_poll (void)
 				   "test/failed/failed", NULL);
 	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (event, my_destructor);
+	TEST_FREE_TAG (event);
 
 	event_poll ();
 
-	TEST_TRUE (destructor_called);
+	TEST_FREE (event);
 
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_WAITING);
 	TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
-	nih_list_free (&job->entry);
+	nih_free (job);
 }
 
 
@@ -1012,7 +997,7 @@ test_operator_match (void)
 
 
 	nih_free (oper);
-	nih_list_free (&event->entry);
+	nih_free (event);
 }
 
 
