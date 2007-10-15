@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.60)
+AC_PREREQ(2.61)
 AC_INIT([upstart], [0.5.0], [upstart-devel@lists.ubuntu.com])
 AC_COPYRIGHT([[Copyright © 2007 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])

@@ -1,5 +1,8 @@
 2007-10-15  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump Autoconf dependency to 2.61 to match libnih
+	* HACKING: Bump dependency in docs too.
+
 	* NEWS: Copy in news from 0.3.9; that release doesn't appear in
 	this ChangeLog since it was made on a separate branch by backporting
 	bug fixes made here.
