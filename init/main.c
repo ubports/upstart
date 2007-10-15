@@ -55,7 +55,6 @@
 #include "process.h"
 #include "job.h"
 #include "event.h"
-#include "control.h"
 #include "conf.h"
 #include "paths.h"
 
@@ -252,18 +251,6 @@ main (int   argc,
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_free_deleted,
 					  NULL));
 
-
-	/* Open control socket */
-	if (! control_open ()) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
 
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFDIR "/init.conf", CONF_FILE));

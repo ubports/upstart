@@ -33,8 +33,7 @@
 #include <nih/timer.h>
 #include <nih/main.h>
 
-#include <upstart/enum.h>
-
+#include "enum.h"
 #include "event.h"
 
 

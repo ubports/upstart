@@ -29,7 +29,6 @@
 #include <nih/errors.h>
 
 #include "job.h"
-#include "notify.h"
 #include "parse_conf.h"
 #include "conf.h"
 #include "errors.h"
@@ -48,7 +47,6 @@ test_parse_conf (void)
 
 	TEST_FUNCTION ("parse_conf");
 	job_init ();
-	notify_init ();
 
 	source = conf_source_new (NULL, "/path", CONF_DIR);
 	file = conf_file_get (source, "/path/file");
@@ -139,7 +137,6 @@ test_stanza_job (void)
 
 	TEST_FUNCTION ("parse_job");
 	job_init ();
-	notify_init ();
 
 	source = conf_source_new (NULL, "/path", CONF_DIR);
 	file = conf_file_get (source, "/path/file");

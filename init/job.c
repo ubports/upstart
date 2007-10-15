@@ -47,12 +47,11 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
-#include <upstart/enum.h>
+#include "enum.h"
 
 #include "event.h"
 #include "process.h"
 #include "job.h"
-#include "notify.h"
 #include "paths.h"
 
 
@@ -713,7 +712,6 @@ job_change_goal (Job     *job,
 		  job_goal_name (job->goal), job_goal_name (goal));
 
 	job->goal = goal;
-	notify_job (job);
 
 
 	/* Normally whatever process or event is associated with the state
@@ -851,8 +849,6 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_PRE_STOP));
 
 			if (old_state == JOB_PRE_STOP) {
-				notify_job_finished (job);
-
 				if (job->stop_on)
 					event_operator_reset (job->stop_on);
 				break;
@@ -860,12 +856,9 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
-			/* If we're a service, our goal is to be running;
-			 * notify subscribed processes that we reached it.
+			/* If we're a service, our goal is to be running.
 			 */
 			if (job->service) {
-				notify_job_finished (job);
-
 				if (job->start_on)
 					event_operator_unblock (job->start_on);
 			}
@@ -921,8 +914,6 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
-			notify_job_finished (job);
-
 			if (job->start_on)
 				event_operator_reset (job->start_on);
 			if (job->stop_on)
@@ -957,8 +948,6 @@ job_change_state (Job      *job,
 
 			break;
 		}
-
-		notify_job (job);
 	}
 }
 

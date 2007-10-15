@@ -32,7 +32,6 @@
 #include <nih/errors.h>
 
 #include "job.h"
-#include "notify.h"
 #include "parse_job.h"
 #include "errors.h"
 
@@ -48,7 +47,6 @@ test_parse_job (void)
 
 	TEST_FUNCTION ("parse_job");
 	job_init ();
-	notify_init ();
 
 	/* Check that a simple job file can be parsed, with all of the
 	 * information given filled into the job structure.

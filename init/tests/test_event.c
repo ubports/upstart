@@ -31,15 +31,8 @@
 #include <nih/list.h>
 #include <nih/io.h>
 
-#include <upstart/message.h>
-
 #include "job.h"
 #include "event.h"
-#include "control.h"
-#include "notify.h"
-
-
-extern int upstart_disable_safeties;
 
 
 void
@@ -217,91 +210,24 @@ my_destructor (void *ptr)
 	return 0;
 }
 
-static int
-check_event (void               *data,
-	     pid_t               pid,
-	     UpstartMessageType  type,
-	     unsigned int        id,
-	     const char         *name,
-	     char * const       *args,
-	     char * const       *env)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT);
-	TEST_EQ_U (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ_P (args, NULL);
-	TEST_EQ_P (env, NULL);
-
-	return 0;
-}
-
-static int
-check_event_finished (void               *data,
-		      pid_t               pid,
-		      UpstartMessageType  type,
-		      unsigned int        id,
-		      int                 failed,
-		      const char         *name,
-		      char * const       *args,
-		      char * const       *env)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT_FINISHED);
-	TEST_EQ_U (id, 0xdeafbeef);
-	TEST_EQ (failed, FALSE);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ_P (args, NULL);
-	TEST_EQ_P (env, NULL);
-
-	return 0;
-}
-
 void
 test_poll (void)
 {
 	Event         *event;
 	EventOperator *oper;
 	Job           *job;
-	NihIo         *io;
-	int            wait_fd, status;
-	pid_t          pid;
+	int            status;
 
 	TEST_FUNCTION ("event_poll");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
 	job_init ();
 	event_init ();
 
 
 	/* Check that a pending event in the queue is handled, with any
-	 * subscribed processes being notified of the event and any
 	 * jobs started or stopped as a result.  The event should remain
 	 * in the handling state while the job is blocking it.
 	 */
 	TEST_FEATURE ("with pending event");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		TEST_CHILD_RELEASE (wait_fd);
-
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_event,
-						       NULL));
-
-		nih_free (message);
-
-		exit (0);
-	}
-
 	job = job_new (NULL, "test");
 	job->process[PROCESS_MAIN] = job_process_new (job->process);
 	job->process[PROCESS_MAIN]->command = "echo";
@@ -311,16 +237,7 @@ test_poll (void)
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
 
-	notify_subscribe_event (NULL, pid, event);
-
 	event_poll ();
-
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_EQ (event->progress, EVENT_HANDLING);
 	TEST_EQ (event->refs, 1);
@@ -331,8 +248,6 @@ test_poll (void)
 	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
 
 	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
-
-	TEST_LIST_EMPTY (subscriptions);
 
 	nih_list_free (&job->entry);
 	nih_list_free (&event->entry);
@@ -355,31 +270,10 @@ test_poll (void)
 
 
 	/* Check that we finish unblocked handling events, leaving the list
-	 * empty.  Subscribed processes should be notified, blocked jobs
-	 * should be released and the event should be freed.
+	 * empty.  Blocked jobs should be released and the event should be
+	 * freed.
 	 */
 	TEST_FEATURE ("with finished event");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		TEST_CHILD_RELEASE (wait_fd);
-
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_event_finished,
-						       NULL));
-
-		nih_free (message);
-
-		exit (0);
-	}
-
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
 	event->progress = EVENT_HANDLING;
@@ -396,16 +290,7 @@ test_poll (void)
 	destructor_called = 0;
 	nih_alloc_set_destructor (event, my_destructor);
 
-	notify_subscribe_event (NULL, pid, event);
-
 	event_poll ();
-
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
@@ -418,8 +303,6 @@ test_poll (void)
 	TEST_EQ_P (job->blocked, NULL);
 
 	TEST_TRUE (destructor_called);
-
-	TEST_LIST_EMPTY (subscriptions);
 
 
 	/* Check that a finished event with remaining references is held
@@ -526,10 +409,6 @@ test_poll (void)
 	TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
 
 	nih_list_free (&job->entry);
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
 }
 
 

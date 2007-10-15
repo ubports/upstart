@@ -41,8 +41,6 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/enum.h>
-
 #include "job.h"
 #include "event.h"
 #include "parse_job.h"

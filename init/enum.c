@@ -30,7 +30,7 @@
 #include <nih/macros.h>
 #include <nih/logging.h>
 
-#include <upstart/enum.h>
+#include "enum.h"
 
 
 /**

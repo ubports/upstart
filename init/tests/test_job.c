@@ -45,7 +45,6 @@
 
 #include "event.h"
 #include "job.h"
-#include "control.h"
 
 
 void

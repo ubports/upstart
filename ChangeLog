@@ -1,5 +1,48 @@
 2007-10-15  Scott James Remnant  <scott@netsplit.com>
 
+	Strip out all of the IPC code, removing it and consigning it to the
+	great revision control history in the sky.  We're going to switch
+	from home-brew to D-BUS. so all this is somewhat obsolete.  Rather
+	than maintain this while we carry on developing, we'll strip it out
+	now and put the D-BUS code in ater once the rest of the core changes
+	are done (otherwise we'd just be dragging those through maintenance
+	too).
+
+	* Makefile.am (SUBDIRS): Remove the upstart sub-directory entirely;
+	comment out util, compat/sysv & logd since we'll fix them up later
+	* configure.ac (AC_CONFIG_FILES): Remove from here too.
+	* upstart/enum.c, upstart/enum.h, upstart/tests/test_enum.c: Move
+	these files into the init/ sub-directory; strictly speaking we'll
+	probably need to share them again later in some way, but for now
+	they can live with the rest of the daemon code.
+	* upstart/: Delete.
+	* init/Makefile.am (init_SOURCES): Remove control.c, control.h,
+	notify.c and notify.h;  add enum.c and enum.h
+	(TESTS): Remove test_control and test_notify; add test_enum
+	(test_control_SOURCES, test_control_LDFLAGS, test_control_LDADD)
+	(test_notify_SOURCES, test_notify_LDADD): Remove.
+	(test_enum_SOURCES, test_enum_LDFLAGS, test_enum_LDADD): Add details
+	(init_LDADD): Remove libupstart
+	(test_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_parse_job_LDADD, test_parse_conf_LDADD, test_conf_LDADD): Remove
+	libupstart, control.o and notify.o; add enum.o
+	* init/control.c, init/control.h, init/tests/test_control.c: Delete
+	* init/notify.c, init/notify.h, init/tests/test_notify.c: Delete
+	* init/enum.c, init/job.c, init/job.h: Update include path for enum.h
+	* init/parse_job.c: Remove unnecessary enum.h include
+	* init/tests/test_enum.c: Update to reflect where it is.
+	* init/main.c (main): Drop control socket opening.
+	* init/tests/test_job.c: Remove unnecessary control.h include
+	* init/event.c (event_pending, event_finished): Remove calls to
+	notify_event and notify_event_finished
+	* init/job.c (job_change_goal, job_change_state): Remove calls
+	to notify_job.
+	* init/tests/test_parse_conf.c: Remove calls to notify_init
+	* init/tests/test_parse_job.c: Remove calls to notify_init
+	* init/tests/test_event.c (test_poll): Strip out the part of the
+	test that checks processes are notified.
+	(check_event, check_event_finished): Remove.
+
 	* configure.ac: Bump Autoconf dependency to 2.61 to match libnih
 	* HACKING: Bump dependency in docs too.
 

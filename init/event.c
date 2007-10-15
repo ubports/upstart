@@ -40,7 +40,6 @@
 
 #include "event.h"
 #include "job.h"
-#include "notify.h"
 
 
 /* Prototypes for static functions */
@@ -427,7 +426,6 @@ event_pending (Event *event)
 	nih_info (_("Handling %s event"), event->name);
 	event->progress = EVENT_HANDLING;
 
-	notify_event (event);
 	job_handle_event (event);
 }
 
@@ -448,7 +446,6 @@ event_finished (Event *event)
 
 	nih_debug ("Finished %s event", event->name);
 
-	notify_event_finished (event);
 	job_handle_event_finished (event);
 
 	if (event->failed) {

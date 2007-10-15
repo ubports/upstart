@@ -1,6 +1,6 @@
 /* upstart
  *
- * test_enum.c - test suite for upstart/enum.c
+ * test_enum.c - test suite for init/enum.c
  *
  * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
@@ -24,7 +24,7 @@
 
 #include <nih/macros.h>
 
-#include <upstart/enum.h>
+#include "enum.h"
 
 
 void
