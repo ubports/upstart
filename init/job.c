@@ -371,28 +371,23 @@ job_next_id (void)
 
 /**
  * job_new:
- * @parent: parent of new job,
  * @config: configuration for new job.
  *
  * Allocates and returns a new Job structure for the @config given,
- * appending it to the list of instances for @config.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
+ * appending it to the list of instances for @config.  The returned job
+ * will also be an nih_alloc() child of @config.
  *
  * Returns: newly allocated job structure or NULL if insufficient memory.
  **/
 Job *
-job_new (const void *parent,
-	 JobConfig  *config)
+job_new (JobConfig  *config)
 {
 	Job *job;
 	int  i;
 
 	nih_assert (config != NULL);
 
-	job = nih_new (parent, Job);
+	job = nih_new (config, Job);
 	if (! job)
 		return NULL;
 
@@ -544,7 +539,7 @@ job_instance (JobConfig *config)
 	nih_assert (config->replacement_for == NULL);
 
 	if (config->instance || NIH_LIST_EMPTY (&config->instances)) {
-		NIH_MUST (job = job_new (config, config));
+		NIH_MUST (job = job_new (config));
 	} else {
 		job = (Job *)config->instances.next;
 	}

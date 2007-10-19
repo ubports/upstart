@@ -252,8 +252,7 @@ JobConfig * job_config_find_by_name   (const char *name);
 
 int         job_config_should_replace (JobConfig *job_config);
 
-Job *       job_new                   (const void *parent,
-				       JobConfig *job_config)
+Job *       job_new                   (JobConfig *job_config)
 	__attribute__ ((warn_unused_result, malloc));
 
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);

@@ -250,9 +250,10 @@ test_config_should_replace (void)
 void
 test_new (void)
 {
-	JobConfig *config;
-	Job       *job;
-	int        i;
+	JobConfig     *config;
+	Job           *job;
+	EventOperator *oper;
+	int            i;
 
 	/* Check that we can create a new job structure; the structure
 	 * should be allocated with nih_alloc, placed in the instances
@@ -260,18 +261,75 @@ test_new (void)
 	 */
 	TEST_FUNCTION ("job_new");
 	job_init ();
+
 	config = job_config_new (NULL, "test");
 
+	config->start_on = event_operator_new (config, EVENT_OR, NULL, NULL);
+
+	oper = event_operator_new (config, EVENT_MATCH, "foo", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (oper, "foo", NULL, NULL);
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (config, EVENT_MATCH, "bar", NULL);
+	NIH_MUST (nih_str_array_add (&oper->args, oper, NULL, "frodo"));
+	NIH_MUST (nih_str_array_add (&oper->args, oper, NULL, "bilbo"));
+	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
+
+	config->stop_on = event_operator_new (config, EVENT_MATCH,
+					      "baz", NULL);
+
+
 	TEST_ALLOC_FAIL {
-		job = job_new (NULL, config);
+		job = job_new (config);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (job, NULL);
 			continue;
 		}
 
+		TEST_ALLOC_PARENT (job, config);
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->entry);
+
+		oper = (EventOperator *)job->start_on;
+		TEST_ALLOC_PARENT (oper, job);
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ (oper->type, EVENT_OR);
+
+		oper = (EventOperator *)job->start_on->node.left;
+		TEST_ALLOC_PARENT (oper, job->start_on);
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "foo");
+		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ (oper->blocked, TRUE);
+		TEST_EQ (oper->event->refs, 2);
+		TEST_EQ (oper->event->blockers, 2);
+
+		oper = (EventOperator *)job->start_on->node.right;
+		TEST_ALLOC_PARENT (oper, job->start_on);
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "bar");
+		TEST_ALLOC_PARENT (oper->args, oper);
+		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (oper->args[0], oper->args);
+		TEST_ALLOC_PARENT (oper->args[1], oper->args);
+		TEST_EQ_STR (oper->args[0], "frodo");
+		TEST_EQ_STR (oper->args[1], "bilbo");
+		TEST_EQ_P (oper->args[2], NULL);
+
+		oper = (EventOperator *)job->stop_on;
+		TEST_ALLOC_PARENT (oper, job);
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "baz");
+		TEST_EQ_P (oper->args, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -281,9 +339,6 @@ test_new (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_EQ_P (job->start_on, NULL);
-		TEST_EQ_P (job->stop_on, NULL);
 
 		TEST_NE_P (job->pid, NULL);
 		TEST_ALLOC_PARENT (job->pid, job);
@@ -299,8 +354,14 @@ test_new (void)
 
 		TEST_EQ_P (job->pid_timer, NULL);
 
+		event_operator_reset (job->start_on);
+		event_operator_reset (job->stop_on);
+
 		nih_free (job);
 	}
+
+	event_operator_reset (config->start_on);
+	event_operator_reset (config->stop_on);
 
 	nih_free (config);
 }

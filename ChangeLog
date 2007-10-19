@@ -1,5 +1,12 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_new): Drop the parent argument for consistency.
+	(job_instance): Update call to job_new.
+	* init/job.h: Update prototype.
+	* init/tests/test_job.c (test_new): Adjust call, check the parent
+	and make sure that start_on and stop_on are copied over properly.
+	* TODO: Update.
+
 	* init/conf.c (conf_file_get): Split out the allocation code from here
 	(conf_file_new): into this new function.
 	* init/conf.h: Add prototype.
