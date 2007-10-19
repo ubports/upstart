@@ -70,7 +70,7 @@ static int process_setup_environment (Job *job);
  * The process to be executed is given in the @argv array which is passed
  * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
- * PATH environment for the job will be searched.
+ * PATH environment in @job will be searched.
  *
  * This function only spawns the process, it is up to the caller to ensure
  * that the information is saved into the job and the process is watched, etc.
@@ -103,7 +103,8 @@ process_spawn (Job          *job,
 	if (pid > 0) {
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
-		nih_debug ("Spawned process %d for %s", pid, job->name);
+		nih_debug ("Spawned process %d for %s (#%u)", pid,
+			   job->config->name, job->id);
 		return pid;
 	} else if (pid < 0) {
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
@@ -135,7 +136,7 @@ process_spawn (Job          *job,
 	/* The job defines what the process's standard input, output and
 	 * error file descriptors should look like; set those up.
 	 */
-	if (process_setup_console (job, job->console) < 0)
+	if (process_setup_console (job, job->config->console) < 0)
 		goto error;
 
 	/* The job also gives us a consistent world to run all processes
@@ -156,8 +157,8 @@ process_spawn (Job          *job,
 error:
 	err = nih_error_get ();
 
-	nih_error (_("Unable to execute \"%s\" for %s: %s"),
-		   argv[0], job->name, err->message);
+	nih_error (_("Unable to execute \"%s\" for %s (#%u): %s"),
+		   argv[0], job->config->name, job->id, err->message);
 	nih_free (err);
 
 	exit (255);
@@ -180,28 +181,28 @@ process_setup_limits (Job *job)
 
 	nih_assert (job != NULL);
 
-	umask (job->umask);
+	umask (job->config->umask);
 
-	if (setpriority (PRIO_PROCESS, 0, job->nice) < 0)
+	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0)
 		nih_return_system_error (-1);
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (! job->limits[i])
+		if (! job->config->limits[i])
 			continue;
 
-		if (setrlimit (i, job->limits[i]) < 0)
+		if (setrlimit (i, job->config->limits[i]) < 0)
 			nih_return_system_error (-1);
 	}
 
-	if (job->chroot) {
-		if (chroot (job->chroot) < 0)
+	if (job->config->chroot) {
+		if (chroot (job->config->chroot) < 0)
 			nih_return_system_error (-1);
 		if (chdir ("/") < 0)
 			nih_return_system_error (-1);
 	}
 
-	if (job->chdir) {
-		if (chdir (job->chdir) < 0)
+	if (job->config->chdir) {
+		if (chdir (job->config->chdir) < 0)
 			nih_return_system_error (-1);
 	}
 
@@ -251,7 +252,7 @@ process_setup_environment (Job *job)
 		nih_return_system_error (-1);
 	nih_free (jobid);
 
-	if (setenv ("UPSTART_JOB", job->name, TRUE) < 0)
+	if (setenv ("UPSTART_JOB", job->config->name, TRUE) < 0)
 		nih_return_system_error (-1);
 
 	/* Put all environment from the job's start events */
@@ -269,7 +270,7 @@ process_setup_environment (Job *job)
 		}
 	}
 
-	for (env = job->env; env && *env; env++)
+	for (env = job->config->env; env && *env; env++)
 		if (putenv (*env) < 0)
 			nih_return_system_error (-1);
 
@@ -368,7 +369,7 @@ process_setup_console (Job         *job,
 			}
 
 			/* First send the length of the job name */
-			name = job ? job->name : program_name;
+			name = job ? job->config->name : program_name;
 			namelen = strlen (name);
 			if (write (sock, &namelen, sizeof (namelen)) < 0) {
 				nih_warn (_("Unable to send name to logd: %s"),

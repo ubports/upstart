@@ -101,6 +101,7 @@ test_spawn (void)
 	FILE          *output;
 	char           function[PATH_MAX], filename[PATH_MAX], buf[80];
 	char          *env[2], *args[4];
+	JobConfig     *config;
 	Job           *job;
 	EventOperator *oper;
 	pid_t          pid;
@@ -120,7 +121,9 @@ test_spawn (void)
 	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
-	job = job_new (NULL, "test");
+	config = job_config_new (NULL, "test");
+
+	job = job_instance (config);
 	pid = process_spawn (job, args);
 
 	waitpid (pid, NULL, 0);
@@ -146,7 +149,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (job);
+	nih_free (config);
 
 
 	/* Check that a job spawned with no console has the file descriptors
@@ -155,8 +158,10 @@ test_spawn (void)
 	TEST_FEATURE ("with no console");
 	sprintf (function, "%d", TEST_CONSOLE);
 
-	job = job_new (NULL, "test");
-	job->console = CONSOLE_NONE;
+	config = job_config_new (NULL, "test");
+	config->console = CONSOLE_NONE;
+
+	job = job_instance (config);
 	pid = process_spawn (job, args);
 
 	waitpid (pid, NULL, 0);
@@ -170,7 +175,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (job);
+	nih_free (config);
 
 
 	/* Check that a job with an alternate working directory is run from
@@ -179,8 +184,10 @@ test_spawn (void)
 	TEST_FEATURE ("with working directory");
 	sprintf (function, "%d", TEST_PWD);
 
-	job = job_new (NULL, "test");
-	job->chdir = "/tmp";
+	config = job_config_new (NULL, "test");
+	config->chdir = "/tmp";
+
+	job = job_instance (config);
 	pid = process_spawn (job, args);
 
 	waitpid (pid, NULL, 0);
@@ -192,7 +199,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (job);
+	nih_free (config);
 
 
 	/* Check that a job is run in a consistent environment containing
@@ -202,11 +209,13 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
-	job = job_new (NULL, "test");
-	job->id = 1000;
-	job->env = env;
+	config = job_config_new (NULL, "test");
+	config->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
+
+	job = job_instance (config);
+	job->id = 1000;
 	pid = process_spawn (job, args);
 
 	waitpid (pid, NULL, 0);
@@ -222,7 +231,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (job);
+	nih_free (config);
 
 
 	/* Check that a job's environment includes the variables from all
@@ -234,11 +243,13 @@ test_spawn (void)
 	putenv ("BAZ=baz");
 	putenv ("COFFEE=YES");
 
-	job = job_new (NULL, "test");
-	job->id = 1000;
-	job->env = env;
+	config = job_config_new (NULL, "test");
+	config->env = env;
 	env[0] = "FOO=bar";
 	env[1] = NULL;
+
+	job = job_instance (config);
+	job->id = 1000;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
 
@@ -285,19 +296,21 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (job);
+	nih_free (config);
 }
 
 
 void
 test_kill (void)
 {
-	Job   *job;
-	pid_t  pid1, pid2;
-	int    ret, status;
+	JobConfig *config;
+	Job       *job;
+	pid_t      pid1, pid2;
+	int        ret, status;
 
 	TEST_FUNCTION ("process_kill");
-	job = job_new (NULL, "test");
+	config = job_config_new (NULL, "test");
+	job = job_instance (config);
 
 	/* Check that when we normally kill the process, the TERM signal
 	 * is sent to all processes in its process group.
@@ -356,7 +369,7 @@ test_kill (void)
 	TEST_EQ (WTERMSIG (status), SIGKILL);
 
 
-	nih_free (job);
+	nih_free (config);
 }
 
 

@@ -89,7 +89,7 @@ test_parse_conf (void)
 		TEST_ALLOC_PARENT (item, file);
 		TEST_EQ (item->type, CONF_JOB);
 
-		TEST_ALLOC_SIZE (item->job, sizeof (Job));
+		TEST_ALLOC_SIZE (item->job, sizeof (JobConfig));
 		TEST_ALLOC_PARENT (item->job, NULL);
 		TEST_EQ_STR (item->job->name, "foo");
 		TEST_TRUE (item->job->respawn);
@@ -106,7 +106,7 @@ test_parse_conf (void)
 		TEST_ALLOC_PARENT (item, file);
 		TEST_EQ (item->type, CONF_JOB);
 
-		TEST_ALLOC_SIZE (item->job, sizeof (Job));
+		TEST_ALLOC_SIZE (item->job, sizeof (JobConfig));
 		TEST_ALLOC_PARENT (item->job, NULL);
 		TEST_EQ_STR (item->job->name, "bar");
 		TEST_FALSE (item->job->respawn);
@@ -176,7 +176,7 @@ test_stanza_job (void)
 		TEST_ALLOC_PARENT (item, file);
 		TEST_EQ (item->type, CONF_JOB);
 
-		TEST_ALLOC_SIZE (item->job, sizeof (Job));
+		TEST_ALLOC_SIZE (item->job, sizeof (JobConfig));
 		TEST_ALLOC_PARENT (item->job, NULL);
 		TEST_EQ_STR (item->job->name, "foo");
 		TEST_NE_P (item->job->process[PROCESS_MAIN], NULL);

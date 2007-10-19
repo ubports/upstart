@@ -1,3 +1,117 @@
+2007-10-19  Scott James Remnant  <scott@netsplit.com>
+
+	Dealing with instances has always been tricky since they're copies
+	that exist in the hash table; this patch changes that so the job's
+	configuration is separated from its state.  The only difference
+	between instance and non-instance jobs now is that non-instance
+	jobs only ever have one entry in their instances list.
+
+	* init/job.h (Job): Separate out the members that come from the
+	configuration into a new JobConfig structure which can be shared
+	amongst all of the instances; this means we can drop instance_of.
+	(JobConfig): Add instances list.
+	(JobProcess): Remove pid member, replaced by pid list in Job.
+	Update prototypes of functions to match.
+	* init/job.c (job_new): Split off initialisation of configuration
+	pieces into new job_config_new function leaving the state here;
+	copy the start_on and stop_on members from JobConfig
+	(job_copy): Drop this function, we don't need to copy jobs now.
+	(job_name): Rename to job_config_name.
+	(job_init): Set key function to job_config_name.
+	(job_process_new): Drop initialisation of pid.
+	(job_process_copy): Drop this function entirely, we don't need it.
+	(job_find_by_name): Rename to job_config_find_by_name; massively
+	simplify now we won't find instances or deleted jobs in the list.
+	(job_should_replace): Rename to job_config_should_replace; simplify
+	now that we can do a simple check to see whether a job exists or not
+	(job_find_by_pid, job_find_by_id): Loop through the instances after
+	looping through the hash table.
+	(job_instance): Simplify, now all it needs to do is call job_new()
+	if there isn't anything in the instances list, or it's multi-instance.
+	(job_change_goal): Document that job should not be used on return.
+	No need to check for instance jobs anymore.  Place the job id in
+	the output.
+	(job_change_state): Document that job should not be used on return.
+	Place the job id in the output.  Check for information in the job's
+	config.  Merge the waiting and deleted states, so that a job instance
+	is automatically deleted when it finishes.
+	(job_next_state): Assert that we never call job_next_state when
+	in JOB_WAITING since there's no possible next state.  Check config
+	for whether a main process exists.
+	(job_emit_event): Obtain config-replaced pieces from the job's config
+	(job_run_process): Obtain process information from the job's config
+	but store the pid in the Job.  Put job id in the output.
+	(job_kill_process, job_kill_timer): We don't need to obtain the
+	JobProcess just the pid from the job.  Put job id in the output.
+	(job_child_reaper): Put job id in the output.  Check job config.
+	(job_handle_event): Iterate job instances and process their stop_on
+	operators, but process the start_on from the job configs.
+	(job_handle_event_finished): Loop through the instances too.
+	(job_detect_stalled): Check start_on from the config and just
+	check whether there are any instances in the list.
+	(job_free_deleted): No deleted state, so drop this function.
+	* init/tests/test_job.c (test_new): Split into test_new and
+	new test_config_new function.  Create JobConfig object and spawn
+	Job instances from that.
+	(test_copy): Drop the tests.
+	(test_process_new): Drop check of pid.
+	(test_process_copy): Drop test.
+	(test_find_by_name): Rename to test_config_find_by_name.
+	(test_should_replace): Rename to test_config_should_replace.
+	(test_instance): Create JobConfig object, and adjust tests to ensure
+	that we always get a Job object.
+	(test_find_by_pid, test_find_by_id, test_change_goal): Create
+	JobConfig object and spawn Job instances from that.
+	(test_change_state): Create JobConfig object and spawn Job
+	instances from that.  Adjust tests that previously checked for
+	JOB_WAITING to check for job being freed.  Drop checks for JOB_DELETED.
+	(test_next_state): Create JobConfig object and spawn Job instances
+	from that.  Drop JOB_DELETED and JOB_WAITING checks.
+	(test_run_process, test_kill_process, test_child_reaper)
+	(test_handle_event, test_detect_stalled): Create JobConfig object
+	and spawn Job instances from that.
+	(test_free_deleted): Drop.
+	* init/main.c: Don't add job_free_deleted to the main loop.
+	* init/enum.h (JobState): Drop JOB_DELETED.
+	* init/enum.c (job_state_name, job_state_from_name): Drop JOB_DELETED.
+	* init/tests/test_enum.c (test_state_name, test_state_from_name):
+	Drop tests that use the JOB_DELETED value.
+	* init/process.c (process_spawn, process_setup_limits)
+	(process_setup_environment, process_setup_console): Get details
+	from the job config.  Put job id in the output.
+	* init/tests/test_process.c (test_spawn, test_kill): Create
+	a JobConfig object and make Job instances from that.
+	* init/tests/test_event.c (test_poll): Create a JobConfig object
+	and make Job instances from that.
+	(test_operator_copy): Set pointers to NULL to avoid gcc complaining.
+	* init/conf.h (ConfItem): Make the type for a job be JobConfig.
+	* init/conf.c (conf_item_destroy): Don't attempt to replace the
+	new middle-man target, if it was due to be replaced it would have
+	already been.  If we can replace the config, ensure nothing points
+	at it and then free it, rather than kicking state.
+	* init/tests/test_conf.c (test_source_reload_job_dir)
+	(test_source_reload_conf_dir, test_source_reload_file)
+	(test_source_reload, test_item_destroy): Call job_config_new to
+	create JobConfig objects, track when they are freed rather than
+	marked in the deleted state.  Create instances with job_instance,
+	and fetch from the instances list.  Expect the job to be freed
+	with the item.
+	* init/tests/test_parse_conf.c (test_parse_conf)
+	(test_stanza_job): Change expected type from Job to JobConfig.
+	* init/parse_job.c: Update prototypes of all functions to refer to
+	JobConfig instead of Job.
+	(parse_job): If the old job already has a replacement, remove the
+	replacement from the hash table -- but don't free it because it's
+	linked by a ConfItem -- this is temporary.  Likewise for when we
+	replace the old job.
+	* init/parse_job.h: Update prototype.
+	* init/tests/test_parse_job.c: Update all functions to use JobConfig
+	instead of Job.
+	(test_parse_job): Create an instance.
+	* doc/states.dot: Remove the deleted state.
+	* doc/states.png: Regenerate.
+	* TODO: Update with notes from the conversion.
+
 2007-10-16  Scott James Remnant  <scott@netsplit.com>
 
 	Update to catch up with changes in libnih that make code a little

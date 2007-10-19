@@ -39,8 +39,9 @@
 void
 test_parse_job (void)
 {
-	Job        *job, *new_job, *old_job;
+	JobConfig  *job = NULL, *old_job = NULL, *new_job;
 	JobProcess *process;
+	Job        *instance;
 	NihError   *err;
 	size_t      pos, lineno;
 	char        buf[1024];
@@ -76,7 +77,7 @@ test_parse_job (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 		TEST_EQ_P (job->start_on, NULL);
 		TEST_EQ_P (job->stop_on, NULL);
 
@@ -116,11 +117,13 @@ test_parse_job (void)
 			job = parse_job (NULL, "test", buf, strlen (buf),
 					 &pos, &lineno);
 
-			job->goal = JOB_START;
-			job->state = JOB_RUNNING;
-			job->process[PROCESS_MAIN]->pid = 1000;
+			instance = job_instance (job);
+			instance->goal = JOB_START;
+			instance->state = JOB_RUNNING;
+			instance->pid[PROCESS_MAIN] = 1000;
 
-			old_job = job->replacement = job_new (NULL, "wibble");
+			old_job = job->replacement \
+				= job_config_new (NULL, "wibble");
 		}
 
 		strcpy (buf, "exec /sbin/daemon --daemon\n");
@@ -147,7 +150,7 @@ test_parse_job (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (new_job, sizeof (Job));
+		TEST_ALLOC_SIZE (new_job, sizeof (JobConfig));
 		TEST_EQ_P (new_job->start_on, NULL);
 		TEST_EQ_P (new_job->stop_on, NULL);
 
@@ -158,19 +161,17 @@ test_parse_job (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
 
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1000);
+		TEST_LIST_NOT_EMPTY (&job->instances);
+		instance = (Job *)job->instances.next;
 
-		TEST_EQ (new_job->goal, JOB_STOP);
-		TEST_EQ (new_job->state, JOB_WAITING);
-		TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (instance->goal, JOB_START);
+		TEST_EQ (instance->state, JOB_RUNNING);
+		TEST_EQ (instance->pid[PROCESS_MAIN], 1000);
 
 		TEST_EQ_P (job->replacement, new_job);
 		TEST_EQ_P (new_job->replacement_for, job);
 
-		TEST_EQ (old_job->goal, JOB_STOP);
-		TEST_EQ (old_job->state, JOB_DELETED);
+		TEST_LIST_EMPTY (&old_job->entry);
 
 		nih_free (old_job);
 		nih_free (new_job);
@@ -190,10 +191,6 @@ test_parse_job (void)
 			lineno = 1;
 			job = parse_job (NULL, "test", buf, strlen (buf),
 					 &pos, &lineno);
-
-			job->goal = JOB_STOP;
-			job->state = JOB_WAITING;
-			job->process[PROCESS_MAIN]->pid = 0;
 		}
 
 		strcpy (buf, "exec /sbin/daemon --foo\n");
@@ -210,8 +207,6 @@ test_parse_job (void)
 			TEST_EQ (err->number, ENOMEM);
 			nih_free (err);
 
-			TEST_EQ (job->goal, JOB_STOP);
-			TEST_EQ (job->state, JOB_WAITING);
 			TEST_EQ_P (job->replacement, NULL);
 
 			nih_free (job);
@@ -221,7 +216,7 @@ test_parse_job (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (new_job, sizeof (Job));
+		TEST_ALLOC_SIZE (new_job, sizeof (JobConfig));
 		TEST_EQ_P (new_job->start_on, NULL);
 		TEST_EQ_P (new_job->stop_on, NULL);
 
@@ -232,15 +227,10 @@ test_parse_job (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "/sbin/daemon --foo");
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_DELETED);
-
-		TEST_EQ (new_job->goal, JOB_STOP);
-		TEST_EQ (new_job->state, JOB_WAITING);
-		TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
+		TEST_LIST_EMPTY (&job->entry);
 
 		TEST_EQ_P (job->replacement, new_job);
-		TEST_EQ_P (new_job->replacement_for, NULL);
+		TEST_EQ_P (new_job->replacement_for, job);
 
 		nih_free (new_job);
 		nih_free (job);
@@ -271,18 +261,17 @@ test_parse_job (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 		TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
 
 		nih_free (job);
 	}
 }
 
-
 void
 test_stanza_exec (void)
 {
-	Job        *job;
+	JobConfig  *job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -315,7 +304,7 @@ test_stanza_exec (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -352,7 +341,7 @@ test_stanza_exec (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -391,7 +380,7 @@ test_stanza_exec (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -426,7 +415,7 @@ test_stanza_exec (void)
 void
 test_stanza_script (void)
 {
-	Job        *job;
+	JobConfig  *job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -461,7 +450,7 @@ test_stanza_script (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -502,7 +491,7 @@ test_stanza_script (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 7);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -541,7 +530,7 @@ test_stanza_script (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_MAIN];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -576,7 +565,7 @@ test_stanza_script (void)
 void
 test_stanza_pre_start (void)
 {
-	Job        *job;
+	JobConfig  *job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -609,7 +598,7 @@ test_stanza_pre_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -646,7 +635,7 @@ test_stanza_pre_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -686,7 +675,7 @@ test_stanza_pre_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -727,7 +716,7 @@ test_stanza_pre_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 7);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -766,7 +755,7 @@ test_stanza_pre_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -805,7 +794,7 @@ test_stanza_pre_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -897,7 +886,7 @@ test_stanza_pre_start (void)
 void
 test_stanza_post_start (void)
 {
-	Job        *job;
+	JobConfig  *job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -930,7 +919,7 @@ test_stanza_post_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -967,7 +956,7 @@ test_stanza_post_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1007,7 +996,7 @@ test_stanza_post_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1048,7 +1037,7 @@ test_stanza_post_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 7);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1087,7 +1076,7 @@ test_stanza_post_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1126,7 +1115,7 @@ test_stanza_post_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_START];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1218,7 +1207,7 @@ test_stanza_post_start (void)
 void
 test_stanza_pre_stop (void)
 {
-	Job        *job;
+	JobConfig  *job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -1251,7 +1240,7 @@ test_stanza_pre_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1288,7 +1277,7 @@ test_stanza_pre_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1328,7 +1317,7 @@ test_stanza_pre_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1369,7 +1358,7 @@ test_stanza_pre_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 7);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1408,7 +1397,7 @@ test_stanza_pre_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1447,7 +1436,7 @@ test_stanza_pre_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_PRE_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1539,7 +1528,7 @@ test_stanza_pre_stop (void)
 void
 test_stanza_post_stop (void)
 {
-	Job        *job;
+	JobConfig  *job;
 	JobProcess *process;
 	NihError   *err;
 	size_t      pos, lineno;
@@ -1572,7 +1561,7 @@ test_stanza_post_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1609,7 +1598,7 @@ test_stanza_post_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1649,7 +1638,7 @@ test_stanza_post_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1690,7 +1679,7 @@ test_stanza_post_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 7);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1729,7 +1718,7 @@ test_stanza_post_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1768,7 +1757,7 @@ test_stanza_post_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		process = job->process[PROCESS_POST_STOP];
 		TEST_ALLOC_PARENT (process, job->process);
@@ -1860,7 +1849,7 @@ test_stanza_post_stop (void)
 void
 test_stanza_start (void)
 {
-	Job           *job;
+	JobConfig     *job;
 	EventOperator *oper;
 	NihError      *err;
 	size_t         pos, lineno;
@@ -1893,7 +1882,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -1938,7 +1927,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -1987,7 +1976,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -2050,7 +2039,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -2120,7 +2109,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -2198,7 +2187,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -2278,7 +2267,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -2357,7 +2346,7 @@ test_stanza_start (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->start_on, job);
@@ -2604,7 +2593,7 @@ test_stanza_start (void)
 void
 test_stanza_stop (void)
 {
-	Job           *job;
+	JobConfig     *job;
 	EventOperator *oper;
 	NihError      *err;
 	size_t         pos, lineno;
@@ -2637,7 +2626,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -2682,7 +2671,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -2731,7 +2720,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -2794,7 +2783,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -2864,7 +2853,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -2942,7 +2931,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -3022,7 +3011,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -3101,7 +3090,7 @@ test_stanza_stop (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
 		TEST_ALLOC_PARENT (job->stop_on, job);
@@ -3348,7 +3337,7 @@ test_stanza_stop (void)
 void
 test_stanza_description (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -3380,7 +3369,7 @@ test_stanza_description (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->description, job);
 		TEST_EQ_STR (job->description, "a test job");
@@ -3413,7 +3402,7 @@ test_stanza_description (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->description, job);
 		TEST_EQ_STR (job->description, "a test job");
@@ -3463,7 +3452,7 @@ test_stanza_description (void)
 void
 test_stanza_author (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -3495,7 +3484,7 @@ test_stanza_author (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->author, job);
 		TEST_EQ_STR (job->author, "joe bloggs");
@@ -3528,7 +3517,7 @@ test_stanza_author (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->author, job);
 		TEST_EQ_STR (job->author, "joe bloggs");
@@ -3578,7 +3567,7 @@ test_stanza_author (void)
 void
 test_stanza_version (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -3610,7 +3599,7 @@ test_stanza_version (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->version, job);
 		TEST_EQ_STR (job->version, "1.0");
@@ -3643,7 +3632,7 @@ test_stanza_version (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->version, job);
 		TEST_EQ_STR (job->version, "1.0");
@@ -3693,7 +3682,7 @@ test_stanza_version (void)
 void
 test_stanza_emits (void)
 {
-	Job          *job;
+	JobConfig    *job;
 	NihListEntry *emits;
 	NihError     *err;
 	size_t        pos, lineno;
@@ -3726,7 +3715,7 @@ test_stanza_emits (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 		TEST_LIST_NOT_EMPTY (&job->emits);
 
 		emits = (NihListEntry *)job->emits.next;
@@ -3763,7 +3752,7 @@ test_stanza_emits (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 		TEST_LIST_NOT_EMPTY (&job->emits);
 
 		emits = (NihListEntry *)job->emits.next;
@@ -3812,7 +3801,7 @@ test_stanza_emits (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 		TEST_LIST_NOT_EMPTY (&job->emits);
 
 		emits = (NihListEntry *)job->emits.next;
@@ -3861,7 +3850,7 @@ test_stanza_emits (void)
 void
 test_stanza_daemon (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -3893,7 +3882,7 @@ test_stanza_daemon (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->daemon);
 
@@ -3925,7 +3914,7 @@ test_stanza_daemon (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->daemon);
 
@@ -3955,7 +3944,7 @@ test_stanza_daemon (void)
 void
 test_stanza_respawn (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -3985,7 +3974,7 @@ test_stanza_respawn (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
@@ -4020,7 +4009,7 @@ test_stanza_respawn (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
@@ -4054,7 +4043,7 @@ test_stanza_respawn (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->respawn_limit, 10);
 		TEST_EQ (job->respawn_interval, 120);
@@ -4088,7 +4077,7 @@ test_stanza_respawn (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->respawn_limit, 0);
 		TEST_EQ (job->respawn_interval, 0);
@@ -4121,7 +4110,7 @@ test_stanza_respawn (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->respawn_limit, 10);
 		TEST_EQ (job->respawn_interval, 120);
@@ -4323,7 +4312,7 @@ test_stanza_respawn (void)
 void
 test_stanza_service (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -4355,7 +4344,7 @@ test_stanza_service (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->service);
 
@@ -4387,7 +4376,7 @@ test_stanza_service (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->service);
 
@@ -4420,7 +4409,7 @@ test_stanza_service (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
@@ -4454,7 +4443,7 @@ test_stanza_service (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->respawn);
 		TEST_TRUE (job->service);
@@ -4485,7 +4474,7 @@ test_stanza_service (void)
 void
 test_stanza_instance (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -4516,7 +4505,7 @@ test_stanza_instance (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->instance);
 
@@ -4549,7 +4538,7 @@ test_stanza_instance (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->instance);
 
@@ -4579,7 +4568,7 @@ test_stanza_instance (void)
 void
 test_stanza_pid (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -4611,7 +4600,7 @@ test_stanza_pid (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->pid_file, job);
 		TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
@@ -4645,7 +4634,7 @@ test_stanza_pid (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->pid_file, job);
 		TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
@@ -4679,7 +4668,7 @@ test_stanza_pid (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->pid_binary, job);
 		TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
@@ -4713,7 +4702,7 @@ test_stanza_pid (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->pid_binary, job);
 		TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
@@ -4747,7 +4736,7 @@ test_stanza_pid (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->pid_timeout, 10);
 
@@ -4780,7 +4769,7 @@ test_stanza_pid (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->pid_timeout, 10);
 
@@ -5003,7 +4992,7 @@ test_stanza_pid (void)
 void
 test_stanza_kill (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -5035,7 +5024,7 @@ test_stanza_kill (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->kill_timeout, 10);
 
@@ -5068,7 +5057,7 @@ test_stanza_kill (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->kill_timeout, 10);
 
@@ -5213,7 +5202,7 @@ test_stanza_kill (void)
 void
 test_stanza_normal (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -5246,7 +5235,7 @@ test_stanza_normal (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->normalexit_len, 1);
 		TEST_ALLOC_SIZE (job->normalexit,
@@ -5285,7 +5274,7 @@ test_stanza_normal (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->normalexit_len, 1);
 		TEST_ALLOC_SIZE (job->normalexit,
@@ -5324,7 +5313,7 @@ test_stanza_normal (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->normalexit_len, 4);
 		TEST_ALLOC_SIZE (job->normalexit,
@@ -5368,7 +5357,7 @@ test_stanza_normal (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 5);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->normalexit_len, 5);
 		TEST_ALLOC_SIZE (job->normalexit,
@@ -5502,7 +5491,7 @@ test_stanza_normal (void)
 void
 test_stanza_console (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -5534,7 +5523,7 @@ test_stanza_console (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->console, CONSOLE_LOGGED);
 
@@ -5567,7 +5556,7 @@ test_stanza_console (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->console, CONSOLE_OUTPUT);
 
@@ -5600,7 +5589,7 @@ test_stanza_console (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->console, CONSOLE_OWNER);
 
@@ -5633,7 +5622,7 @@ test_stanza_console (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->console, CONSOLE_NONE);
 
@@ -5666,7 +5655,7 @@ test_stanza_console (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->console, CONSOLE_LOGGED);
 
@@ -5714,7 +5703,7 @@ test_stanza_console (void)
 void
 test_stanza_env (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -5746,7 +5735,7 @@ test_stanza_env (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->env, job);
 		TEST_ALLOC_SIZE (job->env, sizeof (char *) * 2);
@@ -5784,7 +5773,7 @@ test_stanza_env (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 4);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->env, job);
 		TEST_ALLOC_SIZE (job->env, sizeof (char *) * 4);
@@ -5838,7 +5827,7 @@ test_stanza_env (void)
 void
 test_stanza_umask (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -5870,7 +5859,7 @@ test_stanza_umask (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->umask, 0755);
 
@@ -5903,7 +5892,7 @@ test_stanza_umask (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->umask, 0755);
 
@@ -6029,7 +6018,7 @@ test_stanza_umask (void)
 void
 test_stanza_nice (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -6061,7 +6050,7 @@ test_stanza_nice (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->nice, 10);
 
@@ -6094,7 +6083,7 @@ test_stanza_nice (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->nice, -10);
 
@@ -6127,7 +6116,7 @@ test_stanza_nice (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_EQ (job->nice, 10);
 
@@ -6252,7 +6241,7 @@ test_stanza_nice (void)
 void
 test_stanza_limit (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -6283,7 +6272,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_AS], job);
 		TEST_EQ (job->limits[RLIMIT_AS]->rlim_cur, 10);
@@ -6317,7 +6306,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
@@ -6351,7 +6340,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CPU], job);
 		TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 10);
@@ -6385,7 +6374,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_DATA], job);
 		TEST_EQ (job->limits[RLIMIT_DATA]->rlim_cur, 10);
@@ -6419,7 +6408,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_FSIZE], job);
 		TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_cur, 10);
@@ -6454,7 +6443,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_MEMLOCK], job);
 		TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_cur, 10);
@@ -6489,7 +6478,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_MSGQUEUE], job);
 		TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_cur, 10);
@@ -6523,7 +6512,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_NICE], job);
 		TEST_EQ (job->limits[RLIMIT_NICE]->rlim_cur, 10);
@@ -6558,7 +6547,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_NOFILE], job);
 		TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_cur, 10);
@@ -6592,7 +6581,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_NPROC], job);
 		TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_cur, 10);
@@ -6626,7 +6615,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_RSS], job);
 		TEST_EQ (job->limits[RLIMIT_RSS]->rlim_cur, 10);
@@ -6660,7 +6649,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_RTPRIO], job);
 		TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_cur, 10);
@@ -6695,7 +6684,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_SIGPENDING], job);
 		TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_cur, 10);
@@ -6729,7 +6718,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_STACK], job);
 		TEST_EQ (job->limits[RLIMIT_STACK]->rlim_cur, 10);
@@ -6765,7 +6754,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
@@ -6804,7 +6793,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
@@ -6839,7 +6828,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
@@ -6874,7 +6863,7 @@ test_stanza_limit (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
 		TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, RLIM_INFINITY);
@@ -7058,7 +7047,7 @@ test_stanza_limit (void)
 void
 test_stanza_chroot (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -7090,7 +7079,7 @@ test_stanza_chroot (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->chroot, job);
 		TEST_EQ_STR (job->chroot, "/chroot/daemon");
@@ -7124,7 +7113,7 @@ test_stanza_chroot (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->chroot, job);
 		TEST_EQ_STR (job->chroot, "/chroot/daemon");
@@ -7174,7 +7163,7 @@ test_stanza_chroot (void)
 void
 test_stanza_chdir (void)
 {
-	Job      *job;
+	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
@@ -7206,7 +7195,7 @@ test_stanza_chdir (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 2);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->chdir, job);
 		TEST_EQ_STR (job->chdir, "/var/lib/daemon");
@@ -7240,7 +7229,7 @@ test_stanza_chdir (void)
 		TEST_EQ (pos, strlen (buf));
 		TEST_EQ (lineno, 3);
 
-		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_ALLOC_PARENT (job->chdir, job);
 		TEST_EQ_STR (job->chdir, "/var/lib/daemon");
@@ -7286,7 +7275,6 @@ test_stanza_chdir (void)
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
-
 
 int
 main (int   argc,

@@ -57,8 +57,7 @@ typedef enum job_state {
 	JOB_PRE_STOP,
 	JOB_STOPPING,
 	JOB_KILLED,
-	JOB_POST_STOP,
-	JOB_DELETED
+	JOB_POST_STOP
 } JobState;
 
 /**

@@ -204,6 +204,7 @@ test_poll (void)
 {
 	Event         *event;
 	EventOperator *oper;
+	JobConfig     *config;
 	Job           *job;
 	int            status;
 
@@ -217,11 +218,12 @@ test_poll (void)
 	 * in the handling state while the job is blocking it.
 	 */
 	TEST_FEATURE ("with pending event");
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
+	config = job_config_new (NULL, "test");
+	config->process[PROCESS_MAIN] = job_process_new (config->process);
+	config->process[PROCESS_MAIN]->command = "echo";
 
-	job->start_on = event_operator_new (job, EVENT_MATCH, "test", NULL);
+	config->start_on = event_operator_new (config, EVENT_MATCH,
+					       "test", NULL);
 
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
@@ -232,13 +234,17 @@ test_poll (void)
 	TEST_EQ (event->refs, 1);
 	TEST_EQ (event->blockers, 1);
 
+	TEST_LIST_NOT_EMPTY (&config->instances);
+
+	job = (Job *)config->instances.next;
+
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
+	TEST_GT (job->pid[PROCESS_MAIN], 0);
 
-	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
+	waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 
-	nih_free (job);
+	nih_free (config);
 	nih_free (event);
 
 
@@ -267,12 +273,14 @@ test_poll (void)
 	event->id = 0xdeafbeef;
 	event->progress = EVENT_HANDLING;
 
-	job = job_new (NULL, "test");
+	config = job_config_new (NULL, "test");
+	config->process[PROCESS_MAIN] = job_process_new (config->process);
+	config->process[PROCESS_MAIN]->command = "echo";
+
+	job = job_instance (config);
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 	job->blocked = event;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
 
 	event_ref (job->blocked);
 
@@ -282,15 +290,17 @@ test_poll (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
+	TEST_GT (job->pid[PROCESS_MAIN], 0);
 
-	waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	TEST_EQ_P (job->blocked, NULL);
 
 	TEST_FREE (event);
+
+	nih_free (config);
 
 
 	/* Check that a finished event with remaining references is held
@@ -335,12 +345,12 @@ test_poll (void)
 	event->failed = TRUE;
 	event->progress = EVENT_FINISHED;
 
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
+	config = job_config_new (NULL, "test");
+	config->process[PROCESS_MAIN] = job_process_new (config->process);
+	config->process[PROCESS_MAIN]->command = "echo";
 
-	job->start_on = event_operator_new (job, EVENT_MATCH,
-					    "test/failed", NULL);
+	config->start_on = event_operator_new (config, EVENT_MATCH,
+					       "test/failed", NULL);
 
 	TEST_FREE_TAG (event);
 
@@ -348,17 +358,21 @@ test_poll (void)
 
 	TEST_FREE (event);
 
+	TEST_LIST_NOT_EMPTY (&config->instances);
+
+	job = (Job *)config->instances.next;
+
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
+	TEST_GT (job->pid[PROCESS_MAIN], 0);
 
-	waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
+	waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 
 	TEST_EQ_STR (job->start_on->event->name, "test/failed");
 
 	event_poll ();
 
-	nih_free (job);
+	nih_free (config);
 
 
 	/* Check that failed events do not, themselves, emit new failed
@@ -369,19 +383,19 @@ test_poll (void)
 	event->failed = TRUE;
 	event->progress = EVENT_FINISHED;
 
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
+	config = job_config_new (NULL, "test");
+	config->process[PROCESS_MAIN] = job_process_new (config->process);
+	config->process[PROCESS_MAIN]->command = "echo";
 
-	job->start_on = event_operator_new (job, EVENT_OR, NULL, NULL);
+	config->start_on = event_operator_new (config, EVENT_OR, NULL, NULL);
 
-	oper = event_operator_new (job, EVENT_MATCH,
+	oper = event_operator_new (config, EVENT_MATCH,
 				   "test/failed", NULL);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
+	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
 
-	oper = event_operator_new (job, EVENT_MATCH,
+	oper = event_operator_new (config, EVENT_MATCH,
 				   "test/failed/failed", NULL);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
+	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	TEST_FREE_TAG (event);
 
@@ -389,11 +403,9 @@ test_poll (void)
 
 	TEST_FREE (event);
 
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-	TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+	TEST_LIST_EMPTY (&config->instances);
 
-	nih_free (job);
+	nih_free (config);
 }
 
 
@@ -502,8 +514,8 @@ test_operator_new (void)
 void
 test_operator_copy (void)
 {
-	EventOperator *oper, *copy;
-	EventOperator *oper1, *oper2, *copy1, *copy2;
+	EventOperator *oper = NULL, *copy;
+	EventOperator *oper1 = NULL, *oper2 = NULL, *copy1, *copy2;
 
 	TEST_FUNCTION ("event_operator_copy");
 	event_init ();

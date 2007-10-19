@@ -850,18 +850,23 @@ conf_item_destroy (ConfItem *item)
 		 * cut out the middle man and make that item's replacement
 		 * the same as our own replacement (ie. probably deletion)
 		 */
-		if (item->job->replacement_for
-		    && (item->job->replacement_for->replacement == item->job)) {
-			Job *old_job = item->job->replacement_for;
+		if ((item->job->replacement_for != NULL)
+		    && (item->job->replacement_for->replacement == item->job))
+			item->job->replacement_for->replacement \
+				= item->job->replacement;
 
-			old_job->replacement = item->job->replacement;
-			if (job_should_replace (old_job))
-				job_change_state (old_job, job_next_state (old_job));
+		/* Delete the job if we can */
+		if (job_config_should_replace (item->job)) {
+			/* If the item being deleted has a replacement, ensure
+			 * that the replacement doesn't reference it anymore.
+			 */
+			if ((item->job->replacement != NULL)
+			    && (item->job->replacement != (void *)-1)
+			    && (item->job->replacement->replacement_for == item->job))
+				item->job->replacement->replacement_for = NULL;
+
+			nih_free (item->job);
 		}
-
-		/* Move towards deletion if we can */
-		if (job_should_replace (item->job))
-			job_change_state (item->job, job_next_state (item->job));
 
 		break;
 	}

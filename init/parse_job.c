@@ -58,27 +58,31 @@ static int            parse_script      (JobProcess *proc,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int            parse_process     (Job *job, ProcessType process,
+static int            parse_process     (JobConfig *job, ProcessType process,
 					 NihConfigStanza *stanza,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static EventOperator *parse_on          (Job *job, NihConfigStanza *stanza,
+static EventOperator *parse_on          (JobConfig *job,
+					 NihConfigStanza *stanza,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result, malloc));
-static int            parse_on_operator (Job *job, NihConfigStanza *stanza,
+static int            parse_on_operator (JobConfig *job,
+					 NihConfigStanza *stanza,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno,
 					 NihList *stack, EventOperator **root)
 	__attribute__ ((warn_unused_result));
-static int            parse_on_paren    (Job *job, NihConfigStanza *stanza,
+static int            parse_on_paren    (JobConfig *job,
+					 NihConfigStanza *stanza,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno,
 					 NihList *stack, EventOperator **root,
 					 size_t *paren)
 	__attribute__ ((warn_unused_result));
-static int            parse_on_operand  (Job *job, NihConfigStanza *stanza,
+static int            parse_on_operand  (JobConfig *job,
+					 NihConfigStanza *stanza,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno,
 					 NihList *stack, EventOperator **root)
@@ -86,107 +90,107 @@ static int            parse_on_operand  (Job *job, NihConfigStanza *stanza,
 static int            parse_on_collect  (NihList *stack, EventOperator **root)
 	__attribute__ ((warn_unused_result));
 
-static int stanza_exec        (Job *job, NihConfigStanza *stanza,
+static int stanza_exec        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_script      (Job *job, NihConfigStanza *stanza,
+static int stanza_script      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_pre_start   (Job *job, NihConfigStanza *stanza,
+static int stanza_pre_start   (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_post_start  (Job *job, NihConfigStanza *stanza,
+static int stanza_post_start  (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_pre_stop    (Job *job, NihConfigStanza *stanza,
+static int stanza_pre_stop    (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_post_stop   (Job *job, NihConfigStanza *stanza,
+static int stanza_post_stop   (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_start       (Job *job, NihConfigStanza *stanza,
+static int stanza_start       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_stop        (Job *job, NihConfigStanza *stanza,
+static int stanza_stop        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_description (Job *job, NihConfigStanza *stanza,
+static int stanza_description (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_author      (Job *job, NihConfigStanza *stanza,
+static int stanza_author      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_version     (Job *job, NihConfigStanza *stanza,
+static int stanza_version     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_emits       (Job *job, NihConfigStanza *stanza,
+static int stanza_emits       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_daemon      (Job *job, NihConfigStanza *stanza,
+static int stanza_daemon      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_respawn     (Job *job, NihConfigStanza *stanza,
+static int stanza_respawn     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_service     (Job *job, NihConfigStanza *stanza,
+static int stanza_service     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_instance    (Job *job, NihConfigStanza *stanza,
+static int stanza_instance    (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_pid         (Job *job, NihConfigStanza *stanza,
+static int stanza_pid         (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_kill        (Job *job, NihConfigStanza *stanza,
+static int stanza_kill        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_normal      (Job *job, NihConfigStanza *stanza,
+static int stanza_normal      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_console     (Job *job, NihConfigStanza *stanza,
+static int stanza_console     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_env         (Job *job, NihConfigStanza *stanza,
+static int stanza_env         (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_umask       (Job *job, NihConfigStanza *stanza,
+static int stanza_umask       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_nice        (Job *job, NihConfigStanza *stanza,
+static int stanza_nice        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_limit       (Job *job, NihConfigStanza *stanza,
+static int stanza_limit       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_chroot      (Job *job, NihConfigStanza *stanza,
+static int stanza_chroot      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_chdir       (Job *job, NihConfigStanza *stanza,
+static int stanza_chdir       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
@@ -247,9 +251,10 @@ static NihConfigStanza stanzas[] = {
  * is parsed successfully, then the new job is marked as a replacement for
  * the old one.
  *
- * Returns: newly allocated Job structure on success, NULL on raised error.
+ * Returns: newly allocated JobConfig structure on success,
+ * NULL on raised error.
  **/
-Job *
+JobConfig *
 parse_job (const void *parent,
 	   const char *name,
 	   const char *file,
@@ -257,17 +262,17 @@ parse_job (const void *parent,
 	   size_t     *pos,
 	   size_t     *lineno)
 {
- 	Job *job, *old_job;
+ 	JobConfig *job, *old_job;
 
 	nih_assert (name != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
 	/* Look for an old job with that name */
-	old_job = job_find_by_name (name);
+	old_job = job_config_find_by_name (name);
 
 	/* Allocate a new structure */
-	job = job_new (parent, name);
+	job = job_config_new (parent, name);
 	if (! job)
 		nih_return_system_error (NULL);
 
@@ -286,21 +291,25 @@ parse_job (const void *parent,
 	if (old_job) {
 		nih_info (_("Replacing existing %s job"), job->name);
 
+		/* If the old job already has a replacement, that should
+		 * be discarded since we are the new replacement for it.
+		 */
 		if ((old_job->replacement != NULL)
 		    && (old_job->replacement != (void *)-1)) {
 			nih_debug ("Discarding previous replacement");
 			old_job->replacement->replacement = (void *)-1;
 
-			if (job_should_replace (old_job->replacement))
-				job_change_state (old_job->replacement,
-						  job_next_state (old_job->replacement));
+			if (job_config_should_replace (old_job->replacement))
+				nih_list_remove (&old_job->replacement->entry);
 		}
 
+		/* Make the new job the replacement for the old */
 		old_job->replacement = job;
 		job->replacement_for = old_job;
 
-		if (job_should_replace (old_job))
-			job_change_state (old_job, job_next_state (old_job));
+		/* If the old job can be replaced, do it now */
+		if (job_config_should_replace (old_job))
+			nih_list_remove (&old_job->entry);
 	}
 
 	return job;
@@ -419,7 +428,7 @@ parse_script (JobProcess      *proc,
  * Returns: zero on success, negative value on error.
  **/
 static int
-parse_process (Job             *job,
+parse_process (JobConfig       *job,
 	       ProcessType      process,
 	       NihConfigStanza *stanza,
 	       const char      *file,
@@ -497,7 +506,7 @@ finish:
  * on raised error.
  **/
 static EventOperator *
-parse_on (Job             *job,
+parse_on (JobConfig       *job,
 	  NihConfigStanza *stanza,
 	  const char      *file,
 	  size_t           len,
@@ -620,7 +629,7 @@ finish:
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-parse_on_operator (Job              *job,
+parse_on_operator (JobConfig        *job,
 		   NihConfigStanza  *stanza,
 		   const char       *file,
 		   size_t            len,
@@ -738,7 +747,7 @@ finish:
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-parse_on_paren (Job              *job,
+parse_on_paren (JobConfig        *job,
 		NihConfigStanza  *stanza,
 		const char       *file,
 		size_t            len,
@@ -836,7 +845,7 @@ parse_on_paren (Job              *job,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-parse_on_operand (Job              *job,
+parse_on_operand (JobConfig        *job,
 		  NihConfigStanza  *stanza,
 		  const char       *file,
 		  size_t            len,
@@ -986,7 +995,7 @@ parse_on_collect (NihList          *stack,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_exec (Job             *job,
+stanza_exec (JobConfig       *job,
 	     NihConfigStanza *stanza,
 	     const char      *file,
 	     size_t           len,
@@ -1023,7 +1032,7 @@ stanza_exec (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_script (Job             *job,
+stanza_script (JobConfig       *job,
 	       NihConfigStanza *stanza,
 	       const char      *file,
 	       size_t           len,
@@ -1060,7 +1069,7 @@ stanza_script (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_pre_start (Job             *job,
+stanza_pre_start (JobConfig       *job,
 		  NihConfigStanza *stanza,
 		  const char      *file,
 		  size_t           len,
@@ -1091,7 +1100,7 @@ stanza_pre_start (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_post_start (Job             *job,
+stanza_post_start (JobConfig       *job,
 		   NihConfigStanza *stanza,
 		   const char      *file,
 		   size_t           len,
@@ -1122,7 +1131,7 @@ stanza_post_start (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_pre_stop (Job             *job,
+stanza_pre_stop (JobConfig       *job,
 		 NihConfigStanza *stanza,
 		 const char      *file,
 		 size_t           len,
@@ -1153,7 +1162,7 @@ stanza_pre_stop (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_post_stop (Job             *job,
+stanza_post_stop (JobConfig       *job,
 		  NihConfigStanza *stanza,
 		  const char      *file,
 		  size_t           len,
@@ -1185,7 +1194,7 @@ stanza_post_stop (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_start (Job             *job,
+stanza_start (JobConfig       *job,
 	      NihConfigStanza *stanza,
 	      const char      *file,
 	      size_t           len,
@@ -1253,7 +1262,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_stop (Job             *job,
+stanza_stop (JobConfig       *job,
 	     NihConfigStanza *stanza,
 	     const char      *file,
 	     size_t           len,
@@ -1321,7 +1330,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_description (Job             *job,
+stanza_description (JobConfig       *job,
 		    NihConfigStanza *stanza,
 		    const char      *file,
 		    size_t           len,
@@ -1359,7 +1368,7 @@ stanza_description (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_author (Job             *job,
+stanza_author (JobConfig       *job,
 	       NihConfigStanza *stanza,
 	       const char      *file,
 	       size_t           len,
@@ -1397,7 +1406,7 @@ stanza_author (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_version (Job             *job,
+stanza_version (JobConfig       *job,
 		NihConfigStanza *stanza,
 		const char      *file,
 		size_t           len,
@@ -1438,7 +1447,7 @@ stanza_version (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_emits (Job             *job,
+stanza_emits (JobConfig       *job,
 	      NihConfigStanza *stanza,
 	      const char      *file,
 	      size_t           len,
@@ -1496,7 +1505,7 @@ stanza_emits (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_daemon (Job             *job,
+stanza_daemon (JobConfig       *job,
 	       NihConfigStanza *stanza,
 	       const char      *file,
 	       size_t           len,
@@ -1529,7 +1538,7 @@ stanza_daemon (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_respawn (Job             *job,
+stanza_respawn (JobConfig       *job,
 		NihConfigStanza *stanza,
 		const char      *file,
 		size_t           len,
@@ -1645,7 +1654,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_service (Job             *job,
+stanza_service (JobConfig       *job,
 		NihConfigStanza *stanza,
 		const char      *file,
 		size_t           len,
@@ -1677,7 +1686,7 @@ stanza_service (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_instance (Job             *job,
+stanza_instance (JobConfig       *job,
 		 NihConfigStanza *stanza,
 		 const char      *file,
 		 size_t           len,
@@ -1711,7 +1720,7 @@ stanza_instance (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_pid (Job             *job,
+stanza_pid (JobConfig       *job,
 	    NihConfigStanza *stanza,
 	    const char      *file,
 	    size_t           len,
@@ -1815,7 +1824,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_kill (Job             *job,
+stanza_kill (JobConfig       *job,
 	     NihConfigStanza *stanza,
 	     const char      *file,
 	     size_t           len,
@@ -1899,7 +1908,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_normal (Job             *job,
+stanza_normal (JobConfig       *job,
 	       NihConfigStanza *stanza,
 	       const char      *file,
 	       size_t           len,
@@ -1995,7 +2004,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_console (Job             *job,
+stanza_console (JobConfig       *job,
 		NihConfigStanza *stanza,
 		const char      *file,
 		size_t           len,
@@ -2061,7 +2070,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_env (Job             *job,
+stanza_env (JobConfig       *job,
 	    NihConfigStanza *stanza,
 	    const char      *file,
 	    size_t           len,
@@ -2103,7 +2112,7 @@ stanza_env (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_umask (Job             *job,
+stanza_umask (JobConfig       *job,
 	      NihConfigStanza *stanza,
 	      const char      *file,
 	      size_t           len,
@@ -2163,7 +2172,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_nice (Job             *job,
+stanza_nice (JobConfig       *job,
 	     NihConfigStanza *stanza,
 	     const char      *file,
 	     size_t           len,
@@ -2223,7 +2232,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_limit (Job             *job,
+stanza_limit (JobConfig       *job,
 	      NihConfigStanza *stanza,
 	      const char      *file,
 	      size_t           len,
@@ -2362,7 +2371,7 @@ finish:
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_chroot (Job             *job,
+stanza_chroot (JobConfig       *job,
 	       NihConfigStanza *stanza,
 	       const char      *file,
 	       size_t           len,
@@ -2399,7 +2408,7 @@ stanza_chroot (Job             *job,
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_chdir (Job             *job,
+stanza_chdir (JobConfig       *job,
 	      NihConfigStanza *stanza,
 	      const char      *file,
 	      size_t           len,

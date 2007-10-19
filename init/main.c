@@ -248,8 +248,6 @@ main (int   argc,
 					  NULL));
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_stalled,
 					  NULL));
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_free_deleted,
-					  NULL));
 
 
 	/* Read configuration */

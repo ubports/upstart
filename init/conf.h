@@ -122,8 +122,8 @@ typedef struct conf_item {
 	ConfItemType  type;
 
 	union {
-		void *data;
-		Job  *job;
+		void      *data;
+		JobConfig *job;
 	};
 } ConfItem;
 

@@ -80,60 +80,44 @@
 /**
  * JobProcess:
  * @script: whether a shell will be required,
- * @command: command or script to be run,
- * @pid: current process id.
+ * @command: command or script to be run.
  *
  * This structure represents an individual action process within the job.
  * When @script is FALSE, @command is checked for shell characters; if there
  * are none, it is split on whitespace and executed directly using exec().
  * If there are shell characters, or @script is TRUE, @command is executed
  * using a shell.
- *
- * If the process is running, the current pid will be stored in @pid.
  **/
 typedef struct job_process {
 	int    script;
 	char  *command;
-	pid_t  pid;
 } JobProcess;
 
 /**
- * Job:
+ * JobConfig:
  * @entry: list header,
- * @id: unique job id,
- * @name: string name of the job; namespace shared with events,
+ * @name: string name of the job,
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
  * @replacement: job to replace this one,
  * @replacement_for: job this is a replacement for,
- * @instance_of: job this is an instance of,
- * @goal: whether the job is to be stopped or started,
- * @state: actual state of the job,
- * @blocked: emitted event we're waiting to finish,
- * @failed: whether the last process ran failed,
- * @failed_process: the last process that failed,
- * @exit_status: exit status of the last failed process,
  * @start_on: event operator expression that can start this job,
- * @stop_on; event operator expression that can stop this job.
+ * @stop_on: event operator expression that can stop this job.
  * @emits: list of additional events that this job can emit,
  * @process: processes to be run,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
- * @kill_timer: timer to kill process,
- * @instance: job is always waiting and spawns instances,
+ * @instance: job may have multiple instances,
  * @service: job has reached its goal when running,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
- * @respawn_count: number of respawns since @respawn_time,
- * @respawn_time: time service was first respawned,
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
  * @daemon: process forks into background; pid needs to be obtained,
  * @pid_file: obtain pid by reading this file,
  * @pid_binary: obtain pid by locating this binary,
  * @pid_timeout: time to wait before giving up obtaining pid,
- * @pid_timer: timer for pid location,
  * @console: how to arrange the job's stdin/out/err file descriptors,
  * @env: NULL-terminated list of environment strings to set,
  * @umask: file mode creation mask,
@@ -141,35 +125,24 @@ typedef struct job_process {
  * @limits: resource limits indexed by resource,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
+ * @instances: instances of this job.
  *
- * This structure represents a known task or service that should be tracked
- * by the init daemon; as tasks and services are fundamentally identical,
- * except for the handling when the main process terminates, they are both
- * collated together in this structure and only differ in the value of the
- * @service member.
+ * This structure holds the configuration of a known task or service that
+ * should be tracked by the init daemon; as tasks and services are
+ * fundamentally identical except for when they "finish", they are both
+ * collated together and only differ in the value of @service.
  **/
-typedef struct job Job;
-struct job {
+typedef struct job_config JobConfig;
+struct job_config {
 	NihList         entry;
-	unsigned int    id;
 
 	char           *name;
 	char           *description;
 	char           *author;
 	char           *version;
 
-	Job            *replacement;
-	Job            *replacement_for;
-	Job            *instance_of;
-
-	JobGoal         goal;
-	JobState        state;
-
-	Event          *blocked;
-
-	int             failed;
-	ProcessType     failed_process;
-	int             exit_status;
+	JobConfig      *replacement;
+	JobConfig      *replacement_for;
 
 	EventOperator  *start_on;
 	EventOperator  *stop_on;
@@ -181,21 +154,17 @@ struct job {
 	size_t          normalexit_len;
 
 	time_t          kill_timeout;
-	NihTimer       *kill_timer;
 
 	int             instance;
 	int             service;
 	int             respawn;
 	int             respawn_limit;
 	time_t          respawn_interval;
-	int             respawn_count;
-	time_t          respawn_time;
 
 	int             daemon;
 	char           *pid_file;
 	char           *pid_binary;
 	time_t          pid_timeout;
-	NihTimer       *pid_timer;
 
 	ConsoleType     console;
 	char          **env;
@@ -205,7 +174,63 @@ struct job {
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char           *chroot;
 	char           *chdir;
+
+	NihList         instances;
 };
+
+/**
+ * Job:
+ * @entry: list header,
+ * @id: unique job id,
+ * @config: pointer to JobConfig structure,
+ * @start_on: event operator expression that started this job,
+ * @stop_on: event operator expression that can stop this job.
+ * @goal: whether the job is to be stopped or started,
+ * @state: actual state of the job,
+ * @pid: current process ids,
+ * @blocked: emitted event we're waiting to finish,
+ * @failed: whether the last process ran failed,
+ * @failed_process: the last process that failed,
+ * @exit_status: exit status of the last failed process,
+ * @kill_timer: timer to kill process,
+ * @respawn_time: time service was first respawned,
+ * @respawn_count: number of respawns since @respawn_time,
+ * @pid_timer: timer for pid location,
+ *
+ * This structure represents a known task or service that should be tracked
+ * by the init daemon; as tasks and services are fundamentally identical,
+ * except for the handling when the main process terminates, they are both
+ * collated together in this structure and only differ in the value of the
+ * @service member.
+ **/
+typedef struct job {
+	NihList         entry;
+
+	unsigned int    id;
+	JobConfig      *config;
+
+	EventOperator  *start_on;
+	EventOperator  *stop_on;
+
+	JobGoal         goal;
+	JobState        state;
+
+	pid_t          *pid;
+
+	Event          *blocked;
+
+	int             failed;
+	ProcessType     failed_process;
+	int             exit_status;
+
+	NihTimer       *kill_timer;
+
+	time_t          respawn_time;
+	int             respawn_count;
+
+	NihTimer       *pid_timer;
+
+} Job;
 
 
 NIH_BEGIN_EXTERN
@@ -219,26 +244,27 @@ void        job_init                  (void);
 
 JobProcess *job_process_new           (const void *parent)
 	__attribute__ ((warn_unused_result, malloc));
-JobProcess *job_process_copy          (const void *parent,
-				       const JobProcess *old_process)
+
+JobConfig * job_config_new            (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-Job *       job_new                   (const void *parent, const char *name)
-	__attribute__ ((warn_unused_result, malloc));
-Job *       job_copy                  (const void *parent, const Job *old_job)
+JobConfig * job_config_find_by_name   (const char *name);
+
+int         job_config_should_replace (JobConfig *job_config);
+
+Job *       job_new                   (const void *parent,
+				       JobConfig *job_config)
 	__attribute__ ((warn_unused_result, malloc));
 
-Job *       job_find_by_name          (const char *name);
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 Job *       job_find_by_id            (unsigned int id);
 
-Job *       job_instance              (Job *job);
+Job *       job_instance              (JobConfig *job_config);
+
 void        job_change_goal           (Job *job, JobGoal goal);
 
 void        job_change_state          (Job *job, JobState state);
 JobState    job_next_state            (Job *job);
-
-int         job_should_replace        (Job *job);
 
 void        job_run_process           (Job *job, ProcessType process);
 void        job_kill_process          (Job *job, ProcessType process);
@@ -250,7 +276,6 @@ void        job_handle_event          (Event *event);
 void        job_handle_event_finished (Event *event);
 
 void        job_detect_stalled        (void);
-void        job_free_deleted          (void);
 
 NIH_END_EXTERN
 
