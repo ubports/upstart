@@ -1,3 +1,16 @@
+2007-10-20  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_change_state): Hardcode the next state when we
+	catch a runaway job to be JOB_WAITING.
+	(job_next_state): Change next state for JOB_STARTING when goal is
+	JOB_STOP to be JOB_STOPPING for consistency with the others; otherwise
+	if our goal is stopped during our starting event, we'll never emit
+	a stopping event to match it.
+	* init/tests/test_job.c (test_next_state): Update test case.
+	* doc/states.dot: Adjust the state transitions.
+	* doc/states.png: Regenerate.
+	* TODO: Update.
+
 2007-10-19  Scott James Remnant  <scott@netsplit.com>
 
 	Dealing with instances has always been tricky since they're copies

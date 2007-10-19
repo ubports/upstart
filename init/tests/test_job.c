@@ -2721,13 +2721,13 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're stopping a starting job is
-	 * waiting.
+	 * stpoping.
 	 */
 	TEST_FEATURE ("with starting job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_STARTING;
 
-	TEST_EQ (job_next_state (job), JOB_WAITING);
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 
 	/* Check that the next state if we're starting a starting job is

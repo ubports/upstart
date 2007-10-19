@@ -664,7 +664,7 @@ job_change_state (Job      *job,
 					  job->config->name, job->id);
 
 				job_change_goal (job, JOB_STOP);
-				state = job_next_state (job);
+				state = JOB_WAITING;
 
 				if (! job->failed) {
 					job->failed = TRUE;
@@ -856,7 +856,7 @@ job_next_state (Job *job)
 	case JOB_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_WAITING;
+			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_PRE_START;
 		}
