@@ -89,6 +89,44 @@ test_source_new (void)
 }
 
 void
+test_file_new (void)
+{
+	ConfSource *source;
+	ConfFile   *file;
+
+	/* Check that we can request a new ConfFile structure, it should be
+	 * allocated with nih_alloc and placed into the files hash table of
+	 * the source, with the flag copied.
+	 */
+	TEST_FUNCTION ("conf_file_get");
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+
+	TEST_ALLOC_FAIL {
+		file = conf_file_get (source, "/tmp/foo");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (file, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (file, sizeof (ConfFile));
+		TEST_ALLOC_PARENT (file, source);
+		TEST_LIST_NOT_EMPTY (&file->entry);
+		TEST_ALLOC_PARENT (file->path, file);
+		TEST_EQ_STR (file->path, "/tmp/foo");
+		TEST_EQ (file->flag, source->flag);
+		TEST_LIST_EMPTY (&file->items);
+
+		TEST_EQ_P ((void *)nih_hash_lookup (source->files, "/tmp/foo"),
+			   file);
+
+		nih_free (file);
+	}
+
+	nih_free (source);
+}
+
+void
 test_file_get (void)
 {
 	ConfSource *source;
@@ -4564,6 +4602,7 @@ main (int   argc,
       char *argv[])
 {
 	test_source_new ();
+	test_file_new ();
 	test_file_get ();
 	test_item_new ();
 	test_source_reload_job_dir ();

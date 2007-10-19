@@ -164,6 +164,51 @@ conf_source_new (const void     *parent,
 }
 
 /**
+ * conf_file_new:
+ * @source: configuration source,
+ * @path: path to file.
+ *
+ * Allocates and returns a new ConfFile structure for the given @source,
+ * with @path indicating which file it is.
+ *
+ * The returned structure is automatically placed in the @source files hash
+ * and the flag of the returned ConfFile will be set to that of the @source.
+ *
+ * Returns: newly allocated ConfFile structure or NULL if insufficient memory.
+ **/
+ConfFile *
+conf_file_new (ConfSource *source,
+	       const char *path)
+{
+	ConfFile *file;
+
+	nih_assert (source != NULL);
+	nih_assert (path != NULL);
+
+	file = nih_new (source, ConfFile);
+	if (! file)
+		return NULL;
+
+	nih_list_init (&file->entry);
+
+	file->path = nih_strdup (file, path);
+	if (! file->path) {
+		nih_free (file);
+		return NULL;
+	}
+
+	nih_list_init (&file->items);
+
+	nih_alloc_set_destructor (file, (NihDestructor)nih_list_destroy);
+
+	nih_hash_add (source->files, &file->entry);
+
+	file->flag = source->flag;
+
+	return file;
+}
+
+/**
  * conf_file_get:
  * @source: configuration source,
  * @path: path to file.
@@ -186,28 +231,11 @@ conf_file_get (ConfSource *source,
 	nih_assert (path != NULL);
 
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! file) {
-		file = nih_new (source, ConfFile);
-		if (! file)
-			return NULL;
-
-		nih_list_init (&file->entry);
-
-		file->path = nih_strdup (file, path);
-		if (! file->path) {
-			nih_free (file);
-			return NULL;
-		}
-
-		nih_list_init (&file->items);
-
-		nih_alloc_set_destructor (file,
-					  (NihDestructor)nih_list_destroy);
-
-		nih_hash_add (source->files, &file->entry);
+	if (file) {
+		file->flag = source->flag;
+	} else {
+		file = conf_file_new (source, path);
 	}
-
-	file->flag = source->flag;
 
 	return file;
 }

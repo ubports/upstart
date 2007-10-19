@@ -1,5 +1,11 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_file_get): Split out the allocation code from here
+	(conf_file_new): into this new function.
+	* init/conf.h: Add prototype.
+	* init/tests/test_conf.c (test_file_new): New tests.
+	* TODO: Update.
+
 	* init/job.c (job_change_state): Hardcode the next state when we
 	catch a runaway job to be JOB_WAITING.
 	(job_next_state): Change next state for JOB_STARTING when goal is
