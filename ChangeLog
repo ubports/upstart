@@ -1,5 +1,11 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* util/Makefile.am (install-data-hook, install-exec-hook): Apply
+	transform to source and destination of both manpage and program
+	symlinks.
+	* compat/sysv/Makefile.am (install-data-hook, install-exec-hook): 
+	Likewise for the compatibility symlinks.
+
 	* TODO: Update.
 
 	* init/tests/test_process.c (test_spawn): Make the event a child

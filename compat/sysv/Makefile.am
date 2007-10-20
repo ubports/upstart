@@ -45,12 +45,20 @@ telinit_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 if COMPAT_SYSV
 install-data-hook:
-	ln -sf reboot.8 $(DESTDIR)$(man8dir)/halt.8
-	ln -sf reboot.8 $(DESTDIR)$(man8dir)/poweroff.8
+	src=`echo reboot | sed '$(transform)'`.8; \
+	for symlink in halt poweroff; do \
+	  inst=`echo $$symlink | sed '$(transform)'`.8; \
+          echo " ln -sf '$$src' '$(DESTDIR)$(man8dir)/$$inst'"; \
+	  ln -sf "$$src" "$(DESTDIR)$(man8dir)/$$inst"; \
+	done
 
 install-exec-hook:
-	ln -sf reboot $(DESTDIR)$(sbindir)/halt
-	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
+	src=`echo reboot | sed '$(transform);s/$$/$(EXEEXT)/'`; \
+	for symlink in halt poweroff; do \
+	  inst=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
+          echo " ln -sf '$$src' '$(DESTDIR)$(sbindir)/$$inst'"; \
+	  ln -sf "$$src" "$(DESTDIR)$(sbindir)/$$inst"; \
+	done
 endif
 
 

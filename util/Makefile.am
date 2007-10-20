@@ -24,14 +24,20 @@ initctl_LDADD = \
 
 
 install-data-hook:
-	ln -sf initctl.8 $(DESTDIR)$(man8dir)/start.8
-	ln -sf initctl.8 $(DESTDIR)$(man8dir)/stop.8
-	ln -sf initctl.8 $(DESTDIR)$(man8dir)/status.8
+	src=`echo initctl | sed '$(transform)'`.8; \
+	for symlink in start stop status; do \
+	  inst=`echo $$symlink | sed '$(transform)'`.8; \
+          echo " ln -sf '$$src' '$(DESTDIR)$(man8dir)/$$inst'"; \
+	  ln -sf "$$src" "$(DESTDIR)$(man8dir)/$$inst"; \
+	done
 
 install-exec-hook:
-	ln -sf initctl $(DESTDIR)$(sbindir)/start
-	ln -sf initctl $(DESTDIR)$(sbindir)/stop
-	ln -sf initctl $(DESTDIR)$(sbindir)/status
+	src=`echo initctl | sed '$(transform);s/$$/$(EXEEXT)/'`; \
+	for symlink in start stop status; do \
+	  inst=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
+          echo " ln -sf '$$src' '$(DESTDIR)$(sbindir)/$$inst'"; \
+	  ln -sf "$$src" "$(DESTDIR)$(sbindir)/$$inst"; \
+	done
 
 
 TESTS = \
