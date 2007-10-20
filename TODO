@@ -1,7 +1,3 @@
-track number of instances and if zero when entering waiting, emit stalled
-rather than doing it in the main loop
-
-
 High Priority:
 
  * The "Event Expression"/"State" code isn't complete yet, and has atomicity
