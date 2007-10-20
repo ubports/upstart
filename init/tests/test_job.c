@@ -2544,6 +2544,72 @@ test_change_state (void)
 	}
 
 
+	/* Check that if the last active instance is deleted that the
+	 * stalled event is emitted.
+	 */
+	TEST_FEATURE ("post-stop to waiting for last instance");
+	TEST_ALLOC_FAIL {
+		job_instances = 0;
+
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->refs, 0);
+		TEST_EQ (cause->blockers, 0);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "main");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stalled");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+
 	/* Check that a job can move from post-stop to starting.  This
 	 * should emit the starting event and block on it, as well as clear
 	 * any failed state information; but only unblock and unreference the
@@ -5360,98 +5426,6 @@ test_handle_event_finished (void)
 }
 
 
-void
-test_detect_stalled (void)
-{
-	JobConfig *config1, *config2;
-	Job       *job;
-	Event     *event;
-
-	TEST_FUNCTION ("job_detect_stalled");
-
-	event_init ();
-
-	config1 = job_config_new (NULL, "foo");
-	config2 = job_config_new (NULL, "bar");
-
-
-	/* Check that even if we detect the stalled state, we do nothing
-	 * if there's no handler for it.
-	 */
-	TEST_FEATURE ("with stalled state and no handler");
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we can detect the stalled state, when all jobs are
-	 * stopped, which results in the stalled event being queued.
-	 */
-	TEST_FEATURE ("with stalled state");
-	config1->start_on = event_operator_new (config1, EVENT_MATCH,
-						"stalled", NULL);
-
-	job_detect_stalled ();
-
-	event = (Event *)events->prev;
-	TEST_EQ_STR (event->name, "stalled");
-	nih_free (event);
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled state if one of the jobs
-	 * is waiting to be started.
-	 */
-	TEST_FEATURE ("with waiting job");
-	job = job_instance (config1);
-	job->goal = JOB_START;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled state if one of the jobs
-	 * is starting.
-	 */
-	TEST_FEATURE ("with starting job");
-	job->state = JOB_PRE_START;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled state if one of the jobs
-	 * is running.
-	 */
-	TEST_FEATURE ("with running job");
-	job->state = JOB_RUNNING;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled if one of the jobs is
-	 * stopping.
-	 */
-	TEST_FEATURE ("with stopping job");
-	job->goal = JOB_STOP;
-	job->state = JOB_POST_STOP;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	nih_free (config1);
-	nih_free (config2);
-	event_poll ();
-}
-
-
 int
 main (int   argc,
       char *argv[])
@@ -5474,7 +5448,6 @@ main (int   argc,
 	test_child_reaper ();
 	test_handle_event ();
 	test_handle_event_finished ();
-	test_detect_stalled ();
 
 	return 0;
 }

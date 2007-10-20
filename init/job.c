@@ -92,6 +92,14 @@ int          job_id_wrapped = FALSE;
  **/
 NihHash *jobs = NULL;
 
+/**
+ * job_instances:
+ *
+ * This counter tracks the number of active job instances; it is incremented
+ * each time a new one is spawned, and decremented each time one is destroyed.
+ **/
+unsigned int job_instances = 0;
+
 
 /**
  * job_init:
@@ -537,6 +545,8 @@ job_instance (JobConfig *config)
 
 	if (config->instance || NIH_LIST_EMPTY (&config->instances)) {
 		NIH_MUST (job = job_new (config));
+
+		job_instances++;
 	} else {
 		job = (Job *)config->instances.next;
 	}
@@ -807,6 +817,17 @@ job_change_state (Job      *job,
 				nih_free (job->config);
 			} else {
 				nih_free (job);
+			}
+
+			/* Decrease the instances counter, if it hits zero,
+			 * we've stalled.
+			 */
+			job_instances--;
+			if (! job_instances) {
+				nih_info (_("System has stalled, "
+					    "generating %s event"),
+					  STALLED_EVENT);
+				event_new (NULL, STALLED_EVENT, NULL, NULL);
 			}
 
 			return;
@@ -1634,53 +1655,5 @@ job_handle_event_finished (Event *event)
 
 			job_change_state (job, job_next_state (job));
 		}
-	}
-}
-
-
-/**
- * job_detect_stalled:
- *
- * This function is called each time through the main loop to detect whether
- * the system is stalled, a state in which all jobs are dormant.  If we
- * detect this, we generate the stalled event so that the system may take
- * action (e.g. opening a shell).
- **/
-void
-job_detect_stalled (void)
-{
-	int stalled = TRUE, can_stall = FALSE;
-
-	if (paused)
-		return;
-
-	job_init ();
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		JobConfig *config = (JobConfig *)iter;
-
-		/* Check the start events to make sure that at least one
-		 * job handles the stalled event, otherwise we loop.
-		 */
-		if (config->start_on) {
-			NIH_TREE_FOREACH_POST (&config->start_on->node, oper_iter) {
-				EventOperator *oper = (EventOperator *)oper_iter;
-
-				if ((oper->type == EVENT_MATCH)
-				    && (! strcmp (oper->name, STALLED_EVENT)))
-					can_stall = TRUE;
-			}
-		}
-
-		if (! NIH_LIST_EMPTY (&config->instances))
-			stalled = FALSE;
-	}
-
-	if (stalled && can_stall) {
-		nih_info (_("System has stalled, generating %s event"),
-			  STALLED_EVENT);
-		event_new (NULL, STALLED_EVENT, NULL, NULL);
-
-		nih_main_loop_interrupt ();
 	}
 }

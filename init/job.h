@@ -238,6 +238,7 @@ NIH_BEGIN_EXTERN
 unsigned int  job_id;
 int           job_id_wrapped;
 NihHash      *jobs;
+unsigned int  job_instances;
 
 
 void        job_init                  (void);
@@ -273,8 +274,6 @@ void        job_child_reaper          (void *ptr, pid_t pid, int
 
 void        job_handle_event          (Event *event);
 void        job_handle_event_finished (Event *event);
-
-void        job_detect_stalled        (void);
 
 NIH_END_EXTERN
 

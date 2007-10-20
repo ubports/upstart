@@ -1,5 +1,16 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_instance): Increment an instances counter each
+	time we spawn an instance.
+	(job_change_state): Decrement the instances counter again.
+	(job_detect_stalled): Drop the main loop function, since we perform
+	active detection of stall now.
+	* init/job.h: Update header.
+	* init/tests/test_job.c (test_change_state): Check that we get the
+	stalled event for the last instance.
+	(test_detect_stalled): Drop the test.
+	* init/main.c: Remove job_detect_stalled from the main loop.
+
 	* init/event.c (event_operator_destroy): Destructor for an
 	EventOperator that unblocks and unreferences the event first.
 	(event_operator_new): Set the operator.
