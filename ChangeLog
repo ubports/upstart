@@ -1,5 +1,19 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.h (ConfSourcePriority): Add a priority enum
+	(ConfSource): Add priority member.
+	* init/conf.c (conf_source_new): Take priority as an argument and
+	set it in the structure.
+	* init/tests/test_conf.c (test_source_new): Make sure priority
+	is set from the argument.
+	(test_file_new, test_file_get, test_item_new)
+	(test_source_reload_job_dir, test_source_reload_conf_dir)
+	(test_source_reload_file, test_source_reload, test_item_destroy):
+	Pass in a priority when creating a ConfSource.
+	* init/tests/test_parse_conf.c (test_parse_conf): Likewise.
+	* init/main.c (main): Set relative priorities for the configuration
+	directories.
+
 	* init/conf.h (conf_file, conf_item): Add source and file members
 	respectively that point to the parent structure.
 	* init/conf.c (conf_file_new, conf_item_new): Set the members.

@@ -65,7 +65,8 @@ test_source_new (void)
 	 */
 	TEST_FUNCTION ("conf_source_new");
 	TEST_ALLOC_FAIL {
-		source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+		source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR,
+					  CONF_SYSTEM);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (source, NULL);
@@ -77,6 +78,7 @@ test_source_new (void)
 		TEST_ALLOC_PARENT (source->path, source);
 		TEST_EQ_STR (source->path, "/tmp");
 		TEST_EQ (source->type, CONF_JOB_DIR);
+		TEST_EQ (source->priority, CONF_SYSTEM);
 		TEST_EQ_P (source->watch, NULL);
 		TEST_EQ (source->flag, FALSE);
 		TEST_NE_P (source->files, NULL);
@@ -99,7 +101,7 @@ test_file_new (void)
 	 * the source, with the flag copied.
 	 */
 	TEST_FUNCTION ("conf_file_get");
-	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR, CONF_SYSTEM);
 
 	TEST_ALLOC_FAIL {
 		file = conf_file_get (source, "/tmp/foo");
@@ -134,7 +136,7 @@ test_file_get (void)
 	ConfFile   *file, *ptr;
 
 	TEST_FUNCTION ("conf_file_get");
-	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR, CONF_SYSTEM);
 
 	/* Check that we can request a new ConfFile structure, it should be
 	 * allocated with nih_alloc and placed into the files hash table of
@@ -207,7 +209,7 @@ test_item_new (void)
 	ConfItem   *item;
 
 	TEST_FUNCTION ("conf_item_new");
-	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR, CONF_SYSTEM);
 	file = conf_file_get (source, "/tmp/foo");
 
 	/* Check that we can request a new Confitem structure, it should be
@@ -303,7 +305,7 @@ test_source_reload_job_dir (void)
 	 * directory parsed.
 	 */
 	TEST_FEATURE ("with new job directory");
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -414,7 +416,7 @@ test_source_reload_job_dir (void)
 	 * loaded.
 	 */
 	TEST_FEATURE ("with new file in directory (direct write)");
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -972,7 +974,7 @@ test_source_reload_job_dir (void)
 
 	chmod (filename, 0000);
 
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1075,7 +1077,7 @@ test_source_reload_job_dir (void)
 	fprintf (f, "respin\n");
 	fclose (f);
 
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1170,7 +1172,7 @@ test_source_reload_job_dir (void)
 	strcpy (filename, dirname);
 	strcat (filename, "/wibble");
 
-	source = conf_source_new (NULL, filename, CONF_JOB_DIR);
+	source = conf_source_new (NULL, filename, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -1191,7 +1193,7 @@ test_source_reload_job_dir (void)
 	 * deleted and the watch being removed from the source structure.
 	 */
 	TEST_FEATURE ("with deletion of top-level directory");
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1285,7 +1287,7 @@ no_inotify:
 	 * should still be parsed.
 	 */
 	TEST_FEATURE ("with new job directory but no inotify");
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1394,7 +1396,7 @@ no_inotify:
 	 * should have been lost.
 	 */
 	TEST_FEATURE ("with reload of job directory");
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1544,7 +1546,7 @@ no_inotify:
 
 	chmod (filename, 0000);
 
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1643,7 +1645,7 @@ no_inotify:
 	fprintf (f, "respin\n");
 	fclose (f);
 
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1734,7 +1736,7 @@ no_inotify:
 	strcpy (filename, dirname);
 	strcat (filename, "/wibble");
 
-	source = conf_source_new (NULL, filename, CONF_JOB_DIR);
+	source = conf_source_new (NULL, filename, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -1754,7 +1756,7 @@ no_inotify:
 	 * files, items and jobs are deleted.
 	 */
 	TEST_FEATURE ("with reload of deleted directory");
-	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -1888,7 +1890,7 @@ test_source_reload_conf_dir (void)
 	 * directory parsed.
 	 */
 	TEST_FEATURE ("with new conf directory");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2014,7 +2016,7 @@ test_source_reload_conf_dir (void)
 	 * be automatically parsed and loaded.
 	 */
 	TEST_FEATURE ("with new file in directory");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2291,7 +2293,7 @@ test_source_reload_conf_dir (void)
 
 	chmod (filename, 0000);
 
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2402,7 +2404,7 @@ test_source_reload_conf_dir (void)
 	fprintf (f, "end job\n");
 	fclose (f);
 
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2497,7 +2499,7 @@ test_source_reload_conf_dir (void)
 	strcpy (filename, dirname);
 	strcat (filename, "/wibble");
 
-	source = conf_source_new (NULL, filename, CONF_DIR);
+	source = conf_source_new (NULL, filename, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -2518,7 +2520,7 @@ test_source_reload_conf_dir (void)
 	 * deleted and the watch being removed from the source structure.
 	 */
 	TEST_FEATURE ("with deletion of top-level directory");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2626,7 +2628,7 @@ no_inotify:
 	 * should still be parsed.
 	 */
 	TEST_FEATURE ("with new conf directory but no inotify");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2751,7 +2753,7 @@ no_inotify:
 	 * should have been lost.
 	 */
 	TEST_FEATURE ("with reload of conf directory");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2908,7 +2910,7 @@ no_inotify:
 
 	chmod (filename, 0000);
 
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -3009,7 +3011,7 @@ no_inotify:
 	fprintf (f, "end job\n");
 	fclose (f);
 
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -3100,7 +3102,7 @@ no_inotify:
 	strcpy (filename, dirname);
 	strcat (filename, "/wibble");
 
-	source = conf_source_new (NULL, filename, CONF_DIR);
+	source = conf_source_new (NULL, filename, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -3120,7 +3122,7 @@ no_inotify:
 	 * files, items and jobs are deleted.
 	 */
 	TEST_FEATURE ("with reload of deleted directory");
-	source = conf_source_new (NULL, dirname, CONF_DIR);
+	source = conf_source_new (NULL, dirname, CONF_DIR, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -3244,7 +3246,7 @@ test_source_reload_file (void)
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -3324,7 +3326,7 @@ test_source_reload_file (void)
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -3874,7 +3876,7 @@ test_source_reload_file (void)
 
 	chmod (filename, 0000);
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -3930,7 +3932,7 @@ test_source_reload_file (void)
 	fprintf (f, "end job\n");
 	fclose (f);
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -3966,7 +3968,7 @@ test_source_reload_file (void)
 	strcpy (filename, dirname);
 	strcat (filename, "/wibble");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -4002,7 +4004,7 @@ test_source_reload_file (void)
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -4086,7 +4088,7 @@ no_inotify:
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -4155,7 +4157,7 @@ no_inotify:
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -4248,7 +4250,7 @@ no_inotify:
 
 	chmod (filename, 0000);
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -4296,7 +4298,7 @@ no_inotify:
 	fprintf (f, "end job\n");
 	fclose (f);
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -4325,7 +4327,7 @@ no_inotify:
 	strcpy (filename, dirname);
 	strcat (filename, "/wibble");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_LT (ret, 0);
@@ -4357,7 +4359,7 @@ no_inotify:
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
 
-	source = conf_source_new (NULL, filename, CONF_FILE);
+	source = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -4430,7 +4432,7 @@ test_source_reload (void)
 
 	strcpy (filename, dirname);
 	strcat (filename, "/foo");
-	source1 = conf_source_new (NULL, filename, CONF_FILE);
+	source1 = conf_source_new (NULL, filename, CONF_FILE, CONF_SYSTEM);
 
 	f = fopen (filename, "w");
 	fprintf (f, "job foo\n");
@@ -4443,7 +4445,7 @@ test_source_reload (void)
 	strcat (filename, "/bar");
 	mkdir (filename, 0755);
 
-	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR);
+	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR, CONF_SYSTEM);
 
 	strcpy (filename, dirname);
 	strcat (filename, "/bar/bar");
@@ -4456,7 +4458,7 @@ test_source_reload (void)
 
 	strcpy (filename, dirname);
 	strcat (filename, "/baz");
-	source3 = conf_source_new (NULL, filename, CONF_DIR);
+	source3 = conf_source_new (NULL, filename, CONF_DIR, CONF_SYSTEM);
 
 	conf_reload ();
 
@@ -4484,7 +4486,7 @@ test_item_destroy (void)
 	Job        *instance;
 
 	TEST_FUNCTION ("conf_item_destroy");
-	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
+	source = conf_source_new (NULL, "/path", CONF_JOB_DIR, CONF_SYSTEM);
 	file = conf_file_get (source, "/path/to/file");
 
 

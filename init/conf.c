@@ -100,11 +100,13 @@ conf_init (void)
  * conf_source_new:
  * @parent: parent of new block,
  * @path: path to source,
- * @type: type of source.
+ * @type: type of source,
+ * @priority: priority for selection.
  *
  * Allocates and returns a new ConfSource structure for the given @path;
  * @type indicates whether this @path is a file or directory and what type
- * of files are within the directory.
+ * of files are within the directory; @priority is used when multiple items
+ * have the same name.
  *
  * The returned structure is automatically placed in the conf_sources hash
  * table, indexed by @path.
@@ -122,9 +124,10 @@ conf_init (void)
  * insufficient memory.
  **/
 ConfSource *
-conf_source_new (const void     *parent,
-		 const char     *path,
-		 ConfSourceType  type)
+conf_source_new (const void         *parent,
+		 const char         *path,
+		 ConfSourceType      type,
+		 ConfSourcePriority  priority)
 {
 	ConfSource *source;
 
@@ -145,6 +148,7 @@ conf_source_new (const void     *parent,
 	}
 
 	source->type = type;
+	source->priority = priority;
 
 	source->watch = NULL;
 

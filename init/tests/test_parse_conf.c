@@ -48,7 +48,7 @@ test_parse_conf (void)
 	TEST_FUNCTION ("parse_conf");
 	job_init ();
 
-	source = conf_source_new (NULL, "/path", CONF_DIR);
+	source = conf_source_new (NULL, "/path", CONF_DIR, CONF_SYSTEM);
 	file = conf_file_get (source, "/path/file");
 
 	/* Check that a simple configuration of two jobs can be parsed,
@@ -138,7 +138,7 @@ test_stanza_job (void)
 	TEST_FUNCTION ("parse_job");
 	job_init ();
 
-	source = conf_source_new (NULL, "/path", CONF_DIR);
+	source = conf_source_new (NULL, "/path", CONF_DIR, CONF_SYSTEM);
 	file = conf_file_get (source, "/path/file");
 
 	/* Check that a job stanza begins a block which is parsed as a

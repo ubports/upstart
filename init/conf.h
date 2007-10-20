@@ -45,6 +45,21 @@ typedef enum conf_source_type {
 } ConfSourceType;
 
 /**
+ * ConfSourcePriority:
+ *
+ * In order to select between different configurations with the same name
+ * from different sources, we assign configuration sources a priority that
+ * reflects where they come from.
+ *
+ * The priorities are deliberately spaced out so it's usual to see
+ * CONF_SYSTEM - 1 as a priority.
+ **/
+typedef enum conf_source_priority {
+	CONF_USER	= 10,
+	CONF_SYSTEM	= 20
+} ConfSourcePriority;
+
+/**
  * ConfItemType:
  *
  * Various different types of parsed items are supported as well, defining
@@ -61,12 +76,15 @@ typedef enum conf_item_type {
  * @entry: list header,
  * @path: path to source,
  * @type: type of source,
+ * @priority: priority for item, selection,
  * @watch: NihWatch structure for automatic change notification,
  * @flag: reload flag,
  * @files; hash table of files.
  *
  * This structure represents a single source of configuration, which may be
  * a single file or a directory of files of various types, depending on @type.
+ * If multiple items exist with the same name, @priority is used to select
+ * between them.
  *
  * Normally inotify is used to watch the source for changes and load them
  * automatically, however mandatory reloading is also supported; for this
@@ -74,14 +92,15 @@ typedef enum conf_item_type {
  * any that are in the old state are deleted.
  **/
 typedef struct conf_source {
-	NihList         entry;
-	char           *path;
-	ConfSourceType  type;
+	NihList             entry;
+	char               *path;
+	ConfSourceType      type;
+	ConfSourcePriority  priority;
 
-	NihWatch       *watch;
+	NihWatch           *watch;
 
-	int             flag;
-	NihHash        *files;
+	int                 flag;
+	NihHash            *files;
 } ConfSource;
 
 /**
@@ -145,7 +164,8 @@ NihHash *conf_sources;
 void        conf_init          (void);
 
 ConfSource *conf_source_new    (const void *parent, const char *path,
-				ConfSourceType type)
+				ConfSourceType type,
+				ConfSourcePriority priority)
 	__attribute__ ((warn_unused_result, malloc));
 ConfFile *  conf_file_new      (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result, malloc));
