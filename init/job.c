@@ -403,22 +403,28 @@ job_new (JobConfig  *config)
 
 	if (config->start_on) {
 		job->start_on = event_operator_copy (job, config->start_on);
-		if (! job->start_on)
-			goto error;
+		if (! job->start_on) {
+			nih_free (job);
+			return NULL;
+		}
 	}
 
 	if (config->stop_on) {
 		job->stop_on = event_operator_copy (job, config->stop_on);
-		if (! job->stop_on)
-			goto error;
+		if (! job->stop_on) {
+			nih_free (job);
+			return NULL;
+		}
 	}
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
 	job->pid = nih_alloc (job, sizeof (pid_t) * PROCESS_LAST);
-	if (! job->pid)
-		goto error;
+	if (! job->pid) {
+		nih_free (job);
+		return NULL;
+	}
 
 	for (i = 0; i < PROCESS_LAST; i++)
 		job->pid[i] = 0;
@@ -439,15 +445,6 @@ job_new (JobConfig  *config)
 	nih_list_add (&config->instances, &job->entry);
 
 	return job;
-
-error:
-	if (job->start_on)
-		event_operator_reset (job->start_on);
-	if (job->stop_on)
-		event_operator_reset (job->stop_on);
-
-	nih_free (job);
-	return NULL;
 }
 
 

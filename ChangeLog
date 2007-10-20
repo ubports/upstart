@@ -1,5 +1,20 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_destroy): Destructor for an
+	EventOperator that unblocks and unreferences the event first.
+	(event_operator_new): Set the operator.
+	(event_operator_copy): Remove error handling since it's unnecessary
+	with the destructor in place.
+	* init/event.h: Add prototype.
+	* init/tests/test_event.c (test_operator_destroy): Make sure it
+	works properly.
+	(test_operator_copy): Don't unblock or unref events before freeing
+	them, since that's now taken care of when it's referenced.
+	* init/job.c (job_new): Remove unnecessary error handling.
+	* init/tests/test_job.c (test_run_process): Reference the event
+	when setting it, otherwise we'll assert when we try to free it.
+	* TODO: Update.
+
 	* init/job.c (job_new): Drop the parent argument for consistency.
 	(job_instance): Update call to job_new.
 	* init/job.h: Update prototype.

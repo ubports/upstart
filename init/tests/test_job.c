@@ -3160,6 +3160,7 @@ test_run_process (void)
 			oper->event = event_new (oper, "foo", NULL, NULL);
 			nih_tree_add (&config->start_on->node, &oper->node,
 				      NIH_TREE_LEFT);
+			event_ref (oper->event);
 
 			oper = event_operator_new (
 				config->start_on, EVENT_MATCH, "bar", NULL);
@@ -3167,6 +3168,7 @@ test_run_process (void)
 			oper->event = event_new (oper, "bar", NULL, NULL);
 			nih_tree_add (&config->start_on->node, &oper->node,
 				      NIH_TREE_RIGHT);
+			event_ref (oper->event);
 
 			job = job_instance (config);
 			job->goal = JOB_START;
@@ -3291,6 +3293,7 @@ test_run_process (void)
 			oper->event = event_new (oper, "foo", NULL, NULL);
 			nih_tree_add (&config->start_on->node, &oper->node,
 				      NIH_TREE_LEFT);
+			event_ref (oper->event);
 
 			oper = event_operator_new (
 				config->start_on, EVENT_MATCH, "bar", NULL);
@@ -3298,6 +3301,7 @@ test_run_process (void)
 			oper->event = event_new (oper, "bar", NULL, NULL);
 			nih_tree_add (&config->start_on->node, &oper->node,
 				      NIH_TREE_RIGHT);
+			event_ref (oper->event);
 
 			job = job_instance (config);
 			job->goal = JOB_START;

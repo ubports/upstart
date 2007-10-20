@@ -513,8 +513,6 @@ event_operator_new (const void         *parent,
 
 	nih_tree_init (&oper->node);
 
-	nih_alloc_set_destructor (oper, (NihDestructor)nih_tree_destroy);
-
 	oper->type = type;
 	oper->value = FALSE;
 
@@ -535,6 +533,8 @@ event_operator_new (const void         *parent,
 
 	oper->event = NULL;
 	oper->blocked = FALSE;
+
+	nih_alloc_set_destructor (oper, (NihDestructor)event_operator_destroy);
 
 	return oper;
 }
@@ -578,8 +578,10 @@ event_operator_copy (const void          *parent,
 
 	if (old_oper->args) {
 		oper->args = nih_str_array_copy (oper, NULL, old_oper->args);
-		if (! oper->args)
-			goto error;
+		if (! oper->args) {
+			nih_free (oper);
+			return NULL;
+		}
 	}
 
 	if (old_oper->event) {
@@ -594,8 +596,10 @@ event_operator_copy (const void          *parent,
 	if (old_oper->node.left) {
 		child = event_operator_copy (
 			oper, (EventOperator *)old_oper->node.left);
-		if (! child)
-			goto error;
+		if (! child) {
+			nih_free (oper);
+			return NULL;
+		}
 
 		nih_tree_add (&oper->node, &child->node, NIH_TREE_LEFT);
 	}
@@ -604,28 +608,44 @@ event_operator_copy (const void          *parent,
 	if (old_oper->node.right) {
 		child = event_operator_copy (
 			oper, (EventOperator *)old_oper->node.right);
-		if (! child)
-			goto error;
+		if (! child) {
+			nih_free (oper);
+			return NULL;
+		}
 
 		nih_tree_add (&oper->node, &child->node, NIH_TREE_RIGHT);
 	}
 
 	return oper;
+}
 
-error:
+/**
+ * event_operator_destroy:
+ * @oper: operator to be destroyed.
+ *
+ * Unblocks and unreferences the event referenced by @oper and unlinks it
+ * from the event tree.
+ *
+ * Normally used or called from an nih_alloc() destructor so that the list
+ * item is automatically removed from its containing list when freed.
+ *
+ * Returns: zero.
+ **/
+int
+event_operator_destroy (EventOperator *oper)
+{
+	nih_assert (oper != NULL);
+
 	if (oper->event) {
 		if (oper->blocked)
 			event_unblock (oper->event);
+
 		event_unref (oper->event);
 	}
 
-	if (oper->node.left) {
-		event_operator_reset ((EventOperator *)oper->node.left);
-		nih_free (oper->node.left);
-	}
+	nih_tree_destroy (&oper->node);
 
-	nih_free (oper);
-	return NULL;
+	return 0;
 }
 
 

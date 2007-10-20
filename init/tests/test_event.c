@@ -676,10 +676,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->event->blockers, 0);
 		TEST_EQ (copy->blocked, FALSE);
 
-		event_unref (copy->event);
 		nih_free (copy);
-
-		event_unref (oper->event);
 		nih_free (oper);
 	}
 
@@ -707,8 +704,6 @@ test_operator_copy (void)
 			TEST_EQ_P (copy, NULL);
 			TEST_EQ (oper->event->refs, 1);
 			TEST_EQ (oper->event->blockers, 1);
-			event_unblock (oper->event);
-			event_unref (oper->event);
 			nih_free (oper);
 			continue;
 		}
@@ -728,12 +723,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->event->blockers, 2);
 		TEST_EQ (copy->blocked, TRUE);
 
-		event_unblock (copy->event);
-		event_unref (copy->event);
 		nih_free (copy);
-
-		event_unblock (oper->event);
-		event_unref (oper->event);
 		nih_free (oper);
 	}
 
@@ -810,8 +800,6 @@ test_operator_copy (void)
 		TEST_EQ (copy1->event->blockers, 2);
 		TEST_EQ (copy1->blocked, TRUE);
 
-		event_unblock (copy1->event);
-		event_unref (copy1->event);
 		nih_free (copy1);
 
 		copy2 = (EventOperator *)copy->node.right;
@@ -831,22 +819,35 @@ test_operator_copy (void)
 		TEST_EQ (copy2->event->blockers, 2);
 		TEST_EQ (copy2->blocked, TRUE);
 
-		event_unblock (copy2->event);
-		event_unref (copy2->event);
 		nih_free (copy2);
-
 		nih_free (copy);
-
-		event_unblock (oper1->event);
-		event_unref (oper1->event);
 		nih_free (oper1);
-
-		event_unblock (oper2->event);
-		event_unref (oper2->event);
 		nih_free (oper2);
-
 		nih_free (oper);
 	}
+
+	event_poll ();
+}
+
+void
+test_operator_destroy (void)
+{
+	EventOperator *oper;
+	Event         *event;
+
+	/* Check that when an event operator is destroyed, the referenced
+	 * event is unblocked and unreferenced.
+	 */
+	TEST_FUNCTION ("event_operator_destroy");
+	oper = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	event = event_new (NULL, "foo", NULL, NULL);
+
+	nih_free (oper);
+
+	TEST_EQ (event->refs, 0);
+	TEST_EQ (event->blockers, 0);
+
+	nih_free (event);
 
 	event_poll ();
 }
@@ -1275,6 +1276,7 @@ main (int   argc,
 
 	test_operator_new ();
 	test_operator_copy ();
+	test_operator_destroy ();
 	test_operator_update ();
 	test_operator_match ();
 	test_operator_handle ();

@@ -241,6 +241,8 @@ EventOperator *event_operator_copy    (const void *parent,
 				       const EventOperator *old_oper)
 	__attribute__ ((warn_unused_result, malloc));
 
+int            event_operator_destroy (EventOperator *oper);
+
 void           event_operator_update  (EventOperator *oper);
 int            event_operator_match   (EventOperator *oper, Event *event);
 
