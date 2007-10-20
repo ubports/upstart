@@ -88,10 +88,11 @@ typedef struct conf_source {
  * ConfFile:
  * @entry: list header,
  * @path: path to file,
+ * @source: configuration source,
  * @flag: reload flag,
  * @items: list of items.
  *
- * This structure represents a file within a source, either the file itself
+ * This structure represents a file within @source, either the file itself
  * or a single file in the directory tree.  These are tracked independantly
  * to make handling file deletion easier.
  *
@@ -101,24 +102,33 @@ typedef struct conf_source {
  * the wrong flag value.
  **/
 typedef struct conf_file {
-	NihList  entry;
-	char    *path;
+	NihList     entry;
+	char       *path;
+	ConfSource *source;
 
-	int      flag;
-	NihList  items;
+	int         flag;
+	NihList     items;
 } ConfFile;
 
 /**
  * ConfItem:
  * @entry: list header,
+ * @file: configuration file,
  * @type: item type,
  * @data: pointer to actual item.
  *
- * This structure represents an item defined within a configuration file,
- * the @data pointer points to the actual item structure itself.
+ * This structure represents an item defined within @file; these are tracked
+ * so that when a configuration file is modified or deleted we can expire
+ * all of the old versions of its configuration.
+ *
+ * Some source types may only have one item per file, in which case @type
+ * can actually be inferred from the source type.  Other source types permit
+ * multiple items in each file, with @type being taken from the stanza that
+ * defines the item.
  **/
 typedef struct conf_item {
 	NihList       entry;
+	ConfFile     *file;
 	ConfItemType  type;
 
 	union {

@@ -191,6 +191,8 @@ conf_file_new (ConfSource *source,
 
 	nih_list_init (&file->entry);
 
+	file->source = source;
+
 	file->path = nih_strdup (file, path);
 	if (! file->path) {
 		nih_free (file);
@@ -267,6 +269,7 @@ conf_item_new (ConfFile     *file,
 
 	nih_list_init (&item->entry);
 
+	item->file = file;
 	item->type = type;
 	item->data = NULL;
 

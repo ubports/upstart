@@ -1,5 +1,11 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.h (conf_file, conf_item): Add source and file members
+	respectively that point to the parent structure.
+	* init/conf.c (conf_file_new, conf_item_new): Set the members.
+	* init/tests/test_conf.c (test_file_new, test_file_get)
+	(test_item_new): Make sure the new members are set properly.
+
 	* util/Makefile.am (install-data-hook, install-exec-hook): Apply
 	transform to source and destination of both manpage and program
 	symlinks.

@@ -112,6 +112,7 @@ test_file_new (void)
 		TEST_ALLOC_SIZE (file, sizeof (ConfFile));
 		TEST_ALLOC_PARENT (file, source);
 		TEST_LIST_NOT_EMPTY (&file->entry);
+		TEST_EQ_P (file->source, source);
 		TEST_ALLOC_PARENT (file->path, file);
 		TEST_EQ_STR (file->path, "/tmp/foo");
 		TEST_EQ (file->flag, source->flag);
@@ -151,6 +152,7 @@ test_file_get (void)
 		TEST_ALLOC_SIZE (file, sizeof (ConfFile));
 		TEST_ALLOC_PARENT (file, source);
 		TEST_LIST_NOT_EMPTY (&file->entry);
+		TEST_EQ_P (file->source, source);
 		TEST_ALLOC_PARENT (file->path, file);
 		TEST_EQ_STR (file->path, "/tmp/foo");
 		TEST_EQ (file->flag, source->flag);
@@ -183,6 +185,7 @@ test_file_get (void)
 		TEST_ALLOC_SIZE (file, sizeof (ConfFile));
 		TEST_ALLOC_PARENT (file, source);
 		TEST_LIST_NOT_EMPTY (&file->entry);
+		TEST_EQ_P (file->source, source);
 		TEST_ALLOC_PARENT (file->path, file);
 		TEST_EQ_STR (file->path, "/tmp/foo");
 		TEST_EQ (file->flag, source->flag);
@@ -223,6 +226,7 @@ test_item_new (void)
 		TEST_ALLOC_SIZE (item, sizeof (ConfItem));
 		TEST_ALLOC_PARENT (item, file);
 		TEST_LIST_NOT_EMPTY (&item->entry);
+		TEST_EQ_P (item->file, file);
 		TEST_EQ (item->type, CONF_JOB);
 		TEST_EQ_P (item->data, NULL);
 
