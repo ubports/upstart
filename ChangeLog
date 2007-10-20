@@ -1,5 +1,8 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_process.c (test_spawn): Make the event a child
+	of the operator so it doesn't get freed first.
+
 	* init/job.c (job_instance): Increment an instances counter each
 	time we spawn an instance.
 	(job_change_state): Decrement the instances counter again.

@@ -255,7 +255,7 @@ test_spawn (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (job, "wibble", NULL, NULL);
+	oper->event = event_new (oper, "wibble", NULL, NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "FOO=APPLE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -267,7 +267,7 @@ test_spawn (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (job, "wobble", NULL, NULL);
+	oper->event = event_new (oper, "wobble", NULL, NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "BAR=ORANGE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -276,7 +276,6 @@ test_spawn (void)
 	oper->blocked = TRUE;
 	event_block (oper->event);
 	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
-
 
 	pid = process_spawn (job, args);
 
