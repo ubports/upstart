@@ -65,7 +65,6 @@
 
 
 /* Prototypes for static functions */
-static const char *job_config_name   (JobConfig *config);
 static Event *     job_emit_event    (Job *job)
 	__attribute__ ((malloc));
 static int         job_catch_runaway (Job *job);
@@ -110,8 +109,7 @@ void
 job_init (void)
 {
 	if (! jobs)
-		NIH_MUST (jobs = nih_hash_new (NULL, 0,
-					       (NihKeyFunction)job_config_name));
+		NIH_MUST (jobs = nih_hash_new (NULL, 0, nih_hash_string_key));
 }
 
 
@@ -244,24 +242,6 @@ job_config_new (const void *parent,
 
 	return config;
 }
-
-/**
- * job_config_name:
- * @config: config to be checked.
- *
- * This is the hash key function for the jobs hash table, returning the
- * name of the job.
- *
- * Returns: pointer to the job name.
- **/
-static const char *
-job_config_name (JobConfig *config)
-{
-	nih_assert (config != NULL);
-
-	return config->name;
-}
-
 
 /**
  * job_config_find_by_name:

@@ -1,5 +1,9 @@
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_init): The job's name is the first item in the
+	structure again, so we can use nih_hash_string_key.
+	(job_config_name): Drop this function, then.
+
 	* init/conf.h (ConfSourcePriority): Add a priority enum
 	(ConfSource): Add priority member.
 	* init/conf.c (conf_source_new): Take priority as an argument and
