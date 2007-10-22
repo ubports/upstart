@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,6 @@
 #include <sys/un.h>
 
 #include <time.h>
-#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +55,8 @@
 
 
 /* Prototypes for static functions */
-static NihIoWatch *open_logging    (void);
+static NihIoWatch *open_logging    (void)
+	__attribute__ ((warn_unused_result, malloc));
 static void        logging_watcher (void *data, NihIoWatch *watch,
 				    NihIoEvents events);
 static void        logging_reader  (void *data, NihIo *io,
@@ -75,7 +75,7 @@ static NihIoBuffer *log_buffer = NULL;
 /**
  * log_file:
  *
- * Open log file, this remains %NULL until it's opened successfully.
+ * Open log file, this remains NULL until it's opened successfully.
  **/
 static FILE *log_file = NULL;
 
@@ -83,19 +83,10 @@ static FILE *log_file = NULL;
 /**
  * daemonise:
  *
- * This is set to %TRUE if we should become a daemon, rather than just
+ * This is set to TRUE if we should become a daemon, rather than just
  * running in the foreground.
  **/
 static int daemonise = FALSE;
-
-/**
- * silent:
- *
- * This is set to %TRUE if we should not write a copy of all messages we
- * receive to the console.
- **/
-static int silent = FALSE;
-
 
 /**
  * options:
@@ -105,8 +96,6 @@ static int silent = FALSE;
 static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
-	{ 0, "silent", N_("Do not write messages to the console"),
-	  NULL, NULL, &silent, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -116,11 +105,16 @@ int
 main (int   argc,
       char *argv[])
 {
-	FILE  *fd;
 	char **args;
 	int    ret;
 
 	nih_main_init (argv[0]);
+
+	nih_option_set_synopsis (_("Log output of jobs to /var/log/boot."));
+	nih_option_set_help (
+		_("By default, logd does not detach from the console and "
+		  "remains in the foreground.  Use the --daemon option to "
+		  "have it detach."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -132,30 +126,34 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Check the kernel command-line for quiet;
-	 * this only works if /proc is mounted, which is only true if
-	 * initramfs is being used ... fails to chatty
-	 */
-	fd = fopen ("/proc/cmdline", "r");
-	if (fd != NULL) {
-		char buf[4096];
 
-		if (fgets (buf, sizeof (buf), fd) != NULL) {
-			char *ptr;
+	/* Open the logging socket */
+	if (! open_logging ()) {
+		NihError *err;
 
-			ptr = strstr (buf, "quiet");
-			if (ptr
-			    && ((ptr == buf) || isspace (*(ptr - 1)))
-			    && ((*(ptr + 5) == '\0') || isspace (*(ptr + 5))))
-				silent = TRUE;
-		}
+		err = nih_error_get ();
+		nih_fatal (_("Unable to open listening socket: %s"),
+			   err->message);
+		nih_free (err);
 
-		fclose (fd);
+		exit (1);
 	}
 
-	/* Become daemon */
-	if (daemonise)
-		nih_main_daemonise ();
+	/* Become daemon, or signify that we're ready to receive events */
+	if (daemonise) {
+		if (nih_main_daemonise () < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_fatal ("%s: %s", _("Unable to become daemon"),
+				   err->message);
+			nih_free (err);
+
+			exit (1);
+		}
+	} else {
+		raise (SIGSTOP);
+	}
 
 
 	/* Send all logging output to syslog */
@@ -164,22 +162,9 @@ main (int   argc,
 
 	/* Handle TERM signal gracefully */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	nih_signal_add_callback (NULL, SIGTERM, nih_main_term_signal, NULL);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
+					  nih_main_term_signal, NULL));
 
-	/* Open the logging socket */
-	if (! open_logging ()) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error (_("Unable to open listening socket: %s"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	/* Signify that we're ready to receive events */
-	raise (SIGSTOP);
 
 	ret = nih_main_loop ();
 
@@ -194,7 +179,7 @@ main (int   argc,
  * we accept connections on this socket and expect to read the name of
  * the daemon we are logging before reading the lines.
  *
- * Returns: NihIoWatch structure or %NULL on raised error.
+ * Returns: NihIoWatch structure or NULL on raised error.
  **/
 static NihIoWatch *
 open_logging (void)
@@ -235,7 +220,6 @@ open_logging (void)
 	watch = nih_io_add_watch (NULL, sock, NIH_IO_READ,
 				  logging_watcher, NULL);
 	if (! watch) {
-		errno = ENOMEM;
 		nih_error_raise_system ();
 		close (sock);
 		return NULL;
@@ -247,7 +231,7 @@ open_logging (void)
 /**
  * logging_watcher:
  * @data: not used,
- * @watch: #NihIoWatch for which event occurred,
+ * @watch: NihIoWatch for which event occurred,
  * @events: events that occurred.
  *
  * This function is called whenever we can accept new connections on the
@@ -273,7 +257,8 @@ logging_watcher (void        *data,
 	}
 
 	/* Create an NihIo structure for the child */
-	io = nih_io_reopen (NULL, sock, logging_reader, NULL, NULL, NULL);
+	io = nih_io_reopen (NULL, sock, NIH_IO_STREAM, logging_reader,
+			    NULL, NULL, NULL);
 	if (! io) {
 		nih_error (_("Insufficient memory to accept child"));
 		close (sock);
@@ -284,13 +269,13 @@ logging_watcher (void        *data,
 /**
  * logging_reader:
  * @data: not used,
- * @io: #NihIo with data to be read,
+ * @io: NihIo with data to be read,
  * @buf: buffer data is available in,
  * @len: bytes in @buf.
  *
  * This function is called when there is data available to be read from
  * a logging connection, this only takes care of reading the child name
- * from the socket and then adjusts the watch to call @line_reader
+ * from the socket and then adjusts the watch to call line_reader()
  * instead.
  **/
 static void
@@ -299,7 +284,7 @@ logging_reader (void       *data,
 		const char *buf,
 		size_t      len)
 {
-	size_t  namelen;
+	size_t  sizelen, namelen;
 	char   *name;
 
 	nih_assert (io != NULL);
@@ -316,12 +301,15 @@ logging_reader (void       *data,
 	if (len < (sizeof (size_t) + namelen))
 		return;
 
-	/* Read the size and then the name from the buffer */
-	NIH_MUST (name = nih_io_read (NULL, io, sizeof (size_t)));
+	/* Read the size and discard it */
+	sizelen = sizeof (size_t);
+	NIH_MUST (name = nih_io_read (io, io, &sizelen));
 	nih_free (name);
-	NIH_MUST (name = nih_io_read (io, io, namelen));
 
-	/* Change the functions called and pass the name */
+	/* Read the name from the buffer, change the function to be a
+	 * line_reader that gets the name in the data argument.
+	 */
+	NIH_MUST (name = nih_io_read (io, io, &namelen));
 	io->reader = (NihIoReader)line_reader;
 	io->data = name;
 
@@ -333,7 +321,7 @@ logging_reader (void       *data,
 /**
  * line_reader:
  * @name: name of daemon,
- * @io: #NihIo with data to be read,
+ * @io: NihIo with data to be read,
  * @buf: buffer data is available in,
  * @len: bytes in @buf.
  *
@@ -359,13 +347,6 @@ line_reader (const char *name,
 		time_t     now;
 		struct tm *tm;
 		char       stamp[32];
-
-		/* Write it directly to the console */
-		if (! (daemonise || silent)) {
-			fputs (line, stdout);
-			fputc ('\n', stdout);
-			fflush (stdout);
-		}
 
 		/* Format a time stamp for the log */
 		now = time (NULL);

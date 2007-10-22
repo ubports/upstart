@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +39,27 @@ typedef struct nih_list {
 	struct nih_list *prev, *next;
 } NihList;
 
+/**
+ * NihListEntry:
+ * @entry: list header,
+ * @data: data pointer,
+ * @str: string pointer,
+ * @int_data: integer value.
+ *
+ * This structure can be used as a generic NihList node that contains
+ * a pointer to generic data, a string or contains an integer value.
+ *
+ * You should take care of setting the data yourself.
+ **/
+typedef struct nih_list_entry {
+	NihList entry;
+	union {
+		void *data;
+		char *str;
+		int   int_data;
+	};
+} NihListEntry;
+
 
 /**
  * NIH_LIST_EMPTY:
@@ -62,7 +83,7 @@ typedef struct nih_list {
  * the loop.
  *
  * If you wish to modify the list, e.g. remove entries, use
- * #NIH_LIST_FOREACH_SAFE instead.
+ * NIH_LIST_FOREACH_SAFE() instead.
  **/
 #define NIH_LIST_FOREACH(list, iter) \
 	for (NihList *iter = (list)->next; iter != (list); iter = iter->next)
@@ -82,7 +103,7 @@ typedef struct nih_list {
  * after it.
  *
  * Note that if you wish an entry added after @iter to be visited, you
- * would need to use #NIH_LIST_FOREACH instead, as this would skip it.
+ * would need to use NIH_LIST_FOREACH() instead, as this would skip it.
  **/
 #define NIH_LIST_FOREACH_SAFE(list, iter) \
 	for (NihList *iter = (list)->next, *_##iter = iter->next; \
@@ -92,15 +113,19 @@ typedef struct nih_list {
 NIH_BEGIN_EXTERN
 
 void          nih_list_init       (NihList *entry);
-NihList *     nih_list_new        (void)
+NihList *     nih_list_new        (const void *parent)
 	__attribute__ ((warn_unused_result, malloc));
+
+NihListEntry *nih_list_entry_new  (const void *parent)
+	__attribute__ ((warn_unused_result, malloc));
+
+
+NihList *     nih_list_add        (NihList *list, NihList *entry);
+NihList *     nih_list_add_after  (NihList *list, NihList *entry);
 
 NihList *     nih_list_remove     (NihList *entry);
 int           nih_list_destructor (NihList *entry);
 int           nih_list_free       (NihList *entry);
-
-NihList *     nih_list_add        (NihList *list, NihList *entry);
-NihList *     nih_list_add_after  (NihList *list, NihList *entry);
 
 NIH_END_EXTERN
 

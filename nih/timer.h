@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,10 +33,10 @@
  *
  * The timer callback is called whenever the timer has been triggered.
  * For periodic and scheduled timers, the timer may be removed by calling
- * #nih_list_remove or similar; this happens automatically for timeouts.
+ * nih_list_remove() or similar; this happens automatically for timeouts.
  **/
 typedef struct nih_timer NihTimer;
-typedef void (*NihTimerCb) (void *, NihTimer *);
+typedef void (*NihTimerCb) (void *data, NihTimer *timer);
 
 
 /**
@@ -89,7 +89,7 @@ typedef struct nih_timer_schedule {
  * Periodic timers are called every @period seconds after they were registered.
  * Scheduled timers are called based on the information in @schedule.
  *
- * In all cases, a timer may be cancelled by calling #nih_list_remove on
+ * In all cases, a timer may be cancelled by calling nih_list_remove() on
  * it as they are held in a list internally.
  **/
 struct nih_timer {
@@ -110,12 +110,16 @@ struct nih_timer {
 
 NIH_BEGIN_EXTERN
 
-NihTimer *nih_timer_add_timeout   (void *parent, time_t timeout,
-				   NihTimerCb callback, void *data);
-NihTimer *nih_timer_add_periodic  (void *parent, time_t period,
-				   NihTimerCb callback, void *data);
-NihTimer *nih_timer_add_scheduled (void *parent, NihTimerSchedule *schedule,
-				   NihTimerCb callback, void *data);
+NihTimer *nih_timer_add_timeout   (const void *parent, time_t timeout,
+				   NihTimerCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
+NihTimer *nih_timer_add_periodic  (const void *parent, time_t period,
+				   NihTimerCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
+NihTimer *nih_timer_add_scheduled (const void *parent,
+				   NihTimerSchedule *schedule,
+				   NihTimerCb callback, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 
 NihTimer *nih_timer_next_due       (void);
 void      nih_timer_poll           (void);

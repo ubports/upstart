@@ -1,47 +1,48 @@
 ## Process this file with automake to produce Makefile.in
 
-DEFAULT_INCLUDES = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir)
+AM_CPPFLAGS = \
+	-DLOCALEDIR="\"$(localedir)\"" \
+	-I$(top_builddir) -I$(top_srcdir) \
+	-I$(top_srcdir)/intl
 
-localedir = $(datadir)/locale
-DEFS += -DLOCALEDIR="\"$(localedir)\"" -DSHUTDOWN="\"$(sbindir)/shutdown\""
-INCLUDES = -I$(top_srcdir)/intl
+
+dist_man_MANS = \
+	man/initctl.8
 
 
 sbin_PROGRAMS = \
-	initctl \
-	reboot \
-	shutdown \
-	start
+	initctl
 
+initctl_SOURCES = \
+	initctl.c
 
-initctl_SOURCES = initctl.c
 initctl_LDFLAGS = -static
-initctl_LDADD = ../nih/libnih.la ../upstart/libupstart.la
+initctl_LDADD = \
+	../upstart/libupstart.la \
+	../nih/libnih.la \
+	$(LTLIBINTL)
 
-shutdown_SOURCES = shutdown.c
-shutdown_LDFLAGS = -static
-shutdown_LDADD = ../nih/libnih.la ../upstart/libupstart.la
 
-reboot_SOURCES = reboot.c
-reboot_LDFLAGS = -static
-reboot_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-
-start_SOURCES = start.c
-start_LDFLAGS = -static
-start_LDADD = ../nih/libnih.la ../upstart/libupstart.la
-
+install-data-hook:
+	ln -sf initctl.8 $(DESTDIR)$(man8dir)/start.8
+	ln -sf initctl.8 $(DESTDIR)$(man8dir)/stop.8
+	ln -sf initctl.8 $(DESTDIR)$(man8dir)/status.8
 
 install-exec-hook:
-	ln -sf reboot $(DESTDIR)$(sbindir)/halt
-	ln -sf reboot $(DESTDIR)$(sbindir)/poweroff
-
-	ln -sf start $(DESTDIR)$(sbindir)/stop
-	ln -sf start $(DESTDIR)$(sbindir)/status
+	ln -sf initctl $(DESTDIR)$(sbindir)/start
+	ln -sf initctl $(DESTDIR)$(sbindir)/stop
+	ln -sf initctl $(DESTDIR)$(sbindir)/status
 
 
-TESTS = 
+TESTS = \
+	test_initctl
 
 check_PROGRAMS = $(TESTS)
+
+test_initctl_SOURCES = tests/test_initctl.c initctl.c
+test_initctl_CFLAGS = -DTEST
+test_initctl_LDFLAGS = -static
+test_initctl_LDADD = ../upstart/libupstart.la ../nih/libnih.la
 
 
 clean-local:

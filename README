@@ -1,0 +1,45 @@
+Upstart is an event-based replacement for the /sbin/init daemon which
+handles starting of tasks and services during boot, stopping them
+during shutdown and supervising them while the system is running.
+
+It is intended to be suitable for deployment in all Linux
+distributions as a replacement for the venerable sysvinit package.
+
+Feature highlights:
+
+ * tasks and Services are started and stopped by events;
+
+ * events are generated as tasks and services are run and stopped;
+
+ * events may also be generated at timed intervals, or when files are
+   changed (not yet implemented);
+
+ * events may be received from any other process on the system;
+
+ * services may be respawned if they die unexpectedly
+
+ * bi-directional communication with init daemon to discover which
+   jobs are running, why jobs failed, etc.
+
+
+Dependencies
+------------
+
+Since Upstart's primary usage will be on distributions that utilise
+the user-space event mechanisms only found in recent Linux kernel
+versions, it has been developed to take advantage of other operating
+system and language features that may not be available in older
+releases of the kernel, C library or compiler.
+
+The recommended versions are:
+
+	* Linux 2.6.17 or later
+	* GCC 4.1 or later
+	* GNU C Library (glibc) 2.4 or later
+
+These should all be available from the current release of any modern
+Linux distribution.
+
+For detailed compilation and installation instructions see the INSTALL
+file.  If you've checked Upstart out from revision control, or want to
+hack on Upstart, see the HACKING file.

@@ -49,7 +49,7 @@ static void store (short type, pid_t pid, const char *user);
 /**
  * reboot:
  *
- * %TRUE if we need to store a reboot record.
+ * TRUE if we need to store a reboot record.
  **/
 static int reboot = FALSE;
 
@@ -84,7 +84,19 @@ main (int   argc,
 	char        **args, prev = 0, cur = 0;
 
 	nih_main_init (argv[0]);
-	nih_option_set_usage ("RUNLEVEL");
+
+	nih_option_set_usage (_("[UTMP]"));
+	nih_option_set_synopsis (_("Output previous and current runlevel."));
+	nih_option_set_help (
+		_("The system /var/run/utmp file is used unless the alternate "
+		  "file UTMP is given.\n"
+		  "\n"
+		  "Normally this will only output the most recent runlevel "
+		  "record in the utmp file, the --set option can be used to "
+		  "add a new record.  RUNLEVEL should be one of 0123456S.\n"
+		  "\n"
+		  "Alternately a reboot record may be added to the file by "
+		  "using the --reboot option, this produces no output."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
@@ -162,6 +174,7 @@ store (short       type,
 {
 	struct utmp    utmp;
 	struct utsname uts;
+	struct timeval tv;
 
 	nih_assert (user != NULL);
 	nih_assert (strlen (user) > 0);
@@ -177,7 +190,10 @@ store (short       type,
 	if (uname (&uts) == 0)
 		strncpy (utmp.ut_host, uts.release, sizeof (utmp.ut_host));
 
-	gettimeofday ((struct timeval *)&utmp.ut_tv, NULL);
+	/* Not really struct timeval when on 64-bit */
+	gettimeofday (&tv, NULL);
+	utmp.ut_tv.tv_sec = tv.tv_sec;
+	utmp.ut_tv.tv_usec = tv.tv_usec;
 
 	/* Write utmp entry */
 	setutent ();

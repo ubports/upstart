@@ -2,7 +2,7 @@
  *
  * process.c - job process handling
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -61,14 +61,14 @@ static int process_setup_environment (Job *job);
 /**
  * process_spawn:
  * @job: job context for process to be spawned in,
- * @argv: %NULL-terminated list of arguments for the process.
+ * @argv: NULL-terminated list of arguments for the process.
  *
  * This function spawns a new process using the @job details to set up the
  * environment for it; the process is always a session and process group
  * leader as we never want anything in our own group.
  *
  * The process to be executed is given in the @argv array which is passed
- * directly to #execvp, so should be in the same %NULL-terminated form with
+ * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
  * PATH environment for the job will be searched.
  *
@@ -76,7 +76,7 @@ static int process_setup_environment (Job *job);
  * that the information is saved into the job and the process is watched, etc.
  *
  * Note that the only error raised within this function is a failure of the
- * #fork syscall as the environment is set up within the child process.
+ * fork() syscall as the environment is set up within the child process.
  *
  * Returns: process id of new process on success, -1 on raised error
  **/
@@ -115,7 +115,10 @@ process_spawn (Job          *job,
 	/* We're now in the child process.
 	 *
 	 * First we close the standard file descriptors so we don't
-	 * inherit them directly from init but get to pick them ourselves
+	 * inherit them directly from init but get to pick them ourselves.
+	 *
+	 * Any other open descriptor will have had the FD_CLOEXEC flag set,
+	 * so will get automatically closed when we exec() later.
 	 */
 	for (i = 0; i < 3; i++)
 		close (i);
@@ -157,7 +160,7 @@ error:
 		   argv[0], job->name, err->message);
 	nih_free (err);
 
-	exit (1);
+	exit (255);
 }
 
 /**
@@ -218,7 +221,7 @@ static int
 process_setup_environment (Job *job)
 {
 	char **env;
-	char  *path, *term;
+	char  *path, *term, *jobid;
 
 	nih_assert (job != NULL);
 
@@ -232,13 +235,32 @@ process_setup_environment (Job *job)
 		nih_return_system_error (-1);
 
 	if (path) {
-		setenv ("PATH", path, TRUE);
+		if (setenv ("PATH", path, TRUE) < 0)
+			nih_return_system_error (-1);
 		nih_free (path);
 	}
 
 	if (term) {
-		setenv ("TERM", term, TRUE);
+		if (setenv ("TERM", term, TRUE) < 0)
+			nih_return_system_error (-1);
 		nih_free (term);
+	}
+
+	NIH_MUST (jobid = nih_sprintf (NULL, "%u", job->id));
+	if (setenv ("UPSTART_JOB_ID", jobid, TRUE) < 0)
+		nih_return_system_error (-1);
+	nih_free (jobid);
+
+	if (setenv ("UPSTART_JOB", job->name, TRUE) < 0)
+		nih_return_system_error (-1);
+
+	if (job->cause) {
+		if (setenv ("UPSTART_EVENT", job->cause->event.name, TRUE) < 0)
+			nih_return_system_error (-1);
+
+		for (env = job->cause->event.env; env && *env; env++)
+			if (putenv (*env) < 0)
+				nih_return_system_error (-1);
 	}
 
 	for (env = job->env; env && *env; env++)
@@ -274,7 +296,7 @@ process_kill (Job   *job,
 
 	signal = (force ? SIGKILL : SIGTERM);
 
-	if (kill (pid, signal) < 0)
+	if (kill (-pid, signal) < 0)
 		nih_return_system_error (-1);
 
 	return 0;
@@ -378,7 +400,7 @@ process_setup_console (Job         *job,
 
 	case CONSOLE_NONE:
 		/* No console really means /dev/null */
-		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
+		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
 		break;
 	}
 

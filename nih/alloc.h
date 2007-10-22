@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,9 +30,9 @@
  *
  * An allocator is a function that can be used to both allocate memory
  * and return it to the system (or cache it, etc.)  The behaviour should
- * be the same of that as the standard #realloc function.
+ * be the same of that as the standard realloc() function.
  **/
-typedef void *(*NihAllocator) (void *, size_t);
+typedef void *(*NihAllocator) (void *ptr, size_t size);
 
 /**
  * NihDestructor:
@@ -45,7 +45,7 @@ typedef void *(*NihAllocator) (void *, size_t);
  * This can be used, for example, to close a file descriptor when the
  * structure for it is being closed.
  **/
-typedef int (*NihDestructor) (void *);
+typedef int (*NihDestructor) (void *ptr);
 
 
 /**
@@ -56,11 +56,11 @@ typedef int (*NihDestructor) (void *);
  * Allocates a block of memory large enough to store a @type object and
  * returns a pointer to it.
  *
- * If @parent is not %NULL, it should be a pointer to another allocated
+ * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned block will be freed too.  If you have clean-up
  * that would need to be run, you can assign a destructor function using
- * the #nih_alloc_set_destructor function.
+ * the nih_alloc_set_destructor() function.
  *
  * Returns: requested memory block.
  **/
@@ -71,11 +71,11 @@ NIH_BEGIN_EXTERN
 
 void   nih_alloc_set_allocator  (NihAllocator new_allocator);
 
-void * nih_alloc                (const void *parent, size_t size)
-	__attribute__ ((warn_unused_result, malloc));
-
 void * nih_alloc_using          (NihAllocator allocator, const void *parent,
 				 size_t size)
+	__attribute__ ((warn_unused_result, malloc));
+
+void * nih_alloc                (const void *parent, size_t size)
 	__attribute__ ((warn_unused_result, malloc));
 
 void * nih_realloc              (void *ptr, const void *parent, size_t size)
@@ -84,6 +84,8 @@ void * nih_realloc              (void *ptr, const void *parent, size_t size)
 int    nih_free                 (void *ptr);
 
 void   nih_alloc_set_destructor (void *ptr, NihDestructor destructor);
+
+void   nih_alloc_reparent       (void *ptr, const void *parent);
 
 size_t nih_alloc_size           (const void *ptr);
 void * nih_alloc_parent         (const void *ptr);

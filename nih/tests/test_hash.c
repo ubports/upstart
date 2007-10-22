@@ -2,7 +2,7 @@
  *
  * test_hash.c - test suite for nih/hash.c
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,14 +19,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <nih/test.h>
 
-
-#include <stdio.h>
-#include <assert.h>
-
+#include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>
 #include <nih/hash.h>
@@ -43,10 +38,7 @@ new_entry (void       *parent,
 {
 	HashEntry *entry;
 
-	assert (key != NULL);
-
 	entry = nih_new (parent, HashEntry);
-	assert (entry != NULL);
 
 	nih_list_init (&entry->list);
 	entry->key = key;
@@ -57,755 +49,496 @@ new_entry (void       *parent,
 static const char *
 key_function (NihList *entry)
 {
-	assert (entry != NULL);
-
 	return ((HashEntry *)entry)->key;
 }
 
 
-int
+void
 test_new (void)
 {
 	NihHash *hash;
 	size_t   i;
-	int      ret = 0;
 
-	printf ("Testing nih_hash_new()\n");
+	TEST_FUNCTION ("nih_hash_new");
 
-	printf ("...with zero size\n");
-	hash = nih_hash_new (0, key_function);
+	/* Check that we can create a small hash table; a small prime number
+	 * should be selected for the actual size, and that number of empty
+	 * bins should be allocated as a child of the hash table.
+	 */
+	TEST_FEATURE ("with zero size");
+	TEST_ALLOC_FAIL {
+		hash = nih_hash_new (NULL, 0, key_function);
 
-	/* Size should be smallest prime number */
-	if (hash->size != 17) {
-		printf ("BAD: size set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Bins should be non-NULL */
-	if (hash->bins == NULL) {
-		printf ("BAD: bins not allocated.\n");
-		ret = 1;
-	}
-
-	/* Bins should be a child of the hash table */
-	if (nih_alloc_parent (hash->bins) != hash) {
-		printf ("BAD: bins not child allocation of hash.\n");
-		ret = 1;
-	}
-
-	/* All bins should be empty */
-	for (i = 0; i < hash->size; i++) {
-		if (! NIH_LIST_EMPTY (&hash->bins[i])) {
-			printf ("BAD: bin not initialised.\n");
-			ret = 1;
+		if (test_alloc_failed) {
+			TEST_EQ_P (hash, NULL);
+			continue;
 		}
+
+		TEST_ALLOC_SIZE (hash, sizeof(NihHash));
+		TEST_EQ_P (hash->key_function, key_function);
+
+		TEST_EQ (hash->size, 17);
+		TEST_NE_P (hash->bins, NULL);
+		TEST_ALLOC_PARENT (hash->bins, hash);
+
+		for (i = 0; i < hash->size; i++)
+			TEST_LIST_EMPTY (&hash->bins[i]);
+
+		nih_free (hash);
 	}
 
-	/* Key function should be what we gave */
-	if (hash->key_function != key_function) {
-		printf ("BAD: key_function set incorrectly.\n");
-		ret = 1;
-	}
 
-	nih_free (hash);
+	/* Check again with a medium size, which should pick a medium prime
+	 * number.
+	 */
+	TEST_FEATURE ("with medium size");
+	TEST_ALLOC_FAIL {
+		hash = nih_hash_new (NULL, 650, key_function);
 
-
-	printf ("...with medium size\n");
-	hash = nih_hash_new (650, key_function);
-
-	/* Size should be closest prime number */
-	if (hash->size != 331) {
-		printf ("BAD: size set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Bins should be non-NULL */
-	if (hash->bins == NULL) {
-		printf ("BAD: bins not allocated.\n");
-		ret = 1;
-	}
-
-	/* Bins should be a child of the hash table */
-	if (nih_alloc_parent (hash->bins) != hash) {
-		printf ("BAD: bins not child allocation of hash.\n");
-		ret = 1;
-	}
-
-	/* All bins should be empty */
-	for (i = 0; i < hash->size; i++) {
-		if (! NIH_LIST_EMPTY (&hash->bins[i])) {
-			printf ("BAD: bin not initialised.\n");
-			ret = 1;
+		if (test_alloc_failed) {
+			TEST_EQ_P (hash, NULL);
+			continue;
 		}
+
+		TEST_EQ (hash->size, 331);
+		TEST_NE_P (hash->bins, NULL);
+		TEST_ALLOC_PARENT (hash->bins, hash);
+
+		for (i = 0; i < hash->size; i++)
+			TEST_LIST_EMPTY (&hash->bins[i]);
+
+		nih_free (hash);
 	}
 
-	/* Key function should be what we gave */
-	if (hash->key_function != key_function) {
-		printf ("BAD: key_function set incorrectly.\n");
-		ret = 1;
-	}
 
-	nih_free (hash);
+	/* Check with a much larger size, which should pick the largest prime
+	 * that we know of.
+	 */
+	TEST_FEATURE ("with large size");
+	TEST_ALLOC_FAIL {
+		hash = nih_hash_new (NULL, 40000000, key_function);
 
-
-	printf ("...with large size\n");
-	hash = nih_hash_new (40000000, key_function);
-
-	/* Size should be largest prime number */
-	if (hash->size != 10250323) {
-		printf ("BAD: size set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Bins should be non-NULL */
-	if (hash->bins == NULL) {
-		printf ("BAD: bins not allocated.\n");
-		ret = 1;
-	}
-
-	/* Bins should be a child of the hash table */
-	if (nih_alloc_parent (hash->bins) != hash) {
-		printf ("BAD: bins not child allocation of hash.\n");
-		ret = 1;
-	}
-
-	/* All bins should be empty */
-	for (i = 0; i < hash->size; i++) {
-		if (! NIH_LIST_EMPTY (&hash->bins[i])) {
-			printf ("BAD: bin not initialised.\n");
-			ret = 1;
+		if (test_alloc_failed) {
+			TEST_EQ_P (hash, NULL);
+			continue;
 		}
+
+		TEST_EQ (hash->size, 10250323);
+		TEST_NE_P (hash->bins, NULL);
+		TEST_ALLOC_PARENT (hash->bins, hash);
+
+		for (i = 0; i < hash->size; i++)
+			TEST_LIST_EMPTY (&hash->bins[i]);
+
+		nih_free (hash);
 	}
-
-	/* Key function should be what we gave */
-	if (hash->key_function != key_function) {
-		printf ("BAD: key_function set incorrectly.\n");
-		ret = 1;
-	}
-
-	nih_free (hash);
-
-	return ret;
 }
 
-
-int
+void
 test_add (void)
 {
 	NihHash *hash;
 	NihList *entry1, *entry2, *entry3, *entry4, *ptr;
-	int      ret = 0;
 
-	printf ("Testing nih_hash_add()\n");
-	hash = nih_hash_new (0, key_function);
+	TEST_FUNCTION ("nih_hash_add");
+	hash = nih_hash_new (NULL, 0, key_function);
 	entry1 = new_entry (hash, "entry 1");
 	entry2 = new_entry (hash, "entry 2");
 	entry3 = new_entry (hash, "entry 1");
 	entry4 = new_entry (hash, "entry 4");
 
-	printf ("...with empty hash\n");
+	/* Check that we can add an entry to an empty hash table; it should
+	 * be returned and turn up in the appropriate bin.
+	 */
+	TEST_FEATURE ("with empty hash");
 	ptr = nih_hash_add (hash, entry1);
 
-	/* The added entry should be returned */
-	if (ptr != entry1) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry1);
 
-	/* 15th hash bin head's next pointer should be the entry */
-	if (hash->bins[15].next != entry1) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 15th hash bin head's previous pointer should be the entry */
-	if (hash->bins[15].prev != entry1) {
-		printf ("BAD: previous next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 15th hash bin */
-	if (entry1->next != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 15th hash bin */
-	if (entry1->prev != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[15].next, entry1);
+	TEST_EQ_P (entry1->next, &hash->bins[15]);
+	TEST_EQ_P (hash->bins[15].prev, entry1);
+	TEST_EQ_P (entry1->prev, &hash->bins[15]);
 
 
-	printf ("...with non-empty hash\n");
+	/* Check that we can add an entry to a populated hash table. */
+	TEST_FEATURE ("with non-empty hash");
 	nih_hash_add (hash, entry2);
 
-	/* 14th hash bin head's next pointer should be the entry */
-	if (hash->bins[14].next != entry2) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 14th hash bin head's previous pointer should be the entry */
-	if (hash->bins[14].prev != entry2) {
-		printf ("BAD: head previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 14th hash bin */
-	if (entry2->next != &hash->bins[14]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 14th hash bin */
-	if (entry2->prev != &hash->bins[14]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[14].next, entry2);
+	TEST_EQ_P (entry2->next, &hash->bins[14]);
+	TEST_EQ_P (hash->bins[14].prev, entry2);
+	TEST_EQ_P (entry2->prev, &hash->bins[14]);
 
 
-	printf ("...with duplicate key\n");
+	/* Check that we can add an entry with a duplicate key, and it is
+	 * added to the end of the same bin as the previous entry with that
+	 * key.
+	 */
+	TEST_FEATURE ("with duplicate key");
 	nih_hash_add (hash, entry3);
 
-	/* First entry's next pointer should be the new entry */
-	if (entry1->next != entry3) {
-		printf ("BAD: first entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* First entry's previous pointer should still be the head */
-	if (entry1->prev != &hash->bins[15]) {
-		printf ("BAD: first entry previous pointer changed.\n");
-		ret = 1;
-	}
-
-	/* New entry's previous pointer should be the first entry */
-	if (entry3->prev != entry1) {
-		printf ("BAD: entry previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* New entry's next pointer should be the head */
-	if (entry3->next != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Head's previous pointer should be the new entry */
-	if (hash->bins[15].prev != entry3) {
-		printf ("BAD: head previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Head's next pointer should still be the first entry */
-	if (hash->bins[15].next != entry1) {
-		printf ("BAD: head next pointer changed.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[15].next, entry1);
+	TEST_EQ_P (entry1->next, entry3);
+	TEST_EQ_P (entry3->next, &hash->bins[15]);
+	TEST_EQ_P (hash->bins[15].prev, entry3);
+	TEST_EQ_P (entry3->prev, entry1);
+	TEST_EQ_P (entry1->prev, &hash->bins[15]);
 
 
-	printf ("...with entry already in a list\n");
-	ptr = nih_list_new ();
+	/* Check that nih_hash_add can rip an entry out of an existing list
+	 * and place it in the hash table.
+	 */
+	TEST_FEATURE ("with entry already in a list");
+	ptr = nih_list_new (NULL);
 	nih_list_add (ptr, entry4);
 	nih_hash_add (hash, entry4);
 
-	/* List's previous pointer should point back to itself */
-	if (ptr->prev != ptr) {
-		printf ("BAD: list previous pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr->next, ptr);
+	TEST_EQ_P (ptr->prev, ptr);
 
-	/* List's next pointer should point back to itself */
-	if (ptr->next != ptr) {
-		printf ("BAD: list next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 3rd hash bin head's next pointer should be the entry */
-	if (hash->bins[3].next != entry4) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 3rd hash bin head's previous pointer should be the entry */
-	if (hash->bins[3].prev != entry4) {
-		printf ("BAD: previous next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 3rd hash bin */
-	if (entry4->next != &hash->bins[3]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 3rd hash bin */
-	if (entry4->prev != &hash->bins[3]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[3].next, entry4);
+	TEST_EQ_P (entry4->next, &hash->bins[3]);
+	TEST_EQ_P (hash->bins[3].prev, entry4);
+	TEST_EQ_P (entry4->prev, &hash->bins[3]);
 
 	nih_free (hash);
 	nih_free (ptr);
-
-	return ret;
 }
 
-int
+void
 test_add_unique (void)
 {
 	NihHash *hash;
 	NihList *entry1, *entry2, *entry3, *entry4, *ptr;
-	int      ret = 0;
 
-	printf ("Testing nih_hash_add_unique()\n");
-	hash = nih_hash_new (0, key_function);
+	TEST_FUNCTION ("nih_hash_add_unique");
+	hash = nih_hash_new (NULL, 0, key_function);
 	entry1 = new_entry (hash, "entry 1");
 	entry2 = new_entry (hash, "entry 2");
 	entry3 = new_entry (hash, "entry 1");
 	entry4 = new_entry (hash, "entry 4");
 
-	printf ("...with empty hash\n");
+	/* Check that we can add an entry to an empty hash table; it should
+	 * be returned and turn up in the appropriate bin.
+	 */
+	TEST_FEATURE ("with empty hash");
 	ptr = nih_hash_add_unique (hash, entry1);
 
-	/* The added entry should be returned */
-	if (ptr != entry1) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry1);
 
-	/* 15th hash bin head's next pointer should be the entry */
-	if (hash->bins[15].next != entry1) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 15th hash bin head's previous pointer should be the entry */
-	if (hash->bins[15].prev != entry1) {
-		printf ("BAD: previous next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 15th hash bin */
-	if (entry1->next != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 15th hash bin */
-	if (entry1->prev != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[15].next, entry1);
+	TEST_EQ_P (entry1->next, &hash->bins[15]);
+	TEST_EQ_P (hash->bins[15].prev, entry1);
+	TEST_EQ_P (entry1->prev, &hash->bins[15]);
 
 
-	printf ("...with non-empty hash\n");
+	/* Check that we can add an entry to a populated hash table. */
+	TEST_FEATURE ("with non-empty hash");
 	nih_hash_add_unique (hash, entry2);
 
-	/* 14th hash bin head's next pointer should be the entry */
-	if (hash->bins[14].next != entry2) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 14th hash bin head's previous pointer should be the entry */
-	if (hash->bins[14].prev != entry2) {
-		printf ("BAD: head previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 14th hash bin */
-	if (entry2->next != &hash->bins[14]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 14th hash bin */
-	if (entry2->prev != &hash->bins[14]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[14].next, entry2);
+	TEST_EQ_P (entry2->next, &hash->bins[14]);
+	TEST_EQ_P (hash->bins[14].prev, entry2);
+	TEST_EQ_P (entry2->prev, &hash->bins[14]);
 
 
-	printf ("...with duplicate key\n");
+	/* Check that we get NULL if we try and add an entry with a
+	 * duplicate key, and that the hash table is not altered.
+	 */
+	TEST_FEATURE ("with duplicate key");
 	ptr = nih_hash_add_unique (hash, entry3);
 
-	/* Should have returned NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
-	/* First entry's next pointer should still be the head */
-	if (entry1->next != &hash->bins[15]) {
-		printf ("BAD: first entry next pointer changed.\n");
-		ret = 1;
-	}
-
-	/* First entry's previous pointer should still be the head */
-	if (entry1->prev != &hash->bins[15]) {
-		printf ("BAD: first entry previous pointer changed.\n");
-		ret = 1;
-	}
-
-	/* Head's previous pointer should still be the first entry */
-	if (hash->bins[15].prev != entry1) {
-		printf ("BAD: head previous pointer changed.\n");
-		ret = 1;
-	}
-
-	/* Head's next pointer should still be the first entry */
-	if (hash->bins[15].next != entry1) {
-		printf ("BAD: head next pointer changed.\n");
-		ret = 1;
-	}
-
-	/* New entry's previous pointer should still be itself */
-	if (entry3->prev != entry3) {
-		printf ("BAD: entry previous pointer changed.\n");
-		ret = 1;
-	}
-
-	/* New entry's next pointer should be the head */
-	if (entry3->next != entry3) {
-		printf ("BAD: entry next pointer changed.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[15].next, entry1);
+	TEST_EQ_P (entry1->next, &hash->bins[15]);
+	TEST_EQ_P (hash->bins[15].prev, entry1);
+	TEST_EQ_P (entry1->prev, &hash->bins[15]);
 
 
-	printf ("...with entry already in a list\n");
-	ptr = nih_list_new ();
+	/* Check that nih_hash_add can rip an entry out of an existing list
+	 * and place it in the hash table.
+	 */
+	TEST_FEATURE ("with entry already in a list");
+	ptr = nih_list_new (NULL);
 	nih_list_add (ptr, entry4);
 	nih_hash_add_unique (hash, entry4);
 
-	/* List's previous pointer should point back to itself */
-	if (ptr->prev != ptr) {
-		printf ("BAD: list previous pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr->next, ptr);
+	TEST_EQ_P (ptr->prev, ptr);
 
-	/* List's next pointer should point back to itself */
-	if (ptr->next != ptr) {
-		printf ("BAD: list next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 3rd hash bin head's next pointer should be the entry */
-	if (hash->bins[3].next != entry4) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 3rd hash bin head's previous pointer should be the entry */
-	if (hash->bins[3].prev != entry4) {
-		printf ("BAD: previous next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 3rd hash bin */
-	if (entry4->next != &hash->bins[3]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 3rd hash bin */
-	if (entry4->prev != &hash->bins[3]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[3].next, entry4);
+	TEST_EQ_P (entry4->next, &hash->bins[3]);
+	TEST_EQ_P (hash->bins[3].prev, entry4);
+	TEST_EQ_P (entry4->prev, &hash->bins[3]);
 
 	nih_free (hash);
 	nih_free (ptr);
-
-	return ret;
 }
 
-int
+void
 test_replace (void)
 {
 	NihHash *hash;
 	NihList *entry1, *entry2, *entry3, *entry4, *ptr;
-	int      ret = 0;
 
-	printf ("Testing nih_hash_replace()\n");
-	hash = nih_hash_new (0, key_function);
+	TEST_FUNCTION ("nih_hash_replace");
+	hash = nih_hash_new (NULL, 0, key_function);
 	entry1 = new_entry (hash, "entry 1");
 	entry2 = new_entry (hash, "entry 2");
 	entry3 = new_entry (hash, "entry 1");
 	entry4 = new_entry (hash, "entry 4");
 
-	printf ("...with empty hash\n");
+	/* Check that we can add an entry to an empty hash table; NULL should
+	 * be returned (nothing replaced) and the entry should turn up in the
+	 * appropriate bin.
+	 */
+	TEST_FEATURE ("with empty hash");
 	ptr = nih_hash_replace (hash, entry1);
 
-	/* NULL should be returned */
-	if (ptr != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
-	/* 15th hash bin head's next pointer should be the entry */
-	if (hash->bins[15].next != entry1) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 15th hash bin head's previous pointer should be the entry */
-	if (hash->bins[15].prev != entry1) {
-		printf ("BAD: previous next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 15th hash bin */
-	if (entry1->next != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 15th hash bin */
-	if (entry1->prev != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[15].next, entry1);
+	TEST_EQ_P (entry1->next, &hash->bins[15]);
+	TEST_EQ_P (hash->bins[15].prev, entry1);
+	TEST_EQ_P (entry1->prev, &hash->bins[15]);
 
 
-	printf ("...with non-empty hash\n");
+	/* Check that we can add an entry to a populated hash table. */
+	TEST_FEATURE ("with non-empty hash");
 	nih_hash_replace (hash, entry2);
 
-	/* 14th hash bin head's next pointer should be the entry */
-	if (hash->bins[14].next != entry2) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 14th hash bin head's previous pointer should be the entry */
-	if (hash->bins[14].prev != entry2) {
-		printf ("BAD: head previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 14th hash bin */
-	if (entry2->next != &hash->bins[14]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 14th hash bin */
-	if (entry2->prev != &hash->bins[14]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[14].next, entry2);
+	TEST_EQ_P (entry2->next, &hash->bins[14]);
+	TEST_EQ_P (hash->bins[14].prev, entry2);
+	TEST_EQ_P (entry2->prev, &hash->bins[14]);
 
 
-	printf ("...with duplicate key\n");
+	/* Check that we can add an entry with a duplicate key, replacing
+	 * the existing one in the hash.  The replaced entry should be
+	 * returned, and removed from the bin.
+	 */
+	TEST_FEATURE ("with duplicate key");
 	ptr = nih_hash_replace (hash, entry3);
 
-	/* The replaced entry should be returned */
-	if (ptr != entry1) {
-		printf ("BAD: return value not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry1);
 
-	/* Replaced entry's next pointer should point back to itself */
-	if (entry1->next != entry1) {
-		printf ("BAD: replaced entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (entry1->next, entry1);
+	TEST_EQ_P (entry1->prev, entry1);
 
-	/* Replaced entry's previous pointer should point back to itself */
-	if (entry1->prev != entry1) {
-		printf ("BAD: replaced entry previous set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Head's previous pointer should point to the new entry */
-	if (hash->bins[15].prev != entry3) {
-		printf ("BAD: head previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Head's next pointer should point to the new entry */
-	if (hash->bins[15].next != entry3) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* New entry's previous pointer should point to the head */
-	if (entry3->prev != &hash->bins[15]) {
-		printf ("BAD: entry previous pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* New entry's next pointer should point to the head */
-	if (entry3->next != &hash->bins[15]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[15].next, entry3);
+	TEST_EQ_P (entry3->next, &hash->bins[15]);
+	TEST_EQ_P (hash->bins[15].prev, entry3);
+	TEST_EQ_P (entry3->prev, &hash->bins[15]);
 
 
-	printf ("...with entry already in a list\n");
-	ptr = nih_list_new ();
+	/* Check that nih_hash_add can rip an entry out of an existing list
+	 * and place it in the hash table.
+	 */
+	TEST_FEATURE ("with entry already in a list");
+	ptr = nih_list_new (NULL);
 	nih_list_add (ptr, entry4);
 	nih_hash_replace (hash, entry4);
 
-	/* List's previous pointer should point back to itself */
-	if (ptr->prev != ptr) {
-		printf ("BAD: list previous pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr->next, ptr);
+	TEST_EQ_P (ptr->prev, ptr);
 
-	/* List's next pointer should point back to itself */
-	if (ptr->next != ptr) {
-		printf ("BAD: list next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 3rd hash bin head's next pointer should be the entry */
-	if (hash->bins[3].next != entry4) {
-		printf ("BAD: head next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* 3rd hash bin head's previous pointer should be the entry */
-	if (hash->bins[3].prev != entry4) {
-		printf ("BAD: previous next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's next pointer should be the 3rd hash bin */
-	if (entry4->next != &hash->bins[3]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Entry's previous pointer should be the 3rd hash bin */
-	if (entry4->prev != &hash->bins[3]) {
-		printf ("BAD: entry next pointer set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (hash->bins[3].next, entry4);
+	TEST_EQ_P (entry4->next, &hash->bins[3]);
+	TEST_EQ_P (hash->bins[3].prev, entry4);
+	TEST_EQ_P (entry4->prev, &hash->bins[3]);
 
 	nih_free (hash);
 	nih_free (ptr);
-
-	return ret;
 }
 
-int
+void
 test_search (void)
 {
 	NihHash *hash;
 	NihList *entry1, *entry2, *entry3, *ptr;
-	int      ret = 0;
 
-	printf ("Testing nih_hash_search()\n");
-	hash = nih_hash_new (0, key_function);
+	TEST_FUNCTION ("nih_hash_search");
+	hash = nih_hash_new (NULL, 0, key_function);
 	entry1 = nih_hash_add (hash, new_entry (hash, "entry 1"));
 	entry2 = nih_hash_add (hash, new_entry (hash, "entry 2"));
 	entry3 = nih_hash_add (hash, new_entry (hash, "entry 2"));
 
-	printf ("...with single match\n");
+	/* Check that we find the sole matching entry. */
 	ptr = nih_hash_search (hash, "entry 1", NULL);
 
-	/* First return value should be the entry */
-	if (ptr != entry1) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry1);
 
+	/* Searching again should find nothing */
 	ptr = nih_hash_search (hash, "entry 1", ptr);
 
-	/* Second return value should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
 
-	printf ("...with multiple matches\n");
+	/* Check that where there's multiple matches, we find the first one. */
+	TEST_FEATURE ("with multiple matches");
 	ptr = nih_hash_search (hash, "entry 2", NULL);
 
-	/* Return value should be first added */
-	if (ptr != entry2) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry2);
 
+	/* And that searching again finds the second one. */
 	ptr = nih_hash_search (hash, "entry 2", ptr);
 
-	/* Second return value should be second added */
-	if (ptr != entry3) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry3);
 
+	/* And again finds nothing. */
 	ptr = nih_hash_search (hash, "entry 2", ptr);
 
-	/* Third return value should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
 
-	printf ("...with no matches\n");
+	/* Check that we get NULL if there are no matches. */
+	TEST_FEATURE ("with no matches");
 	ptr = nih_hash_search (hash, "entry 3", NULL);
 
-	/* Return value should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
 	nih_free (hash);
-
-	return ret;
 }
 
-int
+void
 test_lookup (void)
 {
 	NihHash *hash;
 	NihList *entry1, *entry2, *entry3, *ptr;
-	int      ret = 0;
 
-	printf ("Testing nih_hash_lookup()\n");
-	hash = nih_hash_new (0, key_function);
+	TEST_FUNCTION ("nih_hash_lookup");
+	hash = nih_hash_new (NULL, 0, key_function);
 	entry1 = nih_hash_add (hash, new_entry (hash, "entry 1"));
 	entry2 = nih_hash_add (hash, new_entry (hash, "entry 2"));
 	entry3 = nih_hash_add (hash, new_entry (hash, "entry 2"));
 
-	printf ("...with single match\n");
+	/* Check that we find a single matching entry. */
+	TEST_FEATURE ("with single match");
 	ptr = nih_hash_lookup (hash, "entry 1");
 
-	/* Return value should be the entry */
-	if (ptr != entry1) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry1);
 
 
-	printf ("...with multiple matches\n");
+	/* Check that we find the first matching entry. */
+	TEST_FEATURE ("with multiple matches");
 	ptr = nih_hash_lookup (hash, "entry 2");
 
-	/* Return value should be first added */
-	if (ptr != entry2) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, entry2);
 
 
-	printf ("...with no matches\n");
+	/* Check that we get NULL when there are no matching entries. */
+	TEST_FEATURE ("with no matches");
 	ptr = nih_hash_lookup (hash, "entry 3");
 
-	/* Return value should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value was not correct.\n");
-		ret = 1;
+	TEST_EQ_P (ptr, NULL);
+
+	nih_free (hash);
+}
+
+
+void
+test_foreach (void)
+{
+	NihHash *hash;
+	NihList *entry[4], *entry0, *entry1, *entry2, *entry3;
+	int      i;
+
+	/* Check that NIH_HASH_FOREACH iterates the hash correctly in order,
+	 * visiting each entry in each bin.  Note that we stage the entries
+	 * in the hash in the order we expect them to come out in, but add
+	 * them in a different order for sanity.
+	 */
+	TEST_FUNCTION ("nih_HASH_FOREACH");
+	hash = nih_hash_new (NULL, 0, key_function);
+	entry0 = entry[2] = new_entry (hash, "entry 1");
+	entry1 = entry[1] = new_entry (hash, "entry 2");
+	entry2 = entry[3] = new_entry (hash, "entry 1");
+	entry3 = entry[0] = new_entry (hash, "entry 4");
+
+	nih_hash_add (hash, entry0);
+	nih_hash_add (hash, entry1);
+	nih_hash_add (hash, entry2);
+	nih_hash_add (hash, entry3);
+
+	i = 0;
+	NIH_HASH_FOREACH (hash, iter) {
+		if (i > 3)
+			TEST_FAILED ("wrong number of iterations, expected %d got %d",
+				     4, i + 1);
+
+		if (iter != entry[i])
+			TEST_FAILED ("wrong list entry, expected %p got %p",
+				     entry[i], iter);
+
+		i++;
 	}
 
 	nih_free (hash);
+}
 
-	return ret;
+void
+test_foreach_safe (void)
+{
+	NihHash *hash;
+	NihList *entry[4], *entry0, *entry1, *entry2, *entry3;
+	int      i;
+
+	/* Check that NIH_HASH_FOREACH_SAFE iterates the hash correctly in
+	 * order, visiting each entry in each bin; and that it's safe to
+	 * remove the entries while doing so.
+	 */
+	TEST_FUNCTION ("nih_HASH_FOREACH");
+	hash = nih_hash_new (NULL, 0, key_function);
+	entry0 = entry[2] = new_entry (hash, "entry 1");
+	entry1 = entry[1] = new_entry (hash, "entry 2");
+	entry2 = entry[3] = new_entry (hash, "entry 1");
+	entry3 = entry[0] = new_entry (hash, "entry 4");
+
+	nih_hash_add (hash, entry0);
+	nih_hash_add (hash, entry1);
+	nih_hash_add (hash, entry2);
+	nih_hash_add (hash, entry3);
+
+	i = 0;
+	NIH_HASH_FOREACH_SAFE (hash, iter) {
+		if (i > 3)
+			TEST_FAILED ("wrong number of iterations, expected %d got %d",
+				     4, i + 1);
+
+		if (iter != entry[i])
+			TEST_FAILED ("wrong list entry, expected %p got %p",
+				     entry[i], iter);
+
+		nih_list_remove (entry[i]);
+
+		i++;
+	}
+
+	nih_free (hash);
+}
+
+
+void
+test_string_key (void)
+{
+	NihList    *entry;
+	const char *key;
+
+
+	/* Check that the string key function returns a pointer to the
+	 * key in our test structure.
+	 */
+	TEST_FUNCTION ("nih_hash_string_key");
+	entry = new_entry (NULL, "my entry");
+
+	key = nih_hash_string_key (entry);
+
+	TEST_EQ_P (key, ((HashEntry *)entry)->key);
+	TEST_EQ_STR (key, "my entry");
+
+	nih_list_free (entry);
 }
 
 
@@ -813,14 +546,15 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_new ();
+	test_add ();
+	test_add_unique ();
+	test_replace ();
+	test_search ();
+	test_lookup ();
+	test_foreach ();
+	test_foreach_safe ();
+	test_string_key ();
 
-	ret |= test_new ();
-	ret |= test_add ();
-	ret |= test_add_unique ();
-	ret |= test_replace ();
-	ret |= test_search ();
-	ret |= test_lookup ();
-
-	return ret;
+	return 0;
 }

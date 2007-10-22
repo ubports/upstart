@@ -2,7 +2,7 @@
  *
  * test_main.c - test suite for nih/main.c
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,305 +19,415 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <stdio.h>
-#include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <nih/alloc.h>
+#include <nih/macros.h>
+#include <nih/list.h>
 #include <nih/main.h>
 #include <nih/timer.h>
+#include <nih/error.h>
 
 
-int
+void
 test_init_gettext (void)
 {
-	char *ptr;
-	int   ret = 0;
-
-	printf ("Testing nih_main_init_gettext()\n");
+	/* Check that the macro to initialise gettext sets the text domain to
+	 * the PACKAGE_NAME macro, and binds that to the LOCALEDIR macro.
+	 */
+	TEST_FUNCTION ("nih_main_init_gettext");
 	nih_main_init_gettext();
 
-	/* PACKAGE_NAME should be bound to LOCALEDIR */
-	ptr = bindtextdomain (PACKAGE_NAME, NULL);
-	if (strcmp (ptr, LOCALEDIR)) {
-		printf ("BAD: text domain not bound to where we expected.\n");
-		ret = 1;
-	}
-
-	/* Text domain should be PACKAGENAME */
-	ptr = textdomain (NULL);
-	if (strcmp (ptr, PACKAGE_NAME)) {
-		printf ("BAD: text domain wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ_STR (textdomain (NULL), PACKAGE_NAME);
+	TEST_EQ_STR (bindtextdomain (PACKAGE_NAME, NULL), LOCALEDIR);
 }
 
-int
+void
 test_init (void)
 {
-	int ret = 0;
+	TEST_FUNCTION ("nih_main_init_full");
 
-	printf ("Testing nih_main_init_full()\n");
-
-	printf ("...with all arguments\n");
+	/* Check that we can initialise the program with all of the arguments
+	 * and that they're all copied correctly into the globals
+	 */
+	TEST_FEATURE ("with all arguments");
 	nih_main_init_full ("argv0", "package", "version", "bugreport",
 			    "copyright");
 
-	/* Program name should be first argument */
-	if (strcmp (program_name, "argv0")) {
-		printf ("BAD: program_name set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package name should be second argument */
-	if (strcmp (package_name, "package")) {
-		printf ("BAD: package_name set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package version should be third argument */
-	if (strcmp (package_version, "version")) {
-		printf ("BAD: package_version set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package bug report address should be fourth argument */
-	if (strcmp (package_bugreport, "bugreport")) {
-		printf ("BAD: package_bugreport set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package copyright should be fifth argument */
-	if (strcmp (package_copyright, "copyright")) {
-		printf ("BAD: package_copyright set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (program_name, "argv0");
+	TEST_EQ_STR (package_name, "package");
+	TEST_EQ_STR (package_version, "version");
+	TEST_EQ_STR (package_bugreport, "bugreport");
+	TEST_EQ_STR (package_copyright, "copyright");
 
 
-	printf ("...with missing arguments\n");
+	/* Check that we can pass NULL for both the bug report address and
+	 * the copyright message.
+	 */
+	TEST_FEATURE ("with missing arguments");
 	package_bugreport = package_copyright = NULL;
 	nih_main_init_full ("argv0", "package", "version", NULL, NULL);
 
-	/* Package bug report address should be NULL */
-	if (package_bugreport) {
-		printf ("BAD: package_bugreport changed unexpectedly.\n");
-		ret = 1;
-	}
-
-	/* Package copyright should be NULL */
-	if (package_copyright) {
-		printf ("BAD: package_copyright changed unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (package_bugreport, NULL);
+	TEST_EQ_P (package_copyright, NULL);
 
 
-	printf ("...with empty arguments\n");
+	/* Check that the bug report address and copyright message are set
+	 * to NULL if empty strings are passed instead.
+	 */
+	TEST_FEATURE ("with empty arguments");
 	package_bugreport = package_copyright = NULL;
 	nih_main_init_full ("argv0", "package", "version", "", "");
 
-	/* Package bug report address should be NULL */
-	if (package_bugreport) {
-		printf ("BAD: package_bugreport changed unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (package_bugreport, NULL);
+	TEST_EQ_P (package_copyright, NULL);
 
-	/* Package copyright should be NULL */
-	if (package_copyright) {
-		printf ("BAD: package_copyright changed unexpectedly.\n");
-		ret = 1;
-	}
 
-	printf ("...with full program path\n");
+	/* Check that the program name contains only the basename of a
+	 * full path supplied.
+	 */
+	TEST_FEATURE ("with full program path");
 	nih_main_init_full ("/usr/bin/argv0", "package", "version",
 			    "bugreport", "copyright");
 
-	/* Program name should be basename */
-	if (strcmp (program_name, "argv0")) {
-		printf ("BAD: program_name set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_EQ_STR (program_name, "argv0");
 
 
-	printf ("Testing nih_main_init()\n");
+	/* Check that the nih_main_init macro passes all the arguments for
+	 * us, except the program name, which we pass.
+	 */
+	TEST_FUNCTION ("nih_main_init");
 	nih_main_init ("argv[0]");
 
-	/* Program name should be only argument */
-	if (strcmp (program_name, "argv[0]")) {
-		printf ("BAD: program_name set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package name should be PACKAGE_NAME */
-	if (strcmp (package_name, PACKAGE_NAME)) {
-		printf ("BAD: package_name set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package version should be PACKAGE_VERSION */
-	if (strcmp (package_version, PACKAGE_VERSION)) {
-		printf ("BAD: package_version set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package bug report address should be PACKAGE_BUGREPORT */
-	if (strcmp (package_bugreport, PACKAGE_BUGREPORT)) {
-		printf ("BAD: package_bugreport set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Package copyright should be PACKAGE_COPYRIGHT */
-	if (strcmp (package_copyright, PACKAGE_COPYRIGHT)) {
-		printf ("BAD: package_copyright set incorrectly.\n");
-		ret = 1;
-	}
-
-
-	return ret;
+	TEST_EQ_STR (program_name, "argv[0]");
+	TEST_EQ_STR (package_name, PACKAGE_NAME);
+	TEST_EQ_STR (package_version, PACKAGE_VERSION);
+	TEST_EQ_STR (package_bugreport, PACKAGE_BUGREPORT);
+	TEST_EQ_STR (package_copyright, PACKAGE_COPYRIGHT);
 }
 
-int
+void
 test_package_string (void)
 {
 	const char *str;
-	int         ret = 0;
 
-	printf ("Testing nih_package_string()\n");
-	nih_main_init_full ("test", "test", "1.0", "bugreport", "copyright");
+	TEST_FUNCTION ("nih_package_string");
 
-	printf ("...with same program and package names\n");
-	str = nih_main_package_string ();
+	/* Check that the package string outputs just the program name and
+	 * version if the program and package names match.  If the allocation
+	 * fails, the program name should be returned.
+	 */
+	TEST_FEATURE ("with same program and package names");
+	TEST_ALLOC_FAIL {
+		nih_main_init_full ("test", "test", "1.0",
+				    "bugreport", "copyright");
+		str = nih_main_package_string ();
 
-	/* String should be just package name and version */
-	if (strcmp (str, "test 1.0")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+		if (test_alloc_failed) {
+			TEST_EQ_STR (str, "test");
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test 1.0");
 	}
 
 
-	printf ("...with different program and package names\n");
+	/* Check that the package string includes the package name if it
+	 * differs from the program name.
+	 */
+	TEST_FEATURE ("with different program and package names");
+	TEST_ALLOC_FAIL {
+		nih_main_init_full ("test", "wibble", "1.0",
+				    "bugreport", "copyright");
+		str = nih_main_package_string ();
+
+		if (test_alloc_failed) {
+			TEST_EQ_STR (str, "test");
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test (wibble 1.0)");
+	}
+
+
+	/* Check that a repeated call returns the same pointer */
+	TEST_FEATURE ("with repeated call");
 	nih_main_init_full ("test", "wibble", "1.0", "bugreport", "copyright");
+
 	str = nih_main_package_string ();
-
-	/* String should be program name as well as package name and version */
-	if (strcmp (str, "test (wibble 1.0)")) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	return ret;
+	TEST_EQ_P (nih_main_package_string (), str);
 }
 
-int
+void
 test_suggest_help (void)
 {
 	FILE *output;
-	char  text[81];
-	int   oldstderr, ret = 0;
 
-	printf ("Testing nih_main_suggest_help\n");
+	/* Check that the message to suggest help is placed on standard
+	 * error, and formatted as we expect.
+	 */
+	TEST_FUNCTION ("nih_main_suggest_help");
 	program_name = "test";
 
 	output = tmpfile ();
-	oldstderr = dup (STDERR_FILENO);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	nih_main_suggest_help ();
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		nih_main_suggest_help ();
+	}
 	rewind (output);
 
-	/* Output should be message with program name and newline */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "Try `test --help' for more information.\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_EQ (output, "Try `test --help' for more information.\n");
+	TEST_FILE_END (output);
 
 	fclose (output);
-	close (oldstderr);
-
-	return ret;
 }
 
-int
+void
 test_version (void)
 {
 	FILE *output;
-	char  text[81];
-	int   oldstdout, ret = 0;
 
-	printf ("Testing nih_main_version\n");
+	/* Check that the version message is placed on standard output,
+	 * includes the package string, copyright message and GPL notice.
+	 */
+	TEST_FUNCTION ("nih_main_version");
+	nih_main_init_full ("test", "wibble", "1.0", NULL,
+			    "Copyright Message");
+
+	TEST_ALLOC_FAIL {
+
+		unsetenv ("COLUMNS");
+		output = tmpfile ();
+		TEST_DIVERT_STDOUT (output) {
+			nih_main_version ();
+		}
+		rewind (output);
+
+		TEST_FILE_EQ (output, "test (wibble 1.0)\n");
+		TEST_FILE_EQ (output, "Copyright Message\n");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_EQ_N (output, "This is free software;");
+		TEST_FILE_EQ_N (output, "warranty; not even for");
+		TEST_FILE_END (output);
+
+		fclose (output);
+	}
+}
+
+void
+test_daemonise (void)
+{
+	pid_t pid;
+	char  result[2];
+	int   status, fds[2];
+
+	/* Check that nih_main_daemonise does all of the right things,
+	 * our immediate child should exit with a zero status, and the
+	 * child within that should be run with a working directory of /
+	 */
+	TEST_FUNCTION ("nih_main_daemonise");
+
+	pipe (fds);
+	TEST_CHILD (pid) {
+		char buf[80];
+
+		program_name = "test";
+		if (nih_main_daemonise () < 0)
+			exit (50);
+
+		getcwd (buf, sizeof (buf));
+		if (strcmp (buf, "/")) {
+			write (fds[1], "wd", 2);
+			exit (10);
+		}
+
+		write (fds[1], "ok", 2);
+		exit (10);
+	}
+
+	waitpid (pid, &status, 0);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	if (read (fds[0], result, 2) != 2)
+		TEST_FAILED ("expected return code from child");
+
+	if (! memcmp (result, "wd", 2))
+		TEST_FAILED ("wrong working directory for child");
+
+	if (memcmp (result, "ok", 2))
+		TEST_FAILED ("wrong return code from child, expected 'ok' got '%.2s'",
+			     result);
+}
+
+
+void
+test_set_pidfile (void)
+{
+	const char *filename, *ptr;
+
+	TEST_FUNCTION ("nih_main_set_pidfile");
 	program_name = "test";
-	package_name = "wibble";
-	package_version = "1.0";
-	package_copyright = "Copyright Message";
 
-	output = tmpfile ();
-	oldstdout = dup (STDOUT_FILENO);
+	/* Check that we can set a pidfile for use, and have the string
+	 * copied and returned.
+	 */
+	TEST_FEATURE ("with new location");
+	filename = "/path/to/pid";
+	nih_main_set_pidfile (filename);
 
-	dup2 (fileno (output), STDOUT_FILENO);
-	nih_main_version ();
-	dup2 (oldstdout, STDOUT_FILENO);
+	ptr = nih_main_get_pidfile ();
+	TEST_EQ_STR (ptr, filename);
+	TEST_NE_P (ptr, filename);
 
-	rewind (output);
 
-	/* First line of output should be package string */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "test (wibble 1.0)\n")) {
-		printf ("BAD: package line wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that we can pass NULL to have the default location set
+	 * instead.
+	 */
+	TEST_FEATURE ("with default location");
+	nih_main_set_pidfile (NULL);
 
-	/* Second line of output should be copyright message */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "Copyright Message\n")) {
-		printf ("BAD: copyright line wasn't what we expected.\n");
-		ret = 1;
-	}
+	ptr = nih_main_get_pidfile ();
+	TEST_EQ_STR (ptr, "/var/run/test.pid");
 
-	/* Third line of output should be a blank line */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
 
-	/* Fourth line should be start of GPL preamble */
-	fgets (text, sizeof (text), output);
-	if (strncmp (text, "This is free software;", 22)) {
-		printf ("BAD: first licence line wasn't what we expected.\n");
-		ret = 1;
-	}
+	nih_main_set_pidfile (NULL);
+}
 
-	/* Fifth line should be GPL preamble */
-	fgets (text, sizeof (text), output);
-	if (strncmp (text, "warranty; not even for", 22)) {
-		printf ("BAD: second licence line wasn't what we expected.\n");
-		ret = 1;
-	}
+void
+test_read_pidfile (void)
+{
+	FILE *f;
+	char  filename[PATH_MAX];
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_FUNCTION ("nih_main_read_pidfile");
+	TEST_FILENAME (filename);
+	nih_main_set_pidfile (filename);
 
-	fclose (output);
-	close (oldstdout);
+	/* Check that reading from a valid pid file will return the pid
+	 * stored there.
+	 */
+	TEST_FEATURE ("with valid pid file");
+	f = fopen (filename, "w");
+	fprintf (f, "1234\n");
+	fclose (f);
 
-	return ret;
+	TEST_EQ (nih_main_read_pidfile (), 1234);
+
+
+	/* Check that reading from a pid file without a newline will still
+	 * return the pid stored there.
+	 */
+	TEST_FEATURE ("with no newline in pid file");
+	f = fopen (filename, "w");
+	fprintf (f, "1234");
+	fclose (f);
+
+	TEST_EQ (nih_main_read_pidfile (), 1234);
+
+
+	/* Check that reading from an invalid pid file returns -1. */
+	TEST_FEATURE ("with invalid pid file");
+	f = fopen (filename, "w");
+	fprintf (f, "foo\n1234\n");
+	fclose (f);
+
+	TEST_EQ (nih_main_read_pidfile (), -1);
+
+
+	/* Check that reading from a non-existant pid file returns -1. */
+	TEST_FEATURE ("with non-existant pid file");
+	nih_main_unlink_pidfile ();
+
+	TEST_EQ (nih_main_read_pidfile (), -1);
+
+
+	nih_main_set_pidfile (NULL);
+}
+
+void
+test_write_pidfile (void)
+{
+	FILE     *f;
+	NihError *err;
+	char      dirname[PATH_MAX], filename[PATH_MAX], tmpname[PATH_MAX];
+	int       ret;
+
+	TEST_FUNCTION ("nih_main_write_pidfile");
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/test.pid");
+
+	strcpy (tmpname, dirname);
+	strcat (tmpname, "/.test.pid.tmp");
+
+	nih_main_set_pidfile (filename);
+
+	/* Check that we can write a pid to the file, and have it appaer
+	 * on disk where we expect.
+	 */
+	TEST_FEATURE ("with successful write");
+	ret = nih_main_write_pidfile (1234);
+
+	TEST_EQ (ret, 0);
+
+	f = fopen (filename, "r");
+	TEST_FILE_EQ (f, "1234\n");
+	fclose (f);
+
+
+	/* Check that we can overwrite an existing pid file with a new
+	 * value.
+	 */
+	TEST_FEATURE ("with overwrite of existing pid");
+	ret = nih_main_write_pidfile (5678);
+
+	TEST_EQ (ret, 0);
+
+	f = fopen (filename, "r");
+	TEST_FILE_EQ (f, "5678\n");
+	fclose (f);
+
+
+	/* Check that an error writing to the temporary file does not result
+	 * in the replacement of the existing file and does not result in
+	 * the unlinking of the temporary file.
+	 */
+	TEST_FEATURE ("with failure to write to temporary file");
+	f = fopen (tmpname, "w");
+	fclose (f);
+	chmod (tmpname, 0000);
+
+	ret = nih_main_write_pidfile (1234);
+
+	TEST_LT (ret, 0);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, EACCES);
+	nih_free (err);
+
+	f = fopen (filename, "r");
+	TEST_FILE_EQ (f, "5678\n");
+	fclose (f);
+
+	TEST_EQ (chmod (tmpname, 0644), 0);
+
+
+	nih_main_unlink_pidfile ();
+	unlink (tmpname);
+	rmdir (dirname);
+
+	nih_main_set_pidfile (NULL);
 }
 
 
@@ -339,79 +449,57 @@ my_timeout (void *data, NihTimer *timer)
 	nih_main_loop_exit (42);
 }
 
-int
+void
 test_main_loop (void)
 {
 	NihMainLoopFunc *func;
-	int              ret = 0, retval;
+	NihTimer        *timer;
+	int              ret;
 
-	printf ("Testing nih_main_loop()\n");
+	/* Check that we can run through the main loop, and that the
+	 * callback function will be run.  Also schedule an immediate
+	 * timeout and make sure that's run too, that'll terminate the
+	 * main loop with an exit value, make sure it's returned.
+	 */
+	TEST_FUNCTION ("nih_main_loop");
 	callback_called = 0;
 	last_data = NULL;
-	func = nih_main_loop_add_func (NULL, my_callback, &ret);
-	nih_timer_add_timeout (NULL, 1, my_timeout, NULL);
-	retval = nih_main_loop ();
+	func = nih_main_loop_add_func (NULL, my_callback, &func);
+	timer = nih_timer_add_timeout (NULL, 1, my_timeout, NULL);
+	ret = nih_main_loop ();
 
-	/* Return value should be that injected by the timer */
-	if (retval != 42) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Callback should have been called at least once */
-	if (! callback_called) {
-		printf ("BAD: loop function wasn't called.\n");
-		ret = 1;
-	}
-
-	/* Callback should have been passed data pointer */
-	if (last_data != &ret) {
-		printf ("BAD: callback data wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (ret, 42);
+	TEST_TRUE (callback_called);
+	TEST_EQ_P (last_data, &func);
 
 	nih_list_free (&func->entry);
-
-	return ret;
 }
 
-
-int
+void
 test_main_loop_add_func (void)
 {
 	NihMainLoopFunc *func;
-	int              ret = 0;
 
-	printf ("Testing nih_main_loop_add_func()\n");
-	func = nih_main_loop_add_func (NULL, my_callback, &ret);
+	/* Check that we can add a callback function to the main loop,
+	 * and that the structure returned is correctly populated and
+	 * placed in a list.
+	 */
+	TEST_FUNCTION ("nih_main_loop_add_func");
+	TEST_ALLOC_FAIL {
+		func = nih_main_loop_add_func (NULL, my_callback, &func);
 
-	/* Callback should be function given */
-	if (func->callback != my_callback) {
-		printf ("BAD: callback function set incorrectly.\n");
-		ret = 1;
+		if (test_alloc_failed) {
+			TEST_EQ_P (func, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (func, sizeof (NihMainLoopFunc));
+		TEST_LIST_NOT_EMPTY (&func->entry);
+		TEST_EQ_P (func->callback, my_callback);
+		TEST_EQ_P (func->data, &func);
+
+		nih_list_free (&func->entry);
 	}
-
-	/* Callback data should be pointer given */
-	if (func->data != &ret) {
-		printf ("BAD: callback data set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Should be in the loop functions list */
-	if (NIH_LIST_EMPTY (&func->entry)) {
-		printf ("BAD: not placed into loop functions list.\n");
-		ret = 1;
-	}
-
-	/* Should have been allocated using nih_alloc */
-	if (nih_alloc_size (func) != sizeof (NihMainLoopFunc)) {
-		printf ("BAD: nih_alloc was not used.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&func->entry);
-
-	return ret;
 }
 
 
@@ -419,15 +507,17 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_init_gettext ();
+	test_init ();
+	test_package_string ();
+	test_suggest_help ();
+	test_version ();
+	test_daemonise ();
+	test_set_pidfile ();
+	test_read_pidfile ();
+	test_write_pidfile ();
+	test_main_loop ();
+	test_main_loop_add_func ();
 
-	ret |= test_init_gettext ();
-	ret |= test_init ();
-	ret |= test_package_string ();
-	ret |= test_suggest_help ();
-	ret |= test_version ();
-	ret |= test_main_loop ();
-	ret |= test_main_loop_add_func ();
-
-	return ret;
+	return 0;
 }

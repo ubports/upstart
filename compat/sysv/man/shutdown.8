@@ -1,0 +1,91 @@
+.TH shutdown 8 "March 2007" "Upstart"
+.\"
+.SH NAME
+shutdown \- bring the system down
+.\"
+.SH SYNOPSIS
+\fBshutdown\fR [\fIOPTION\fR]... \fITIME\fR [\fIMESSAGE\fR]
+.\"
+.SH DESCRIPTION
+.B shutdown
+arranges for the system to be brought down in a safe way.  All logged-in
+users are notified that the system is going down and, within the last
+five minutes of
+.IR TIME ,
+new logins are prevented.
+
+.I TIME
+may have different formats, the most common is simply the word
+.RI ' now '
+which will bring the system down immediately.  Other valid formats are
+.IR +m ,
+where
+.I m
+is the number of minutes to wait until shutting down and
+.I hh:mm
+which specifies the time on the 24hr clock.
+
+Once
+.I TIME
+has elapsed,
+.B shutdown
+sends a request to the
+.BR init (8)
+daemon to bring the system down into the appropriate runlevel.
+.\"
+.SH OPTIONS
+.TP
+.BR -r
+Requests that the system be rebooted after it has been brought down.
+.\"
+.TP
+.BR -h
+Requests that the system be either halted or powered off after it has been
+brought down, with the choice as to which left up to the system.
+.\"
+.TP
+.BR -H
+Requests that the system be halted after it has been brought down.
+.\"
+.TP
+.BR -P
+Requests that the system be powered off after it has been brought down.
+.\"
+.TP
+.BR -c
+Cancels a running shutdown.
+.I TIME
+is not specified with this option, the first argument is
+.I MESSAGE.
+.\"
+.TP
+.BR -k
+Only send out the warning messages and disable logins, do not actually
+bring the system down.
+.\"
+.SH NOTES
+This tool is provided for compatibility with the traditional System V
+.BR init (8).
+Upstart has no notion of runlevels itself, this and the
+.BR telinit (8)
+tool are provided to emulate their behaviour.
+
+When invoked it generates a
+.I runlevel
+event, with an argument containing the new runlevel.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant.
+.\"
+.SH REPORTING BUGS
+Report bugs at https://launchpad.net/products/upstart/+bugs
+.\"
+.SH COPYRIGHT
+Copyright \(co 2007 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR telinit (8)

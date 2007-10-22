@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,10 +29,11 @@
 
 #include <nih/macros.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/timer.h>
 #include <nih/main.h>
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 #include "event.h"
 
@@ -57,7 +58,7 @@
 /**
  * JOB_DEFAULT_RESPAWN_LIMIT:
  *
- * The default number of times in %JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
  * we permit a process to respawn before stoping it
  **/
 #define JOB_DEFAULT_RESPAWN_LIMIT 10
@@ -77,26 +78,52 @@
 #define JOB_DEFAULT_UMASK 022
 
 
-
+/**
+ * JobProcess:
+ * @script: whether a shell will be required,
+ * @command: command or script to be run,
+ * @pid: current process id.
+ *
+ * This structure represents an individual action process within the job.
+ * When @script is FALSE, @command is checked for shell characters; if there
+ * are none, it is split on whitespace and executed directly using exec().
+ * If there are shell characters, or @script is TRUE, @command is executed
+ * using a shell.
+ *
+ * If the process is running, the current pid will be stored in @pid.
+ **/
+typedef struct job_process {
+	int    script;
+	char  *command;
+	pid_t  pid;
+} JobProcess;
 
 /**
  * Job:
  * @entry: list header,
+ * @id: unique job id,
  * @name: string name of the job; namespace shared with events,
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
+ * @replacement: job to replace this one,
+ * @replacement_for: job this is a replacement for,
+ * @instance_of: job this is an instance of,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
+ * @cause: cause of last goal change,
+ * @blocked: emitted event we're waiting to finish,
+ * @failed: whether the last process ran failed,
+ * @failed_process: the last process that failed,
+ * @exit_status: exit status of the last failed process,
  * @start_events: list of events that can start this job,
  * @stop_events; list of events that can stop this job.
- * @depends: list of dependency jobs,
- * @process_state: what we're waiting for from the process,
- * @pid: current process id,
+ * @emits: list of additional events that this job can emit,
+ * @process: processes to be run,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @kill_timer: timer to kill process,
- * @spawns_instance: job is always waiting and spawns instances,
- * @is_instance: job should be cleaned up instead of waiting,
+ * @instance: job is always waiting and spawns instances,
+ * @service: job has reached its goal when running,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -105,17 +132,12 @@
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
  * @daemon: process forks into background; pid needs to be obtained,
- * @pidfile: obtain pid by reading this file,
- * @binary: obtain pid by locating this binary,
+ * @pid_file: obtain pid by reading this file,
+ * @pid_binary: obtain pid by locating this binary,
  * @pid_timeout: time to wait before giving up obtaining pid,
  * @pid_timer: timer for pid location,
- * @command: command to be run as the primary process,
- * @script: script to run instead of @command,
- * @start_script: script to run before @command is started,
- * @stop_script: script to run after @command is stopped,
- * @respawn_script: script to run between @command respawns,
  * @console: how to arrange the job's stdin/out/err file descriptors,
- * @env: %NULL-terminated list of environment strings to set,
+ * @env: NULL-terminated list of environment strings to set,
  * @umask: file mode creation mask,
  * @nice: process priority,
  * @limits: resource limits indexed by resource,
@@ -126,108 +148,113 @@
  * by the init daemon; as tasks and services are fundamentally identical,
  * except for the handling when the main process terminates, they are both
  * collated together in this structure and only differ in the value of the
- * @respawn member.
+ * @service member.
  **/
-typedef struct job {
-	NihList        entry;
+typedef struct job Job;
+struct job {
+	NihList         entry;
+	unsigned int    id;
 
-	char          *name;
-	char          *description;
-	char          *author;
-	char          *version;
+	char           *name;
+	char           *description;
+	char           *author;
+	char           *version;
 
-	JobGoal        goal;
-	JobState       state;
+	Job            *replacement;
+	Job            *replacement_for;
+	Job            *instance_of;
 
-	NihList        start_events;
-	NihList        stop_events;
-	NihList        depends;
+	JobGoal         goal;
+	JobState        state;
 
-	ProcessState   process_state;
-	pid_t          pid;
-	time_t         kill_timeout;
-	NihTimer      *kill_timer;
+	EventEmission  *cause;
+	EventEmission  *blocked;
 
-	int            spawns_instance;
-	int            is_instance;
+	int             failed;
+	ProcessType     failed_process;
+	int             exit_status;
 
-	int            respawn;
-	int            respawn_limit;
-	time_t         respawn_interval;
-	int            respawn_count;
-	time_t         respawn_time;
-	int           *normalexit;
-	size_t         normalexit_len;
+	NihList         start_events;
+	NihList         stop_events;
+	NihList         emits;
 
-	int            daemon;
-	char          *pidfile;
-	char          *binary;
-	time_t         pid_timeout;
-	NihTimer      *pid_timer;
+	JobProcess    **process;
 
-	char          *command;
-	char          *script;
-	char          *start_script;
-	char          *stop_script;
-	char          *respawn_script;
+	int            *normalexit;
+	size_t          normalexit_len;
 
-	ConsoleType    console;
-	char         **env;
+	time_t          kill_timeout;
+	NihTimer       *kill_timer;
 
-	mode_t         umask;
-	int            nice;
-	struct rlimit *limits[RLIMIT_NLIMITS];
-	char          *chroot;
-	char          *chdir;
-} Job;
+	int             instance;
+	int             service;
+	int             respawn;
+	int             respawn_limit;
+	time_t          respawn_interval;
+	int             respawn_count;
+	time_t          respawn_time;
 
-/**
- * JobName:
- * @entry: list header,
- * @name: name of job.
- *
- * This structure is used to form lists of job names, for example in the
- * depends list of an ordinary Job.
- **/
-typedef struct job_name {
-	NihList  entry;
-	char    *name;
-} JobName;
+	int             daemon;
+	char           *pid_file;
+	char           *pid_binary;
+	time_t          pid_timeout;
+	NihTimer       *pid_timer;
+
+	ConsoleType     console;
+	char          **env;
+
+	mode_t          umask;
+	int             nice;
+	struct rlimit  *limits[RLIMIT_NLIMITS];
+	char           *chroot;
+	char           *chdir;
+};
 
 
 NIH_BEGIN_EXTERN
 
-NihList *   job_list            (void);
+unsigned int  job_id;
+int           job_id_wrapped;
+NihHash      *jobs;
 
-Job *       job_new             (void *parent, const char *name);
 
-Job *       job_find_by_name    (const char *name);
-Job *       job_find_by_pid     (pid_t pid);
+void        job_init                  (void);
 
-void        job_change_state    (Job *job, JobState state);
-JobState    job_next_state      (Job *job);
+JobProcess *job_process_new           (const void *parent)
+	__attribute__ ((warn_unused_result, malloc));
+JobProcess *job_process_copy          (const void *parent,
+				       const JobProcess *old_process)
+	__attribute__ ((warn_unused_result, malloc));
 
-void        job_run_command     (Job *job, const char *command);
-void        job_run_script      (Job *job, const char *script);
+Job *       job_new                   (const void *parent, const char *name)
+	__attribute__ ((warn_unused_result, malloc));
+Job *       job_copy                  (const void *parent, const Job *old_job)
+	__attribute__ ((warn_unused_result, malloc));
 
-void        job_kill_process    (Job *job);
+Job *       job_find_by_name          (const char *name);
+Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
+Job *       job_find_by_id            (unsigned int id);
 
-void        job_child_reaper    (void *ptr, pid_t pid, int killed, int status);
+Job *       job_instance              (Job *job);
+void        job_change_goal           (Job *job, JobGoal goal,
+				       EventEmission *emission);
 
-void        job_start           (Job *job);
-void        job_stop            (Job *job);
+void        job_change_state          (Job *job, JobState state);
+JobState    job_next_state            (Job *job);
 
-void        job_release_depends (Job *job);
+int         job_should_replace        (Job *job);
 
-void        job_start_event     (Job *job, Event *event);
-void        job_stop_event      (Job *job, Event *event);
-void        job_handle_event    (Event *event);
+void        job_run_process           (Job *job, ProcessType process);
+void        job_kill_process          (Job *job, ProcessType process);
 
-void        job_detect_idle     (void);
-void        job_set_idle_event  (const char *name);
+void        job_child_reaper          (void *ptr, pid_t pid, int
+				       killed, int status);
 
-Job *       job_read_state      (Job *job, char *buf);
-void        job_write_state     (FILE *state);
+void        job_handle_event          (EventEmission *emission);
+void        job_handle_event_finished (EventEmission *emission);
+
+void        job_detect_stalled        (void);
+void        job_free_deleted          (void);
 
 NIH_END_EXTERN
 

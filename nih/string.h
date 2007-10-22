@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,25 +27,50 @@
 
 NIH_BEGIN_EXTERN
 
-char * nih_sprintf   (void *parent, const char *format, ...)
+char * nih_sprintf          (const void *parent, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3), warn_unused_result, malloc));
 
-char * nih_vsprintf  (void *parent, const char *format, va_list args)
+char * nih_vsprintf         (const void *parent, const char *format,
+			     va_list args)
 	__attribute__ ((format (printf, 2, 0), warn_unused_result, malloc));
 
-char * nih_strdup    (void *parent, const char *str)
+char * nih_strdup           (const void *parent, const char *str)
 	__attribute__ ((warn_unused_result, malloc));
 
-char * nih_strndup   (void *parent, const char *str, size_t len)
+char * nih_strndup          (const void *parent, const char *str, size_t len)
 	__attribute__ ((warn_unused_result, malloc));
 
-char **nih_str_split (void *parent, const char *str, const char *delim,
-		      int repeat)
+char **nih_str_split        (const void *parent, const char *str,
+			     const char *delim, int repeat)
 	__attribute__ ((warn_unused_result, malloc));
-void   nih_strv_free (char **strv);
 
-char * nih_str_wrap  (void *parent, const char *str, size_t len,
-		      size_t first_indent, size_t indent);
+char **nih_str_array_new    (const void *parent)
+	__attribute__ ((warn_unused_result, malloc));
+char **nih_str_array_add    (char ***array, const void *parent, size_t *len,
+			     const char *str)
+	__attribute__ ((warn_unused_result, malloc));
+char **nih_str_array_addn   (char ***array, const void *parent, size_t *len,
+			     const char *str, size_t strlen)
+	__attribute__ ((warn_unused_result, malloc));
+char **nih_str_array_addp   (char ***array, const void *parent, size_t *len,
+			     void *ptr)
+	__attribute__ ((warn_unused_result, malloc));
+char **nih_str_array_copy   (const void *parent, size_t *len,
+			     char * const *array)
+	__attribute__ ((warn_unused_result, malloc));
+char **nih_str_array_append (char ***array, const void *parent, size_t *len,
+			     char * const *args)
+	__attribute__ ((warn_unused_result, malloc));
+
+void   nih_strv_free        (char **strv);
+
+char * nih_str_wrap         (const void *parent, const char *str, size_t len,
+		             size_t first_indent, size_t indent)
+	__attribute__ ((warn_unused_result, malloc));
+size_t nih_str_screen_width (void);
+char * nih_str_screen_wrap  (const void *parent, const char *str,
+			     size_t first_indent, size_t indent)
+	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 

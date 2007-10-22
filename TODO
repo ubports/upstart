@@ -1,34 +1,88 @@
 High Priority:
 
- * logd should output to console when "quiet" _not_ on the command-line
+ * Restore serialisation of state between upstart processes.  Having made
+   the structures in memory more sane, this should be easier again, as
+   long as we send things in this order:
 
- * logd should capture syslog/klog stuff?  (or just go away and get
-   replaced by a different daemon eventually)
+    * EventEmission queue
+    * Job hash (referencing cause and blocked events by id, also need to
+      ensure we handle instance jobs proeprly)
+    * NotifySubscription list (which references both events by id and jobs
+      by name [or id])
+   
+   I want to use the IPC protocol for this, since it's somewhat stable
+   now.  Handing off will still use the "fork a child, exec in the parent"
+   model, except for the following.
+
+    * Leave the control socket open, clear the cloexec flag, and pass its
+      file descriptor number to the new init process.
+    * In the child, close the control socket we had open and open an
+      ordinary socket; blocking-write the information to that and then die.
 
 
- * Configuration files can be deleted, need to do something with the
-   job at that point (stop it and delete it)
+Medium Priority:
 
- * Configuration files can be moved.
+ * EventEmission records need to hang around longer, since that's the source
+   of environment variables, etc.  We should only clear the cause when we
+   change the goal; otherwise we should just decrease the job count (while
+   maintaining a reference count).  This means events can be finished, but
+   still referenced. -- should also be freed when we reach "stop"
 
- * Move config file parsing code into libupstart and just have a stanza
-   callback function (so we can use it for all config file stuff)
+ * Iterating through every Job's start and stop events is messy; we should
+   have some kind of match lookup table to make it easier.
+
+ * Likewise iterating through all the Jobs to find a pid is messy; we
+   should have a lookup table for these too.
+
+ * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
+   we encounter any problems write the error code to this pipe and die.
+   Then from above, we can read this pipe to determine whether the job
+   failed before or after the exec.  (Might be a cleaner way to do this).
 
 
- * cfg_watch_dir needs testing, as does cfg_watcher
+Low Priority:
 
- * test event_queue_run
+ * If environment variables don't have an = in them, copy that variable
+   from init's environment (default PATH, TERM).  On the subject of
+   process_setup_environment, it's getty very messy; it's about time it
+   got cleaned up -- and maybe don't use putenv/setenv since they're a
+   little strange.
+
+ * Need to add dependencies to jobs, which are files that must exist before
+   the job can be started (because Debian/Ubuntu like to litter config files
+   like jobs)
+
+ * process_setup_console is due for an overhaul as well; especially if
+   we want to be able to pass file descriptors in.  Am somewhat tempted
+   to add a magic CONSOLE_DEFAULT option which tries fd, logging, null,
+   etc.  and use CONSOLE_LOGGED to mean "die if logd isn't around".
+
+ * We always want /dev/fd/NNN to be /dev/fd/3, we should have some way
+   to instruct process_spawn to do that.
+
+ * We may need to KILL scripts, e.g. post-start; especially when the goal
+   changes.  Or perhaps just after a timeout?
+
+ * May need a way to force ignoring of the KILL signal, and assuming that
+   a job that won't die really has.
+
+ * Should be possible to configure things in one file, definings jobs with
+   a stanza rather than separate files.
+
+ * Replace logd raise/wait/kill interlock with a pipe-based one?
+
+ * Replace logd with something else that's more standard in the system,
+   and just use a normal API to communicate with it.
+
+ * logd is currently disabled because of the problem where it goes away,
+   and the scripts being run end up vanishing because they can't write
+   data.
 
 
 Unfinished Features:
 
  * Handle locating the pid for a spawned daemon, use an inotify watch
    on the pid file or scan /proc.
-
- * Deal with instances, spawning and freeing of them.  Will need to be
-   hooked into job_find_by_name so that provides only the parent, and
-   another way to find other instances.  job_find_other_instance ()
-   which takes an existing job, iterates for the same name?
 
  * Get the LANG environment variable somehow.
 
@@ -50,121 +104,34 @@ Future Features:
  * Load average checking, maybe have separate CPU, Network and I/O
    stats?
 
+ * Actions: "reload" and optional replacements for "stop", "start", etc.
 
-Musings and Feedback:
+   This is mostly just a matter of deciding policy for when they can be run,
+   and adding "user processes" onto the end of the job->process array.
 
- * respawn is over-used for things, we should have a "service" stanza
-   that defines that the job event is sent afterwards, not re-use "respawn"
-   for that.
+ * Alternative script interpreters; "start script python".
 
+   Would be done by making script a char *, and putting the interpreter into
+   command?
 
- * Some magic could be hidden through special commands.  It might be
-   common for example to depend on a job to be running, start when it
-   enters running and stop when it leaves running.
+ * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
+   which state do we keep it in while it's waiting?
 
- * We could replace release_depends with an implicit listen on
-   "foo running".  Though how would we know to send the dependency
-   event or equivalent?
+ * Apply event variables to keys, such as "uses" and "stop on"
 
+ * Watershed jobs (this actually might apply to events, since you might
+   want to try starting again if a particular event has come in since you
+   were last started)
 
- * "depends" in its current form was considered confusing, suggested
-   rename was "wait for"
+ * How do we balance events, if two "added" happen we probably want two
+   "removed" to happen as well.  One way is to allow $... in the event
+   definitions which apply to earlier ones?
 
- * "end script" too verbose?
+ * Extend telinit to support --default or similar; moving the shell parsing
+   out of rc-default and just make that exec telinit with the right args.
 
+ * Event tree for "start on" and "stop on" -- need to solve when instances
+   are spawned and which event gets stored in cause first though.
 
- * script/process doesn't know what event was triggered.  Put it in
-   env?  Would need to record this in the job so that it's passed
-   correctly.
-
- * Recording the event that caused the goal change would be useful; we
-   could then know when we had really finished processing an event,
-   and drop the idle event code and shutdown special-casing.
-
- * If the goal got changed back, we could then "abort" the event and
-   indicate to all concerned that it failed.
-
-
- * Events should have arguments, e.g. "block-device-added hda"
-
- * We can then invert the "job/*" things to "* job",
-   e.g. "on stopped apache" ... no need for special syntax?
-
- * "start script" should become "pre-start script"
-
- * "stop script" should become "post-stop script"
-
-
- * Would be nice if we could use the "spawned" state for other things
-   daemon-related too, like having a script that indicates whether the
-   daemon is actually running yet or not -- useful for "not running
-   until it listens on port 80"
-
- * But see below, we could use a "post-start" script for this.
-
-
- * Generate events when scripts fail and daemons die (in the child handler)
-   "start on failed apache"
-
- * Should generate an event whenever the goal is changed if we haven't
-   done one already
-
- * Maybe also generate a job event on itself
-
- * Then respawn could go away entirely!  "start on failed"
-
- * respawn too fast needs to be done on stop/start anyway
-
-
- * Actions "reload" and optional replacements for "stop", "start", etc.
-   Would then require multiple processes per job.
-
-
- * the post-start and pre-stop processes can be run at the same time
-   as the job itself
-
- * pre-start run during STARTING state
-
- * post-start run during STARTED state
-
- * pre-stop run during STOPPING state
-
- * post-stop run during STOPPED state
-
- * executable is run when entering STARTED state (from STARTING), but
-   might be looking for a pid
-
- * for a task, it's the pre-stop finishing or executable being killed
-   that sends the event
-
- * for a service, post-start finishing or pid being found, etc. sends
-   the job event
-
- * executable is killed when entering STOPPING state unless pre-stop
-   script is available, in which case it's killed when it exits
-
- * when a pid is found, if post-start is not yet running, we can issue
-   the job event for a service
-
- * when post-start finishes, if a pid has been found, we can issue the
-   job event for a service
-
- * post-start can thus hold the process from issuing its own event
-   (ie. waiting for it to be listening on a port)
-
- * pre-stop can prevent the process from entering STOPPED state (and
-   thus put it back into STARTED)
-
- * RUNNING goes away, the job is in STARTED with no script process
- * WAITING goes way, the job is just in STOPPED with no script process
-
- * we may need to KILL scripts, e.g. post-start
-
- * If we can't KILL things, we shouldn't ignore that, we should treat
-   that as a failure and adjust the job again so it still shows up as
-   running
-
- * force option?  ensures things are KILLed and failure to KILL
-   ignored?
-
- * scripts should also have a timeout
+ * Instance names, appended to a running job's title and set in the job
+   definition using a variable from an event?

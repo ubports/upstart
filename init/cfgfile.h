@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,24 +23,19 @@
 
 #include <nih/macros.h>
 
+#include <nih/watch.h>
+
 #include "job.h"
-
-
-/**
- * CFG_DIR:
- *
- * Directory to find configuration files in.
- **/
-#ifndef CFG_DIR
-#define CFG_DIR "/etc/event.d"
-#endif
 
 
 NIH_BEGIN_EXTERN
 
-Job *cfg_read_job  (void *parent, const char *filename, const char *jobname);
+Job *     cfg_read_job  (const void *parent, const char *filename,
+			 const char *jobname)
+	__attribute__ ((malloc));
 
-int  cfg_watch_dir (void *parent, const char *dirname, const char *prefix);
+NihWatch *cfg_watch_dir (const char *dirname, const char *prefix)
+	__attribute__ ((malloc, warn_unused_result));
 
 NIH_END_EXTERN
 
