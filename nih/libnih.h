@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,13 +25,17 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/hash.h>
+#include <nih/tree.h>
 #include <nih/timer.h>
 #include <nih/signal.h>
 #include <nih/child.h>
 #include <nih/io.h>
 #include <nih/file.h>
+#include <nih/watch.h>
 #include <nih/main.h>
 #include <nih/option.h>
+#include <nih/command.h>
+#include <nih/config.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>

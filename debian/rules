@@ -2,6 +2,8 @@
 # debian/rules for the upstart package.
 # Author: Scott James Remnant <scott@ubuntu.com>
 
+include /usr/share/quilt/quilt.make
+
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
@@ -36,12 +38,13 @@ config.status: configure
 		--sysconfdir=/etc \
 		--localstatedir=/var/lib \
 		--mandir=\$${datadir}/man \
-		--infodir=\$${datadir}/info
+		--infodir=\$${datadir}/info \
+		--enable-compat=sysv
 
 
 # Build the package
 build: build-stamp
-build-stamp: config.status
+build-stamp: patch config.status
 	dh_testdir
 
 	$(MAKE)
@@ -91,12 +94,13 @@ binary-arch: build install
 
 
 # Clean up the mess we made
-clean:
+clean: clean-source unpatch
+clean-source:
 	dh_testdir
 	rm -f build-stamp
 
-	-$(MAKE) clean distclean
+	[ ! -f Makefile ] || $(MAKE) clean distclean
 	dh_clean 
 
 
-.PHONY: build install binary-indep binary-arch binary clean
+.PHONY: build install binary-indep binary-arch binary clean clean-source patch unpatch

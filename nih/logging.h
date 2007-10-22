@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ typedef enum {
 	NIH_LOG_UNKNOWN,
 	NIH_LOG_DEBUG,
 	NIH_LOG_INFO,
+	NIH_LOG_MESSAGE,
 	NIH_LOG_WARN,
 	NIH_LOG_ERROR,
 	NIH_LOG_FATAL
@@ -48,13 +49,13 @@ typedef enum {
  * A logger is a function that receives a formatted message to be logged
  * in whatever manner is appropriate.  The priority of the message is given
  * so that the logger may direct it appropriately, however the function
- * should not discard any messages and instead @nih_log_set_priority used
+ * should not discard any messages and instead nih_log_set_priority() used
  * to decide the treshold of logged messages.
  *
  * The logger may return non-zero to indicate that it was not able to
  * output the message.
  **/
-typedef int (*NihLogger) (NihLogLevel, const char *);
+typedef int (*NihLogger) (NihLogLevel priority, const char *message);
 
 
 /**
@@ -78,6 +79,18 @@ typedef int (*NihLogger) (NihLogLevel, const char *);
  **/
 #define nih_info(format, ...) \
 	nih_log_message (NIH_LOG_INFO, format, ##__VA_ARGS__)
+
+/**
+ * nih_message:
+ * @format: printf-style format string.
+ *
+ * Outputs a message from a non-daemon process that is normally shown unless
+ * the user wants quiet operation.  The difference between this and nih_warn()
+ * is that this is usually send to standard output, instead of standard
+ * error, and it is not prefixed.
+ **/
+#define nih_message(format, ...) \
+	nih_log_message (NIH_LOG_MESSAGE, format, ##__VA_ARGS__)
 
 /**
  * nih_warn:
@@ -125,8 +138,24 @@ typedef int (*NihLogger) (NihLogLevel, const char *);
 		abort (); \
 	}
 
+/**
+ * nih_assert_not_reached:
+ *
+ * Outputs a fatal error message and terminates the process if this
+ * line of code is reached.
+ **/
+#define nih_assert_not_reached() \
+	do { \
+		nih_fatal ("%s:%d: Not reached assertion failed in %s", \
+			   __FILE__, __LINE__, __FUNCTION__); \
+		abort (); \
+	} while (0)
+
 
 NIH_BEGIN_EXTERN
+
+NihLogLevel nih_log_priority;
+
 
 void nih_log_set_logger   (NihLogger new_logger);
 void nih_log_set_priority (NihLogLevel new_priority);

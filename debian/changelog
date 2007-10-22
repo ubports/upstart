@@ -1,40 +1,123 @@
-upstart (0.2.7-2) edgy; urgency=low
+upstart (0.3.9-1) experimental; urgency=low
 
+  * New upstream release.
+  * debian/watch
+    - Find the latest tarball by parsing the download.html page.
+  * debian/upstart-compat-sysv.preinst
+    - Do not parse /var/lib/dpkg/status directly but use dpkg-query instead.
+  * debian/control
+    - Use the new "Homepage:" field to specify the upstream URL.
+    - Drop versioned Build-Depends on dpkg-dev as the version in etch is
+      recent enough.
+    - Use quilt instead of dpatch for the patch management. Update the
+      Build-Depends accordingly.
+  * debian/rules
+    - Do not ignore "make clean" errors.
+    - Include quilt.make which provides the patch and unpatch target.
+  * debian/README.Debian
+    - Update the FAQ with regard to boot message logging. Closes: #426598
+    - Add some notes that initramfs generators other than initramfs-tools can
+      cause problems. Closes: #410836
+
+ -- Michael Biebl <biebl@debian.org>  Mon, 22 Oct 2007 07:09:12 +0200
+
+upstart (0.3.8-1) experimental; urgency=low
+
+  * New upstream release.
+    - Fixes FTBFS on architectures not supporting the signals SIGSTKFLT and 
+      SIGUNUSED. Closes: #413944
+  * system-services: Update tty1-tty6 and replace the respawn shortcut with
+    exec and an explicit respawn stanza.
+
+ -- Michael Biebl <biebl@debian.org>  Mon, 12 Mar 2007 18:56:36 +0100
+
+upstart (0.3.5-1) experimental; urgency=low
+
+  * New upstream release.
+  * Add XS-Vcs-* fields to debian/control.
+  * debian/upstart-compat-sysv.{postinst,preinst,postrm}
+    - Handle the removal of the obsolete conffiles
+      rc0-poweroff and rc0-halt.
+  * Update job files to match the new event names.
+  * Use "console output" as there are some issues with logd atm.
+  * Start tty2-tty6 for rc2 and rc3 only.
+
+ -- Michael Biebl <biebl@debian.org>  Tue,  6 Mar 2007 00:02:59 +0100
+
+upstart (0.3.2-1) experimental; urgency=low
+
+  * New upstream release.
+  * debian/upstart.docs
+    - Install the NEWS, AUTHORS, TODO, HACKING and ChangeLog.nih file.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 10 Feb 2007 18:25:10 +0100
+
+upstart (0.3.1-1) experimental; urgency=low
+
+  * New upstream release.
+  * debian/patches/tls_check.dpatch,
+    debian/patches/logd_no_output.dpatch,
+    debian/patches/autoreconf.dpatch
+    - Removed, fixed upstream.
+  * reboot, halt, poweroff and shutdown moved to upstart-compat-sysv.
+
+ -- Michael Biebl <biebl@debian.org>  Fri, 15 Dec 2006 00:48:50 +0100
+
+upstart (0.2.7-2) experimental; urgency=low
+
+  * Set RUNLEVEL=S and PREVLEVEL=N for rcS. Closes: #397002
+  * debian/patches/logd_no_output.dpatch
+    - Added. Backport from current bzr main branch to revert broken logd
+      behaviour.
+  * debian/patches/tls_check.dpatch
+    - Added. Check if target platform has thread-local storage support.
+      Disable the usage of __thread unless supported. Closes: #397851
+  * Include README.Debian which answers common questions. 
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 11 Nov 2006 20:41:38 +0100
+
+upstart (0.2.7-1) experimental; urgency=low
+
+  [ martin f. krafft ]
+  * Set priority to extra.
+
+  [ Michael Biebl ]
+  * New upstream release.
+  * Upload to experimental as we conflict with sysvinit which is essential.
+  * Sync with Ubuntu.
+  * debian/patches/10_inotify.dpatch
+    - Removed, merged upstream.
+  * system-services: Removed unversioned dependency on util-linux. This
+    package is marked Essential and so installed anyway.
+  * Drop sulogin hack, instead depend on the version of sysvinit-utils that
+    includes the real one.
   * Ensure that the same version of upstart is installed as the version of
     upstart-compat-sysv and upstart-logd; as the IPC protocol may change
-    between releases.
+    between releases. 
 
-  * Adjust the rcS-sulogin job so that if sulogin exits the default runlevel
-    is entered; but if the job is stopped (e.g. by shutdown) it isn't.  The
-    solves the regression introduced in the previous release.
+ -- Michael Biebl <biebl@debian.org>  Fri, 20 Oct 2006 23:23:36 +0200
 
-  * Revert upstream logd/"quiet" change in favour of doing it in our
-    lsb logging functions instead; seems to work better (fsvo better).
+upstart (0.2.6-1) unstable; urgency=low
 
- -- Scott James Remnant <scott@ubuntu.com>  Thu, 21 Sep 2006 03:12:33 +0100
+  * New upstream release.
+  * Added a watch file.
+  * Apply the inotify patch using dpatch. 
+    - debian/control: Build depend on dpatch.
+    - debian/rules: Include /usr/share/dpatch/dpatch.make which adds the
+      targets patch and unpatch. Depend on them in build-stamp: and clean:.
+    - debian/patches/10_inotify.dpatch: Syscall wrappers for inotify support
+      on glibc 2.3.
 
-upstart (0.2.7-1) edgy; urgency=low
+ -- Michael Biebl <biebl@teco.edu>  Thu, 14 Sep 2006 01:54:10 +0200
 
-  * New upstream release:
-    - logd now writes to the console unless "quiet" is specified
-    - runaway jobs caught when they start rather than respawn.  Ubuntu: #59807
+upstart (0.2.5-1debian1) unstable; urgency=low
 
-  * Fix failure to shutdown while in single-user mode, however this means
-    that for edgy you can't exit the sulogin shell to enter the default
-    runlevel; explicitly say what works.  Ubuntu: #60626.
-  * Drop unnecessary dependency on util-linux.
-  * Drop sulogin hack, instead depend on the version of sysvutils that
-    includes the real one.  Ubuntu: #60965.
+  * upstart-compat-sysv: Depend on sysvinit-utils instead of sysvutils.
+  * Set myself as maintainer with approval from martin f. krafft.
+  * Changed section from base to admin.
+  * Added a patch to make it compile against glibc 2.3.
 
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 20 Sep 2006 05:39:16 +0100
-
-upstart (0.2.6-1) edgy; urgency=low
-
-  * New upstream release:
-    - fix infinite loop caused by bad waitid() call.  Ubuntu: #59459.
-    - halt now behaves as "shutdown -h now".  Ubuntu: #59720.
-
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 13 Sep 2006 22:16:17 +0100
+ -- Michael Biebl <biebl@teco.edu>  Tue, 12 Sep 2006 16:29:12 +0200
 
 upstart (0.2.5-1) edgy; urgency=low
 

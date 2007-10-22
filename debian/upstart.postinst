@@ -19,7 +19,7 @@
 # Tell init to re-exec itself
 reexec_init()
 {
-    kill -TERM 1
+    kill -s TERM 1
 }
 
 

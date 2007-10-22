@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,15 @@ enum {
 	/* 0x10000 thru 0x1FFFF reserved for libnih */
 	NIH_ERROR_LIBNIH_START = 0x10000L,
 
+	NIH_CONFIG_EXPECTED_TOKEN,
+	NIH_CONFIG_UNEXPECTED_TOKEN,
+	NIH_CONFIG_TRAILING_SLASH,
+	NIH_CONFIG_UNTERMINATED_QUOTE,
+	NIH_CONFIG_UNTERMINATED_BLOCK,
+	NIH_CONFIG_UNKNOWN_STANZA,
+
+	NIH_DIR_LOOP_DETECTED,
+
 	/* 0x20000 thru 0x2FFFF reserved for applications */
 	NIH_ERROR_APPLICATION_START = 0x20000L,
 
@@ -41,5 +50,13 @@ enum {
 };
 
 /* Error strings for defined messages */
+#define NIH_CONFIG_EXPECTED_TOKEN_STR      N_("Expected token")
+#define NIH_CONFIG_UNEXPECTED_TOKEN_STR    N_("Unexpected token")
+#define NIH_CONFIG_TRAILING_SLASH_STR      N_("Trailing slash in file")
+#define NIH_CONFIG_UNTERMINATED_QUOTE_STR  N_("Unterminated quoted string")
+#define NIH_CONFIG_UNTERMINATED_BLOCK_STR  N_("Unterminated block")
+#define NIH_CONFIG_UNKNOWN_STANZA_STR      N_("Unknown stanza")
+
+#define NIH_DIR_LOOP_DETECTED_STR          N_("Directory loop detected")
 
 #endif /* NIH_ERRORS_H */

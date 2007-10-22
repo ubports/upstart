@@ -1,7 +1,7 @@
-This is the Ubuntu package of upstart, the event-based init daemon.
+This is the Debian package of upstart, the event-based init daemon.
 
-Copyright © 2006 Canonical Ltd.
-Copyright © 2006 Scott James Remnant <scott@netsplit.com>
+Copyright © 2007 Canonical Ltd.
+Copyright © 2007 Scott James Remnant <scott@netsplit.com>
 
 Licence:
 
@@ -15,5 +15,5 @@ WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
-On Ubuntu systems, the complete text of the GNU General Public License
+On Debian/Ubuntu systems, the complete text of the GNU General Public License
 can be found in ‘/usr/share/common-licenses/GPL’.

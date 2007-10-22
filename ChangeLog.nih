@@ -1,0 +1,2581 @@
+2007-10-08  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac (AM_GNU_GETTEXT_VERSION): Bump to 0.16.1 since this
+	version of gettext is needed for compatibility with Automake 1.10
+	* HACKING: Bump version in the docs too.
+
+	* Makefile.am (ACLOCAL_AMFLAGS): Specify that aclocal install
+	ordinarily system-wide macros into m4 (libtool.m4, specifically).
+	This makes it easier for packagers to modify autoconfery since
+	aclocal is no longer a destructive event.
+	* configure.ac (AM_INIT_AUTOMAKE): Increase Automake requirement to
+	1.10 to ensure we have aclocal --instal
+	* HACKING: Increase Automake version in the docs.
+
+2007-06-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_tree.c (test_next, test_prev, test_next_pre)
+	(test_prev_pre, test_next_post, test_pre_post): Add tests for a
+	single-node tree, because we found a bug where it didn't work.
+	* nih/tree.c (nih_tree_next): Bug fix; check there is a right node
+	before checking whether we've returned from it, otherwise we could
+	confuse it with starting at the top of the tree.
+	(nih_tree_prev): Likewise check there is a left node before checking
+	whether we've returned from it.
+
+2007-06-20  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_parse_stanza): Free name after use.
+
+	* nih/config.c (nih_config_parse_stanza): Don't dequote stanza
+	names, since otherwise they can't be made non-special; if we don't
+	recognise the stanza we parsed, raise the error without updating
+	pos, since we want it to point to the start of the token.
+	* nih/tests/test_config.c (test_parse_stanza): Update pos in test.
+
+2007-06-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.h (NihListEntry): Define structure combining an NihList
+	with a union of common types.
+	* nih/list.c (nih_list_entry_new): Add a helper function for when
+	we need a simple entry without any extra structure around it.
+	* nih/tests/test_list.c (test_entry_new): Test the new function.
+	* nih/tree.h (NihTreeEntry): Define structure combining an NihTree
+	with a union of common types.
+	* nih/tree.c (nih_tree_entry_new): Add a helper function for when
+	we need a simple node without any extra structure around it.
+	* nih/tests/test_tree.c (test_entry_new): Test the new function.
+
+2007-06-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_tree.c (test_next, test_foreach, test_prev) 
+	(test_next_pre, test_foreach_pre, test_prev_pre, test_next_post) 
+	(test_foreach_post, test_prev_post): Add tests for partial tree
+	traversal, we don't expect to break out of the confines of the
+	root that we've set, even if it has a parent.
+	* nih/tree.c (nih_tree_next, nih_tree_prev, nih_tree_next_pre)
+	(nih_tree_prev_pre, nih_tree_next_post, nih_tree_prev_post): Before
+	moving up to the parent node, check whether the current node is the
+	tree root; if it is, return NULL instead since we've iterated the
+	sub-tree we were looking at.
+
+	* nih/tests/test_tree.c (test_next, test_foreach, test_prev) 
+	(test_next_pre, test_foreach_pre, test_prev_pre, test_next_post) 
+	(test_foreach_post, test_prev_post): Use two different arrays to
+	make it really obvious how the tree is constructed and what order
+	we really expect it to be in.  This makes it easier to get ready for
+	the next bit ...
+
+	* nih/tree.c (nih_tree_next, nih_tree_prev): Minor bug fix, set the
+	previous to the tree's parent when visiting for the first time so that
+	partial	tree iterations might be able to work.  Make algorithm code
+	simpler and more readable.
+	(nih_tree_next_pre, nih_tree_prev_pre): Algorithm for non-recursive
+	pre-order tree iteration, note that unlike the above, these are not
+	symmetrical.
+	(nih_tree_next_post, nih_tree_prev_post): Algorithm for non-recursive
+	post-order tree iteration, note that these aren't symmetrical with
+	each other, but are the symmetrical equivalents of the pre-order
+	functions.
+	* nih/tree.h: Add prototypes for new functions.
+	(NIH_TREE_FOREACH_PRE, NIH_TREE_FOREACH_POST): Add convenience
+	iteration macros for pre-order and post-order iteration.
+	* nih/tests/test_tree.c (test_next, test_foreach, test_prev): Add
+	some documentation for the tree shape, and how we work out the node
+	numbers.  In each case, we were accidentally giving the expected
+	first node (which fortunately always worked); to test this harder,
+	give the root node instead!
+	(test_next_pre, test_foreach_pre, text_prev_pre): Test pre-order
+	tree iteration with the same basic code.
+	(test_next_post, test_foreach_post, text_prev_post): Test post-order
+	tree iteration with the same basic code.
+
+2007-06-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_HASH_NOT_EMPTY): Add missing ;
+
+	* nih/main.c (nih_main_unlink_pidfile): Add for completeness.
+	* nih/main.h: Add prototype.
+	* nih/tests/test_main.c: Use the new function here for testing.
+
+	* nih/main.c (nih_main_pidfile): Rename to nih_main_write_pidfile
+	(nih_main_set_pidfile, nih_main_get_pidfile) 
+	(nih_main_read_pidfile): Add companion functions to set and get the
+	current location, and also read from it.
+	* nih/main.h: Add prototypes.
+	* nih/tests/test_main.c (test_set_pidfile, test_read_pidfile) 
+	(test_write_pidfile): Test the functions as best we can.
+
+	* nih/main.c (nih_main_daemonise): Cut the pid file writing out
+	(nih_main_pidfile): and place it into its own function, since we
+	seem to use this elsewhere too.
+	* nih/main.h: add prototype.
+
+	* nih/main.c (nih_main_daemonise): Don't just write the pid file
+	directly, and hope it works.  Write to a temporary file, flush and
+	sync it, then rename to the real filename.  This provides a "if the
+	pid file exists, a pid can be read from it" contract - or at least,
+	the nearest we can to that.
+
+2007-06-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_skip_block): Simple function to skip over
+	a block inline without parsing it into a string.
+	* nih/config.h: Add prototype.
+	* nih/tests/test_config.c (test_skip_block): Test the new function.
+
+2007-06-10  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_HASH_EMPTY, TEST_HASH_NOT_EMPTY): Add some
+	tests for hash emptyness.
+
+2007-06-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.h (NihFileFilter): add missing data pointer to definition.
+	* nih/file.c (nih_dir_walk_scan): Take the data pointer and pass it
+	to the filter function.
+	(nih_dir_walk, nih_dir_walk_visit): Pass data pointer to scan function.
+	(nih_file_ignore): Accept and ignore a data pointer.
+	* nih/tests/test_file.c (my_filter): Add data pointer.
+	(test_ignore): Pass NULL for data pointer.
+	* nih/watch.c (nih_watch_handle): Pass data to filter function.
+	* nih/tests/test_watch.c (my_filter): Add data pointer.
+
+2007-05-27  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_parse): Since we've elimated all of the
+	uses of ssize_t in this code, we're safe to parse a file larger
+	than SSIZE_MAX, so drop the check.
+	* nih/errors.h (NIH_CONFIG_TOO_LONG): Drop this error, since there
+	can be no such case anymore; technically we don't handle very large
+	files since we can only map 4GB of memory, but we fail by mapping
+	a smaller part of the file, rather than overrunning any buffers.
+
+	* nih/config.c (nih_config_parse_block): Don't use -1 in ws to
+	indicate we've not counted it yet, instead use the current value
+	of lines; this elimates the last ssize_t from the code.
+
+	* nih/config.c (nih_config_block_end): Modify to return TRUE or
+	FALSE, and set the end position through an argument instead.
+	(nih_config_parse_block): Update the way we call nih_config_block_end
+	to receive the end location via the pointer, rather than as the
+	return value.
+
+	* nih/config.c (nih_config_token): Change return value to an int,
+	and return the token length through an argument pointer if given.
+	This eliminates a need for ssize_t for this function.
+	(nih_config_next_token, nih_config_parse_command): Update way we
+	call nih_config_token to obtain the length through a pointer, and
+	directly check the return value to decide whether to abandon it.
+	* nih/config.h: Update prototype.
+	* nih/tests/test_config.c (test_token): Update the tests to check
+	the pointed value for the length, and the return value for error.
+
+2007-05-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_string.c (test_array_append): Make sure that the
+	array is returned unaltered (at least, apparently) if any allocation
+	fails during the append.
+	* nih/string.c (nih_str_array_append): Record the original length,
+	and pass always pass our local length variable to nih_str_array_add.
+	Before returning, overwrite the returned length; if any allocation
+	fails, unwind other allocations and restore the NULL pointer before
+	returning NULL.
+
+	* nih/string.c (nih_str_array_copy, nih_str_array_append): Add a
+	couple of functions to copy a string array, and to append one onto
+	the end of another.  Saves reimplementing this each time.
+	* nih/string.h: Add prototypes.
+	* nih/tests/test_string.c (test_array_copy, test_array_append):
+	Test the new functions.
+
+2007-04-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/string.c (nih_vsprintf): Add va_end to va_copy; C standard
+	says so.
+
+2007-03-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_io.c (test_get_family): The elmos of this world
+	like to disable various networking protocols, so expect that and
+	skip test cases.
+
+	* nih/io.h: Change int_data type to a plain old int; there's no
+	reason for it to be a fixed width type, and we may as well think
+	about supporting ILP64 in case someone does something silly one day.
+
+2007-03-11  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/compiler.m4: Don't check for __thread unless --enable-threading
+	given to configure, instead define it to empty.
+
+	* TODO: Update.
+
+2007-03-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/logging.c: Make the current log priority available globally
+	through the nih_log_priority variable.
+	* nih/logging.h: Update.
+
+2007-03-08  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/macros.h (_n): Add a macro to wrap ngettext() for plural forms.
+
+2007-03-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_watch.c: Skip these tests if inotify is not
+	available, since there's not much we can do.
+
+2007-02-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tree.c (nih_tree_next, nih_tree_prev): Add non-recursive
+	functions to iterate a tree in-order either forwards or backwards.
+	* nih/tree.h (NIH_TREE_FOREACH): Standard macro for wrapping
+	nih_tree_next and turning it into a for loop.
+	* nih/tests/test_tree.c (test_next, test_foreach, test_prev): Test
+	things with a complex tree to see whether they work out ok.
+
+	* nih/list.h: Fix formatting and ordering.
+	* nih/list.c: Fix function ordering.
+
+	* nih/tree.c: Add generic code to implement pure binary trees.
+	* nih/tree.h: Structures, typedefs and prototypes.
+	* nih/tests/test_tree.c: Binary tree test suite.
+	* nih/libnih.h: Include tree.h
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link tree.c
+	(nihinclude_HEADERS): Install tree.h
+	(TESTS): Build and run binary tree test suite.
+	(test_tree_SOURCES, test_tree_LDFLAGS, test_tree_LDADD): Details for
+	binary tree test suite binary.
+
+2007-02-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/watch.c (INOTIFY_EVENTS): Use IN_CLOSE_WRITE instead of
+	IN_MODIFY; since that guarantees the file has actually been closed,
+	and is probably on the filesystem now.
+
+2007-02-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/signal.c: Add SIGUNUSED to the list of signals that might not
+	exist.
+
+	* nih/tests/test_option.c (test_parser): gcc doesn't like using
+	variables inside fixed for loops, so initialise it deliberately.
+	* nih/tests/test_command.c (test_help): Was mistakenly repeatedly
+	opening output.
+	(test_parser): Similar for loop issue.
+
+	* nih/signal.c: Update signal name list, some signals don't exist on
+	sparc and some turn up unexpectedly.
+
+2007-02-11  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* nih/hash.h (NIH_HASH_FOREACH, NIH_HASH_FOREACH_SAFE): Added missing
+	parenthesis around hash, in case it's a complicated expression with
+	unsurprising precedence results.
+
+2007-02-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_skip_whitespace): It turns out that when
+	parsing, it's often useful to skip any whitespace while retaining the
+	"step over newlines" behaviour.  Seperate it out into its own 
+	function.
+	(nih_config_next_token): Call the new function.
+	* nih/config.h: Add prototype.
+	* nih/tests/test_config.c (test_skip_whitespace): Check the function
+
+	* nih/config.c: Remove macro definitions
+	* nih/config.h: and make them public instead
+	* nih/tests/test_config.c: Use macros.
+
+	* nih/config.c (nih_config_next_token): Strange hybrid function,
+	it behaves like next_arg() but accepts the same arguments as token();
+	it skips whitespace, but only if the initial whitespace character is
+	in the delim argument.
+	(nih_config_next_arg): This becomes a wrapper around next_token.
+	* nih/config.h: Add prototype.
+	* nih/tests/test_config.c (test_next_token): Check the new function.
+
+	* nih/config.c (nih_config_next_token): Rename to nih_config_token,
+	since this doesn't behave like the next_arg() function, and we want
+	a similar token function that behaves like that.
+	* nih/config.h: Update.
+	* nih/tests/test_config.c (test_next_token): Rename and update.
+
+2007-02-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/hash.h (NIH_HASH_FOREACH_SAFE): Oops, s/list/hash/
+
+	* nih/hash.h (NIH_HASH_FOREACH, NIH_HASH_FOREACH_SAFE): Add macros
+	to iterate over an entire hash table.
+	* nih/tests/test_hash.c (test_foreach, test_foreach_safe): Test the
+	macros.
+
+	* nih/hash.c (nih_hash_string_key): Add a useful function to return
+	the first member after the list header.
+	* nih/hash.h: Add prototype.
+	* nih/tests/test_hash.c (test_string_key): Add test case.
+
+	* nih/file.c (nih_file_is_packaging): Check for common packaging
+	filenames -- I swore I wrote this, but I can't find it.
+	(nih_file_ignore): Ignore packaging files.
+	* nih/file.h: Update.
+	* nih/tests/test_file.c (test_is_packaging, test_ignore): Test.
+
+2007-02-07  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/logging.c (nih_logger_printf): Change printf logger to not
+	prefix anything intended for stdout.
+	* nih/logging.h: Rearrange.
+	* nih/tests/test_logging.c (test_logger_printf): Make sure that
+	we don't prefix the program name for messages that go to stdout.
+
+2007-02-06  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/signal.c (nih_signal_from_name): Table changed to not contain
+	SIG, so this now strips it off the front if present.
+	* nih/tests/test_signal.c (test_to_name): Strip SIG from the front
+	(test_from_name): Check that we can omit SIG from the front.
+
+	* nih/signal.c (nih_signal_to_name, nih_signal_from_name): Functions
+	annoyingly missing from the standard library; convert signal names
+	and numbers between each other (e.g. SIGTERM -> 15).
+	* nih/signal.h: Add prototypes.
+	* nih/tests/test_signal.c (test_to_name, test_from_name): Put the
+	new functions through their paces.
+
+	* nih/string.c (nih_str_array_add, nih_str_array_addn): Correct leak
+	when array allocation fails.
+
+	* nih/string.c (nih_str_array_add, nih_str_array_addn) 
+	(nih_str_array_addp): Allow the array pointed to to be NULL, after all,
+	realloc works anyway.  Also allow len to be NULL, in which case, we
+	count the elements automatically.
+	* nih/tests/test_string.c (test_array_addp): Update test cases.
+
+	* nih/config.c (nih_config_parse_args): Use nih_str_array functions.
+	* nih/file.c (nih_dir_walk_scan): Use nih_str_array functions.
+	* nih/option.c (nih_option_parser): Use nih_str_array functions.
+	(nih_option_add_arg): Drop this function now.
+
+	* nih/string.c (nih_str_array_addp): Yet another variation on a theme;
+	this one saves duplicating allocs, which is always messy.
+	(nih_str_array_addn): Wrap around the above function.
+	(nih_str_array_add): Make this a wrapper around addp instead.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_array_addp): Check that one works.
+
+	* nih/string.c (nih_str_split): Use nih_str_array functions.
+
+	* nih/string.c (nih_str_array_addn): Add a version of nih_str_array_add
+	that calls nih_strndup instead of nih_strdup.
+	(nih_str_array_add): turn into a thin wrapper around the above.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_array_addn): Test new function.
+	
+	* nih/string.c (nih_str_array_add): Flip array and parent arguments
+	to make it more like realloc.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_array_add): Update.
+
+	* nih/string.c (nih_str_array_new, nih_str_array_add): Functions
+	to handle the common cases of arrays of strings.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_array_new, test_array_add): Test.
+
+	* nih/watch.c (nih_watch_handle): Never assert on data received from
+	an untrusted source (well, the kernel, anyway).  Also make sure nobody
+	sneaks a '/' into the name of an inotify event.
+
+2007-02-05  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/string.c (nih_vsprintf): Make sure vsnprintf never returns
+	a negative value; C99 says it can't, of course, but Kees was
+	paranoid.
+
+2007-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/watch.c (nih_watch_new): Tidy up ENOMEM loop.
+
+	* nih/tests/test_file.c (test_dir_walk): Fix leak of directory caused
+	by not removing a symlink.
+	* nih/tests/test_watch.c (test_new, test_add): Fix leaks of
+	directories caused by not changing permissions back so we can unlink
+	under them.
+
+	* nih/watch.h (NihCreateHandler, NihModifyHandler): Add stat argument.
+	* nih/watch.c (nih_watch_handle): stat any object created or modified,
+	and pass the stat buf to the handler function.
+	(nih_watch_add_visitor): Pass stat argument here too.
+
+	* nih/tests/test_watch.c: Add arguments.
+
+	* nih/option.c (nih_option_int): Function to parse integer values
+	on the command line.
+	* nih/option.h: Add prototype.
+	* nih/tests/test_option.c (test_int): test case for it.
+
+	* nih/file.c (nih_file_is_hidden, nih_file_is_backup) 
+	(nih_file_is_swap, nih_file_is_rcs): Functions to match common
+	file types by their path.
+	(nih_file_ignore): Function to combine calls to all of the above.
+	* nih/file.h: Add prototypes.
+	* nih/tests/test_file.c: Add test cases for the new functions.
+	* TODO: Update.
+
+2007-02-02  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* nih/watch.c (nih_watch_new): Add a create argument to avoid
+	walking a directory tree twice; store in the structure.
+	(nih_watch_add_visitor): Call the create handler if necessary.
+	* nih/watch.h: Update structure to include member and prototype.
+	* nih/tests/test_watch.c (test_new): Check that, when called with
+	create, the handler is called for each file that exists.
+	(test_reader): Check that a directory is recursed when moved in
+	or created with existing files.
+
+	* nih/tests/test_watch.c (test_reader): Add test case for watching
+	sub-directories again.
+
+	* nih/watch.c (nih_watch_new, nih_watch_add): Make safe against
+	ENOMEM; otherwise it's just tricky to decide when it's good and bad
+	to throw things out.
+	* nih/tests/test_watch.c: Update test cases accordingly.
+
+	* nih/watch.c (nih_watch_add): It's not an error for subdirs to be
+	TRUE when we get passed a filename.
+	* nih/tests/test_watch.c (test_add): Check that it works.
+
+	* nih/file.c (nih_dir_walk): Initialise ret to zero, otherwise
+	can return an uninitialised value when walking an empty directory.
+
+	* nih/tests/test_child.c (test_poll): Reap the child we kill,
+	otherwise the next test might fail sometimes.
+
+	* nih/watch.c (nih_watch_add): Make being unable to recurse into
+	sub-directories to watch them an error.
+	* nih/tests/test_watch.c (test_new, test_add): Update test cases.
+
+	* nih/file.c (nih_dir_walk): Rework this function to support
+	detection of directory loops, and reporting of errors with a callback
+	handler rather than just aborting the walk.
+	(nih_dir_walk_scan): Build up a sorted list of paths under a directory,
+	filtered with the filter function.  Split out because it has different
+	error handling semantics.
+	(nih_dir_walk_visit): Visit a single path and if it's a directory,
+	descend into it.
+	* nih/file.h (NihFileVisitor): Add arguments to pass the top-level
+	directory and the stat buffer of the path (to avoid stating the same
+	things multiple times).
+	(NihFileErrorHandler): Duplicate prototype for the error handler.
+	* nih/errors.h (NIH_DIR_LOOP_DETECTED): Add new error.
+	* nih/tests/test_file.c (test_dir_walk): Update test cases, improving
+	test coverage at the same time.
+	* nih/watch.c (nih_watch_add_visitor): Update to check the stat
+	passed to the visitor, as well as accept the directory name,
+
+2007-02-01  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_io.c: Replace NIH_ZERO in test cases with assert0
+
+	* nih/tests/test_main.c (test_main_loop): Eliminate use of NIH_MUST
+	* nih/tests/test_io.c (test_watcher): Remove unnecessary NIH_MUST
+
+	* nih/test.h (assert0): Add an assert wrapper for the common
+	alternate case.
+
+2007-01-30  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/io.c (nih_io_buffer_resize): Always keep a buffer filled with
+	zeros when we extend it, so we never pass uninitialised data to
+	syscalls.
+
+	* m4/misc.m4 (NIH_INIT): Detect valgrind/valgrind.h
+	* nih/tests/test_signal.c: Detect valgrind and don't check the error
+	values from trying to set SIG_DFL or SIG_IGN for SIGKILL; which for
+	no readily apparent reason, works under valgrind.
+
+	* HACKING: Add newline to end of file.
+
+	* nih/test.h (TEST_ALLOC_SAFE): Add macro to guard allocations so
+	they aren't counted.
+	* nih/tests/test_file.c (my_visitor, test_dir_walk): Use
+	TEST_ALLOC_SAFE instead of changing the allocator by hand.
+	* nih/tests/test_io.c (test_watcher): Use TEST_ALLOC_SAFE instead of
+	changing the allocator by hand,
+
+	* nih/macros.h (NIH_MUST_NOT): Rename to NIH_ZERO
+	* nih/io.c (nih_io_message_recv): Use NIH_ZERO, instead of == 0
+	* nih/main.c (nih_main_loop_init): Use NIH_ZERO, instead of == 0
+	* nih/tests/test_io.c: Use NIH_ZERO not NIH_MUST...== 0
+
+	* nih/tests/test_io.c (test_watcher): Ensure that we don't ignore
+	the return value from nih_io_printf; but also don't fail it.
+
+	* HACKING: Clarify that returning to indicate insufficient memory
+	warrants warn_unused_result.
+
+	* nih/io.h: Add warn_unused_result attribute to nih_io_printf.
+	* nih/string.c: Correct doc strings.
+
+	* nih/string.c (nih_vsprintf): We need to copy the arguments before
+	iterating either time, otherwise we could return NULL after moving
+	the current argument off the end.
+
+	* TODO: Update.
+
+2007-01-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/io.c (nih_io_reopen): Raises an error (usually ENOMEM), since
+	it can also raise EBADF.
+	* nih/tests/test_io.c (test_reopen): Make sure ENOMEM is raised.
+	* nih/watch.c: New watch API, this is a little higher level than
+	what previously existing in nih/file.c; but is substantially easier
+	to use and should cover all of the corner cases.
+	(INOTIFY_EVENTS): inotify events we always watch for.
+	(nih_watch_new): The master function; this creates a new inotify
+	instance and adds a watch for a path in it.
+	(nih_watch_handle_by_wd): Obtain a watch handle by descriptor
+	(nih_watch_handle_by_path): Obtain a watch handle by path
+	(nih_watch_add): Another useful function, adds a second path to
+	an existing watch; normally used just for sub-directories, but
+	possible for anything.
+	(nih_watch_add_visitor): nih_dir_walk() callback that calls the above
+	(nih_watch_free): Free a watch, and the associated NihIo; closing the
+	inotify descriptor.
+	(nih_watch_reader): Reader function; handles the incoming stream of
+	inotify events by locating the watch handle and dispatching through
+	(nih_watch_handle): this function which handles all the various
+	event ordering corner-cases and dispatches to the watch functions
+	proper.
+	* nih/watch.h: Typedefs, structures and prototypes for the new watch
+	API.
+	* nih/tests/test_watch.c: Test suite for the watch code; covers most
+	of the paths -- though malloc checking here is tricky and could do
+	with improving later.
+	* nih/libnih.h: Include nih/watch.h
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link watch.c
+	(nihinclude_HEADERS): Install watch.h
+	(TESTS): Build and run watch test suite
+	(test_watch_SOURCES, test_watch_LDFLAGS, test_watch_LDADD): Details
+	for watch test suite binary.
+
+	* nih/file.c: Strip out anything related to inotify, leaving us
+	with just three functions; nih_file_map(), nih_file_unmap() and
+	nih_dir_walk().  Others that will turn up here will be matching
+	and filtering functions.
+	* nih/file.h: Strip out typedefs, structures and prototypes for
+	anything watch-related; add attributes to functions as necessary.
+	* nih/tests/test_file.c: Remove watch-related test cases, and
+	use TEST_ALLOC_FAIL for test_dir_walk().
+
+	* nih/tests/test_io.c (test_shutdown): Test NIH_IO_MESSAGE using
+	AF_UNIX socketpairs, not pipes.
+
+	* HACKING: Document the requirements for function attributes and
+	using TEST_ALLOC_FAIL in test cases.
+	* TODO: Update.
+
+	* nih/tests/test_signal.c (test_set_handler): Check that SIGCHLD
+	gets the SA_NOCLDSTOP flag, and that SIGKILL returns an error.
+	(test_set_default, test_set_ignore): Check SIGKILL returns error.
+
+	* nih/tests/test_option.c (test_parser): Check that duplicated
+	options result in the previous string being freed.
+
+	* nih/main.c (nih_main_daemonise): SIGHUP can always be ignored.
+
+	* nih/tests/test_io.c (test_reopen): Make sure that we can't reopen
+	a closed file descriptor.
+	(test_set_nonblock, test_set_cloexec): Check with closed descriptors.
+
+	* nih/config.c: When we call nih_config_skip_comment, we can usually
+	assert that this will never fail; so do so.
+
+	* nih/tests/test_command.c (test_help): Check a few missing pieces
+	of the command help output to make sure it's right.
+
+	* nih/file.c (nih_dir_walk): Correct doc string to indicate that
+	this function raises errors.
+
+	* nih/alloc.h: Fix prototype orders.
+	* nih/child.h: Add attributes to important return values.
+	* nih/config.c: Add attributes to important return values.
+	* nih/config.h: Add attributes to important return values.
+	* nih/error.h: Add attributes to important return values.
+	* nih/io.h: Add attributes to important return values.
+	* nih/main.h: Add attributes to important return values.
+	* nih/signal.h: Add attributes to important return values.
+	* nih/string.h: Add attributes to important return values.
+	* nih/timer.h: Add attributes to important return values.
+	* nih/io.c (nih_io_reopen): Don't ignore failure to ignore SIGPIPE.
+	(nih_io_set_cloexec, nih_io_set_nonblock): The only useful errors
+	returned is EBADF, so just return -1 for that.
+	* nih/main.c (nih_main_daemonise): Don't ignore failure to ignore
+	SIGHUP.
+	* nih/signal.c (nih_signal_set_handler, nih_signal_set_default) 
+	(nih_signal_set_ignore): The only useful error sigaction returns
+	is EINVAL, so just return -1.
+	(nih_signal_reset): Ignore EINVAL errors.
+	* nih/tests/test_io.c: Use NIH_MUST around function calls that
+	can fail.
+	* nih/tests/test_main.c: Use NIH_MUST around function calls that
+	can fail.
+
+2007-01-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_ALLOC_FAIL): Macro that loops over a block of code
+	as many times as malloc is called within it, causing each malloc in
+	turn to be failed so we can increase code coverage.
+	(nih_test_allocator): Support function for the above; allows dumping
+	of malloc calls.
+	* nih/tests/test_child.c (test_add_watch): Use TEST_ALLOC_FAIL
+	and call nih_child_poll() first to not debug the init function
+	(test_poll): Remove race conditions by making sure the signal
+	has reached the child using waitid().  Test the "child we don't
+	know about has died" branch, along with waitid returning 0 with no
+	pid (needs a child process).
+	* nih/tests/test_command.c (test_parser, test_help): Use
+	TEST_ALLOC_FAIL
+	* nih/tests/test_config.c (test_next_arg, test_parse_args) 
+	(test_parse_command, test_parse_block): Use TEST_ALLOC_FAIL
+	* nih/tests/test_error.c (test_raise, test_raise_printf) 
+	(test_push_context, test_return_error): Use TEST_ALLOC_FAIL, to
+	make sure allocations are retried.
+	(test_pop_context): Split out from test_push_context.
+	* nih/tests/test_hash.c (test_new): Use TEST_ALLOC_FAIL
+	* nih/tests/test_io.c (test_add_watch, test_buffer_new) 
+	(test_buffer_resize, test_buffer_pop, test_buffer_shrink) 
+	(test_buffer_push, test_message_new, test_message_add_control) 
+	(test_message_recv, test_message_send, test_reopen, test_watcher) 
+	(test_read, test_write, test_get, test_printf): Use TEST_ALLOC_FAIL
+	liberally, make sure every code path involving a malloc gets tested.
+	* nih/tests/test_list.c (test_new): Use TEST_ALLOC_FAIL
+	* nih/tests/test_logging.c (test_log_message): Use TEST_ALLOC_FAIL
+	* nih/tests/test_main.c (test_main_loop_add_func): Use TEST_ALLOC_FAIL
+	(test_package_string): Use TEST_ALLOC_FAIL and also check repeated
+	calls return the same string.
+	(test_version): Use TEST_ALLOC_FAIL to check that allocation can
+	never fail.
+	* nih/tests/test_option.c (test_parser, test_version, test_help):
+	Use TEST_ALLOC_FAIL to make sure we behave
+	* nih/tests/test_signal.c (test_add_handler): Use TEST_ALLOC_FAIL
+	and call nih_signal_poll() first to not debug the init function
+	* nih/tests/test_string.c (test_sprintf, test_vsprintf) 
+	(test_strdup, test_strndup, test_str_split, test_str_wrap) 
+	(test_str_screen_wrap): Use TEST_ALLOC_FAIL
+	(test_str_screen_width): Check that we discard an illegal columns
+	variable.
+	* nih/tests/test_timer.c (test_add_timeout, test_add_periodic) 
+	(test_add_scheduled): Use TEST_ALLOC_FAIL and call nih_timer_poll()
+	first to make sure we don't debug the init function
+	* nih/config.c (nih_config_next_arg, nih_config_parse_args) 
+	(nih_config_parse_command, nih_config_parse_block): Allow us to fail
+	reading a configuration file because we run out of memory; it's not
+	that important.
+	* nih/io.c (nih_io_get): Catch failure to remove the string, and
+	don't remove the delimiter if that happens.
+	(nih_io_printf): Fix doc, this returns zero, not a length.
+	* nih/io.h: Fix prototype of nih_io_printf
+	* nih/logging.c (nih_log_message): Potentially failing message output
+	is crazy; loop until the alloc succeeds.
+	* nih/option.c (nih_option_handle): Free the options and arguments
+	before exiting; not really necessary, but makes valgrind happier.
+	* nih/string.c (nih_strndup): Failed to correctly detect a failed
+	allocation.
+	(nih_str_split): Correct some mistakes with allocations not
+	being checked.
+	* nih/libnih.supp: Add tmpfile.
+	* TODO: Update.
+
+2007-01-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.h (NihDirWatch): New structure that defines a high-level
+	watch on a directory with various handlers to be called.
+	(NihCreateHandler, NihChangeHandler, NihDeleteHandler): Typedefs.
+	* nih/file.c (nih_dir_add_watch): Function to create an NihDirWatch
+	structure and fill it in.
+	(nih_dir_add_file_watch): Add a watch on a single directory,
+	catching errors and logging a warning if we can't watch it.
+	(nih_dir_watcher): Deal with inotify events within a directory tree,
+	taking care of issues such as re-organising of the directory structure
+	without ending up with duplicate watches.
+	(nih_file_reader): Only call the first matching watcher; we hit a
+	limitation in the inotify API caused by our usage of a single
+	descriptor.  Will fix that shortly.
+	* nih/tests/test_file.c (test_dir_add_watch): Test that we can add
+	watches and have everything filled in nicely.
+
+2007-01-10  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_dir_walk): Function to walk a directory tree
+	calling a function for each object found.
+	* nih/file.h (NihFileFilter, NihFileVisitor): typedefs for
+	function pointers used for nih_dir_walk.
+	* nih/tests/test_file.c (test_walk): Test the walker.
+
+	* nih/file.c (nih_file_reader): Pass the cookie to the watcher.
+	* nih/file.h (NihFileWatcher): Add cookie argument.
+	* nih/tests/test_file.c (test_add_watch): Check the cookie is
+	passed for a rename.
+
+	* nih/file.c (nih_file_add_watch): Fix this to not add the inotify
+	watch unless it can allocate memory to handle it.
+
+2007-01-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_get_stanza): Catch entries with a zero
+	length name, and return one instead of NULL if it exists.
+	* nih/tests/test_config.c (test_parse_stanza): Make sure that ""
+	in a stanza table acts as a catch-all.
+
+	* nih/test.h (TEST_FILENAME): Use dashes not colons, to make things
+	more clear.
+
+2007-01-08  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c (nih_config_has_token): add a very small test function
+	so parsers can peek to see whether there is a next argument or not.
+	(nih_config_skip_comment, nih_config_parse_args) 
+	(nih_config_parse_file): Use the new test function to make it more
+	obvious what we're doing.
+	* nih/config.h: Add prototype.
+	* nih/tests/test_config.c (test_has_token): Add test cases.
+
+	* nih/config.c: Allow all functions to be called with a zero length
+	file, we're completely guarded against pos going past the length,
+	so this cannot be a bad thing.  Plus this allows zero-length tokens
+	to be extracted trivially.
+	(nih_config_next_arg): Raise an error if called in a position where
+	there is no argument.  If you want to speculatively check for args,
+	peek first.
+	(nih_config_parse_stanza): No need to check for an empty stanza now,
+	nih_config_next_arg() handles that for us.
+	(nih_config_skip_comment): Function to allow us to skip only a
+	comment, while raising an error if we hit anything else.
+	(nih_config_parse_args, nih_config_parse_command): Skip comment only,
+	to guard against parser errors.
+	* nih/config.h: Update.
+	* nih/tests/test_config.c (test_next_arg): Check the new error is
+	raised, instead of the empty string being returned.
+	(test_parse_stanza): Check the expected token error is raised.
+	(test_skip_comment): Test the new function.
+	* nih/errors.h: Add new errors.
+
+	* nih/errors.h: Fix capitalisation of error messages.
+
+	* nih/tests/test_config.c (test_parse_command): Add missing free
+	calls to strings obtained.
+
+2007-01-07  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/config.c: Convert this file to use size_t where appropriate
+	instead of ssize_t, and raise exceptions for parsing errors rather
+	than logging them.
+	(nih_config_parse): Check a size is not greater then SSIZE_MAX (2GB)
+	to avoid overflows.
+	* nih/config.h: Update prototypes and handler function typedef.
+	* nih/errors.h: Add new error codes and strings.
+	* nih/tests/test_config.c: Adjust test cases.
+
+	* nih/config.c (nih_config_parse_file): Function to parse a mapped
+	file or string line-by-line starting from the given position.
+	(nih_config_parse): Function to map a file into memory and parse it
+	* nih/config.h: Add prototypes.
+	* nih/tests/test_config.c (test_parse_file): Test the function with
+	a small variety of different valid files.
+	(test_parse): Check we can parse a file, and get an error if it
+	doesn't exist.
+
+	* nih/config.c (nih_config_parse_stanza): Take a data pointer and
+	pass it to the handler, otherwise we can't fill in structures.
+	* nih/config.h: Update.
+	* nih/tests/test_config.c (test_parse_stanza): Check the data
+	pointer is passed properly.
+
+	* nih/tests/test_option.c (test_version, test_help): Capture the
+	return value from nih_option_parser, as we've set gcc attributes to
+	not let us do otherwise.
+
+	* nih/config.h: Add structures, typedefs and macros to allow lists
+	of configuration stanzas to be built up.
+	* nih/config.c (nih_config_parse_args): Split argument parsing into
+	(nih_config_next_arg): This new function that wraps next_token and
+	also skips following whitespace.
+	(nih_config_next_line): Another new function that skips to the end
+	of the line, replacing severael copies of this code.
+	(nih_config_get_stanza): Simple function to find a stanza in a table
+	by its name.
+	(nih_config_parse_stanza): Simple stanza dispatch function; parses an
+	argument at the current position, looks it up in the table, then
+	calls the function.
+	* nih/tests/test_config.c (test_next_arg): Check this function works,
+	we know it does because it was covered by other tests, but it's worth
+	having its own as well.
+	(test_next_line): Check this function works too.
+	(test_parse_stanza): Make sure the dispatcher works properly.
+	* nih/config.c: Write from the code that was used for upstart,
+	making them exported functions to act as a configuration file kit.
+	(nih_config_parse_args): Fix a bug where lineno wasn't incremented
+	for an embedded newline in between arguments.  Fix another bug where
+	a line containing only whitespace or whitespace and a comment would
+	hit an assertion - not a problem in practice, but it's a bug.
+	* nih/config.h: Function prototypes.
+	* nih/libnih.h: Include config.h
+	* nih/tests/test_config.c: Write an all new test suite that tests
+	the individual parsing functions for their functionality, rather
+	than trying to squeeze it into something larger.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link config.c
+	(nihinclude_HEADERS): Install config.h
+	(TESTS): Build and run config test suite
+	(test_config_SOURCES, test_config_LDFLAGS, test_config_LDADD): Config
+	test suite binary details.
+
+2007-01-06  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_io.c (test_watcher): Missing a priority that needed
+	changing to message.
+
+	* nih/command.h: Warn against unused results.
+
+	* nih/option.h: Warn against unused results.
+	
+	* nih/logging.h (NihLogLevel): Add a message level between info
+	and warn, as we can't just re-use warn as that goes to stderr!
+	(nih_message): Change to use the new message level.
+	* nih/logging.c (nih_logger_syslog): Output messages at the notice
+	level, rather than the warning level.
+	(nih_log_init): Change the default priority to message.
+	* nih/tests/test_logging.c (test_log_message): Check that messages
+	are logged with the new message priority; reset to the new default.
+	(test_logger_printf): Make sure that ordinary messages go to stdout
+	and warning messages go to stderr.
+	(test_set_logger, test_set_priority): Reset to the new default.
+	* nih/tests/test_option.c (test_quiet, test_verbose, test_debug):
+	Check that messages are also logged, as well as warning; and set
+	the new default priority.
+	* nih/tests/test_error.c (test_raise_again, test_push_context):
+	Set log priority to the new default.
+	* nih/tests/test_io.c (test_watcher): Reset priority to the new
+	default.
+
+2007-01-05  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_io.c (test_shutdown): Uncomment the test for
+	shutdown when all messages are processed by the watcher.
+
+	* nih/io.c (nih_io_message_recv): Remove note about the remote end
+	being closed; when in message mode, this doesn't usually happen.
+	(nih_io_watcher): Only check for a zero length return if we're in
+	stream mode, otherwise it just means we got a zero length message.
+	(nih_io_watcher_read): Accept zero length messages and return them.
+	* nih/tests/test_io.c (test_watcher): Remove tests that tried to
+	mix a message-mode io and a dgram socket, that way lies disaster.
+
+	* nih/io.c (nih_io_watcher_read, nih_io_watcher_write): Initialise
+	len to zero, as valgrind can be fussy about this when we call things
+	directly.
+
+	* nih/io.h (NihIoMessage): Add a user data field to the message
+	structure so we can carry the pid around when queuing notification
+	messages in upstart.
+
+2007-01-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.h, nih/child.h, nih/command.h, nih/file.h, nih/hash.h:
+	nih/io.h, nih/logging.h, nih/main.h, nih/option.h, nih/signal.h:
+	nih/timer.h: Give names for all arguments in function pointer typedefs
+	so the documentation strings make more sense.
+
+	* nih/test.h (TEST_EQ_MEM, TEST_NE_MEM): Cast argument for number
+	of bytes to size_t.
+
+	* configure.ac (AC_COPYRIGHT): Update copyright to 2007.
+
+2006-12-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/errors.h: Drop the NIH_IO_MESSAGE_TRUNCATED error.
+
+	* nih/io.h (NihIoMessage): Rename msg_buf member to data, and change
+	ctrl_buf member to be an array of cmsg structures called control.
+	* nih/io.c: Update references to NihIoMessage members.
+	(nih_io_message_push_control): Rename to nih_io_message_add_control
+	(nih_io_message_add_control): Rewrite to add the control message
+	header onto the end of an array, rather than a control buffer,
+	(nih_io_message_recv): After receiving the message, extract all
+	control messages and put them into the array.
+	(nih_io_message_send): Take control messages from the array into a
+	single buffer and send them.
+
+	* nih/tests/test_io.c: Update references to NihIoMessage members.
+	(test_message_new): Check that the control member is initialised to
+	a one-element array containing NULL.
+	(test_message_push_control): Rename to test_message_add_control.
+	(test_message_add_control): Check the array is extended.
+
+	* nih/io.c (nih_io_message_recv): Loop over a call to recvmsg() with
+	MSG_PEEK in its arguments to avoid ever returning truncated messages.
+	* nih/tests/test_io.c (test_message_recv): Adjust test for truncated
+	messages to make sure they do in fact work.
+	(test_watcher): Remove the oversized message error check.
+
+2006-12-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_option.c (test_verbose): Add missing call to free
+	args.
+
+	* nih/io.c (nih_io_message_send): Change to return the ssize_t
+	received from sendmsg(), rather than an int.
+	(nih_io_watcher_read): Move read functionality out of
+	nih_io_watcher into a separate function that can deal with both
+	stream and message mode.
+	(nih_io_watcher_write): Move write functionality out of nih_io_watcher
+	into a separate function that can deal with both stream and message
+	mode.
+	(nih_io_watcher): Call the separate functions, and handle calling
+	the reader when in message mode.  In addition, we now check the
+	error code when writing to a socket as well; there are useful errors
+	there (like ECONNREFUSED).
+	* nih/io.h: Update prototype of nih_io_message_send.
+	* nih/tests/test_io.c (test_message_send): Update return checks.
+	(test_watcher): Test that the error handled can now be called when
+	writing data to a socket, as well as just when reading.  Test
+	message mode behaviour.
+
+	* nih/io.c (nih_io_send_message): Watch socket for writability.
+	(nih_io_write): Extend this function to work in message mode;
+	it allocates a new message, stores the data in that buffer, and
+	adds it to the send queue.
+	(nih_io_printf): Remove restriction that this only be called in
+	stream mode; the fact this calls nih_io_write is sufficient to
+	ensure correct behaviour.
+	* nih/tests/test_io.c (test_send_message): Check that we're testing
+	for writability.
+	(test_write): Test that this works in message mode.
+	(test_printf): Check that this works too, even though this only
+	really calls nih_io_write.
+
+	* nih/io.c (nih_io_get): Extend so that this can operate in message
+	mode on the oldest message in the queue.
+	* nih/tests/test_io.c (test_get): Check that this works properly
+	in message mode; complete with shutdown check.
+
+	* nih/io.c (nih_io_message_new): Do not assign a default list
+	destructor, it's not in a hidden list and there are bad consequences
+	of freeing a child with a default destructor if the list its in gets
+	freed first; new rule - default destructors only if the list is hidden
+	and never freed!
+	(nih_io_closed, nih_io_shutdown): Don't call the close handler if
+	the structure is already marked to be closed; there seems little
+	point, and we could accidentally call it multiple times.
+	(nih_io_read_message, nih_io_read, nih_io_get): Check whether we
+	need to shutdown the socket here, in case the watcher isn't polled
+	again.
+	* nih/tests/test_io.c (test_shutdown): Check that shutdown works
+ 	with message-mode structures (part of this disabled for now).
+	(test_read_message, test_read, test_get): Check that a shutdown
+	socket is closed when these are called.
+
+2006-12-20  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/io.c (nih_io_read): Extend so that it can be called in
+	message mode, it reads from the first message until it has been
+	exhausted; at which point it frees the message and the next call
+	would read from the next.
+	* nih/tests/test_io.c (test_read): Check that the new functionality
+	works properly.
+
+	* nih/io.c (nih_io_first_message): Simple static function to obtain
+	the oldest message in the receive queue.
+	(nih_io_read_message, nih_io_send_message): Functions to take the
+	oldest message out of the receive queue and append a message to the
+	send queue.
+	* nih/io.h: Add prototypes.
+	* nih/tests/test_io.c (test_read_message, test_send_message): Check
+	the new functions do what they say on the tin.
+
+	General clean-up of nih_io, fixing a few API issues and making it
+	more suitable for using in message mode.
+
+	* nih/io.c (nih_io_buffer_pop, nih_io_buffer_shrink): Remove the
+	silly restrictions that these cannot be called with a length greater
+	than the buffer size, instead just truncate it to the buffer size.
+	(nih_io_buffer_pop): Length is now updated to the actual number of
+	bytes being returned.
+	(nih_io_message_add_control): Rename to nih_io_message_push_control.
+	(nih_io_message_recv): Change the len parameter to a pointer that's
+	updated with the actual number of bytes read.
+	(nih_io_stream_watcher): Rename back to nih_io_watcher.
+	(nih_io_reopen): Use a single watcher function again, initialise close
+	to NULL.  Treat failure to set a descriptor non-blocking as a failure
+	to open; otherwise we'll end up screwing up the main loop.
+	(nih_io_watcher): Remove the restriction that this is only called
+	when in the stream mode.  Leave data in the receive buffer if there's
+	no reader function, it's now valid to query the buffer size and read
+	by other means.  Catch the ENOMEM error and ignore it.  Set and keep
+	an eye on the structure close member, if it is TRUE before we return,
+	close the socket.  This also means we check for shutdown sockets in
+	the case of error, which we probably should have done.
+	(nih_io_maybe_shutdown): Rename to nih_io_shutdown_check.
+	(nih_io_close): If the close member of the structure is not NULL
+	we're inside a watcher function, so need to set the variable this
+	points to to TRUE instead of closing or freeing the structure.
+	(nih_io_read): Change the len parameter to be updated with the
+	actual number of bytes being returned.
+	* nih/io.h: Renamed function prototype.  Updated documentation for
+	function typedefs to clarify that they may all call nih_io_close,
+	but may not call nih_free.
+	* nih/errors.h: Rename NIH_TRUNCATED_MESSAGE to
+	NIH_IO_MESSAGE_TRUNCATED, we should probably namespace these.
+	* nih/tests/test_io.c (test_buffer_pop, test_buffer_shrink): Check
+	that we can pop or shrink the entire buffer if we ask for more.
+	(test_message_add_control): Rename to test_push_control.
+	(test_message_recv): Check that the cases of remote end closed,
+	error received or truncated message are handled properly.
+	(test_message_send): Check that an error is handled.
+	(test_stream_watcher): Rename back to test_watcher.
+	(test_reopen): Check that the socket is not being shutdown or closed.
+	(test_shutdown): Drain the buffer before calling handle on it, as
+	it's not done automatically now.
+	(test_close): Check that a lazy close is performed if io->close is
+	not NULL.
+	* nih/file.c (nih_file_reader): Update call to nih_io_read.
+
+	* nih/logging.h (nih_assert_notreached): Rename to
+	nih_assert_not_reached, this was annoying me.
+
+2006-12-19  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/io.c (nih_io_read, nih_io_write, nih_io_get, nih_io_printf):
+	Ensure the NihIo structure is in stream mode; as these only really
+	make sense if there's a limitless buffer.
+
+	* nih/tests/test_io.c (test_shutdown): Make sure the socket is
+	shut down immediately.
+	* nih/io.c (nih_io_shutdown): Bugfix, should close the socket
+	immediately if there's nothing in the queue, otherwise it may
+	hang around forever if it never polls.
+
+	* nih/io.c (nih_io_reopen): Receive the type from the arguments,
+	instead of hard-coding to be stream.  Set up the structure accordingly.
+	* nih/io.h: Update prototype.
+	* nih/tests/test_io.c (test_reopen): Check message mode is allocated
+	properly.
+	* nih/file.c (nih_file_init): Open in stream mode.
+
+	* nih/io.c (nih_io_message_new): Catch failure to allocate message
+	or control buffer.
+	(nih_io_message_add_control): No need to try and allocate the control
+	buffer here.
+	(nih_io_message_recv): Only need to resize the buffers here as well.
+	(nih_io_message_send): No need to deal with there being no message
+	or control buffer here either.
+	* nih/tests/test_io.c: Fix test assumptions based on above.
+	* nih/libnih.supp: Add missing nih_io_init suppression.
+
+	* nih/tests/test_io.c (test_message_add_control): Non need to check
+	allocation of the buffer itself.
+
+	* nih/io.c (nih_io_message_add_control): Function to add a control
+	message to the control buffer, to save mucking around with difficult
+	bits ourselves.
+	* nih/io.h: Add prototype.
+	* nih/tests/test_io.c (test_message_add_control): Check that it
+	works properly.
+
+	* nih/io.c (nih_io_buffer_shrink): Make an exported function, resize
+	the buffer once done to save on memory.
+	(nih_io_buffer_pop, nih_io_stream_watcher): No need to explicitly
+	resize here now, as it gets called from shrink.
+	* nih/io.h: Add prototype.
+	* nih/tests/test_io.c (test_buffer_shrink): Test shrink.
+
+	* nih/io.c (nih_io_message_recv, nih_io_message_send): Functions
+	to send and receive a message over a socket, hiding the difficult
+	bits of dealing with msghdr/iovec.
+	(nih_io_get_family): Function to detect the family of a socket.
+	* nih/io.h: Update.
+	* nih/errors.h: Add truncated message error.
+	* nih/tests/test_io.c (test_message_recv, test_message_send): Check
+	that we can send and receive messages by using socket pairs.
+	(test_get_family): Check that we can get the families of the standard
+	three socket types.
+
+2006-12-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/io.h (NihIoMessage): Structure that represents an individual
+	message in a queue; has a buffer for the message, and for ancillary
+	control data, as well as an address that the message is being sent
+	to or received from.
+	(NihIoType): Enum to select whether an NihIo structure is in stream
+	mode or message mode.
+	(NihIo): Add a type member to select whether this is in stream or
+	message mode, and a union to select whether we're using buffers
+	or message queues.
+	* nih/io.c (nih_io_message_new): Allocate an NihIoMessage and its
+	child buffers.
+	(nih_io_reopen): Initialise the type to NIH_IO_STREAM.
+	(nih_io_watcher): Rename to nih_io_stream_watcher.
+	* nih/tests/test_io.c (test_message_new): Check that the new message
+	structure is initialised properly.
+	(test_reopen): Check that we get a stream structure by default.
+	(test_watcher): Rename to test_stream_watcher.
+
+2006-12-17  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/logging.h (nih_assert_notreached): Add an assertion for the
+	use in default bits of switches, etc.
+
+	* nih/test.h (TEST_EQ_U, TEST_NE_U): Versions of the original macros
+	that cast to size_t for display, instead of ssize_t.
+
+	* nih/tests/test_logging.c, nih/tests/test_string.c: Set local
+	variables to avoid gcc thinking that they may be unused when
+	using TEST_DIVERT_*.
+
+2006-12-14  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Correct some typos.
+
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_FILENAME): Wrap with do { ... } while (0)
+	in case this gets used as a single line statement.
+
+2006-12-13  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* nih/test.h (TEST_FILE_RESET): Wrap with do { ... } while (0)
+	in case this gets used as a single line statement.
+
+2006-12-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nihify: Link to the nih ChangeLog.
+
+2006-12-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_CHILD_WAIT, TEST_CHILD_RELEASE): Sometimes the
+	primitive "when the child is running" locking provided by TEST_CHILD
+	isn't sufficient, and we actually need to perform some actions in
+	the child before we let the parent carry on.  These two macros
+	allow that.
+
+	* nih/libnih.supp: Include a valgrind suppressions file.
+	* nih/Makefile.am (EXTRA_DIST): Distribute the suppressions file.
+
+	* nih/tests/test_alloc.c (test_realloc): Fix missing free.
+
+	* configure.ac (AM_GNU_GETTEXT_VERSION): Quote version number.
+
+2006-12-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_DIVERT_STDOUT_FD, TEST_DIVERT_STDERR_FD): Flush
+	before dup2ing the original file descriptor back, otherwise we end
+	up with the content still in the buffer later.
+
+2006-12-08  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Document that test cases are expected.
+
+	* nih/tests/test_command.c: Port to the new test framework.
+
+	* nih/tests/test_option.c: Drop unused include.
+
+	* nih/tests/test_option.c: Port to the new test framework.
+
+2006-12-07  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_io.c: Port to the new test framework.
+
+	* nih/tests/test_hash.c: Drop use of assert.
+
+	* nih/tests/test_timer.c (test_poll): Formatting fix.
+
+	* nih/tests/test_string.c: Port to the new test framework.
+
+	* nih/test.h (TEST_DIVERT_STDOUT_FD, TEST_DIVERT_STDERR_FD): Macros
+	to divert to a file descriptor instead of a file.
+	(TEST_DIVERT_STDOUT, TEST_DIVERT_STDERR): Redefine as wrappers around
+	the new macros.
+
+	* nih/tests/test_timer.c: Port to the new test framework.
+
+	* nih/tests/test_signal.c: Port to the new test framework.
+
+	* nih/tests/test_main.c: Port to the new test framework.
+
+	* nih/test.h: Cast strlen return value to int when used to give
+	the length of a string in printf.
+
+	* nih/tests/test_logging.c: Port to the new test framework.
+
+	* nih/test.h (TEST_DIVERT_STDOUT, TEST_DIVERT_STDERR): Crazy macros
+	to divert stdout or stderr to a different file, making sure it's
+	flushed before both dups.
+	(TEST_EQ_STRN, TEST_NE_STRN): Functions to check a string up to a
+	particular point.
+	(TEST_FILE_EQ, TEST_FILE_EQ_N, TEST_FILE_NE, TEST_FILE_NE_N):
+	Functions to grab a line from a file and check it against a string.
+	(TEST_FILE_END): Function to determine end of file.
+	(TEST_FILE_RESET): Another function so I don't need to remember the
+	runes to flush, rewind and truncate a file.
+
+2006-12-06  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_file.c: Port to the new test framework.
+
+	* nih/test.h (TEST_EQ_MEM, TEST_NE_MEM): Tests that wrap memcmp.
+	(TEST_FILENAME): Macro to generate a filename.
+
+	* nih/tests/test_error.c: Port to the new test framework.
+
+	* nih/tests/test_alloc.c, nih/tests/test_list.c, nih/tests/test_hash.c:
+	Undo over-zealous removing of includes.
+
+	* nih/tests/test_child.c: Port to the new test framework.
+
+	* nih/test.h (TEST_CHILD): Macro to spawn an interlocked child
+	process, so we don't keep having to remember how to.
+
+	* nih/test.h (TEST_ALLOC_SIZE, TEST_ALLOC_PARENT): Include the
+	expression that generated the pointer, as well as the pointer.
+	(TEST_LIST_EMPTY, TEST_LIST_NOT_EMPTY): Check whether a list is
+	empty or not.
+	* nih/tests/test_list.c (test_empty, test_foreach_safe): Use the
+	new list test macros instead of TEST_TRUE/TEST_FALSE.
+	* nih/tests/test_hash.c (test_new): Likewise.
+
+2006-12-05  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_hash.c: Port to the new test framework.
+
+	* nih/tests/test_list.c: Port to the new test framework.
+
+	* nih/tests/test_alloc.c: Port to the new test framework.
+	(test_set_allocator): Test that the allocator is called with zero
+	as the argument.
+
+	* nih/test.h: Include config.h on behalf of the test suites.
+
+	* nih/test.h (TEST_EQ_STR, TEST_NE_STR): String comparison tests.
+
+	* nih/test.h (TEST_FAILED): abort is much better than exit
+
+	* nih/test.h (INIT_TEST): Drop this, we'll just return directly.
+	(TEST_FAILED): Return directly on failure.
+	(CALL_TEST): Drop this again.
+
+	* nih/test.h (CALL_TEST): Add "call a function" macro.
+
+	* nih/test.h: Macros that implement a simple test framework based
+	on the patterns I was using anyway.
+	* nih/Makefile.am (nihinclude_HEADERS): Install nih/test.h
+
+	* nih/tests/test_command.c (test_parser, test_help): flush stdout
+	or stderr before calling dup2().
+
+	* nih/tests/test_option.c (test_parser, test_version, test_help):
+	flush stdout or stderr before calling dup2().
+
+	* nih/tests/test_io.c: Formatting fix.
+
+	* nih/file.c (nih_file_map): Tidy up; in particular don't allow
+	opening in just write mode, seeing as that doesn't work.
+	* nih/tests/test_file.c (test_unmap): Test unmap separately.
+	(test_map): Update for new checks.
+
+	* nih/file.c (nih_file_add_watch): No need to set ENOMEM if
+	nih_new fails, that will be already set.
+	(nih_file_reader): Clarify why nih_io_read must return a pointer.
+
+	* nih/tests/test_string.c (test_str_screen_width) 
+	(test_str_screen_wrap): flush stdout before calling dup2().
+
+	* nih/tests/test_main.c (test_suggest_help, test_version): flush
+	stdout or stderr before calling dup2().
+
+	* nih/tests/test_logging.c (test_logger_printf): flush stdout or
+	stderr before calling dup2(), otherwise we don't know which stream
+	the buffered output will be going to.
+
+	* nih/tests/test_error.c (test_push_context): Check that unhandled
+	errors within a context are notified and freed if the context is
+	popped.
+
+	* nih/alloc.c (nih_alloc_reparent): Function to reparent a pointer
+	to a new parent or just orphan it.
+	* nih/alloc.h: Update.
+	* nih/tests/test_alloc.c (test_reparent): Make sure it works.
+
+	* nih/tests/test_alloc.c (test_alloc_using): Check that this works
+	properly if the allocator returns NULL.
+	(test_realloc): A few cases to check here; make sure that it works
+	if the pointer to realloc is NULL, actually test the children
+	reparenting code here and test the reallocator returning NULL.
+
+	* README: Correct typo.
+
+2006-11-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/Makefile.am (INCLUDES, DEFS): Drop these two variables
+	(AM_CPPFLAGS): in favour of this combined variable.
+
+	* configure.ac (AM_INIT_AUTOMAKE): Include nostdinc so we don't get
+	Automake's broken default includes.
+	* nih/Makefile.am (INCLUDES): Include $top_builddir and $top_srcdir,
+	everything else wants relative paths from there.
+	(DEFAULT_INCLUDES): Drop override now we don't need it.
+
+	* m4/compiler.m4 (NIH_C_THREAD): Define a macro in the manner of
+	AC_C_CONST that will #define __thread to empty if it isn't supported
+	by the compiler.
+	* m4/misc.m4 (NIH_INIT): libnih uses __thread.
+
+2006-10-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/command.h: Adjust type of NihCommandAction to include const.
+	* nih/tests/test_command.c (my_action): Update.
+
+2006-10-12  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Expand AC_GNU_SOURCE so we get _GNU_SOURCE and so
+	that gettext doesn't complain.
+	(AM_GNU_GETTEXT_VERSION): Increase to 0.15
+	(AC_PREREQ): Increase to 2.60
+	* HACKING: Update autoconf and gettext requirements.
+
+2006-10-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/string.c (nih_str_screen_wrap): Don't quite fill the screen,
+	instead leave a character spare as it looks somehow neater that way.
+	* nih/option.c (nih_option_group_help): Likewise.
+	* nih/tests/test_string.c (test_str_screen_wrap): Update tests.
+	* nih/tests/test_option.c (test_help): Fix wrapping test.
+
+	* TODO: Update.
+
+	* nih/command.c: Implement a command parser that uses the first
+	non-option argument (or program name) and selects different help
+	and options based on that.
+	* nih/command.h: Structures and prototypes.
+	* nih/libnih.h: Include command.h
+	* nih/tests/test_command.c: Test suite for command parser.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link command.c
+	(nihinclude_HEADERS): Install command.h
+	(TESTS): Build and run command test cases
+	(test_command_SOURCES, test_command_LDFLAGS, test_command_LDADD):
+	Details for command test suite binary.
+
+	* nih/tests/test_option.c: Keep a copy of last_option otherwise
+	it's freed while we're not around.
+
+	* nih/option.c (nih_option_set_footer): Add a footer string.
+	(nih_option_help): Also add the footer string.
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_help): Check the footer.
+
+	* nih/option.c (nih_option_set_usage_stem): Add function to set
+	the "[OPTION]..." bit of the usage line.
+	(nih_option_help): Use the usage stem if set.
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_help): Check the usage stem.
+
+	* nih/option.c (nih_option_join): Add function to combine two lists
+	of options.
+	(nih_option_parser): Join the options and default_options lists,
+	don't play with arrays of lists.
+	(nih_option_get_short, nih_option_get_long): Simply by just iterating
+	the one array.
+	(nih_option_help, nih_option_group_help): Again simply by just
+	iterating the one array.
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_parser): Don't check addresses of
+	options as they've moved.
+
+	* nih/option.c (nih_option_set_usage, nih_option_set_synopsis) 
+	(nih_option_set_help): Allow NULL to be set to override existing
+	strings.
+
+	* nih/option.c (nih_option_help): Make static.
+	* nih/option.h: Update.
+
+2006-10-10  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* nih/option.c (nih_option_group_help): Use a factor of the screen
+	width when formatting help options, but keep at least 20 chars
+	visible at all times.
+
+	* nih/string.c (nih_str_screen_width): Add function to return just
+	the screen width.
+	(nih_str_screen_wrap): Use that function.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_str_screen_width): Check function.
+
+	* nih/option.c (nih_option_set_synopsis): Function to set a synopsis
+	string that follows the usage.
+	(nih_option_set_help): Function to set the help string that follows
+	the options.
+	(nih_option_help): Output synopsis and help strings.
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_help): Check behaviour
+
+	* TODO: Update.
+
+	* nih/main.c (nih_main_version): Use nih_str_screen_wrap to output
+	the GPL preamble bit.
+	* nih/tests/test_main.c (test_version): Unset COLUMNS just in case.
+
+	* nih/string.c (nih_str_screen_wrap): Add wrapper around
+	nih_str_wrap that obtains the screen width and uses that for len.
+	* nih/string.h: Add prototype.
+	* nih/tests/test_string.c (test_str_screen_wrap): Test new function.
+	* nih/Makefile.am (test_string_LDADD): Link with -lutil so we can
+	use openpty in our "fake terminal" tests.
+
+	* nih/tests/test_option.c: Fix minor test case memory leak.
+
+	* nih/tests/test_child.c (test_poll, test_poll): Use better
+	interlocks then usleep.
+
+	* nih/tests/test_option.c (main): Enable test of --debug, oops.
+
+	* nih/main.c (nih_main_daemonise): Document why this is better than
+	daemon(), and thus not nih.
+	* nih/tests/test_main.c (test_daemonise): Test the daemonise
+	function works properly.
+
+	* nih/timer.h: Fix comments.
+
+	* nih/hash.c (nih_hash_new): This needs a parent pointer too.
+	* nih/hash.h: Update prototype.
+	* nih/tests/test_hash.c: Update test cases.
+
+	* nih/child.c: Clarify child_watches item types.
+	* nih/file.c: Clarify file_watches item types.
+	* nih/io.c: Clarify io_watches item types.
+	* nih/main.c: Clarify loop_functions item types.
+	* nih/timer.c: Clarify timers item types.
+
+	* nih/signal.h (NihSignalCb): Rename to NihSignalHandler.
+	(NihSignal): Change callback name to handler and type
+	to NihSignalHandler.
+	* nih/signal.c (nih_signal_add_callback): Rename to
+	nih_signal_add_handler.
+	* nih/tests/test_signal.c: Update.
+
+	* nih/list.c (nih_list_new): Take a parent pointer like everything
+	else, showing its age slightly.
+	* nih/list.h: Update prototype.
+	* nih/tests/test_list.c: Update test cases.
+	* nih/child.c (nih_child_init): Pass NULL to nih_list_new().
+	* nih/error.c (nih_error_init): Pass NULL to nih_list_new().
+	* nih/file.c (nih_file_init): Pass NULL to nih_list_new().
+	* nih/io.c (nih_io_init): Pass NULL to nih_list_new().
+	* nih/main.c (nih_main_loop_init): Pass NULL to nih_list_new().
+	* nih/signal.c (nih_signal_init): Pass NULL to nih_list_new().
+	* nih/timer.c (nih_timer_init): Pass NULL to nih_list_new().
+	* nih/tests/test_hash.c: Pass NULL to nih_list_new().
+
+	* nih/alloc.c, nih/alloc.h, nih/child.c, nih/child.h, nih/error.c,
+	nih/error.h, nih/file.c, nih/file.h, nih/hash.c, nih/hash.h,
+	nih/io.c, nih/io.h, nih/list.c, nih/list.h, nih/main.c, nih/main.h,
+	nih/option.c, nih/option.h, nih/signal.c, nih/signal.h, nih/string.c,
+	nih/string.h, nih/timer.c, nih/timer.h: Clean up documentation and
+	parent return values.
+
+	* HACKING: Detail function documentation requirement and format.
+
+	* nih/tests/test_signal.c (test_set_default, test_set_ignore) 
+	(test_reset): amd64 seems to set the SA_NODEFER flag even when
+	you pass zero, so just check we clear important bits.
+
+2006-09-27  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/misc.m4 (NIH_INIT): Add easier macro for using libnih.
+	* m4/compiler.m4: Remove hack to include misc.m4
+	* configure.ac: Drop the macro set and replace with NIH_INIT
+	* README: Update.
+	* nihify: Warn if NIH_INIT not present.
+
+2006-09-25  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO (main): Update.
+
+	* nih/logging.h (nih_message): Add nih_message as an alias for
+	nih_warn.
+	* nih/tests/test_logging.c (test_log_message): Check new macro.
+
+2006-09-20  Michael Biebl  <mbiebl@gmail.com>
+
+	* nih/tests/test_file.c: Include nih/inotify.h when sys/inotify.h
+	is not available.
+
+2006-09-19  Michael Biebl  <mbiebl@gmail.com>
+
+	* nih/Makefile.am (nihinclude_HEADERS): Install inotify.h just in
+	case it's required
+
+2006-09-18  Michael Biebl  <mbiebl@gmail.com>
+
+	* configure.ac: Check for sys/inotify.h
+	* nih/inotify.h: Taken from udev, this defines the syscalls
+	and flags, etc. for inotify on glibc 2.3
+	* nih/file.c, nih/file.h: Include nih/inotify.h if we do not have
+	sys/inotify.h
+
+2006-09-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/child.c (nih_child_poll): Zero the siginfo_t struct before
+	every call to waitid(), the kernel doesn't do it for us when
+	running the compat syscall (but does for the native one *sigh).
+
+2006-09-08  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* nih/option.c (nih_option_help): Allow the usage string to be
+	customised.
+	(nih_option_set_usage): Using this function.
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_help): Test the usage string.
+
+	* nih/main.c (nih_main_daemonise): Use program_name for the pid file.
+	* nih/main.h: Update.
+
+	* nih/main.c (nih_main_daemonise): Add a daemonise function,
+	pretty standard really.
+	* nih/main.h: Update.
+
+2006-09-07  Scott James Remnant  <scott@netsplit.com>
+
+	* AUTHORS: Mention the ChangeLog file.
+
+2006-09-04  Scott James Remnant  <scott@netsplit.com>
+
+	* README: Add some documentation for the curious.
+
+	* nih/file.c (nih_file_add_watch): Set nih_file_remove_watch as
+	the default destructor so that nih_free can be called or work in
+	a tree.
+	(nih_file_remove_watch): Modify to not call nih_free and work if
+	called multiple times.
+
+	* nih/signal.c (nih_signal_set_default, nih_signal_set_ignore):
+	Set flags to zero when defaulting or ignoring signals.
+	* nih/tests/test_signal.c (test_set_default, test_set_ignore)
+	(test_reset): Modify test cases appropriately.
+
+	* nih/hash.h: Add missing attribute for nih_hash_new
+	* nih/list.h: Add missing attribute for nih_list_new
+
+2006-09-01  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/option.c (nih_option_group_help): Cast linelen to not induce
+	a warning.
+
+2006-08-31  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_loop_interrupt): Always initialise the
+	interrupt pipe.
+	(nih_main_loop_init): Move interrupt pipe initialisation to here
+	so that it's always available.
+	(nih_main_loop): Drop the extra call to nih_signal_poll().
+
+	* nih/option.c (nih_option_get_short, nih_option_get_long): Allow
+	catch-all options.
+	* nih/tests/test_option.c (test_parser): Test catch-all options.
+
+	* TODO: Update.
+
+	* nih/option.c (nih_option_handle_arg): Free any existing option
+	value.
+
+2006-08-30  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/option.c (nih_option_debug): Add a hidden --debug option that
+	sets the logging level up really high.
+	(nih_option_handle): Just compare the names rather than offset
+	within a list that can change.
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_debug): Check that it works.
+
+	* nih/option.c (nih_option_group_help): Output "Options" where we
+	only have the one group.
+
+	* nih/option.c (nih_option_group_help): Don't output options without
+	help strings.
+	* nih/tests/test_option.c (test_help): Update.
+
+2006-08-25  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/io.c (nih_io_watcher): Clean up the handling of the out of
+	memory condition while extending the buffer so that we just return
+	to be called again rather than end up performing some random action.
+
+2006-08-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nihify (src_dir): Also copy m4/Makefile.am
+
+	* nih/file.c (nih_file_remove_watch): Raise the error before
+	performing other actions so errno is not lost.
+
+	* nih/io.c (nih_io_watcher): Fix a pretty critical bug, we weren't
+	saving the value of errno so it was usually zero by the time we
+	looked at it.
+
+	* nih/logging.c (nih_logger_syslog): Useful alternative to
+	nih_logger_printf.
+	* nih/logging.h: Update.
+
+2006-08-23  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_string.c: Add missing free calls.
+
+	* nih/tests/test_io.c (test_watcher): Silence the error message.
+	* nih/tests/test_option.c (test_parser): Add some forgotten calls
+	to nih_free
+
+	* nih/main.c (nih_main_init_full): Free the package string when
+	overwriting it.
+
+	* nih/tests/test_logging.c: Keep a copy of the last message
+	otherwise we're reading free'd memory (again).
+
+	* nih/tests/test_list.c: Memory cleanups.
+
+	* nih/signal.c (nih_signal_set_default, nih_signal_set_ignore):
+	Don't initialise the signals list, there's no need.
+
+	* nih/tests/test_hash.c: Various missing calls to nih_free.
+
+	* nih/file.c (nih_file_remove_watch): Fix another wrong call to
+	nih_free.
+
+	* nih/tests/test_child.c (test_poll): Free the watcher.
+
+	* nih/file.c (nih_file_remove_watch): Remove from the containing
+	list before freeing.
+	* nih/tests/test_file.c (my_watcher): Make sure we copy the name
+	as it will be freed by the time we get back to the test.
+
+	* nih/list.c (nih_list_free): Don't throw away the destructor
+	return value.
+
+	* nih/tests/test_error.c: Further missing calls to nih_free
+
+	* nih/tests/test_alloc.c: Correct a few missing nih_free's
+
+	* nih/file.c (nih_file_map): Correct a thinko, have to mask
+	flags by O_ACCMODE and compare for equality to extract the open
+	access mode.
+
+2006-08-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_file_map, nih_file_unmap): Add an easier to use
+	wrapper around mmap() when we just want the file in memory.
+	* nih/file.h: Add prototypes.
+	* nih/tests/test_file.c (test_map): Test the functions.
+
+2006-08-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c: Wrap the inotify syscalls with something a little
+	friendlier to deal with.
+	* nih/file.h: Typedefs, structures and prototypes.
+	* nih/libnih.h: Include file.h
+	* nih/io.h: Correct typo in argument name.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link file.c
+	(nihinclude_HEADERS): Install file.h
+	(TESTS): Build and run file test cases
+	(test_file_SOURCES, test_file_LDFLAGS, test_file_LDADD): Details
+	for file test case binary
+
+2006-08-19  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/option.c (nih_option_parser): Finish option processing when
+	the first non-option argument is found (command-mode)
+	* nih/option.h: Update.
+	* nih/tests/test_option.c (test_parser): Test command-mode.
+
+	* nih/option.c: Implement a simple, yet flexible option parser.
+	* nih/option.h: Typedefs, structures and prototypes.
+	* nih/libnih.h: Include option.h
+	* nih/tests/test_option.c: Test it all pretty thoroughly.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link option.c
+	(nihinclude_HEADERS): Install option.h
+	(TESTS): Run the option test cases
+	(test_option_SOURCES, test_option_LDFLAGS, test_option_LDADD):
+	Details for the option test case binary.
+	* TODO: Update.
+
+	* nih/string.c (nih_str_wrap): Implement a function to wrap a
+	string into the desired number of characters wide.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_str_wrap): Test the new function
+	to make sure it does the right things.
+
+2006-08-18  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* nih/main.h (nih_main_init_gettext): Macro that expands to the
+	usual gettext initialisation spiel if ENABLE_NLS is set, or nothing
+	if not.
+	(nih_main_init): Expand nih_main_init_gettext as well, we almost
+	always want to do that, after all.
+	* nih/macros.h: Include locale.h if ENABLE_NLS is set, as that
+	contains setlocale, amongst other things.
+	* nih/tests/test_main.c (test_init_gettext): Check the macro does
+	the right things.
+
+	* nih/io.h (NihIoCb): Rename to NihIoWatcher.
+	(NihIoReadCb): Rename to NihIoReader.
+	(NihIoCloseCb): Rename to NihIoCloseHandler.
+	(NihIoErrorCb): Rename to NihIoErrorHandler.
+	(NihIoWatch): Rename callback member to watcher.
+	(NihIo): Rename read_cb member to reader, close_cb member to
+	close_handler and error_cb member to error_handler.
+	* nih/io.c: Update to use new names.
+	(nih_io_cb): Rename to nih_io_watcher.
+	* nih/tests/test_io.c: Update to use new names.
+
+	* TODO: Update.
+
+2006-08-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_loop_add_func): Add a loop function
+	(nih_main_loop): Run the loop functions.
+	* nih/main.h (NihMainLoopCb, NihMainLoopFunc): Typedefs and
+	structures for main loop callbacks.
+	* nih/tests/test_main.c (test_main_loop_add_func): Check that
+	the loop function is allocated correctly.
+	(test_main_loop): Make sure it actually gets called.
+
+	* nih/io.c (nih_io_cb): Add a couple of check assertions.
+
+	* nih/macros.h (N_): Should be defined to be a no-op.
+
+2006-08-14  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_realloc): Yet another fix to realloc, we
+	forgot to reinitialise our entry in the parent's children list in
+	the case of no parent.  After fixing this and tracing the code, I
+	realised that the previous fix was inelegant and there is a way to
+	deal with children without modifying the pointers until after the
+	reallocation.  Documented the reasoning in the function.
+
+	* nih/io.c (nih_io_reopen): Report on the error rather than just
+	suppressing it.
+	(nih_io_error): Likewise, report on the error.
+
+2006-08-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_loop_close): Drop this function
+	(nih_main_loop): Instead mark them close on exec.
+	* nih/main.h: Update.
+
+	* nih/main.c (nih_main_loop): Change the main loop to use select
+	instead of poll, as its semantics are a lot easier to deal with.
+	We also use allow select to be interrupted by writing to a pipe
+	from the signal handlers, for when Linux gets around to supporting
+	SA_RESTART properly.
+	(nih_main_loop_interrupt): Write to the pipe so the select call gets
+	interrupted.
+	(nih_main_loop_exit): Interrupt the main loop, in case we're
+	waiting forever.
+	(nih_main_loop_close): Close the interrupt pipe, used in children.
+	* nih/main.h: Update.
+	* nih/io.c (nih_io_add_watch): Change type of events parameter.
+	(nih_io_poll_fds): Remove this function.
+	(nih_io_select_fds): And replace with this that sets the select
+	file descriptor sets instead.
+	(nih_io_handle_fds): Now receives select file descriptor sets, and
+	becomes rather more obvious in the process.  Restore the previous
+	behaviour where a callback isn't called unless requests events
+	occur.
+	(nih_io_reopen): Always poll for reading so we pick up errors.
+	(nih_io_cb): Change type of events parameter and events settings.
+	(nih_io_write): Change event settings.
+	* nih/io.h: Update.
+	(NihIoEvents): replace the previous poll events with a new enum.
+	* nih/signal.c (nih_signal_handler): Interrupt the select call in
+	the main loop.
+	* nih/tests/test_io.c: Update with new test cases.
+	* nih/tests/test_child.c: Use select() rather than poll()
+
+	* nih/tests/test_io.c (test_buffer_push, test_write): Correct
+	uninitialised return value.
+
+	* nih/main.c (nih_main_loop): Correct a memory leak, we forgot
+	to clean up the poll fds list.
+
+	* nih/io.c (nih_io_handle_fds): Always call the callback, even if
+	unexpected events happen, otherwise we'll miss ERR, HUP, etc.
+	(nih_io_shutdown): Allow a socket to be closed lazily, so we can
+	send (or receive) a whole bunch of stuff and expect the structure to
+	go away afterwards.
+	(nih_io_cb): If the shutdown flag has been marked and we run out
+	of things in either buffer, act as if one end was closed.
+	(nih_io_reopen): Mark sockets as not shutdown by default.
+	* nih/io.h: Update.
+	* nih/tests/test_io.c (test_shutdown): Test behaviour.
+	(test_handle_fds): Take out some of the tests due to changed
+	behaviour.  While "clever" I think overall this is undesirable.
+
+	* nih/io.c (nih_io_set_cloexec): Function to set the FD_CLOEXEC flag.
+	* nih/io.h: Update.
+	* nih/tests/test_io.c (test_set_cloexec): Test the function.
+
+2006-08-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.h, nih/child.h, nih/hash.h, nih/logging.h, nih/signal.h,
+	nih/timer.h: Document arguments to function pointers.
+
+	* nih/io.c: Add a whole bunch of code to provide us with a high-
+	throughput, async file/socket layer; largely copied from the
+	dircproxy code (well, it works!).  This allows read and write calls
+	to happen inside the main loop based on whenever poll thinks either
+	is possible, while user space can just write what it likes or get
+	called when there's data in the recv buffer.
+	* nih/io.h: Add the new typedefs, structures and prototypes.
+	* nih/tests/test_io.c: Lots of test cases for this stuff.
+
+2006-08-10  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_realloc): Fix a fairly critical bug, we weren't
+	dealing with the fact that the children list head can move;
+	do some fancy shifting to make that work.
+
+	* nih/string.c (nih_str_split): Add a function to split a string
+	based on delimiters into an array.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_str_split): Test the new function.
+
+2006-08-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_child.c (test_poll): Add extra sleep calls for
+	safety.
+
+	* nih/libnih.h: Include errors.h
+
+2006-08-04  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/errors.h: Include errno.h for helpfulness.
+
+2006-08-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/child.c (nih_child_add_watch): Also takes a parent now.
+	* nih/child.h: Update.
+	* nih/tests/test_child.c: Update.
+
+	* nih/io.c (nih_io_add_watch): And once more, with feeling; takes
+	a parent for the watch.
+	* nih/io.h: Update.
+	* nih/tests/test_io.c: Update.
+
+	* nih/signal.c (nih_signal_add_callback): Give this the same treatment,
+	it takes the parent for the signal callback.
+	* nih/signal.h: Update.
+	* nih/tests/test_signal.c: Update.
+
+	* nih/timer.c (nih_timer_add_timeout, nih_timer_add_periodic) 
+	(nih_timer_add_scheduled): Use nih_alloc properly by taking a parent
+	for the timer object and setting a destructor on it so that it's
+	automatically removed when the parent is freed.
+	* nih/timer.h: Update.
+	* nih/tests/test_timer.c: Update function calls.
+	* nih/tests/test_main.c (test_main_loop): Update also.
+
+	* nih/list.c (nih_list_destructor): Add a destructor function that
+	just cuts the entry out of the list in preperation for being freed.
+	* nih/list.h: Update.
+	* nih/tests/test_list.c (test_destructor): Test the behaviour of
+	the new function.
+
+	* nih/tests/test_error.c: Include fixes.
+
+2006-08-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/signal.c (nih_signal_set_handler, nih_signal_set_default) 
+	(nih_signal_set_ignore): Reset sa_flags so that we don't pass
+	uninitialised data for SIGALRM.
+	(nih_signal_reset): Add function to reset signals back to their
+	default state.
+	* nih/signal.h: Update.
+	* nih/tests/test_signal.c (test_reset): Add test case.
+
+	* nih/error.c (nih_error_raise_system): Be a lot more careful in
+	this function!  Save the value of errno in case we overwrite it
+	and call nih_error_init()
+
+	* nih/signal.c (nih_signal_set_handler): Add the SA_NOCLDSTOP
+	signal for SIGCHLD.
+
+	* nih/main.c (nih_main_loop): Drop the code that masked out the
+	child signal, it was inherently racy and there's no particular
+	reason to do it anyway since we use SA_RESTART in signal.c for
+	most things.
+
+	* nih/signal.c (nih_signal_set_handler, nih_signal_set_default)
+	(nih_signal_set_ignore): don't set SA_RESTART for SIGALRM.
+
+	* nih/signal.c (nih_signal_set_handler, nih_signal_set_default)
+	(nih_signal_set_ignore): use nih_return_system_error to make the
+	code rather cleaner.
+
+	* nih/error.h (nih_return_error): Add missing doc for retval
+	(nih_return_system_error): Add additional useful function.
+	* nih/tests/test_error.c (test_return_system_error): Add test
+	case for the new macro.
+
+	* nih/child.c (nih_child_poll): Convert to use waitid() so that
+	we can obtain the information about the dead child without reaping
+	it until we're done processing; useful because it means /proc/$PID
+	and the child itself is still around during the handlers.
+	* nih/child.h (NihReaper): Gains a new third argument that indicates
+	whether the child exited normally or was killed.
+	* nih/tests/test_child.c (test_poll): Update.
+
+	* nihify: Add a few useful sanity checks so that it works with
+	relative paths and already-nihified directories.
+
+	* m4/misc.m4: Remove older force code.
+
+	* TODO: Updated.
+
+	* m4/Makefile.am (dist_aclocal_DATA): Distribute misc.m4, long
+	missed.
+
+	* nihify: Add useful script for symlinking into source trees until
+	we intend to get released.
+
+	* HACKING: Correct typo (our -> out)
+
+2006-07-28  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_term_signal): Handy signal callback.
+	* nih/main.h: Update.
+	* nih/tests/test_main.c (my_timeout): Cheat and ensure the latest
+	exit status is used.
+
+	* nih/main.c (nih_main_loop): Implement a main loop by calling
+	various other functions in the right manner.
+	(nih_main_loop_exit): Function to break the main loop.
+	* nih/main.h: Update.
+	* nih/tests/test_main.c (test_main_loop): Add a trivial test case
+	for the main loop, it's damned difficult to test, but at least this
+	ensures the bases are touched.
+
+	* nih/signal.c (nih_signal_poll): Add missing call to
+	nih_signal_init()
+	* nih/child.c (nih_child_poll): Add missing call to nih_child_init()
+	* nih/io.c (nih_io_poll_fds, nih_io_handle_fds): Add missing calls
+	to nih_io_init()
+
+	* nih/io.c: Code for watching file descriptors and sockets for
+	events through poll(), but not actually the poll() call itself.
+	* nih/io.h: Typedefs, structures and prototypes.
+	* nih/libnih.h: Include io.h
+	* nih/tests/test_io.c: Test cases for I/O watches.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link io.c
+	(nihinclude_HEADERS): Install io.h
+	(TESTS): Build and run I/O test cases
+	(test_io_SOURCES, test_io_LDFLAGS, test_io_LDADD): Details for I/O
+	test case binary.
+
+	* nih/tests/test_timer.c (test_poll): Free entry after testing.
+
+	* nih/child.c (nih_child_poll): When the reaper is for a particular
+	process, be sure to remove it from the list.
+	* nih/tests/test_child.c (test_poll): Test for that.
+	
+	* nih/child.c: Simple bit of code to wait for children to
+	terminate and dispatch the reaper functions for them.
+	* nih/child.h: Typedefs, structures and prototypes.
+	* nih/libnih.h: Include child.h
+	* nih/tests/test_child.c: Test cases for child handling code.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link child.c
+	(nihinclude_HEADERS): Install child.h
+	(TESTS): Build and run child test cases
+	(test_child_SOURCES, test_child_LDFLAGS, test_child_LDADD): Details
+	for child test case binary.
+
+	* nih/timer.c (nih_timer_add_timeout, nih_timer_add_periodic)
+	(nih_timer_add_scheduled): Change argument order so that the time
+	information is first, to match signal functions.
+	* nih/timer.h: Update.
+	* nih/tests/test_timer.c: Update.
+
+	* nih/signal.h: Include the system signal.h for ease of use.
+
+	* nih/signal.c: Code for handling signals inside the main loop,
+	rather than trying to fit delicate code in a signal handler; and
+	for making it generally easier to handle signals.
+	* nih/signal.h: Typedefs and prototypes.
+	* nih/libnih.h: Include signal.h
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link signal.c
+	(nihinclude_HEADERS): Install signal.h
+	(TESTS): Build and run signal test cases
+	(test_signal_SOURCES, test_signal_LDFLAGS, test_signal_LDADD): Details
+	for signal test case binary.
+
+2006-07-27  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/timer.c: Code for timeouts, periodic and scheduled timers,
+	note that the actual scheduling part of scheduled timers it not
+	implemented yet (we need to think a bit more about it)
+	* nih/timer.h: Structures, macros and prototypes.
+	* nih/libnih.h: Include timer.h
+	* nih/tests/test_timer.c: Test cases for timer code.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link timer.c
+	(nihinclude_HEADERS): Install timer.h
+	(TESTS): Build and run timer test cases
+	(test_timer_SOURCES, test_timer_LDFLAGS, test_timer_LDADD): Details
+	for timer test case binary.
+
+	* nih/alloc.c (nih_free): Use new safe list iteration macro.
+
+	* nih/hash.c (nih_hash_add_unique, nih_hash_replace)
+	(nih_hash_search): Use new list iteration macros.
+
+	* nih/list.h (NIH_LIST_FOREACH): New macro that expands to the usual
+	list iteration for loop, prevents mistakes.
+	(NIH_LIST_FOREACH_SAFE): Macro that does the same as above, but also
+	includes a "next" variable to allow safe iteration; especially useful
+	to prevent us getting this wrong!
+	* nih/tests/test_list.c (test_foreach, test_foreach_safe): Add test
+	cases for iteration.
+
+	* nih/error.c (nih_error_init): Make inline and check value first.
+	(nih_error_raise, nih_error_raise_printf, nih_error_raise_again)
+	(nih_error_push_context): Unconditionally call nih_error_init.
+
+	* nih/alloc.c (nih_alloc_init): Make inline and check value first.
+	(nih_alloc): Unconditionally call nih_alloc_init.
+
+	* nih/logging.c (nih_log_init): Use the proper functions to
+	initialise details, check values first; also make inline.
+	(nih_log_message): Unconditionally call nih_log_init.
+
+	* nih/Makefile.am (DEFS): Append to the default DEFS list, rather
+	than overriding, otherwise we lose HAVE_CONFIG_H
+
+	* nih/macros.h: Check for ENABLE_NLS instead of HAVE_GETTEXT and
+	include libintl.h if defined as well.
+
+2006-07-20  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/string.c (nih_strv_free): Add a function to free an array
+	of strings.
+	* nih/string.h: Update.
+	* nih/tests/test_string.c (test_strv_free): Test the function.
+
+	* nih/error.c: Error handling code.
+	* nih/error.h: Structures, macros and prototypes.
+	* nih/errors.h: Error enum and message definitions.
+	* nih/libnih.h: Include error.h and errors.h
+	* nih/tests/test_error.c: Error handling test cases.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link error.h
+	(nihinclude_HEADERS): Install error.h
+	(TESTS): Build and run error handling test cases.
+	(test_error_SOURCES, test_error_LDFLAGS, test_error_LDADD): Binary
+	for error handling test cases.
+
+	* nih/macros.h (NIH_MUST, NIH_MUST_NOT): Add handy macros to spin
+	until we get a true or false value from an assignment.  Usually
+	used around a call to memory allocation functions that we can't
+	deal with failing.
+
+	* nih/main.c (nih_main_package_string): Change package_string
+	to be a module-level static so it can be reset by a call to
+	nih_main_init_full.  Always return if not NULL.
+	* nih/tests/test_main.c (test_package_string): Call nih_main_init_full
+	instead of futzing with variables so the static string is reset.
+
+	* nih/alloc.c (nih_alloc_using, nih_alloc, nih_realloc)
+	(nih_alloc_size, nih_alloc_parent): Make various argument pointers
+	const.
+	* nih/alloc.h: Update.
+
+	* nih/libnih.h, nih/logging.c, nih/main.c: Update to include
+	string.h not strutil.h
+
+	* nih/strutil.c: Renamed to nih/string.c
+	* nih/strutil.h: Renamed to nih/string.h
+	* nih/tests/test_strutil.c: Renamed to nih/tests/test_string.h
+	* nih/Makefile.am (DEFAULT_INCLUDES): Override to stop automake doing
+	silly things like putting -I. in the pre-processor flags.
+	(libnih_la_SOURCES, nihinclude_HEADERS, TESTS)
+	(test_string_SOURCES, test_string_LDFLAGS, test_string_LDADD): Update.
+
+2006-07-19  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.h, nih/logging.h, nih/strutil.h: Reformat attribute
+	declarations to not upset emacs indentation.
+
+2006-07-17  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/strutil.c (nih_strdup): Implement an nih_alloc-based strdup.
+	(nih_strdup): and strndup.
+	* nih/strutil.h: Update.
+	* nih/tests/test_strutil.c: Test new functions.
+
+2006-07-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_free): Remove the entry from the parent's list.
+
+	* nih/logging.h (nih_assert): Reexpress to avoid polluting if
+	statements without an else.
+
+	* nih/alloc.c (nih_realloc): Implement a function that reallocates
+	a block of memory with the original allocator.
+	(nih_alloc_init): Don't double-check the allocator.
+	* nih/alloc.h: Update.
+	* nih/tests/test_alloc.c (test_realloc): Check behaviour of realloc.
+
+	* nih/alloc.c (NihAllocCtx): Drop the name pointer, we never used
+	that anyway.
+	(nih_alloc_using): Drop name parameter.
+	(nih_alloc_named): Rename to nih_alloc.
+	(nih_alloc_set_name): Drop this function.
+	(nih_alloc_name): And this one.
+	* nih/alloc.h (nih_new): Simplify.
+	(nih_alloc): Drop entirely now it's unneeded.
+	* nih/tests/test_alloc.c: Update.
+	* nih/tests/test_list.c (test_new): Test using nih_alloc_size
+	rather than nih_alloc_name.
+
+	* nih/logging.h: Put the log priorities back in ascending order,
+	but use the zero to mean "unknown".  Fix up the descriptions to be
+	a little more consistent.
+	* nih/logging.c: Rename max_priority back to min_priority so it
+	all makes more sense again.
+	(nih_log_init): Warning is the default minimum priority to show.
+	(nih_log_set_priority): Set minimum priority.
+	(nih_log_message): Discard messages below the minimum priority.
+	(nih_logger_printf): Use stderr when priority is greater than or
+	equal to warning.
+	* nih/tests/test_logging.c: Update to match.
+
+	* nih/logging.c (nih_log_message): Use nih_vsprintf which makes the
+	function not core dump (always good, that).
+
+2006-07-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_package_string): Use nih_sprintf and make
+	the function rather simpler.
+
+	* nih/tests/test_alloc.c (main): Formatting fix.
+
+	* nih/strutil.c (nih_sprintf): Function to wrap sprintf, allocating
+	the necessary space using nih_alloc first.
+	(nih_vsprintf): Function to wrap vsprintf, allocating the necessary
+	space using nih_alloc first.
+	* nih/strutil.h: Prototypes.
+	* nih/libnih.h: Include strutil.h
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link strutil.c
+	(nihinclude_HEADERS): Install strutil.h
+	(TESTS): Build and run strutil test cases
+	(test_strutil_SOURCES, test_strutil_LDFLAGS)
+	(test_strutil_LDADD): Binary for strutil test cases.
+
+2006-07-05  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/logging.c (nih_log_message): Don't bother catching
+	vsnprintf's return value, C99 doesn't allow it to fail.
+	* nih/main.c (nih_main_package_string): Likewise for here.
+
+	* nih/logging.c (nih_log_message): Don't use a static variable
+	for no apparent reason, just free afterwards.  Catch vsnprintf and
+	malloc failing.
+	* nih/main.c (nih_main_package_string): Catch snprintf and realloc
+	failing here too.
+
+2006-05-30  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/logging.h (nih_assert): Assertion macro that uses our logging
+	rather than stderr.
+	* nih/alloc.c, nih/hash.c, nih/list.c, nih/logging.c, nih/main.c:
+	Use nih_assert rather than assert.
+	* nih/Makefile.am (test_alloc_LDFLAGS, test_list_LDFLAGS)
+	(test_hash_LDFLAGS, test_main_LDFLAGS, test_logging_LDFLAGS): Link
+	libraries statically.
+	(test_alloc_LDADD, test_list_LDADD, test_hash_LDADD)
+	(test_main_LDADD, test_logging_LDADD): Just link to the library.
+
+	* nih/macros.h (NIH_STRINGIFY): Correct typo (-s -> _s)
+	(NIH_LIKELY, NIH_UNLIKELY): Add branch prediction macros.
+
+2006-05-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_alloc_init): Restore this function, it's better
+	style to keep variables in shared libraries as zero.
+	(nih_alloc_named): Call nih_alloc_init once more.
+	* nih/logging.h: Reorder such that NONE is the lowest value.
+	* nih/logging.c (min_priority): Rename to max_priority and set value
+	to NIH_LOG_NONE (zero).
+	(nih_log_init): Initialise the default logger and priority.
+	(nih_log_set_priority): Assert priority is greater than NONE.
+	(nih_log_message): Initialise the logging if necessary.
+	(nih_logger_printf): Check priority with <=
+
+	* TODO: Update.
+
+	* nih/logging.c: Code for formatting log messages and filtering
+	based on priority.
+	* nih/logging.h: Prototypes and macros.
+	* nih/libnih.h: Include logging.h
+	* nih/tests/test_logging.c: Logging test cases.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link logging.c
+	(nihinclude_HEADERS): Install logging.h
+	(TESTS): Build and run logging test cases.
+	(test_logging_SOURCES, test_logging_LDADD): Binary for logging
+	test cases.
+
+	* nih/tests/test_main.c (test_package_string, test_suggest_help)
+	(test_version): Add missing comments before tests.
+	(test_suggest_help, test_version): Close the duplicated stdout/stderr
+	before leaving the test.
+
+	* nih/alloc.h: Declare nih_alloc_named and nih_alloc_using with
+	the warn_unused_result and malloc attributes.
+
+2006-05-27  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/compiler.m4 (NIH_COMPILER_WARNINGS): Drop -pedantic as we
+	usually want gcc extensions (all the world IS gcc).
+
+2006-05-26  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_init_full): Only take the basename of
+	the program name, not the full path.
+	(nih_main_package_string): Use an allocated piece of memory rather
+	than some on the stack, with C99-style snprintf to do the right thing
+	with it.
+	* nih/tests/test_main.c (test_init): Include check for basename.
+	(test_package_string): Drop tests involving basename here.
+
+	* m4/compiler.m4 (NIH_TRY_C99): Macro that tries compiling
+	some code full of C99 features.
+	(NIH_C_C99): Use the above macro to determine whether the compiler
+	supports C99, or whether it can do it with a compiler flag.
+	* configure.ac: Make sure the compiler does C99.
+
+	* nih/list.c: Add missing prototype for nih_list_cut.
+	* nih/hash.c: Add missing prototype for fnv_hash.
+
+	* nih/macros.h (_, N_): Define gettext-wrapper macros if
+	HAVE_GETTEXT, otherwise define them to just expand to their string.
+
+	* nih/main.h: Drop comments for global variables.
+	* nih/main.c: Provide proper docstrings for them here.
+
+	* nih/alloc.c (nih_alloc_init): Drop this function, instead just
+	initialise the static variable directly.
+	(nih_alloc_set_allocator): Correct parameter name in docstring,
+	don't call nih_alloc_init (it's already initialised).
+
+2006-05-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_package_string): Clarify documentation.
+
+2006-05-23  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c: Add code for the various little functions that we
+	usually call from main().
+	* nih/main.h: Prototypes and macros.
+	* nih/libnih.h: Include main.h
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link main.c
+	(nihinclude_HEADERS): Install main.h
+	(TESTS): Build and run main test-cases
+	(test_main_SOURCES, test_main_LDADD): Code for main tests.
+	* m4/misc.m4 (AC_COPYRIGHT): Wraps the Autoconf AC_COPYRIGHT macro
+	but also defines PACKAGE_COPYRIGHT
+	* m4/compiler.m4: Temporary hack to make sure misc.m4 gets dragged
+	in as aclocal doesn't notice it, will go away once we get something
+	that aclocal will notice.
+
+2006-04-26  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/hash.c: Add code for FNV hash tables that uses NihList for
+	the actual bins so is largely polymorphic.
+	* nih/hash.h: Prototypes, macros and structures.
+	* nih/macros.h: Include stdint.h as well, we use that a lot.
+	* nih/libnih.h: Include hash.h
+	* nih/tests/test_hash.c: Test cases for new hash table code.
+	* nih/Makefile.am (libnih_la_SOURCES): Build and link hash.c
+	(nihinclude_HEADERS): Install hash.h
+	(TESTS): Build and run hash table test-cases.
+	(test_hash_SOURCES, test_hash_LDADD): Code for hash table tests.
+	* TODO: Update.
+
+	* nih/tests/test_list.c (test_empty): Fix faulty test case that
+	actually proved one-entry lists were showing up as empty!
+	* nih/list.h (NIH_LIST_EMPTY): Compare the next and previous pointers
+	against the list pointer itself!
+
+	* nih/list.c (nih_list_cut): Add an inline function that does the
+	job of nih_list_remove without calling nih_list_init afterwards.
+	(nih_list_remove): Call nih_list_cut rather than modifying pointers.
+	(nih_list_free): Use nih_list_cut for efficiency, no point fixing
+	the pointers if we're just going to free it.
+	(nih_list_add, nih_list_add_after): Use nih_list_cut as the pointers
+	get modified afterwards anyway, more efficient this way.
+
+2006-04-25  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.c: Remove unnecessary include of stdlib.h
+
+	* nih/list.c (nih_list_new): Fix formatting of docstring.
+	* nih/alloc.c (nih_alloc_using, nih_alloc_parent): Fix formatting
+	of docstring.
+	(nih_alloc_named): Fix docstring to mention NULL can be returned.
+	* nih/tests/test_alloc.c, nih/tests/test_list.c: Add missing blank
+	line before includes.
+
+	* nih/alloc.c (nih_alloc_using): Return NULL if the allocation
+	fails.
+	* nih/list.c (nih_list_new): Also return NULL if the allocation
+	fails.
+
+	* nih/alloc.c (nih_alloc_set_allocator, nih_alloc_using)
+	(nih_free, nih_alloc_set_name, nih_alloc_set_destructor)
+	(nih_alloc_name, nih_alloc_size, nih_alloc_parent): Use assert
+	to uncover programming errors.
+	* nih/list.c (nih_list_init, nih_list_remove, nih_list_free)
+	(nih_list_add, nih_list_add_after): Use assert to uncover
+	programming errors.
+	(nih_list_new): Comment that nih_new may return NULL and we need
+	to make sure we catch that.
+
+2006-04-24  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/Makefile.am (dist_aclocal_DATA): Add missing \
+	* nih/Makefile.am (INCLUDES): Include top_srcdir otherwise we
+	can't be built out of tree.
+
+	* m4/Makefile.am (dist_aclocal_DATA): Install the m4 files into
+	the aclocal directory, not a package specific one.
+	* m4/compiler.m4, m4/linker.m4: Fix closing comment style.
+
+	* TODO: Add TODO file.
+	* nih/list.h (NIH_LIST_EMPTY): Document what this actually does.
+
+2006-04-19  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.c (nih_list_entry_new): Removed.  This makes the list
+	code more focussed and generic, but also we'll nearly always want
+	the data member to be an nih_alloc child of the list, rather than
+	the other way around!
+	* nih/list.h (NihListEntry, nih_list_add_new)
+	(nih_list_add_new_after): Likewise, remove the structure and helper
+	macros; if we find ourselves wanting this, we can put it in a new
+	file and just make it polymorphic like we plan for hashes.
+	* nih/tests/test_list.c: Replace all uses of NihListEntry with plain
+	NihList, we never checked the data members anyway.
+	(test_entry_new): Remove test case.
+	(test_add): Remove test of nih_list_add_new macro.
+	(test_add_after): Remove test of nih_list_add_new_after macro.
+	(test_empty): Check macro works with any list entry.
+	(test_remove): Test removal of the last list entry, and removal
+	on an already empty list.
+	(test_free): Don't check the pointers of a block we've just freed!
+
+2006-04-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_alloc_init): Call nih_alloc_set_allocator.
+	* nih/alloc.h (NihDestructor): Clarify docstring to not refer
+	to internal structures.
+	* nih/list.h (NIH_LIST_EMPTY): Add convenience macro for this
+	common operation.
+	* nih/tests/test_list.c (test_empty): Test the new macro.
+
+2006-04-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.c (nih_list_new, nih_list_entry_new): Call nih_new rather
+	than malloc so the list can be a context for data members.
+	(nih_list_free): Call nih_free rather than free.
+	* nih/tests/test_list.c: Test cases should not be static.
+	(test_new, test_entry_new): Check the new object was allocated using
+	our nih_alloc function.
+	(test_remove): Test a second removal.
+	(destructor_called): Function to test whether destructor was called.
+	(test_free): Test now that we can use an NihDestructor.
+	* nih/Makefile.am (test_list_LDADD): Link alloc.o now that lists
+	depend on the allocator.
+
+	* nih/list.c, nih/list.h: Fix docstrings to use references where
+	useful.  Split functions into blocks separated by a newline.
+
+	* nih/alloc.h: Update and fix formatting.
+	(NihAllocDestructor): Rename to NihDestructor.
+	* nih/alloc.c (nih_alloc_init): Make safe against repeated calls.
+	(nih_alloc_set_allocator): New function to set the default allocator,
+	overriding any set already.
+	(nih_alloc_set_destructor): Update type of destructor argument..
+	(NihAllocCtx): Update type of destructor member.
+	* nih/tests/test_alloc.c (my_realloc): Wrapper around realloc so
+	we can check custom allocators are called properly.
+	(test_alloc_using): Test allocation with a custom allocator.
+	(test_free): Check that the block is freed using the allocator,
+	also update destructor checking.
+	(test_set_allocator): Test new allocator is used.
+
+	* nih/alloc.c (nih_alloc_using): New one-shot function to use a given
+	realloc-style function to make a named block of memory of a given size.
+	(nih_alloc_named): Replace with a thin-wrapper around nih_alloc_using
+	that passes in the default allocator.
+	(NihAllocCtx): Add new allocator member to store the allocator used,
+	so we free with the right one.
+	(nih_alloc_init): Set the default allocator to realloc().  Drop
+	pool initialisation code.
+	(nih_free): Call the context's original allocator with zero size.
+	(used_pool, unused_pool, NIH_ALLOC_SMALLEST): Remove, these really
+	belong in distinct memory handling code.
+	(nih_alloc_set, nih_alloc_new): Drop functions only needed if we're
+	doing our own memory management.
+	(nih_alloc_size, nih_alloc_parent): Add a couple of useful functions.
+	* nih/alloc.h (NihAllocator): Typedef for allocator function prototype.
+	(nih_alloc): Rename to nih_new.
+	(nih_alloc_size): Rename to nih_alloc.
+	* nih/tests/test_alloc.c (test_alloc_named, test_new, test_alloc): Test
+	behaviour of standard functions with and without parents.
+	(destructor_called): Allow it to be called multiple times, change
+	to static to enforce modularity.
+	(child_destructor_called): Another function for testing multiple
+	destructors.
+	(test_free): Test nih_free using alloc destructors.
+	(test_alloc_set_name): Rename to just test_set_name for consistency.
+
+	* nih/macros.h (NIH_STRINGIFY): Generic hack to turn a numeric
+	macro into a string.
+	* nih/alloc.h (nih_alloc, nih_alloc_size): Use generic NIH_STRINGIFY
+	macro instead of our home-cooked one.
+
+2006-03-31  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c, nih/alloc.h, nih/list.c, nih/list.h, nih/macros.h,
+	nih/libnih.h, nih/tests/test_alloc.c,
+	nih/tests/test_list.c: Update FSF address in GPL header.
+
+2006-03-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c, nih/alloc.h, nih/list.c, nih/list.h: Formatting fixes,
+	correct erroneous references to d_* functions and D* structures.
+	* nih/list.h: Correct docstring for nih_list_new and nih_list_entry_new
+	functions so that @data is described for the right one.
+	* nih/Makefile.am: Add blank line between SOURCES and LDFLAGS.
+
+2005-09-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c, nih/alloc.h, nih/list.c, nih/list.h: Fix docstring
+	terminators to be **/ not */.
+	* nih/alloc.h: Align function parameters.
+	* nih/tests/test_alloc.c (test_alloc_set_name): Fix to return
+	ret and not zero all the time.
+
+2005-08-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (NIH_ALLOC_SMALLEST): Set to the size of the
+	NihAllocCtx structure shifted left twice; this will divide evenly
+	into a page.
+
+	* nih/alloc.c (nih_alloc_init): No need to pass NULL to nih_list_new.
+	(nih_alloc_new): No need to initialise data member of NihList structs
+	or cast children member.
+	(nih_alloc_named): Can cast NihList directly to NihAllocCtx now,
+	simplify difference test.
+	(nih_free): Use iter as variable name for clarity.
+	(nih_alloc_return_unused): Cast NihList directly to NihAllocCtx.
+	* nih/tests/test_alloc.c: Output "BAD:" instead of "FAIL:"
+
+	* nih/list.h (NihList): Remove data pointer, it'll save us 4 bytes
+	where we want to make lists of structures that are always in lists.
+	(NihListEntry): Define new structure for those still wanting data
+	pointers.
+	(nih_list_add_new, nih_list_add_new_after): Use nih_list_entry_new.
+	* nih/list.c (nih_list_new): Remove argument and don't initialise
+	data pointer, this simply allocates and initialises the two-pointer
+	structure.
+	(nih_list_entry_new): New function to allocate and initialise an
+	NihListEntry structure.
+	* nih/tests/test_list.c: Output "BAD:" instead of "FAIL:"
+	(test_new): Test without data pointer.
+	(test_entry_new): Test with data pointer.
+	(test_add, test_add_after, test_remove): Mix and cast NihList and
+	NihListEntry properly.
+
+	* nih/alloc.c: Implement a heirarchial allocator in a similar
+	style to halloc and talloc, but designed never to return data to
+	the system and re-use it instead.
+	* nih/alloc.h: Prototypes and macros for allocator.
+	* nih/libnih.h: Include allocator header.
+	* nih/tests/test_alloc.c: Test-cases for allocator.
+	* nih/macros.h (MIN, MAX): Define MIN and MAC macros if not already
+	available.
+	* nih/Makefile.am (libnih_la_SOURCES): Compile and link alloc.c
+	(nihinclude_HEADERS): Install alloc.h
+	(TESTS): Build and run the allocator test-cases.
+	(test_alloc_SOURCES, alloc_list_LDADD): Identify the test sources and
+	objects it needs.
+
+2005-08-28  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.c (nih_list_init): Add new function for dealing with
+	statically allocated list entries, and initialising them.
+	(nih_list_new): Use nih_list_init() to initialise the list.
+	(nih_list_new): Use nih_list_init() to re-initialise the list
+	to a single-member.
+	* nih/list.h: Add prototype for nih_list_init.
+	(NihListIter): Remove the iterator structure, it turns
+	out to be harder work to try and use lists in an "all nodes are
+	interesting" manner; so we'll iterate them normally instead.
+	(NIH_LIST_FIRST, NIH_LIST_LAST): Remove iterator test functions.
+	(NIH_LIST_PREV, NIH_LIST_NEXT): Remove iterator change functions.
+	* nih/tests/test_list.c: Use NULL for nih_list_new in all functions.
+	(test_init): New test case for nih_list_init().
+	(test_iterator): Removed iterator tests.
+
+2005-08-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.c: Add code for generic circular doubly-linked lists.
+	* nih/list.h: Prototypes and macros.
+	* nih/macros.h: Some generic macros.
+	* nih/libnih.h: Header to import everything.
+	* nih/tests/test_list.c: Test-cases for linked-list code.
+	* nih/Makefile.am (libnih_la_SOURCES): Link list.c in.
+	(nihincludedir): Define directory to contain header files to be
+	$includedir/nih.
+	(include_HEADERS): Install libnih.h into the main include directory.
+	(nihinclude_HEADERS): Install header files.
+	(TESTS): Build and run the list test-cases.
+	(test_list_SOURCES, test_list_LDADD): Identify the test sources and
+	objects it needs.
+
+	* nih/libnih.ver: Add simple "everything beginning nih_* is global"
+	version script.
+	* nih/Makefile.am (libnih_la_LDFLAGS): Use the version script
+	if we can pass an argument to do that to the linker.
+	(EXTRA_DIST): Distribute the version script.
+
+2005-07-09  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/compiler.m4 (NIH_COMPILER_WARNINGS): Macro to add -Wall,
+	-Werror and -pedantic to CFLAGS and CXXFLAGS if using gcc or g++.
+	(NIH_COMPILER_OPTIMISATIONS): Macro to remove any optimisation
+	arguments from CFLAGS and CXXFLAGS and replace them with -O0 to
+	override any default level.
+	(NIH_COMPILER_COVERAGE): Macro to add compiler coverage testing
+	arguments to CFLAGS and CXXFLAGS.
+	* m4/linker.m4 (NIH_LINKER_OPTIMISATIONS): Macro to add -Wl,-O1
+	to LDFLAGS to increase the optimisation of the linker hash tables.
+	(NIH_LINKER_VERSION_SCRIPT): Macro to test for the right argument
+	to pass a version script to the linker and define
+	HAVE_VERSION_SCRIPT and VERSION_SCRIPT_ARG.
+	* m4/Makefile.am (dist_pkgdata_DATA): Ship macros.
+	* configure.ac: Use new macros.
+
+	* ChangeLog: Initial project infrastructure created.
+

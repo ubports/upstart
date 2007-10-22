@@ -2,7 +2,7 @@
  *
  * test_child.c - test suite for nih/child.c
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,18 +19,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/select.h>
-
-#include <stdio.h>
-#include <assert.h>
 #include <signal.h>
-#include <stdlib.h>
 #include <unistd.h>
 
+#include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>
 #include <nih/child.h>
@@ -55,87 +49,60 @@ my_reaper (void  *data,
 	last_status = status;
 }
 
-int
+void
 test_add_watch (void)
 {
 	NihChildWatch *watch;
-	int            ret = 0;
 
-	printf ("Testing nih_child_add_watch()\n");
+	TEST_FUNCTION ("nih_child_add_watch");
+	nih_child_poll ();
 
-	printf ("...with pid\n");
-	watch = nih_child_add_watch (NULL, getpid (), my_reaper, &ret);
 
-	/* Process id should be that given */
-	if (watch->pid != getpid ()) {
-		printf ("BAD: process id set incorrectly.\n");
-		ret = 1;
+	/* Check that we can add a watch on a specific pid, and that the
+	 * structure is filled in correctly and part of a list.
+	 */
+	TEST_FEATURE ("with pid");
+	TEST_ALLOC_FAIL {
+		watch = nih_child_add_watch (NULL, getpid (),
+					     my_reaper, &watch);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (watch, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (watch, sizeof (NihChildWatch));
+		TEST_EQ (watch->pid, getpid ());
+		TEST_EQ_P (watch->reaper, my_reaper);
+		TEST_EQ_P (watch->data, &watch);
+		TEST_LIST_NOT_EMPTY (&watch->entry);
+
+		nih_list_free (&watch->entry);
 	}
 
-	/* Reaper should be function given */
-	if (watch->reaper != my_reaper) {
-		printf ("BAD: reaper function set incorrectly.\n");
-		ret = 1;
+
+	/* Check that we can add a watch on a pid of -1, which represents
+	 * any child.
+	 */
+	TEST_FEATURE ("with -1 for pid");
+	TEST_ALLOC_FAIL {
+		watch = nih_child_add_watch (NULL, -1, my_reaper, &watch);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (watch, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (watch, sizeof (NihChildWatch));
+		TEST_EQ (watch->pid, -1);
+		TEST_EQ_P (watch->reaper, my_reaper);
+		TEST_EQ_P (watch->data, &watch);
+		TEST_LIST_NOT_EMPTY (&watch->entry);
+
+		nih_list_free (&watch->entry);
 	}
-
-	/* Reaper data should be pointer given */
-	if (watch->data != &ret) {
-		printf ("BAD: reaper data set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Should be in the child watches list */
-	if (NIH_LIST_EMPTY (&watch->entry)) {
-		printf ("BAD: not placed into child watches list.\n");
-		ret = 1;
-	}
-
-	/* Should have been allocated using nih_alloc */
-	if (nih_alloc_size (watch) != sizeof (NihChildWatch)) {
-		printf ("BAD: nih_alloc was not used.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&watch->entry);
-
-
-	printf ("...with -1 for pid\n");
-	watch = nih_child_add_watch (NULL, -1, my_reaper, &ret);
-
-	/* Process id should be -1 */
-	if (watch->pid != -1) {
-		printf ("BAD: process id set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Reaper should be function given */
-	if (watch->reaper != my_reaper) {
-		printf ("BAD: reaper function set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Reaper data should be pointer given */
-	if (watch->data != &ret) {
-		printf ("BAD: reaper data set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Should be in the child watches list */
-	if (NIH_LIST_EMPTY (&watch->entry)) {
-		printf ("BAD: not placed into child watches list.\n");
-		ret = 1;
-	}
-
-	/* Should have been allocated using nih_alloc */
-	if (nih_alloc_size (watch) != sizeof (NihChildWatch)) {
-		printf ("BAD: nih_alloc was not used.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&watch->entry);
-
-	return ret;
 }
+
 
 static int destroyed = 0;
 
@@ -147,29 +114,29 @@ my_destructor (void *ptr)
 	return 0;
 }
 
-int
+void
 test_poll (void)
 {
 	NihChildWatch *watch1, *watch2;
+	siginfo_t      siginfo;
 	pid_t          pid;
-	int            ret = 0;
 
-	printf ("Testing nih_child_poll()\n");
+	TEST_FUNCTION ("nih_child_poll");
 
-	pid = fork ();
-	if (pid == 0) {
-		/* Child */
-		select (0, NULL, NULL, NULL, NULL);
+	/* Check that everything works when we have two watchers, one for
+	 * any pid and one for a specific pid.  When our child dies, both
+	 * should get called; the specific one should be freed as it is
+	 * no longer useful.
+	 */
+	TEST_FEATURE ("with pid-specific watcher");
 
-		exit (0);
+	TEST_CHILD (pid) {
+		pause ();
 	}
 
-	assert (pid >= 0);
-
-
-	watch1 = nih_child_add_watch (NULL, -1, my_reaper, &ret);
+	watch1 = nih_child_add_watch (NULL, -1, my_reaper, &watch1);
 	nih_alloc_set_destructor (watch1, my_destructor);
-	watch2 = nih_child_add_watch (NULL, pid, my_reaper, &pid);
+	watch2 = nih_child_add_watch (NULL, pid, my_reaper, &watch2);
 	nih_alloc_set_destructor (watch2, my_destructor);
 
 	reaper_called = 0;
@@ -178,51 +145,25 @@ test_poll (void)
 	last_pid = 0;
 	last_killed = FALSE;
 	last_status = 0;
-	usleep (1000); /* Urgh */
-	assert (kill (pid, SIGTERM) == 0);
-	usleep (1000); /* Urgh */
+
+	kill (pid, SIGTERM);
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
+
 	nih_child_poll ();
 
-	/* Both reapers should have been triggered */
-	if (reaper_called != 2) {
-		printf ("BAD: incorrect number of reapers called.\n");
-		ret = 1;
+	TEST_EQ (reaper_called, 2);
+	TEST_EQ (last_pid, pid);
+	TEST_TRUE (last_killed);
+	TEST_EQ (last_status, SIGTERM);
+	TEST_TRUE (destroyed);
+
+
+	/* Check that if we poll again, only the catch-all watcher is
+	 * triggered.
+	 */
+	TEST_CHILD (pid) {
+		pause ();
 	}
-
-	/* Process id should have been passed */
-	if (last_pid != pid) {
-		printf ("BAD: last process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Killed should have been TRUE */
-	if (last_killed != TRUE) {
-		printf ("BAD: last killed wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Status should have been passed */
-	if (last_status != SIGTERM) {
-		printf ("BAD: last status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Second watcher should have been destroyed */
-	if (! destroyed) {
-		printf ("BAD: watcher wasn't destroyed.\n");
-		ret = 1;
-	}
-
-
-	pid = fork ();
-	if (pid == 0) {
-		/* Child */
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-
-	assert (pid >= 0);
 
 	reaper_called = 0;
 	destroyed = 0;
@@ -230,59 +171,79 @@ test_poll (void)
 	last_pid = 0;
 	last_killed = FALSE;
 	last_status = 0;
-	usleep (1000); /* Urgh */
-	assert (kill (pid, SIGTERM) == 0);
-	usleep (1000); /* Urgh */
+
+	kill (pid, SIGTERM);
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
+
 	nih_child_poll ();
 
-	/* Only one reaper should have been triggered */
-	if (reaper_called != 1) {
-		printf ("BAD: incorrect number of reapers called.\n");
-		ret = 1;
+	TEST_EQ (reaper_called, 1);
+	TEST_EQ (last_pid, pid);
+	TEST_TRUE (last_killed);
+	TEST_EQ (last_status, SIGTERM);
+	TEST_EQ_P (last_data, &watch1);
+	TEST_FALSE (destroyed);
+
+	nih_list_free (&watch1->entry);
+
+
+	/* Check that if we poll with an unknown pid, and no catch-all,
+	 * nothing is triggered and the watch is not removed.
+	 */
+	TEST_FEATURE ("with pid-specific watcher and wrong pid");
+
+	TEST_CHILD (pid) {
+		pause ();
 	}
 
-	/* Process id should have been passed */
-	if (last_pid != pid) {
-		printf ("BAD: last process id wasn't what we expected.\n");
-		ret = 1;
+	watch1 = nih_child_add_watch (NULL, pid - 1, my_reaper, &watch1);
+	nih_alloc_set_destructor (watch1, my_destructor);
+
+	reaper_called = 0;
+	destroyed = 0;
+	last_data = NULL;
+	last_pid = 0;
+	last_killed = FALSE;
+	last_status = 0;
+
+	kill (pid, SIGTERM);
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
+
+	nih_child_poll ();
+
+	TEST_FALSE (reaper_called);
+	TEST_FALSE (destroyed);
+
+	nih_list_free (&watch1->entry);
+
+
+	/* Check that a poll when nothing has died does nothing. */
+	TEST_FEATURE ("with nothing dead");
+
+	TEST_CHILD (pid) {
+		pause ();
 	}
 
-	/* Killed should have been TRUE */
-	if (last_killed != TRUE) {
-		printf ("BAD: last killed wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Status should have been passed */
-	if (last_status != SIGTERM) {
-		printf ("BAD: last status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Data should have been the data pointer of the first one */
-	if (last_data != &ret) {
-		printf ("BAD: last data wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Watcher should not have been destroyed */
-	if (destroyed) {
-		printf ("BAD: watcher destroyed unexpectedly.\n");
-		ret = 1;
-	}
+	watch1 = nih_child_add_watch (NULL, -1, my_reaper, &watch1);
+	nih_alloc_set_destructor (watch1, my_destructor);
 
 	reaper_called = 0;
 	nih_child_poll ();
 
-	/* No reapers should have been triggered */
-	if (reaper_called != 0) {
-		printf ("BAD: reapers called unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_FALSE (reaper_called);
 
-	nih_free (watch1);
+	kill (pid, SIGTERM);
+	waitpid (pid, NULL, 0);
 
-	return ret;
+
+	/* Check that a poll when there are no child processes does nothing */
+	TEST_FEATURE ("with no children");
+	reaper_called = 0;
+	nih_child_poll ();
+
+	TEST_FALSE (reaper_called);
+
+	nih_list_free (&watch1->entry);
 }
 
 
@@ -290,10 +251,8 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_add_watch ();
+	test_poll ();
 
-	ret |= test_add_watch ();
-	ret |= test_poll ();
-
-	return ret;
+	return 0;
 }

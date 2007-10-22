@@ -3,16 +3,8 @@ sbin/initctl
 sbin/start
 sbin/stop
 sbin/status
-sbin/reboot
-sbin/halt
-sbin/poweroff
-sbin/shutdown
 usr/share/man/man8/init.8
 usr/share/man/man8/initctl.8
 usr/share/man/man8/start.8
 usr/share/man/man8/stop.8
 usr/share/man/man8/status.8
-usr/share/man/man8/reboot.8
-usr/share/man/man8/halt.8
-usr/share/man/man8/poweroff.8
-usr/share/man/man8/shutdown.8

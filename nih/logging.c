@@ -2,7 +2,7 @@
  *
  * logging.c - message logging
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,12 +45,12 @@
 static NihLogger logger = NULL;
 
 /**
- * min_priority:
+ * nih_log_priority:
  *
  * Lowest priority of log messages that will be given to the logger by
  * default.
  **/
-static NihLogLevel min_priority = NIH_LOG_UNKNOWN;
+NihLogLevel nih_log_priority = NIH_LOG_UNKNOWN;
 
 
 /**
@@ -62,9 +62,9 @@ static inline void
 nih_log_init (void)
 {
 	if (! logger)
-		nih_log_set_logger (nih_logger_printf);
-	if (! min_priority)
-		nih_log_set_priority (NIH_LOG_WARN);
+		logger =  nih_logger_printf;
+	if (! nih_log_priority)
+		nih_log_priority = NIH_LOG_MESSAGE;
 }
 
 /**
@@ -72,12 +72,14 @@ nih_log_init (void)
  * @new_logger: new logger function.
  *
  * Sets the function that will be used to output log messages above the
- * priority set with @nih_log_set_priority.
+ * priority set with nih_log_set_priority().
  **/
 void
 nih_log_set_logger (NihLogger new_logger)
 {
 	nih_assert (new_logger != NULL);
+
+	nih_log_init ();
 
 	logger = new_logger;
 }
@@ -94,7 +96,9 @@ nih_log_set_priority (NihLogLevel new_priority)
 {
 	nih_assert (new_priority > NIH_LOG_UNKNOWN);
 
-	min_priority = new_priority;
+	nih_log_init ();
+
+	nih_log_priority = new_priority;
 }
 
 
@@ -125,15 +129,11 @@ nih_log_message (NihLogLevel  priority,
 
 	nih_log_init ();
 
-	if (priority < min_priority)
+	if (priority < nih_log_priority)
 		return 1;
 
 	va_start (args, format);
-
-	message = nih_vsprintf (NULL, format, args);
-	if (! message)
-		return -1;
-
+	NIH_MUST (message = nih_vsprintf (NULL, format, args));
 	va_end (args);
 
 	/* Output the message */
@@ -158,34 +158,33 @@ int
 nih_logger_printf (NihLogLevel  priority,
 		   const char  *message)
 {
-	const char *format;
-	FILE       *stream;
-	size_t      idx;
-
 	nih_assert (message != NULL);
 
-	/* Follow GNU conventions and don't put a space between the program
-	 * name and message if the message is of the form "something: message"
-	 */
-	idx = strcspn (message, " :");
-	if (message[idx] == ':') {
-		format = "%s:%s\n";
-	} else {
-		format = "%s: %s\n";
-	}
-
-	/* Warnings and errors belong on stderr, information and debug on
-	 * stdout
+	/* Warnings and errors belong on stderr, and must be prefixed
+	 * with the program name.  Information and debug go on stdout and
+	 * are not prefixed.
 	 */
 	if (priority >= NIH_LOG_WARN) {
-		stream = stderr;
-	} else {
-		stream = stdout;
-	}
+		const char *format;
+		size_t      idx;
 
-	/* Output it */
-	if (fprintf (stream, format, program_name, message) < 0)
-		return -1;
+		/* Follow GNU conventions and don't put a space between the
+		 * program name and message if the message is of the form
+		 * "something: message"
+		 */
+		idx = strcspn (message, " :");
+		if (message[idx] == ':') {
+			format = "%s:%s\n";
+		} else {
+			format = "%s: %s\n";
+		}
+
+		if (fprintf (stderr, format, program_name, message) < 0)
+			return -1;
+	} else {
+		if (printf ("%s\n", message) < 0)
+			return -1;
+	}
 
 	return 0;
 }
@@ -214,6 +213,9 @@ nih_logger_syslog (NihLogLevel  priority,
 		break;
 	case NIH_LOG_INFO:
 		level = LOG_INFO;
+		break;
+	case NIH_LOG_MESSAGE:
+		level = LOG_NOTICE;
 		break;
 	case NIH_LOG_WARN:
 		level = LOG_WARNING;

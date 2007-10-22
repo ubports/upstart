@@ -2,7 +2,7 @@
  *
  * test_job.c - test suite for init/job.c
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,3032 +33,4680 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/io.h>
+#include <nih/main.h>
 
 #include "event.h"
 #include "job.h"
+#include "control.h"
 
 
-int
+void
+test_process_new (void)
+{
+	JobProcess *process;
+
+	/* Check that we can create a new JobProcess structure; the structure
+	 * should be allocated with nih_alloc and have sensible defaults.
+	 */
+	TEST_FUNCTION ("job_process_new");
+	TEST_ALLOC_FAIL {
+		process = job_process_new (NULL);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (process, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+
+		TEST_EQ (process->script, FALSE);
+		TEST_EQ_P (process->command, NULL);
+		TEST_EQ (process->pid, 0);
+
+		nih_free (process);
+	}
+}
+
+void
+test_process_copy (void)
+{
+	JobProcess *process, *copy;
+
+	TEST_FUNCTION ("job_process_copy");
+
+	/* Check that we can create a copy of a fresh structure, with most
+	 * fields left unset.
+	 */
+	TEST_FEATURE ("with unconfigured job process");
+	process = job_process_new (NULL);
+
+	TEST_ALLOC_FAIL {
+		copy = job_process_copy (NULL, process);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (JobProcess));
+
+		TEST_EQ (process->script, FALSE);
+		TEST_EQ_P (process->command, NULL);
+		TEST_EQ (process->pid, 0);
+
+		nih_free (copy);
+	}
+
+	nih_free (process);
+
+
+	/* Check that we can create a copy of an existing structure which
+	 * has the same configured details, but a clean state.
+	 */
+	TEST_FEATURE ("with configured job process");
+	process = job_process_new (NULL);
+	process->script = TRUE;
+	process->command = nih_strdup (process, "/usr/sbin/daemon");
+	process->pid = 1000;
+
+	TEST_ALLOC_FAIL {
+		copy = job_process_copy (NULL, process);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (JobProcess));
+
+		TEST_EQ (copy->script, process->script);
+		TEST_ALLOC_PARENT (copy->command, copy);
+		TEST_EQ_STR (copy->command, process->command);
+		TEST_EQ (copy->pid, 0);
+
+		nih_free (copy);
+	}
+
+	nih_free (process);
+}
+
+
+void
 test_new (void)
 {
 	Job *job;
-	int  ret = 0, i;
+	int  i;
 
-	printf ("Testing job_new()\n");
+	/* Check that we can create a new job structure; the structure
+	 * should be allocated with nih_alloc, placed in the jobs hash
+	 * and have sensible defaults.
+	 */
+	TEST_FUNCTION ("job_new");
+	job_init ();
+	TEST_ALLOC_FAIL {
+		job = job_new (NULL, "test");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&job->entry);
+
+		TEST_ALLOC_PARENT (job->name, job);
+		TEST_EQ_STR (job->name, "test");
+		TEST_EQ_P (job->description, NULL);
+		TEST_EQ_P (job->author, NULL);
+		TEST_EQ_P (job->version, NULL);
+
+		TEST_EQ_P (job->replacement, NULL);
+		TEST_EQ_P (job->replacement_for, NULL);
+		TEST_EQ_P (job->instance_of, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_LIST_EMPTY (&job->start_events);
+		TEST_LIST_EMPTY (&job->stop_events);
+		TEST_LIST_EMPTY (&job->emits);
+
+		TEST_NE_P (job->process, NULL);
+		TEST_ALLOC_PARENT (job->process, job);
+		TEST_ALLOC_SIZE (job->process,
+				 sizeof (JobProcess *) * PROCESS_LAST);
+
+		for (i = 0; i < PROCESS_LAST; i++)
+			TEST_EQ_P (job->process[i], NULL);
+
+		TEST_EQ_P (job->normalexit, NULL);
+		TEST_EQ (job->normalexit_len, 0);
+
+		TEST_EQ (job->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		TEST_EQ (job->instance, FALSE);
+		TEST_EQ (job->service, FALSE);
+		TEST_EQ (job->respawn, FALSE);
+		TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
+		TEST_EQ (job->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
+		TEST_EQ (job->respawn_count, 0);
+		TEST_EQ (job->respawn_time, 0);
+
+		TEST_EQ (job->daemon, FALSE);
+		TEST_EQ_P (job->pid_file, NULL);
+		TEST_EQ_P (job->pid_binary, NULL);
+		TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ_P (job->pid_timer, NULL);
+
+		TEST_EQ (job->console, CONSOLE_NONE);
+		TEST_EQ_P (job->env, NULL);
+
+		TEST_EQ (job->umask, JOB_DEFAULT_UMASK);
+		TEST_EQ (job->nice, 0);
+
+		for (i = 0; i < RLIMIT_NLIMITS; i++)
+			TEST_EQ_P (job->limits[i], NULL);
+
+		TEST_EQ_P (job->chroot, NULL);
+		TEST_EQ_P (job->chdir, NULL);
+
+		nih_list_free (&job->entry);
+	}
+}
+
+void
+test_copy (void)
+{
+	Job        *job, *copy;
+	JobProcess *process;
+	Event      *event;
+	int         i;
+
+	TEST_FUNCTION ("job_copy");
+
+	/* Check that we can create a copy of a fresh structure, with most
+	 * fields left unset.
+	 */
+	TEST_FEATURE ("with unconfigured job");
 	job = job_new (NULL, "test");
 
-	/* Name should be set */
-	if (strcmp (job->name, "test")) {
-		printf ("BAD: job name set incorrectly.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_FAIL {
+		copy = job_copy (NULL, job);
 
-	/* Name should be a copy attached to the job */
-	if (nih_alloc_parent (job->name) != job) {
-		printf ("BAD: nih_alloc was not used for job name.\n");
-		ret = 1;
-	}
-
-	/* Goal should be to stop the process */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* State should be waiting for event */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Start events list should be empty */
-	if (! NIH_LIST_EMPTY (&job->start_events)) {
-		printf ("BAD: start events not initialised to empty list.\n");
-		ret = 1;
-	}
-
-	/* Stop events list should be empty */
-	if (! NIH_LIST_EMPTY (&job->stop_events)) {
-		printf ("BAD: stop events not initialised to empty list.\n");
-		ret = 1;
-	}
-
-	/* Depends list should be empty */
-	if (! NIH_LIST_EMPTY (&job->depends)) {
-		printf ("BAD: depends not initialised to empty list.\n");
-		ret = 1;
-	}
-
-	/* There should be no process */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: job process state set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Kill timeout should be the default */
-	if (job->kill_timeout != JOB_DEFAULT_KILL_TIMEOUT) {
-		printf ("BAD: job kill timeout set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* PID timeout should be the default */
-	if (job->pid_timeout != JOB_DEFAULT_PID_TIMEOUT) {
-		printf ("BAD: job pid timeout set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Respawn limit should be the default */
-	if (job->respawn_limit != JOB_DEFAULT_RESPAWN_LIMIT) {
-		printf ("BAD: job respawn limit set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Respawn interval should be the default */
-	if (job->respawn_interval != JOB_DEFAULT_RESPAWN_INTERVAL) {
-		printf ("BAD: job respawn interval set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* The console should be logged */
-	if (job->console != CONSOLE_LOGGED) {
-		printf ("BAD: job console type set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Umask should be the default */
-	if (job->umask != JOB_DEFAULT_UMASK) {
-		printf ("BAD: job umask set incorrectly.\n");
-		ret = 1;
-	}
-
-	/* Limits should be all NULL (unset) */
-	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (job->limits[i] != NULL) {
-			printf ("BAD: job limits set incorrectly.\n");
-			ret = 1;
-			break;
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
 		}
-	}
 
-	/* Should be in jobs list */
-	if (NIH_LIST_EMPTY (&job->entry)) {
-		printf ("BAD: not placed into jobs list.\n");
-		ret = 1;
-	}
+		TEST_ALLOC_SIZE (copy, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&copy->entry);
 
-	/* Should have been allocated using nih_alloc */
-	if (nih_alloc_size (job) != sizeof (Job)) {
-		printf ("BAD: nih_alloc was not used for job.\n");
-		ret = 1;
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_EQ_P (copy->description, NULL);
+		TEST_EQ_P (copy->author, NULL);
+		TEST_EQ_P (copy->version, NULL);
+
+		TEST_EQ_P (copy->replacement, NULL);
+		TEST_EQ_P (copy->replacement_for, NULL);
+		TEST_EQ_P (copy->instance_of, NULL);
+
+		TEST_EQ (copy->goal, JOB_STOP);
+		TEST_EQ (copy->state, JOB_WAITING);
+
+		TEST_EQ_P (copy->cause, NULL);
+		TEST_EQ_P (copy->blocked, NULL);
+
+		TEST_EQ (copy->failed, FALSE);
+		TEST_EQ (copy->failed_process, -1);
+		TEST_EQ (copy->exit_status, 0);
+
+		TEST_LIST_EMPTY (&copy->start_events);
+		TEST_LIST_EMPTY (&copy->stop_events);
+		TEST_LIST_EMPTY (&copy->emits);
+
+		TEST_NE_P (copy->process, NULL);
+		TEST_ALLOC_PARENT (copy->process, copy);
+		TEST_ALLOC_SIZE (copy->process,
+				 sizeof (JobProcess *) * PROCESS_LAST);
+
+		for (i = 0; i < PROCESS_LAST; i++)
+			TEST_EQ_P (copy->process[i], NULL);
+
+		TEST_EQ_P (copy->normalexit, NULL);
+		TEST_EQ (copy->normalexit_len, 0);
+
+		TEST_EQ (copy->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
+		TEST_EQ_P (copy->kill_timer, NULL);
+
+		TEST_EQ (copy->instance, FALSE);
+		TEST_EQ (copy->service, FALSE);
+		TEST_EQ (copy->respawn, FALSE);
+		TEST_EQ (copy->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
+		TEST_EQ (copy->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
+		TEST_EQ (copy->respawn_count, 0);
+		TEST_EQ (copy->respawn_time, 0);
+
+		TEST_EQ (copy->daemon, FALSE);
+		TEST_EQ_P (copy->pid_file, NULL);
+		TEST_EQ_P (copy->pid_binary, NULL);
+		TEST_EQ (copy->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ_P (copy->pid_timer, NULL);
+
+		TEST_EQ (copy->console, CONSOLE_NONE);
+		TEST_EQ_P (copy->env, NULL);
+
+		TEST_EQ (copy->umask, JOB_DEFAULT_UMASK);
+		TEST_EQ (copy->nice, 0);
+
+		for (i = 0; i < RLIMIT_NLIMITS; i++)
+			TEST_EQ_P (copy->limits[i], NULL);
+
+		TEST_EQ_P (copy->chroot, NULL);
+		TEST_EQ_P (copy->chdir, NULL);
+
+		nih_list_free (&copy->entry);
 	}
 
 	nih_list_free (&job->entry);
 
-	return ret;
+
+	/* Check that we can create a copy of an existing structure which
+	 * has the same configured details, but a clean state.
+	 */
+	TEST_FEATURE ("with configured");
+	job = job_new (NULL, "test");
+	job->description = nih_strdup (job, "an example job");
+	job->author = nih_strdup (job, "joe bloggs");
+	job->version = nih_strdup (job, "1.0");
+
+	job->replacement = (void *)-1;
+	job->replacement_for = (void *)-1;
+	job->instance_of = (void *)-1;
+
+	job->goal = JOB_STOP;
+	job->state = JOB_POST_STOP;
+
+	job->cause = (void *)-1;
+	job->blocked = (void *)-1;
+
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = SIGSEGV << 8;
+
+	event = event_new (job, "foo");
+	nih_list_add (&job->start_events, &event->entry);
+
+	event = event_new (job, "bar");
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "frodo"));
+	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bilbo"));
+
+	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
+	nih_list_add (&job->start_events, &event->entry);
+
+	event = event_new (job, "baz");
+	nih_list_add (&job->stop_events, &event->entry);
+
+	event = event_new (job, "wibble");
+	nih_list_add (&job->emits, &event->entry);
+
+	job->normalexit = nih_alloc (job, sizeof (int) * 2);
+	job->normalexit[0] = 99;
+	job->normalexit[1] = 100;
+	job->normalexit_len = 2;
+
+	job->kill_timeout = 10;
+	job->kill_timer = (void *)-1;
+
+	job->instance = TRUE;
+	job->service = TRUE;
+	job->respawn = TRUE;
+	job->respawn_limit = 20;
+	job->respawn_interval = 100;
+	job->respawn_count = 8;
+	job->respawn_time = time (NULL) - 20;
+
+	job->daemon = TRUE;
+	job->pid_file = nih_strdup (job, "/var/run/job.pid");
+	job->pid_binary = nih_strdup (job, "/usr/lib/daemon");
+	job->pid_timeout = 30;
+	job->pid_timer = (void *)-1;
+
+	process = job_process_new (job->process);
+	process->script = FALSE;
+	process->command = nih_strdup (process, "/usr/sbin/daemon");
+	process->pid = 1000;
+	job->process[PROCESS_MAIN] = process;
+
+	process = job_process_new (job);
+	process->script = TRUE;
+	process->command = nih_strdup (process, "mkdir /var/run/daemon\n");
+	job->process[PROCESS_PRE_START] = process;
+
+	process = job_process_new (job);
+	process->script = TRUE;
+	process->command = nih_strdup (process,
+				       "echo start | nc -q0 127.0.0.1 80\n");
+	job->process[PROCESS_POST_START] = process;
+
+	process = job_process_new (job);
+	process->script = TRUE;
+	process->command = nih_strdup (process,
+				       "echo stop | nc -q0 127.0.0.1 80\n");
+	process->pid = 1010;
+	job->process[PROCESS_PRE_STOP] = process;
+
+	process = job_process_new (job);
+	process->script = TRUE;
+	process->command = nih_strdup (process, "rm -rf /var/run/daemon\n");
+	job->process[PROCESS_POST_STOP] = process;
+
+	job->console = CONSOLE_OUTPUT;
+
+	job->env = nih_str_array_new (job);
+	NIH_MUST (nih_str_array_add (&job->env, job, NULL, "EH=OH"));
+	NIH_MUST (nih_str_array_add (&job->env, job, NULL, "LA=LA"));
+
+	job->umask = 002;
+	job->nice = -5;
+
+	job->limits[RLIMIT_CORE] = nih_new (job, struct rlimit);
+	job->limits[RLIMIT_CORE]->rlim_cur = RLIM_INFINITY;
+	job->limits[RLIMIT_CORE]->rlim_max = RLIM_INFINITY;
+
+	job->limits[RLIMIT_CPU] = nih_new (job, struct rlimit);
+	job->limits[RLIMIT_CPU]->rlim_cur = 120;
+	job->limits[RLIMIT_CPU]->rlim_max = 180;
+
+	job->chroot = nih_strdup (job, "/var/run/daemon");
+	job->chdir = nih_strdup (job, "/etc");
+
+	TEST_ALLOC_FAIL {
+		copy = job_copy (NULL, job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (copy, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (copy, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&copy->entry);
+
+		TEST_ALLOC_PARENT (copy->name, copy);
+		TEST_EQ_STR (copy->name, "test");
+		TEST_ALLOC_PARENT (copy->description, copy);
+		TEST_EQ_STR (copy->description, job->description);
+		TEST_ALLOC_PARENT (copy->author, copy);
+		TEST_EQ_STR (copy->author, job->author);
+		TEST_ALLOC_PARENT (copy->version, copy);
+		TEST_EQ_STR (copy->version, job->version);
+
+		TEST_EQ_P (copy->replacement, NULL);
+		TEST_EQ_P (copy->replacement_for, NULL);
+		TEST_EQ_P (copy->instance_of, NULL);
+
+		TEST_EQ (copy->goal, JOB_STOP);
+		TEST_EQ (copy->state, JOB_WAITING);
+
+		TEST_EQ_P (copy->cause, NULL);
+		TEST_EQ_P (copy->blocked, NULL);
+
+		TEST_EQ (copy->failed, FALSE);
+		TEST_EQ (copy->failed_process, -1);
+		TEST_EQ (copy->exit_status, 0);
+
+		TEST_LIST_NOT_EMPTY (&copy->start_events);
+
+		event = (Event *)copy->start_events.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "foo");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+
+		event = (Event *)event->entry.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "bar");
+		TEST_ALLOC_PARENT (event->args, event);
+		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (event->args[0], event->args);
+		TEST_ALLOC_PARENT (event->args[1], event->args);
+		TEST_EQ_STR (event->args[0], "frodo");
+		TEST_EQ_STR (event->args[1], "bilbo");
+		TEST_EQ_P (event->args[2], NULL);
+		TEST_ALLOC_PARENT (event->env, event);
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (event->env[0], event->env);
+		TEST_EQ_P (event->env[1], NULL);
+
+		TEST_EQ_P (event->entry.next, &copy->start_events);
+
+		TEST_LIST_NOT_EMPTY (&copy->stop_events);
+
+		event = (Event *)copy->stop_events.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "baz");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+
+		TEST_EQ_P (event->entry.next, &copy->stop_events);
+
+		TEST_LIST_NOT_EMPTY (&copy->emits);
+
+		event = (Event *)copy->emits.next;
+		TEST_ALLOC_PARENT (event, copy);
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "wibble");
+		TEST_EQ_P (event->args, NULL);
+		TEST_EQ_P (event->env, NULL);
+
+		TEST_EQ_P (event->entry.next, &copy->emits);
+
+		TEST_NE_P (copy->process, NULL);
+		TEST_ALLOC_PARENT (copy->process, copy);
+		TEST_ALLOC_SIZE (copy->process,
+				 sizeof (JobProcess *) * PROCESS_LAST);
+
+		for (i = 0; i < PROCESS_LAST; i++) {
+			TEST_ALLOC_PARENT (copy->process[i], copy->process);
+			TEST_ALLOC_SIZE (copy->process[i],
+					 sizeof (JobProcess));
+			TEST_EQ (copy->process[i]->script,
+				 job->process[i]->script);
+			TEST_EQ_STR (copy->process[i]->command,
+				     job->process[i]->command);
+			TEST_EQ (copy->process[i]->pid, 0);
+		}
+
+		TEST_ALLOC_PARENT (copy->normalexit, copy);
+		TEST_ALLOC_SIZE (copy->normalexit, sizeof (int) * 2);
+		TEST_EQ (copy->normalexit[0], 99);
+		TEST_EQ (copy->normalexit[1], 100);
+		TEST_EQ (copy->normalexit_len, 2);
+
+		TEST_EQ (copy->kill_timeout, job->kill_timeout);
+		TEST_EQ_P (copy->kill_timer, NULL);
+
+		TEST_EQ (copy->instance, job->instance);
+		TEST_EQ (copy->service, job->service);
+		TEST_EQ (copy->respawn, job->respawn);
+		TEST_EQ (copy->respawn_limit, job->respawn_limit);
+		TEST_EQ (copy->respawn_interval, job->respawn_interval);
+		TEST_EQ (copy->respawn_count, 0);
+		TEST_EQ (copy->respawn_time, 0);
+
+		TEST_EQ (copy->daemon, job->daemon);
+		TEST_ALLOC_PARENT (copy->pid_file, copy);
+		TEST_EQ_STR (copy->pid_file, job->pid_file);
+		TEST_ALLOC_PARENT (copy->pid_binary, copy);
+		TEST_EQ_STR (copy->pid_binary, job->pid_binary);
+		TEST_EQ (copy->pid_timeout, job->pid_timeout);
+		TEST_EQ_P (copy->pid_timer, NULL);
+
+		TEST_EQ (copy->console, job->console);
+		TEST_ALLOC_PARENT (copy->env, copy);
+		TEST_ALLOC_SIZE (copy->env, sizeof (char *) * 3);
+		TEST_EQ_STR (copy->env[0], "EH=OH");
+		TEST_EQ_STR (copy->env[1], "LA=LA");
+		TEST_EQ_P (copy->env[2], NULL);
+
+		TEST_EQ (copy->umask, job->umask);
+		TEST_EQ (copy->nice, job->nice);
+
+		for (i = 0; i < RLIMIT_NLIMITS; i++) {
+			if (job->limits[i]) {
+				TEST_ALLOC_PARENT (copy->limits[i], copy);
+				TEST_ALLOC_SIZE (copy->limits[i],
+						 sizeof (struct rlimit));
+				TEST_EQ (copy->limits[i]->rlim_cur,
+					 job->limits[i]->rlim_cur);
+				TEST_EQ (copy->limits[i]->rlim_max,
+					 job->limits[i]->rlim_max);
+			} else {
+				TEST_EQ_P (copy->limits[i], NULL);
+			}
+		}
+
+		TEST_ALLOC_PARENT (copy->chroot, copy);
+		TEST_EQ_STR (copy->chroot, job->chroot);
+		TEST_ALLOC_PARENT (copy->chdir, copy);
+		TEST_EQ_STR (copy->chdir, job->chdir);
+
+		nih_list_free (&copy->entry);
+	}
+
+	nih_list_free (&job->entry);
 }
 
 
-int
+void
 test_find_by_name (void)
 {
 	Job *job1, *job2, *job3, *ptr;
-	int  ret = 0;
 
-	printf ("Testing job_find_by_name()\n");
+	TEST_FUNCTION ("job_find_by_name");
 	job1 = job_new (NULL, "foo");
 	job2 = job_new (NULL, "bar");
 	job3 = job_new (NULL, "baz");
 
-	printf ("...with name we expect to find\n");
-	ptr = job_find_by_name ("bar");
+	/* Check that we can find a job that exists by its name. */
+	TEST_FEATURE ("with name we expect to find");
+	ptr = job_find_by_name ("foo");
 
-	/* Pointer returned should be to job with that name */
-	if (ptr != job2) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, job1);
 
 
-	printf ("...with name we do not expect to find\n");
+	/* Check that we get NULL if the job doesn't exist. */
+	TEST_FEATURE ("with name we do not expect to find");
 	ptr = job_find_by_name ("frodo");
 
-	/* Pointer returned should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
 
-	printf ("...with empty job list\n");
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	/* Check that we ignore jobs about to be deleted. */
+	TEST_FEATURE ("with deleted job");
+	job2->state = JOB_DELETED;
 	ptr = job_find_by_name ("bar");
 
-	/* Pointer returned should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
-	return ret;
+
+	/* Check that if an entry is an instance, we get the real job. */
+	TEST_FEATURE ("with instance");
+	job2->state = JOB_WAITING;
+	job2->instance_of = job3;
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ (ptr, job3);
+
+
+	/* Check that if an entry is an replacement, we get the current job. */
+	TEST_FEATURE ("with replacement");
+	job2->instance_of = NULL;
+	job2->replacement_for = job3;
+	ptr = job_find_by_name ("bar");
+
+	TEST_EQ (ptr, job3);
+
+
+	/* Check that we get NULL if the job list is empty, and nothing
+	 * bad happens.
+	 */
+	TEST_FEATURE ("with empty job list");
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+	ptr = job_find_by_name ("foo");
+
+	TEST_EQ_P (ptr, NULL);
 }
 
-int
+void
 test_find_by_pid (void)
 {
-	Job *job1, *job2, *job3, *ptr;
-	int  ret = 0;
+	Job         *job1, *job2, *job3, *job4, *job5, *ptr;
+	ProcessType  process;
 
-	printf ("Testing job_find_by_pid()\n");
+	TEST_FUNCTION ("job_find_by_pid");
 	job1 = job_new (NULL, "foo");
-	job1->pid = 10;
+	job1->process[PROCESS_MAIN] = job_process_new (job1);
+	job1->process[PROCESS_MAIN]->pid = 10;
+	job1->process[PROCESS_POST_START] = job_process_new (job1);
+	job1->process[PROCESS_POST_START]->pid = 15;
 	job2 = job_new (NULL, "bar");
 	job3 = job_new (NULL, "baz");
-	job3->pid = 20;
+	job3->process[PROCESS_PRE_START] = job_process_new (job3);
+	job3->process[PROCESS_PRE_START]->pid = 20;
+	job4 = job_new (NULL, "frodo");
+	job4->process[PROCESS_MAIN] = job_process_new (job4);
+	job4->process[PROCESS_MAIN]->pid = 25;
+	job4->process[PROCESS_PRE_STOP] = job_process_new (job4);
+	job4->process[PROCESS_PRE_STOP]->pid = 30;
+	job5 = job_new (NULL, "bilbo");
+	job5->process[PROCESS_POST_STOP] = job_process_new (job5);
+	job5->process[PROCESS_POST_STOP]->pid = 35;
 
-	printf ("...with pid we expect to find\n");
-	ptr = job_find_by_pid (20);
+	/* Check that we can find a job that exists by the pid of its
+	 * primary process.
+	 */
+	TEST_FEATURE ("with pid we expect to find");
+	ptr = job_find_by_pid (10, &process);
 
-	/* Pointer returned should be to job with that pid */
-	if (ptr != job3) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with pid we do not expect to find\n");
-	ptr = job_find_by_pid (30);
-
-	/* Pointer returned should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, job1);
+	TEST_EQ (process, PROCESS_MAIN);
 
 
-	printf ("...with no pids in job list\n");
+	/* Check that we can find a job that exists by the pid of its
+	 * pre-start process.
+	 */
+	TEST_FEATURE ("with pre-start pid we expect to find");
+	ptr = job_find_by_pid (20, &process);
+
+	TEST_EQ_P (ptr, job3);
+	TEST_EQ (process, PROCESS_PRE_START);
+
+
+	/* Check that we can find a job that exists by the pid of its
+	 * post-start process.
+	 */
+	TEST_FEATURE ("with post-start pid we expect to find");
+	ptr = job_find_by_pid (15, &process);
+
+	TEST_EQ_P (ptr, job1);
+	TEST_EQ (process, PROCESS_POST_START);
+
+
+	/* Check that we can find a job that exists by the pid of its
+	 * pre-stop process.
+	 */
+	TEST_FEATURE ("with pre-stop pid we expect to find");
+	ptr = job_find_by_pid (30, &process);
+
+	TEST_EQ_P (ptr, job4);
+	TEST_EQ (process, PROCESS_PRE_STOP);
+
+
+	/* Check that we can find a job that exists by the pid of its
+	 * pre-stop process.
+	 */
+	TEST_FEATURE ("with post-stop pid we expect to find");
+	ptr = job_find_by_pid (35, &process);
+
+	TEST_EQ_P (ptr, job5);
+	TEST_EQ (process, PROCESS_POST_STOP);
+
+
+	/* Check that we get NULL if no job has a process with that pid. */
+	TEST_FEATURE ("with pid we do not expect to find");
+	ptr = job_find_by_pid (100, NULL);
+
+	TEST_EQ_P (ptr, NULL);
+
+
+	/* Check that we get NULL if there are jobs in the hash, but none
+	 * have pids.
+	 */
+	TEST_FEATURE ("with no pids in job table");
+	nih_list_free (&job5->entry);
+	nih_list_free (&job4->entry);
 	nih_list_free (&job3->entry);
 	nih_list_free (&job1->entry);
-	ptr = job_find_by_pid (20);
+	ptr = job_find_by_pid (20, NULL);
 
-	/* Pointer returned should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
 
 
-	printf ("...with empty job list\n");
+	/* Check that we get NULL if there are no jobs in the hash. */
+	TEST_FEATURE ("with empty job table");
 	nih_list_free (&job2->entry);
-	ptr = job_find_by_pid (20);
+	ptr = job_find_by_pid (20, NULL);
 
-	/* Pointer returned should be NULL */
-	if (ptr != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (ptr, NULL);
+}
 
-	return ret;
+void
+test_find_by_id (void)
+{
+	Job          *job1, *job2, *job3, *ptr;
+	unsigned int  id;
+
+	TEST_FUNCTION ("job_find_by_id");
+	job1 = job_new (NULL, "foo");
+	job2 = job_new (NULL, "bar");
+	job3 = job_new (NULL, "bar");
+
+	/* Check that we can find a job by its id. */
+	TEST_FEATURE ("with id we expect to find");
+	ptr = job_find_by_id (job2->id);
+
+	TEST_EQ_P (ptr, job2);
+
+
+	/* Check that we get NULL if the id doesn't exist. */
+	TEST_FEATURE ("with id we do not expect to find");
+	id = job3->id;
+	while ((id == job1->id) || (id == job2->id) || (id == job3->id))
+		id++;
+
+	ptr = job_find_by_id (id);
+
+	TEST_EQ_P (ptr, NULL);
+
+
+	/* Check that we get NULL if the job list is empty, and nothing
+	 * bad happens.
+	 */
+	TEST_FEATURE ("with empty job table");
+	id = job1->id;
+
+	nih_list_free (&job3->entry);
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+	ptr = job_find_by_id (id);
+
+	TEST_EQ_P (ptr, NULL);
 }
 
 
-int
-test_change_state (void)
+void
+test_instance (void)
 {
-	Job         *job;
-	Event       *event;
-	NihList     *list;
-	struct stat  statbuf;
-	char         dirname[22], filename[40];
-	int          ret = 0, i;
+	Job *job, *ptr;
 
-	printf ("Testing job_change_state()\n");
-	sprintf (dirname, "/tmp/test_job.XXXXXX");
-	mkdtemp (dirname);
-
-	/* naughty way of grabbing the event queue */
-	event_queue_run ();
-	event = event_queue ("wibble");
-	list = event->entry.prev;
-	nih_list_free (&event->entry);
+	TEST_FUNCTION ("job_instance");
 
 	job = job_new (NULL, "test");
-	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
-	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
-	job->respawn_script = nih_sprintf (job, "touch %s/respawn", dirname);
-	job->command = nih_sprintf (job, "touch %s/run", dirname);
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
 
 
-	printf ("...waiting to starting with script\n");
-	job->goal = JOB_START;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_STARTING);
+	/* Check that we get an ordinary job returned as-is. */
+	TEST_FEATURE ("with non-instance job");
+	TEST_ALLOC_FAIL {
+		ptr = job_instance (job);
 
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_STARTING */
-	if (job->state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be start */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/start")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Start script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/start", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: start script doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...waiting to starting with no script\n");
-	job->goal = JOB_START;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	nih_free (job->start_script);
-	job->start_script = NULL;
-	job_change_state (job, JOB_STARTING);
-
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be started */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/started")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-	job->start_script = nih_sprintf (job, "touch %s/start", dirname);
-
-
-	printf ("...starting to running with command\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_RUNNING);
-
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be started */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/started")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...starting to running with respawn\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->respawn = TRUE;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_RUNNING);
-
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* First event should be job event */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Next event should be started */
-	event = (Event *)list->prev->prev;
-	if (strcmp (event->name, "test/started")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...starting to running with script\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_NONE;
-	job->respawn = FALSE;
-	job->script = job->command;
-	job->command = NULL;
-	job_change_state (job, JOB_RUNNING);
-
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be started */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/started")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: script doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...running to respawning with script\n");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_RESPAWNING);
-
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_RESPAWNING */
-	if (job->state != JOB_RESPAWNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be respawn */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/respawn")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/respawn", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: respawn script doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...running to respawning without script\n");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	nih_free (job->respawn_script);
-	job->respawn_script = NULL;
-	job_change_state (job, JOB_RESPAWNING);
-
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be started */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/started")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/run", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...running to stopping with script\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_STOPPING);
-
-	/* Goal should still be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* First event should be the job event */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Next event should be stop */
-	event = (Event *)list->prev->prev;
-	if (strcmp (event->name, "test/stop")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: stop script doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...running to stopping without script\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	nih_free (job->stop_script);
-	job->stop_script = NULL;
-	job_change_state (job, JOB_STOPPING);
-
-	/* Goal should still be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_WAITING */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be stopped */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/stopped")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	job->stop_script = nih_sprintf (job, "touch %s/stop", dirname);
-
-
-	printf ("...stopping to waiting\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_WAITING);
-
-	/* Goal should still be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_WAITING */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Event should be stopped */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/stopped")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
+		TEST_EQ_P (ptr, job);
 	}
 
 
-	printf ("...stopping to starting\n");
-	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_NONE;
-	job_change_state (job, JOB_STARTING);
+	/* Check that we get a new instance for an instance master. */
+	TEST_FEATURE ("with instance master job");
+	job->instance = TRUE;
 
-	/* Goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
+	TEST_ALLOC_FAIL {
+		ptr = job_instance (job);
+
+		TEST_NE_P (ptr, job);
+		TEST_EQ (ptr->instance, TRUE);
+		TEST_EQ_P (ptr->instance_of, job);
+
+		nih_list_free (&ptr->entry);
 	}
 
-	/* State should be JOB_STARTING */
-	if (job->state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
+
+	nih_list_free (&job->entry);
+}
+
+void
+test_change_goal (void)
+{
+	EventEmission *em;
+	Job           *job;
+
+	TEST_FUNCTION ("job_change_goal");
+	program_name = "test";
+
+	job = job_new (NULL, "test");
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_PRE_START]->command = "echo";
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->process[PROCESS_POST_STOP]->command = "echo";
+
+
+	/* Check that an attempt to start a waiting job results in the
+	 * goal being changed to start, and the state transitioned to
+	 * starting.
+	 */
+	TEST_FEATURE ("with waiting job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
 	}
 
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
+
+	/* Check that an attempt to start a job that's in the process of
+	 * stopping changes only the goal, and leaves the rest of the
+	 * state transition up to the normal process.
+	 */
+	TEST_FEATURE ("with stopping job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	/* Event should be start */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "test/start")) {
-		printf ("BAD: event wasn't what we expected.\n");
-		ret = 1;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that starting a job with a cause set unreferences it
+	 * and sets it to NULL in the job.
+	 */
+	TEST_FEATURE ("with existing cause");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->cause = em;
+		em->progress = EVENT_HANDLING;
+		em->jobs = 1;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+
+		TEST_EQ_P (job->cause, NULL);
+
+		TEST_EQ (em->jobs, 0);
+		TEST_EQ (em->progress, EVENT_FINISHED);
 	}
 
-	/* Start script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/start", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: start script doesn't appear to have run.\n");
-		ret = 1;
+	nih_list_free (&em->event.entry);
+	job->cause = NULL;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that starting a job with a cause passed references that event
+	 * and sets the cause in the job.
+	 */
+	TEST_FEATURE ("with new cause");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+		job->process[PROCESS_POST_STOP]->pid = 1;
+		job->cause = NULL;
+		em->jobs = 0;
+
+		job_change_goal (job, JOB_START, em);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_POST_STOP);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 1);
+
+		TEST_EQ_P (job->cause, em);
+
+		TEST_EQ (em->jobs, 1);
 	}
 
-	unlink (filename);
+	nih_list_free (&em->event.entry);
+	job->cause = NULL;
+	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
-	printf ("...starting to running too fast\n");
-	job->respawn_count = 0;
-	job->respawn_time = 0;
-	job->respawn_limit = 10;
-	job->respawn_interval = 100;
-	for (i = 0; i < 11; i++) {
-		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->process_state = PROCESS_NONE;
-		job_change_state (job, JOB_RUNNING);
-
-		if (job->goal == JOB_START) {
-			waitpid (job->pid, NULL, 0);
-			unlink (filename);
-		}
-	}
-
-	/* Goal should now be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should be JOB_STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-
-
-	printf ("...running to respawning too fast\n");
-	job->respawn_count = 0;
-	job->respawn_time = 0;
-	job->respawn_limit = 10;
-	job->respawn_interval = 100;
-	for (i = 0; i < 11; i++) {
+	/* Check that an attempt to start a job that's running and still
+	 * with a start goal does nothing.
+	 */
+	TEST_FEATURE ("with running job and start");
+	TEST_ALLOC_FAIL {
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process_state = PROCESS_NONE;
-		job_change_state (job, JOB_RESPAWNING);
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job_change_goal (job, JOB_START, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	/* Goal should now be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that an attempt to stop a running job results in the goal
+	 * and the state being changed.
+	 */
+	TEST_FEATURE ("with running job and stop");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
 	}
 
-	/* State should be JOB_STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that an attempt to stop a running job without any process
+	 * also results in the state being changed.
+	 */
+	TEST_FEATURE ("with running job and no process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
 	}
 
-	/* Process state should be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
+
+	/* Check that an attempt to stop a starting job only results in the
+	 * goal being changed, the state should not be changed.
+	 */
+	TEST_FEATURE ("with starting job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->process[PROCESS_PRE_START]->pid = 1;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_PRE_START);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 1);
 	}
 
-	/* Stop script should have been run */
-	waitpid (job->pid, NULL, 0);
-	sprintf (filename, "%s/stop", dirname);
-	if (stat (filename, &statbuf) < 0) {
-		printf ("BAD: command doesn't appear to have run.\n");
-		ret = 1;
+	job->process[PROCESS_PRE_START]->pid = 0;
+
+
+	/* Check that stopping a job with a cause event set unreferences the
+	 * event and sets it to NULL.
+	 */
+	TEST_FEATURE ("with existing cause");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->cause = em;
+		em->jobs = 1;
+		em->progress = EVENT_HANDLING;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ_P (job->cause, NULL);
+
+		TEST_EQ (em->jobs, 0);
+		TEST_EQ (em->progress, EVENT_FINISHED);
 	}
 
-	unlink (filename);
+	nih_list_free (&em->event.entry);
+	job->cause = NULL;
+	job->process[PROCESS_MAIN]->pid = 0;
 
 
-	/* Fun way to clean up */
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_NONE;
-	job_run_command (job, nih_sprintf (job, "rm -rf %s", dirname));
-	waitpid (job->pid, NULL, 0);
+	/* Check that stopping a job passing a cause references that event
+	 * and sets the job's cause.
+	 */
+	TEST_FEATURE ("with existing cause");
+	em = event_emit ("foo", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->cause = NULL;
+		em->jobs = 0;
+
+		job_change_goal (job, JOB_STOP, em);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->jobs, 1);
+	}
+
+	nih_list_free (&em->event.entry);
+	job->cause = NULL;
+
+
+	/* Check that an attempt to stop a waiting job does nothing. */
+	TEST_FEATURE ("with waiting job");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_WAITING;
+
+		job_change_goal (job, JOB_STOP, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+	}
+
 
 	nih_list_free (&job->entry);
-	event_queue_run ();
-
-	return ret;
+	event_poll ();
 }
 
-int
+
+void
+test_change_state (void)
+{
+	FILE          *output;
+	Job           *job;
+	EventEmission *cause, *emission;
+	struct stat    statbuf;
+	char           dirname[PATH_MAX], filename[PATH_MAX];
+	JobProcess    *tmp;
+	pid_t          pid;
+	int            status;
+
+	TEST_FUNCTION ("job_change_state");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0700);
+
+	job = job_new (NULL, "test");
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = nih_sprintf (
+		job->process[PROCESS_MAIN], "touch %s/run", dirname);
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_PRE_START]->command = nih_sprintf (
+		job->process[PROCESS_PRE_START], "touch %s/start", dirname);
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->process[PROCESS_POST_STOP]->command = nih_sprintf (
+		job->process[PROCESS_POST_STOP], "touch %s/stop", dirname);
+	job->respawn_limit = 0;
+
+	event_init ();
+
+	cause = event_emit ("wibble", NULL, NULL);
+	nih_list_remove (&cause->event.entry);
+
+
+	/* Check that a job can move from waiting to starting.  This
+	 * should emit the starting event and block on it after clearing
+	 * out any failed information from the last time the job was run.
+	 */
+	TEST_FEATURE ("waiting to starting");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_POST_STOP;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "starting");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that if a job tries to move from waiting to starting too
+	 * many times in a given period then it is caught, a message is
+	 * output and the job sent back to stopped and waiting.  We get
+	 * a stopped event, and the cause is cleared.  The failed information
+	 * should reflect that we were stopped by the starting state.
+	 */
+	TEST_FEATURE ("waiting to starting too fast");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job->respawn_limit = 10;
+		job->respawn_interval = 1000;
+		job->respawn_time = time (NULL);
+		job->respawn_count = 10;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_STARTING);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "respawn");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output,
+			      "test: test respawning too fast, stopped\n");
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->respawn_limit = 0;
+	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
+	job->respawn_time = 0;
+	job->respawn_count = 0;
+
+
+	/* Check that a job with a start process can move from starting
+	 * to pre-start, and have the process run.
+	 */
+	TEST_FEATURE ("starting to pre-start");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process[PROCESS_PRE_START]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_PRE_START);
+		TEST_NE (job->process[PROCESS_PRE_START]->pid, 0);
+
+		waitpid (job->process[PROCESS_PRE_START]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/start");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_PRE_START]->pid = 0;
+
+
+	/* Check that a job without a start process can move from starting
+	 * to pre-start, skipping over that state, and instead going all
+	 * the way through to the running state.  Because we get there,
+	 * we should get a started event emitted.
+	 */
+	TEST_FEATURE ("starting to pre-start without process");
+	tmp = job->process[PROCESS_PRE_START];
+	job->process[PROCESS_PRE_START] = NULL;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->process[PROCESS_MAIN]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_PRE_START] = tmp;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job with a main process can move from pre-start to
+	 * spawned and have the process run, and as it's not a daemon,
+	 * the state will be skipped forwards to running and the started
+	 * event emitted.
+	 */
+	TEST_FEATURE ("pre-start to spawned");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->process[PROCESS_MAIN]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+ 	/* Check that a job without a main process can move from pre-start
+	 * straight to running skipping the interim steps, and has the
+	 * started event emitted.
+	 */
+	TEST_FEATURE ("pre-start to spawned without process");
+	tmp = job->process[PROCESS_MAIN];
+	job->process[PROCESS_MAIN] = NULL;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN] = tmp;
+
+
+	/* Check that a job which has a main process that becomes a daemon
+	 * can move from pre-start to spawned and have the process run.
+	 * The state will remain in spawned until that process dies, and
+	 * we have a better pid.
+	 */
+	TEST_FEATURE ("pre-start to spawned for daemon");
+	job->daemon = TRUE;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->process[PROCESS_MAIN]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->daemon = FALSE;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job with a post-start process can move from spawned
+	 * to post-start, and have the process run.
+	 */
+	TEST_FEATURE ("spawned to post-start");
+	job->process[PROCESS_POST_START] = job_process_new (job);
+	job->process[PROCESS_POST_START]->command = nih_sprintf (
+		job->process[PROCESS_POST_START],
+		"touch %s/post-start", dirname);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_POST_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_NE (job->process[PROCESS_POST_START]->pid, 0);
+
+		waitpid (job->process[PROCESS_POST_START]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/post-start");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	nih_free (job->process[PROCESS_POST_START]);
+	job->process[PROCESS_POST_START] = NULL;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job without a post-start process can move from
+	 * spawned to post-start, skipping over that state, and instead
+	 * going to the running state.  Because we get there, we should
+	 * get a started event emitted.
+	 */
+	TEST_FEATURE ("spawned to post-start without process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_POST_START);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a task can move from post-start to running, which will
+	 * emit the started event but leave the cause alone.
+	 */
+	TEST_FEATURE ("post-start to running");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a service can move from post-start to running, which
+	 * will emit the started event and clear the cause since the job
+	 * has reached the desired state.
+	 */
+	TEST_FEATURE ("post-start to running for service");
+	job->service = TRUE;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "started");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->service = FALSE;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job with a pre-stop process can move from running
+	 * to pre-stop, and have the process run.
+	 */
+	TEST_FEATURE ("running to pre-stop");
+	job->process[PROCESS_PRE_STOP] = job_process_new (job);
+	job->process[PROCESS_PRE_STOP]->command = nih_sprintf (
+		job->process[PROCESS_PRE_STOP],
+		"touch %s/pre-stop", dirname);
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_PRE_STOP]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_PRE_STOP);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_NE (job->process[PROCESS_PRE_STOP]->pid, 0);
+
+		waitpid (job->process[PROCESS_PRE_STOP]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/pre-stop");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	nih_free (job->process[PROCESS_PRE_STOP]);
+	job->process[PROCESS_PRE_STOP] = NULL;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job without a pre-stop process can move from
+	 * running to pre-stop, skipping over that state, and instead
+	 * going to the stopping state.  Because we get there, we should
+	 * get a stopping event emitted.
+	 */
+	TEST_FEATURE ("running to pre-stop without process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "ok");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job can move from running to stopping, by-passing
+	 * pre-stop.  This should emit the stopping event, containing the
+	 * failed information including the exit status, and block on it.
+	 */
+	TEST_FEATURE ("running to stopping");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+	}
+
+
+	/* Check that a job killed by a signal can move from running to
+	 * stopping, by-passing pre-stop.  This should emit the stopping
+	 * event, containing the failed information including the exit
+	 * signal, and block on it.
+	 */
+	TEST_FEATURE ("running to stopping for killed process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = SIGSEGV << 8;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
+	}
+
+
+	/* Check that a job killed by an unknown signal can move from
+	 * running to stopping, by-passing pre-stop.  This should emit
+	 * the stopping event, containing the failed information
+	 * including the exit signal number, and block on it.
+	 */
+	TEST_FEATURE ("running to stopping for unknown signal");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 33 << 8;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=33");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 33 << 8);
+	}
+
+
+	/* Check that a job can move from pre-stop back to starting again,
+	 * which should only clear the cause.
+	 */
+	TEST_FEATURE ("pre-stop to stopping");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_goal (job, JOB_START, NULL);
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job can move from pre-stop to stopping.  This
+	 * should emit the stopping event, containing the failed information,
+	 * and block on it.
+	 */
+	TEST_FEATURE ("pre-stop to stopping");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopping");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "ok");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job with an active process can move from stopping
+	 * to killed, the process should be sent the TERM signal and a
+	 * kill timer put in place to check up on it.
+	 */
+	TEST_FEATURE ("stopping to killed");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
+			pause ();
+		}
+		pid = job->process[PROCESS_MAIN]->pid;
+		setpgid (pid, pid);
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_KILLED);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_NE_P (job->kill_timer, NULL);
+
+		nih_list_free (&job->kill_timer->entry);
+		job->kill_timer = NULL;
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a job with no running process can move from stopping
+	 * to killed, skipping over that state and ending up in post-stop
+	 * instead.
+	 */
+	TEST_FEATURE ("stopping to killed without process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->process[PROCESS_POST_STOP]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_KILLED);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+		TEST_NE (job->process[PROCESS_POST_STOP]->pid, 0);
+
+		waitpid (job->process[PROCESS_POST_STOP]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/stop");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+	}
+
+	job->process[PROCESS_POST_STOP]->pid = 0;
+
+
+	/* Check that a job with a stop process can move from killed
+	 * to post-stop, and have the process run.
+	 */
+	TEST_FEATURE ("killed to post-stop");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		job->process[PROCESS_POST_STOP]->pid = 0;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_POST_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+		TEST_NE (job->process[PROCESS_POST_STOP]->pid, 0);
+
+		waitpid (job->process[PROCESS_POST_STOP]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/stop");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that a job without a stop process can move from killed
+	 * to post-stop, skipping over that state, and instead going all
+	 * the way through to the waiting state.  Because we get there,
+	 * we should get a stopped event emitted, and the cause forgotten.
+	 */
+	TEST_FEATURE ("killed to post-stop without process");
+	tmp = job->process[PROCESS_POST_STOP];
+	job->process[PROCESS_POST_STOP] = NULL;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_POST_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+	}
+
+	job->process[PROCESS_POST_STOP] = tmp;
+
+
+	/* Check that a job can move from post-stop to waiting.  This
+	 * should emit the stopped event and clear the cause, but not the
+	 * failed information.
+	 */
+	TEST_FEATURE ("post-stop to waiting");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+	}
+
+
+	/* Check that a job can move from post-stop to starting.  This
+	 * should emit the starting event and block on it, as well as clear
+	 * any failed state information; but not the cause.
+	 */
+	TEST_FEATURE ("post-stop to starting");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_STOP;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ_P (job->cause, cause);
+		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "starting");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_P (emission->event.args[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+
+	/* Check that if a job tries to move from post-stop to starting too
+	 * many times in a given period then it is caught, a message is
+	 * output and the job sent back to stopped and waiting.  We get
+	 * a stopped event, and the cause is cleared.
+	 */
+	TEST_FEATURE ("post-stop to starting too fast");
+	job->respawn_limit = 10;
+	job->respawn_interval = 1000;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_STOP;
+
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job->respawn_time = time (NULL);
+		job->respawn_count = 10;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_STARTING);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		TEST_FILE_EQ (output,
+			      "test: test respawning too fast, stopped\n");
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->respawn_limit = 0;
+	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
+	job->respawn_time = 0;
+	job->respawn_count = 0;
+
+
+	/* Check that an instance job can move from post-stop to waiting,
+	 * going through that state and ending up in deleted.
+	 */
+	TEST_FEATURE ("post-stop to waiting for instance");
+	job->instance_of = job_new (NULL, "wibble");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+	}
+
+	nih_list_free (&job->instance_of->entry);
+	job->instance_of = NULL;
+
+
+	/* Check that a job with a replacement can move from post-stop to
+	 * waiting, going through that state and ending up in deleted where
+	 * the replacement takes over and becomes a real job.
+	 */
+	TEST_FEATURE ("post-stop to waiting for replaced job");
+	job->replacement = job_new (NULL, "wibble");
+	job->replacement->replacement_for = job;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "failed");
+		TEST_EQ_STR (emission->event.args[2], "main");
+		TEST_EQ_P (emission->event.args[3], NULL);
+		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (emission->event.env[1], NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		TEST_EQ_P (job->replacement->replacement_for, NULL);
+	}
+
+	nih_list_free (&job->replacement->entry);
+	job->replacement = NULL;
+
+
+	/* Check that an instance of a replaced job can move from post-stop
+	 * to deleted via waiting, and cause its own instance parent to
+	 * become deleted and replaced as well.
+	 */
+	TEST_FEATURE ("post-stop to waiting for instance of replaced job");
+	job->instance_of = job_new (NULL, "wibble");
+	job->instance_of->replacement = job_new (NULL, "wibble");
+	job->instance_of->replacement->replacement_for = job->instance_of;
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		cause->jobs = 2;
+		job->cause = cause;
+		job->blocked = NULL;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_DELETED);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (cause->jobs, 1);
+
+		emission = (EventEmission *)events->next;
+		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
+		TEST_EQ_STR (emission->event.name, "stopped");
+		TEST_EQ_STR (emission->event.args[0], "test");
+		TEST_EQ_STR (emission->event.args[1], "ok");
+		TEST_EQ_P (emission->event.args[2], NULL);
+		TEST_EQ_P (emission->event.env, NULL);
+		nih_list_free (&emission->event.entry);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ (job->instance_of->goal, JOB_STOP);
+		TEST_EQ (job->instance_of->state, JOB_DELETED);
+
+		TEST_EQ (job->instance_of->replacement->replacement_for, NULL);
+	}
+
+	nih_list_free (&job->instance_of->replacement->entry);
+	nih_list_free (&job->instance_of->entry);
+	job->instance_of = NULL;
+
+
+	fclose (output);
+	rmdir (dirname);
+
+	nih_list_free (&job->entry);
+
+	nih_list_free (&cause->event.entry);
+	event_poll ();
+}
+
+void
 test_next_state (void)
 {
-	Job      *job;
-	JobState  state;
-	int       ret = 0;
-
-	printf ("Testing job_next_state()\n");
-	job = job_new (NULL, "test");
-
-	printf ("...with waiting job and a goal of stop\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	state = job_next_state (job);
-
-	/* Next state should be waiting */
-	if (state != JOB_WAITING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with waiting job and a goal of start\n");
-	job->goal = JOB_START;
-	job->state = JOB_WAITING;
-	state = job_next_state (job);
-
-	/* Next state should be starting */
-	if (state != JOB_STARTING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with starting job and a goal of stop\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_STARTING;
-	state = job_next_state (job);
-
-	/* Next state should be stopping */
-	if (state != JOB_STOPPING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with starting job and a goal of start\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	state = job_next_state (job);
-
-	/* Next state should be running */
-	if (state != JOB_RUNNING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with running job and a goal of stop\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	state = job_next_state (job);
-
-	/* Next state should be stopping */
-	if (state != JOB_STOPPING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with running job and a goal of start\n");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	state = job_next_state (job);
-
-	/* Next state should be respawning (goal gets changed if not daemon) */
-	if (state != JOB_RESPAWNING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with stopping job and a goal of stop\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	state = job_next_state (job);
-
-	/* Next state should be waiting */
-	if (state != JOB_WAITING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with stopping job and a goal of start\n");
-	job->goal = JOB_START;
-	job->state = JOB_STOPPING;
-	state = job_next_state (job);
-
-	/* Next state should be starting again */
-	if (state != JOB_STARTING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with respawning job and a goal of stop\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_RESPAWNING;
-	state = job_next_state (job);
-
-	/* Next state should be stopping */
-	if (state != JOB_STOPPING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with respawning job and a goal of start\n");
-	job->goal = JOB_START;
-	job->state = JOB_RESPAWNING;
-	state = job_next_state (job);
-
-	/* Next state should be running */
-	if (state != JOB_RUNNING) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-
-int
-test_run_command (void)
-{
-	Job         *job;
-	FILE        *output;
-	struct stat  statbuf;
-	char         filename[20], text[80];
-	int          ret = 0;
-
-	printf ("Testing job_run_command()\n");
-	sprintf (filename, "/tmp/test_job.%d", getpid ());
-	unlink (filename);
-
-	printf ("...with simple command\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->command = nih_sprintf (job, "touch %s", filename);
-	job_run_command (job, job->command);
-
-	/* Job process id must have been set */
-	if (job->pid == 0) {
-		printf ("BAD: pid not updated.\n");
-		ret = 1;
-	}
-
-	/* Job process state should now be active */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state not updated.\n");
-		ret = 1;
-	}
-
-	/* Wait for the job */
-	waitpid (job->pid, NULL, 0);
-
-	/* Filename should exist */
-	if (stat (filename, &statbuf) != 0) {
-		printf ("BAD: expected file not created.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-	unlink (filename);
-
-
-	printf ("...with shell command\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->command = nih_sprintf (job, "echo $$ > %s", filename);
-	job_run_command (job, job->command);
-
-	/* Job process id must have been set */
-	if (job->pid == 0) {
-		printf ("BAD: pid not updated.\n");
-		ret = 1;
-	}
-
-	/* Job process state should now be active */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state not updated.\n");
-		ret = 1;
-	}
-
-	/* Wait for the job */
-	waitpid (job->pid, NULL, 0);
-
-	/* Filename should exist */
-	if (stat (filename, &statbuf) != 0) {
-		printf ("BAD: expected file not created.\n");
-		ret = 1;
-	}
-
-	/* Filename should contain the pid */
-	output = fopen (filename, "r");
-	fgets (text, sizeof (text), output);
-	if (atoi (text) != job->pid) {
-		printf ("BAD: command output not what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-	fclose (output);
-	unlink (filename);
-
-	return ret;
-}
-
-int
-test_run_script (void)
-{
-	Job  *job;
-	FILE *output;
-	char  filename[20], text[80];
-	int   ret = 0, status, first;
-
-	printf ("Testing job_run_script()\n");
-	sprintf (filename, "/tmp/test_job.%d", getpid ());
-	unlink (filename);
-
-	printf ("...with small script\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->script = nih_sprintf (job, "exec > %s\necho $0\necho $@",
-				   filename);
-	job_run_script (job, job->script);
-
-	/* Job process id must have been set */
-	if (job->pid == 0) {
-		printf ("BAD: pid not updated.\n");
-		ret = 1;
-	}
-
-	/* Job process state should now be active */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state not updated.\n");
-		ret = 1;
-	}
-
-	/* Wait for the job */
-	waitpid (job->pid, &status, 0);
-
-	/* Job should have terminated normally */
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0)) {
-		printf ("BAD: job terminated badly.\n");
-		ret = 1;
-	}
-
-	/* Filename should exist */
-	output = fopen (filename, "r");
-	if (output == NULL) {
-		printf ("BAD: expected file not created.\n");
-		ret = 1;
-	}
-
-	/* Script should have been run with the shell */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "/bin/sh\n")) {
-		printf ("BAD: program name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Script should have no arguments */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "\n")) {
-		printf ("BAD: arguments weren't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-	fclose (output);
-	unlink (filename);
-
-
-	printf ("...with script that will fail\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->script = nih_sprintf (job, "exec > %s\ntest -d %s\necho oops",
-				   filename, filename);
-	job_run_script (job, job->script);
-
-	/* Job process id must have been set */
-	if (job->pid == 0) {
-		printf ("BAD: pid not updated.\n");
-		ret = 1;
-	}
-
-	/* Job process state should now be active */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state not updated.\n");
-		ret = 1;
-	}
-
-	/* Wait for the job */
-	waitpid (job->pid, &status, 0);
-
-	/* Job should have terminated badly */
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 1)) {
-		printf ("BAD: job terminated by signal or normally.\n");
-		ret = 1;
-	}
-
-	/* Filename should exist */
-	output = fopen (filename, "r");
-	if (output == NULL) {
-		printf ("BAD: expected file not created.\n");
-		ret = 1;
-	}
-
-	/* But should be empty */
-	if (fgets (text, sizeof (text), output) != NULL) {
-		printf ("BAD: unexpected data in output.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-	fclose (output);
-	unlink (filename);
-
-
-	printf ("...with long script\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->script = nih_alloc (job, 4096);
-	sprintf (job->script, "exec > %s\necho $0\necho $@\n", filename);
-	while (strlen (job->script) < 4000)
-		strcat (job->script, "# this just bulks it out a bit");
-	job_run_script (job, job->script);
-
-	/* Job process id must have been set */
-	if (job->pid == 0) {
-		printf ("BAD: pid not updated.\n");
-		ret = 1;
-	}
-
-	/* Job process state should now be active */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state not updated.\n");
-		ret = 1;
-	}
-
-	/* We should have an I/O watch to feed the data ... we need to do
-	 * that by hand
-	 */
-	first = TRUE;
-	for (;;) {
-		fd_set readfds, writefds, exceptfds;
-		int    nfds;
-
-		nfds = 0;
-		FD_ZERO (&readfds);
-		FD_ZERO (&writefds);
-		FD_ZERO (&exceptfds);
-
-		nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
-		if (! nfds) {
-			if (first) {
-				printf ("BAD: we expected to feed data.\n");
-				ret = 1;
-			}
-			break;
-		}
-		first = FALSE;
-
-		assert (select (nfds, &readfds, &writefds, &exceptfds,
-				NULL) > 0);
-
-		nih_io_handle_fds (&readfds, &writefds, &exceptfds);
-	}
-
-	/* Wait for the job */
-	waitpid (job->pid, &status, 0);
-
-	/* Job should have terminated normally */
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0)) {
-		printf ("BAD: job terminated badly.\n");
-		ret = 1;
-	}
-
-	/* Filename should exist */
-	output = fopen (filename, "r");
-	if (output == NULL) {
-		printf ("BAD: expected file not created.\n");
-		ret = 1;
-	}
-
-	/* Script should have been run as /dev/fd/N */
-	fgets (text, sizeof (text), output);
-	if (strncmp (text, "/dev/fd/", 8)) {
-		printf ("BAD: program name wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Script should have no arguments */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "\n")) {
-		printf ("BAD: arguments weren't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-	fclose (output);
-	unlink (filename);
-
-	return ret;
-}
-
-
-int
-test_kill_process (void)
-{
-	Job         *job;
-	NihTimer    *timer;
-	pid_t        pid;
-	char         filename[20];
-	struct stat  statbuf;
-	int          ret = 0, status;
-
-	printf ("Testing job_kill_process()\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_STOP;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->kill_timeout = 1000;
-
-
-	printf ("...with easily killed process\n");
-	job->pid = pid = fork ();
-	if (pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-	job_kill_process (job);
-	waitpid (pid, &status, 0);
-
-	/* Job should have been killed by the TERM signal */
-	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGTERM)) {
-		printf ("BAD: process was not terminated by SIGTERM.\n");
-		ret = 1;
-	}
-
-	/* Process id should not have been changed */
-	if (job->pid != pid) {
-		printf ("BAD: process id changed unexpectedly.\n");
-		ret = 1;
-	}
-
-	/* Process state should have been changed to KILLED */
-	if (job->process_state != PROCESS_KILLED) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timer should have been spawned */
-	if (job->kill_timer == NULL) {
-		printf ("BAD: kill timer was not spawned.\n");
-		ret = 1;
-	}
-
-	/* Kill timer should be scheduled according to timeout */
-	if ((job->kill_timer->due > time (NULL) + 1000)
-	    || (job->kill_timer->due < time (NULL) + 950)) {
-		printf ("BAD: kill timer not due when we expected.\n");
-		ret = 1;
-	}
-
-	nih_free (job->kill_timer);
-	job->kill_timer = NULL;
-
-
-	printf ("...with hard to kill process\n");
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = pid = fork ();
-	if (pid == 0) {
-		struct sigaction act;
-
-		act.sa_handler = SIG_IGN;
-		act.sa_flags = 0;
-		sigemptyset (&act.sa_mask);
-		sigaction (SIGTERM, &act, NULL);
-
-		for (;;)
-			select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-	job_kill_process (job);
-
-	/* Job should still exist */
-	if (kill (pid, 0) != 0) {
-		printf ("BAD: process died unexpectedly.\n");
-		ret = 1;
-	}
-
-	/* Run the kill timer */
-	timer = job->kill_timer;
-	timer->callback (timer->data, timer);
-	nih_free (timer);
-	waitpid (pid, &status, 0);
-
-	/* Job should have been killed by the KILL signal */
-	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGKILL)) {
-		printf ("BAD: process was not terminated by SIGKILL.\n");
-		ret = 1;
-	}
-
-	/* Process id should now be zero (we killed it really hard) */
-	if (job->pid != 0) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should have been changed to NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timer should have been ended */
-	if (job->kill_timer != NULL) {
-		printf ("BAD: kill timer was not ended.\n");
-		ret = 1;
-	}
-
-	/* Job state should be WAITING (come via stopping) */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with hard to kill process and stop script\n");
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	sprintf (filename, "/tmp/test_job.%d", getpid ());
-	unlink (filename);
-	job->stop_script = nih_sprintf (job, "touch %s", filename);
-	job->pid = pid = fork ();
-	if (pid == 0) {
-		struct sigaction act;
-
-		act.sa_handler = SIG_IGN;
-		act.sa_flags = 0;
-		sigemptyset (&act.sa_mask);
-		sigaction (SIGTERM, &act, NULL);
-
-		for (;;)
-			select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-	job_kill_process (job);
-
-	/* Job should still exist */
-	if (kill (pid, 0) != 0) {
-		printf ("BAD: process died unexpectedly.\n");
-		ret = 1;
-	}
-
-	/* Run the kill timer */
-	timer = job->kill_timer;
-	timer->callback (timer->data, timer);
-	nih_free (timer);
-	waitpid (pid, &status, 0);
-	waitpid (job->pid, NULL, 0);
-
-	/* Job state should be stopping */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be active */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Check the job script was run */
-	if (stat (filename, &statbuf) != 0) {
-		printf ("BAD: stop script wasn't run.\n");
-		ret = 1;
-	}
-
-	unlink (filename);
-	nih_free (job->stop_script);
-	job->stop_script = NULL;
-
-
-	printf ("...with already dead process\n");
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = pid = fork ();
-	if (pid == 0) {
-		exit (0);
-	}
-	waitpid (pid, &status, 0);
-	job_kill_process (job);
-
-	/* Process id should now be zero */
-	if (job->pid != 0) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should have been changed to NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should be WAITING (come via stopping) */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* No kill timer should have been set */
-	if (job->kill_timer != NULL) {
-		printf ("BAD: kill timer started unexpectedly.\n");
-		ret = 1;
-	}
-
-
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-
-static int was_called = 0;
-
-static int
-destructor_called (void *ptr)
-{
-	was_called++;
-	return 0;
-}
-
-int
-test_child_reaper (void)
-{
 	Job *job;
-	int  ret = 0, exitcodes[1] = { 0 };
 
-	printf ("Testing job_child_reaper()\n");
+	TEST_FUNCTION ("job_next_state");
 	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job->command = "echo";
-	job->stop_script = "echo";
-	job->respawn_script = "echo";
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
 
-
-	printf ("...with unknown pid\n");
-	job_child_reaper (NULL, 999, FALSE, 0);
-
-	/* Check the job didn't change */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job changed unexpectedly.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with running task\n");
-	job_child_reaper (NULL, 1000, FALSE, 0);
-
-	/* Job should no longer have that process */
-	if (job->pid == 1000) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Goal should now be STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should now be STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	printf ("...with kill timer\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job->kill_timer = (void *) nih_strdup (job, "test");
-	nih_alloc_set_destructor (job->kill_timer, destructor_called);
-	was_called = 0;
-	job_child_reaper (NULL, 1000, FALSE, 0);
-
-	/* Timer should have been unset */
-	if (job->kill_timer != NULL) {
-		printf ("BAD: kill timer was not unset.\n");
-		ret = 1;
-	}
-
-	/* Timer should have been freed */
-	if (! was_called) {
-		printf ("BAD: kill timer was not destroyed.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	printf ("...with starting task\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job_child_reaper (NULL, 1000, FALSE, 0);
-
-	/* Job should no longer have that process */
-	if (job->pid == 1000) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Goal should still be START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should now be RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	printf ("...with starting task failure\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job_child_reaper (NULL, 1000, FALSE, 1);
-
-	/* Job should no longer have that process */
-	if (job->pid == 1000) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Goal should now be STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should now be STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	printf ("...with starting task kill\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job_child_reaper (NULL, 1000, TRUE, SIGTERM);
-
-	/* Job should no longer have that process */
-	if (job->pid == 1000) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Goal should now be STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should now be STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	printf ("...with running task to respawn\n");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job->respawn = TRUE;
-	job_child_reaper (NULL, 1000, FALSE, 0);
-
-	/* Job should no longer have that process */
-	if (job->pid == 1000) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Goal should still be START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should now be RESPAWNING */
-	if (job->state != JOB_RESPAWNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	printf ("...with running task and normal exit\n");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
-	job->respawn = TRUE;
-	job->normalexit = exitcodes;
-	job->normalexit_len = 1;
-	job_child_reaper (NULL, 1000, FALSE, 0);
-
-	/* Job should no longer have that process */
-	if (job->pid == 1000) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Goal should now be STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* State should now be STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
-
-
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-
-int
-test_start (void)
-{
-	Job     *job, *dep_job;
-	JobName *dep;
-	Event   *event;
-	int      ret = 0;
-
-	printf ("Testing job_start()\n");
-	job = job_new (NULL, "test");
+	/* Check that the next state if we're stopping a waiting job is
+	 * deleted.  The only place this can happen is from the job loop
+	 * for jobs that should be deleted or replaced; so this is the
+	 * logical next state.
+	 */
+	TEST_FEATURE ("with waiting job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job->start_script = "echo";
+
+	TEST_EQ (job_next_state (job), JOB_DELETED);
 
 
-	printf ("...with waiting job\n");
-	job_start (job);
+	/* Check that the next state if we're starting a waiting job is
+	 * starting.
+	 */
+	TEST_FEATURE ("with waiting job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_WAITING;
 
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should now be JOB_STARTING */
-	if (job->state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
+	TEST_EQ (job_next_state (job), JOB_STARTING);
 
 
-	printf ("...with stopping job\n");
+	/* Check that the next state if we're stopping a starting job is
+	 * waiting.
+	 */
+	TEST_FEATURE ("with starting job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_STARTING;
+
+	TEST_EQ (job_next_state (job), JOB_WAITING);
+
+
+	/* Check that the next state if we're starting a starting job is
+	 * pre-start.
+	 */
+	TEST_FEATURE ("with starting job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+
+	TEST_EQ (job_next_state (job), JOB_PRE_START);
+
+
+	/* Check that the next state if we're stopping a pre-start job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with pre-start job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_PRE_START;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a pre-start job is
+	 * spawned.
+	 */
+	TEST_FEATURE ("with pre-start job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_PRE_START;
+
+	TEST_EQ (job_next_state (job), JOB_SPAWNED);
+
+
+	/* Check that the next state if we're stopping a spawned job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with spawned job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_SPAWNED;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a spawned job is
+	 * post-start.
+	 */
+	TEST_FEATURE ("with spawned job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	TEST_EQ (job_next_state (job), JOB_POST_START);
+
+
+	/* Check that the next state if we're stopping a post-start job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_POST_START;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a post-start job is
+	 * running.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_POST_START;
+
+	TEST_EQ (job_next_state (job), JOB_RUNNING);
+
+
+	/* Check that the next state if we're stopping a running job is
+	 * pre-stop.  This is the "normal" stop process, as called from the
+	 * goal change event.
+	 */
+	TEST_FEATURE ("with running job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	job->process[PROCESS_MAIN]->pid = 1;
+
+	TEST_EQ (job_next_state (job), JOB_PRE_STOP);
+
+
+	/* Check that the next state if we're stopping a running job that
+	 * has no process is stopping.  This is the stop process if the
+	 * process goes away on its own, as called from the child reaper.
+	 */
+	TEST_FEATURE ("with dead running job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_RUNNING;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a running job is
+	 * stopping.  This assumes that the job has exited, but we didn't
+	 * change the goal, so it should be respawned.
+	 */
+	TEST_FEATURE ("with running job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a pre-stop job is
+	 * running.  This assumes that the pre-stop job decided that the
+	 * job should not stop.
+	 */
+	TEST_FEATURE ("with pre-stop job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_PRE_STOP;
+
+	TEST_EQ (job_next_state (job), JOB_RUNNING);
+
+
+	/* Check that the next state if we're stopping a pre-stop job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with pre-stop job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_PRE_STOP;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're starting a stopping job is
+	 * killed.  This is because we need to clean up before we can start
+	 * again.
+	 */
+	TEST_FEATURE ("with stopping job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_STOPPING;
+
+	TEST_EQ (job_next_state (job), JOB_KILLED);
+
+
+	/* Check that the next state if we're stopping a stopping job is
+	 * killed.
+	 */
+	TEST_FEATURE ("with stopping job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
-	job->process_state = PROCESS_ACTIVE;
-	job_start (job);
 
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should remain JOB_STOPPING */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should remain PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (job_next_state (job), JOB_KILLED);
 
 
-	printf ("...with running job\n");
+	/* Check that the next state if we're starting a killed job is
+	 * post-stop.  This is because we need to clean up before we can
+	 * start again.
+	 */
+	TEST_FEATURE ("with killed job and a goal of start");
 	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job_start (job);
+	job->state = JOB_KILLED;
 
-	/* Job goal should remain JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should remain JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should remain PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (job_next_state (job), JOB_POST_STOP);
 
 
-	printf ("...with running dependency\n");
+	/* Check that the next state if we're stopping a killed job is
+	 * post-stop.
+	 */
+	TEST_FEATURE ("with killed job and a goal of stop");
 	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
+	job->state = JOB_KILLED;
 
-	dep_job = job_new (NULL, "frodo");
-	dep_job->goal = JOB_START;
-	dep_job->state = JOB_RUNNING;
-	dep_job->process_state = PROCESS_ACTIVE;
-
-	dep = nih_new (job, JobName);
-	dep->name = dep_job->name;
-	nih_list_init (&dep->entry);
-	nih_list_add (&job->depends, &dep->entry);
-
-	job_start (job);
-
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should now be JOB_STARTING */
-	if (job->state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, NULL, 0);
+	TEST_EQ (job_next_state (job), JOB_POST_STOP);
 
 
-	printf ("...with starting dependency\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-
-	dep_job->goal = JOB_START;
-	dep_job->state = JOB_STARTING;
-	dep_job->process_state = PROCESS_ACTIVE;
-
-	event = event_new (dep_job, "dependency");
-	nih_list_add (&dep_job->stop_events, &event->entry);
-
-	job_start (job);
-
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should still be JOB_WAITING */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should still be PROCESS_NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Dependency goal should still be JOB_START */
-	if (dep_job->goal != JOB_START) {
-		printf ("BAD: dependency goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with stopped dependency\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-
-	dep_job->goal = JOB_STOP;
-	dep_job->state = JOB_WAITING;
-	dep_job->process_state = PROCESS_NONE;
-	dep_job->command = "echo";
-
-	nih_list_add (&dep_job->start_events, &event->entry);
-
-	job_start (job);
-
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should now be JOB_STARTING */
-	if (job->state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Dependency goal should now be JOB_START */
-	if (dep_job->goal != JOB_START) {
-		printf ("BAD: dependency goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Dependency state should now be JOB_RUNNING */
-	if (dep_job->state != JOB_RUNNING) {
-		printf ("BAD: dependency state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Dependency process state should now be PROCESS_ACTIVE */
-	if (dep_job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: dependency process wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (dep_job->pid, NULL, 0);
-
-
-	printf ("...with unknown dependency\n");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-
-	dep->name = "wibble";
-
-	job_start (job);
-
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should still be JOB_WAITING */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should still be PROCESS_NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	nih_list_free (&dep_job->entry);
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-int
-test_stop (void)
-{
-	Job   *job;
-	pid_t  pid;
-	int    ret = 0, status;
-
-	printf ("Testing job_stop()\n");
-	job = job_new (NULL, "test");
+	/* Check that the next state if we're starting a post-stop job is
+	 * starting.
+	 */
+	TEST_FEATURE ("with post-stop job and a goal of start");
 	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = pid = fork ();
-	if (pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
+	job->state = JOB_POST_STOP;
 
-		exit (0);
-	}
+	TEST_EQ (job_next_state (job), JOB_STARTING);
 
 
-	printf ("...with running job\n");
-	job_stop (job);
-	waitpid (pid, &status, 0);
-
-	/* Job goal should now be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should remain JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_KILLED */
-	if (job->process_state != PROCESS_KILLED) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timer should be active */
-	if (job->kill_timer == NULL) {
-		printf ("BAD: kill timer wasn't set.\n");
-		ret = 1;
-	}
-
-	nih_free (job->kill_timer);
-	job->kill_timer = NULL;
-
-	/* Original running process should have been sent SIGTERM */
-	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGTERM)) {
-		printf ("BAD: process terminated by unexpected means.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with starting job\n");
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = pid = fork ();
-	if (pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-	job_stop (job);
-
-	/* Job goal should now be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should remain JOB_STARTING */
-	if (job->state != JOB_STARTING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should remain PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process should not be changed */
-	if (job->pid != pid) {
-		printf ("BAD: process id wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	kill (pid, SIGTERM);
-	waitpid (pid, NULL, 0);
-
-
-	printf ("...with waiting job\n");
+	/* Check that the next state if we're stopping a post-stop job is
+	 * waiting.
+	 */
+	TEST_FEATURE ("with post-stop job and a goal of stop");
 	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process_state = PROCESS_NONE;
-	job_stop (job);
+	job->state = JOB_POST_STOP;
 
-	/* Job goal should remain JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should remain JOB_WAITING */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should remain PROCESS_NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (job_next_state (job), JOB_WAITING);
 
 
 	nih_list_free (&job->entry);
-
-	return ret;
 }
 
 
-int
-test_release_depends (void)
+void
+test_should_replace (void)
 {
-	Job     *job1, *job2, *job3, *job4;
-	JobName *job2dep, *job3dep, *job4dep;
-	int      ret = 0;
+	Job *job1, *job2, *job3;
+	int  replace;
 
-	printf ("Testing job_release_depends()\n");
-	job1 = job_new (NULL, "foo");
-	job1->command = "echo";
-	job1->goal = JOB_START;
-	job1->state = JOB_RUNNING;
-	job1->process_state = PROCESS_ACTIVE;
-
-	job2 = job_new (NULL, "bar");
-	job2->command = "echo";
-	job2->goal = JOB_START;
-	job2->state = JOB_WAITING;
-
-	job2dep = nih_new (job2, JobName);
-	job2dep->name = job1->name;
-	nih_list_init (&job2dep->entry);
-	nih_list_add (&job2->depends, &job2dep->entry);
-
-	job3 = job_new (NULL, "baz");
-	job3->command = "echo";
-	job3->goal = JOB_STOP;
-	job3->state = JOB_WAITING;
-
-	job3dep = nih_new (job3, JobName);
-	job3dep->name = job1->name;
-	nih_list_init (&job3dep->entry);
-	nih_list_add (&job3->depends, &job3dep->entry);
-
-	job4 = job_new (NULL, "wibble");
-	job4->command = "echo";
-	job4->goal = JOB_START;
-	job4->state = JOB_WAITING;
-
-	job4dep = nih_new (job4, JobName);
-	job4dep->name = "frodo";
-	nih_list_init (&job4dep->entry);
-	nih_list_add (&job4->depends, &job4dep->entry);
-
-	job_release_depends (job1);
-
-	/* Goal should now be JOB_START */
-	if (job2->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should now be JOB_RUNNING */
-	if (job2->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_ACTIVE */
-	if (job2->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job2->pid, NULL, 0);
-
-	/* Third job goal should be unchanged */
-	if (job3->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Third job state should be unchanged */
-	if (job3->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Third process state should be unchanged */
-	if (job3->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Fourth job goal should be unchanged */
-	if (job4->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Fourth job state should be unchanged */
-	if (job4->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Fourth process state should be unchanged */
-	if (job4->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job3->entry);
-	nih_list_free (&job4->entry);
-
-	return ret;
-}
-
-
-int
-test_start_event (void)
-{
-	Event *event;
-	Job   *job;
-	int    ret = 0;
-
-	printf ("Testing job_start_event()\n");
-	job = job_new (NULL, "test");
-	job->command = "echo";
-
-	event = event_new (job, "wibble");
-	nih_list_add (&job->start_events, &event->entry);
-
-
-	printf ("...with non-matching event\n");
-	event = event_new (NULL, "biscuit");
-	job_start_event (job, event);
-
-	/* Job goal should still be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should still be JOB_WAITING */
-	if (job->state != JOB_WAITING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should still be PROCESS_NONE */
-	if (job->process_state != PROCESS_NONE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_free (event);
-
-
-	printf ("...with matching event\n");
-
-	event = event_new (NULL, "wibble");
-	job_start_event (job, event);
-
-	/* Job goal should now be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should now be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	kill (job->pid, SIGTERM);
-	waitpid (job->pid, NULL, 0);
-
-	nih_free (event);
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-int
-test_stop_event (void)
-{
-	Event *event;
-	Job   *job;
-	int    ret = 0, status;
-
-	printf ("Testing job_stop_event()\n");
-	job = job_new (NULL, "test");
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = fork ();
-	if (job->pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-
-	event = event_new (job, "wibble");
-	nih_list_add (&job->stop_events, &event->entry);
-
-
-	printf ("...with non-matching event\n");
-	event = event_new (NULL, "biscuit");
-	job_stop_event (job, event);
-
-	/* Job goal should still be JOB_START */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should still be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should still be PROCESS_ACTIVE */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_free (event);
-
-
-	printf ("...with matching event\n");
-	event = event_new (NULL, "wibble");
-	job_stop_event (job, event);
-
-	/* Job goal should now be JOB_STOP */
-	if (job->goal != JOB_STOP) {
-		printf ("BAD: job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should still be JOB_RUNNING */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should now be PROCESS_KILLED */
-	if (job->process_state != PROCESS_KILLED) {
-		printf ("BAD: process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job->pid, &status, 0);
-
-	/* Process should be killed with SIGTERM */
-	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGTERM)) {
-		printf ("BAD: process wasn't terminated by SIGTERM.\n");
-		ret = 1;
-	}
-
-	nih_free (event);
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-int
-test_handle_event (void)
-{
-	Event *event;
-	Job   *job1, *job2, *job3, *job4, *job5;
-	int    ret = 0, status;
-
-	printf ("Testing job_handle_event()\n");
+	TEST_FUNCTION ("job_should_replace");
 	job1 = job_new (NULL, "foo");
 	job1->goal = JOB_STOP;
 	job1->state = JOB_WAITING;
-	job1->process_state = PROCESS_NONE;
-	job1->command = "echo";
-	nih_list_add (&job1->start_events, &(event_new (job1, "poke")->entry));
 
 	job2 = job_new (NULL, "bar");
 	job2->goal = JOB_START;
 	job2->state = JOB_RUNNING;
-	job2->process_state = PROCESS_ACTIVE;
-	job2->pid = fork ();
-	if (job2->pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
+	job2->replacement = job1;
 
-		exit (0);
-	}
-	nih_list_add (&job2->stop_events, &(event_new (job2, "poke")->entry));
-
-	job3 = job_new (NULL, "baz");
+	job3 = job_new (NULL, "bar");
 	job3->goal = JOB_START;
 	job3->state = JOB_RUNNING;
-	job3->process_state = PROCESS_ACTIVE;
-	job3->pid = fork ();
-	if (job3->pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-	nih_list_add (&job3->start_events, &(event_new (job3, "poke")->entry));
-	nih_list_add (&job3->stop_events, &(event_new (job3, "poke")->entry));
-
-	job4 = job_new (NULL, "frodo");
-	job4->goal = JOB_STOP;
-	job4->state = JOB_WAITING;
-	job4->process_state = PROCESS_NONE;
-	job4->command = "echo";
-
-	job5 = job_new (NULL, "bilbo");
-	job5->goal = JOB_START;
-	job5->state = JOB_RUNNING;
-	job5->process_state = PROCESS_ACTIVE;
-	job5->pid = fork ();
-	if (job5->pid == 0) {
-		select (0, NULL, NULL, NULL, NULL);
-
-		exit (0);
-	}
-
-	event = event_new (NULL, "poke");
-	job_handle_event (event);
-
-	/* First job goal should now be JOB_START */
-	if (job1->goal != JOB_START) {
-		printf ("BAD: first job goal wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* First job state should now be JOB_RUNNING */
-	if (job1->state != JOB_RUNNING) {
-		printf ("BAD: first job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* First process state should now be PROCESS_ACTIVE */
-	if (job1->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: first process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job1->pid, NULL, 0);
+	job3->instance_of = job2;
 
 
-	/* Second job goal should now be JOB_STOP */
-	if (job2->goal != JOB_STOP) {
-		printf ("BAD: second job goal wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that we should not replace a job that doesn't have a
+	 * replacement at this point.
+	 */
+	TEST_FEATURE ("with replacement-less job");
+	replace = job_should_replace (job1);
 
-	/* Second job state should still be JOB_RUNNING */
-	if (job2->state != JOB_RUNNING) {
-		printf ("BAD: second job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Second process state should now be PROCESS_KILLED */
-	if (job2->process_state != PROCESS_KILLED) {
-		printf ("BAD: second process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job2->pid, &status, 0);
-
-	/* Second process should be killed with SIGTERM */
-	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGTERM)) {
-		printf ("BAD: second process wasn't terminated by SIGTERM.\n");
-		ret = 1;
-	}
+	TEST_FALSE (replace);
 
 
-	/* Third job goal should still be JOB_START */
-	if (job3->goal != JOB_START) {
-		printf ("BAD: third job goal wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that we should not replace a job that has a replacement,
+	 * but is still running.
+	 */
+	TEST_FEATURE ("with running job");
+	replace = job_should_replace (job2);
 
-	/* Third job state should still be JOB_RUNNING */
-	if (job3->state != JOB_RUNNING) {
-		printf ("BAD: third job state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Third process state should now be PROCESS_KILLED */
-	if (job3->process_state != PROCESS_KILLED) {
-		printf ("BAD: third process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	waitpid (job3->pid, &status, 0);
-
-	/* Third process should be killed with SIGTERM */
-	if ((! WIFSIGNALED (status)) || (WTERMSIG (status) != SIGTERM)) {
-		printf ("BAD: third process wasn't terminated by SIGTERM.\n");
-		ret = 1;
-	}
+	TEST_FALSE (replace);
 
 
-	/* Fourth job goal should still be JOB_STOP */
-	if (job4->goal != JOB_STOP) {
-		printf ("BAD: fourth job goal wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that we should replace a job that has a replacement and
+	 * is no longer running.
+	 */
+	TEST_FEATURE ("with stopped job");
+	job2->goal = JOB_STOP;
+	job2->state = JOB_WAITING;
 
-	/* Fourth job state should still be JOB_WAITING */
-	if (job4->state != JOB_WAITING) {
-		printf ("BAD: fourth job state wasn't what we expected.\n");
-		ret = 1;
-	}
+	replace = job_should_replace (job2);
 
-	/* Fourth process state should still be PROCESS_NONE */
-	if (job4->process_state != PROCESS_NONE) {
-		printf ("BAD: fourth process state wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_TRUE (replace);
 
 
-	/* Fifth job goal should still be JOB_START */
-	if (job5->goal != JOB_START) {
-		printf ("BAD: fifth job goal wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that we should not replace a job that has current instances.
+	 */
+	TEST_FEATURE ("with job that has instances");
+	job2->instance = TRUE;
 
-	/* Fifth job state should still be JOB_RUNNING */
-	if (job5->state != JOB_RUNNING) {
-		printf ("BAD: fifth job state wasn't what we expected.\n");
-		ret = 1;
-	}
+	replace = job_should_replace (job2);
 
-	/* Fifth process state should now be PROCESS_ACTIVE */
-	if (job5->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: fifth process state wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	kill (job5->pid, SIGTERM);
-	waitpid (job5->pid, NULL, 0);
+	TEST_FALSE (replace);
 
 
-	nih_free (event);
+	/* Check that we should replace a job that has no current instances.
+	 */
+	TEST_FEATURE ("with instance-less job");
+	job3->instance_of = NULL;
 
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
+	replace = job_should_replace (job2);
+
+	TEST_TRUE (replace);
+
+
 	nih_list_free (&job3->entry);
-	nih_list_free (&job4->entry);
-	nih_list_free (&job5->entry);
-
-	return ret;
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
 }
 
-int
-test_detect_idle (void)
+
+void
+test_run_process (void)
 {
-	Job     *job1, *job2;
-	Event   *event;
-	NihList *list;
-	int      ret = 0;
+	Job           *job = NULL;
+	EventEmission *em;
+	FILE          *output;
+	struct stat    statbuf;
+	char           filename[PATH_MAX], buf[80], **args;
+	int            status, first;
 
-	printf ("Testing job_detect_idle()\n");
+	TEST_FUNCTION ("job_run_process");
+	TEST_FILENAME (filename);
 
-	/* naughty way of grabbing the event queue */
-	event_queue_run ();
-	event = event_queue ("wibble");
-	list = event->entry.prev;
-	nih_list_free (&event->entry);
+	/* Check that we can run a simple command, and have the process id
+	 * and state filled in.  We should be able to wait for the pid to
+	 * finish and see that it has been run as expected.
+	 */
+	TEST_FEATURE ("with simple command");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"touch %s", filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that we can run a command that requires a shell to be
+	 * intepreted correctly, a shell should automatically be used to
+	 * make this work.  Check the contents of a file we'll create to
+	 * check that a shell really was used.
+	 */
+	TEST_FEATURE ("with shell command");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"echo $$ > %s", filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		/* Filename should contain the pid */
+		output = fopen (filename, "r");
+		sprintf (buf, "%d\n", job->process[PROCESS_MAIN]->pid);
+		TEST_FILE_EQ (output, buf);
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+	/* Check that we can run a small shell script, and that it's run
+	 * by using the shell directly and passing the script in on the
+	 * command-line.
+	 */
+	TEST_FEATURE ("with small script");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"exec > %s\necho $0\necho $@", filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that shell scripts are run with the -e option set, so that
+	 * any failing command causes the entire script to fail.
+	 */
+	TEST_FEATURE ("with script that will fail");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"exec > %s\ntest -d %s\necho oops",
+				filename, filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 1);
+
+		output = fopen (filename, "r");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a small shell script will have arguments from the
+	 * cause passed to it, if one exists.
+	 */
+	TEST_FEATURE ("with small script and cause");
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	em = event_emit ("test", args, NULL);
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->cause = em;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"exec > %s\necho $0\necho $@", filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_EQ (output, "foo bar\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	/* Check that an event without arguments doesn't cause any problems */
+	TEST_FEATURE ("with cause without arguments");
+	em = event_emit ("test", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->cause = em;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_sprintf (
+				job->process[PROCESS_MAIN],
+				"exec > %s\necho $0\necho $@", filename);
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	if (stat ("/dev/fd", &statbuf) < 0) {
+		printf ("SKIP: no /dev/fd\n");
+		goto no_devfd;
+	}
+
+	/* Check that a particularly long script is instead invoked by
+	 * using the /dev/fd feature, with the shell script fed to the
+	 * child process by an NihIo structure.
+	 */
+	TEST_FEATURE ("with long script");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_alloc (
+				job->process[PROCESS_MAIN], 4096);
+			sprintf (job->process[PROCESS_MAIN]->command,
+				 "exec > %s\necho $0\necho $@\n", filename);
+			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
+				strcat (job->process[PROCESS_MAIN]->command,
+					"# this just bulks it out a bit");
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		/* Loop until we've fed all of the data. */
+		first = TRUE;
+		for (;;) {
+			fd_set readfds, writefds, exceptfds;
+			int    nfds;
+
+			nfds = 0;
+			FD_ZERO (&readfds);
+			FD_ZERO (&writefds);
+			FD_ZERO (&exceptfds);
+
+			nih_io_select_fds (&nfds, &readfds,
+					   &writefds, &exceptfds);
+			if (! nfds) {
+				if (first)
+					TEST_FAILED ("expected to have "
+						     "data to feed.");
+				break;
+			}
+			first = FALSE;
+
+			select (nfds, &readfds, &writefds, &exceptfds, NULL);
+
+			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+		}
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ_N (output, "/dev/fd/");
+		TEST_FILE_EQ (output, "\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+
+	/* Check that a long shell script will have arguments from the
+	 * cause passed to it, if one exists.
+	 */
+	TEST_FEATURE ("with long script and cause");
+	args = nih_str_array_new (NULL);
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	em = event_emit ("test", args, NULL);
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (NULL, "test");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+			job->cause = em;
+			job->process[PROCESS_MAIN] = job_process_new (job);
+			job->process[PROCESS_MAIN]->script = TRUE;
+			job->process[PROCESS_MAIN]->command = nih_alloc (
+				job->process[PROCESS_MAIN], 4096);
+			sprintf (job->process[PROCESS_MAIN]->command,
+				 "exec > %s\necho $0\necho $@\n", filename);
+			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
+				strcat (job->process[PROCESS_MAIN]->command,
+					"# this just bulks it out a bit");
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+
+		/* Loop until we've fed all of the data. */
+		first = TRUE;
+		for (;;) {
+			fd_set readfds, writefds, exceptfds;
+			int    nfds;
+
+			nfds = 0;
+			FD_ZERO (&readfds);
+			FD_ZERO (&writefds);
+			FD_ZERO (&exceptfds);
+
+			nih_io_select_fds (&nfds, &readfds,
+					   &writefds, &exceptfds);
+			if (! nfds) {
+				if (first)
+					TEST_FAILED ("expected to have "
+						     "data to feed.");
+				break;
+			}
+			first = FALSE;
+
+			select (nfds, &readfds, &writefds, &exceptfds, NULL);
+
+			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+		}
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ_N (output, "/dev/fd/");
+		TEST_FILE_EQ (output, "foo bar\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_list_free (&job->entry);
+	}
+
+	nih_list_free (&em->event.entry);
+no_devfd:
+	;
+}
+
+
+void
+test_kill_process (void)
+{
+	Job      *job;
+	NihTimer *timer;
+	pid_t     pid;
+	int       status;
+
+	TEST_FUNCTION ("job_kill_process");
+	job = job_new (NULL, "test");
+	job->kill_timeout = 1000;
+	job->respawn_limit = 0;
+
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = nih_strdup (
+		job->process[PROCESS_MAIN], "echo");
+
+
+	/* Check that an easily killed process goes away with just a single
+	 * call to job_kill_process, having received the TERM signal.
+	 * A kill timer should be set to handle the case where the child
+	 * doesn't get reaped.
+	 */
+	TEST_FEATURE ("with easily killed process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
+			pause ();
+		}
+		pid = job->process[PROCESS_MAIN]->pid;
+		setpgid (pid, pid);
+
+		job_kill_process (job, PROCESS_MAIN);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+		TEST_GE (job->kill_timer->due, time (NULL) + 950);
+		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+
+		nih_free (job->kill_timer);
+		job->kill_timer = NULL;
+
+		event_poll ();
+	}
+
+
+	/* Check that a process that's hard to kill doesn't go away, but
+	 * that the kill timer sends the KILL signal which should finally
+	 * get rid of it.
+	 */
+	TEST_FEATURE ("with hard to kill process");
+	TEST_ALLOC_FAIL {
+		int wait_fd = 0;
+
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		TEST_CHILD_WAIT (job->process[PROCESS_MAIN]->pid, wait_fd) {
+			struct sigaction act;
+
+			act.sa_handler = SIG_IGN;
+			act.sa_flags = 0;
+			sigemptyset (&act.sa_mask);
+			sigaction (SIGTERM, &act, NULL);
+
+			TEST_CHILD_RELEASE (wait_fd);
+
+			for (;;)
+				pause ();
+		}
+		pid = job->process[PROCESS_MAIN]->pid;
+		setpgid (pid, pid);
+
+		job_kill_process (job, PROCESS_MAIN);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+
+		TEST_EQ (kill (job->process[PROCESS_MAIN]->pid, 0), 0);
+
+		TEST_NE_P (job->kill_timer, NULL);
+		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
+		TEST_ALLOC_PARENT (job->kill_timer, job);
+		TEST_GE (job->kill_timer->due, time (NULL) + 950);
+		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+
+		/* Run the kill timer */
+		timer = job->kill_timer;
+		timer->callback (timer->data, timer);
+		nih_free (timer);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_KILLED);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGKILL);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		event_poll ();
+	}
+
+	nih_list_free (&job->entry);
+}
+
+
+static int destructor_called = 0;
+
+static int
+my_destructor (void *ptr)
+{
+	destructor_called++;
+	return 0;
+}
+
+void
+test_child_reaper (void)
+{
+	Job           *job;
+	EventEmission *em;
+	FILE          *output;
+	int            exitcodes[2] = { 100, SIGINT << 8 };
+
+	TEST_FUNCTION ("job_child_reaper");
+	program_name = "test";
+	output = tmpfile ();
+
+	job = job_new (NULL, "test");
+	job->process[PROCESS_MAIN] = job_process_new (job);
+	job->process[PROCESS_MAIN]->command = "echo";
+
+	em = event_emit ("foo", NULL, NULL);
+
+
+	/* Check that the child reaper can be called with a pid that doesn't
+	 * match the job, and that the job state doesn't change.
+	 */
+	TEST_FEATURE ("with unknown pid");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job_child_reaper (NULL, 999, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap the running task of the job, which should
+	 * set the goal to stop and transition a state change into the
+	 * stopping state.  This should not be considered a failure.
+	 */
+	TEST_FEATURE ("with running process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap a running task of the job after it's been
+	 * sent the TERM signal and a kill timer set.  The kill timer should
+	 * be cancelled and freed, and since we killed it, the job should
+	 * still not be considered failed.
+	 */
+	TEST_FEATURE ("with kill timer");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_ALLOC_SAFE {
+			destructor_called = 0;
+			job->kill_timer = (void *) nih_strdup (job, "test");
+			nih_alloc_set_destructor (job->kill_timer,
+						  my_destructor);
+		}
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_TRUE (destructor_called);
+		TEST_EQ_P (job->kill_timer, NULL);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap the pre-start process of the job, and if it
+	 * terminates with a good error code, end up in the running state.
+	 */
+	TEST_FEATURE ("with pre-start process");
+	job->process[PROCESS_PRE_START] = job_process_new (job);
+	job->process[PROCESS_PRE_START]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->process[PROCESS_MAIN]->pid = 0;
+		job->process[PROCESS_PRE_START]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
+		TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
+
+		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+	}
+
+	job->process[PROCESS_PRE_START]->pid = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap a failing pre-start process of the job, which
+	 * changes the goal to stop and transitions a state change in that
+	 * direction to the stopping state.  An error should be emitted
+	 * and the job and event should be marked as failed.
+	 */
+	TEST_FEATURE ("with failed pre-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->process[PROCESS_PRE_START]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_PRE_START);
+		TEST_EQ (job->exit_status, 1);
+
+		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
+				       "terminated with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_PRE_START]->pid = 0;
+
+
+	/* Check that we can reap a killed starting task, which should
+	 * act as if it failed.  A different error should be output and
+	 * the failed exit status should contain the signal and the high bit.
+	 */
+	TEST_FEATURE ("with killed pre-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->process[PROCESS_PRE_START]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGTERM);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_PRE_START);
+		TEST_EQ (job->exit_status, SIGTERM << 8);
+
+		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
+				       "killed by TERM signal\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_PRE_START]->pid = 0;
+
+
+	/* Check that we can catch the running task failing, and if the job
+	 * is to be respawned, go into the stopping state but don't change
+	 * the goal to stop.
+	 *
+	 * This should also emit a warning, but should not set the failed
+	 * state since we're dealing with it.
+	 */
+	TEST_FEATURE ("with respawn of running process");
+	job->respawn = TRUE;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output,
+			      "test: test main process ended, respawning\n");
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->respawn = FALSE;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can catch a running task exiting with a "normal"
+	 * exit code, and even if it's marked respawn, set the goal to
+	 * stop and transition into the stopping state.
+	 */
+	TEST_FEATURE ("with normal exit of running respawn process");
+	job->respawn = TRUE;
+	job->normalexit = exitcodes;
+	job->normalexit_len = 1;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 100);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) "
+				       "terminated with status 100\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->respawn = FALSE;
+	job->normalexit = NULL;
+	job->normalexit_len = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a running task that fails with an exit status not
+	 * listed in normalexit causes the job to be marked as failed.
+	 */
+	TEST_FEATURE ("with abnormal exit of running process");
+	job->normalexit = exitcodes;
+	job->normalexit_len = 2;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 99);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 99);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) "
+				       "terminated with status 99\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->normalexit = NULL;
+	job->normalexit_len = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a running task that fails doesn't mark the job or
+	 * event as failed if the goal was already to stop the job (since
+	 * it's probably failed because of the TERM or KILL signal).
+	 */
+	TEST_FEATURE ("with killed running process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_KILLED;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGTERM);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) killed "
+				       "by TERM signal\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a running task that fails with an exit status
+	 * listed in normalexit does not cause the job to be marked as
+	 * failed, but instead just stops it normally.
+	 */
+	TEST_FEATURE ("with normal exit of running process");
+	job->normalexit = exitcodes;
+	job->normalexit_len = 2;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 100);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) "
+				       "terminated with status 100\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->normalexit = NULL;
+	job->normalexit_len = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that a running task that fails with an signal
+	 * listed in normalexit does not cause the job to be marked as
+	 * failed, but instead just stops it normally.
+	 */
+	TEST_FEATURE ("with normal signal killed running process");
+	job->normalexit = exitcodes;
+	job->normalexit_len = 2;
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGINT);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) killed "
+				       "by INT signal\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->normalexit = NULL;
+	job->normalexit_len = 0;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* A running task exiting with the zero exit code is considered
+	 * a normal termination if not marked respawn.
+	 */
+	TEST_FEATURE ("with running task and zero exit");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap the post-stop process of the job, and end up
+	 * in the waiting state.
+	 */
+	TEST_FEATURE ("with post-stop process");
+	job->process[PROCESS_POST_STOP] = job_process_new (job);
+	job->process[PROCESS_POST_STOP]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+		job->process[PROCESS_POST_STOP]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_POST_STOP]->pid = 0;
+
+
+	/* Check that we can reap a failing post-stop process of the job, which
+	 * should get marked as failed if the job hasn't been already.
+	 */
+	TEST_FEATURE ("with failed post-stop process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+		job->process[PROCESS_POST_STOP]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_POST_STOP);
+		TEST_EQ (job->exit_status, 1);
+
+		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
+				       "terminated with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_POST_STOP]->pid = 0;
+
+
+	/* Check that a failing stopping task doesn't overwrite the record
+	 * of a failing earlier task.
+	 */
+	TEST_FEATURE ("with stopping task failure after failure");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+		job->process[PROCESS_POST_STOP]->pid = 1;
+
+		job->cause = em;
+		em->failed = TRUE;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = SIGSEGV << 8;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
+
+		TEST_EQ_P (job->cause, NULL);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
+
+		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
+				       "terminated with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_POST_STOP]->pid = 0;
+
+
+	/* Check that we can reap the post-start task of the job, the
+	 * exit status should be ignored and the job transitioned into
+	 * the running state.  The pid of the job shouldn't be cleared,
+	 * but the aux pid should be.
+	 */
+	TEST_FEATURE ("with post-start process");
+	job->process[PROCESS_POST_START] = job_process_new (job);
+	job->process[PROCESS_POST_START]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 2, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test post-start process (2) "
+				       "terminated with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
+
+
+	/* Check that we can reap the running task of the job, even if it
+	 * dies during the post-start state, which should set the goal to
+	 * stop and transition a state change into the stopping state.
+	 */
+	TEST_FEATURE ("with running process in post-start state");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap the running task of the job, while there
+	 * is a post-start script running; this should only set the goal to
+	 * stop since we also have to wait for the post-start script to stop.
+	 */
+	TEST_FEATURE ("with running process while post-start running");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
+
+
+	/* Check that we can reap the running process before the post-start
+	 * process finishes.  Reaping the running process should mark the job
+	 * to be stopped, but not change the state, then reaping the post-start
+	 * process should change the state.
+	 */
+	TEST_FEATURE ("with running then post-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		job_child_reaper (NULL, 2, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
+
+
+	/* Check that we can reap a failed running process before the
+	 * post-start process finishes.  Reaping the running process
+	 * should mark the job to be stopped, but not change the state,
+	 * then reaping the post-start process should change the state.
+	 */
+	TEST_FEATURE ("with failed running then post-start process");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_POST_START]->pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 1, TRUE, SIGSEGV);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) "
+				       "killed by SEGV signal\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		job_child_reaper (NULL, 2, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, TRUE);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, SIGSEGV << 8);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_POST_START]->pid = 0;
+
+
+	/* Check that we can reap the pre-stop task of the job, the
+	 * exit status should be ignored and the job transitioned into
+	 * the stopping state.  The pid of the job shouldn't be cleared,
+	 * but the aux pid should be.
+	 */
+	TEST_FEATURE ("with pre-stop process");
+	job->process[PROCESS_PRE_STOP] = job_process_new (job);
+	job->process[PROCESS_PRE_STOP]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_PRE_STOP]->pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_reaper (NULL, 2, FALSE, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test pre-stop process (2) "
+				       "terminated with status 1\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_PRE_STOP]->pid = 0;
+
+
+	/* Check that we can reap the running task of the job, even if it
+	 * dies during the pre-stop state, which transition a state change
+	 * into the stopping state.
+	 */
+	TEST_FEATURE ("with running process in pre-stop state");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->process[PROCESS_MAIN]->pid = 1;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+
+
+	/* Check that we can reap the running task of the job, while there
+	 * is a pre-stop script running; this should have no other effect
+	 * since we also have to wait for the pre-stop script to stop.
+	 */
+	TEST_FEATURE ("with running process while pre-stop running");
+	TEST_ALLOC_FAIL {
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->process[PROCESS_MAIN]->pid = 1;
+		job->process[PROCESS_PRE_STOP]->pid = 2;
+
+		job->cause = em;
+		em->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_reaper (NULL, 1, FALSE, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_PRE_STOP);
+		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 2);
+
+		TEST_EQ_P (job->cause, em);
+		TEST_EQ (em->failed, FALSE);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+	}
+
+	job->process[PROCESS_MAIN]->pid = 0;
+	job->process[PROCESS_PRE_STOP]->pid = 0;
+
+
+	fclose (output);
+
+	nih_list_free (&job->entry);
+
+	nih_list_free (&em->event.entry);
+	event_poll ();
+}
+
+
+void
+test_handle_event (void)
+{
+	Job            *job1, *job2;
+	Event          *event;
+	EventEmission  *em;
+
+	TEST_FUNCTION ("job_handle_event");
+	job1 = job_new (NULL, "foo");
+	job1->respawn_limit = 0;
+
+	event = event_new (job1, "wibble");
+	nih_list_add (&job1->start_events, &event->entry);
+
+	job2 = job_new (NULL, "bar");
+	job2->respawn_limit = 0;
+
+	event = event_new (job2, "wibble");
+	nih_list_add (&job2->stop_events, &event->entry);
+
+
+	/* Check that a non matching event has no effect on either job,
+	 * and doesn't result in the emission being given any jobs.
+	 */
+	TEST_FEATURE ("with non-matching event");
+	em = event_emit ("biscuit", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->cause = NULL;
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->cause = NULL;
+
+		job_handle_event (em);
+
+		TEST_EQ (em->jobs, 0);
+
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_WAITING);
+		TEST_EQ_P (job1->cause, NULL);
+
+		TEST_EQ (job2->goal, JOB_START);
+		TEST_EQ (job2->state, JOB_RUNNING);
+		TEST_EQ_P (job2->cause, NULL);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	/* Check that a matching event results in the jobs being started or
+	 * stopped as appropriate.
+	 */
+	TEST_FEATURE ("with matching event");
+	em = event_emit ("wibble", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->cause = NULL;
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->cause = NULL;
+
+		job_handle_event (em);
+
+		TEST_EQ (em->jobs, 2);
+
+		TEST_EQ (job1->goal, JOB_START);
+		TEST_EQ (job1->state, JOB_STARTING);
+		TEST_EQ_P (job1->cause, em);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_EQ_P (job2->cause, em);
+	}
+
+	nih_list_free (&em->event.entry);
+
+	nih_list_free (&job2->entry);
+
+
+	/* Check that a matching event for an instance job results in the
+	 * job itself being unchanged, but a new job being created that's
+	 * an instance of the first and that one being started.
+	 */
+	TEST_FEATURE ("with matching event for instance job");
+	job1->instance = TRUE;
+
+	em = event_emit ("wibble", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		em->jobs = 0;
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_WAITING;
+		job1->cause = NULL;
+
+		job_handle_event (em);
+
+		TEST_EQ (em->jobs, 1);
+
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_WAITING);
+		TEST_EQ_P (job1->cause, NULL);
+
+		job2 = NULL;
+		NIH_HASH_FOREACH (jobs, iter) {
+			Job *instance = (Job *)iter;
+
+			if (instance->instance_of == job1) {
+				job2 = instance;
+				break;
+			}
+		}
+
+		TEST_NE_P (job2, NULL);
+		TEST_EQ (job2->instance, TRUE);
+		TEST_EQ_P (job2->instance_of, job1);
+
+		TEST_EQ (job2->goal, JOB_START);
+		TEST_EQ (job2->state, JOB_STARTING);
+		TEST_EQ_P (job2->cause, em);
+
+		nih_list_free (&job2->entry);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	nih_list_free (&job1->entry);
+
+	event_poll ();
+}
+
+void
+test_handle_event_finished (void)
+{
+	Job            *job1, *job2;
+	Event          *event;
+	EventEmission  *em;
+
+	TEST_FUNCTION ("job_handle_event_finished");
+	job1 = job_new (NULL, "foo");
+	job1->respawn_limit = 0;
+	job1->process[PROCESS_PRE_START] = job_process_new (job1);
+	job1->process[PROCESS_PRE_START]->command = "echo";
+	job1->process[PROCESS_POST_STOP] = job_process_new (job1);
+	job1->process[PROCESS_POST_STOP]->command = "echo";
+
+	event = event_new (job1, "wibble");
+	nih_list_add (&job1->start_events, &event->entry);
+
+	job2 = job_new (NULL, "bar");
+	job2->respawn_limit = 0;
+	job2->process[PROCESS_PRE_START] = job_process_new (job2);
+	job2->process[PROCESS_PRE_START]->command = "echo";
+	job2->process[PROCESS_POST_STOP] = job_process_new (job2);
+	job2->process[PROCESS_POST_STOP]->command = "echo";
+
+	event = event_new (job2, "wibble");
+	nih_list_add (&job2->stop_events, &event->entry);
+
+
+	/* Check that a non matching event has no effect on either job.
+	 */
+	TEST_FEATURE ("with non-matching event");
+	em = event_emit ("biscuit", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job1->goal = JOB_STOP;
+		job1->state = JOB_STOPPING;
+		job1->blocked = NULL;
+
+		job2->goal = JOB_START;
+		job2->state = JOB_STARTING;
+		job2->blocked = NULL;
+
+		job_handle_event_finished (em);
+
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_STOPPING);
+		TEST_EQ_P (job1->blocked, NULL);
+
+		TEST_EQ (job2->goal, JOB_START);
+		TEST_EQ (job2->state, JOB_STARTING);
+		TEST_EQ_P (job2->blocked, NULL);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	/* Check that a matching event results in the jobs being unblocked
+	 * and then started or stopped as appropriate.
+	 */
+	TEST_FEATURE ("with matching event");
+	em = event_emit ("wibble", NULL, NULL);
+
+	TEST_ALLOC_FAIL {
+		job1->goal = JOB_STOP;
+		job1->state = JOB_STOPPING;
+		job1->process[PROCESS_POST_STOP]->pid = 0;
+		job1->blocked = em;
+
+		job2->goal = JOB_START;
+		job2->state = JOB_STARTING;
+		job2->process[PROCESS_PRE_START]->pid = 0;
+		job2->blocked = em;
+
+		job_handle_event_finished (em);
+
+		TEST_EQ (job1->goal, JOB_STOP);
+		TEST_EQ (job1->state, JOB_POST_STOP);
+		TEST_GT (job1->process[PROCESS_POST_STOP]->pid, 0);
+		TEST_EQ_P (job1->blocked, NULL);
+
+		waitpid (job1->process[PROCESS_POST_STOP]->pid, NULL, 0);
+
+		TEST_EQ (job2->goal, JOB_START);
+		TEST_EQ (job2->state, JOB_PRE_START);
+		TEST_GT (job2->process[PROCESS_PRE_START]->pid, 0);
+		TEST_EQ_P (job2->blocked, NULL);
+
+		waitpid (job2->process[PROCESS_PRE_START]->pid, NULL, 0);
+	}
+
+	nih_list_free (&em->event.entry);
+
+
+	nih_list_free (&job2->entry);
+	nih_list_free (&job1->entry);
+
+	event_poll ();
+}
+
+
+void
+test_detect_stalled (void)
+{
+	Job           *job1, *job2;
+	Event         *event;
+
+	TEST_FUNCTION ("job_detect_stalled");
+
+	event_init ();
 
 	job1 = job_new (NULL, "foo");
 	job1->goal = JOB_STOP;
 	job1->state = JOB_WAITING;
-	job1->process_state = PROCESS_NONE;
 
 	job2 = job_new (NULL, "bar");
 	job2->goal = JOB_STOP;
 	job2->state = JOB_WAITING;
-	job2->process_state = PROCESS_NONE;
 
 
-	printf ("...with stalled state and no handler\n");
-	job_detect_idle ();
+	/* Check that even if we detect the stalled state, we do nothing
+	 * if there's no handled for it.
+	 */
+	TEST_FEATURE ("with stalled state and no handler");
+	job_detect_stalled ();
 
- 	/* Neither event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: event queued unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_LIST_EMPTY (events);
 
 
-	printf ("...with stalled state\n");
+	/* Check that we can detect the stalled state, when all jobs are
+	 * stopped, which results in the stalled event being queued.
+	 */
+	TEST_FEATURE ("with stalled state");
 	event = event_new (job1, "stalled");
 	nih_list_add (&job1->start_events, &event->entry);
-	job_detect_idle ();
 
-	/* Stalled event should have been queued */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "stalled")) {
-		printf ("BAD: stalled event wasn't queued.\n");
-		ret = 1;
-	}
+	job_detect_stalled ();
+
+	event = (Event *)events->prev;
+	TEST_EQ_STR (event->name, "stalled");
 	nih_list_free (&event->entry);
 
-	/* Idle event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: idle event queued unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_LIST_EMPTY (events);
 
 
-	printf ("...with waiting job\n");
+	/* Check that we don't detect the stalled state if one of the jobs
+	 * is waiting to be started.
+	 */
+	TEST_FEATURE ("with waiting job");
 	job1->goal = JOB_START;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
 
- 	/* Neither event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: event queued unexpectedly.\n");
-		ret = 1;
-	}
+	job_detect_stalled ();
+
+	TEST_LIST_EMPTY (events);
 
 
-	printf ("...with starting job\n");
-	job1->state = JOB_STARTING;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
+	/* Check that we don't detect the stalled state if one of the jobs
+	 * is starting.
+	 */
+	TEST_FEATURE ("with starting job");
+	job1->state = JOB_PRE_START;
 
- 	/* Neither event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: event queued unexpectedly.\n");
-		ret = 1;
-	}
+	job_detect_stalled ();
+
+	TEST_LIST_EMPTY (events);
 
 
-	printf ("...with running job\n");
+	/* Check that we don't detect the stalled state if one of the jobs
+	 * is running.
+	 */
+	TEST_FEATURE ("with running job");
 	job1->state = JOB_RUNNING;
-	job1->process_state = PROCESS_ACTIVE;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
 
-	/* Idle event should have been queued */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "reboot")) {
-		printf ("BAD: idle event wasn't queued.\n");
-		ret = 1;
-	}
-	nih_list_free (&event->entry);
+	job_detect_stalled ();
 
-	/* Stalled event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: stalled event queued unexpectedly.\n");
-		ret = 1;
-	}
+	TEST_LIST_EMPTY (events);
 
 
-	printf ("...with stopping job\n");
+	/* Check that we don't detect the stalled if one of the jobs is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with stopping job");
 	job1->goal = JOB_STOP;
-	job1->state = JOB_STOPPING;
-	job1->process_state = PROCESS_NONE;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
+	job1->state = JOB_POST_STOP;
 
- 	/* Neither event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: event queued unexpectedly.\n");
-		ret = 1;
-	}
+	job_detect_stalled ();
 
+	TEST_LIST_EMPTY (events);
 
-	printf ("...with stalled state and idle event\n");
-	job1->state = JOB_WAITING;
-	job_set_idle_event ("reboot");
-	job_detect_idle ();
-
-	/* Idle event should have been queued */
-	event = (Event *)list->prev;
-	if (strcmp (event->name, "reboot")) {
-		printf ("BAD: idle event wasn't queued.\n");
-		ret = 1;
-	}
-	nih_list_free (&event->entry);
-
-	/* Stalled event should not have been queued */
-	if (! NIH_LIST_EMPTY (list)) {
-		printf ("BAD: stalled event queued unexpectedly.\n");
-		ret = 1;
-	}
-
-
-	event_queue_run ();
 
 	nih_list_free (&job1->entry);
 	nih_list_free (&job2->entry);
-
-	return ret;
+	event_poll ();
 }
 
-
-int
-test_read_state (void)
+void
+test_free_deleted ()
 {
-	Job  *job, *ptr;
-	char  buf[80];
-	int   ret = 0;
+	Job *job1, *job2, *job3;
 
-	printf ("Testing job_read_state()\n");
-	job = job_new (NULL, "test");
-
-
-	printf ("...with header\n");
-	sprintf (buf, "Job test");
-	ptr = job_read_state (NULL, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with goal\n");
-	sprintf (buf, ".goal start");
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job goal should be set */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job wasn't changed as we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with state\n");
-	sprintf (buf, ".state stopping");
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job state should be set */
-	if (job->state != JOB_STOPPING) {
-		printf ("BAD: job wasn't changed as we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with process state\n");
-	sprintf (buf, ".process_state active");
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process state should be set */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: job wasn't changed as we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with pid\n");
-	sprintf (buf, ".pid 9128");
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Process id should be set */
-	if (job->pid != 9128) {
-		printf ("BAD: job wasn't changed as we expected.\n");
-		ret = 1;
-	}
-
-	printf ("...with kill timer due\n");
-	sprintf (buf, ".kill_timer_due %ld", time (NULL) - 10);
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Job should now have a kill timer */
-	if (job->kill_timer == NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timer should be due in about 10s */
-	if (job->kill_timer->due > (time (NULL) - 10)) {
-		printf ("BAD: timer not due when we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timer data should be job */
-	if (job->kill_timer->data != job) {
-		printf ("BAD: timer data not what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timer should be child of job */
-	if (nih_alloc_parent (job->kill_timer) != job) {
-		printf ("BAD: timer not nih_alloc child of job\n");
-		ret = 1;
-	}
-
-
-	printf ("...with respawn count\n");
-	sprintf (buf, ".respawn_count 6");
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn count should be set */
-	if (job->respawn_count != 6) {
-		printf ("BAD: job wasn't changed as we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with respawn time\n");
-	sprintf (buf, ".respawn_time 91");
-	ptr = job_read_state (job, buf);
-
-	/* The job should be returned */
-	if (ptr != job) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn time should be set */
-	if (job->respawn_time != 91) {
-		printf ("BAD: job wasn't changed as we expected.\n");
-		ret = 1;
-	}
-
-
-	nih_list_free (&job->entry);
-
-	return ret;
-}
-
-int
-test_write_state (void)
-{
-	FILE   *output;
-	Job    *job1, *job2;
-	char    text[80];
-	int     ret = 0;
-
-	printf ("Testing job_write_state()\n");
+	TEST_FUNCTION ("job_free_deleted");
 	job1 = job_new (NULL, "frodo");
 	job1->goal = JOB_START;
 	job1->state = JOB_RUNNING;
-	job1->process_state = PROCESS_SPAWNED;
-	job1->pid = 1234;
-	job1->respawn_count = 3;
-	job1->respawn_time = 888;
 
 	job2 = job_new (NULL, "bilbo");
 	job2->goal = JOB_STOP;
-	job2->state = JOB_STOPPING;
-	job2->process_state = PROCESS_KILLED;
-	job2->pid = 999;
-	job2->respawn_count = 0;
-	job2->respawn_time = 0;
+	job2->state = JOB_DELETED;
 
-	output = tmpfile ();
-	job_write_state (output);
+	job3 = job_new (NULL, "drogo");
+	job3->goal = JOB_STOP;
+	job3->state = JOB_STOPPING;
 
-	rewind (output);
-
-	/* Check the output lines */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "Job frodo\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".goal start\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".state running\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".process_state spawned\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".pid 1234\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".respawn_count 3\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".respawn_time 888\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	nih_alloc_set_destructor (job1, my_destructor);
+	nih_alloc_set_destructor (job2, my_destructor);
+	nih_alloc_set_destructor (job3, my_destructor);
 
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "Job bilbo\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that only those jobs in the deleted state are removed from
+	 * the list and freed.
+	 */
+	TEST_FEATURE ("with single deleted job");
+	destructor_called = 0;
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".goal stop\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	job_free_deleted ();
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".state stopping\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (destructor_called, 1);
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".process_state killed\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".pid 999\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	/* Check that if there are no jobs to be deleted, nothing happens. */
+	TEST_FEATURE ("with no deleted jobs");
+	destructor_called = 0;
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".respawn_count 0\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	job_free_deleted ();
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, ".respawn_time 0\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ (destructor_called, 0);
 
 	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
-
-	fclose (output);
-
-	return ret;
+	nih_list_free (&job3->entry);
 }
 
 
@@ -3066,26 +4714,25 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_process_new ();
+	test_process_copy ();
+	test_new ();
+	test_copy ();
+	test_find_by_name ();
+	test_find_by_pid ();
+	test_find_by_id ();
+	test_instance ();
+	test_change_goal ();
+	test_change_state ();
+	test_next_state ();
+	test_should_replace ();
+	test_run_process ();
+	test_kill_process ();
+	test_child_reaper ();
+	test_handle_event ();
+	test_handle_event_finished ();
+	test_detect_stalled ();
+	test_free_deleted ();
 
-	ret |= test_new ();
-	ret |= test_find_by_name ();
-	ret |= test_find_by_pid ();
-	ret |= test_change_state ();
-	ret |= test_next_state ();
-	ret |= test_run_command ();
-	ret |= test_run_script ();
-	ret |= test_kill_process ();
-	ret |= test_child_reaper ();
-	ret |= test_start ();
-	ret |= test_stop ();
-	ret |= test_release_depends ();
-	ret |= test_start_event ();
-	ret |= test_stop_event ();
-	ret |= test_handle_event ();
-	ret |= test_detect_idle ();
-	ret |= test_read_state ();
-	ret |= test_write_state ();
-
-	return ret;
+	return 0;
 }

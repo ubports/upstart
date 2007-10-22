@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,84 +20,80 @@
 #ifndef NIH_FILE_H
 #define NIH_FILE_H
 
-#ifdef HAVE_SYS_INOTIFY_H
-# include <sys/inotify.h>
-#else
-# include <nih/inotify.h>
-#endif /* HAVE_SYS_INOTIFY_H */
-
-#include <nih/macros.h>
-#include <nih/list.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <fcntl.h>
 
-
-/* Predefine the typedefs as we use them in the callbacks */
-typedef struct nih_file_watch NihFileWatch;
-
-/**
- * NihFileWatcher:
- * @data: data pointer given when registered,
- * @watch: #NihFileWatch for which an event occurred,
- * @events: event mask that occurred,
- * @name: optional name.
- *
- * A file watcher is a function that is called whenever a file event that
- * is being watched for occurrs.  The @event mask given is as described in
- * inotify(7), if watching a directory then @name will contain the name of
- * the child that was changed.
- *
- * The name of the file or directory being watched can be obtained from the
- * @watch structure.
- *
- * It is safe to remove a watch with #nih_file_remove_watch from this
- * function.
- **/
-typedef void (*NihFileWatcher) (void *, NihFileWatch *, uint32_t events,
-				const char *name);
+#include <nih/macros.h>
 
 
 /**
- * NihFileWatch:
- * @entry: list header,
- * @wd: watch descriptor,
- * @path: path being watched,
- * @events: events being watched for,
- * @watcher: function called when events occur,
- * @data: pointer passed to @watcher.
+ * NihFileFilter:
+ * @data: data pointer,
+ * @path: path to file.
  *
- * This structure represents an inotify watch on a single @path.  A single
- * inotify file descriptor is shared amongst all watches, so watches on
- * multiple files should have multiple #NihFileWatch entries (optionally
- * with the same watcher function).
+ * A file filter is a function that can be called to determine whether
+ * a particular path should be ignored because of its filename,
  *
- * @events is a bit mask of events as described in inotify(7).
- *
- * The watch may be terminated and freed by the using #nih_file_remove_watch
- * function.
+ * Returns: TRUE if the path should be ignored, FALSE otherwise.
  **/
-struct nih_file_watch {
-	NihList         entry;
+typedef int (*NihFileFilter) (void *data, const char *path);
 
-	int             wd;
-	char           *path;
-	uint32_t        events;
+/**
+ * NihFileVisitor:
+ * @data: data pointer given to nih_dir_walk(),
+ * @dirname: top-level path being walked,
+ * @path: path to file,
+ * @statbuf: stat of @path.
+ *
+ * A file visitor is a function that can be called for a filesystem object
+ * visited by nih_dir_walk() that does not match the filter given to that
+ * function.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+typedef int (*NihFileVisitor) (void *data, const char *dirname,
+			       const char *path, struct stat *statbuf);
 
-	NihFileWatcher  watcher;
-	void           *data;
-};
+/**
+ * NihFileErrorHandler:
+ * @data: data pointer given to nih_dir_walk(),
+ * @dirname: top-level path being walked,
+ * @path: path to file,
+ * @statbuf: stat of @path.
+ *
+ * A file error handler is a function called whenever the visitor function
+ * returns a raised error, or the attempt to walk @path fails.  Note that
+ * @statbuf might be invalid if it was stat() that failed.
+ *
+ * This function should handle the error and return zero; alternatively
+ * it may raise the error again (or a different error) and return a negative
+ * value to abort the tree walk.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+typedef int (*NihFileErrorHandler) (void *data, const char *dirname,
+				    const char *path, struct stat *statbuf);
 
 
 NIH_BEGIN_EXTERN
 
-NihFileWatch *nih_file_add_watch    (void *parent, const char *path,
-				     uint32_t events, NihFileWatcher watcher,
-				     void *data);
-void          nih_file_remove_watch (NihFileWatch *watch);
+void *nih_file_map          (const char *path, int flags, size_t *length)
+	__attribute__ ((warn_unused_result));
+int   nih_file_unmap        (void *map, size_t length);
 
-void *        nih_file_map          (const char *path, int flags,
-				     size_t *length);
-int           nih_file_unmap        (void *map, size_t length);
+int   nih_file_is_hidden    (const char *path);
+int   nih_file_is_backup    (const char *path);
+int   nih_file_is_swap      (const char *path);
+int   nih_file_is_rcs       (const char *path);
+int   nih_file_is_packaging (const char *path);
+int   nih_file_ignore       (void *data, const char *path);
+
+int   nih_dir_walk          (const char *path, NihFileFilter filter,
+			     NihFileVisitor visitor, NihFileErrorHandler error,
+			     void *data)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

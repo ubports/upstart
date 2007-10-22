@@ -1,0 +1,57 @@
+#!/bin/sh -e
+# This script can be called in the following ways:
+#
+# After the package was installed:
+#	<postinst> configure <old-version>
+#
+#
+# If prerm fails during upgrade or fails on failed upgrade:
+#	<old-postinst> abort-upgrade <new-version>
+#
+# If prerm fails during deconfiguration of a package:
+#	<postinst> abort-deconfigure in-favour <new-package> <version>
+#	           removing <old-package> <version>
+#
+# If prerm fails during replacement due to conflict:
+#	<postinst> abort-remove in-favour <new-package> <version>
+
+
+# Remove a no-longer used conffile
+rm_conffile()
+{
+    CONFFILE="$1"
+
+    if [ -e "$CONFFILE".dpkg-remove ]; then
+	echo "Removing obsolete conffile $CONFFILE"
+	rm -f "$CONFFILE".dpkg-remove
+    fi
+}
+
+
+# Remove obsolete jobs
+rm_obsolete_jobs()
+{
+    rm_conffile /etc/event.d/rc0-halt
+    rm_conffile /etc/event.d/rc0-poweroff
+}
+
+
+case "$1" in
+    configure)
+	# Upgrade from previous versions
+	if dpkg --compare-versions "$2" lt "0.3.5-1"; then
+	    rm_obsolete_jobs
+	fi
+	;;
+
+    abort-upgrade|abort-deconfigure|abort-remove)
+	;;
+
+    *)
+	echo "$0 called with unknown argument \`$1'" 1>&2
+	exit 1
+	;;
+esac
+
+#DEBHELPER#
+exit 0

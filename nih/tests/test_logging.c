@@ -2,7 +2,7 @@
  *
  * test_logging.c - test suite for nih/logging.c
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +19,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
-
+#include <nih/test.h>
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
+#include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/logging.h>
@@ -40,7 +39,7 @@ my_logger (NihLogLevel  priority,
 	   const char  *message)
 {
 	last_priority = priority;
-	last_message = nih_strdup (NULL, message);
+	last_message = strdup (message);
 
 	if (! strcmp (message, "this should error"))
 		return -1;
@@ -48,38 +47,34 @@ my_logger (NihLogLevel  priority,
 	return 0;
 }
 
-int
+void
 test_set_logger (void)
 {
-	int ret = 0;
-
-	printf ("Testing nih_log_set_logger()\n");
-	nih_log_set_priority (NIH_LOG_WARN);
+	/* Check that we can change the logger function, and that the
+	 * function is called for the logging macros that follow.
+	 */
+	TEST_FUNCTION ("nih_log_set_logger");
+	nih_log_set_priority (NIH_LOG_MESSAGE);
 	nih_log_set_logger (my_logger);
 
 	last_priority = NIH_LOG_UNKNOWN;
 
 	nih_fatal ("some message");
 
-	/* Logger should have been called */
-	if (last_priority != NIH_LOG_FATAL) {
-		printf ("BAD: logger was not called.\n");
-		ret = 1;
-	}
+	TEST_EQ (last_priority, NIH_LOG_FATAL);
 
-	nih_free (last_message);
+	free (last_message);
 
 	nih_log_set_logger (nih_logger_printf);
-
-	return ret;
 }
 
-int
+void
 test_set_priority (void)
 {
-	int ret = 0;
-
-	printf ("Testing nih_log_set_priority()\n");
+	/* Check that we reduce the minimum priority and end up getting
+	 * log messages we wouldn't have previously received.
+	 */
+	TEST_FUNCTION ("nih_log_set_priority");
 	nih_log_set_logger (my_logger);
 	nih_log_set_priority (NIH_LOG_DEBUG);
 
@@ -87,345 +82,292 @@ test_set_priority (void)
 
 	nih_debug ("some message");
 
-	/* Logger should have been called */
-	if (last_priority != NIH_LOG_DEBUG) {
-		printf ("BAD: logger was not called.\n");
-		ret = 1;
-	}
+	TEST_EQ (last_priority, NIH_LOG_DEBUG);
 
-	nih_free (last_message);
+	free (last_message);
 
 	nih_log_set_logger (nih_logger_printf);
-	nih_log_set_priority (NIH_LOG_WARN);
-
-	return ret;
+	nih_log_set_priority (NIH_LOG_MESSAGE);
 }
 
-int
+void
 test_log_message (void)
 {
-	int ret = 0, err;
+	int ret;
 
-	printf ("Testing nih_log_message()\n");
+	TEST_FUNCTION ("nih_log_message");
 	nih_log_set_logger (my_logger);
 
-	last_priority = NIH_LOG_UNKNOWN;
-	last_message = NULL;
+	/* Check that a message with high enough priority makes it through
+	 * to the logger.
+	 */
+	TEST_FEATURE ("with message of high enough priority");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
 
-	printf ("...with message of high enough priority\n");
+		ret = nih_log_message (NIH_LOG_FATAL,
+				       "message with %s %d formatting",
+				       "some", 20);
 
-	err = nih_log_message (NIH_LOG_FATAL, "message with %s %d formatting",
-			       "some", 20);
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_FATAL);
+		TEST_EQ_STR (last_message, "message with some 20 formatting");
 
-	/* No error should be returned */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Logger should be called with priority given */
-	if (last_priority != NIH_LOG_FATAL) {
-		printf ("BAD: logger was not called or priority wrong.\n");
-		ret = 1;
-	}
-
-	/* Logger should be given formatted message */
-	if (strcmp (last_message, "message with some 20 formatting")) {
-		printf ("BAD: logger not called with expected message.\n");
-		ret = 1;
-	}
-
-	nih_free (last_message);
-
-
-	printf ("...with message of insufficient priority\n");
-
-	last_message = NULL;
-	err = nih_log_message (NIH_LOG_DEBUG, "not high enough");
-
-	/* A positive error code should be returned */
-	if (err <= 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Logger should not have been called */
-	if (last_message != NULL) {
-		printf ("BAD: logger called unexpected.\n");
-		ret = 1;
+		free (last_message);
 	}
 
 
-	printf ("...with error code returned from logger\n");
+	/* Check that a message with insufficient priority does not make it
+	 * through to the logger.
+	 */
+	TEST_FEATURE ("with message of insufficient priority");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
 
-	err = nih_log_message (NIH_LOG_FATAL, "this should error");
+		ret = nih_log_message (NIH_LOG_DEBUG, "not high enough");
 
-	/* Negative error code should be returned */
-	if (err >= 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+		TEST_GT (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_UNKNOWN);
+		TEST_EQ_P (last_message, NULL);
 	}
 
-	nih_free (last_message);
+
+	/* Check that an error code returned from the logger is returned
+	 * by the function.
+	 */
+	TEST_FEATURE ("with error code returned from logger");
+	ret = nih_log_message (NIH_LOG_FATAL, "this should error");
+
+	TEST_LT (ret, 0);
+
+	free (last_message);
 
 
-	printf ("Testing nih_debug()\n");
-	nih_log_set_priority (NIH_LOG_DEBUG);
+	/* Check that the nih_debug macro wraps the call properly and
+	 * includes the function in which the message occurred.
+	 */
+	TEST_FUNCTION ("nih_debug");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
 
-	err = nih_debug ("%s debugging message", "a");
+		nih_log_set_priority (NIH_LOG_DEBUG);
 
-	/* No error should be returned */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+		ret = nih_debug ("%s debugging message", "a");
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_DEBUG);
+		TEST_EQ_STR (last_message,
+			     "test_log_message: a debugging message");
+
+		free (last_message);
 	}
 
-	/* Logger should be called with NIH_LOG_DEBUG */
-	if (last_priority != NIH_LOG_DEBUG) {
-		printf ("BAD: logger was not called or priority wrong.\n");
-		ret = 1;
+
+	/* Check that the nih_info macro wraps the call properly. */
+	TEST_FUNCTION ("nih_info");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
+
+		ret = nih_info ("%d formatted %s", 47, "message");
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_INFO);
+		TEST_EQ_STR (last_message, "47 formatted message");
+
+		free (last_message);
 	}
 
-	/* Message should include function name */
-	if (strcmp (last_message, "test_log_message: a debugging message")) {
-		printf ("BAD: logger not called with expected message.\n");
-		ret = 1;
+
+	/* Check that the nih_warn macro wraps the call properly. */
+	TEST_FUNCTION ("nih_warn");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
+
+		ret = nih_warn ("%d formatted %s", -2, "text");
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_WARN);
+		TEST_EQ_STR (last_message, "-2 formatted text");
+
+		free (last_message);
 	}
 
-	nih_free (last_message);
 
+	/* Check that the nih_message macro wraps the call properly.
+	 */
+	TEST_FUNCTION ("nih_message");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
 
-	printf ("Testing nih_info()\n");
+		ret = nih_message ("%d formatted %s", -24, "string");
 
-	err = nih_info ("%d formatted %s", 47, "message");
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_MESSAGE);
+		TEST_EQ_STR (last_message, "-24 formatted string");
 
-	/* No error should be returned */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+		free (last_message);
 	}
 
-	/* Logger should be called with NIH_LOG_INFO */
-	if (last_priority != NIH_LOG_INFO) {
-		printf ("BAD: logger was not called or priority wrong.\n");
-		ret = 1;
+
+	/* Check that the nih_error macro wraps the call properly. */
+	TEST_FUNCTION ("nih_error");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
+
+		ret = nih_error ("formatted %d %s", 42, "text");
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_ERROR);
+		TEST_EQ_STR (last_message, "formatted 42 text");
+
+		free (last_message);
 	}
 
-	/* Logger should be given formatted message */
-	if (strcmp (last_message, "47 formatted message")) {
-		printf ("BAD: logger not called with expected message.\n");
-		ret = 1;
+
+	/* Check that the nih_fatal macro wraps the call properly. */
+	TEST_FUNCTION ("nih_fatal");
+	TEST_ALLOC_FAIL {
+		last_priority = NIH_LOG_UNKNOWN;
+		last_message = NULL;
+
+		ret = nih_fatal ("%s message %d", "formatted", 999);
+
+		TEST_EQ (ret, 0);
+		TEST_EQ (last_priority, NIH_LOG_FATAL);
+		TEST_EQ_STR (last_message, "formatted message 999");
+
+		free (last_message);
 	}
 
-	nih_free (last_message);
 
-
-	printf ("Testing nih_warn()\n");
-
-	err = nih_warn ("%d formatted %s", -2, "text");
-
-	/* No error should be returned */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Logger should be called with NIH_LOG_WARN */
-	if (last_priority != NIH_LOG_WARN) {
-		printf ("BAD: logger was not called or priority wrong.\n");
-		ret = 1;
-	}
-
-	/* Logger should be given formatted message */
-	if (strcmp (last_message, "-2 formatted text")) {
-		printf ("BAD: logger not called with expected message.\n");
-		ret = 1;
-	}
-
-	nih_free (last_message);
-
-
-	printf ("Testing nih_error()\n");
-
-	err = nih_error ("formatted %d %s", 42, "text");
-
-	/* No error should be returned */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Logger should be called with NIH_LOG_ERROR */
-	if (last_priority != NIH_LOG_ERROR) {
-		printf ("BAD: logger was not called or priority wrong.\n");
-		ret = 1;
-	}
-
-	/* Logger should be given formatted message */
-	if (strcmp (last_message, "formatted 42 text")) {
-		printf ("BAD: logger not called with expected message.\n");
-		ret = 1;
-	}
-
-	nih_free (last_message);
-
-
-	printf ("Testing nih_fatal()\n");
-
-	err = nih_fatal ("%s message %d", "formatted", 999);
-
-	/* No error should be returned */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Logger should be called with NIH_LOG_FATAL */
-	if (last_priority != NIH_LOG_FATAL) {
-		printf ("BAD: logger was not called or priority wrong.\n");
-		ret = 1;
-	}
-
-	/* Logger should be given formatted message */
-	if (strcmp (last_message, "formatted message 999")) {
-		printf ("BAD: logger not called with expected message.\n");
-		ret = 1;
-	}
-
-	nih_free (last_message);
-
-
-	nih_log_set_priority (NIH_LOG_WARN);
+	nih_log_set_priority (NIH_LOG_MESSAGE);
 	nih_log_set_logger (nih_logger_printf);
-
-	return ret;
 }
 
-int
+void
 test_logger_printf (void)
 {
 	FILE *output;
-	char  text[81];
-	int   oldstdout, oldstderr, ret = 0, err;
+	int   ret = 0;
 
-	printf ("Testing nih_logger_printf()\n");
+	TEST_FUNCTION ("nih_logger_printf");
+	output = tmpfile ();
 	program_name = "test";
 	nih_log_set_priority (NIH_LOG_DEBUG);
 
-	output = tmpfile ();
-	oldstdout = dup (STDOUT_FILENO);
-	oldstderr = dup (STDERR_FILENO);
 
-	printf ("...with low priority message\n");
-	dup2 (fileno (output), STDOUT_FILENO);
-	err = nih_log_message (NIH_LOG_DEBUG, "message with %s %d formatting",
-			       "some", 20);
-	dup2 (oldstdout, STDOUT_FILENO);
-
+	/* Check that a low priority message is output to stdout and formatted
+	 * correctly, without the program name prefixed to the front.
+	 */
+	TEST_FEATURE ("with low priority message");
+	TEST_DIVERT_STDOUT (output) {
+		ret = nih_log_message (NIH_LOG_DEBUG,
+				       "message with %s %d formatting",
+				       "some", 20);
+	}
 	rewind (output);
 
-	/* Return value should be zero */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+	TEST_EQ (ret, 0);
+	TEST_FILE_EQ (output, "message with some 20 formatting\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that ordinary messages are output on stdout and formatted
+	 * correctly, without the program name prefixed on the front.
+	 */
+	TEST_FEATURE ("with ordinary message");
+	TEST_DIVERT_STDOUT (output) {
+		ret = nih_log_message (NIH_LOG_MESSAGE,
+				       "message with %s %d formatting",
+				       "some", 20);
 	}
-
-	/* Output should be formatted string with newline and program */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "test: message with some 20 formatting\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	fflush (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with high priority message\n");
-	dup2 (fileno (output), STDERR_FILENO);
-	err = nih_log_message (NIH_LOG_FATAL, "%s message %d formatted",
-			       "error", -1);
-	dup2 (oldstderr, STDERR_FILENO);
-
 	rewind (output);
 
-	/* Return value should be zero */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+	TEST_EQ (ret, 0);
+	TEST_FILE_EQ (output, "message with some 20 formatting\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that warning messages are output on stderr and formatted
+	 * correctly, with the program name prefixed on the front.
+	 */
+	TEST_FEATURE ("with ordinary message");
+	TEST_DIVERT_STDERR (output) {
+		ret = nih_log_message (NIH_LOG_WARN,
+				       "message with %s %d formatting",
+				       "some", 20);
 	}
-
-	/* Output should be formatted string with newline and program */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "test: error message -1 formatted\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	fflush (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with prefixed message\n");
-	dup2 (fileno (output), STDERR_FILENO);
-	err = nih_log_message (NIH_LOG_FATAL, "%s:%d: some error or other",
-			       "example.txt", 303);
-	dup2 (oldstderr, STDERR_FILENO);
-
 	rewind (output);
 
-	/* Return value should be zero */
-	if (err) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
+	TEST_EQ (ret, 0);
+	TEST_FILE_EQ (output, "test: message with some 20 formatting\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a high priority message is output to stderr and formatted
+	 * correctly, with the program name prefixed on the front.
+	 */
+	TEST_FEATURE ("with high priority message");
+	TEST_DIVERT_STDERR (output) {
+		ret = nih_log_message (NIH_LOG_FATAL,
+				       "%s message %d formatted",
+				       "error", -1);
+	}
+	rewind (output);
+
+	TEST_EQ (ret, 0);
+	TEST_FILE_EQ (output, "test: error message -1 formatted\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a message with a GNU-style filename prefix is correctly
+	 * formatted, with no space between the program name and the message.
+	 */
+	TEST_FEATURE ("with prefixed message");
+	TEST_DIVERT_STDERR (output) {
+		ret = nih_log_message (NIH_LOG_FATAL,
+				       "%s:%d: some error or other",
+				       "example.txt", 303);
+	}
+	rewind (output);
+
+	TEST_EQ (ret, 0);
+	TEST_FILE_EQ (output, "test:example.txt:303: some error or other\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that an error code is returned if the output stream is
+	 * closed.
+	 */
+	TEST_FEATURE ("with closed stream");
+	TEST_DIVERT_STDERR (output) {
+		close (STDERR_FILENO);
+
+		ret = nih_log_message (NIH_LOG_FATAL, "an error message");
 	}
 
-	/* Output should not have a space between program and message */
-	fgets (text, sizeof (text), output);
-	if (strcmp (text, "test:example.txt:303: some error or other\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_LT (ret, 0);
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-
-	printf ("...with closed stream\n");
-	close (STDERR_FILENO);
-	err = nih_log_message (NIH_LOG_FATAL, "an error message");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	/* Return value should be negative */
-	if (err >= 0) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
 
 	fclose (output);
-	close (oldstdout);
-	close (oldstderr);
-
-	nih_log_set_priority (NIH_LOG_WARN);
-
-	return ret;
+	nih_log_set_priority (NIH_LOG_MESSAGE);
 }
 
 
@@ -433,12 +375,10 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_set_logger ();
+	test_set_priority ();
+	test_log_message ();
+	test_logger_printf ();
 
-	ret |= test_set_logger ();
-	ret |= test_set_priority ();
-	ret |= test_log_message ();
-	ret |= test_logger_printf ();
-
-	return ret;
+	return 0;
 }

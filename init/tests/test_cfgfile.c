@@ -2,7 +2,7 @@
  *
  * test_cfgfile.c - test suite for init/cfgfile.c
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,1859 +20,5216 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include <config.h>
+#include <nih/test.h>
+
+#ifdef HAVE_SYS_INOTIFY_H
+# include <sys/inotify.h>
+#else
+# include <nih/inotify.h>
+#endif /* HAVE_SYS_INOTIFY_H */
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/select.h>
 
+#include <time.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
-#include <nih/alloc.h>
+#include <nih/list.h>
 #include <nih/timer.h>
+#include <nih/io.h>
+#include <nih/watch.h>
+#include <nih/main.h>
+#include <nih/logging.h>
 
 #include "cfgfile.h"
 
 
-static int was_called = 0;
+/* Macro to aid us in testing the output which includes the program name
+ * and filename.
+ */
+#define TEST_ERROR_EQ(_file, _text) \
+	do { \
+		char text[512]; \
+		sprintf (text, "%s:%s:%s", program_name, filename, (_text)); \
+		TEST_FILE_EQ (_file, text); \
+	} while (0);
 
-static int
-destructor_called (void *ptr)
+
+void
+test_stanza_exec (void)
 {
-	was_called++;
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
 
-	return 0;
+	TEST_FUNCTION ("cfg_stanza_exec");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that an exec stanza sets the process of the job as a single
+	 * string.
+	 */
+	TEST_FEATURE ("with arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_MAIN];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an exec stanza without any arguments results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with no arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon -d\n");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+	fclose (output);
+	unlink (filename);
 }
 
-static void
-my_timer (void *data, NihTimer *timer)
+void
+test_stanza_script (void)
 {
-	return;
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_script");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a script stanza begins a block which is stored in
+	 * the script member of the job.
+	 */
+	TEST_FEATURE ("with block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_MAIN];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple script stanzas result in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that script and exec stanzas result in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a script stanza with an extra argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
 }
 
-int
-test_read_job (void)
+void
+test_stanza_pre_start (void)
+{
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_pre_start");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a pre-start exec stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with exec and command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-start exec /bin/tool -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_PRE_START];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pre-start exec stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with exec but no command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-start exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the pre-start exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-start exec /bin/tool -d\n");
+	fprintf (jf, "pre-start exec /bin/tool\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-start script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-start script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_PRE_START];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple pre-start script stanzas result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-start script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "pre-start script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-start script stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with argument to script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-start script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-start stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-start foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-start stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-start\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_post_start (void)
+{
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_post_start");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a post-start exec stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with exec and command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start exec /bin/tool -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_POST_START];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a post-start exec stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with exec but no command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the post-start exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start exec /bin/tool -d\n");
+	fprintf (jf, "post-start exec /bin/tool\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_POST_START];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple post-start script stanzas result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-start script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "post-start script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start script stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with argument to script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-start script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-start foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-start stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-start\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_pre_stop (void)
+{
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_pre_stop");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a pre-stop exec stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with exec and command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop exec /bin/tool -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_PRE_STOP];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pre-stop exec stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with exec but no command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the pre-stop exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop exec /bin/tool -d\n");
+	fprintf (jf, "pre-stop exec /bin/tool\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_PRE_STOP];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple pre-stop script stanzas result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "pre-stop script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "pre-stop script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop script stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with argument to script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-stop script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-stop foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pre-stop stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "pre-stop\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_post_stop (void)
+{
+	Job        *job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_post_stop");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a post-stop exec stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with exec and command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-stop exec /bin/tool -d \"foo\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_POST_STOP];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/bin/tool -d \"foo\"");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a post-stop exec stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with exec but no command");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-stop exec\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "1: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the post-stop exec stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicates");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-stop exec /bin/tool -d\n");
+	fprintf (jf, "post-stop exec /bin/tool\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-stop script stanza begins a block which
+	 * is stored in the process.
+	 */
+	TEST_FEATURE ("with script and block");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-stop script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	process = job->process[PROCESS_POST_STOP];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple post-stop script stanzas result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with multiple blocks");
+	jf = fopen (filename, "w");
+	fprintf (jf, "post-stop script\n");
+	fprintf (jf, "    echo\n");
+	fprintf (jf, "end script\n");
+	fprintf (jf, "post-stop script\n");
+	fprintf (jf, "    ls\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-stop script stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with argument to script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-stop script foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-stop stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-stop foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a post-stop stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "post-stop\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+
+void
+test_stanza_start (void)
+{
+	Job   *job;
+	Event *event;
+	FILE  *jf, *output;
+	char   filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_start");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a start stanza with an on argument followed by an
+	 * event name results in the named event being added to the
+	 * start events list.
+	 */
+	TEST_FEATURE ("with on and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that all arguments to the start on stanza are consumed,
+	 * with additional arguments after the first being treated as
+	 * arguments for the event.
+	 */
+	TEST_FEATURE ("with on and multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated start on stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple on stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on wibble\n");
+	fprintf (jf, "start on wobble\n");
+	fprintf (jf, "start on waggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->start_events);
+
+	event = (Event *)job->start_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a start stanza without a second-level argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a start stanza with an unknown second-level argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a start on stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with on and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "start on\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_stop (void)
+{
+	Job   *job;
+	Event *event;
+	FILE  *jf, *output;
+	char   filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_stop");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a stop stanza with an on argument followed by an
+	 * event name results in the named event being added to the
+	 * stop events list.
+	 */
+	TEST_FEATURE ("with on and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that all arguments to the stop on stanza are consumed,
+	 * with additional arguments after the first being treated as
+	 * arguments for the event.
+	 */
+	TEST_FEATURE ("with on and multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble foo bar b?z*\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	TEST_ALLOC_PARENT (event->args, event);
+	TEST_ALLOC_SIZE (event->args, sizeof (char *) * 4);
+	TEST_ALLOC_PARENT (event->args[0], event->args);
+	TEST_ALLOC_PARENT (event->args[1], event->args);
+	TEST_ALLOC_PARENT (event->args[2], event->args);
+	TEST_EQ_STR (event->args[0], "foo");
+	TEST_EQ_STR (event->args[1], "bar");
+	TEST_EQ_STR (event->args[2], "b?z*");
+	TEST_EQ_P (event->args[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated stop on stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple on stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on wibble\n");
+	fprintf (jf, "stop on wobble\n");
+	fprintf (jf, "stop on waggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->stop_events);
+
+	event = (Event *)job->stop_events.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a stop stanza without a second-level argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a stop stanza with an unknown second-level argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a stop on stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with on and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "stop on\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+
+void
+test_stanza_description (void)
 {
 	Job  *job;
 	FILE *jf, *output;
-	char  dirname[25], filename[35], text[161];
-	int   ret = 0, i, oldstderr;
+	char  filename[PATH_MAX];
 
-	printf ("Testing cfg_read_job()\n");
-	sprintf (dirname, "/tmp/test_cfgfile.%d", getpid ());
-	sprintf (filename, "%s/foo", dirname);
-	mkdir (dirname, 0700);
-
+	TEST_FUNCTION ("cfg_stanza_description");
+	program_name = "test";
 	output = tmpfile ();
-	oldstderr = dup (STDERR_FILENO);
+
+	TEST_FILENAME (filename);
 
 
-	printf ("...with simple job file\n");
+	/* Check that a description stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description \"a test job\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->description, job);
+	TEST_EQ_STR (job->description, "a test job");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a description stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a description stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description \"a test job\" \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated description stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "description \"a test job\"\n");
+	fprintf (jf, "description \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_author (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_author");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a author stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author \"a test job\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->author, job);
+	TEST_EQ_STR (job->author, "a test job");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a author stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a author stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author \"a test job\" \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated author stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "author \"a test job\"\n");
+	fprintf (jf, "author \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_version (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_version");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a version stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version \"a test job\"\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->version, job);
+	TEST_EQ_STR (job->version, "a test job");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a version stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a version stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version \"a test job\" \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated version stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "version \"a test job\"\n");
+	fprintf (jf, "version \"ya ya\"\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_emits (void)
+{
+	Job   *job;
+	Event *event;
+	FILE  *jf, *output;
+	char   filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_emits");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that an emits stanza with a single argument results in
+	 * the named event being added to the emits list.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits wibble\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->emits);
+
+	event = (Event *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an emits stanza with multiple arguments results in
+	 * all of the named events being added to the emits list.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits wibble wobble waggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->emits);
+
+	event = (Event *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated emits stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits wibble\n");
+	fprintf (jf, "emits wobble waggle\n");
+	fprintf (jf, "emits wuggle\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->emits);
+
+	event = (Event *)job->emits.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wibble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wobble");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "waggle");
+
+	event = (Event *)event->entry.next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "wuggle");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an emits stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "emits\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+
+void
+test_stanza_daemon (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_daemon");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a daemon stanza without any arguments sets the job's
+	 * daemon flag.
+	 */
+	TEST_FEATURE ("with no arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->daemon);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a daemon stanza with arguments results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the daemon stanza results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "daemon\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_respawn (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_respawn");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a respawn stanza sets the job's respawn and service */
+	TEST_FEATURE ("with no argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->respawn);
+	TEST_TRUE (job->service);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a respawn stanza with the limit argument and numeric
+	 * rate and timeout results in it being stored in the job.
+	 */
+	TEST_FEATURE ("with limit and two arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 10 120\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->respawn_limit, 10);
+	TEST_EQ (job->respawn_interval, 120);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a respawn stanza with the limit argument but no
+	 * interval results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and missing second argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 10\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn stanza with the limit argument but no
+	 * arguments results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and missing arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with a non-integer interval
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and non-integer interval argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 10 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with a non-integer limit
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and non-integer limit argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit foo 120\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with a partially numeric
+	 * interval argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and alphanumeric interval argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 10 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with a partially numeric
+	 * limit argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and alphanumeric limit argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 99foo 120\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with a negative interval
+	 * value results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and negative interval argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 10 -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with a negative limit
+	 * value results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and negative interval argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit -1 120\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the respawn stanza without
+	 * arguments results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate without arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "respawn\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate respawn limit stanzas results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with duplicate limit stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 10 120\n");
+	fprintf (jf, "respawn limit 20 90\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn limit stanza with an extra argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument to limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn limit 0 1 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a respawn stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument to limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn foo bar\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_service (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_service");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a service stanza without any arguments sets the job's
+	 * service flag.
+	 */
+	TEST_FEATURE ("with no arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "service\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->service);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a service stanza with arguments results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "service foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the service stanza results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "service\n");
+	fprintf (jf, "service\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that we can specify the service and respawn stanzas.
+	 */
+	TEST_FEATURE ("with no arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "service\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->respawn);
+	TEST_TRUE (job->service);
+
+	nih_list_free (&job->entry);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_instance (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_instance");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that an instance stanza sets the job's instance flag.
+	 */
+	TEST_FEATURE ("with no argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "instance\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_TRUE (job->instance);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that any arguments to the instance stanza results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "instance foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the instance stanza result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "instance\n");
+	fprintf (jf, "instance\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_pid (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_pid");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a pid stanza with the file argument and a filename
+	 * results in the filename being stored in the job.
+	 */
+	TEST_FEATURE ("with file and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid file /var/run/daemon.pid\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->pid_file, job);
+	TEST_EQ_STR (job->pid_file, "/var/run/daemon.pid");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pid stanza with the binary argument and a filename
+	 * results in the filename being stored in the job.
+	 */
+	TEST_FEATURE ("with binary and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid binary /usr/lib/daemon\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->pid_binary, job);
+	TEST_EQ_STR (job->pid_binary, "/usr/lib/daemon");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pid stanza with the timeout argument and a numeric
+	 * timeout results in it being stored in the job.
+	 */
+	TEST_FEATURE ("with timeout and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout 10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->pid_timeout, 10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a pid stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with an invalid second-level stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown second argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the file argument but no filename
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with file and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid file\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the binary argument but no filename
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with binary and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid binary\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the timeout argument but no timeout
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid timeout stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid timeout stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid timeout stanza with a negative value results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and negative argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the file argument and filename,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with file and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid file /var/run/daemon.pid foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the binary argument and filename,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with binary and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid binary /usr/lib/daemon foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a pid stanza with the timeout argument and timeout,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with timeout and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout 99 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated pid file stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate file stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid file /var/run/daemon.pid\n");
+	fprintf (jf, "pid file /var/run/daemon/daemon.pid\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated pid binary stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate binary stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid binary /usr/lib/daemon\n");
+	fprintf (jf, "pid binary /usr/lib/daemon/daemon\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated pid timeout stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate timeout stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "daemon\n");
+	fprintf (jf, "pid timeout 99\n");
+	fprintf (jf, "pid timeout 100\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "4: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_kill (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_kill");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a kill stanza with the timeout argument and a numeric
+	 * timeout results in it being stored in the job.
+	 */
+	TEST_FEATURE ("with timeout and single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout 10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->kill_timeout, 10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a kill stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a kill stanza with an invalid second-level stanza
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown second argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a kill stanza with the timeout argument but no timeout
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a kill timeout stanza with a non-integer argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a kill timeout stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a kill timeout stanza with a negative value results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and negative argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a kill stanza with the timeout argument and timeout,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with timeout and extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout 99 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated kill timeout stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate timeout stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "kill timeout 99\n");
+	fprintf (jf, "kill timeout 100\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_normal (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_normal");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a normal exit stanza with a single argument results in
+	 * the exit code given being added to the normalexit array, which
+	 * should be allocated.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit 99\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 1);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an argument in a normal exit stanza may be a signal name,
+	 * in which case the signal number is shifted left and then added
+	 * to the normalexit array.
+	 */
+	TEST_FEATURE ("with single argument containing signal name");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit INT\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 1);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], SIGINT << 8);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a normal exit stanza with multiple arguments results in
+	 * all of the given exit codes being added to the array, which should
+	 * have been increased in size.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit 99 100 101 SIGTERM\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 4);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+	TEST_EQ (job->normalexit[1], 100);
+	TEST_EQ (job->normalexit[2], 101);
+	TEST_EQ (job->normalexit[3], SIGTERM << 8);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated normal exit stanzas are permitted, each
+	 * appending to the array.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit 99\n");
+	fprintf (jf, "normal exit 100 101\n");
+	fprintf (jf, "normal exit QUIT\n");
+	fprintf (jf, "normal exit 900\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->normalexit_len, 5);
+	TEST_ALLOC_SIZE (job->normalexit, sizeof (int) * job->normalexit_len);
+	TEST_ALLOC_PARENT (job->normalexit, job);
+
+	TEST_EQ (job->normalexit[0], 99);
+	TEST_EQ (job->normalexit[1], 100);
+	TEST_EQ (job->normalexit[2], 101);
+	TEST_EQ (job->normalexit[3], SIGQUIT << 8);
+	TEST_EQ (job->normalexit[4], 900);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a normal exit stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal exit stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal exit stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal exit stanza with a negative value results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with negative argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal exit -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal stanza with something other than "exit"
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal wibble\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a normal stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing exit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "normal\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_console (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_console");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+	/* Check that console logged sets the job's console to
+	 * CONSOLE_LOGGED.
+	 */
+	TEST_FEATURE ("with logged argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console logged\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_LOGGED);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that console output sets the job's console to
+	 * CONSOLE_OUTPUT.
+	 */
+	TEST_FEATURE ("with output argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console output\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_OUTPUT);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that console owner sets the job's console to
+	 * CONSOLE_OWNER.
+	 */
+	TEST_FEATURE ("with owner argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console owner\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_OWNER);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that console none sets the job's console to
+	 * CONSOLE_NONE.
+	 */
+	TEST_FEATURE ("with none argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console none\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->console, CONSOLE_NONE);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that an unknown argument raises a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console wibble\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that additional arguments to the stanza results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console owner foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+#if 0
+	/* Check that duplicate occurances of the console stanza result
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "console owner\n");
+	fprintf (jf, "console output\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+#endif
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_env (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_env");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a env stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env FOO=BAR\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->env, job);
+	TEST_ALLOC_SIZE (job->env, sizeof (char *) * 2);
+	TEST_EQ_STR (job->env[0], "FOO=BAR");
+	TEST_EQ_P (job->env[1], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that repeated env stanzas are appended to those stored in
+	 * the job.
+	 */
+	TEST_FEATURE ("with repeated stanzas");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env FOO=BAR\n");
+	fprintf (jf, "env BAZ=QUUX\n");
+	fprintf (jf, "env FRODO=BILBO\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->env, job);
+	TEST_ALLOC_SIZE (job->env, sizeof (char *) * 4);
+	TEST_EQ_STR (job->env[0], "FOO=BAR");
+	TEST_EQ_STR (job->env[1], "BAZ=QUUX");
+	TEST_EQ_STR (job->env[2], "FRODO=BILBO");
+	TEST_EQ_P (job->env[3], NULL);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a env stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a env stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "env FOO=BAR oops\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_umask (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_umask");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a umask stanza with an octal timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 0755\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->umask, 0755);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a umask stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a non-octal argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-octal argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 999\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a negative value results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with negative argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask -1\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a umask stanza with a creation mask
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 0755 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated umask stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "umask 0755\n");
+	fprintf (jf, "umask 0711\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_nice (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_nice");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a nice stanza with an positive timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with positive argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->nice, 10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a nice stanza with a negative timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with positive argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice -10\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_EQ (job->nice, -10);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a nice stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with an overly large argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with overly large argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 20\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with an overly small argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with overly small argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice -21\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 12foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a nice stanza with a priority but with an extra
+	 * argument afterwards results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 10 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated nice stanza results in a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "nice 10\n");
+	fprintf (jf, "nice -12\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_limit (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_limit");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that the limit as stanza sets the RLIMIT_AS resource.
+	 */
+	TEST_FEATURE ("with as limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit as 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_AS], job);
+	TEST_EQ (job->limits[RLIMIT_AS]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_AS]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit core stanza sets the RLIMIT_CORE resource.
+	 */
+	TEST_FEATURE ("with core limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit as stanza sets the RLIMIT_CPU resource.
+	 */
+	TEST_FEATURE ("with cpu limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit cpu 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CPU], job);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit data stanza sets the RLIMIT_DATA resource.
+	 */
+	TEST_FEATURE ("with data limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit data 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_DATA], job);
+	TEST_EQ (job->limits[RLIMIT_DATA]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_DATA]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+	/* Check that the limit fsize stanza sets the RLIMIT_FSIZE resource.
+	 */
+	TEST_FEATURE ("with fsize limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit fsize 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_FSIZE], job);
+	TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_FSIZE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit memlock stanza sets the RLIMIT_MEMLOCK
+	 * resource.
+	 */
+	TEST_FEATURE ("with memlock limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit memlock 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_MEMLOCK], job);
+	TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_MEMLOCK]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit msgqueue stanza sets the RLIMIT_MSGQUEUE
+	 * resource.
+	 */
+	TEST_FEATURE ("with msgqueue limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit msgqueue 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_MSGQUEUE], job);
+	TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_MSGQUEUE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+	/* Check that the limit nice stanza sets the RLIMIT_NICE resource.
+	 */
+	TEST_FEATURE ("with nice limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit nice 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_NICE], job);
+	TEST_EQ (job->limits[RLIMIT_NICE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_NICE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit nofile stanza sets the RLIMIT_NOFILE
+	 * resource.
+	 */
+	TEST_FEATURE ("with nofile limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit nofile 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_NOFILE], job);
+	TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_NOFILE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+	/* Check that the limit nproc stanza sets the RLIMIT_NPROC resource.
+	 */
+	TEST_FEATURE ("with nproc limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit nproc 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_NPROC], job);
+	TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_NPROC]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit rss stanza sets the RLIMIT_RSS resource.
+	 */
+	TEST_FEATURE ("with rss limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit rss 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_RSS], job);
+	TEST_EQ (job->limits[RLIMIT_RSS]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_RSS]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit rtprio stanza sets the RLIMIT_RTPRIO resource.
+	 */
+	TEST_FEATURE ("with rtprio limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit rtprio 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_RTPRIO], job);
+	TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_RTPRIO]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit sigpending stanza sets the RLIMIT_SIGPENDING
+	 * resource.
+	 */
+	TEST_FEATURE ("with sigpending limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit sigpending 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_SIGPENDING], job);
+	TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_SIGPENDING]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the limit stack stanza sets the RLIMIT_STACK resource.
+	 */
+	TEST_FEATURE ("with stack limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit stack 10 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_STACK], job);
+	TEST_EQ (job->limits[RLIMIT_STACK]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_STACK]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that multiple limit stanzas are permitted provided they
+	 * refer to different resources, all are set.
+	 */
+	TEST_FEATURE ("with multiple limits");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 20\n");
+	fprintf (jf, "limit cpu 15 30\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CPU], job);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_cur, 15);
+	TEST_EQ (job->limits[RLIMIT_CPU]->rlim_max, 30);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the hard resource limit can be set to unlimited with
+	 * a special argument of that name
+	 */
+	TEST_FEATURE ("with unlimited hard limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 unlimited\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, 10);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, RLIM_INFINITY);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that the soft resource limit can be set to unlimited with
+	 * a special argument of that name
+	 */
+	TEST_FEATURE ("with unlimited soft limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core unlimited 20\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->limits[RLIMIT_CORE], job);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_cur, RLIM_INFINITY);
+	TEST_EQ (job->limits[RLIMIT_CORE]->rlim_max, 20);
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a limit stanza with the soft argument but no hard value
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing hard limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with no soft value results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing soft limit");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with an unknown resource name results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown resource type");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unknown stanza\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with no resource name results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing resource type");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a non-integer hard value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer hard value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a non-integer soft value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer soft value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core foo 20\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a partially numeric hard value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric hard value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 99foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with a partially numeric soft value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric soft value argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 99foo 20\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Illegal value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that duplicate occurances of the limit stanza with the
+	 * same reousrce is a syntax error.
+	 */
+	TEST_FEATURE ("with duplicate resource");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit core 10 20\n");
+	fprintf (jf, "limit core 15 30\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a limit stanza with an extra argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "limit cpu 10 20 foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_chroot (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_chroot");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a chroot stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chroot /chroot/daemon\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->chroot, job);
+	TEST_EQ_STR (job->chroot, "/chroot/daemon");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a chroot stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chroot\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a chroot stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chroot /chroot/daemon foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated chroot stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chroot /chroot/daemon\n");
+	fprintf (jf, "chroot /var/lib/daemon\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+void
+test_stanza_chdir (void)
+{
+	Job  *job;
+	FILE *jf, *output;
+	char  filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_stanza_chdir");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a chdir stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chdir /var/lib/daemon\n");
+	fclose (jf);
+
+	job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+
+	TEST_ALLOC_PARENT (job->chdir, job);
+	TEST_EQ_STR (job->chdir, "/var/lib/daemon");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that a chdir stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chdir\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Expected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a chdir stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chdir /var/lib/daemon foo\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "2: Unexpected token\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	/* Check that a repeated chdir stanza results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with duplicate stanza");
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "chdir /var/lib/daemon\n");
+	fprintf (jf, "chdir /var/run/daemon\n");
+	fclose (jf);
+
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
+	rewind (output);
+
+	TEST_EQ_P (job, NULL);
+
+	TEST_ERROR_EQ (output, "3: Duplicate value\n");
+	TEST_FILE_END (output);
+
+	TEST_FILE_RESET (output);
+
+
+	fclose (output);
+	unlink (filename);
+}
+
+
+static int destructor_called = 0;
+
+static int
+my_destructor (void *ptr)
+{
+	destructor_called++;
+	return 0;
+}
+
+void
+test_read_job (void)
+{
+	Job        *job, *new_job;
+	JobProcess *process;
+	FILE       *jf, *output;
+	char        filename[PATH_MAX];
+
+	TEST_FUNCTION ("cfg_read_job");
+	program_name = "test";
+	output = tmpfile ();
+
+	TEST_FILENAME (filename);
+
+
+	/* Check that a simple job file can be parsed, with all of the
+	 * information given filled into the job structure.
+	 */
+	TEST_FEATURE ("with simple job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon -d\n");
-	fprintf (jf, "start script\n");
+	fprintf (jf, "pre-start script\n");
 	fprintf (jf, "    rm /var/lock/daemon\n");
 	fprintf (jf, "end script\n");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
 
-	/* Command should be that passed to exec */
-	if (strcmp (job->command, "/sbin/daemon -d")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_EMPTY (&job->start_events);
+	TEST_LIST_EMPTY (&job->stop_events);
 
-	/* Start script should be that passed to exec */
-	if (strcmp (job->start_script, "rm /var/lock/daemon\n")) {
-		printf ("BAD: start script wasn't what we expected.\n");
-		ret = 1;
-	}
+	process = job->process[PROCESS_MAIN];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon -d");
 
-	/* Should be allocated with nih_alloc */
-	if (nih_alloc_size (job) != sizeof (Job)) {
-		printf ("BAD: nih_alloc was not used.\n");
-		ret = 1;
-	}
-
-	/* Command should be nih_alloc child of job */
-	if (nih_alloc_parent (job->command) != job) {
-		printf ("BAD: command was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Start script should be nih_alloc child of job */
-	if (nih_alloc_parent (job->start_script) != job) {
-		printf ("BAD: start script was not nih_alloc child of job.\n");
-		ret = 1;
-	}
+	process = job->process[PROCESS_PRE_START];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, TRUE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "rm /var/lock/daemon\n");
 
 
-	printf ("...with re-reading existing job file\n");
+	/* Check that when we give a new file for an existing job, the
+	 * existing job is marked for replacement (and the previous
+	 * replacement discarded), but as that job is running, left to
+	 * stop on its own later.
+	 */
+	TEST_FEATURE ("with re-reading existing job file");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/daemon --daemon\n");
 	fclose (jf);
 
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
-	job->process_state = PROCESS_ACTIVE;
-	job->pid = 1000;
+	job->process[PROCESS_MAIN]->pid = 1000;
 
-	job->kill_timer = nih_timer_add_timeout (job, 1000, my_timer, job);
-	job->pid_timer = nih_timer_add_timeout (job, 500, my_timer, job);
+	job->replacement = job_new (NULL, "wibble");
 
-	was_called = 0;
-	nih_alloc_set_destructor (job, destructor_called);
+	destructor_called = 0;
+	nih_alloc_set_destructor (job->replacement, my_destructor);
 
-	job = cfg_read_job (NULL, filename, "test");
+	new_job = cfg_read_job (NULL, filename, "test");
 
-	/* Old job should have been freed */
-	if (! was_called) {
-		printf ("BAD: original job was not freed.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (new_job, sizeof (Job));
+	TEST_LIST_EMPTY (&job->start_events);
+	TEST_LIST_EMPTY (&job->stop_events);
 
-	/* Goal should have been copied */
-	if (job->goal != JOB_START) {
-		printf ("BAD: job goal was not copied.\n");
-		ret = 1;
-	}
+	process = new_job->process[PROCESS_MAIN];
+	TEST_ALLOC_PARENT (process, new_job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
 
-	/* State should have been copied */
-	if (job->state != JOB_RUNNING) {
-		printf ("BAD: job state was not copied.\n");
-		ret = 1;
-	}
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+	TEST_EQ (job->process[PROCESS_MAIN]->pid, 1000);
 
-	/* Process state should have been copied */
-	if (job->process_state != PROCESS_ACTIVE) {
-		printf ("BAD: process state was not copied.\n");
-		ret = 1;
-	}
+	TEST_EQ (new_job->goal, JOB_STOP);
+	TEST_EQ (new_job->state, JOB_WAITING);
+	TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
 
-	/* pid should have been copied */
-	if (job->pid != 1000) {
-		printf ("BAD: pid was not copied.\n");
-		ret = 1;
-	}
+	TEST_TRUE (destructor_called);
 
-	/* New kill timer should have been created */
-	if (nih_alloc_parent (job->kill_timer) != job) {
-		printf ("BAD: newly parented timer wasn't created.\n");
-		ret = 1;
-	}
-
-	/* Due time should be copied */
-	if (job->kill_timer->due > time(NULL) + 1000) {
-		printf ("BAD: timer due time wasn't copied.\n");
-		ret =1;
-	}
-
-	/* Timer callback should be copied */
-	if (job->kill_timer->callback != my_timer) {
-		printf ("BAD: timer calback wasn't copied.\n");
-		ret = 1;
-	}
-
-	/* Timer data should be set to new job */
-	if (job->kill_timer->data != job) {
-		printf ("BAD: timer data wasn't updated.\n");
-		ret = 1;
-	}
-
-	/* New pid timer should have been created */
-	if (nih_alloc_parent (job->pid_timer) != job) {
-		printf ("BAD: newly parented timer wasn't created.\n");
-		ret = 1;
-	}
-
-	/* Due time should be copied */
-	if (job->pid_timer->due > time(NULL) + 500) {
-		printf ("BAD: timer due time wasn't copied.\n");
-		ret =1;
-	}
-
-	/* Timer callback should be copied */
-	if (job->pid_timer->callback != my_timer) {
-		printf ("BAD: timer calback wasn't copied.\n");
-		ret = 1;
-	}
-
-	/* Timer data should be set to new job */
-	if (job->pid_timer->data != job) {
-		printf ("BAD: timer data wasn't updated.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (job->replacement, new_job);
+	TEST_EQ_P (new_job->replacement_for, job);
 
 	nih_list_free (&job->entry);
 
+	job = new_job;
+	job->replacement_for = NULL;
 
-	printf ("...with complete job file\n");
+
+	/* Check that a stopped job can be instantly replaced and marked for
+	 * deletion if it's waiting.
+	 */
+	TEST_FEATURE ("with re-reading stopped job");
 	jf = fopen (filename, "w");
-	fprintf (jf, "# this is a comment\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "description \"an example daemon\"\n");
-	fprintf (jf, "author \"joe bloggs\"\n");
-	fprintf (jf, "version \"1.0\"\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "exec /sbin/daemon -d \"arg here\"\n");
-	fprintf (jf, "respawn  # restart the job when it fails\n");
-	fprintf (jf, "console owner\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "start on startup\n");
-	fprintf (jf, "stop on shutdown\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "on explosion\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "depends frodo bilbo\n");
-	fprintf (jf, "depends galadriel\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "env PATH=\"/usr/games:/usr/bin\"\n");
-	fprintf (jf, "env LANG=C\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "umask 0155\n");
-	fprintf (jf, "nice -20\n");
-	fprintf (jf, "limit core 0 0\n");
-	fprintf (jf, "limit cpu 50 100\n");
-	fprintf (jf, "respawn limit 5 120\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "chroot /jail/daemon\n");
-	fprintf (jf, "chdir /var/lib\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "start script\n");
-	fprintf (jf, "    [ -d /var/run/daemon ] || mkdir /var/run/daemon\n");
-	fprintf (jf, "  [ -d /var/lock/daemon ] || mkdir /var/lock/daemon\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "stop script\n");
-	fprintf (jf, "    rm -rf /var/run/daemon /var/lock/daemon\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "kill timeout 30\n");
-	fprintf (jf, "normalexit 0\n");
-	fprintf (jf, "normalexit 99 100\n");
+	fprintf (jf, "exec /sbin/daemon --daemon\n");
+	fclose (jf);
+
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->process[PROCESS_MAIN]->pid = 0;
+
+	new_job = cfg_read_job (NULL, filename, "test");
+
+	TEST_ALLOC_SIZE (new_job, sizeof (Job));
+	TEST_LIST_EMPTY (&job->start_events);
+	TEST_LIST_EMPTY (&job->stop_events);
+
+	process = new_job->process[PROCESS_MAIN];
+	TEST_ALLOC_PARENT (process, new_job->process);
+	TEST_ALLOC_SIZE (process, sizeof (JobProcess));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_DELETED);
+
+	TEST_EQ (new_job->goal, JOB_STOP);
+	TEST_EQ (new_job->state, JOB_WAITING);
+	TEST_EQ (new_job->process[PROCESS_MAIN]->pid, 0);
+
+	TEST_EQ_P (job->replacement, new_job);
+	TEST_EQ_P (new_job->replacement_for, NULL);
+
+	nih_list_free (&new_job->entry);
+	nih_list_free (&job->entry);
+
+
+	/* Check that a job may have both exec and script missing.
+	 */
+	TEST_FEATURE ("with missing exec and script");
+	jf = fopen (filename, "w");
+	fprintf (jf, "description state");
 	fclose (jf);
 
 	job = cfg_read_job (NULL, filename, "test");
+	rewind (output);
 
-	/* Description should be the unquoted string */
-	if (strcmp (job->description, "an example daemon")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
 
-	/* Author should be the unquoted string */
-	if (strcmp (job->author, "joe bloggs")) {
-		printf ("BAD: author wasn't what we expected.\n");
-		ret = 1;
-	}
 
-	/* Version should be the unquoted string */
-	if (strcmp (job->version, "1.0")) {
-		printf ("BAD: version wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be the exact string */
-	if (strcmp (job->command, "/sbin/daemon -d \"arg here\"")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Start script should be the fragment with initial ws removed */
-	if (strcmp (job->start_script,
-		    ("  [ -d /var/run/daemon ] || mkdir /var/run/daemon\n"
-		     "[ -d /var/lock/daemon ] || mkdir /var/lock/daemon\n"))) {
-		printf ("BAD: start script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be the fragment with initial ws removed */
-	if (strcmp (job->stop_script,
-		    "rm -rf /var/run/daemon /var/lock/daemon\n")) {
-		printf ("BAD: stop script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chroot should be the filename given */
-	if (strcmp (job->chroot, "/jail/daemon")) {
-		printf ("BAD: chroot wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chdir should be the filename given */
-	if (strcmp (job->chdir, "/var/lib")) {
-		printf ("BAD: chdir wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be marked as requiring respawn */
-	if (! job->respawn) {
-		printf ("BAD: respawn wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Console type should be CONSOLE_OWNER */
-	if (job->console != CONSOLE_OWNER) {
-		printf ("BAD: console type wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Umask should be the value given */
-	if (job->umask != 0155) {
-		printf ("BAD: file creation mask wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Nice level should be the value given */
-	if (job->nice != -20) {
-		printf ("BAD: nice level wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Kill timeout should be the value given */
-	if (job->kill_timeout != 30) {
-		printf ("BAD: kill timeout wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Start event list should not be empty */
-	if (NIH_LIST_EMPTY (&job->start_events)) {
-		printf ("BAD: start events list unexpectedly empty.\n");
-		ret = 1;
-	}
-
- 	/* Check the start events list */
-	i = 0;
-	NIH_LIST_FOREACH (&job->start_events, iter) {
-		Event *event = (Event *)iter;
-
-		/* Name should be one we expect */
-		if (! strcmp (event->name, "startup")) {
-			i |= 1;
-		} else if (! strcmp (event->name, "explosion")) {
-			i |= 2;
-		} else {
-			printf ("BAD: event name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Should be child of job */
-		if (nih_alloc_parent (event) != job) {
-			printf ("BAD: event wasn't nih_alloc child.\n");
-			ret = 1;
-		}
-	}
-
-	/* Should have had both */
-	if (i != 3) {
-		printf ("BAD: start events list wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop event list should not be empty */
-	if (NIH_LIST_EMPTY (&job->stop_events)) {
-		printf ("BAD: stop events list unexpectedly empty.\n");
-		ret = 1;
-	}
-
- 	/* Check the stop events list */
-	i = 0;
-	NIH_LIST_FOREACH (&job->stop_events, iter) {
-		Event *event = (Event *)iter;
-
-		/* Name should be one we expect */
-		if (! strcmp (event->name, "shutdown")) {
-			i |= 1;
-		} else {
-			printf ("BAD: event name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Should be child of job */
-		if (nih_alloc_parent (event) != job) {
-			printf ("BAD: event wasn't nih_alloc child.\n");
-			ret = 1;
-		}
-	}
-
-	/* Should have had just one */
-	if (i != 1) {
-		printf ("BAD: stop events list wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Dependency list should not be empty */
-	if (NIH_LIST_EMPTY (&job->depends)) {
-		printf ("BAD: dependency list unexpectedly empty.\n");
-		ret = 1;
-	}
-
- 	/* Check the dependency list */
-	i = 0;
-	NIH_LIST_FOREACH (&job->depends, iter) {
-		JobName *dep = (JobName *)iter;
-
-		/* Name should be one we expect */
-		if (! strcmp (dep->name, "frodo")) {
-			i |= 1;
-		} else if (! strcmp (dep->name, "bilbo")) {
-			i |= 2;
-		} else if (! strcmp (dep->name, "galadriel")) {
-			i |= 4;
-		} else {
-			printf ("BAD: dep name wasn't what we expected.\n");
-			ret = 1;
-		}
-
-		/* Should be child of job */
-		if (nih_alloc_parent (dep) != job) {
-			printf ("BAD: dependency wasn't nih_alloc child.\n");
-			ret = 1;
-		}
-	}
-
-	/* Should have had both */
-	if (i != 7) {
-		printf ("BAD: dependency list wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Environment should be provided */
-	if (job->env == NULL) {
-		printf ("BAD: environment list unexpectedly empty.\n");
-		ret = 1;
-	}
-
-	/* Environment array should be child of job */
-	if (nih_alloc_parent (job->env) != job) {
-		printf ("BAD: environment array wasn't nih_alloc child.\n");
-		ret = 1;
-	}
-
-	/* First environment variable should be unquoted */
-	if (strcmp (job->env[0], "PATH=/usr/games:/usr/bin")) {
-		printf ("BAD: PATH variable wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Environment variable should be child of array */
-	if (nih_alloc_parent (job->env[0]) != job->env) {
-		printf ("BAD: environment var wasn't nih_alloc child.\n");
-		ret = 1;
-	}
-
-	/* Second environment variable should be unquoted */
-	if (strcmp (job->env[1], "LANG=C")) {
-		printf ("BAD: LANG variable wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Environment variable should be child of array */
-	if (nih_alloc_parent (job->env[1]) != job->env) {
-		printf ("BAD: environment var wasn't nih_alloc child.\n");
-		ret = 1;
-	}
-
-	/* Last environment variable should be NULL */
-	if (job->env[2] != NULL) {
-		printf ("BAD: last environment wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Normal exit array should not be NULL */
-	if (job->normalexit == NULL) {
-		printf ("BAD: exit array unexpectedly empty.\n");
-		ret = 1;
-	}
-
-	/* Length of normal exit array should be three */
-	if (job->normalexit_len != 3) {
-		printf ("BAD: exit array length wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* First exit status should be what we expected */
-	if (job->normalexit[0] != 0) {
-		printf ("BAD: exit status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Second exit status should be what we expected */
-	if (job->normalexit[1] != 99) {
-		printf ("BAD: exit status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Third exit status should be what we expected */
-	if (job->normalexit[2] != 100) {
-		printf ("BAD: exit status wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Normal exit array should be nih_alloc child of job */
-	if (nih_alloc_parent (job->normalexit) != job) {
-		printf ("BAD: exit array wasn't nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE limit should be set */
-	if (job->limits[RLIMIT_CORE] == NULL) {
-		printf ("BAD: core limit wasn't set.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE soft limit should be that given */
-	if (job->limits[RLIMIT_CORE]->rlim_cur != 0) {
-		printf ("BAD: core soft limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE hard limit should be that given */
-	if (job->limits[RLIMIT_CORE]->rlim_max != 0) {
-		printf ("BAD: core hard limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE limit should be allocated with nih_alloc */
-	if (nih_alloc_size (job->limits[RLIMIT_CORE])
-	    != sizeof (struct rlimit)) {
-		printf ("BAD: core limit wasn't allocated with nih_alloc.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CORE limit should be nih_alloc child of job */
-	if (nih_alloc_parent (job->limits[RLIMIT_CORE]) != job) {
-		printf ("BAD: core limit wasn't nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU limit should be set */
-	if (job->limits[RLIMIT_CPU] == NULL) {
-		printf ("BAD: cpu limit wasn't set.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU soft limit should be that given */
-	if (job->limits[RLIMIT_CPU]->rlim_cur != 50) {
-		printf ("BAD: cpu soft limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU hard limit should be that given */
-	if (job->limits[RLIMIT_CPU]->rlim_max != 100) {
-		printf ("BAD: cpu hard limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU limit should be allocated with nih_alloc */
-	if (nih_alloc_size (job->limits[RLIMIT_CPU])
-	    != sizeof (struct rlimit)) {
-		printf ("BAD: cpu limit wasn't allocated with nih_alloc.\n");
-		ret = 1;
-	}
-
-	/* RLIMIT_CPU limit should be nih_alloc child of job */
-	if (nih_alloc_parent (job->limits[RLIMIT_CPU]) != job) {
-		printf ("BAD: cpu limit wasn't nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Respawn limit should be that given */
-	if (job->respawn_limit != 5) {
-		printf ("BAD: respawn limit wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn interval should be that given */
-	if (job->respawn_interval != 120) {
-		printf ("BAD: respawn interval wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Description should be nih_alloc child of job */
-	if (nih_alloc_parent (job->description) != job) {
-		printf ("BAD: description was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Author should be nih_alloc child of job */
-	if (nih_alloc_parent (job->author) != job) {
-		printf ("BAD: author was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Version should be nih_alloc child of job */
-	if (nih_alloc_parent (job->version) != job) {
-		printf ("BAD: version was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Command should be nih_alloc child of job */
-	if (nih_alloc_parent (job->command) != job) {
-		printf ("BAD: command was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Start script should be nih_alloc child of job */
-	if (nih_alloc_parent (job->start_script) != job) {
-		printf ("BAD: start script was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be nih_alloc child of job */
-	if (nih_alloc_parent (job->stop_script) != job) {
-		printf ("BAD: stop script was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* chroot should be nih_alloc child of job */
-	if (nih_alloc_parent (job->chroot) != job) {
-		printf ("BAD: chroot was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	/* chdir should be nih_alloc child of job */
-	if (nih_alloc_parent (job->chdir) != job) {
-		printf ("BAD: chdir was not nih_alloc child of job.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with exec and respawn\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /usr/bin/foo arg\n");
-	fprintf (jf, "respawn\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Job should be respawned */
-	if (! job->respawn) {
-		printf ("BAD: respawn wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with arguments to respawn\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "respawn /usr/bin/foo arg\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Job should be respawned */
-	if (! job->respawn) {
-		printf ("BAD: respawn wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with exec and daemon\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /usr/bin/foo arg\n");
-	fprintf (jf, "daemon\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Job should be hunted for */
-	if (! job->daemon) {
-		printf ("BAD: daemon wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with arguments to daemon\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "daemon /usr/bin/foo arg\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Job should be hunted for */
-	if (! job->daemon) {
-		printf ("BAD: daemon wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be what we put */
-	if (strcmp (job->command, "/usr/bin/foo arg")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with instance job\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /usr/bin/foo\n");
-	fprintf (jf, "instance\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Job should be an instance */
-	if (! job->spawns_instance) {
-		printf ("BAD: spawns_instance wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with interesting formatting\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "    description   \"foo\n");
-	fprintf (jf, "   bar\"\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "author \"  something  with  spaces  \"\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "version 'foo\\'bar'\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "exec /usr/bin/foo \\\n");
-	fprintf (jf, "  first second \"third \n");
-	fprintf (jf, "  argument\"\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Description should be stripped of newline */
-	if (strcmp (job->description, "foo bar")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Author should be unchanged */
-	if (strcmp (job->author, "  something  with  spaces  ")) {
-		printf ("BAD: author wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Version should have slash stripped */
-	if (strcmp (job->version, "foo'bar")) {
-		printf ("BAD: version wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be laid out sensibly */
-	if (strcmp (job->command, "/usr/bin/foo first "
-		    "second \"third argument\"")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with things that aren't script ends\n");
+	/* Check that a job may not use options that normally affect daemon
+	 * if it doesn't use daemon itself.  It gets warnings.
+	 */
+	TEST_FEATURE ("with daemon options and not daemon");
 	jf = fopen (filename, "w");
 	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "start script\n");
-	fprintf (jf, "endscript\n");
-	fprintf (jf, "end foo\n");
-	fprintf (jf, "end scripting\n");
-	fprintf (jf, "end script # wibble\n");
-	fprintf (jf, "stop script\n");
-	fprintf (jf, "# ok\n");
-	fprintf (jf, "  end script");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Start script should hold the first set */
-	if (strcmp (job->start_script,
-		    "endscript\nend foo\nend scripting\n")) {
-		printf ("BAD: start script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be set */
-	if (strcmp (job->stop_script, "# ok\n")) {
-		printf ("BAD: stop script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with multiple stanzas\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "respawn\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "description oops\n");
-	fprintf (jf, "description yay\n");
-	fprintf (jf, "author oops\n");
-	fprintf (jf, "author yay\n");
-	fprintf (jf, "version oops\n");
-	fprintf (jf, "version yay\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "start script\n");
-	fprintf (jf, "oops\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "start script\n");
-	fprintf (jf, "yay\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "stop script\n");
-	fprintf (jf, "oops\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "stop script\n");
-	fprintf (jf, "yay\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "respawn script\n");
-	fprintf (jf, "oops\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "respawn script\n");
-	fprintf (jf, "yay\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "exec oops\n");
-	fprintf (jf, "exec yay\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "chroot oops\n");
-	fprintf (jf, "chroot yay\n");
-	fprintf (jf, "chdir oops\n");
-	fprintf (jf, "chdir yay\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Description should be second one given */
-	if (strcmp (job->description, "yay")) {
-		printf ("BAD: description wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Author should be second one given */
-	if (strcmp (job->author, "yay")) {
-		printf ("BAD: author wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Version should be second one given */
-	if (strcmp (job->version, "yay")) {
-		printf ("BAD: version wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Start script should be second one given */
-	if (strcmp (job->start_script, "yay\n")) {
-		printf ("BAD: start_script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Stop script should be second one given */
-	if (strcmp (job->stop_script, "yay\n")) {
-		printf ("BAD: stop_script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Respawn script should be second one given */
-	if (strcmp (job->respawn_script, "yay\n")) {
-		printf ("BAD: respawn_script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should be second one given */
-	if (strcmp (job->command, "yay")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chroot should be second one given */
-	if (strcmp (job->chroot, "yay")) {
-		printf ("BAD: chroot wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* chdir should be second one given */
-	if (strcmp (job->chdir, "yay")) {
-		printf ("BAD: chdir wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with multiple script stanzas\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "script\n");
-	fprintf (jf, "oops\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "\n");
-	fprintf (jf, "script\n");
-	fprintf (jf, "yay\n");
-	fprintf (jf, "end script\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Script should be second one given */
-	if (strcmp (job->script, "yay\n")) {
-		printf ("BAD: script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with exec and respawn\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec oops\n");
-	fprintf (jf, "respawn yay\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Command should be second one given */
-	if (strcmp (job->command, "yay")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with exec and daemon\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec oops\n");
-	fprintf (jf, "daemon yay\n");
-	fclose (jf);
-
-	job = cfg_read_job (NULL, filename, "test");
-
-	/* Command should be second one given */
-	if (strcmp (job->command, "yay")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-
-	printf ("...with various errors\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "description\n");
-	fprintf (jf, "description foo bar\n");
-	fprintf (jf, "author\n");
-	fprintf (jf, "author foo bar\n");
-	fprintf (jf, "version\n");
-	fprintf (jf, "version foo bar\n");
-	fprintf (jf, "depends\n");
-	fprintf (jf, "on\n");
-	fprintf (jf, "on foo bar\n");
-	fprintf (jf, "start\n");
-	fprintf (jf, "start on\n");
-	fprintf (jf, "start on foo bar\n");
-	fprintf (jf, "start wibble\n");
-	fprintf (jf, "stop\n");
-	fprintf (jf, "stop on\n");
-	fprintf (jf, "stop on foo bar\n");
-	fprintf (jf, "stop wibble\n");
-	fprintf (jf, "exec\n");
-	fprintf (jf, "instance foo\n");
-	fprintf (jf, "pid\n");
-	fprintf (jf, "pid file\n");
-	fprintf (jf, "pid file foo baz\n");
-	fprintf (jf, "pid binary\n");
-	fprintf (jf, "pid binary foo baz\n");
-	fprintf (jf, "pid timeout\n");
-	fprintf (jf, "pid timeout abc\n");
-	fprintf (jf, "pid timeout -40\n");
-	fprintf (jf, "pid timeout 10 20\n");
-	fprintf (jf, "pid wibble\n");
-	fprintf (jf, "kill\n");
-	fprintf (jf, "kill timeout\n");
-	fprintf (jf, "kill timeout abc\n");
-	fprintf (jf, "kill timeout -40\n");
-	fprintf (jf, "kill timeout 10 20\n");
-	fprintf (jf, "kill wibble\n");
-	fprintf (jf, "normalexit\n");
-	fprintf (jf, "normalexit abc\n");
-	fprintf (jf, "console\n");
-	fprintf (jf, "console wibble\n");
-	fprintf (jf, "console output foo\n");
-	fprintf (jf, "env\n");
-	fprintf (jf, "env foo=bar baz\n");
-	fprintf (jf, "umask\n");
-	fprintf (jf, "umask abc\n");
-	fprintf (jf, "umask 12345\n");
-	fprintf (jf, "umask 099\n");
-	fprintf (jf, "umask 0122 foo\n");
-	fprintf (jf, "nice\n");
-	fprintf (jf, "nice abc\n");
-	fprintf (jf, "nice -30\n");
-	fprintf (jf, "nice 25\n");
-	fprintf (jf, "nice 0 foo\n");
-	fprintf (jf, "limit\n");
-	fprintf (jf, "limit wibble\n");
-	fprintf (jf, "limit core\n");
-	fprintf (jf, "limit core 0\n");
-	fprintf (jf, "limit core abc 0\n");
-	fprintf (jf, "limit core 0 abc\n");
-	fprintf (jf, "limit core 0 0 0\n");
-	fprintf (jf, "respawn limit\n");
-	fprintf (jf, "respawn limit 0\n");
-	fprintf (jf, "respawn limit abc 0\n");
-	fprintf (jf, "respawn limit 0 abc\n");
-	fprintf (jf, "respawn limit 0 0 0\n");
-	fprintf (jf, "chroot\n");
-	fprintf (jf, "chroot / foo\n");
-	fprintf (jf, "chdir\n");
-	fprintf (jf, "chdir / foo\n");
-	fprintf (jf, "wibble\n");
-	fprintf (jf, "script foo\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "start script foo\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "stop script foo\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "respawn script foo\n");
-	fprintf (jf, "end script\n");
-	fprintf (jf, "respawn\n");
-	fclose (jf);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	rewind (output);
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:1: expected job description\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:2: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:3: expected author name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:4: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:5: expected version string\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:6: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:7: expected job name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:8: expected event name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:9: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:10: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:11: expected event name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:12: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:13: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:14: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:15: expected event name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:16: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:17: expected 'on' or 'script'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:18: expected command\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:19: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:20: expected 'file', 'binary' or 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:21: expected pid filename\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:22: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:23: expected binary filename\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:24: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:25: expected timeout\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:26: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:27: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:28: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:29: expected 'file', 'binary' or 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:30: expected 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:31: expected timeout\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:32: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:33: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:34: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:35: expected 'timeout'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:36: expected exit status\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:37: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:38: expected 'logged', 'output', 'owner' or 'none'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:39: expected 'logged', 'output', 'owner' or 'none'\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:40: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:41: expected variable setting\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:42: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:43: expected file creation mask\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:44: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:45: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:46: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:47: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:48: expected nice level\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:49: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:50: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:51: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:52: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:53: expected limit name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:54: unknown limit type\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:55: expected soft limit\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:56: expected hard limit\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:57: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:58: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:59: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:60: expected limit\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:61: expected interval\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:62: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:63: illegal value\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:64: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:65: expected directory name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:66: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:67: expected directory name\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:68: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:69: ignored unknown stanza\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:70: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:72: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:74: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:76: ignored additional arguments\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with unterminated quote\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec \"/sbin/foo bar");
-	fclose (jf);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	rewind (output);
-
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:1: unterminated quoted string\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should still be set */
-	if (strcmp (job->command, "\"/sbin/foo bar")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with trailing slash\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/foo bar \\");
-	fclose (jf);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	rewind (output);
-
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:1: ignored trailing slash\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* Command should still be set */
-	if (strcmp (job->command, "/sbin/foo bar")) {
-		printf ("BAD: command wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with incomplete script\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "start script\n");
-	fprintf (jf, "    rm /var/lock/daemon\n");
-	fprintf (jf, "    rm /var/run/daemon\n");
-	fclose (jf);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	rewind (output);
-
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo:4: 'end script' expected\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* Script should still be set */
-	if (strcmp (job->start_script,
-		    "    rm /var/lock/daemon\n    rm /var/run/daemon\n")) {
-		printf ("BAD: script wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	nih_list_free (&job->entry);
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with missing exec and script\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "description buggy");
-	fclose (jf);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	rewind (output);
-
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"),
-		    "foo: 'exec' or 'script' must be specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* No job should be returned */
-	if (job != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with both exec and script\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "description buggy\n");
-	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "script\n");
-	fprintf (jf, "   /sbin/foo\n");
-	fprintf (jf, "end script\n");
-	fclose (jf);
-
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
-	rewind (output);
-
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: only one of 'exec' and "
-		    "'script' may be specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* No job should be returned */
-	if (job != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
-
-
-	printf ("...with respawn options and not respawn\n");
-	jf = fopen (filename, "w");
-	fprintf (jf, "exec /sbin/foo\n");
-	fprintf (jf, "respawn script\n");
-	fprintf (jf, "do something\n");
-	fprintf (jf, "end script\n");
 	fprintf (jf, "pid file /var/run/foo.pid\n");
 	fprintf (jf, "pid binary /lib/foo/foo.bin\n");
 	fclose (jf);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: 'respawn script' ignored "
-		    "unless 'respawn' specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_ERROR_EQ (output,
+		       " 'pid file' ignored unless 'daemon' specified\n");
+	TEST_ERROR_EQ (output,
+		       " 'pid binary' ignored unless 'daemon' specified\n");
+	TEST_FILE_END (output);
 
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: 'pid file' ignored "
-		    "unless 'respawn' specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: 'pid binary' ignored "
-		    "unless 'respawn' specified\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
+	TEST_FILE_RESET (output);
 
 	nih_list_free (&job->entry);
 
-	rewind (output);
-	ftruncate (fileno (output), 0);
 
-
-	printf ("...with non-existant file\n");
+	/* Check that a non-existant file is caught properly. */
+	TEST_FEATURE ("with non-existant file");
 	unlink (filename);
 
-	dup2 (fileno (output), STDERR_FILENO);
-	job = cfg_read_job (NULL, filename, "test");
-	dup2 (oldstderr, STDERR_FILENO);
-
+	TEST_DIVERT_STDERR (output) {
+		job = cfg_read_job (NULL, filename, "test");
+	}
 	rewind (output);
 
-	/* Should have error output */
-	fgets (text, sizeof (text), output);
-	if (strcmp (strstr (text, "foo:"), "foo: unable to read: "
-		    "No such file or directory\n")) {
-		printf ("BAD: output wasn't what we expected.\n");
-		ret = 1;
-	}
+	TEST_EQ_P (job, NULL);
 
-	/* Should be no more output */
-	if (fgets (text, sizeof (text), output)) {
-		printf ("BAD: more output than we expected.\n");
-		ret = 1;
-	}
-
-	/* No job should be returned */
-	if (job != NULL) {
-		printf ("BAD: return value wasn't what we expected.\n");
-		ret = 1;
-	}
-
-	rewind (output);
-	ftruncate (fileno (output), 0);
+	TEST_ERROR_EQ (output, " unable to read: No such file or directory\n");
+	TEST_FILE_END (output);
 
 
 	fclose (output);
+	unlink (filename);
+}
+
+
+static int logger_called = 0;
+static char *last_message = NULL;
+
+static int
+my_logger (NihLogLevel  priority,
+	   const char  *message)
+{
+	logger_called++;
+	last_message = strdup (message);
+
+	return 0;
+}
+
+void
+test_watch_dir (void)
+{
+	NihWatch *watch;
+	Job      *job, *old_job;
+	FILE     *jf;
+	fd_set    readfds, writefds, exceptfds;
+	char      dirname[PATH_MAX], filename[PATH_MAX];
+	int       fd[4096], nfds, i = 0;
+
+	TEST_FUNCTION ("cfg_watch_dir");
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /sbin/daemon\n");
+	fprintf (jf, "respawn\n");
+	fclose (jf);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "script\n");
+	fprintf (jf, "  echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo");
+
+	mkdir (filename, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/foo");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "exec /bin/tool\n");
+	fclose (jf);
+
+
+	/* Make sure we have inotify before performing these tests... */
+	fd[0] = inotify_init ();
+	if (fd[0] < 0) {
+		printf ("SKIP: inotify not available\n");
+		goto no_inotify;
+	}
+	close (fd[0]);
+
+	/* Check that we can watch a configuration directory with inotify,
+	 * and that any existing job definitions are parsed.  The watch
+	 * file descriptor should be marked close-on-exec.
+	 */
+	TEST_FEATURE ("with new watch");
+	watch = cfg_watch_dir (dirname, NULL);
+
+	TEST_ALLOC_SIZE (watch, sizeof (NihWatch));
+	TEST_EQ_STR (watch->path, dirname);
+	TEST_EQ_P (watch->data, NULL);
+
+	TEST_TRUE (fcntl (watch->fd, F_GETFD) & FD_CLOEXEC);
+
+	job = job_find_by_name ("foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
+		     "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("bar");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("frodo/foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
+		     "/bin/tool");
+
+	nih_list_free (&job->entry);
+
+
+	/* Check that we can create a new job file, and that it is
+	 * automatically parsed and loaded.
+	 */
+	TEST_FEATURE ("with new job");
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/bar");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "script\n");
+	fprintf (jf, "  echo\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	job = job_find_by_name ("frodo/bar");
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+
+	/* Check that we can modify the existing job entry, and that it is
+	 * automatically reparsed with the previous structure being marked
+	 * as deleted.
+	 */
+	TEST_FEATURE ("with modification to job");
+	old_job = job;
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/bar");
+
+	jf = fopen (filename, "w");
+	fprintf (jf, "respawn\n");
+	fprintf (jf, "script\n");
+	fprintf (jf, "  sleep 5\n");
+	fprintf (jf, "end script\n");
+	fclose (jf);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	job = job_find_by_name ("frodo/bar");
+
+	TEST_EQ_P (old_job->replacement, job);
+	TEST_EQ_P (job->replacement_for, NULL);
+	TEST_EQ (old_job->goal, JOB_STOP);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+	nih_list_free (&old_job->entry);
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "sleep 5\n");
+
+
+	/* Check that when a configuration file is deleted, the job is also
+	 * marked for deletion with any previous replacement discarded.
+	 */
+	TEST_FEATURE ("with deletion of job");
+	old_job = job;
+	old_job->replacement = job_new (NULL, "wibble");
+
+	destructor_called = 0;
+	nih_alloc_set_destructor (old_job->replacement, my_destructor);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/frodo/bar");
 
 	unlink (filename);
-	rmdir (dirname);
 
-	return ret;
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_TRUE (destructor_called);
+
+	TEST_EQ_P (old_job->replacement, (void *)-1);
+	TEST_EQ (old_job->goal, JOB_STOP);
+	TEST_EQ (old_job->state, JOB_DELETED);
+
+	nih_list_free (&old_job->entry);
+
+	job = job_find_by_name ("frodo/bar");
+
+	TEST_EQ_P (job, NULL);
+
+
+	nih_watch_free (watch);
+
+
+	/* Consume all available inotify instances so that the tests run
+	 * without inotify.
+	 */
+	for (i = 0; i < 4096; i++)
+		if ((fd[i] = inotify_init ()) < 0)
+			break;
+no_inotify:
+
+	/* Check that if we don't have inotify, or just don't have any
+	 * available watches, we simply iterate the directory once and
+	 * parse everything that's there.  Make sure jobs have the prefix
+	 * we give appended, and if we only exhausted the inotify
+	 * descriptors, a warning output explaining that this has happened.
+	 */
+	TEST_FEATURE ("with iteration only");
+	logger_called = 0;
+	last_message = NULL;
+	nih_log_set_logger (my_logger);
+
+	watch = cfg_watch_dir (dirname, "test-");
+
+	TEST_EQ_P (watch, NULL);
+
+	if (i) {
+		TEST_TRUE (logger_called);
+		TEST_EQ_STR (strchr (last_message, ':'),
+			     (": Unable to watch configuration directory"
+			      ": Too many open files"));
+
+		free (last_message);
+	} else {
+		TEST_FALSE (logger_called);
+	}
+
+	job = job_find_by_name ("test-foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_TRUE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
+		     "/sbin/daemon");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("test-bar");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
+
+	nih_list_free (&job->entry);
+
+	job = job_find_by_name ("test-frodo/foo");
+
+	TEST_NE_P (job, NULL);
+	TEST_FALSE (job->respawn);
+	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
+	TEST_EQ (job->process[PROCESS_MAIN]->script, FALSE);
+	TEST_EQ_STR (job->process[PROCESS_MAIN]->command,
+		     "/bin/tool");
+
+	nih_list_free (&job->entry);
+
+
+	/* Release consumed instances */
+	for (i = 0; i < 4096; i++) {
+		if (fd[i] < 0)
+			break;
+
+		close (fd[i]);
+	}
 }
 
 
@@ -1880,9 +5237,34 @@ int
 main (int   argc,
       char *argv[])
 {
-	int ret = 0;
+	test_stanza_exec ();
+	test_stanza_script ();
+	test_stanza_pre_start ();
+	test_stanza_post_start ();
+	test_stanza_pre_stop ();
+	test_stanza_post_stop ();
+	test_stanza_start ();
+	test_stanza_stop ();
+	test_stanza_description ();
+	test_stanza_version ();
+	test_stanza_author ();
+	test_stanza_emits ();
+	test_stanza_daemon ();
+	test_stanza_respawn ();
+	test_stanza_service ();
+	test_stanza_instance ();
+	test_stanza_pid ();
+	test_stanza_kill ();
+	test_stanza_normal ();
+	test_stanza_console ();
+	test_stanza_env ();
+	test_stanza_umask ();
+	test_stanza_nice ();
+	test_stanza_limit ();
+	test_stanza_chroot ();
+	test_stanza_chdir ();
+	test_read_job ();
+	test_watch_dir ();
 
-	ret |= test_read_job ();
-
-	return ret;
+	return 0;
 }

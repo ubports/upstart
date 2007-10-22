@@ -2,17 +2,17 @@
 #
 # This task runs the old sysv-rc runlevel 6 ("reboot") scripts.
 
-start on reboot
-start on runlevel-6
+start on runlevel 6
 
-stop on shutdown
-stop on runlevel-2
-stop on runlevel-3
-stop on runlevel-4
-stop on runlevel-5
+stop on runlevel [^6]
 
+console output
 script
-	set $(runlevel --set 6 || true)
+	set $(runlevel || true)
+	if [ "$2" != "0" ] && [ "$2" != "6" ]; then
+	    set $(runlevel --set 6 || true)
+        fi
+
 	if [ "$1" != "unknown" ]; then
 	    PREVLEVEL=$1
 	    RUNLEVEL=$2

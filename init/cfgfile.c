@@ -2,7 +2,7 @@
  *
  * cfgfile.c - configuration and job file parsing
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,8 +27,11 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <time.h>
+#include <errno.h>
 #include <dirent.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -40,75 +43,1673 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/timer.h>
-#include <nih/file.h>
+#include <nih/signal.h>
+#include <nih/watch.h>
+#include <nih/config.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/job.h>
+#include <upstart/enum.h>
 
 #include "job.h"
 #include "event.h"
 #include "cfgfile.h"
-
-
-/**
- * WS:
- *
- * Definition of what characters we consider whitespace.
- **/
-#define WS " \t\r"
-
-/**
- * CNL:
- *
- * Definition of what characters nominally end a line; a comment start
- * character or a newline.
- **/
-#define CNL "#\n"
-
-/**
- * CNLWS:
- *
- * Defintion of what characters nominally separate tokens.
- **/
-#define CNLWS " \t\r#\n"
-
-/**
- * WatchInfo:
- * @parent: parent for jobs,
- * @prefix: prefix for job names.
- *
- * Data pointed passed to the config file watcher function.
- **/
-typedef struct watch_info {
-	void *parent;
-	char *prefix;
-} WatchInfo;
+#include "errors.h"
 
 
 /* Prototypes for static functions */
-static void    cfg_job_stanza    (Job *job, const char *filename,
-				  ssize_t *lineno, const char *file,
-				  ssize_t len, ssize_t *pos);
+static int   cfg_parse_exec            (JobProcess *proc,
+					NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_parse_script          (JobProcess *proc,
+					NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_parse_process         (Job *job, ProcessType process,
+					NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
 
-static char ** cfg_parse_args    (void *parent, const char *filename,
-				  ssize_t *lineno, const char *file,
-				  ssize_t len, ssize_t *pos);
-static char *  cfg_parse_command (void *parent, const char *filename,
-				  ssize_t *lineno, const char *file,
-				  ssize_t len, ssize_t *pos);
-static ssize_t cfg_next_token    (const char *filename, ssize_t *lineno,
-				  const char *file, ssize_t len, ssize_t *pos,
-				  char *dest, const char *delim, int dequote);
+static int   cfg_stanza_exec           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_script         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_pre_start      (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_post_start     (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_pre_stop       (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_post_stop      (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
 
-static char *  cfg_parse_script  (void *parent, const char *filename,
-				  ssize_t *lineno, const char *file,
-				  ssize_t len, ssize_t *pos);
-static ssize_t cfg_script_end    (ssize_t *lineno, const char *file,
-				  ssize_t len, ssize_t *pos);
+static int   cfg_stanza_start          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_stop           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
 
-static void    cfg_watcher       (WatchInfo *info, NihFileWatch *watch,
-				  uint32_t events, const char *name);
+static int   cfg_stanza_description    (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_author         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_version        (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_emits          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_daemon         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_respawn        (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_service	       (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_instance       (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_pid            (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_kill           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_normal         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_console        (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_env            (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_umask          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_nice           (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_limit          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_chroot         (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+static int   cfg_stanza_chdir          (Job *job, NihConfigStanza *stanza,
+					const char *file, size_t len,
+					size_t *pos, size_t *lineno);
+
+static char *cfg_job_name              (const void *parent, const char *prefix,
+					const char *dirname, const char *path)
+	__attribute__ ((warn_unused_result, malloc));
+static void  cfg_create_modify_handler (const char *prefix, NihWatch *watch,
+					const char *path,
+					struct stat *statbuf);
+static void  cfg_delete_handler        (const char *prefix, NihWatch *watch,
+					const char *path);
+static int   cfg_visitor               (const char *prefix,
+					const char *dirname, const char *path,
+					struct stat *statbuf)
+	__attribute__ ((warn_unused_result));
+
+
+/**
+ * stanzas:
+ *
+ * This is the table of known configuration file stanzas and the functions
+ * that handle parsing them.
+ **/
+static NihConfigStanza stanzas[] = {
+	{ "exec",        (NihConfigHandler)cfg_stanza_exec        },
+	{ "script",      (NihConfigHandler)cfg_stanza_script      },
+	{ "pre-start",   (NihConfigHandler)cfg_stanza_pre_start   },
+	{ "post-start",  (NihConfigHandler)cfg_stanza_post_start  },
+	{ "pre-stop",    (NihConfigHandler)cfg_stanza_pre_stop    },
+	{ "post-stop",   (NihConfigHandler)cfg_stanza_post_stop   },
+	{ "start",       (NihConfigHandler)cfg_stanza_start       },
+	{ "stop",        (NihConfigHandler)cfg_stanza_stop        },
+	{ "description", (NihConfigHandler)cfg_stanza_description },
+	{ "author",      (NihConfigHandler)cfg_stanza_author      },
+	{ "version",     (NihConfigHandler)cfg_stanza_version     },
+	{ "emits",       (NihConfigHandler)cfg_stanza_emits       },
+	{ "daemon",      (NihConfigHandler)cfg_stanza_daemon      },
+	{ "respawn",     (NihConfigHandler)cfg_stanza_respawn     },
+	{ "service",     (NihConfigHandler)cfg_stanza_service     },
+	{ "instance",    (NihConfigHandler)cfg_stanza_instance    },
+	{ "pid",         (NihConfigHandler)cfg_stanza_pid         },
+	{ "kill",        (NihConfigHandler)cfg_stanza_kill        },
+	{ "normal",      (NihConfigHandler)cfg_stanza_normal      },
+	{ "console",     (NihConfigHandler)cfg_stanza_console     },
+	{ "env",         (NihConfigHandler)cfg_stanza_env         },
+	{ "umask",       (NihConfigHandler)cfg_stanza_umask       },
+	{ "nice",        (NihConfigHandler)cfg_stanza_nice        },
+	{ "limit",       (NihConfigHandler)cfg_stanza_limit       },
+	{ "chroot",      (NihConfigHandler)cfg_stanza_chroot      },
+	{ "chdir",       (NihConfigHandler)cfg_stanza_chdir       },
+
+	NIH_CONFIG_LAST
+};
+
+
+/**
+ * cfg_parse_exec:
+ * @proc: job process being parsed.
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * This function is used to parse the arguments to a job process's exec
+ * stanza from @file, the command and its arguments are expected to follow
+ * and will be the command run for the job.
+ *
+ * The JobProcess for this to be parsed into should have already been
+ * allocated.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_parse_exec (JobProcess      *proc,
+		NihConfigStanza *stanza,
+		const char      *file,
+		size_t           len,
+		size_t          *pos,
+		size_t          *lineno)
+{
+	nih_assert (proc != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (! nih_config_has_token (file, len, pos, lineno))
+		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
+	proc->script = FALSE;
+	proc->command = nih_config_parse_command (proc, file, len,
+						  pos, lineno);
+
+	if (! proc->command)
+		return -1;
+
+	return 0;
+}
+
+/**
+ * cfg_parse_script:
+ * @proc: job process being parsed.
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * This function is used to parse a script block for a job process's script
+ * stanza from @file.  A block terminated with "end script" is expected to
+ * follow, and will be stored in the command for the job.
+ *
+ * The JobProcess for this to be parsed into should have already been
+ * allocated.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_parse_script (JobProcess      *proc,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	nih_assert (proc != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (nih_config_skip_comment (file, len, pos, lineno) < 0)
+		return -1;
+
+	proc->script = TRUE;
+	proc->command = nih_config_parse_block (proc, file, len,
+						pos, lineno, "script");
+
+	if (! proc->command)
+		return -1;
+
+	return 0;
+}
+
+/**
+ * cfg_parse_process:
+ * @job: job being parsed,
+ * @process: which process is being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * This function is used to allocate a JobProcess for @process within @job,
+ * and expects either "exec" or "script" to follow, calling cfg_parse_exec()
+ * or cfg_parse_script() appropriately.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_parse_process (Job             *job,
+		   ProcessType      process,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->process[process])
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	NIH_MUST (job->process[process] = job_process_new (job->process));
+
+	if (! strcmp (arg, "exec")) {
+		nih_free (arg);
+
+		return cfg_parse_exec (job->process[process], stanza,
+				       file, len, pos, lineno);
+	} else if (! strcmp (arg, "script")) {
+		nih_free (arg);
+
+		return cfg_parse_script (job->process[process], stanza,
+					 file, len, pos, lineno);
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+
+/**
+ * cfg_stanza_exec:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an exec stanza from @file by allocating the main job process and
+ * calling cfg_parse_exec() to parse it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_exec (Job             *job,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->process[PROCESS_MAIN])
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	NIH_MUST (job->process[PROCESS_MAIN] = job_process_new (job->process));
+
+	return cfg_parse_exec (job->process[PROCESS_MAIN], stanza,
+			       file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_script:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a script stanza from @file by allocating the main job process and
+ * calling cfg_parse_script() to parse it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_script (Job             *job,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->process[PROCESS_MAIN])
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	NIH_MUST (job->process[PROCESS_MAIN] = job_process_new (job->process));
+
+	return cfg_parse_script (job->process[PROCESS_MAIN], stanza,
+				 file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_pre_start:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a pre-start stanza from @file by calling cfg_parse_process()
+ * with PROCESS_PRE_START to parse it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_pre_start (Job             *job,
+		      NihConfigStanza *stanza,
+		      const char      *file,
+		      size_t           len,
+		      size_t          *pos,
+		      size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	return cfg_parse_process (job, PROCESS_PRE_START, stanza,
+				  file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_post_start:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a post-start stanza from @file by calling cfg_parse_process()
+ * with PROCESS_POST_START to parse it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_post_start (Job             *job,
+		       NihConfigStanza *stanza,
+		       const char      *file,
+		       size_t           len,
+		       size_t          *pos,
+		       size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	return cfg_parse_process (job, PROCESS_POST_START, stanza,
+				  file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_pre_stop:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a pre-stop stanza from @file by calling cfg_parse_process()
+ * with PROCESS_PRE_STOP to parse it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_pre_stop (Job             *job,
+		     NihConfigStanza *stanza,
+		     const char      *file,
+		     size_t           len,
+		     size_t          *pos,
+		     size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	return cfg_parse_process (job, PROCESS_PRE_STOP, stanza,
+				  file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_post_stop:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a post-stop stanza from @file by calling cfg_parse_process()
+ * with PROCESS_POST_STOP to parse it.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_post_stop (Job             *job,
+		      NihConfigStanza *stanza,
+		      const char      *file,
+		      size_t           len,
+		      size_t          *pos,
+		      size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	return cfg_parse_process (job, PROCESS_POST_STOP, stanza,
+				  file, len, pos, lineno);
+}
+
+
+/**
+ * cfg_stanza_start:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a start stanza from @file.  This stanza expects a second "on"
+ * argument, followed by an event which is allocated as an Event structure
+ * and stored in the start events list of the job.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_start (Job             *job,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "on")) {
+		Event *event;
+		char  *name;
+
+		nih_free (arg);
+
+		name = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! name)
+			return -1;
+
+		NIH_MUST (event = event_new (job, name));
+		nih_free (name);
+
+		event->args = nih_config_parse_args (event, file, len,
+						     pos, lineno);
+		if (! event->args) {
+			nih_free (event);
+			return -1;
+		}
+
+		nih_list_add (&job->start_events, &event->entry);
+
+		return 0;
+
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+/**
+ * cfg_stanza_stop:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a stop stanza from @file.  This stanza expects a second "on"
+ * argument, followed by an event which is allocated as an Event structure
+ * and stored in the stop events list of the job.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_stop (Job             *job,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "on")) {
+		Event *event;
+		char  *name;
+
+		nih_free (arg);
+
+		name = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! name)
+			return -1;
+
+		NIH_MUST (event = event_new (job, name));
+		nih_free (name);
+
+		event->args = nih_config_parse_args (event, file, len,
+						     pos, lineno);
+		if (! event->args) {
+			nih_free (event);
+			return -1;
+		}
+
+		nih_list_add (&job->stop_events, &event->entry);
+
+		return 0;
+
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+
+/**
+ * cfg_stanza_description:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a description stanza from @file.  This stanza expects a single
+ * argument giving a human-readable description of the job which is
+ * stored for later use.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_description (Job             *job,
+			NihConfigStanza *stanza,
+			const char      *file,
+			size_t           len,
+			size_t          *pos,
+			size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->description)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->description = nih_config_next_arg (job, file, len, pos, lineno);
+	if (! job->description)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_author:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an author stanza from @file.  This stanza expects a single
+ * argument giving a human-readable author name for the job which is
+ * stored for later use.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_author (Job             *job,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->author)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->author = nih_config_next_arg (job, file, len, pos, lineno);
+	if (! job->author)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_version:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a version stanza from @file.  This stanza expects a single
+ * argument giving a human-readable version number for the job which is
+ * stored for later use.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_version (Job             *job,
+		    NihConfigStanza *stanza,
+		    const char      *file,
+		    size_t           len,
+		    size_t          *pos,
+		    size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->version)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->version = nih_config_next_arg (job, file, len, pos, lineno);
+	if (! job->version)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_emits:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an emits stanza from @file.  This stanza expects one or more
+ * arguments giving the names of additional events that can be emitted
+ * by this job.
+ *
+ * Arguments are allocated as Event structures and stored in the emits
+ * list of the job.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_emits (Job             *job,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	char **args, **arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (! nih_config_has_token (file, len, pos, lineno))
+		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
+	args = nih_config_parse_args (NULL, file, len, pos, lineno);
+	if (! args)
+		return -1;
+
+	for (arg = args; *arg; arg++) {
+		Event *event;
+
+		NIH_MUST (event = event_new (job, *arg));
+		nih_list_add (&job->emits, &event->entry);
+	}
+
+	nih_free (args);
+
+	return 0;
+}
+
+/**
+ * cfg_stanza_daemon:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a daemon stanza from @file.  This sets the daemon flag for the
+ * job and has no arguments.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_daemon (Job             *job,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->daemon)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->daemon = TRUE;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_respawn:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a daemon stanza from @file.  This either has no arguments, in
+ * which case it sets the respawn and service flags for the job, or it has
+ * the "limit" argument and sets the respawn rate limit.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_respawn (Job             *job,
+		    NihConfigStanza *stanza,
+		    const char      *file,
+		    size_t           len,
+		    size_t          *pos,
+		    size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	/* Deal with the no-argument form first */
+	if (! nih_config_has_token (file, len, pos, lineno)) {
+		if (job->respawn)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
+		job->respawn = TRUE;
+		job->service = TRUE;
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+	}
+
+
+	/* Take the next argument, a sub-stanza keyword. */
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "limit")) {
+		char *endptr;
+
+		nih_free (arg);
+
+		if ((job->respawn_limit != JOB_DEFAULT_RESPAWN_LIMIT)
+		    || (job->respawn_interval != JOB_DEFAULT_RESPAWN_INTERVAL))
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
+		/* Parse the limit value */
+		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! arg)
+			return -1;
+
+		job->respawn_limit = strtol (arg, &endptr, 10);
+		if (*endptr || (job->respawn_limit < 0)) {
+			nih_free (arg);
+
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+		nih_free (arg);
+
+		/* Parse the timeout value */
+		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! arg)
+			return -1;
+
+		job->respawn_interval = strtol (arg, &endptr, 10);
+		if (*endptr || (job->respawn_interval < 0)) {
+			nih_free (arg);
+
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+		nih_free (arg);
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+/**
+ * cfg_stanza_service:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a service stanza from @file.  This sets the service flag for the
+ * job, and takes no further arguments.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_service (Job             *job,
+		    NihConfigStanza *stanza,
+		    const char      *file,
+		    size_t           len,
+		    size_t          *pos,
+		    size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->service && (! job->respawn))
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->service = TRUE;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_instance:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an instance stanza from @file, this expects no arguments and
+ * simply sets the instance flag in the job.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_instance (Job             *job,
+		     NihConfigStanza *stanza,
+		     const char      *file,
+		     size_t           len,
+		     size_t          *pos,
+		     size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->instance)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->instance = TRUE;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_pid:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a pid stanza from @file.  This stanza expects an second-level
+ * stanza argument indicating which job parameter to set, followed by
+ * an argument that sets that.  All are related to discovering the pid
+ * of a forked daemon.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_pid (Job             *job,
+		NihConfigStanza *stanza,
+		const char      *file,
+		size_t           len,
+		size_t          *pos,
+		size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "file")) {
+		nih_free (arg);
+
+		if (job->pid_file)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
+		job->pid_file = nih_config_next_arg (job, file, len,
+						     pos, lineno);
+		if (! job->pid_file)
+			return -1;
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+
+	} else if (! strcmp (arg, "binary")) {
+		nih_free (arg);
+
+		if (job->pid_binary)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
+		job->pid_binary = nih_config_next_arg (job, file, len,
+						       pos, lineno);
+		if (! job->pid_binary)
+			return -1;
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+
+	} else if (! strcmp (arg, "timeout")) {
+		char *endptr;
+
+		nih_free (arg);
+
+		if (job->pid_timeout != JOB_DEFAULT_PID_TIMEOUT)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
+		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! arg)
+			return -1;
+
+		job->pid_timeout = strtol (arg, &endptr, 10);
+		if (*endptr || (job->pid_timeout < 0)) {
+			nih_free (arg);
+
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+		nih_free (arg);
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+/**
+ * cfg_stanza_kill:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a kill stanza from @file, extracting a second-level stanza that
+ * states which value to set from its argument.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_kill (Job             *job,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "timeout")) {
+		char *endptr;
+
+		nih_free (arg);
+
+		if (job->kill_timeout != JOB_DEFAULT_KILL_TIMEOUT)
+			nih_return_error (-1, CFG_DUPLICATE_VALUE,
+					  _(CFG_DUPLICATE_VALUE_STR));
+
+		arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+		if (! arg)
+			return -1;
+
+		job->kill_timeout = strtol (arg, &endptr, 10);
+		if (*endptr || (job->kill_timeout < 0)) {
+			nih_free (arg);
+
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+		nih_free (arg);
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+/**
+ * cfg_stanza_normal:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a normal stanza from @file.  This stanza expects a single "exit"
+ * argument, followed by one or more arguments giving signal names or
+ * exit codes that the main process can return and be considered to have been
+ * stopped normally.
+ *
+ * Arguments are stored in the normalexit array, and the normalexit_len
+ * value updated.  Signals are stored in the higher bytes.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_normal (Job             *job,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_token (NULL, file, len, pos, lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "exit")) {
+		nih_free (arg);
+
+		do {
+			unsigned long  status;
+			char          *endptr;
+			int           *new_ne, signum;
+
+			arg = nih_config_next_arg (NULL, file, len,
+						   pos, lineno);
+			if (! arg)
+				return -1;
+
+			signum = nih_signal_from_name (arg);
+			if (signum < 0) {
+				status = strtoul (arg, &endptr, 10);
+				if (*endptr || (status > INT_MAX)) {
+					nih_free (arg);
+					nih_return_error (-1,CFG_ILLEGAL_VALUE,
+							  _(CFG_ILLEGAL_VALUE_STR));
+				}
+			} else {
+				status = signum << 8;
+			}
+
+			nih_free (arg);
+
+			NIH_MUST (new_ne = nih_realloc (job->normalexit, job,
+							sizeof (int) *
+							(job->normalexit_len + 1)));
+
+			job->normalexit = new_ne;
+			job->normalexit[job->normalexit_len++] = (int) status;
+		} while (nih_config_has_token (file, len, pos, lineno));
+
+		return nih_config_skip_comment (file, len, pos, lineno);
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+}
+
+/**
+ * cfg_stanza_console:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a console stanza from @file, extracting a single argument that
+ * specifies where console output should be sent.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_console (Job             *job,
+		    NihConfigStanza *stanza,
+		    const char      *file,
+		    size_t           len,
+		    size_t          *pos,
+		    size_t          *lineno)
+{
+	char *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg)
+		return -1;
+
+	/*
+	if (job->console != CONSOLE_LOGGED) {
+		nih_free (arg);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+	}
+	*/
+
+	if (! strcmp (arg, "logged")) {
+		job->console = CONSOLE_LOGGED;
+	} else if (! strcmp (arg, "output")) {
+		job->console = CONSOLE_OUTPUT;
+	} else if (! strcmp (arg, "owner")) {
+		job->console = CONSOLE_OWNER;
+	} else if (! strcmp (arg, "none")) {
+		job->console = CONSOLE_NONE;
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+
+	nih_free (arg);
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_env:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an env stanza from @file, extracting a single argument of the form
+ * VAR=VALUE.  These are stored in the env array, which is increased in
+ * size to accomodate the new value.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_env (Job             *job,
+		NihConfigStanza *stanza,
+		const char      *file,
+		size_t           len,
+		size_t          *pos,
+		size_t          *lineno)
+{
+	char  *env;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	env = nih_config_next_arg (job->env, file, len, pos, lineno);
+	if (! env)
+		return -1;
+
+	NIH_MUST (nih_str_array_addp (&job->env, job, NULL, env));
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_umask:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a umask stanza from @file, extracting a single argument containing
+ * a process file creation mask.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_umask (Job             *job,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	char          *arg, *endptr;
+	unsigned long  mask;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg)
+		return -1;
+
+	if (job->umask != JOB_DEFAULT_UMASK) {
+		nih_free (arg);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+	}
+
+	mask = strtoul (arg, &endptr, 8);
+	if (*endptr || (mask & ~0777)) {
+		nih_free (arg);
+
+		nih_return_error (-1, CFG_ILLEGAL_VALUE,
+				  _(CFG_ILLEGAL_VALUE_STR));
+	}
+	nih_free (arg);
+
+	job->umask = (mode_t)mask;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_nice:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a nice stanza from @file, extracting a single argument containing
+ * a process priority.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_nice (Job             *job,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	char *arg, *endptr;
+	long  nice;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg)
+		return -1;
+
+	if (job->nice) {
+		nih_free (arg);
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+	}
+
+	nice = strtol (arg, &endptr, 10);
+	if (*endptr || (nice < -20) || (nice > 19)) {
+		nih_free (arg);
+
+		nih_return_error (-1, CFG_ILLEGAL_VALUE,
+				  _(CFG_ILLEGAL_VALUE_STR));
+	}
+	nih_free (arg);
+
+	job->nice = (int)nice;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_limit:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a limit stanza from @file, extracting a second-level stanza that
+ * states which limit to set from its two following arguments.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_limit (Job             *job,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	int   resource;
+	char *arg, *endptr;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg)
+		return -1;
+
+	if (! strcmp (arg, "as")) {
+		resource = RLIMIT_AS;
+	} else if (! strcmp (arg, "core")) {
+		resource = RLIMIT_CORE;
+	} else if (! strcmp (arg, "cpu")) {
+		resource = RLIMIT_CPU;
+	} else if (! strcmp (arg, "data")) {
+		resource = RLIMIT_DATA;
+	} else if (! strcmp (arg, "fsize")) {
+		resource = RLIMIT_FSIZE;
+	} else if (! strcmp (arg, "memlock")) {
+		resource = RLIMIT_MEMLOCK;
+	} else if (! strcmp (arg, "msgqueue")) {
+		resource = RLIMIT_MSGQUEUE;
+	} else if (! strcmp (arg, "nice")) {
+		resource = RLIMIT_NICE;
+	} else if (! strcmp (arg, "nofile")) {
+		resource = RLIMIT_NOFILE;
+	} else if (! strcmp (arg, "nproc")) {
+		resource = RLIMIT_NPROC;
+	} else if (! strcmp (arg, "rss")) {
+		resource = RLIMIT_RSS;
+	} else if (! strcmp (arg, "rtprio")) {
+		resource = RLIMIT_RTPRIO;
+	} else if (! strcmp (arg, "sigpending")) {
+		resource = RLIMIT_SIGPENDING;
+	} else if (! strcmp (arg, "stack")) {
+		resource = RLIMIT_STACK;
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+
+	nih_free (arg);
+
+
+	if (job->limits[resource])
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	NIH_MUST (job->limits[resource] = nih_new (job, struct rlimit));
+
+
+	/* Parse the soft limit value */
+	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg)
+		return -1;
+
+	if (strcmp (arg, "unlimited")) {
+		job->limits[resource]->rlim_cur = strtoul (arg, &endptr, 10);
+		if (*endptr) {
+			nih_free (arg);
+
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+	} else {
+		job->limits[resource]->rlim_cur = RLIM_INFINITY;
+	}
+	nih_free (arg);
+
+	/* Parse the hard limit value */
+	arg = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg)
+		return -1;
+
+	if (strcmp (arg, "unlimited")) {
+		job->limits[resource]->rlim_max = strtoul (arg, &endptr, 10);
+		if (*endptr) {
+			nih_free (arg);
+
+			nih_return_error (-1, CFG_ILLEGAL_VALUE,
+					  _(CFG_ILLEGAL_VALUE_STR));
+		}
+	} else {
+		job->limits[resource]->rlim_max = RLIM_INFINITY;
+	}
+	nih_free (arg);
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_chroot:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a chroot stanza from @file, extracting a single argument
+ * containing a directory name.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_chroot (Job             *job,
+		   NihConfigStanza *stanza,
+		   const char      *file,
+		   size_t           len,
+		   size_t          *pos,
+		   size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->chroot)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->chroot = nih_config_next_arg (job, file, len, pos, lineno);
+	if (! job->chroot)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * cfg_stanza_chdir:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a chdir stanza from @file, extracting a single argument
+ * containing a directory name.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+cfg_stanza_chdir (Job             *job,
+		  NihConfigStanza *stanza,
+		  const char      *file,
+		  size_t           len,
+		  size_t          *pos,
+		  size_t          *lineno)
+{
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (job->chdir)
+		nih_return_error (-1, CFG_DUPLICATE_VALUE,
+				  _(CFG_DUPLICATE_VALUE_STR));
+
+	job->chdir = nih_config_next_arg (job, file, len, pos, lineno);
+	if (! job->chdir)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
 
 
 /**
@@ -120,16 +1721,21 @@ static void    cfg_watcher       (WatchInfo *info, NihFileWatch *watch,
  * Reads the @filename given and uses the information within to construct
  * a new job structure named @name which is returned.
  *
- * Returns: newly allocated job structure, or %NULL if the file was invalid.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated job structure, or NULL if the file was invalid.
  **/
 Job *
-cfg_read_job (void       *parent,
+cfg_read_job (const void *parent,
 	      const char *filename,
 	      const char *name)
 {
-	Job        *job, *old_job;
-	const char *file;
-	ssize_t     len, pos, lineno;
+	Job    *job, *old_job;
+	size_t  lineno;
 
 	nih_assert (filename != NULL);
 	nih_assert (name != NULL);
@@ -137,48 +1743,41 @@ cfg_read_job (void       *parent,
 	/* Look for an old job with that name */
 	old_job = job_find_by_name (name);
 
-	/* Map the file into memory */
-	file = nih_file_map (filename, O_RDONLY | O_NOCTTY, (size_t *)&len);
-	if (! file) {
+	/* Allocate a new structure */
+	NIH_MUST (job = job_new (parent, name));
+	nih_debug ("Loading %s from %s", job->name, filename);
+
+	/* Parse the file, if we can't parse the new file, we just return now
+	 * without ditching the old job if there is one.
+	 */
+	lineno = 1;
+	if (nih_config_parse (filename, NULL, &lineno, stanzas, job) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error (_("%s: unable to read: %s"), filename,
-			   err->message);
+		switch (err->number) {
+		case NIH_CONFIG_EXPECTED_TOKEN:
+		case NIH_CONFIG_UNEXPECTED_TOKEN:
+		case NIH_CONFIG_TRAILING_SLASH:
+		case NIH_CONFIG_UNTERMINATED_QUOTE:
+		case NIH_CONFIG_UNTERMINATED_BLOCK:
+		case NIH_CONFIG_UNKNOWN_STANZA:
+		case CFG_ILLEGAL_VALUE:
+		case CFG_DUPLICATE_VALUE:
+			nih_error ("%s:%zi: %s",
+				   filename, lineno, err->message);
+			break;
+		default:
+			nih_error ("%s: %s: %s", filename, _("unable to read"),
+				   err->message);
+			break;
+		}
+
+		nih_list_free (&job->entry);
 		nih_free (err);
 
 		return NULL;
 	}
-
-	/* Allocate the job */
-	NIH_MUST (job = job_new (parent, name));
-	nih_debug ("Loading %s from %s", job->name, filename);
-
-	/* Parse the file */
-	pos = 0;
-	lineno = 0;
-	while (pos < len) {
-		/* Skip initial whitespace */
-		while ((pos < len) && strchr (WS, file[pos]))
-			pos++;
-
-		/* Ignore lines that are just comments */
-		if ((pos < len) && (file[pos] == '#'))
-			while ((pos < len) && (file[pos] != '\n'))
-				pos++;
-
-		/* Ignore blank lines */
-		if ((pos < len) && (file[pos] == '\n')) {
-			lineno++;
-			pos++;
-			continue;
-		}
-
-		cfg_job_stanza (job, filename, &lineno, file, len, &pos);
-	}
-
-	/* Finished with the file */
-	nih_file_unmap ((void *) file, len);
 
 
 	/* Now we sanity check the job, checking for things that will
@@ -186,1498 +1785,265 @@ cfg_read_job (void       *parent,
 	 * warnings
 	 */
 
-	/* Must have one command or script */
-	if ((job->script == NULL) && (job->command == NULL)) {
-		nih_error (_("%s: 'exec' or 'script' must be specified"),
-			   filename);
-		nih_list_free (&job->entry);
-		return NULL;
-	}
-
-	/* Must not have both command and script */
-	if ((job->script != NULL) && (job->command != NULL)) {
-		nih_error (_("%s: only one of 'exec' and 'script' may be specified"),
-			   filename);
-		nih_list_free (&job->entry);
-		return NULL;
-	}
-
-	/* respawn script makes no sense unless respawn */
-	if (job->respawn_script && (! job->respawn)) {
-		nih_warn (_("%s: 'respawn script' ignored unless 'respawn' specified"),
+	/* pid file makes no sense unless daemon */
+	if (job->pid_file && (! job->daemon)) {
+		nih_warn (_("%s: 'pid file' ignored unless 'daemon' specified"),
 			  filename);
 	}
 
-	/* pid file makes no sense unless respawn */
-	if (job->pidfile && (! job->respawn)) {
-		nih_warn (_("%s: 'pid file' ignored unless 'respawn' specified"),
-			  filename);
-	}
-
-	/* pid binary makes no sense unless respawn */
-	if (job->binary && (! job->respawn)) {
-		nih_warn (_("%s: 'pid binary' ignored unless 'respawn' specified"),
+	/* pid binary makes no sense unless daemon */
+	if (job->pid_binary && (! job->daemon)) {
+		nih_warn (_("%s: 'pid binary' ignored unless 'daemon' specified"),
 			  filename);
 	}
 
 
 	/* Deal with the case where we're reloading an existing	job; we
-	 * copy information out of the old structure and free that
+	 * mark the existing job as deleted, rather than copying in old data,
+	 * since we don't want to mis-match scripts or configuration.
 	 */
 	if (old_job) {
-		time_t now;
+		nih_info (_("Replacing existing %s job"), job->name);
 
-		nih_debug ("Replacing existing %s job", job->name);
+		if ((old_job->replacement != NULL)
+		    && (old_job->replacement != (void *)-1)) {
+			nih_debug ("Discarding previous replacement");
+			nih_list_free (&old_job->replacement->entry);
+		}
 
-		job->goal = old_job->goal;
-		job->state = old_job->state;
-		job->process_state = old_job->process_state;
-		job->pid = old_job->pid;
+		old_job->replacement = job;
+		job->replacement_for = old_job;
 
-		now = time (NULL);
-
-		if (old_job->kill_timer)
-			NIH_MUST (job->kill_timer = nih_timer_add_timeout (
-					  job, old_job->kill_timer->due - now,
-					  old_job->kill_timer->callback, job));
-
-		if (old_job->pid_timer)
-			NIH_MUST (job->pid_timer = nih_timer_add_timeout (
-					  job, old_job->pid_timer->due - now,
-					  old_job->pid_timer->callback, job));
-
-		nih_list_free (&old_job->entry);
+		if (job_should_replace (old_job))
+			job_change_state (old_job, job_next_state (old_job));
 	}
 
 	return job;
 }
 
-/**
- * cfg_job_stanza:
- * @job: job to fill in,
- * @filename: name of file being parsed,
- * @lineno: current line number,
- * @file: memory mapped copy of file, or string buffer,
- * @len: length of @file,
- * @pos: position to read from.
- *
- * Parses a job stanza at the current location of @file, @pos should point
- * to the start of the first token that contains the stanza name.
- *
- * @filename and @lineno are used to report warnings, and @lineno is
- * incremented each time a new line is discovered in the file.
- *
- * @pos is updated to point to the next line in the configuration or will be
- * past the end of the file.
- **/
-static void
-cfg_job_stanza (Job        *job,
-		const char *filename,
-		ssize_t    *lineno,
-		const char *file,
-		ssize_t     len,
-		ssize_t    *pos)
-{
-	ssize_t   tok_start, tok_end, tok_len, args_start;
-	char    **args, **arg;
-
-	nih_assert (job != NULL);
-	nih_assert (filename != NULL);
-	nih_assert (lineno != NULL);
-	nih_assert (file != NULL);
-	nih_assert (len > 0);
-	nih_assert (pos != NULL);
-
-	/* Find the end of the first simple token */
-	tok_start = *pos;
-	while ((*pos < len) && (! strchr (CNLWS, file[*pos])))
-		(*pos)++;
-	tok_end = *pos;
-	tok_len = tok_end - tok_start;
-
-	/* Skip further whitespace */
-	while ((*pos < len) && strchr (WS, file[*pos]))
-		(*pos)++;
-
-	/* Parse arguments */
-	args_start = *pos;
-	arg = args = cfg_parse_args (job, filename, lineno, file, len, pos);
-
-	if (! strncmp (file + tok_start, "description", tok_len)) {
-		/* description WS <job description>
-		 *
-		 * describes the job, used for start/stop messages, etc.
-		 */
-		if (*arg) {
-			if (job->description)
-				nih_free (job->description);
-
-			NIH_MUST (job->description = nih_strdup (job, *arg));
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected job description"));
-		}
-
-	} else if (! strncmp (file + tok_start, "author", tok_len)) {
-		/* author WS <author name>
-		 *
-		 * allows the author to be mentioned, maybe useful for
-		 * about boxes and the like
-		 */
-		if (*arg) {
-			if (job->author)
-				nih_free (job->author);
-
-			NIH_MUST (job->author = nih_strdup (job, *arg));
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected author name"));
-		}
-
-	} else if (! strncmp (file + tok_start, "version", tok_len)) {
-		/* version WS <version string>
-		 *
-		 * gives the version of the job, again only really useful
-		 * for sysadmins
-		 */
-		if (*arg) {
-			if (job->version)
-				nih_free (job->version);
-
-			NIH_MUST (job->version = nih_strdup (job, *arg));
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected version string"));
-		}
-
-	} else if (! strncmp (file + tok_start, "depends", tok_len)) {
-		/* depends WS <job name>...
-		 *
-		 * names a job that must be running before this one will
-		 * start
-		 */
-		if (! *arg) {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected job name"));
-		}
-
-		for (arg = args; *arg; arg++) {
-			JobName *dep;
-
-			NIH_MUST (dep = nih_new (job, JobName));
-			NIH_MUST (dep->name = nih_strdup (job, *arg));
-			nih_list_init (&dep->entry);
-			nih_list_add (&job->depends, &dep->entry);
-		}
-
-	} else if (! strncmp (file + tok_start, "on", tok_len)) {
-		/* on WS <event>
-		 *
-		 * names an event that will cause the job to be started.
-		 */
-		if (*arg) {
-			Event *event;
-
-			NIH_MUST (event = event_new (job, *arg));
-			nih_list_add (&job->start_events, &event->entry);
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected event name"));
-		}
-
-	} else if (! strncmp (file + tok_start, "start", tok_len)) {
-		/* start WS on FWS <event>
-		 * start WS script ... end WS script
-		 *
-		 * names an event that will cause the job to be started.
-		 *
-		 * second form declares a script that will be run while
-		 * the job is starting.
-		 */
-		if (*arg && (! strcmp (*arg, "on"))) {
-			if (*++arg) {
-				Event *event;
-
-				NIH_MUST (event = event_new (job, *arg));
-				nih_list_add (&job->start_events,
-					      &event->entry);
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected event name"));
-			}
-
-		} else if (*arg && (! strcmp (*arg, "script"))) {
-			if (job->start_script)
-				nih_free (job->start_script);
-
-			if (*++arg) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("ignored additional arguments"));
-			}
-
-			job->start_script = cfg_parse_script (
-				job, filename, lineno, file, len, pos);
-
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected 'on' or 'script'"));
-		}
-
-	} else if (! strncmp (file + tok_start, "stop", tok_len)) {
-		/* stop WS on FWS <event>
-		 * stop WS script ... end WS script
-		 *
-		 * names an event that will cause the job to be stopped.
-		 *
-		 * second form declares a script that will be run while
-		 * the job is stopping.
-		 */
-		if (*arg && (! strcmp (*arg, "on"))) {
-			if (*++arg) {
-				Event *event;
-
-				NIH_MUST (event = event_new (job, *arg));
-				nih_list_add (&job->stop_events,
-					      &event->entry);
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected event name"));
-			}
-
-		} else if (*arg && (! strcmp (*arg, "script"))) {
-			if (job->stop_script)
-				nih_free (job->stop_script);
-
-			if (*++arg) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("ignored additional arguments"));
-			}
-
-			job->stop_script = cfg_parse_script (
-				job, filename, lineno, file, len, pos);
-
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected 'on' or 'script'"));
-		}
-
-	} else if (! strncmp (file + tok_start, "exec", tok_len)) {
-		/* exec WS <command>
-		 *
-		 * gives the command and its arguments that will be
-		 * executed
-		 */
-		char *cmd;
-
-		arg = NULL;
-		*pos = args_start;
-
-		cmd = cfg_parse_command (job, NULL, NULL, file, len, pos);
-		if (cmd) {
-			if (job->command)
-				nih_free (job->command);
-
-			job->command = cmd;
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected command"));
-		}
-
-	} else if (! strncmp (file + tok_start, "daemon", tok_len)) {
-		/* daemon (WS <command>)?
-		 *
-		 * indicates that the process forks into the background
-		 * so we need to grovel for its process id
-		 *
-		 * optionally may give the command and its arguments that
-		 * will be executed
-		 */
-		char *cmd;
-
-		arg = NULL;
-		*pos = args_start;
-
-		job->daemon = TRUE;
-
-		cmd = cfg_parse_command (job, NULL, NULL, file, len, pos);
-		if (cmd) {
-			if (job->command)
-				nih_free (job->command);
-
-			job->command = cmd;
-		}
-
-	} else if (! strncmp (file + tok_start, "respawn", tok_len)) {
-		/* respawn (WS <command>)?
-		 * respawn WS limit FWS limit FWS interval
-		 * respawn WS script ... end WS script
-		 *
-		 * indicates that the job should be respawned if it
-		 * should terminate.
-		 *
-		 * optionally may give the command and its arguments that
-		 * will be executed
-		 *
-		 * second form declares the maximum number of times in
-		 * interval that the job may be respawned
-		 *
-		 * third form declares a script that will be run while
-		 * the job is respawning.
-		 */
-		char *cmd;
-
-		if (*arg && (! strcmp (*arg, "script"))) {
-			if (job->respawn_script)
-				nih_free (job->respawn_script);
-
-			if (*++arg) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("ignored additional arguments"));
-			}
-
-			job->respawn_script = cfg_parse_script (
-				job, filename, lineno, file, len, pos);
-		} else if (*args && (! strcmp (*arg, "limit"))) {
-			char   *endptr;
-			int     limit;
-			time_t  interval;
-
-			/* Parse the limit value */
-			if (arg && *++arg) {
-				limit = strtol (*arg, &endptr, 10);
-				if (*endptr || (limit < 0)) {
-					arg = NULL;
-					nih_warn ("%s:%zi: %s",
-						  filename, *lineno,
-						  _("illegal value"));
-				}
-			} else if (arg) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected limit"));
-			}
-
-			/* Parse the interval */
-			if (arg && *++arg) {
-				interval = strtol (*arg, &endptr, 10);
-				if (*endptr || (interval < 0)) {
-					arg = NULL;
-					nih_warn ("%s:%zi: %s",
-						  filename, *lineno,
-						  _("illegal value"));
-				}
-			} else if (arg) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected interval"));
-			}
-
-			/* If we got both values, assign them */
-			if (arg) {
-				job->respawn_limit = limit;
-				job->respawn_interval = interval;
-			}
-		} else {
-			job->respawn = TRUE;
-
-			arg = NULL;
-			*pos = args_start;
-
-			cmd = cfg_parse_command (job, NULL, NULL,
-						 file, len, pos);
-
-			if (cmd) {
-				if (job->command)
-					nih_free (job->command);
-
-				job->command = cmd;
-			}
-		}
-
-	} else if (! strncmp (file + tok_start, "script", tok_len)) {
-		/* script ... end WS script
-		 *
-		 * declares the script that will be executed
-		 */
-		if (job->script)
-			nih_free (job->script);
-
-		if (*arg) {
-			arg = NULL;
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("ignored additional arguments"));
-		}
-
-		job->script = cfg_parse_script (job, filename, lineno,
-						file, len, pos);
-
-	} else if (! strncmp (file + tok_start, "instance", tok_len)) {
-		/* instance
-		 *
-		 * declares that multiple instances of the job may be
-		 * running at one time, starting spawns a new one
-		 */
-		job->spawns_instance = TRUE;
-
-		if (*arg)
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("ignored additional arguments"));
-
-	} else if (! strncmp (file + tok_start, "pid", tok_len)) {
-		/* pid WS file FWS <filename>
-		 * pid WS binary FWS <filename>
-		 * pid WS timeout FWS <timeout>
-		 *
-		 * the first form specifies the filename that init
-		 * should look for after the process has been spawned
-		 * to obtain the pid
-		 *
-		 * the second form specifies the filename of a binary
-		 * to find in /proc
-		 *
-		 * the third form specifies the timeout after spawning
-		 * the process before giving up and assuming it didn't
-		 * start
-		 */
-		if (*arg && (! strcmp (*arg, "file"))) {
-			if (*++arg) {
-				if (job->pidfile)
-					nih_free (job->pidfile);
-
-				NIH_MUST (job->pidfile
-					  = nih_strdup (job, *arg));
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected pid filename"));
-			}
-		} else if (*arg && (! strcmp (*arg, "binary"))) {
-			if (*++arg) {
-				if (job->binary)
-					nih_free (job->binary);
-
-				NIH_MUST (job->binary
-					  = nih_strdup (job, *arg));
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected binary filename"));
-			}
-		} else if (*arg && (! strcmp (*arg, "timeout"))) {
-			if (*++arg) {
-				char   *endptr;
-				time_t  timeout;
-
-				timeout = strtol (*arg, &endptr, 10);
-				if (*endptr || (timeout < 0)) {
-					nih_warn ("%s:%zi: %s",
-						  filename, *lineno,
-						  _("illegal value"));
-				} else {
-					job->pid_timeout = timeout;
-				}
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected timeout"));
-			}
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected 'file', 'binary' or "
-				    "'timeout'"));
-		}
-
-	} else if (! strncmp (file + tok_start, "kill", tok_len)) {
-		/* kill WS timeout FWS <seconds>
-		 *
-		 * specifies the maximum amount of time that init should
-		 * wait for a process to die after sending SIGTERM,
-		 * before sending SIGKILL
-		 */
-		if (*arg && (! strcmp (*arg, "timeout"))) {
-			if (*++arg) {
-				char   *endptr;
-				time_t  timeout;
-
-				timeout = strtol (*arg, &endptr, 10);
-				if (*endptr || (timeout < 0)) {
-					nih_warn ("%s:%zi: %s",
-						  filename, *lineno,
-						  _("illegal value"));
-				} else {
-					job->kill_timeout = timeout;
-				}
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected timeout"));
-			}
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected 'timeout'"));
-		}
-
-	} else if (! strncmp (file + tok_start, "normalexit", tok_len)) {
-		/* normalexit FWS <status>...
-		 *
-		 * specifies the exit statuses that should not cause the
-		 * process to be respawned
-		 */
-		if (! *arg) {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected exit status"));
-		}
-
-		for (arg = args; *arg; arg++) {
-			unsigned long  status;
-			char          *endptr;
-
-			status = strtoul (*arg, &endptr, 10);
-			if (*endptr || (status > INT_MAX)) {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("illegal value"));
-			} else {
-				int *new_ne;
-
-				NIH_MUST (new_ne = nih_realloc (
-						  job->normalexit, job,
-						  sizeof (int) *
-						  (job->normalexit_len + 1)));
-
-				job->normalexit = new_ne;
-				job->normalexit[job->normalexit_len++]
-					= (int) status;
-			}
-		}
-
-	} else if (! strncmp (file + tok_start, "console", tok_len)) {
-		/* console WS logged
-		 * console WS output
-		 * console WS owner
-		 * console WS none
-		 *
-		 * selects how the process's console will be set
-		 */
-		if (*arg) {
-			if (! strcmp (*arg, "logged")) {
-				job->console = CONSOLE_LOGGED;
-			} else if (! strcmp (*arg, "output")) {
-				job->console = CONSOLE_OUTPUT;
-			} else if (! strcmp (*arg, "owner")) {
-				job->console = CONSOLE_OWNER;
-			} else if (! strcmp (*arg, "none")) {
-				job->console = CONSOLE_NONE;
-			} else {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("expected 'logged', 'output', "
-					    "'owner' or 'none'"));
-			}
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected 'logged', 'output', "
-				    "'owner' or 'none'"));
-		}
-
-	} else if (! strncmp (file + tok_start, "env", tok_len)) {
-		/* env WS <var>=<value>
-		 *
-		 * defines a variable that should be set in the job's
-		 * environment, <value> may be optionally quoted.
-		 */
-		if (*arg && strchr (*arg, '=')) {
-			char **e, *env;
-			int    envc = 0;
-
-			for (e = job->env; e && *e; e++)
-				envc++;
-
-			NIH_MUST (e = nih_realloc (job->env, job,
-						  sizeof (char *) *
-						   (envc + 2)));
-			NIH_MUST (env = nih_strdup (e, *arg));
-
-			job->env = e;
-			job->env[envc++] = env;
-			job->env[envc] = NULL;
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected variable setting"));
-		}
-
-	} else if (! strncmp (file + tok_start, "umask", tok_len)) {
-		/* umask WS <mask>
-		 *
-		 * specifies the file creation mask for the job
-		 */
-		if (*arg) {
-			unsigned long  mask;
-			char          *endptr;
-
-			mask = strtol (*arg, &endptr, 8);
-			if (*endptr || (mask & ~0777)) {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("illegal value"));
-			} else {
-				job->umask = (mode_t) mask;
-			}
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected file creation mask"));
-		}
-
-	} else if (! strncmp (file + tok_start, "nice", tok_len)) {
-		/* nice WS <nice level>
-		 *
-		 * specifies the process priority for the job
-		 */
-		if (*arg) {
-			long  nice;
-			char *endptr;
-
-			nice = strtol (*arg, &endptr, 10);
-			if (*endptr || (nice < -20) || (nice > 19)) {
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("illegal value"));
-			} else {
-				job->nice = (int) nice;
-			}
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected nice level"));
-		}
-
-	} else if (! strncmp (file + tok_start, "limit", tok_len)) {
-		/* limit WS <limit name> FWS <soft> FWS <hard>
-		 *
-		 * specifies the resource limits for the job
-		 */
-		int     resource;
-		rlim_t  soft, hard;
-		char   *endptr;
-
-		/* Parse the resource type */
-		if (*arg) {
-			if (! strcmp (*arg, "as")) {
-				resource = RLIMIT_AS;
-			} else if (! strcmp (*arg, "core")) {
-				resource = RLIMIT_CORE;
-			} else if (! strcmp (*arg, "cpu")) {
-				resource = RLIMIT_CPU;
-			} else if (! strcmp (*arg, "data")) {
-				resource = RLIMIT_DATA;
-			} else if (! strcmp (*arg, "fsize")) {
-				resource = RLIMIT_FSIZE;
-			} else if (! strcmp (*arg, "memlock")) {
-				resource = RLIMIT_MEMLOCK;
-			} else if (! strcmp (*arg, "msgqueue")) {
-				resource = RLIMIT_MSGQUEUE;
-			} else if (! strcmp (*arg, "nice")) {
-				resource = RLIMIT_NICE;
-			} else if (! strcmp (*arg, "nofile")) {
-				resource = RLIMIT_NOFILE;
-			} else if (! strcmp (*arg, "nproc")) {
-				resource = RLIMIT_NPROC;
-			} else if (! strcmp (*arg, "rss")) {
-				resource = RLIMIT_RSS;
-			} else if (! strcmp (*arg, "rtprio")) {
-				resource = RLIMIT_RTPRIO;
-			} else if (! strcmp (*arg, "sigpending")) {
-				resource = RLIMIT_SIGPENDING;
-			} else if (! strcmp (*arg, "stack")) {
-				resource = RLIMIT_STACK;
-			} else {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("unknown limit type"));
-			}
-		} else {
-			arg = NULL;
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected limit name"));
-		}
-
-		/* Parse the soft limit value */
-		if (arg && *++arg) {
-			soft = strtoul (*arg, &endptr, 10);
-			if (*endptr) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("illegal value"));
-			}
-		} else if (arg) {
-			arg = NULL;
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected soft limit"));
-		}
-
-		/* Parse the hard limit value */
-		if (arg && *++arg) {
-			hard = strtoul (*arg, &endptr, 10);
-			if (*endptr) {
-				arg = NULL;
-				nih_warn ("%s:%zi: %s", filename, *lineno,
-					  _("illegal value"));
-			}
-		} else if (arg) {
-			arg = NULL;
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected hard limit"));
-		}
-
-		/* If we got all the values, assign them */
-		if (arg) {
-			if (! job->limits[resource])
-				NIH_MUST (job->limits[resource]
-					  = nih_new (job, struct rlimit));
-
-			job->limits[resource]->rlim_cur = soft;
-			job->limits[resource]->rlim_max = hard;
-		}
-
-	} else if (! strncmp (file + tok_start, "chroot", tok_len)) {
-		/* chroot WS <directory>
-		 *
-		 * specifies the root directory of the job
-		 */
-		if (*arg) {
-			if (job->chroot)
-				nih_free (job->chroot);
-
-			NIH_MUST (job->chroot = nih_strdup (job, *arg));
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected directory name"));
-		}
-
-	} else if (! strncmp (file + tok_start, "chdir", tok_len)) {
-		/* chdir WS <directory>
-		 *
-		 * specifies the working directory of the job
-		 */
-		if (*arg) {
-			if (job->chdir)
-				nih_free (job->chdir);
-
-			NIH_MUST (job->chdir = nih_strdup (job, *arg));
-		} else {
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("expected directory name"));
-		}
-
-	} else {
-		arg = NULL;
-		nih_warn ("%s:%zi: %s", filename, *lineno,
-			  _("ignored unknown stanza"));
-	}
-
-	/* Check we handled all arguments */
-	if (arg && *arg && *++arg) {
-		nih_warn ("%s:%zi: %s", filename, *lineno,
-			  _("ignored additional arguments"));
-	}
-
-	nih_free (args);
-}
-
-/**
- * cfg_parse_args:
- * @parent: parent of returned array,
- * @filename: name of file being parsed,
- * @lineno: current line number,
- * @file: memory mapped copy of file, or string buffer,
- * @len: length of @file,
- * @pos: position to read from.
- *
- * Parses a list of arguments at the current location of @file.  @pos
- * should point at the start of the arguments.
- *
- * @filename and @lineno are used to report warnings, and @lineno is
- * incremented each time a new line is discovered in the file.
- *
- * @pos is updated to point to the next line in the configuration or will be
- * past the end of the file.
- *
- * Returns: the list of arguments found.
- **/
-static char **
-cfg_parse_args (void       *parent,
-		const char *filename,
-		ssize_t    *lineno,
-		const char *file,
-		ssize_t     len,
-		ssize_t    *pos)
-{
-	char   **args;
-	size_t   nargs;
-
-	nih_assert (file != NULL);
-	nih_assert (len > 0);
-	nih_assert (pos != NULL);
-
-	/* Begin with an empty array */
-	NIH_MUST (args = nih_alloc (parent, sizeof (char *)));
-	args[0] = NULL;
-	nargs = 0;
-
-	/* Loop through the arguments until we hit a comment or newline */
-	while ((*pos < len) && (! strchr (CNL, file[*pos]))) {
-		ssize_t   arg_start, arg_len, arg_end;
-		char    **new_args, *arg;
-
-		/* Grab the next argument */
-		arg_start = *pos;
-		arg_len = cfg_next_token (filename, lineno, file, len, pos,
-					  NULL, CNLWS, TRUE);
-		arg_end = *pos;
-
-		/* Skip any amount of whitespace between them, we also
-		 * need to detect an escaped newline here.
-		 */
-		while (*pos < len) {
-			if (file[*pos] == '\\') {
-				/* Escape character, only continue scanning
-				 * if the next character is newline
-				 */
-				if ((len - *pos > 1)
-				    && (file[*pos + 1] == '\n')) {
-					(*pos)++;
-				} else {
-					break;
-				}
-			} else if (! strchr (WS, file[*pos])) {
-				break;
-			}
-
-			/* Whitespace characer */
-			(*pos)++;
-		}
-
-		/* Extend the array and allocate room for the args */
-		NIH_MUST (new_args = nih_realloc (
-				  args, parent,
-				  sizeof (char *) * (nargs + 2)));
-		NIH_MUST (arg = nih_alloc (new_args, arg_len + 1));
-
-		args = new_args;
-		args[nargs++] = arg;
-		args[nargs] = NULL;
-
-		/* Copy in the new token */
-		cfg_next_token (NULL, NULL, file + arg_start,
-				arg_end - arg_start, NULL, arg, CNLWS, TRUE);
-	}
-
-	/* Spool forwards until the end of the line */
-	while ((*pos < len) && (file[*pos] != '\n'))
-		(*pos)++;
-
-	/* Step over it */
-	if (*pos < len) {
-		if (lineno)
-			(*lineno)++;
-		(*pos)++;
-	}
-
-	return args;
-}
-
-/**
- * cfg_parse_command:
- * @parent: parent of returned string,
- * @filename: name of file being parsed,
- * @lineno: current line number,
- * @file: memory mapped copy of file, or string buffer,
- * @len: length of @file,
- * @pos: position to read from.
- *
- * Parses a command at the current location of @file.  @pos should point
- * to the start of the command.
- *
- * @filename and @lineno are used to report warnings, and @lineno is
- * incremented each time a new line is discovered in the file.
- *
- * @pos is updated to point to the next line in the configuration or will be
- * past the end of the file.
- *
- * Returns: the command string found or %NULL if one was not present.
- **/
-static char *
-cfg_parse_command (void       *parent,
-		   const char *filename,
-		   ssize_t    *lineno,
-		   const char *file,
-		   ssize_t     len,
-		   ssize_t    *pos)
-{
-	char    *cmd;
-	ssize_t  cmd_start, cmd_len, cmd_end;
-
-	nih_assert (file != NULL);
-	nih_assert (len > 0);
-	nih_assert (pos != NULL);
-
-	/* Find the length of string up to the first unescaped comment
-	 * or newline.
-	 */
-	cmd_start = *pos;
-	cmd_len = cfg_next_token (filename, lineno, file, len, pos,
-				  NULL, CNL, FALSE);
-	cmd_end = *pos;
-
-	/* Spool forwards until the end of the line */
-	while ((*pos < len) && (file[*pos] != '\n'))
-		(*pos)++;
-
-	/* Step over it */
-	if (*pos < len) {
-		if (lineno)
-			(*lineno)++;
-		(*pos)++;
-	}
-
-	/* If there's nothing to copy, bail out now */
-	if (! cmd_len)
-		return NULL;
-
-
-	/* Now copy the string into the destination. */
-	NIH_MUST (cmd = nih_alloc (parent, cmd_len + 1));
-	cfg_next_token (NULL, NULL, file + cmd_start, cmd_end - cmd_start,
-			NULL, cmd, CNL, FALSE);
-
-	return cmd;
-}
-
-/**
- * cfg_next_token:
- * @filename: name of file being parsed,
- * @lineno: line number,
- * @file: file or string to parse,
- * @len: length of @file,
- * @pos: offset within @file,
- * @dest: destination to copy to,
- * @delim: characters to stop on,
- * @dequote: remove quotes and escapes.
- *
- * Extracts a single token from @file which is stopped when any character
- * in @delim is encountered outside of a quoted string and not escaped
- * using a backslash.
- *
- * @file may be a memory mapped file, in which case @pos should be given
- * as the offset within and @len should be the length of the file as a
- * whole.  Usually when @dest is given, @file is instead the pointer to
- * the start of the token and @len is the difference between the start
- * and end of the token (NOT the return value from this function).
- *
- * If @pos is given then it will be used as the offset within @file to
- * begin (otherwise the start is assumed), and will be updated to point
- * to @delim or past the end of the file.
- *
- * If @lineno is given it will be incremented each time a new line is
- * discovered in the file.
- *
- * If you want warnings to be output, pass both @filename and @lineno, which
- * will be used to output the warning message using the usual logging
- * functions.
- *
- * To copy the token into another string, collapsing any newlines and
- * surrounding whitespace to a single space, pass @dest which should be
- * pre-allocated to the right size (obtained by calling this function
- * with %NULL).
- *
- * If you also want quotes to be removed and escaped characters to be
- * replaced with the character itself, set @dequote to %TRUE.
- *
- * Returns: the length of the token as it was/would be copied into @dest.
- **/
-static ssize_t
-cfg_next_token (const char *filename,
-		ssize_t    *lineno,
-		const char *file,
-		ssize_t     len,
-		ssize_t    *pos,
-		char       *dest,
-		const char *delim,
-		int         dequote)
-{
-	ssize_t  ws = 0, nlws = 0, qc = 0, i = 0, p, ret;
-	int      slash = FALSE, quote = 0, nl = FALSE;
-
-	nih_assert ((filename == NULL) || (lineno != NULL));
-	nih_assert (file != NULL);
-	nih_assert (len > 0);
-	nih_assert (delim != NULL);
-
-	/* We keep track of the following:
-	 *   slash  whether a \ is in effect
-	 *   quote  whether " or ' is in effect (set to which)
-	 *   ws     number of consecutive whitespace chars so far
-	 *   nlws   number of whitespace/newline chars
-	 *   nl     TRUE if we need to copy ws into nlws at first non-WS
-	 *   qc     number of quote characters that need removing.
-	 */
-
-	for (p = (pos ? *pos : 0); p < len; p++) {
-		int extra = 0, isq = FALSE;
-
-		if (slash) {
-			slash = FALSE;
-
-			/* Escaped newline */
-			if (file[p] == '\n') {
-				nlws++;
-				nl = TRUE;
-				if (lineno)
-					(*lineno)++;
-				continue;
-			} else {
-				extra++;
-				if (dequote)
-					qc++;
-			}
-		} else if (file[p] == '\\') {
-			slash = TRUE;
-			continue;
-		} else if (quote) {
-			if (file[p] == quote) {
-				quote = 0;
-				isq = TRUE;
-			} else if (file[p] == '\n') {
-				nl = TRUE;
-				if (lineno)
-					(*lineno)++;
-				continue;
-			} else if (strchr (WS, file[p])) {
-				ws++;
-				continue;
-			}
-		} else if ((file[p] == '\"') || (file[p] == '\'')) {
-			quote = file[p];
-			isq = TRUE;
-		} else if (strchr (delim, file[p])) {
-			break;
-		} else if (strchr (WS, file[p])) {
-			ws++;
-			continue;
-		}
-
-		if (nl) {
-			/* Newline is recorded as a single space;
-			 * any surrounding whitespace is lost.
-			 */
-			nlws += ws;
-			if (dest)
-				dest[i++] = ' ';
-		} else if (ws && dest) {
-			/* Whitespace that we've encountered to date is
-			 * copied as it is.
-			 */
-			memcpy (dest + i, file + p - ws - extra, ws);
-			i += ws;
-		}
-
-		/* Extra characters (the slash) needs to be copied
-		 * unless we're dequoting the string
-		 */
-		if (extra && dest && (! dequote)) {
-			memcpy (dest + i, file + p - extra, extra);
-			i += extra;
-		}
-
-		if (dest && (! (isq && dequote)))
-			dest[i++] = file[p];
-
-		if (isq && dequote)
-			qc++;
-
-		ws = 0;
-		nl = FALSE;
-		extra = 0;
-	}
-
-	/* Add the NULL byte */
-	if (dest)
-		dest[i++] = '\0';
-
-
-	/* A trailing slash on the end of the file makes no sense, we'll
-	 * assume they intended there to be a newline after it and ignore
-	 * the character by treating it as whitespace.
-	 */
-	if (slash) {
-		if (filename)
-			nih_warn ("%s:%zi: %s", filename, *lineno + 1,
-				  _("ignored trailing slash"));
-
-		ws++;
-	}
-
-	/* Leaving quotes open is generally bad, close it at the last
-	 * piece of whitespace (ie. do nothing :p)
-	 */
-	if (quote) {
-		if (filename)
-			nih_warn ("%s:%zi: %s", filename, *lineno + 1,
-				  _("unterminated quoted string"));
-	}
-
-
-	/* The return value is the length of the token with any newlines and
-	 * surrounding whitespace converted to a single character and any
-	 * trailing whitespace removed.
-	 *
-	 * The actual end of the text read is returned in *pos.
-	 */
-	ret = p - (pos ? *pos : 0) - ws - nlws - qc;
-	if (pos)
-		*pos = p;
-
-	return ret;
-}
-
-
-/**
- * cfg_parse_script:
- * @parent: parent of returned string,
- * @filename: name of file being parsed,
- * @lineno: current line number,
- * @file: memory mapped copy of file, or string buffer,
- * @len: length of @file,
- * @pos: position to read from.
- *
- * Parses a shell script fragment at the current location of @file.
- * @pos should point to the start of the shell script fragment, after the
- * opening stanza.
- *
- * @filename and @lineno are used to report warnings, and @lineno is
- * incremented each time a new line is discovered in the file.
- *
- * @pos is updated to point to the next line in the configuration or will be
- * past the end of the file.
- *
- * Returns: the script contained in the fragment.
- **/
-static char *
-cfg_parse_script (void       *parent,
-		  const char *filename,
-		  ssize_t    *lineno,
-		  const char *file,
-		  ssize_t     len,
-		  ssize_t    *pos)
-{
-	char    *script;
-	ssize_t  sh_start, sh_end, sh_len, ws, p;
-	int      lines;
-
-	nih_assert (filename != NULL);
-	nih_assert (lineno != NULL);
-	nih_assert (file != NULL);
-	nih_assert (len > 0);
-	nih_assert (pos != NULL);
-
-	/* We need to find the end of the script which is a line that looks
-	 * like:
-	 *
-	 * 	WS? end WS script CNLWS?
-	 *
-	 * Just to make things more difficult for ourselves, we work out the
-	 * common whitespace on the start of the script lines and remember
-	 * not to copy those out later
-	 */
-	sh_start = *pos;
-	sh_end = -1;
-	ws = -1;
-	lines = 0;
-
-	while ((sh_end = cfg_script_end (lineno, file, len, pos)) < 0) {
-		ssize_t line_start;
-
-		lines++;
-		line_start = *pos;
-		if (ws < 0) {
-			/* Count initial whitespace */
-			while ((*pos < len) && strchr (WS, file[*pos]))
-				(*pos)++;
-
-			ws = *pos - line_start;
-		} else {
-			/* Compare how much whitespace matches the
-			 * first line; and decrease the count if it's
-			 * not as much.
-			 */
-			while ((*pos < len) && (*pos - line_start < ws)
-			       && (file[sh_start + *pos - line_start]
-				   == file[*pos]))
-				(*pos)++;
-
-			if (*pos - line_start < ws)
-				ws = *pos - line_start;
-		}
-
-		/* Find the end of the line */
-		while ((*pos < len) && (file[*pos] != '\n'))
-			(*pos)++;
-
-		/* Step over the newline */
-		if (*pos < len) {
-			(*lineno)++;
-			(*pos)++;
-		} else {
-			sh_end = *pos;
-			nih_warn ("%s:%zi: %s", filename, *lineno,
-				  _("'end script' expected"));
-			break;
-		}
-	}
-
-	/*
-	 * Copy the fragment into a string, removing common whitespace from
-	 * the start.  We can be less strict here because we already know
-	 * the contents, etc.
-	 */
-
-	sh_len = sh_end - sh_start - (ws * lines);
-	NIH_MUST (script = nih_alloc (parent, sh_len + 1));
-	script[0] = '\0';
-
-	p = sh_start;
-	while (p < sh_end) {
-		size_t line_start;
-
-		p += ws;
-		line_start = p;
-
-		while (file[p++] != '\n')
-			;
-
-		strncat (script, file + line_start, p - line_start);
-	}
-
-	return script;
-}
-
-/**
- * cfg_script_end:
- * @lineno: current line number,
- * @file: memory mapped copy of file, or string buffer,
- * @len: length of @file,
- * @pos: position to read from.
- *
- * Determines whether the current line is an end-of-script marker.
- *
- * @pos is updated to point to the next line in configuration or past the
- * end of file.
- *
- * @lineno is incremented each time a new line is discovered in the file.
- *
- * Returns: index of script end (always the value of @pos at the time this
- * function was called) or -1 if it is not on this line.
- **/
-static ssize_t
-cfg_script_end (ssize_t    *lineno,
-		const char *file,
-		ssize_t     len,
-		ssize_t    *pos)
-{
-	ssize_t p, end;
-
-	nih_assert (lineno != NULL);
-	nih_assert (file != NULL);
-	nih_assert (len > 0);
-	nih_assert (pos != NULL);
-
-	p = *pos;
-
-	/* Skip initial whitespace */
-	while ((p < len) && strchr (WS, file[p]))
-		p++;
-
-	/* Check the first word (check we have at least 4 chars because of
-	 * the need for whitespace immediately after)
-	 */
-	if ((len - p < 4) || strncmp (file + p, "end", 3))
-		return -1;
-
-	/* Must be whitespace after */
-	if (! strchr (WS, file[p + 3]))
-		return -1;
-
-	/* Find the second word */
-	p += 3;
-	while ((p < len) && strchr (WS, file[p]))
-		p++;
-
-	/* Check the second word */
-	if ((len - p < 6) || strncmp (file + p, "script", 6))
-		return -1;
-
-	/* May be followed by whitespace */
-	p += 6;
-	while ((p < len) && strchr (WS, file[p]))
-		p++;
-
-	/* May be a comment, in which case eat up to the
-	 * newline
-	 */
-	if ((p < len) && (file[p] == '#')) {
-		while ((p < len) && (file[p] != '\n'))
-			p++;
-	}
-
-	/* Should be end of string, or a newline */
-	if ((p < len) && (file[p] != '\n'))
-		return -1;
-
-	/* Point past the new line */
-	if (p < len) {
-		(*lineno)++;
-		p++;
-	}
-
-	/* Return the beginning of the line (which is the end of the script)
-	 * but update pos to point past this line.
-	 */
-	end = *pos;
-	*pos = p;
-
-	return end;
-}
-
 
 /**
  * cfg_watch_dir:
- * @parent: parent of jobs,
  * @dirname: directory to watch,
- * @prefix: prefix to append to job names.
+ * @prefix: prefix to apply to job names.
  *
  * Watch @dirname for creation or modification of configuration files or
  * sub-directories and parse them whenever they exist.  This also performs
  * the initial parsing of jobs in the directory.
  *
- * Jobs are named by joining @prefix and the name of the file under @dir,
- * @prefix may be %NULL.
+ * The names of jobs are constructed from @prefix (which may be NULL) and
+ * the relative path of the job to @dirname.  If @prefix is not NULL, it
+ * would normally end with some separating character such as '/' or '.'
  *
- * Returns: zero on success, negative value on raised error.
+ * The watch can be freed using nih_watch_free().
+ *
+ * Returns: watch structure on success, NULL if inotify wasn't available
+ * and (void *)-1 on raised error.
  **/
-int
-cfg_watch_dir (void       *parent,
-	       const char *dirname,
+NihWatch *
+cfg_watch_dir (const char *dirname,
 	       const char *prefix)
 {
-	DIR           *dir;
-	struct dirent *ent;
-	WatchInfo     *info;
-	NihFileWatch  *watch;
+	NihWatch *watch;
+	NihError *err;
 
 	nih_assert (dirname != NULL);
 
 	nih_info (_("Reading configuration from %s"), dirname);
 
-	NIH_MUST (info = nih_new (NULL, WatchInfo));
-	info->parent = parent;
-	info->prefix = prefix ? nih_strdup (info, prefix) : NULL;
-
-	/* FIXME we don't handle move yet */
-
-	/* Add a watch so we can keep up to date */
-	watch = nih_file_add_watch (NULL, dirname,
-				    (IN_CREATE | IN_DELETE | IN_MODIFY),
-				    (NihFileWatcher)cfg_watcher, info);
-	if (! watch) {
-		nih_free (info);
-		return -1;
+	/* We use inotify to keep abreast of any changes to our configuration
+	 * directory, parsing them while we walk to add inotify watches.
+	 */
+	watch = nih_watch_new (NULL, dirname, TRUE, TRUE, nih_file_ignore,
+			       (NihCreateHandler)cfg_create_modify_handler,
+			       (NihModifyHandler)cfg_create_modify_handler,
+			       (NihDeleteHandler)cfg_delete_handler,
+			       (void *)prefix);
+	if (watch) {
+		nih_io_set_cloexec (watch->fd);
+		return watch;
 	}
 
-	/* Read through any files already in the directory */
-	dir = opendir (dirname);
-	if (! dir) {
-		nih_error_raise_system ();
-		nih_free (info);
-		return -1;
+	/* Failed to watch with inotify, fall back to walking the directory
+	 * the old fashioned way.  If this fails, then there's obviously
+	 * some problem with the directory; discard the error nih_watch_new()
+	 * returned as it's probably not relevant, and leave the
+	 * nih_dir_walk() error raised for our caller.
+	 */
+	err = nih_error_get ();
+	if (nih_dir_walk (dirname, nih_file_ignore,
+			  (NihFileVisitor)cfg_visitor, NULL,
+			  (void *)prefix) < 0) {
+		nih_free (err);
+		return (void *)-1;
 	}
 
-	/* Just call the watcher function */
-	while ((ent = readdir (dir)) != NULL)
-		cfg_watcher (info, watch, IN_CREATE, ent->d_name);
+	/* Walk worked; but inotify didn't ... if this is for any other
+	 * reason than inotify simply being not supported, we warn about it.
+	 */
+	if (err->number != ENOSYS)
+		nih_error ("%s: %s: %s", dirname,
+			   _("Unable to watch configuration directory"),
+			   err->message);
+	nih_free (err);
 
-	closedir (dir);
-
-	return 0;
+	return NULL;
 }
 
 /**
- * cfg_watcher:
- * @info: watch information,
- * @watch: watch that generated the event,
- * @events: events that occurred,
- * @name: name of file that changed.
+ * cfg_job_name:
+ * @parent: parent for new string,
+ * @prefix: prefix to apply to name,
+ * @dirname: top-level directory being watched,
+ * @path: full path to file.
  *
- * This function is called whenever a configuration file directory we are
- * watching changes.  It arranges for the job to be parsed, or the new
- * directory to be watched.
+ * Constructs a job name for a given file by removing @dirname from the
+ * front and pre-pending @prefix (which may be NULL).
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.  If you have clean-up
+ * that would need to be run, you can assign a destructor function using
+ * the nih_alloc_set_destructor() function.
+ *
+ * Returns: newly allocated job name or NULL if insufficient memory.
+ **/
+static char *
+cfg_job_name (const void *parent,
+	      const char *prefix,
+	      const char *dirname,
+	      const char *path)
+{
+	nih_assert (dirname != NULL);
+	nih_assert (path != NULL);
+
+	/* Remove dirname from the front */
+	if (! strncmp (path, dirname, strlen (dirname)))
+		path += strlen (dirname);
+
+	/* Remove slashes */
+	while (*path == '/')
+		path++;
+
+	/* Construct job name */
+	if (prefix) {
+		return nih_sprintf (parent, "%s%s", prefix, path);
+	} else {
+		return nih_strdup (parent, path);
+	}
+}
+
+/**
+ * cfg_create_modify_handler:
+ * @prefix: prefix to apply to job names,
+ * @watch: NihWatch for directory tree,
+ * @path: full path to file,
+ * @statbuf: stat of @path.
+ *
+ * This function is called whenever a new job file is created in a directory
+ * we're watching, or modified.  We attempt to parse the file as a valid job;
+ * though it's pretty common for these to fail since it's probably empty or
+ * only partially written.
  **/
 static void
-cfg_watcher (WatchInfo    *info,
-	     NihFileWatch *watch,
-	     uint32_t      events,
-	     const char   *name)
+cfg_create_modify_handler (const char  *prefix,
+			   NihWatch    *watch,
+			   const char  *path,
+			   struct stat *statbuf)
 {
-	struct stat  statbuf;
-	char        *filename, *jobname;
+	char *name;
 
 	nih_assert (watch != NULL);
+	nih_assert (path != NULL);
+	nih_assert (statbuf != NULL);
 
-	/* If this watch is now being ignored, free the info and watch */
-	if (events & IN_IGNORED) {
-		nih_debug ("Ceasing watching %s", watch->path);
-
-		nih_list_free (&watch->entry);
-		nih_free (info);
-		return;
-	}
-
-	/* Otherwise name should be set and shouldn't begin . */
-	if (! name)
+	if (! S_ISREG (statbuf->st_mode))
 		return;
 
-	if ((name[0] == '\0') || strchr (name, '.') || strchr (name, '~')) {
-		nih_debug ("Ignored %s/%s", watch->path, name);
-		return;
+	NIH_MUST (name = cfg_job_name (NULL, prefix, watch->path, path));
+
+	nih_debug ("%s job definition changed", name);
+
+	cfg_read_job (NULL, path, name);
+
+	nih_free (name);
+}
+
+/**
+ * cfg_delete_handler:
+ * @prefix: prefix to apply to job names,
+ * @watch: NihWatch for directory tree,
+ * @path: full path to file.
+ *
+ * This function is called whenever a job file is deleted from a directory
+ * we're watching.
+ **/
+static void
+cfg_delete_handler (const char *prefix,
+		    NihWatch   *watch,
+		    const char *path)
+{
+	Job  *job;
+	char *name;
+
+	nih_assert (watch != NULL);
+	nih_assert (path != NULL);
+
+	NIH_MUST (name = cfg_job_name (NULL, prefix, watch->path, path));
+
+	nih_debug ("%s job definition deleted", name);
+
+	job = job_find_by_name (name);
+	if (job) {
+		nih_info (_("Deleting %s job"), job->name);
+
+		if ((job->replacement != NULL)
+		    && (job->replacement != (void *)-1)) {
+			nih_debug ("Discarding replacement");
+			nih_list_free (&job->replacement->entry);
+		}
+
+		job->replacement = (void *)-1;
+
+		if (job_should_replace (job))
+			job_change_state (job, job_next_state (job));
 	}
 
-	/* FIXME better name checking required */
+	nih_free (name);
+}
 
-	/* FIXME we don't handle DELETE yet ... that should probably mark
-	 * the running job as an instance or delete a stopped one
-	 */
-	if (events & IN_DELETE) {
-		nih_debug ("Delete of %s/%s (ignored)", watch->path, name);
-		return;
-	}
+/**
+ * cfg_visitor:
+ * @prefix: prefix to apply to job names,
+ * @dirname: directory being iterated,
+ * @path: full path to file,
+ * @statbuf: stat of @path.
+ *
+ * This function is called for each file under a configuration directory
+ * whether or not we're watching it for changes; we parse the file to get
+ * the initial set of jobs.
+ *
+ * Returns: always zero.
+ **/
+static int
+cfg_visitor (const char  *prefix,
+	     const char  *dirname,
+	     const char  *path,
+	     struct stat *statbuf)
+{
+	char *name;
 
-	/* Construct filename and job name (also new prefix) */
-	NIH_MUST (filename = nih_sprintf (NULL, "%s/%s", watch->path, name));
-	if (info->prefix) {
-		NIH_MUST (jobname = nih_sprintf (NULL, "%s/%s",
-						 info->prefix, name));
-	} else {
-		NIH_MUST (jobname = nih_strdup (NULL, name));
-	}
+	nih_assert (path != NULL);
+	nih_assert (statbuf != NULL);
 
-	/* Check we can stat it */
-	if (stat (filename, &statbuf) < 0) {
-		/* Bah, ignore the error */
+	if (! S_ISREG (statbuf->st_mode))
+		return 0;
 
-	} else if (S_ISDIR (statbuf.st_mode)) {
-		/* It's a directory, watch it */
-		cfg_watch_dir (info->parent, filename, jobname);
+	NIH_MUST (name = cfg_job_name (NULL, prefix, dirname, path));
 
-	} else if (S_ISREG (statbuf.st_mode)) {
-		/* It's a file, we parse it */
-		cfg_read_job (info->parent, filename, jobname);
+	cfg_read_job (NULL, path, name);
 
-	}
+	nih_free (name);
 
-	/* Free up */
-	nih_free (jobname);
-	nih_free (filename);
+	return 0;
 }

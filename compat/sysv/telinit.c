@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2006 Canonical Ltd.
+ * Copyright © 2007 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,13 +29,15 @@
 #include <unistd.h>
 
 #include <nih/macros.h>
+#include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/io.h>
 #include <nih/main.h>
 #include <nih/option.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/control.h>
+#include <upstart/message.h>
 
 
 /**
@@ -56,54 +58,60 @@ int
 main (int   argc,
       char *argv[])
 {
-	char       **args;
-	UpstartMsg   msg;
-	int          sock;
+	char         **args;
+	NihIoMessage  *message;
+	int            sock;
 
 	nih_main_init (argv[0]);
+
 	nih_option_set_usage ("RUNLEVEL");
+	nih_option_set_synopsis (_("Change runlevel."));
+	nih_option_set_help (
+		_("RUNLEVEL should be one of 0123456S."));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
 
 	/* First argument must be a single character we know */
-	if ((! args[0]) || (! strchr ("0123456SsQqabcUu", args[0][0]))) {
+	if ((! args[0]) || (! strchr ("0123456SsQqabcUu", args[0][0]))
+	    || args[0][1]) {
 		fprintf (stderr, _("%s: illegal runlevel: %s\n"),
 			 program_name, args[0]);
 		nih_main_suggest_help ();
 		exit (1);
 	}
 
+	/* Ignore further arguments */
+	args[1] = NULL;
+
 	/* Check we're root */
 	setuid (geteuid ());
 	if (getuid ()) {
-		nih_error (_("Need to be root"));
+		nih_fatal (_("Need to be root"));
 		exit (1);
 	}
 
 
 	/* Build the message */
 	switch (args[0][0]) {
+	case '0':
+	case '1':
 	case '2':
 	case '3':
 	case '4':
 	case '5':
-		msg.type = UPSTART_EVENT_QUEUE;
-		msg.event_queue.name = nih_sprintf (NULL, "runlevel-%c",
-						    args[0][0]);
-		break;
-	case '0':
-	case '1':
 	case '6':
-		msg.type = UPSTART_SHUTDOWN;
-		msg.shutdown.name = nih_sprintf (NULL, "runlevel-%c",
-						 args[0][0]);
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
 		break;
 	case 'S':
 	case 's':
-		msg.type = UPSTART_SHUTDOWN;
-		msg.shutdown.name = "runlevel-S";
+		args[0][0] = 'S';
+		NIH_MUST (message = upstart_message_new (
+				  NULL, UPSTART_INIT_DAEMON,
+				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
 		break;
 	default:
 		/* Ignore other arguments */
@@ -117,17 +125,17 @@ main (int   argc,
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error (_("Unable to establish control socket: %s"),
+		nih_fatal (_("Unable to establish control socket: %s"),
 			   err->message);
 		exit (1);
 	}
 
 	/* Send the message */
-	if (upstart_send_msg (sock, &msg) < 0) {
+	if (nih_io_message_send (message, sock) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error (_("Unable to send message: %s"), err->message);
+		nih_fatal (_("Unable to send message: %s"), err->message);
 		exit (1);
 	}
 

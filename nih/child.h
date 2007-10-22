@@ -1,6 +1,6 @@
 /* libnih
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@
  * until these functions have been called, so it still exists in the process
  * table.
  **/
-typedef void (*NihReaper) (void *, pid_t, int, int);
+typedef void (*NihReaper) (void *data, pid_t pid, int killed, int status);
 
 /**
  * NihChildWatch:
@@ -53,7 +53,7 @@ typedef void (*NihReaper) (void *, pid_t, int, int);
  * If @pid is -1 then this function is called when all processes
  * terminate.
  *
- * The watch can be cancelled by calling #nih_list_remove on the structure
+ * The watch can be cancelled by calling nih_list_remove() on the structure
  * as they are held in a list internally.
  **/
 typedef struct nih_child_watch {
@@ -67,8 +67,9 @@ typedef struct nih_child_watch {
 
 NIH_BEGIN_EXTERN
 
-NihChildWatch *nih_child_add_watch (void *parent, pid_t pid,
-				    NihReaper reaper, void *data);
+NihChildWatch *nih_child_add_watch (const void *parent, pid_t pid,
+				    NihReaper reaper, void *data)
+	__attribute__ ((warn_unused_result, malloc));
 
 void           nih_child_poll      (void);
 
