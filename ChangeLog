@@ -1,3 +1,12 @@
+2007-10-26  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): Mask out all signals across the
+	fork() rather than just SIGCHLD; reset the signal handlers to default
+	before unmasking again.  The original rationale was we needed to
+	avoid SIGCHLD occurring before we'd stashed the pid, but that's no
+	longer a problem; the new rationale is that we want to avoid the
+	signal handlers running in the newly forked child.
+
 2007-10-20  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_init): The job's name is the first item in the

@@ -91,9 +91,10 @@ process_spawn (Job          *job,
 
 	nih_assert (job != NULL);
 
-	/* Block SIGCHLD while we fork to avoid surprises */
-	sigemptyset (&child_set);
-	sigaddset (&child_set, SIGCHLD);
+	/* Block signals before we fork to avoid child running our signal
+	 * handlers before it's reset them.
+	 */
+	sigfillset (&child_set);
 	sigprocmask (SIG_BLOCK, &child_set, &orig_set);
 
 	/* Fork the child process, and return either the id or failure
@@ -115,20 +116,22 @@ process_spawn (Job          *job,
 
 	/* We're now in the child process.
 	 *
-	 * First we close the standard file descriptors so we don't
+	 * First we put all the signal handlers back to their default
+	 * handling; this means the child won't be unexpectedly ignoring
+	 * them and means we won't surprisingly handle them before we've
+	 * exec()d the new process.
+	 */
+	nih_signal_reset ();
+	sigprocmask (SIG_SETMASK, &orig_set, NULL);
+
+	/* Next we close the standard file descriptors so we don't
 	 * inherit them directly from init but get to pick them ourselves.
 	 *
-	 * Any other open descriptor will have had the FD_CLOEXEC flag set,
+	 * Any other open descriptor must have had the FD_CLOEXEC flag set,
 	 * so will get automatically closed when we exec() later.
 	 */
 	for (i = 0; i < 3; i++)
 		close (i);
-
-	/* Reset the signal mask, and put all signal handlers back to their
-	 * default handling so the child isn't unexpectantly ignoring them
-	 */
-	sigprocmask (SIG_SETMASK, &orig_set, NULL);
-	nih_signal_reset ();
 
 	/* Become the leader of a new session and process group */
 	setsid ();
