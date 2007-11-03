@@ -75,24 +75,23 @@ static int  conf_reload_path           (ConfSource *source, const char *path)
 /**
  * conf_sources:
  *
- * This hash table holds the list of known sources of configurations,
- * indexed by their path.  Each entry is a ConfSource structure, multiple
- * entries for the same path may not exist.
+ * This list holds the list of known sources of configuration; each item
+ * is a ConfSource structure.  The order of this list dictates the priority
+ * of the sources, with the first one having the highest priority.
  **/
-NihHash *conf_sources = NULL;
+NihList *conf_sources = NULL;
 
 
 /**
  * conf_init:
  *
- * Initialise the conf_sources hash table.
+ * Initialise the conf_sources list.
  **/
 void
 conf_init (void)
 {
 	if (! conf_sources)
-		NIH_MUST (conf_sources = nih_hash_new (NULL, 0,
-						       (NihKeyFunction)nih_hash_string_key));
+		NIH_MUST (conf_sources = nih_list_new (NULL));
 }
 
 
@@ -100,16 +99,13 @@ conf_init (void)
  * conf_source_new:
  * @parent: parent of new block,
  * @path: path to source,
- * @type: type of source,
- * @priority: priority for selection.
+ * @type: type of source.
  *
  * Allocates and returns a new ConfSource structure for the given @path;
  * @type indicates whether this @path is a file or directory and what type
- * of files are within the directory; @priority is used when multiple items
- * have the same name.
+ * of files are within the directory.
  *
- * The returned structure is automatically placed in the conf_sources hash
- * table, indexed by @path.
+ * The returned structure is automatically added to the conf_sources list.
  *
  * Configuration is not parsed immediately, instead you must call
  * conf_source_reload() on this source to set up any watches and load the
@@ -124,10 +120,9 @@ conf_init (void)
  * insufficient memory.
  **/
 ConfSource *
-conf_source_new (const void         *parent,
-		 const char         *path,
-		 ConfSourceType      type,
-		 ConfSourcePriority  priority)
+conf_source_new (const void     *parent,
+		 const char     *path,
+		 ConfSourceType  type)
 {
 	ConfSource *source;
 
@@ -148,8 +143,6 @@ conf_source_new (const void         *parent,
 	}
 
 	source->type = type;
-	source->priority = priority;
-
 	source->watch = NULL;
 
 	source->flag = FALSE;
@@ -162,7 +155,7 @@ conf_source_new (const void         *parent,
 
 	nih_alloc_set_destructor (source, (NihDestructor)nih_list_destroy);
 
-	nih_hash_add (conf_sources, &source->entry);
+	nih_list_add (conf_sources, &source->entry);
 
 	return source;
 }
@@ -175,7 +168,7 @@ conf_source_new (const void         *parent,
  * Allocates and returns a new ConfFile structure for the given @source,
  * with @path indicating which file it is.
  *
- * The returned structure is automatically placed in the @source files hash
+ * The returned structure is automatically placed in the @source's files hash
  * and the flag of the returned ConfFile will be set to that of the @source.
  *
  * Returns: newly allocated ConfFile structure or NULL if insufficient memory.
@@ -195,93 +188,21 @@ conf_file_new (ConfSource *source,
 
 	nih_list_init (&file->entry);
 
-	file->source = source;
-
 	file->path = nih_strdup (file, path);
 	if (! file->path) {
 		nih_free (file);
 		return NULL;
 	}
 
-	nih_list_init (&file->items);
+	file->source = source;
+	file->flag = source->flag;
+	file->data = NULL;
 
-	nih_alloc_set_destructor (file, (NihDestructor)nih_list_destroy);
+	nih_alloc_set_destructor (file, (NihDestructor)conf_file_destroy);
 
 	nih_hash_add (source->files, &file->entry);
 
-	file->flag = source->flag;
-
 	return file;
-}
-
-/**
- * conf_file_get:
- * @source: configuration source,
- * @path: path to file.
- *
- * Looks up the ConfFile entry in @source for @path, or allocates a new
- * structure and places it in the files hash table before returning it.
- *
- * The flag of the returned ConfFile will be set to that of the @source.
- *
- * Returns: existing or newly allocated ConfFile structure,
- * or NULL if insufficient memory.
- **/
-ConfFile *
-conf_file_get (ConfSource *source,
-	       const char *path)
-{
-	ConfFile *file;
-
-	nih_assert (source != NULL);
-	nih_assert (path != NULL);
-
-	file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (file) {
-		file->flag = source->flag;
-	} else {
-		file = conf_file_new (source, path);
-	}
-
-	return file;
-}
-
-/**
- * conf_item_new:
- * @file: file to attach to,
- * @type: type of item.
- *
- * Allocates and returns a new ConfItem structure for the given @file,
- * with @type indicating what kind of data will be attached
- * to this item.  Setting the data pointer is the job of the caller.
- *
- * The returned structure is automatically placed in the @file items list.
- *
- * Returns: newly allocated ConfItem structure or NULL if insufficient memory.
- **/
-ConfItem *
-conf_item_new (ConfFile     *file,
-	       ConfItemType  type)
-{
-	ConfItem *item;
-
-	nih_assert (file != NULL);
-
-	item = nih_new (file, ConfItem);
-	if (! item)
-		return NULL;
-
-	nih_list_init (&item->entry);
-
-	item->file = file;
-	item->type = type;
-	item->data = NULL;
-
-	nih_alloc_set_destructor (item, (NihDestructor)conf_item_destroy);
-
-	nih_list_add (&file->items, &item->entry);
-
-	return item;
 }
 
 
@@ -303,7 +224,7 @@ conf_reload (void)
 {
 	conf_init ();
 
-	NIH_HASH_FOREACH (conf_sources, iter) {
+	NIH_LIST_FOREACH (conf_sources, iter) {
 		ConfSource *source = (ConfSource *)iter;
 
 		if (conf_source_reload (source) < 0) {
@@ -389,10 +310,6 @@ conf_source_reload (ConfSource *source)
  * and parsed.  It is the parent directory because we need to watch out for
  * editors that rename over the top, etc.
  *
- * We then parse the current state of the file, propogating the value of
- * the flag member to all items that we find so that deletions can be
- * detected by the calling function.
- *
  * Returns: zero on success, negative value on raised error.
  **/
 static int
@@ -468,8 +385,8 @@ conf_source_reload_file (ConfSource *source)
  * tree.
  *
  * Otherwise we walk the tree ourselves and parse all files that we find,
- * propogating the value of the flag member to all files and items so that
- * deletion can be detected by the calling function.
+ * propogating the value of the flag member to all files so that deletion
+ * can be detected by the calling function.
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -616,7 +533,7 @@ conf_create_modify_handler (ConfSource  *source,
  * filtered to only return the path that we're interested in.
  *
  * We lookup the file in our hash table, and if we can find it, perform
- * the usual deletion on all of its items and the file itself.
+ * the usual deletion of it.
   **/
 static void
 conf_delete_handler (ConfSource *source,
@@ -697,17 +614,13 @@ conf_file_visitor (ConfSource  *source,
  * @path: path of file to be reloaded.
  *
  * This function is used to parse the file at @path in the context of the
- * given configuration @source.  Necessary ConfFile and ConfItem structures
- * are allocated and attached to the @source as appropriate.
+ * given configuration @source.  Necessary ConfFile structures are allocated
+ * and attached to @source as appropriate.  CONF_FILE sources always have
+ * a single ConfFile when the file exists.
  *
- * Depending on the type of the @source, this can parse jobs directly (in
- * which case they are named after the relative part of the path) or mixed
- * configuration files which define the names specifically.
- *
- * If the file has been parsed before, then any existing items are deleted
- * and freed if the file fails to load, or after the new items have been
- * parsed.  Items are not reused for the same apparent item between reloads,
- * since there's no real meaning to it.
+ * If the file has been parsed before, then the existing item is deleted and
+ * freed if the file fails to load, or after the new item has been parsed.
+ * Items are not reused between reloads.
  *
  * Physical errors are returned, parse errors are not.
  *
@@ -718,8 +631,6 @@ conf_reload_path (ConfSource *source,
 		  const char *path)
 {
 	ConfFile   *file;
-	NihList     old_items;
-	ConfItem   *item;
 	const char *buf, *name;
 	size_t      len, pos, lineno;
 	NihError   *err = NULL;
@@ -727,43 +638,32 @@ conf_reload_path (ConfSource *source,
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
 
-	NIH_MUST (file = conf_file_get (source, path));
-
-	/* Map the file into memory for parsing.  If this fails, then we
-	 * delete all the current items since there's clearly a problem.
+	/* Look up the old file in memory, and then free it.  In cases
+	 * of failure, we discard it anyway, so there's no particular reason
+	 * to keep it around anymore.
 	 */
-	buf = nih_file_map (file->path, O_RDONLY | O_NOCTTY, &len);
-	if (! buf) {
-		NIH_LIST_FOREACH_SAFE (&file->items, iter) {
-			ConfItem *item = (ConfItem *)iter;
+	file = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (file)
+		nih_free (file);
 
-			nih_free (item);
-		}
-
+	/* Map the file into memory for parsing, if this fails we don't
+	 * bother creating a new ConfFile structure for it and bail out
+	 * now.
+	 */
+	buf = nih_file_map (path, O_RDONLY | O_NOCTTY, &len);
+	if (! buf)
 		return -1;
-	}
 
-	/* If we've parsed this file before, we'll have a list of old items
-	 * that once existed and need to be cleaned up once we've parsed
-	 * the new items.  The easiest way to identify them is to put
-	 * them into a different list for safe-keeping.
-	 */
-	nih_list_init (&old_items);
-	nih_list_add (&file->items, &old_items);
-	nih_list_remove (&file->items);
+	/* Parse the file, storing the item in a new ConfFile structure. */
+	NIH_MUST (file = conf_file_new (source, path));
 
-	/* Parse the file buffer, registering items found against the
-	 * ConfFile; the existing items are removed later.
-	 */
 	pos = 0;
 	lineno = 1;
 
 	switch (source->type) {
 	case CONF_FILE:
 	case CONF_DIR:
-		/* Parse the file, this deals with item creation itself
-		 * since only it knows the item types and names.
-		 */
+		/* Simple file of options; usually no item attached to it. */
 		nih_debug ("Loading configuration from %s", path);
 		if (parse_conf (file, buf, len, &pos, &lineno) < 0)
 			err = nih_error_get ();
@@ -781,16 +681,12 @@ conf_reload_path (ConfSource *source,
 			name++;
 
 		/* Create a new job item and parse the buffer to produce
-		 * the job definition.  Discard the item if this fails.
+		 * the job definition.
 		 */
 		nih_debug ("Loading %s from %s", name, path);
-		NIH_MUST (item = conf_item_new (file, CONF_JOB));
-		item->job = parse_job (NULL, name, buf, len, &pos, &lineno);
-		if (! item->job) {
+		file->job = parse_job (NULL, name, buf, len, &pos, &lineno);
+		if (! file->job)
 			err = nih_error_get ();
-
-			nih_free (item);
-		}
 
 		break;
 	default:
@@ -824,14 +720,6 @@ conf_reload_path (ConfSource *source,
 		}
 	}
 
-	/* Delete the old items now we've parsed in the list of new ones.
-	 */
-	NIH_LIST_FOREACH_SAFE (&old_items, iter) {
-		ConfItem *item = (ConfItem *)iter;
-
-		nih_free (item);
-	}
-
 	/* Unmap the file again; in theory this shouldn't fail, but if
 	 * it does, return an error condition even though we've actually
 	 * loaded some of the new things.
@@ -855,10 +743,12 @@ conf_reload_path (ConfSource *source,
 
 
 /**
- * conf_item_destructor:
- * @item: configuration item to be destroyed.
+ * conf_file_destroy:
+ * @file: configuration file to be destroyed.
  *
- * Handles the replacement and deletion of the item itself.
+ * Handles the replacement and deletion of a configuration file, ensuring
+ * that @file is removed from the containing linked list and that the item
+ * attached to it is destroyed if not currently in use.
  *
  * Normally used or called from an nih_alloc() destructor so that the list
  * item is automatically removed from its containing list when freed.
@@ -866,47 +756,52 @@ conf_reload_path (ConfSource *source,
  * Returns: zero.
  **/
 int
-conf_item_destroy (ConfItem *item)
+conf_file_destroy (ConfFile *file)
 {
-	nih_assert (item != NULL);
+	nih_assert (file != NULL);
 
-	switch (item->type) {
-	case CONF_JOB:
-		if (! item->job)
+	switch (file->source->type) {
+	case CONF_FILE:
+	case CONF_DIR:
+		break;
+	case CONF_JOB_DIR:
+		if (! file->job)
 			break;
 
 		/* If the item being deleted hasn't already been marked for
 		 * replacement, mark it for deletion.
 		 */
-		if (! item->job->replacement)
-			item->job->replacement = (void *)-1;
+		if (! file->job->replacement)
+			file->job->replacement = (void *)-1;
 
 		/* If the item being deleted is the replacement for another,
 		 * cut out the middle man and make that item's replacement
 		 * the same as our own replacement (ie. probably deletion)
 		 */
-		if ((item->job->replacement_for != NULL)
-		    && (item->job->replacement_for->replacement == item->job))
-			item->job->replacement_for->replacement \
-				= item->job->replacement;
+		if ((file->job->replacement_for != NULL)
+		    && (file->job->replacement_for->replacement == file->job))
+			file->job->replacement_for->replacement \
+				= file->job->replacement;
 
 		/* Delete the job if we can */
-		if (job_config_should_replace (item->job)) {
+		if (job_config_should_replace (file->job)) {
 			/* If the item being deleted has a replacement, ensure
 			 * that the replacement doesn't reference it anymore.
 			 */
-			if ((item->job->replacement != NULL)
-			    && (item->job->replacement != (void *)-1)
-			    && (item->job->replacement->replacement_for == item->job))
-				item->job->replacement->replacement_for = NULL;
+			if ((file->job->replacement != NULL)
+			    && (file->job->replacement != (void *)-1)
+			    && (file->job->replacement->replacement_for == file->job))
+				file->job->replacement->replacement_for = NULL;
 
-			nih_free (item->job);
+			nih_free (file->job);
 		}
 
 		break;
+	default:
+		nih_assert_not_reached ();
 	}
 
-	nih_list_destroy (&item->entry);
+	nih_list_destroy (&file->entry);
 
 	return 0;
 }

@@ -1,3 +1,42 @@
+2007-11-03  Scott James Remnant  <scott@netsplit.com>
+
+	* init/conf.h (ConfSource): Remove priority, we'll place these
+	in a linked list and use that order instead.
+	(ConfSourcePriority): Drop accordingly.
+	(ConfItem): Drop this structure; permitting jobs and states to be
+	defined inside larger conf files made things complicated for no
+	benefit; move the item union into
+	(ConfFile): here, instead of the items list.
+	(ConfItemType): Drop accordingly.
+	* init/conf.c (conf_init): Store sources in a linked list, instead
+	of a hash table; no idea why it ever was.
+	(conf_source_new): Drop priority argument and add to list not hash.
+	(conf_file_new): Set data to NULL instead of initialising items,
+	set destructor to conf_file_destroy.
+	(conf_item_destroy): Rename to conf_file_destroy
+	(conf_file_destroy): and adjust to refer to ConfItem instead,
+	getting the item type through the source.
+	(conf_item_new): Drop.
+	(conf_reload): Iterate as linked list not hash table.
+	(conf_reload_path): Simplify handling of old files and items a
+	little, just look it up and always free if it exists before parsing
+	the new file.
+	(conf_file_get): No longer any need for this function.
+	* init/tests/test_conf.c (test_file_get, test_item_new): Drop
+	test functions for those that have been removed.
+	(test_item_destroy): Rename to test_file_destroy.
+	(test_source_new): Don't pass or check priority, or hash lookup.
+	(test_file_new): Check data is set correctly.
+	(test_source_reload_job_dir, test_source_reload_conf_dir)
+	(test_source_reload_file): Update tests accordingly.
+	* init/parse_conf.c (stanza_job): Drop the job stanza, jobs
+	may only be defined in dedicated directories.  
+	* init/tests/test_parse_conf.c (test_parse_conf): Simply check to only
+	make sure the file is parsed.
+	(test_stanza_job): Drop function.
+	* init/main.c: Update calls to conf_source_new.
+	* init/init.supp: Update intermediate function in suppression.
+
 2007-10-26  Scott James Remnant  <scott@netsplit.com>
 
 	* init/process.c (process_spawn): Mask out all signals across the
