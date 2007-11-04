@@ -247,10 +247,6 @@ static NihConfigStanza stanzas[] = {
  * named @name.  A sequence of stanzas is expected, defining the parameters
  * of the job.
  *
- * If an existing job already exists with the given @name, and the new job
- * is parsed successfully, then the new job is marked as a replacement for
- * the old one.
- *
  * Returns: newly allocated JobConfig structure on success,
  * NULL on raised error.
  **/
@@ -262,54 +258,19 @@ parse_job (const void *parent,
 	   size_t     *pos,
 	   size_t     *lineno)
 {
- 	JobConfig *job, *old_job;
+ 	JobConfig *job;
 
 	nih_assert (name != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	/* Look for an old job with that name */
-	old_job = job_config_find_by_name (name);
-
-	/* Allocate a new structure */
 	job = job_config_new (parent, name);
 	if (! job)
 		nih_return_system_error (NULL);
 
-	/* Parse the file, if we can't parse the new file, we just return now
-	 * without ditching the old job if there is one.
-	 */
 	if (nih_config_parse_file (file, len, pos, lineno, stanzas, job) < 0) {
 		nih_free (job);
 		return NULL;
-	}
-
-	/* Deal with the case where we're reloading an existing	job; we
-	 * mark the existing job as deleted, rather than copying in old data,
-	 * since we don't want to mis-match scripts or configuration.
-	 */
-	if (old_job) {
-		nih_info (_("Replacing existing %s job"), job->name);
-
-		/* If the old job already has a replacement, that should
-		 * be discarded since we are the new replacement for it.
-		 */
-		if ((old_job->replacement != NULL)
-		    && (old_job->replacement != (void *)-1)) {
-			nih_debug ("Discarding previous replacement");
-			old_job->replacement->replacement = (void *)-1;
-
-			if (job_config_should_replace (old_job->replacement))
-				nih_list_remove (&old_job->replacement->entry);
-		}
-
-		/* Make the new job the replacement for the old */
-		old_job->replacement = job;
-		job->replacement_for = old_job;
-
-		/* If the old job can be replaced, do it now */
-		if (job_config_should_replace (old_job))
-			nih_list_remove (&old_job->entry);
 	}
 
 	return job;

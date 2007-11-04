@@ -45,6 +45,7 @@
 
 #include "event.h"
 #include "job.h"
+#include "conf.h"
 
 
 void
@@ -81,8 +82,8 @@ test_config_new (void)
 	int        i;
 
 	/* Check that we can create a new JobConfig structure; the
-	 * structure should be allocated with nih_alloc, placed in
-	 * the jobs hash and have sensible defaults.
+	 * structure should be allocated with nih_alloc but not placed in
+	 * the jobs hash.
 	 */
 	TEST_FUNCTION ("job_config_new");
 	job_init ();
@@ -95,16 +96,13 @@ test_config_new (void)
 		}
 
 		TEST_ALLOC_SIZE (config, sizeof (JobConfig));
-		TEST_LIST_NOT_EMPTY (&config->entry);
+		TEST_LIST_EMPTY (&config->entry);
 
 		TEST_ALLOC_PARENT (config->name, config);
 		TEST_EQ_STR (config->name, "test");
 		TEST_EQ_P (config->description, NULL);
 		TEST_EQ_P (config->author, NULL);
 		TEST_EQ_P (config->version, NULL);
-
-		TEST_EQ_P (config->replacement, NULL);
-		TEST_EQ_P (config->replacement_for, NULL);
 
 		TEST_EQ_P (config->start_on, NULL);
 		TEST_EQ_P (config->stop_on, NULL);
@@ -146,102 +144,100 @@ test_config_new (void)
 
 		TEST_EQ_P (config->chroot, NULL);
 		TEST_EQ_P (config->chdir, NULL);
+		TEST_FALSE (config->deleted);
 
 		nih_free (config);
 	}
 }
 
 void
-test_config_find_by_name (void)
+test_config_replace (void)
 {
-	JobConfig *config1, *config2, *config3, *ptr;
+	ConfSource *source1, *source2, *source3;
+	ConfFile   *file1, *file2, *file3;
+	JobConfig  *config1, *config2, *config3, *ptr;
+	Job        *job;
 
-	TEST_FUNCTION ("job_config_find_by_name");
-	config1 = job_config_new (NULL, "foo");
-	config2 = job_config_new (NULL, "bar");
-	config3 = job_config_new (NULL, "baz");
+	TEST_FUNCTION ("job_config_replace");
+	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
 
-	/* Check that we can find a job that exists by its name. */
-	TEST_FEATURE ("with name we expect to find");
-	ptr = job_config_find_by_name ("foo");
+	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
 
-	TEST_EQ_P (ptr, config1);
+	file1 = conf_file_new (source2, "/tmp/bar/frodo");
+	config1 = file1->job = job_config_new (NULL, "frodo");
 
+	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
+	config2 = file2->job = job_config_new (NULL, "bilbo");
 
-	/* Check that we get NULL if the job doesn't exist. */
-	TEST_FEATURE ("with name we do not expect to find");
-	ptr = job_config_find_by_name ("frodo");
+	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
-	TEST_EQ_P (ptr, NULL);
+	file3 = conf_file_new (source3, "/tmp/baz/frodo");
+	config3 = file3->job = job_config_new (NULL, "frodo");
 
-
-	/* Check that if an entry is an replacement, we get the current job. */
-	TEST_FEATURE ("with replacement");
-	config2->replacement_for = config3;
-	ptr = job_config_find_by_name ("bar");
-
-	TEST_EQ (ptr, config3);
-
-
-	/* Check that we get NULL if the job list is empty, and nothing
-	 * bad happens.
-	 */
-	TEST_FEATURE ("with empty job list");
-	nih_free (config3);
-	nih_free (config2);
-	nih_free (config1);
-	ptr = job_config_find_by_name ("foo");
-
-	TEST_EQ_P (ptr, NULL);
-}
-
-void
-test_config_should_replace (void)
-{
-	JobConfig *config1, *config2;
-	Job       *job;
-	int        replace;
-
-	TEST_FUNCTION ("job_config_should_replace");
-	config1 = job_config_new (NULL, "foo");
-
-	config2 = job_config_new (NULL, "bar");
-	config2->replacement = config1;
-
-	job = job_instance (config2);
+	job = job_instance (config3);
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
+	nih_hash_add (jobs, &config3->entry);
 
-	/* Check that we should not replace a job that doesn't have a
-	 * replacement at this point.
+
+	/* Check that the current job will not be replaced if it has
+	 * instances.
 	 */
-	TEST_FEATURE ("with replacement-less job");
-	replace = job_config_should_replace (config1);
+	TEST_FEATURE ("with job with instances");
+	ptr = job_config_replace (config3);
+	TEST_EQ (ptr, config3);
 
-	TEST_FALSE (replace);
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "frodo");
+	TEST_EQ (ptr, config3);
 
 
-	/* Check that we should not replace a job that has a replacement,
-	 * but is still running.
+	/* Check that the current job can be replaced by another job if it
+	 * does not have instances, and that the new job is returned.
 	 */
-	TEST_FEATURE ("with running job");
-	replace = job_config_should_replace (config2);
+	TEST_FEATURE ("with job without instances");
+	nih_free (job);
 
-	TEST_FALSE (replace);
+	ptr = job_config_replace (config3);
+	TEST_EQ (ptr, config1);
+
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "frodo");
+	TEST_EQ (ptr, config1);
+
+	TEST_LIST_EMPTY (&config3->entry);
 
 
-	/* Check that we should replace a job that has a replacement and
-	 * is no longer running.
+	/* Check that replacing a job which is the current and highest
+	 * priority job leaves it as the current one.
 	 */
-	TEST_FEATURE ("with stopped job");
-	nih_free (config2->instances.next);
+	TEST_FEATURE ("with current job already best");
+	ptr = job_config_replace (config1);
+	TEST_EQ (ptr, config1);
 
-	replace = job_config_should_replace (config2);
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "frodo");
+	TEST_EQ (ptr, config1);
 
-	TEST_TRUE (replace);
+
+	/* Check that if there is no job, it is removed from the hash table.
+	 */
+	TEST_FEATURE ("with no job left");
+	file1->job = file3->job = NULL;
+
+	ptr = job_config_replace (config1);
+	TEST_EQ (ptr, NULL);
+
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "frodo");
+	TEST_EQ (ptr, NULL);
+
+	TEST_LIST_EMPTY (&config1->entry);
 
 
+	file2->job = NULL;
+	nih_free (source3);
+	nih_free (source2);
+	nih_free (source1);
+
+	nih_free (config3);
 	nih_free (config2);
 	nih_free (config1);
 }
@@ -379,15 +375,18 @@ test_find_by_pid (void)
 	config1->process[PROCESS_MAIN] = job_process_new (config1);
 	config1->process[PROCESS_POST_START] = job_process_new (config1);
 	config1->instance = TRUE;
+	nih_hash_add (jobs, &config1->entry);
 
 	config2 = job_config_new (NULL, "bar");
 	config2->process[PROCESS_PRE_START] = job_process_new (config2);
 	config2->process[PROCESS_MAIN] = job_process_new (config2);
 	config2->process[PROCESS_PRE_STOP] = job_process_new (config2);
 	config2->instance = TRUE;
+	nih_hash_add (jobs, &config2->entry);
 
 	config3 = job_config_new (NULL, "baz");
 	config3->process[PROCESS_POST_STOP] = job_process_new (config3);
+	nih_hash_add (jobs, &config3->entry);
 
 	job1 = job_instance (config1);
 	job1->pid[PROCESS_MAIN] = 10;
@@ -502,7 +501,10 @@ test_find_by_id (void)
 
 	TEST_FUNCTION ("job_find_by_id");
 	config1 = job_config_new (NULL, "foo");
+	nih_hash_add (jobs, &config1->entry);
+	
 	config2 = job_config_new (NULL, "bar");
+	nih_hash_add (jobs, &config2->entry);
 
 	job1 = job_instance (config1);
 	job2 = job_instance (config1);
@@ -1025,7 +1027,9 @@ void
 test_change_state (void)
 {
 	FILE        *output;
-	JobConfig   *config, *replacement;
+	ConfSource  *source;
+	ConfFile    *file;
+	JobConfig   *config, *replacement, *ptr;
 	Job         *job = NULL;
 	Event       *cause, *event;
 	struct stat  statbuf;
@@ -2755,16 +2759,90 @@ test_change_state (void)
 	config->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
 
 
-	/* Check that a job with a replacement can move from post-stop to
-	 * waiting, going through that state and ending up in deleted where
-	 * the replacement takes over and becomes a real job.
+	/* Check that a job which has a better replacement can move from
+	 * post-stop to waiting, and be removed from the jobs hash table
+	 * and replaced by the better one.
 	 */
 	TEST_FEATURE ("post-stop to waiting for replaced job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+			file = conf_file_new (source, "/tmp/test");
+			file->job = job_config_new (NULL, "test");
+			replacement = file->job;
+
+			job = job_instance (config);
+		}
+
+		nih_hash_add (jobs, &config->entry);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->refs, 0);
+		TEST_EQ (cause->blockers, 0);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "main");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		ptr = (JobConfig *)nih_hash_lookup (jobs, "test");
+		TEST_EQ (ptr, replacement);
+
+		file->job = NULL;
+		nih_free (replacement);
+		nih_free (source);
+	}
+
+
+	/* Check that a job with a deleted source can move from post-stop
+	 * to waiting, be removed from the jobs hash table, replaced by
+	 * a better one, then freed.
+	 */
+	TEST_FEATURE ("post-stop to waiting for deleted job");
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	file = conf_file_new (source, "/tmp/test");
+	file->job = job_config_new (NULL, "test");
+	replacement = file->job;
+
+	config->deleted = TRUE;
 	job = job_instance (config);
 
-	replacement = job_config_new (NULL, "wibble");
-	config->replacement = replacement;
-	replacement->replacement_for = config;
+	nih_hash_add (jobs, &config->entry);
 
 	job->goal = JOB_STOP;
 	job->state = JOB_POST_STOP;
@@ -2786,13 +2864,13 @@ test_change_state (void)
 	job->failed_process = PROCESS_MAIN;
 	job->exit_status = 1;
 
-	TEST_FREE_TAG (job);
 	TEST_FREE_TAG (config);
+	TEST_FREE_TAG (job);
 
 	job_change_state (job, JOB_WAITING);
 
-	TEST_FREE (job);
 	TEST_FREE (config);
+	TEST_FREE (job);
 
 	TEST_EQ (cause->refs, 0);
 	TEST_EQ (cause->blockers, 0);
@@ -2812,9 +2890,12 @@ test_change_state (void)
 
 	TEST_LIST_EMPTY (events);
 
-	TEST_EQ_P (replacement->replacement_for, NULL);
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "test");
+	TEST_EQ (ptr, replacement);
 
+	file->job = NULL;
 	nih_free (replacement);
+	nih_free (source);
 
 
 	fclose (output);
@@ -3556,17 +3637,21 @@ test_kill_process (void)
 void
 test_child_reaper (void)
 {
-	JobConfig *config;
-	Job       *job = NULL;
-	Event     *event;
-	FILE      *output;
-	int        exitcodes[2] = { 100, SIGINT << 8 };
+	ConfSource *source;
+	ConfFile   *file;
+	JobConfig  *config;
+	Job        *job = NULL;
+	Event      *event;
+	FILE       *output;
+	int         exitcodes[2] = { 100, SIGINT << 8 };
 
 	TEST_FUNCTION ("job_child_reaper");
 	program_name = "test";
 	output = tmpfile ();
 
-	config = job_config_new (NULL, "test");
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	file = conf_file_new (source, "/tmp/test");
+	file->job = config = job_config_new (NULL, "test");
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = "echo";
 
@@ -3574,6 +3659,7 @@ test_child_reaper (void)
 					       "foo", NULL);
 	config->stop_on = event_operator_new (config, EVENT_MATCH,
 					      "foo", NULL);
+	nih_hash_add (jobs, &config->entry);
 
 	event = event_new (NULL, "foo", NULL, NULL);
 
@@ -5051,6 +5137,8 @@ test_child_reaper (void)
 	fclose (output);
 
 	nih_free (config);
+	file->job = NULL;
+	nih_free (source);
 
 	nih_free (event);
 	event_poll ();
@@ -5080,6 +5168,8 @@ test_handle_event (void)
 				   "wobble", NULL);
 	nih_tree_add (&config1->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
+	nih_hash_add (jobs, &config1->entry);
+
 
 	config2 = job_config_new (NULL, "bar");
 	config2->respawn_limit = 0;
@@ -5093,6 +5183,8 @@ test_handle_event (void)
 	oper = event_operator_new (config2->stop_on, EVENT_MATCH,
 				   "wobble", NULL);
 	nih_tree_add (&config2->stop_on->node, &oper->node, NIH_TREE_RIGHT);
+
+	nih_hash_add (jobs, &config2->entry);
 
 
 	/* Check that a non matching event has no effect on either job,
@@ -5336,6 +5428,8 @@ test_handle_event_finished (void)
 
 	job1 = job_instance (config1);
 
+	nih_hash_add (jobs, &config1->entry);
+
 	config2 = job_config_new (NULL, "bar");
 	config2->respawn_limit = 0;
 	config2->process[PROCESS_PRE_START] = job_process_new (config2);
@@ -5347,6 +5441,8 @@ test_handle_event_finished (void)
 					       "wibble", NULL);
 
 	job2 = job_instance (config2);
+
+	nih_hash_add (jobs, &config2->entry);
 
 
 	/* Check that a non matching event has no effect on either job.
@@ -5433,8 +5529,7 @@ main (int   argc,
 	test_process_new ();
 
 	test_config_new ();
-	test_config_find_by_name ();
-	test_config_should_replace ();
+	test_config_replace ();
 
 	test_new ();
 	test_find_by_pid ();

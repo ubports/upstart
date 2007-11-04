@@ -632,6 +632,7 @@ conf_reload_path (ConfSource *source,
 {
 	ConfFile   *file;
 	const char *buf, *name;
+	JobConfig  *old_job;
 	size_t      len, pos, lineno;
 	NihError   *err = NULL;
 
@@ -685,7 +686,18 @@ conf_reload_path (ConfSource *source,
 		 */
 		nih_debug ("Loading %s from %s", name, path);
 		file->job = parse_job (NULL, name, buf, len, &pos, &lineno);
-		if (! file->job)
+		if (file->job) {
+			/* If there's an existing job with that name, attempt
+			 * to replace it; otherwise add the new job directly
+			 * to the hash table.
+			 */
+			old_job = (JobConfig *)nih_hash_lookup (jobs, name);
+			if (old_job) {
+				job_config_replace (old_job);
+			} else {
+				nih_hash_add (jobs, &file->job->entry);
+			}
+		} else
 			err = nih_error_get ();
 
 		break;
@@ -758,7 +770,11 @@ conf_reload_path (ConfSource *source,
 int
 conf_file_destroy (ConfFile *file)
 {
+	JobConfig *config;
+
 	nih_assert (file != NULL);
+
+	nih_list_destroy (&file->entry);
 
 	switch (file->source->type) {
 	case CONF_FILE:
@@ -768,40 +784,25 @@ conf_file_destroy (ConfFile *file)
 		if (! file->job)
 			break;
 
-		/* If the item being deleted hasn't already been marked for
-		 * replacement, mark it for deletion.
+		/* Mark the job to be deleted when it stops, in case
+		 * it cannot be deleted here.
 		 */
-		if (! file->job->replacement)
-			file->job->replacement = (void *)-1;
+		file->job->deleted = TRUE;
 
-		/* If the item being deleted is the replacement for another,
-		 * cut out the middle man and make that item's replacement
-		 * the same as our own replacement (ie. probably deletion)
+		/* Check whether the job is the current one with that name;
+		 * if it is, try and replace it.  If it wasn't the current
+		 * job, or isn't after replacement, we can free it now.
 		 */
-		if ((file->job->replacement_for != NULL)
-		    && (file->job->replacement_for->replacement == file->job))
-			file->job->replacement_for->replacement \
-				= file->job->replacement;
-
-		/* Delete the job if we can */
-		if (job_config_should_replace (file->job)) {
-			/* If the item being deleted has a replacement, ensure
-			 * that the replacement doesn't reference it anymore.
-			 */
-			if ((file->job->replacement != NULL)
-			    && (file->job->replacement != (void *)-1)
-			    && (file->job->replacement->replacement_for == file->job))
-				file->job->replacement->replacement_for = NULL;
-
+		config = (JobConfig *)nih_hash_lookup (jobs, file->job->name);
+		if (config == file->job)
+			config = job_config_replace (file->job);
+		if (config != file->job)
 			nih_free (file->job);
-		}
 
 		break;
 	default:
 		nih_assert_not_reached ();
 	}
-
-	nih_list_destroy (&file->entry);
 
 	return 0;
 }

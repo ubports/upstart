@@ -225,6 +225,8 @@ test_poll (void)
 	config->start_on = event_operator_new (config, EVENT_MATCH,
 					       "test", NULL);
 
+	nih_hash_add (jobs, &config->entry);
+
 	event = event_new (NULL, "test", NULL, NULL);
 	event->id = 0xdeafbeef;
 
@@ -276,6 +278,8 @@ test_poll (void)
 	config = job_config_new (NULL, "test");
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
+
+	nih_hash_add (jobs, &config->entry);
 
 	job = job_instance (config);
 	job->goal = JOB_START;
@@ -349,6 +353,8 @@ test_poll (void)
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
 
+	nih_hash_add (jobs, &config->entry);
+
 	config->start_on = event_operator_new (config, EVENT_MATCH,
 					       "test/failed", NULL);
 
@@ -386,6 +392,8 @@ test_poll (void)
 	config = job_config_new (NULL, "test");
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
+
+	nih_hash_add (jobs, &config->entry);
 
 	config->start_on = event_operator_new (config, EVENT_OR, NULL, NULL);
 

@@ -1,3 +1,57 @@
+2007-11-04  Scott James Remnant  <scott@netsplit.com>
+
+	Complete the simplification of job config; rather than try and
+	precompute job replacements, keeping them all in the same hash table
+	and chaining them together, we just work it out when it's actually
+	necessary based on what's in the conf_sources list.
+
+	* init/job.h (JobConfig): Remove the replacement and replacement_for
+	members and put a deleted member in instead.
+	* init/job.c (job_config_new): Initialise deleted to FALSE; don't
+	replace the job into the hash table, since we only want the current
+	one in there now.
+	(job_config_find_by_name): Now that there is only ever one job
+	config in the hash table, we don't need any special function and
+	can just use nih_hash_lookup directly, so drop this function.
+	(job_config_should_replace): Rename to job_config_replace
+	(job_config_replace): Rework, it now checks to see whether there
+	are instances, and if not removes the job from the hash table
+	before selecting a new one (which might be the same job).
+	* init/tests/test_job.c (test_config_new): Update test to check
+	deleted starts off as FALSE and that the job isn't in the hash.
+	(test_config_find_by_name): Drop.
+	(test_config_should_replace): Rename and rewrite to test replacement
+	actually works as we expect.
+	(test_change_state): Update tests for entering the waiting mode and
+	replacing jobs.
+	(test_find_by_pid, test_find_by_id, test_handle_event)
+	(test_handle_event_finished): Add jobs to the hash table, otherwise
+	we can't find them
+	(test_child_reaper): Add job to the hash table, and also create a
+	source for it since we end up with it in the waiting state so need
+	to be able to keep it.
+	* init/Makefile.am (test_process_LDADD, test_job_LDADD)
+	(test_event_LDADD): Need the full .o file list now.
+	* init/conf.c (conf_file_destroy): Rewrite to mark the job deleted,
+	call job_config_replace if it's the current job and free it if
+	it isn't the current job either before or after that call.
+	(conf_reload_path): Handle job replacement here; look up the
+	old job in the hash table, if it exists attempt a replacement
+	otherwise add the new job to the hash table.
+	* init/tests/test_conf.c (test_source_reload_job_dir)
+	(test_source_reload_conf_dir, test_source_reload_file): Update
+	tests to check job->deleted and use nih_hash_lookup to see whether
+	it's the current job.
+	(test_file_destroy): Write tests to check the common cases, we don't
+	need to worry about the intermediate now since they can't happen.
+	* init/parse_job.c (parse_job): Massively simplify, this only creates
+	the config and parses it now.
+	* init/tests/test_parse_job.c (test_parse_job): Remove the replacement
+	checks.
+	* init/tests/test_event.c (test_poll): Add configs to the hash
+	table so they can be found.
+	* TODO: Update.
+
 2007-11-03  Scott James Remnant  <scott@netsplit.com>
 
 	* init/conf.h (ConfSource): Remove priority, we'll place these

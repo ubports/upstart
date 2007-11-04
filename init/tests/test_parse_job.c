@@ -32,6 +32,7 @@
 #include <nih/errors.h>
 
 #include "job.h"
+#include "conf.h"
 #include "parse_job.h"
 #include "errors.h"
 
@@ -39,15 +40,15 @@
 void
 test_parse_job (void)
 {
-	JobConfig  *job = NULL, *old_job = NULL, *new_job;
+	JobConfig  *job = NULL;
 	JobProcess *process;
-	Job        *instance;
 	NihError   *err;
 	size_t      pos, lineno;
 	char        buf[1024];
 
 	TEST_FUNCTION ("parse_job");
 	job_init ();
+	conf_init ();
 
 	/* Check that a simple job file can be parsed, with all of the
 	 * information given filled into the job structure.
@@ -95,144 +96,6 @@ test_parse_job (void)
 		TEST_ALLOC_PARENT (process->command, process);
 		TEST_EQ_STR (process->command, "rm /var/lock/daemon\n");
 
-		nih_free (job);
-	}
-
-
-	/* Check that when we give a new file for an existing job, the
-	 * existing job is marked for replacement (and the previous
-	 * replacement discarded), but as that job is running, left to
-	 * stop on its own later.
-	 */
-	TEST_FEATURE ("with re-reading existing job file");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			strcpy (buf, "exec /sbin/daemon -d\n");
-			strcat (buf, "pre-start script\n");
-			strcat (buf, "    rm /var/lock/daemon\n");
-			strcat (buf, "end script\n");
-
-			pos = 0;
-			lineno = 1;
-			job = parse_job (NULL, "test", buf, strlen (buf),
-					 &pos, &lineno);
-
-			instance = job_instance (job);
-			instance->goal = JOB_START;
-			instance->state = JOB_RUNNING;
-			instance->pid[PROCESS_MAIN] = 1000;
-
-			old_job = job->replacement \
-				= job_config_new (NULL, "wibble");
-		}
-
-		strcpy (buf, "exec /sbin/daemon --daemon\n");
-
-		pos = 0;
-		lineno = 1;
-		new_job = parse_job (NULL, "test", buf, strlen (buf),
-				     &pos, &lineno);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (new_job, NULL);
-
-			err = nih_error_get ();
-			TEST_EQ (err->number, ENOMEM);
-			nih_free (err);
-
-			TEST_NE_P (job->replacement, NULL);
-
-			nih_free (job);
-			nih_free (old_job);
-			continue;
-		}
-
-		TEST_EQ (pos, strlen (buf));
-		TEST_EQ (lineno, 2);
-
-		TEST_ALLOC_SIZE (new_job, sizeof (JobConfig));
-		TEST_EQ_P (new_job->start_on, NULL);
-		TEST_EQ_P (new_job->stop_on, NULL);
-
-		process = new_job->process[PROCESS_MAIN];
-		TEST_ALLOC_PARENT (process, new_job->process);
-		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-		TEST_EQ (process->script, FALSE);
-		TEST_ALLOC_PARENT (process->command, process);
-		TEST_EQ_STR (process->command, "/sbin/daemon --daemon");
-
-		TEST_LIST_NOT_EMPTY (&job->instances);
-		instance = (Job *)job->instances.next;
-
-		TEST_EQ (instance->goal, JOB_START);
-		TEST_EQ (instance->state, JOB_RUNNING);
-		TEST_EQ (instance->pid[PROCESS_MAIN], 1000);
-
-		TEST_EQ_P (job->replacement, new_job);
-		TEST_EQ_P (new_job->replacement_for, job);
-
-		TEST_LIST_EMPTY (&old_job->entry);
-
-		nih_free (old_job);
-		nih_free (new_job);
-		nih_free (job);
-	}
-
-
-	/* Check that a stopped job can be instantly replaced and marked for
-	 * deletion if it's waiting.
-	 */
-	TEST_FEATURE ("with re-reading stopped job");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			strcpy (buf, "exec /sbin/daemon --daemon\n");
-
-			pos = 0;
-			lineno = 1;
-			job = parse_job (NULL, "test", buf, strlen (buf),
-					 &pos, &lineno);
-		}
-
-		strcpy (buf, "exec /sbin/daemon --foo\n");
-
-		pos = 0;
-		lineno = 1;
-		new_job = parse_job (NULL, "test", buf, strlen (buf),
-				     &pos, &lineno);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (new_job, NULL);
-
-			err = nih_error_get ();
-			TEST_EQ (err->number, ENOMEM);
-			nih_free (err);
-
-			TEST_EQ_P (job->replacement, NULL);
-
-			nih_free (job);
-			continue;
-		}
-
-		TEST_EQ (pos, strlen (buf));
-		TEST_EQ (lineno, 2);
-
-		TEST_ALLOC_SIZE (new_job, sizeof (JobConfig));
-		TEST_EQ_P (new_job->start_on, NULL);
-		TEST_EQ_P (new_job->stop_on, NULL);
-
-		process = new_job->process[PROCESS_MAIN];
-		TEST_ALLOC_PARENT (process, new_job->process);
-		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-		TEST_EQ (process->script, FALSE);
-		TEST_ALLOC_PARENT (process->command, process);
-		TEST_EQ_STR (process->command, "/sbin/daemon --foo");
-
-		TEST_LIST_EMPTY (&job->entry);
-
-		TEST_EQ_P (job->replacement, new_job);
-		TEST_EQ_P (new_job->replacement_for, job);
-
-		nih_free (new_job);
 		nih_free (job);
 	}
 

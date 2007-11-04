@@ -100,8 +100,6 @@ typedef struct job_process {
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
- * @replacement: job to replace this one,
- * @replacement_for: job this is a replacement for,
  * @start_on: event operator expression that can start this job,
  * @stop_on: event operator expression that can stop this job.
  * @emits: list of additional events that this job can emit,
@@ -125,7 +123,8 @@ typedef struct job_process {
  * @limits: resource limits indexed by resource,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
- * @instances: instances of this job.
+ * @instances: instances of this job,
+ * @deleted: whether job should be deleted when finished.
  *
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
@@ -140,9 +139,6 @@ struct job_config {
 	char           *description;
 	char           *author;
 	char           *version;
-
-	JobConfig      *replacement;
-	JobConfig      *replacement_for;
 
 	EventOperator  *start_on;
 	EventOperator  *stop_on;
@@ -176,6 +172,7 @@ struct job_config {
 	char           *chdir;
 
 	NihList         instances;
+	int             deleted;
 };
 
 /**
@@ -249,9 +246,7 @@ JobProcess *job_process_new           (const void *parent)
 JobConfig * job_config_new            (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-JobConfig * job_config_find_by_name   (const char *name);
-
-int         job_config_should_replace (JobConfig *job_config);
+JobConfig * job_config_replace        (JobConfig *job_config);
 
 Job *       job_new                   (JobConfig *job_config)
 	__attribute__ ((warn_unused_result, malloc));

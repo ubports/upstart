@@ -57,25 +57,25 @@ test_enum_LDADD = \
 test_process_SOURCES = tests/test_process.c
 test_process_LDFLAGS = -static
 test_process_LDADD = \
-	enum.o process.o job.o event.o \
+	enum.o process.o job.o event.o parse_job.o parse_conf.o conf.o \
 	../nih/libnih.la
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDFLAGS = -static
 test_job_LDADD = \
-	enum.o process.o job.o event.o \
+	enum.o process.o job.o event.o parse_job.o parse_conf.o conf.o \
 	../nih/libnih.la
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDFLAGS = -static
 test_event_LDADD = \
-	enum.o process.o job.o event.o \
+	enum.o process.o job.o event.o parse_job.o parse_conf.o conf.o \
 	../nih/libnih.la
 
 test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDFLAGS = -static
 test_parse_job_LDADD = \
-	enum.o process.o job.o event.o parse_job.o \
+	enum.o process.o job.o event.o parse_job.o parse_conf.o conf.o \
 	../nih/libnih.la
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c

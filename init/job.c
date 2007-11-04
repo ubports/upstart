@@ -52,6 +52,7 @@
 #include "event.h"
 #include "process.h"
 #include "job.h"
+#include "conf.h"
 #include "paths.h"
 
 
@@ -87,7 +88,7 @@ int          job_id_wrapped = FALSE;
  *
  * This hash table holds the list of known jobs indexed by their name.
  * Each entry is a JobConfig structure; multiple entries with the same name
- * may exist since some may be replacement for others.
+ * are not permitted.
  **/
 NihHash *jobs = NULL;
 
@@ -147,12 +148,9 @@ job_process_new (const void *parent)
  * @parent: parent of new job,
  * @name: name of new job,
  *
- * Allocates and returns a new JobConfig structure with the @name given,
- * and adds it to the internal hash table of registered jobs.  It is up to
- * the caller to ensure that @name is unique amongst the job list if
- * necessary.
- *
- * The job can be removed using nih_free().
+ * Allocates and returns a new JobConfig structure with the @name given.
+ * It is up to the caller to register it in the hash table and ensure that
+ * @name is unique; usually this is done through configuration sources.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -189,9 +187,6 @@ job_config_new (const void *parent,
 	config->description = NULL;
 	config->author = NULL;
 	config->version = NULL;
-
-	config->replacement = NULL;
-	config->replacement_for = NULL;
 
 	config->start_on = NULL;
 	config->stop_on = NULL;
@@ -237,60 +232,53 @@ job_config_new (const void *parent,
 	config->chdir = NULL;
 
 	nih_list_init (&config->instances);
-
-	nih_hash_add (jobs, &config->entry);
+	config->deleted = FALSE;
 
 	return config;
 }
 
 /**
- * job_config_find_by_name:
- * @name: name of job.
+ * job_config_replace:
+ * @config: job config to replace.
  *
- * Finds the job with the given @name in the jobs hash table.  This will
- * not return jobs that are replacements for others.
+ * This function checks whether @config can be replaced (does not have
+ * any instances) and if it can, replaces @config in the jobs hash table
+ * with the highest priority job with the same name from known configuration
+ * sources; this might be the same job.
  *
- * Returns: job found or NULL if not known.
+ * Returns: replacement job, which may be @config or NULL if there was
+ * no replacement.
  **/
 JobConfig *
-job_config_find_by_name (const char *name)
-{
-	JobConfig *config;
-
-	nih_assert (name != NULL);
-
-	job_init ();
-
-	config = (JobConfig *)nih_hash_lookup (jobs, name);
-	if (config && config->replacement_for)
-		return config->replacement_for;
-
-	return config;
-}
-
-
-/**
- * job_config_should_replace:
- * @config: job config to check.
- *
- * This function determines whether a job has a replacement and whether it
- * should be replaced by it.  A job should only be replaced if it has a
- * replacement and no instances.
- *
- * Returns: TRUE if job should be replaced, FALSE otherwise.
- **/
-int
-job_config_should_replace (JobConfig *config)
+job_config_replace (JobConfig *config)
 {
 	nih_assert (config != NULL);
 
-	if (! config->replacement)
-		return FALSE;
-
 	if (! NIH_LIST_EMPTY (&config->instances))
-		return FALSE;
+		return config;
 
-	return TRUE;
+	nih_list_remove (&config->entry);
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (source->type != CONF_JOB_DIR)
+			continue;
+
+		NIH_HASH_FOREACH (source->files, file_iter) {
+			ConfFile *file = (ConfFile *)file_iter;
+
+			if (! file->job)
+				continue;
+
+			if (! strcmp (file->job->name, config->name)) {
+				nih_hash_add (jobs, &file->job->entry);
+				return file->job;
+			}
+		}
+	}
+
+	return NULL;
 }
 
 
@@ -511,8 +499,6 @@ job_find_by_id (unsigned int id)
  * This function is used to obtain the relevant job instance from @config,
  * spawning a new instance if necessary.
  *
- * It is illegal to attempt to obtain an instance of a replacement job.
- *
  * Returns: new or existing instance.
  **/
 Job *
@@ -521,7 +507,6 @@ job_instance (JobConfig *config)
 	Job *job;
 
 	nih_assert (config != NULL);
-	nih_assert (config->replacement_for == NULL);
 
 	if (config->instance || NIH_LIST_EMPTY (&config->instances)) {
 		NIH_MUST (job = job_new (config));
@@ -557,7 +542,6 @@ job_change_goal (Job     *job,
 		 JobGoal  goal)
 {
 	nih_assert (job != NULL);
-	nih_assert (job->config->replacement_for == NULL);
 
 	if (job->goal == goal)
 		return;
@@ -778,22 +762,19 @@ job_change_state (Job      *job,
 			if (job->stop_on)
 				event_operator_reset (job->stop_on);
 
-			/* Remove this job from the list of instances */
-			nih_list_remove (&job->entry);
-
-			/* Check whether the configuration can now be
-			 * replaced; if it is, it'll be freed taking us
-			 * with it; if not, we'll free ourselves.
+			/* Remove the job from the list of instances and
+			 * then allow a better configuration to replace us
+			 * in the hash table if we have no other instances
+			 * and there is one.
 			 */
-			if (job_config_should_replace (job->config)) {
-				/* If the config has a replacement, and isn't
-				 * just marked for deletion, let that become
-				 * the prime config now.
-				 */
-				if ((job->config->replacement != NULL)
-				    && (job->config->replacement != (void *)-1))
-					job->config->replacement->replacement_for = NULL;
+			nih_list_remove (&job->entry);
+			job_config_replace (job->config);
 
+			/* If the config is due to be deleted, free it
+			 * taking the job with it; otherwise free the
+			 * job.
+			 */
+			if (job->config->deleted) {
 				nih_free (job->config);
 			} else {
 				nih_free (job);
@@ -1568,10 +1549,6 @@ job_handle_event (Event *event)
 
 	NIH_HASH_FOREACH_SAFE (jobs, iter) {
 		JobConfig *config = (JobConfig *)iter;
-
-		/* Never try and handle events for replacement jobs. */
-		if (config->replacement_for != NULL)
-			continue;
 
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process

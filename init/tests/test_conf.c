@@ -209,7 +209,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -229,7 +229,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -249,7 +249,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job , NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -299,16 +299,14 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
 	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "echo\n");
-
-	TEST_EQ_P (job->replacement, NULL);
-	TEST_EQ_P (job->replacement_for, NULL);
+	TEST_EQ (job->deleted, FALSE);
 
 	old_file = file;
 	old_job = job;
@@ -351,16 +349,14 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
 	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "sleep 5\n");
-
-	TEST_EQ_P (job->replacement, NULL);
-	TEST_EQ_P (job->replacement_for, NULL);
+	TEST_EQ (job->deleted, FALSE);
 
 	old_file = file;
 	old_job = job;
@@ -408,23 +404,22 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
 	TEST_NE_P (job->process[PROCESS_MAIN], NULL);
 	TEST_EQ (job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (job->process[PROCESS_MAIN]->command, "sleep 15\n");
-
-	TEST_EQ_P (job->replacement, NULL);
-	TEST_EQ_P (job->replacement_for, NULL);
+	TEST_EQ (job->deleted, FALSE);
 
 	old_file = file;
 	old_job = job;
 
 
 	/* Check that we can delete a file from the directory, the metadata
-	 * for it should be lost and the job should be queued for deletion.
+	 * for it should be lost and the job should be immediately freed
+	 * since it is not running.
 	 */
 	TEST_FEATURE ("with deleted job");
 	strcpy (filename, dirname);
@@ -449,12 +444,13 @@ test_source_reload_job_dir (void)
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (job, NULL);
 
 
 	/* Check that if a running job is modified, it is not immediately
-	 * replaced, and instead is marked as the future replacement.
+	 * replaced, and is instead marked as deleted with the new job in
+	 * the sources list ready for action.
 	 */
 	TEST_FEATURE ("with modification to running job");
 	strcpy (filename, dirname);
@@ -475,7 +471,7 @@ test_source_reload_job_dir (void)
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
 	instance = job_instance (job);
@@ -506,7 +502,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (job, old_job);
 	TEST_NE_P (job, file->job);
 
@@ -514,12 +510,9 @@ test_source_reload_job_dir (void)
 	TEST_NE_P (file->job->process[PROCESS_MAIN], NULL);
 	TEST_EQ (file->job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (file->job->process[PROCESS_MAIN]->command, "sleep 15\n");
+	TEST_FALSE (file->job->deleted);
 
-	TEST_EQ_P (file->job->replacement, NULL);
-	TEST_EQ_P (file->job->replacement_for, job);
-
-	TEST_EQ_P (job->replacement, file->job);
-
+	TEST_TRUE (job->deleted);
 	TEST_LIST_NOT_EMPTY (&job->instances);
 	instance = (Job *)job->instances.next;
 
@@ -531,9 +524,8 @@ test_source_reload_job_dir (void)
 
 
 	/* Check that if we modify a job that is a replacement for a running
-	 * job, the new job is marked as a replacement for the running job
-	 * itself rather than having two levels of replacement.  The previous
-	 * replacement should be marked for deletion.
+	 * job, the replacement is freed immediately and the new replacement
+	 * is kept instead.
 	 */
 	TEST_FEATURE ("with modification to replacement for running job");
 	strcpy (filename, dirname);
@@ -568,19 +560,16 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_NE_P (job, file->job);
 
 	TEST_TRUE (file->job->respawn);
 	TEST_NE_P (file->job->process[PROCESS_MAIN], NULL);
 	TEST_EQ (file->job->process[PROCESS_MAIN]->script, TRUE);
 	TEST_EQ_STR (file->job->process[PROCESS_MAIN]->command, "sleep 10\n");
+	TEST_FALSE (file->job->deleted);
 
-	TEST_EQ_P (file->job->replacement, NULL);
-	TEST_EQ_P (file->job->replacement_for, job);
-
-	TEST_EQ_P (job->replacement, file->job);
-
+	TEST_TRUE (job->deleted);
 	TEST_LIST_NOT_EMPTY (&job->instances);
 	instance = (Job *)job->instances.next;
 
@@ -592,9 +581,8 @@ test_source_reload_job_dir (void)
 
 
 	/* Check that if we delete a job that is a replacement for a running
-	 * job, the running job itself is marked for deletion rather than
-	 * having two levels of replacement.  The previous replacement should
-	 * be marked for deletion.
+	 * job, the replacement is lost and there is no replacement for the
+	 * running job anymore.
 	 */
 	TEST_FEATURE ("with deletion of replacement for running job");
 	strcpy (filename, dirname);
@@ -620,11 +608,10 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
-	TEST_EQ_P (job->replacement, (void *)-1);
-
+	TEST_TRUE (job->deleted);
 	TEST_LIST_NOT_EMPTY (&job->instances);
 	instance = (Job *)job->instances.next;
 
@@ -656,7 +643,7 @@ test_source_reload_job_dir (void)
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
 	instance = job_instance (job);
@@ -682,10 +669,9 @@ test_source_reload_job_dir (void)
 
 	TEST_NOT_FREE (old_job);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (job, old_job);
-
-	TEST_EQ_P (job->replacement, (void *)-1);
+	TEST_TRUE (job->deleted);
 
 	TEST_LIST_NOT_EMPTY (&job->instances);
 	instance = (Job *)job->instances.next;
@@ -710,7 +696,7 @@ test_source_reload_job_dir (void)
 	fprintf (f, "respawn\n");
 	fclose (f);
 
-	old_job = job_config_find_by_name ("foo");
+	old_job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 
 	TEST_FREE_TAG (old_job);
 
@@ -727,7 +713,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ_P (job, NULL);
 
 	strcpy (filename, dirname);
@@ -759,7 +745,7 @@ test_source_reload_job_dir (void)
 	old_file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_FREE_TAG (old_file);
 
-	old_job = job_config_find_by_name ("foo");
+	old_job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_FREE_TAG (old_job);
 
 	f = fopen (filename, "w");
@@ -785,7 +771,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ_P (job, NULL);
 
 	strcpy (filename, dirname);
@@ -832,7 +818,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -852,7 +838,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -916,7 +902,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -936,7 +922,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1014,13 +1000,13 @@ test_source_reload_job_dir (void)
 
 	TEST_HASH_EMPTY (source->files);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ (job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ (job, NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ (job, NULL);
 
 	nih_free (source);
@@ -1090,7 +1076,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -1110,7 +1096,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1130,7 +1116,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1196,7 +1182,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -1217,7 +1203,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1233,7 +1219,7 @@ no_inotify:
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ_P (job, NULL);
 
 
@@ -1246,7 +1232,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1295,7 +1281,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1315,7 +1301,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1373,7 +1359,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1393,7 +1379,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = job_config_find_by_name ("frodo/bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1470,13 +1456,13 @@ no_inotify:
 
 	TEST_HASH_EMPTY (source->files);
 
-	job = job_config_find_by_name ("foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
 	TEST_EQ (job, NULL);
 
-	job = job_config_find_by_name ("bar");
+	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
 	TEST_EQ (job, NULL);
 
-	job = job_config_find_by_name ("frodo/foo");
+	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
 	TEST_EQ (job, NULL);
 
 	nih_free (source);
@@ -3154,118 +3140,82 @@ test_file_destroy (void)
 {
 	ConfSource *source;
 	ConfFile   *file;
-	JobConfig  *job, *old_job;
+	JobConfig  *job, *other, *ptr;
 	Job        *instance;
 
 	TEST_FUNCTION ("conf_file_destroy");
 	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
 
 
-	/* Check that when a ConfFile for a job is freed, the attached job
-	 * is also freed.
+	/* Check that when a ConfFile for a job is freed, the attached
+	 * job is also freed if it is not the current job.
+	 */
+	TEST_FEATURE ("with not-current job");
+	file = conf_file_new (source, "/path/to/file");
+	job = file->job = job_config_new (NULL, "foo");
+
+	other = job_config_new (NULL, "foo");
+	nih_hash_add (jobs, &other->entry);
+
+	TEST_FREE_TAG (job);
+
+	nih_free (file);
+
+	TEST_FREE (job);
+
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	TEST_EQ_P (ptr, other);
+
+	nih_free (other);
+
+
+	/* Check that when a ConfFile for a job is freed, the attached
+	 * job is also freed if it is the current job but is not running.
 	 */
 	TEST_FEATURE ("with stopped job");
 	file = conf_file_new (source, "/path/to/file");
 	job = file->job = job_config_new (NULL, "foo");
 
+	nih_hash_add (jobs, &job->entry);
+
 	TEST_FREE_TAG (job);
 
 	nih_free (file);
 
 	TEST_FREE (job);
 
-
-	/* Check that a job that already has a replacement is not altered
-	 * and instead just has its state change pushed.
-	 */
-	TEST_FEATURE ("with stopped job with replacement");
-	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_config_new (NULL, "foo");
-
-	TEST_FREE_TAG (job);
-
-	job->replacement = job_config_new (NULL, "foo");
-	old_job = job->replacement;
-	old_job->replacement_for = job;
-
-	nih_free (file);
-
-	TEST_FREE (job);
-
-	TEST_EQ_P (old_job->replacement_for, NULL);
-
-	nih_free (old_job);
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	TEST_EQ_P (ptr, NULL);
 
 
-	/* Check that when a job item is freed, if the attached job is running
-	 * then it is only marked for deletion and the state is left alone.
+	/* Check that when a ConfFile for a job is freed, the attached job
+	 * is not freed if it is the current job and has active instances;
+	 * instead it is marked as deleted so job_change_state() can free it.
 	 */
 	TEST_FEATURE ("with running job");
 	file = conf_file_new (source, "/path/to/file");
 	job = file->job = job_config_new (NULL, "foo");
 
-	instance = job_instance (job);
-	instance->goal = JOB_START;
-	instance->state = JOB_RUNNING;
-
-	nih_free (file);
-
-	TEST_EQ_P (job->replacement, (void *)-1);
-	TEST_EQ (instance->goal, JOB_START);
-	TEST_EQ (instance->state, JOB_RUNNING);
-
-	nih_free (job);
-
-
-	/* Check that a running job that already has a replacement is not
-	 * altered at all.
-	 */
-	TEST_FEATURE ("with running job with replacement");
-	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_config_new (NULL, "foo");
-
-	job->replacement = job_config_new (NULL, "foo");
-	old_job = job->replacement;
-	old_job->replacement_for = job;
-
-	instance = job_instance (job);
-	instance->goal = JOB_START;
-	instance->state = JOB_RUNNING;
-
-	nih_free (file);
-
-	TEST_EQ_P (job->replacement, old_job);
-	TEST_EQ (instance->goal, JOB_START);
-	TEST_EQ (instance->state, JOB_RUNNING);
-
-	TEST_EQ_P (old_job->replacement_for, job);
-
-	nih_free (old_job);
-
-
-	/* If the job attached to the file is actually a replacement for
-	 * another already, then cut out the middle man and mark it to
-	 * be replaced by our replacement, and change its state.
-	 */
-	TEST_FEATURE ("with replacement job");
-	old_job = job_config_new (NULL, "foo");
-	TEST_FREE_TAG (old_job);
-
-	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_config_new (NULL, "foo");
+	nih_hash_add (jobs, &job->entry);
 
 	TEST_FREE_TAG (job);
 
-	job->replacement_for = old_job;
-	old_job->replacement = job;
+	instance = job_instance (job);
+	instance->goal = JOB_START;
+	instance->state = JOB_RUNNING;
 
 	nih_free (file);
 
-	TEST_FREE (job);
-	TEST_NOT_FREE (old_job);
+	TEST_NOT_FREE (job);
 
-	nih_free (old_job);
+	TEST_TRUE (job->deleted);
+	TEST_EQ (instance->goal, JOB_START);
+	TEST_EQ (instance->state, JOB_RUNNING);
 
+	ptr = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	TEST_EQ_P (ptr, job);
+
+	nih_free (job);
 
 	nih_free (source);
 }

@@ -51,15 +51,8 @@ High Priority:
    * Make sure that event subscribers get notified of the job event, but
      don't get notified twice!
 
- * Configuration isn't finished yet either.
-
-   * Replace the current job replacement/replacement_for pointers, and the
-     jobs hash table, with a centralised name registry.  Each name should
-     have a current holder, and list of available holders, and we should
-     be able to elect a new current.
-
-   * Configuration reloading needs to happen with an initctl command;
-     we also need to support re-exec via initctl as well.
+ * Configuration reloading needs to happen with an initctl command;
+   we also need to support re-exec via initctl as well.
 
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
