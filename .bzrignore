@@ -23,6 +23,7 @@ Makefile.in.in
 ./config.status
 ./config.sub
 ./configure
+./debian
 ./depcomp
 ./install-sh
 ./intl
