@@ -170,7 +170,7 @@ main (int   argc,
 	}
 
 	/* Become session and process group leader (should be already,
-	 * but you never know what initramfs did
+	 * but you never know what initramfs did)
 	 */
 	setsid ();
 
@@ -201,49 +201,58 @@ main (int   argc,
 	if (! (restart || rescue))
 		nih_signal_reset ();
 
-	nih_signal_set_handler (SIGCHLD,  nih_signal_handler);
-	nih_signal_set_handler (SIGALRM,  nih_signal_handler);
-	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
-	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
-	nih_signal_set_handler (SIGCONT,  nih_signal_handler);
-	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
-	nih_signal_set_handler (SIGINT,   nih_signal_handler);
-	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
-	nih_signal_set_handler (SIGPWR,   nih_signal_handler);
-	nih_signal_set_handler (SIGSEGV,  crash_handler);
-	nih_signal_set_handler (SIGABRT,  crash_handler);
+	/* Don't ignore SIGCHLD or SIGALRM, but don't respond to them
+	 * directly; it's enough that they interrupt the main loop and
+	 * get dealt with during it.
+	 */
+	nih_signal_set_handler (SIGCHLD, nih_signal_handler);
+	nih_signal_set_handler (SIGALRM, nih_signal_handler);
 
-	/* Ensure that we don't process events while paused */
+	/* Catch fatal errors immediately rather than waiting for a new
+	 * iteration through the main loop.
+	 */
+	nih_signal_set_handler (SIGSEGV, crash_handler);
+	nih_signal_set_handler (SIGABRT, crash_handler);
+
+	/* Allow SIGTSTP and SIGCONT to pause and unpause event processing */
+	nih_signal_set_handler (SIGTSTP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL));
+
+	nih_signal_set_handler (SIGCONT, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL));
 
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
 	reboot (RB_DISABLE_CAD);
+	nih_signal_set_handler (SIGINT, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
 	 * generate a kbdrequest event.
 	 */
-	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0)
+	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0) {
+		nih_signal_set_handler (SIGWINCH, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
 						  kbd_handler, NULL));
+	}
 
 	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
+	nih_signal_set_handler (SIGPWR, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
 
 	/* SIGHUP instructs us to re-load our configuration */
+	nih_signal_set_handler (SIGHUP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
 
 	/* SIGTERM instructs us to re-exec ourselves */
+	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
 
-	/* Reap all children that die */
+	/* Reap children when they die */
 	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
 
-	/* Process the event queue and check the jobs to make sure we
-	 * haven't stalled, every time through the main loop */
+	/* Process the event queue each time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
 					  NULL));
 
