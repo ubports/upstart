@@ -1293,9 +1293,9 @@ job_kill_timer (ProcessType  process,
 /**
  * job_child_reaper:
  * @data: unused,
- * @pid: process that died,
- * @killed: whether @pid was killed,
- * @status: exit status of @pid or signal that killed it.
+ * @pid: process that changed,
+ * @event: event that occurred on the child,
+ * @status: exit status of process, signal that killed it or ptrace event.
  *
  * This callback should be registered with nih_child_add_watch() so that
  * when processes associated with jobs die, the structure is updated and
@@ -1305,12 +1305,13 @@ job_kill_timer (ProcessType  process,
  * safe to do as it only acts if the process is linked to a job.
  **/
 void
-job_child_reaper (void  *data,
-		  pid_t  pid,
-		  int    killed,
-		  int    status)
+job_child_reaper (void           *data,
+		  pid_t           pid,
+		  NihChildEvents  event,
+		  int             status)
 {
 	Job         *job;
+	const char  *sig;
 	ProcessType  process;
 	int          failed = FALSE, stop = FALSE, state = TRUE;
 
@@ -1324,33 +1325,47 @@ job_child_reaper (void  *data,
 	if (! job)
 		return;
 
-	/* Report the death */
-	if (killed) {
-		const char *sig;
-
+	switch (event) {
+	case NIH_CHILD_EXITED:
+		/* Child exited; check status to see whether it exited
+		 * normally (zero) or with a non-zero status.
+		 */
+		if (status) {
+			nih_warn (_("%s (#%u) %s process (%d) "
+				    "terminated with status %d"),
+				  job->config->name, job->id,
+				  process_name (process), pid, status);
+		} else {
+			nih_info (_("%s (#%u) %s process (%d) "
+				    "exited normally"),
+				  job->config->name, job->id,
+				  process_name (process), pid);
+		}
+		break;
+	case NIH_CHILD_KILLED:
+	case NIH_CHILD_DUMPED:
+		/* Child was killed by a signal, and maybe dumped core.  We
+		 * store the signal value in the higher byte of status (it's
+		 * safe to do that) to distinguish it from a normal exit
+		 * status.
+		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s (#%u) %s process (%d) killed by %s signal"),
+			nih_warn (_("%s (#%u) %s process (%d) "
+				    "killed by %s signal"),
 				  job->config->name, job->id,
 				  process_name (process), pid, sig);
 		} else {
-			nih_warn (_("%s (#%u) %s process (%d) killed by signal %d"),
+			nih_warn (_("%s (#%u) %s process (%d) "
+				    "killed by signal %d"),
 				  job->config->name, job->id,
 				  process_name (process), pid, status);
 		}
 
-		/* Store the signal value in the higher byte so we can
-		 * distinguish it from a normal exit status.
-		 */
 		status <<= 8;
-	} else if (status) {
-		nih_warn (_("%s (#%u) %s process (%d) terminated with status %d"),
-			  job->config->name, job->id,
-			  process_name (process), pid, status);
-	} else {
-		nih_info (_("%s (#%u) %s process (%d) exited normally"),
-			  job->config->name, job->id,
-			  process_name (process), pid);
+		break;
+	default:
+		nih_assert_not_reached ();
 	}
 
 	switch (process) {
@@ -1375,7 +1390,7 @@ job_child_reaper (void  *data,
 		 * it to be failed since we probably caused the termination.
 		 */
 		if ((job->goal != JOB_STOP)
-		    && (killed || status || job->config->respawn))
+		    && (status || job->config->respawn))
 		{
 			failed = TRUE;
 			for (size_t i = 0; i < job->config->normalexit_len; i++) {
@@ -1424,7 +1439,7 @@ job_child_reaper (void  *data,
 		 * other than zero, it's always considered a failure since
 		 * we don't know what state the job might be in.
 		 */
-		if (killed || status) {
+		if (status) {
 			failed = TRUE;
 			stop = TRUE;
 		}
@@ -1458,7 +1473,7 @@ job_child_reaper (void  *data,
 		 * other than zero, it's always considered a failure since
 		 * we don't know what state the job might be in.
 		 */
-		if (killed || status) {
+		if (status) {
 			failed = TRUE;
 			stop = TRUE;
 		}

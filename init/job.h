@@ -31,6 +31,7 @@
 #include <nih/list.h>
 #include <nih/hash.h>
 #include <nih/timer.h>
+#include <nih/child.h>
 #include <nih/main.h>
 
 #include "enum.h"
@@ -264,8 +265,8 @@ JobState    job_next_state            (Job *job);
 void        job_run_process           (Job *job, ProcessType process);
 void        job_kill_process          (Job *job, ProcessType process);
 
-void        job_child_reaper          (void *ptr, pid_t pid, int
-				       killed, int status);
+void        job_child_reaper          (void *ptr, pid_t pid,
+				       NihChildEvents event, int status);
 
 void        job_handle_event          (Event *event);
 void        job_handle_event_finished (Event *event);

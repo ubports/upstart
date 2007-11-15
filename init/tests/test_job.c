@@ -3691,7 +3691,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 999, FALSE, 0);
+		job_child_reaper (NULL, 999, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -3745,7 +3745,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -3813,7 +3813,7 @@ test_child_reaper (void)
 
 		TEST_FREE_TAG (job);
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_FREE (timer);
 		TEST_FREE (job);
@@ -3855,7 +3855,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -3914,7 +3914,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 1);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -3978,7 +3978,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGTERM);
+			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
 		}
 		rewind (output);
 
@@ -4047,7 +4047,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 0);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 		}
 		rewind (output);
 
@@ -4117,7 +4117,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 100);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 100);
 		}
 		rewind (output);
 
@@ -4187,7 +4187,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 99);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 99);
 		}
 		rewind (output);
 
@@ -4256,7 +4256,7 @@ test_child_reaper (void)
 		TEST_FREE_TAG (job);
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGTERM);
+			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
 		}
 		rewind (output);
 
@@ -4305,7 +4305,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 100);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 100);
 		}
 		rewind (output);
 
@@ -4375,7 +4375,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGINT);
+			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGINT);
 		}
 		rewind (output);
 
@@ -4440,7 +4440,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4500,7 +4500,7 @@ test_child_reaper (void)
 
 		TEST_FREE_TAG (job);
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_FREE (job);
 
@@ -4540,7 +4540,7 @@ test_child_reaper (void)
 		TEST_FREE_TAG (job);
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 1);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4587,7 +4587,7 @@ test_child_reaper (void)
 		TEST_FREE_TAG (job);
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 1);
+			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4638,7 +4638,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 2, FALSE, 1);
+			job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4700,7 +4700,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4757,7 +4757,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -4814,7 +4814,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -4835,7 +4835,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		job_child_reaper (NULL, 2, FALSE, 0);
+		job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4895,7 +4895,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGSEGV);
+			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGSEGV);
 		}
 		rewind (output);
 
@@ -4923,7 +4923,7 @@ test_child_reaper (void)
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 
-		job_child_reaper (NULL, 2, FALSE, 0);
+		job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4986,7 +4986,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 2, FALSE, 1);
+			job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -5050,7 +5050,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -5107,7 +5107,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, FALSE, 0);
+		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_STOP);
