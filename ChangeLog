@@ -1,3 +1,8 @@
+2007-11-29  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_job.c (test_change_state): Add a few sets to NULL
+	so gcc is happy.
+
 2007-11-15  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_child_reaper): Update argument names and types

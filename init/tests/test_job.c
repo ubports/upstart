@@ -1027,9 +1027,9 @@ void
 test_change_state (void)
 {
 	FILE        *output;
-	ConfSource  *source;
-	ConfFile    *file;
-	JobConfig   *config, *replacement, *ptr;
+	ConfSource  *source = NULL;
+	ConfFile    *file = NULL;
+	JobConfig   *config, *replacement = NULL, *ptr;
 	Job         *job = NULL;
 	Event       *cause, *event;
 	struct stat  statbuf;
