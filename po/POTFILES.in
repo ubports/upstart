@@ -19,18 +19,11 @@ nih/watch.c
 
 nih/errors.h
 
-upstart/enum.c
-upstart/message.c
-upstart/wire.c
-
-upstart/errors.h
-
 init/conf.c
-init/control.c
+init/enum.c
 init/event.c
 init/job.c
 init/main.c
-init/notify.c
 init/parse_conf.c
 init/parse_job.c
 init/process.c
