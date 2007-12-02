@@ -3711,6 +3711,188 @@ test_stanza_emits (void)
 }
 
 void
+test_stanza_wait (void)
+{
+	JobConfig*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_wait");
+
+	/* Check that wait for stop sets the job's wait for member to
+	 * JOB_WAIT_STOP.
+	 */
+	TEST_FEATURE ("with stop argument");
+	strcpy (buf, "wait for stop\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->wait_for, JOB_WAIT_STOP);
+
+		nih_free (job);
+	}
+
+	/* Check that wait for none sets the job's wait for member to
+	 * JOB_WAIT_NONE.
+	 */
+	TEST_FEATURE ("with none argument");
+	strcpy (buf, "wait for none\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->wait_for, JOB_WAIT_NONE);
+
+		nih_free (job);
+	}
+
+	/* Check that the last of multiple wait for stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "wait for stop\n");
+	strcat (buf, "wait for none\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->wait_for, JOB_WAIT_NONE);
+
+		nih_free (job);
+	}
+
+	/* Check that a wait for stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "wait for\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a wait for stanza with an unknown third argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown third argument");
+	strcpy (buf, "wait for foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a wait stanza with something other than "for"
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	strcpy (buf, "wait wibble\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a wait stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing for");
+	strcpy (buf, "wait\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
 test_stanza_daemon (void)
 {
 	JobConfig*job;
@@ -7157,6 +7339,7 @@ main (int   argc,
 	test_stanza_version ();
 	test_stanza_author ();
 	test_stanza_emits ();
+	test_stanza_wait ();
 	test_stanza_daemon ();
 	test_stanza_respawn ();
 	test_stanza_service ();

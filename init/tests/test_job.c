@@ -117,6 +117,8 @@ test_config_new (void)
 		for (i = 0; i < PROCESS_LAST; i++)
 			TEST_EQ_P (config->process[i], NULL);
 
+		TEST_EQ (config->wait_for, JOB_WAIT_NONE);
+
 		TEST_EQ_P (config->normalexit, NULL);
 		TEST_EQ (config->normalexit_len, 0);
 
@@ -502,7 +504,7 @@ test_find_by_id (void)
 	TEST_FUNCTION ("job_find_by_id");
 	config1 = job_config_new (NULL, "foo");
 	nih_hash_add (jobs, &config1->entry);
-	
+
 	config2 = job_config_new (NULL, "bar");
 	nih_hash_add (jobs, &config2->entry);
 
@@ -1334,7 +1336,7 @@ test_change_state (void)
 
 
 	/* Check that a job with a main process can move from pre-start to
-	 * spawned and have the process run, and as it's not a daemon,
+	 * spawned and have the process run, and as it's not going to wait,
 	 * the state will be skipped forwards to running and the started
 	 * event emitted.
 	 */
@@ -1535,6 +1537,73 @@ test_change_state (void)
 	}
 
 	config->daemon = FALSE;
+
+
+	/* Check that a job which has a main process that needs to wait for
+	 * an event can move from pre-start to spawned and have the process
+	 * run.  The state will remain in spawned until whatever we're
+	 * waiting for happens.
+	 */
+	TEST_FEATURE ("pre-start to spawned for waiting job");
+	config->wait_for = JOB_WAIT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocked = NULL;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
 
 
 	/* Check that a job with a post-start process can move from spawned
@@ -5144,6 +5213,454 @@ test_child_reaper (void)
 	event_poll ();
 }
 
+void
+test_child_minder (void)
+{
+	ConfSource *source;
+	ConfFile   *file;
+	JobConfig  *config;
+	Job        *job = NULL;
+	Event      *event;
+	FILE       *output;
+	pid_t       pid;
+	int         status;
+
+	TEST_FUNCTION ("job_child_minder");
+	program_name = "test";
+	output = tmpfile ();
+
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	file = conf_file_new (source, "/tmp/test");
+	file->job = config = job_config_new (NULL, "test");
+	config->process[PROCESS_MAIN] = job_process_new (config);
+	config->process[PROCESS_MAIN]->command = "echo";
+
+	config->process[PROCESS_POST_START] = job_process_new (config);
+	config->process[PROCESS_POST_START]->command = "echo";
+
+	config->start_on = event_operator_new (config, EVENT_MATCH,
+					       "foo", NULL);
+	config->stop_on = event_operator_new (config, EVENT_MATCH,
+					      "foo", NULL);
+	nih_hash_add (jobs, &config->entry);
+
+	event = event_new (NULL, "foo", NULL, NULL);
+
+
+	/* Check that the child minder can be called with a pid that doesn't
+	 * match the job, and that the job state doesn't change.
+	 */
+	TEST_FEATURE ("with unknown pid");
+	config->wait_for = JOB_WAIT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_minder (NULL, 999, NIH_CHILD_STOPPED, SIGSTOP);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that the child minder can be called with a pid that isn't
+	 * the main process of the job, and that the job state doesn't change.
+	 */
+	TEST_FEATURE ("with non-main pid");
+	config->wait_for = JOB_WAIT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+		}
+
+		TEST_CHILD (pid) {
+			raise (SIGSTOP);
+			exit (0);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = 1;
+		job->pid[PROCESS_POST_START] = pid;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+		TEST_EQ (job->pid[PROCESS_POST_START], pid);
+
+		TEST_EQ (kill (pid, SIGCONT), 0);
+
+		waitpid (job->pid[PROCESS_POST_START], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that the child minder can be called with the main pid but
+	 * not while in the spawned state, the job state shouldn't change
+	 * and neither should the process be continued.
+	 */
+	TEST_FEATURE ("with pid outside of spawned");
+	config->wait_for = JOB_WAIT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+		}
+
+		TEST_CHILD (pid) {
+			raise (SIGSTOP);
+			exit (0);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid[PROCESS_MAIN] = pid;
+		job->pid[PROCESS_POST_START] = 1;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+		TEST_EQ (job->pid[PROCESS_POST_START], 1);
+
+		TEST_EQ (kill (pid, SIGCONT), 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that when the main process stops, if we're not waiting for
+	 * it to do so, the job state doesn't change and neither is the
+	 * process continued.
+	 */
+	TEST_FEATURE ("with non-waiting job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+		}
+
+		TEST_CHILD (pid) {
+			raise (SIGSTOP);
+			exit (0);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (kill (pid, SIGCONT), 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
+	/* Check that when the main process stops, if we're not waiting for
+	 * it to do so, the job state doesn't change and neither is the
+	 * process continued.
+	 */
+	TEST_FEATURE ("with job waiting for stop and wrong signal");
+	config->wait_for = JOB_WAIT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+		}
+
+		TEST_CHILD (pid) {
+			raise (SIGSTOP);
+			exit (0);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGTSTP);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (kill (pid, SIGCONT), 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that if we're waiting in spawned for the main process to
+	 * stop, and it does so, the process is continued and the job state
+	 * changed to running.
+	 */
+	TEST_FEATURE ("with job waiting for stop and SIGSTOP");
+	config->wait_for = JOB_WAIT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+		}
+
+		TEST_CHILD (pid) {
+			raise (SIGSTOP);
+			exit (0);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = event;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+		TEST_NE (job->pid[PROCESS_POST_START], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		waitpid (job->pid[PROCESS_POST_START], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, event);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	fclose (output);
+
+	nih_free (config);
+	file->job = NULL;
+	nih_free (source);
+
+	nih_free (event);
+	event_poll ();
+}
+
 
 void
 test_handle_event (void)
@@ -5541,6 +6058,7 @@ main (int   argc,
 	test_run_process ();
 	test_kill_process ();
 	test_child_reaper ();
+	test_child_minder ();
 	test_handle_event ();
 	test_handle_event_finished ();
 

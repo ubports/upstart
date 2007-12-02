@@ -138,6 +138,10 @@ static int stanza_emits       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_wait        (JobConfig *job, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 static int stanza_daemon      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -215,6 +219,7 @@ static NihConfigStanza stanzas[] = {
 	{ "author",      (NihConfigHandler)stanza_author      },
 	{ "version",     (NihConfigHandler)stanza_version     },
 	{ "emits",       (NihConfigHandler)stanza_emits       },
+	{ "wait",        (NihConfigHandler)stanza_wait        },
 	{ "daemon",      (NihConfigHandler)stanza_daemon      },
 	{ "respawn",     (NihConfigHandler)stanza_respawn     },
 	{ "service",     (NihConfigHandler)stanza_service     },
@@ -1449,6 +1454,88 @@ stanza_emits (JobConfig       *job,
 	nih_free (args);
 
 	return 0;
+}
+
+/**
+ * stanza_wait:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a wait stanza from @file.  This stanza expects a single "for"
+ * argument, followed by a single argument giving one of the possible
+ * JobWaitType enumerations which sets the job's wait_for member.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_wait (JobConfig       *job,
+	     NihConfigStanza *stanza,
+	     const char      *file,
+	     size_t           len,
+	     size_t          *pos,
+	     size_t          *lineno)
+{
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
+	char   *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		goto finish;
+
+	if (! strcmp (arg, "for")) {
+		nih_free (arg);
+
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
+		arg = nih_config_next_token (NULL, file, len,
+					     &a_pos, &a_lineno,
+					     NIH_CONFIG_CNLWS, FALSE);
+		if (! arg)
+			goto finish;
+
+		if (! strcmp (arg, "stop")) {
+			job->wait_for = JOB_WAIT_STOP;
+		} else if (! strcmp (arg, "none")) {
+			job->wait_for = JOB_WAIT_NONE;
+		} else {
+			nih_free (arg);
+
+			nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+					  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+		}
+
+		nih_free (arg);
+
+		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
 }
 
 /**

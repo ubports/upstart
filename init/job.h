@@ -105,6 +105,7 @@ typedef struct job_process {
  * @stop_on: event operator expression that can stop this job.
  * @emits: list of additional events that this job can emit,
  * @process: processes to be run,
+ * @wait_for: what to wait for before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @instance: job may have multiple instances,
  * @service: job has reached its goal when running,
@@ -146,6 +147,8 @@ struct job_config {
 	NihList         emits;
 
 	JobProcess    **process;
+
+	JobWaitType     wait_for;
 
 	int            *normalexit;
 	size_t          normalexit_len;
@@ -266,6 +269,8 @@ void        job_run_process           (Job *job, ProcessType process);
 void        job_kill_process          (Job *job, ProcessType process);
 
 void        job_child_reaper          (void *ptr, pid_t pid,
+				       NihChildEvents event, int status);
+void        job_child_minder          (void *ptr, pid_t pid,
 				       NihChildEvents event, int status);
 
 void        job_handle_event          (Event *event);

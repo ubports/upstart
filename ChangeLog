@@ -1,3 +1,24 @@
+2007-12-02  Scott James Remnant  <scott@netsplit.com>
+
+	* init/enum.h (JobWaitType): Introduce a new enum that specifies
+	how to transition the job from spawned to running; either we don't
+	wait, or we wait for it to emit the stopped signal.
+	* init/job.h (JobConfig): Add the wait_for member.
+	Add protoype for job_child_minder.
+	* init/job.c (job_config_new): Initialise to JOB_WAIT_NONE.
+	(job_child_minder): New function to catch when a process is stopped
+	by a signal, and move it to the next state when it does so.
+	* init/tests/test_job.c (test_config_new): Check the initialisation
+	of wait_for to JOB_WAIT_NONE.
+	(test_child_minder): Tests for the new function.
+	(test_change_state): Copy the daemon test case to refer to waiter.
+	* init/main.c (main): Call job_child_minder whenever the job is
+	stopped by a signal
+	* init/parse_job.c (stanza_wait): Parse a new "wait" stanza that
+	specifies what to wait for before leaving the spawned state.
+	* init/tests/test_parse_job.c (test_stanza_wait): Check the new
+	stanza.
+
 2007-11-29  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_change_state): Add a few sets to NULL

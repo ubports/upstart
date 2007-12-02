@@ -254,6 +254,8 @@ main (int   argc,
 				       (NIH_CHILD_EXITED | NIH_CHILD_KILLED
 					| NIH_CHILD_DUMPED),
 				       job_child_reaper, NULL));
+	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_STOPPED,
+				       job_child_minder, NULL));
 
 	/* Process the event queue each time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,

@@ -61,6 +61,17 @@ typedef enum job_state {
 } JobState;
 
 /**
+ * JobWaitType:
+ *
+ * This is used to determine whether to leave the job in the spawned state
+ * until a particular event occurs.
+ **/
+typedef enum job_wait_type {
+	JOB_WAIT_NONE,
+	JOB_WAIT_STOP
+} JobWaitType;
+
+/**
  * ProcessType:
  *
  * Each job has a list of associated processes, the first of which are
