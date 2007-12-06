@@ -1577,13 +1577,16 @@ job_child_minder (void           *data,
 	nih_assert (pid > 0);
 	nih_assert (event == NIH_CHILD_STOPPED);
 
-	/* Find the job that we trapped; if it's not one of ours, or isn't
-	 * the main process, ignore the event.
+	/* Find the job that stopped.  Ignore any process we don't know
+	 * about, or any non-main process that we do, leaving them stopped.
+	 * We ignore rather than assert since any of our child processes
+	 * can raise (SIGSTOP) without us expecting them to do it.
 	 */
 	job = job_find_by_pid (pid, &process);
 	if ((! job) || (process != PROCESS_MAIN))
 		return;
 
+	/* Make sure we don't have a main process in an unusual state */
 	nih_assert ((job->state == JOB_RUNNING)
 		    || (job->state == JOB_SPAWNED)
 		    || (job->state == JOB_KILLED)
@@ -1591,15 +1594,19 @@ job_child_minder (void           *data,
 		    || (job->state == JOB_POST_START)
 		    || (job->state == JOB_PRE_STOP));
 
-	/* Main process has been stopped on a signal.  If the job is in the
-	 * spawned state and waiting for a stop signal before proceeding,
-	 * and the signal was indeed SIGSTOP, continue the process and
-	 * change its state.  Otherwise just ignore the event and leave the
-	 * job stopped.
+	/* Main process has been stopped on a signal, make sure it was
+	 * SIGSTOP and not a tty-related signal; then if the process
+	 * is in the spawned state and waiting to proceed, continue the
+	 * process ourselves and change its state.
 	 */
-	if ((job->state == JOB_SPAWNED)
-	    && (job->config->wait_for == JOB_WAIT_STOP)
-	    && (status == SIGSTOP)) {
+	if ((status == SIGSTOP)
+	    && (job->state == JOB_SPAWNED)
+	    && (job->config->wait_for == JOB_WAIT_STOP))
+	{
+		nih_info (_("%s (#%u) %s process (%d) ready"),
+			  job->config->name, job->id,
+			  process_name (process), pid);
+
 		kill (pid, SIGCONT);
 		job_change_state (job, job_next_state (job));
 	}

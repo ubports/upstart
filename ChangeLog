@@ -1,3 +1,8 @@
+2007-12-06  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_child_minder): Add informational message and
+	improve style and documentation.
+
 2007-12-02  Scott James Remnant  <scott@netsplit.com>
 
 	* init/enum.h (JobWaitType): Introduce a new enum that specifies
