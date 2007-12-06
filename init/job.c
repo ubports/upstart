@@ -66,10 +66,14 @@
 
 
 /* Prototypes for static functions */
-static Event *     job_emit_event    (Job *job)
+static Event *     job_emit_event         (Job *job)
 	__attribute__ ((malloc));
-static int         job_catch_runaway (Job *job);
-static void        job_kill_timer    (ProcessType process, NihTimer *timer);
+static int         job_catch_runaway      (Job *job);
+static void        job_kill_timer         (ProcessType process,
+					   NihTimer *timer);
+static void        job_process_terminated (Job *job, ProcessType process,
+					   int status);
+static void        job_process_stopped    (Job *job, ProcessType process);
 
 
 /**
@@ -1294,35 +1298,34 @@ job_kill_timer (ProcessType  process,
 
 
 /**
- * job_child_reaper:
+ * job_child_handler:
  * @data: unused,
  * @pid: process that changed,
  * @event: event that occurred on the child,
- * @status: exit status of process, signal that killed it or ptrace event.
+ * @status: exit status, signal raised or ptrace event.
  *
  * This callback should be registered with nih_child_add_watch() so that
- * when processes associated with jobs die, the structure is updated and
- * the next appropriate state chosen.
+ * when processes associated with jobs die, stop, receive signals or other
+ * ptrace events, the appropriate action is taken.
  *
  * Normally this is registered so it is called for all processes, and is
  * safe to do as it only acts if the process is linked to a job.
  **/
 void
-job_child_reaper (void           *data,
-		  pid_t           pid,
-		  NihChildEvents  event,
-		  int             status)
+job_child_handler (void           *data,
+		   pid_t           pid,
+		   NihChildEvents  event,
+		   int             status)
 {
 	Job         *job;
-	const char  *sig;
 	ProcessType  process;
-	int          failed = FALSE, stop = FALSE, state = TRUE;
+	const char  *sig;
 
-	nih_assert (data == NULL);
 	nih_assert (pid > 0);
 
-	/* Find the job that died; if it's not one of ours, just let it
-	 * be reaped normally
+	/* Find the job that an event ocurred for, and identify which of the
+	 * job's process it was.  If we don't know about it, then we simply
+	 * ignore the event.
 	 */
 	job = job_find_by_pid (pid, &process);
 	if (! job)
@@ -1344,6 +1347,8 @@ job_child_reaper (void           *data,
 				  job->config->name, job->id,
 				  process_name (process), pid);
 		}
+
+		job_process_terminated (job, process, status);
 		break;
 	case NIH_CHILD_KILLED:
 	case NIH_CHILD_DUMPED:
@@ -1366,10 +1371,56 @@ job_child_reaper (void           *data,
 		}
 
 		status <<= 8;
+		job_process_terminated (job, process, status);
+		break;
+	case NIH_CHILD_STOPPED:
+		/* Child was stopped by a signal, make sure it was SIGSTOP
+		 * and not a tty-related signal.
+		 */
+		sig = nih_signal_to_name (status);
+		if (sig) {
+			nih_warn (_("%s (#%u) %s process (%d) "
+				    "stopped by %s signal"),
+				  job->config->name, job->id,
+				  process_name (process), pid, sig);
+		} else {
+			nih_warn (_("%s (#%u) %s process (%d) "
+				    "stopped by signal %d"),
+				  job->config->name, job->id,
+				  process_name (process), pid, status);
+		}
+
+		if (status == SIGSTOP)
+			job_process_stopped (job, process);
+
 		break;
 	default:
 		nih_assert_not_reached ();
 	}
+
+}
+
+/**
+ * job_process_terminated:
+ * @job: job that changed,
+ * @process: specific process,
+ * @status: exit status or signal in higher byte.
+ *
+ * This function is called whenever a @process attached to @job terminates,
+ * @status should contain the exit status in the lower byte or signal in
+ * the higher byte.
+ *
+ * The job structure is updated and the next appropriate state for the job
+ * is chosen, which may involve changing the goal to stop first.
+ **/
+static void
+job_process_terminated (Job         *job,
+			ProcessType  process,
+			int          status)
+{
+	int failed = FALSE, stop = FALSE, state = TRUE;
+
+	nih_assert (job != NULL);
 
 	switch (process) {
 	case PROCESS_MAIN:
@@ -1551,63 +1602,33 @@ job_child_reaper (void           *data,
 }
 
 /**
- * job_child_minder:
- * @data: unused,
- * @pid: process that changed,
- * @event: event that occurred on the child,
- * @status: signal that stopped the process.
+ * job_process_stopped:
+ * @job: job that changed,
+ * @process: specific process.
  *
- * This callback should be registered with nih_child_add_watch() so that
- * when processes associated with jobs are stopped by a signal the
- * appropriate action is taken.
+ * This function is called whenever a @process attached to @job is stopped
+ * by the SIGSTOP signal (and not by a tty-related signal).
  *
- * Normally this is registered so it is called for all processes, and it
- * safe to do as it only acts if the process is linked to a job.
+ * Some jobs use this signal to signify that they have completed starting
+ * up and are now running; thus we move them out of the spawned state.
  **/
-void
-job_child_minder (void           *data,
-		  pid_t           pid,
-		  NihChildEvents  event,
-		  int             status)
+static void
+job_process_stopped (Job         *job,
+		     ProcessType  process)
 {
-	Job         *job;
-	ProcessType  process;
+	nih_assert (job != NULL);
 
-	nih_assert (data == NULL);
-	nih_assert (pid > 0);
-	nih_assert (event == NIH_CHILD_STOPPED);
-
-	/* Find the job that stopped.  Ignore any process we don't know
-	 * about, or any non-main process that we do, leaving them stopped.
-	 * We ignore rather than assert since any of our child processes
-	 * can raise (SIGSTOP) without us expecting them to do it.
+	/* Any process can stop on a signal, but we only care about the
+	 * main process when the state is still spawned.
 	 */
-	job = job_find_by_pid (pid, &process);
-	if ((! job) || (process != PROCESS_MAIN))
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
 		return;
 
-	/* Make sure we don't have a main process in an unusual state */
-	nih_assert ((job->state == JOB_RUNNING)
-		    || (job->state == JOB_SPAWNED)
-		    || (job->state == JOB_KILLED)
-		    || (job->state == JOB_STOPPING)
-		    || (job->state == JOB_POST_START)
-		    || (job->state == JOB_PRE_STOP));
-
-	/* Main process has been stopped on a signal, make sure it was
-	 * SIGSTOP and not a tty-related signal; then if the process
-	 * is in the spawned state and waiting to proceed, continue the
-	 * process ourselves and change its state.
+	/* Send SIGCONT back and change the state to the next one, if this
+	 * job behaves that way.
 	 */
-	if ((status == SIGSTOP)
-	    && (job->state == JOB_SPAWNED)
-	    && (job->config->wait_for == JOB_WAIT_STOP))
-	{
-		nih_info (_("%s (#%u) %s process (%d) ready"),
-			  job->config->name, job->id,
-			  process_name (process), pid);
-
-		kill (pid, SIGCONT);
+	if (job->config->wait_for == JOB_WAIT_STOP) {
+		kill (job->pid[process], SIGCONT);
 		job_change_state (job, job_next_state (job));
 	}
 }

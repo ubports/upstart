@@ -250,12 +250,8 @@ main (int   argc,
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
 
 	/* Watch children for events */
-	NIH_MUST (nih_child_add_watch (NULL, -1,
-				       (NIH_CHILD_EXITED | NIH_CHILD_KILLED
-					| NIH_CHILD_DUMPED),
-				       job_child_reaper, NULL));
-	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_STOPPED,
-				       job_child_minder, NULL));
+	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
+				       job_child_handler, NULL));
 
 	/* Process the event queue each time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,

@@ -3704,7 +3704,7 @@ test_kill_process (void)
 
 
 void
-test_child_reaper (void)
+test_child_handler (void)
 {
 	ConfSource *source;
 	ConfFile   *file;
@@ -3712,9 +3712,10 @@ test_child_reaper (void)
 	Job        *job = NULL;
 	Event      *event;
 	FILE       *output;
-	int         exitcodes[2] = { 100, SIGINT << 8 };
+	int         exitcodes[2] = { 100, SIGINT << 8 }, status;
+	pid_t       pid;
 
-	TEST_FUNCTION ("job_child_reaper");
+	TEST_FUNCTION ("job_child_handler");
 	program_name = "test";
 	output = tmpfile ();
 
@@ -3733,7 +3734,7 @@ test_child_reaper (void)
 	event = event_new (NULL, "foo", NULL, NULL);
 
 
-	/* Check that the child reaper can be called with a pid that doesn't
+	/* Check that the child handler can be called with a pid that doesn't
 	 * match the job, and that the job state doesn't change.
 	 */
 	TEST_FEATURE ("with unknown pid");
@@ -3760,7 +3761,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 999, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 999, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -3786,9 +3787,9 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the running task of the job, which should
-	 * set the goal to stop and transition a state change into the
-	 * stopping state.  This should not be considered a failure.
+	/* Check that we can handle the running task of the job terminating,
+	 * which should set the goal to stop and transition a state change
+	 * into the stopping state.  This should not be considered a failure.
 	 */
 	TEST_FEATURE ("with running process");
 	TEST_ALLOC_FAIL {
@@ -3814,7 +3815,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -3842,7 +3843,7 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap a running task of the job after it's been
+	/* Check that we can handle a running task of the job after it's been
 	 * sent the TERM signal and a kill timer set.  The kill timer should
 	 * be cancelled and freed, and since we killed it, the job should
 	 * still not be considered failed.
@@ -3882,7 +3883,7 @@ test_child_reaper (void)
 
 		TEST_FREE_TAG (job);
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_FREE (timer);
 		TEST_FREE (job);
@@ -3893,8 +3894,9 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the pre-start process of the job, and if it
-	 * terminates with a good error code, end up in the running state.
+	/* Check that we can handle the pre-start process of the job exiting,
+	 * and if it terminates with a good error code, end up in the running
+	 * state.
 	 */
 	TEST_FEATURE ("with pre-start process");
 	config->process[PROCESS_PRE_START] = job_process_new (config);
@@ -3924,7 +3926,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -3953,9 +3955,9 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap a failing pre-start process of the job, which
-	 * changes the goal to stop and transitions a state change in that
-	 * direction to the stopping state.  An error should be emitted
+	/* Check that we can handle a failing pre-start process of the job,
+	 * which changes the goal to stop and transitions a state change in
+	 * that direction to the stopping state.  An error should be emitted
 	 * and the job and event should be marked as failed.
 	 */
 	TEST_FEATURE ("with failed pre-start process");
@@ -3983,7 +3985,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 1);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4018,7 +4020,7 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap a killed starting task, which should
+	/* Check that we can handle a killed starting task, which should
 	 * act as if it failed.  A different error should be output and
 	 * the failed exit status should contain the signal and the high bit.
 	 */
@@ -4047,7 +4049,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
+			job_child_handler (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
 		}
 		rewind (output);
 
@@ -4116,7 +4118,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 		}
 		rewind (output);
 
@@ -4186,7 +4188,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 100);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 		}
 		rewind (output);
 
@@ -4256,7 +4258,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 99);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 99);
 		}
 		rewind (output);
 
@@ -4325,7 +4327,7 @@ test_child_reaper (void)
 		TEST_FREE_TAG (job);
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
+			job_child_handler (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
 		}
 		rewind (output);
 
@@ -4374,7 +4376,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 100);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 		}
 		rewind (output);
 
@@ -4444,7 +4446,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGINT);
+			job_child_handler (NULL, 1, NIH_CHILD_KILLED, SIGINT);
 		}
 		rewind (output);
 
@@ -4509,7 +4511,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4537,8 +4539,8 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the post-stop process of the job, and end up
-	 * in the waiting state.
+	/* Check that we can handle the post-stop process of the job exiting,
+	 * and end up in the waiting state.
 	 */
 	TEST_FEATURE ("with post-stop process");
 	config->process[PROCESS_POST_STOP] = job_process_new (config);
@@ -4569,7 +4571,7 @@ test_child_reaper (void)
 
 		TEST_FREE_TAG (job);
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_FREE (job);
 
@@ -4579,8 +4581,8 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap a failing post-stop process of the job, which
-	 * should get marked as failed if the job hasn't been already.
+	/* Check that we can handle a failing post-stop process of the job,
+	 * which should get marked as failed if the job hasn't been already.
 	 */
 	TEST_FEATURE ("with failed post-stop process");
 	TEST_ALLOC_FAIL {
@@ -4609,7 +4611,7 @@ test_child_reaper (void)
 		TEST_FREE_TAG (job);
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 1);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4656,7 +4658,7 @@ test_child_reaper (void)
 		TEST_FREE_TAG (job);
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 1);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4673,8 +4675,8 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the post-start task of the job, the
-	 * exit status should be ignored and the job transitioned into
+	/* Check that we can handle the post-start task of the job exiting,
+	 * the exit status should be ignored and the job transitioned into
 	 * the running state.  The pid of the job shouldn't be cleared,
 	 * but the aux pid should be.
 	 */
@@ -4707,7 +4709,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 1);
+			job_child_handler (NULL, 2, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4741,8 +4743,8 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the running task of the job, even if it
-	 * dies during the post-start state, which should set the goal to
+	/* Check that we can handle the running task of the job exiting, even
+	 * if it dies during the post-start state, which should set the goal to
 	 * stop and transition a state change into the stopping state.
 	 */
 	TEST_FEATURE ("with running process in post-start state");
@@ -4769,7 +4771,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4797,9 +4799,10 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the running task of the job, while there
-	 * is a post-start script running; this should only set the goal to
-	 * stop since we also have to wait for the post-start script to stop.
+	/* Check that we can handle the running task of the job exiting while
+	 * there is a post-start script running; this should only set the goal
+	 * to stop since we also have to wait for the post-start script to
+	 * stop.
 	 */
 	TEST_FEATURE ("with running process while post-start running");
 	TEST_ALLOC_FAIL {
@@ -4826,7 +4829,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -4853,10 +4856,10 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the running process before the post-start
-	 * process finishes.  Reaping the running process should mark the job
-	 * to be stopped, but not change the state, then reaping the post-start
-	 * process should change the state.
+	/* Check that we can handle the running process exiting before the
+	 * post-start process finishes.  This should mark the job to be
+	 * stopped, but not change the state, handling the post-start process
+	 * exiting afterwards should change the state.
 	 */
 	TEST_FEATURE ("with running then post-start process");
 	TEST_ALLOC_FAIL {
@@ -4883,7 +4886,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -4904,7 +4907,7 @@ test_child_reaper (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 2, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -4933,10 +4936,10 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap a failed running process before the
-	 * post-start process finishes.  Reaping the running process
-	 * should mark the job to be stopped, but not change the state,
-	 * then reaping the post-start process should change the state.
+	/* Check that we can handle a failed running process before the
+	 * post-start process finishes.  This should mark the job to be
+	 * stopped, but not change the state, then handling the post-start
+	 * process exiting afterwards should change the state.
 	 */
 	TEST_FEATURE ("with failed running then post-start process");
 	TEST_ALLOC_FAIL {
@@ -4964,7 +4967,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, NIH_CHILD_KILLED, SIGSEGV);
+			job_child_handler (NULL, 1, NIH_CHILD_KILLED, SIGSEGV);
 		}
 		rewind (output);
 
@@ -4992,7 +4995,7 @@ test_child_reaper (void)
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 
-		job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 2, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -5021,7 +5024,7 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the pre-stop task of the job, the
+	/* Check that we can handle the pre-stop task of the job exiting, the
 	 * exit status should be ignored and the job transitioned into
 	 * the stopping state.  The pid of the job shouldn't be cleared,
 	 * but the aux pid should be.
@@ -5055,7 +5058,7 @@ test_child_reaper (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 2, NIH_CHILD_EXITED, 1);
+			job_child_handler (NULL, 2, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -5091,9 +5094,9 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the running task of the job, even if it
-	 * dies during the pre-stop state, which transition a state change
-	 * into the stopping state.
+	/* Check that we can handle the running task of the job exiting, even
+	 * if it dies during the pre-stop state, which transition a state
+	 * change into the stopping state.
 	 */
 	TEST_FEATURE ("with running process in pre-stop state");
 	TEST_ALLOC_FAIL {
@@ -5119,7 +5122,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -5147,8 +5150,8 @@ test_child_reaper (void)
 	}
 
 
-	/* Check that we can reap the running task of the job, while there
-	 * is a pre-stop script running; this should have no other effect
+	/* Check that we can handle the running task of the job exiting while
+	 * there is a pre-stop script running; this should have no other effect
 	 * since we also have to wait for the pre-stop script to stop.
 	 */
 	TEST_FEATURE ("with running process while pre-stop running");
@@ -5176,7 +5179,7 @@ test_child_reaper (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_reaper (NULL, 1, NIH_CHILD_EXITED, 0);
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_STOP);
@@ -5203,111 +5206,10 @@ test_child_reaper (void)
 	}
 
 
-	fclose (output);
-
-	nih_free (config);
-	file->job = NULL;
-	nih_free (source);
-
-	nih_free (event);
-	event_poll ();
-}
-
-void
-test_child_minder (void)
-{
-	ConfSource *source;
-	ConfFile   *file;
-	JobConfig  *config;
-	Job        *job = NULL;
-	Event      *event;
-	FILE       *output;
-	pid_t       pid;
-	int         status;
-
-	TEST_FUNCTION ("job_child_minder");
-	program_name = "test";
-	output = tmpfile ();
-
-	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
-	file = conf_file_new (source, "/tmp/test");
-	file->job = config = job_config_new (NULL, "test");
-	config->process[PROCESS_MAIN] = job_process_new (config);
-	config->process[PROCESS_MAIN]->command = "echo";
-
-	config->process[PROCESS_POST_START] = job_process_new (config);
-	config->process[PROCESS_POST_START]->command = "echo";
-
-	config->start_on = event_operator_new (config, EVENT_MATCH,
-					       "foo", NULL);
-	config->stop_on = event_operator_new (config, EVENT_MATCH,
-					      "foo", NULL);
-	nih_hash_add (jobs, &config->entry);
-
-	event = event_new (NULL, "foo", NULL, NULL);
-
-
-	/* Check that the child minder can be called with a pid that doesn't
-	 * match the job, and that the job state doesn't change.
+	/* Check that we ignore a process stopping on a signal if it isn't
+	 * the main process of the job.
 	 */
-	TEST_FEATURE ("with unknown pid");
-	config->wait_for = JOB_WAIT_STOP;
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_instance (config);
-			job->id = 1;
-		}
-
-		job->goal = JOB_START;
-		job->state = JOB_SPAWNED;
-		job->pid[PROCESS_MAIN] = 1;
-
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
-		job->blocked = NULL;
-		event->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_minder (NULL, 999, NIH_CHILD_STOPPED, SIGSTOP);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_SPAWNED);
-		TEST_EQ (job->pid[PROCESS_MAIN], 1);
-
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
-		TEST_EQ (event->failed, FALSE);
-
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		nih_free (job);
-	}
-
-	config->wait_for = JOB_WAIT_NONE;
-
-
-	/* Check that the child minder can be called with a pid that isn't
-	 * the main process of the job, and that the job state doesn't change.
-	 */
-	TEST_FEATURE ("with non-main pid");
+	TEST_FEATURE ("with stopped non-main process");
 	config->wait_for = JOB_WAIT_STOP;
 
 	TEST_ALLOC_FAIL {
@@ -5339,7 +5241,11 @@ test_child_minder (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_STOPPED, SIGSTOP);
+		}
+		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_SPAWNED);
@@ -5374,11 +5280,10 @@ test_child_minder (void)
 	config->wait_for = JOB_WAIT_NONE;
 
 
-	/* Check that the child minder can be called with the main pid but
-	 * not while in the spawned state, the job state shouldn't change
-	 * and neither should the process be continued.
+	/* Check that we ignore the main process stopping on a signal if the
+	 * job isn't in the spawned state.
 	 */
-	TEST_FEATURE ("with pid outside of spawned");
+	TEST_FEATURE ("with stopped main process outside of spawned");
 	config->wait_for = JOB_WAIT_STOP;
 
 	TEST_ALLOC_FAIL {
@@ -5410,7 +5315,11 @@ test_child_minder (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_STOPPED, SIGSTOP);
+		}
+		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -5445,11 +5354,10 @@ test_child_minder (void)
 	config->wait_for = JOB_WAIT_NONE;
 
 
-	/* Check that when the main process stops, if we're not waiting for
-	 * it to do so, the job state doesn't change and neither is the
-	 * process continued.
+	/* Check that we ignore the main process stopping on a signal in
+	 * the spawned state if we're not waiting for it to do so.
 	 */
-	TEST_FEATURE ("with non-waiting job");
+	TEST_FEATURE ("with stopped main process for non-wait job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5478,7 +5386,11 @@ test_child_minder (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_STOPPED, SIGSTOP);
+		}
+		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_SPAWNED);
@@ -5510,11 +5422,10 @@ test_child_minder (void)
 	}
 
 
-	/* Check that when the main process stops, if we're not waiting for
-	 * it to do so, the job state doesn't change and neither is the
-	 * process continued.
+	/* Check that we ignore the main process stopping on the wrong
+	 * signal.
 	 */
-	TEST_FEATURE ("with job waiting for stop and wrong signal");
+	TEST_FEATURE ("with stopped main process but wrong signal");
 	config->wait_for = JOB_WAIT_STOP;
 
 	TEST_ALLOC_FAIL {
@@ -5524,7 +5435,7 @@ test_child_minder (void)
 		}
 
 		TEST_CHILD (pid) {
-			raise (SIGSTOP);
+			raise (SIGTSTP);
 			exit (0);
 		}
 
@@ -5545,7 +5456,11 @@ test_child_minder (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGTSTP);
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_STOPPED, SIGTSTP);
+		}
+		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_SPAWNED);
@@ -5583,7 +5498,7 @@ test_child_minder (void)
 	 * stop, and it does so, the process is continued and the job state
 	 * changed to running.
 	 */
-	TEST_FEATURE ("with job waiting for stop and SIGSTOP");
+	TEST_FEATURE ("with stopped main process waiting in spawned");
 	config->wait_for = JOB_WAIT_STOP;
 
 	TEST_ALLOC_FAIL {
@@ -5614,7 +5529,11 @@ test_child_minder (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_child_minder (NULL, pid, NIH_CHILD_STOPPED, SIGSTOP);
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_STOPPED, SIGSTOP);
+		}
+		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -6057,8 +5976,7 @@ main (int   argc,
 	test_next_state ();
 	test_run_process ();
 	test_kill_process ();
-	test_child_reaper ();
-	test_child_minder ();
+	test_child_handler ();
 	test_handle_event ();
 	test_handle_event_finished ();
 

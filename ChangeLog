@@ -1,5 +1,20 @@
 2007-12-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_handler): Implement a combined child event
+	handler to replace the multiple separate ones.  This handler deals
+	with adding appropriate messages to the log and decoding any state
+	information before calling specific action functions.
+	(job_child_reaper): Remove, moving the bulk of the code into new
+	(job_process_terminated): function that handles it cleanly.
+	(job_child_minder): Remove, moving the bulk of the code into new
+	(job_process_stopped): function that's a lot cleaner.
+	* init/job.h: Update prototypes.
+	* init/tests/test_job.c (test_child_reaper, test_child_minder):
+	Combine unit tests from both functions into single new
+	(test_child_handler): function.
+	* init/main.c (main): Call the combined function on child events
+	instead of separate ones.
+
 	* init/job.c (job_child_minder): Add informational message and
 	improve style and documentation.
 

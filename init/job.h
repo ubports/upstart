@@ -268,9 +268,7 @@ JobState    job_next_state            (Job *job);
 void        job_run_process           (Job *job, ProcessType process);
 void        job_kill_process          (Job *job, ProcessType process);
 
-void        job_child_reaper          (void *ptr, pid_t pid,
-				       NihChildEvents event, int status);
-void        job_child_minder          (void *ptr, pid_t pid,
+void        job_child_handler         (void *ptr, pid_t pid,
 				       NihChildEvents event, int status);
 
 void        job_handle_event          (Event *event);
