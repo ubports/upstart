@@ -104,9 +104,6 @@ process_spawn (Job          *job,
 	pid = fork ();
 	if (pid > 0) {
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
-
-		nih_debug ("Spawned process %d for %s (#%u)",
-			   pid, job->config->name, job->id);
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();

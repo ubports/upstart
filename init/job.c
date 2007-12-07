@@ -1201,7 +1201,7 @@ job_run_process (Job         *job,
 
 	nih_free (argv);
 
-	nih_info (_("Active %s (#%u) %s process (%d)"),
+	nih_info (_("%s (#%u) %s process (%d)"),
 		  job->config->name, job->id,
 		  process_name (process), job->pid[process]);
 

@@ -1,5 +1,10 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Drop the debug message since
+	it's always repeated by the caller.
+	* init/job.c (job_run_process): Drop the word Active which is a
+	hold-over from when we had different process states.
+
 	* TODO: Update.
 
 	* init/job.c (job_child_handler): Add code to handle the trapped
