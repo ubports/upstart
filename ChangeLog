@@ -1,5 +1,21 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobConfig): Remove daemon and pid members.
+	(Job): Remove pid_timer member.
+	(JOB_DEFAULT_PID_TIMEOUT): Remove this constant.
+	* init/job.c (job_config_new, job_new): Remove initialisation of
+	removed members.
+	(job_change_state): Stay in spawned unless we're not waiting for
+	anything -- remove the daemon flag.
+	* init/tests/test_job.c (test_config_new, test_new): Remove checks
+	for initialisation of removed members.
+	(test_change_state): Remove daemon flag stays in spawned check since
+	the daemon flag has gone.
+	* init/parse_job.c (stanza_daemon, stanza_pid): Remove these
+	functions since they have no members to set.
+	* init/tests/test_parse_job.c (test_stanza_daemon, test_stanza_pid):
+	Remove the tests for the now non-existant functions.
+
 	* init/process.c (process_spawn): raise the system error before
 	calling another syscall, in case we overwrite errno.
 

@@ -142,10 +142,6 @@ static int stanza_wait        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_daemon      (JobConfig *job, NihConfigStanza *stanza,
-			       const char *file, size_t len,
-			       size_t *pos, size_t *lineno)
-	__attribute__ ((warn_unused_result));
 static int stanza_respawn     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -155,10 +151,6 @@ static int stanza_service     (JobConfig *job, NihConfigStanza *stanza,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
 static int stanza_instance    (JobConfig *job, NihConfigStanza *stanza,
-			       const char *file, size_t len,
-			       size_t *pos, size_t *lineno)
-	__attribute__ ((warn_unused_result));
-static int stanza_pid         (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
@@ -220,11 +212,9 @@ static NihConfigStanza stanzas[] = {
 	{ "version",     (NihConfigHandler)stanza_version     },
 	{ "emits",       (NihConfigHandler)stanza_emits       },
 	{ "wait",        (NihConfigHandler)stanza_wait        },
-	{ "daemon",      (NihConfigHandler)stanza_daemon      },
 	{ "respawn",     (NihConfigHandler)stanza_respawn     },
 	{ "service",     (NihConfigHandler)stanza_service     },
 	{ "instance",    (NihConfigHandler)stanza_instance    },
-	{ "pid",         (NihConfigHandler)stanza_pid         },
 	{ "kill",        (NihConfigHandler)stanza_kill        },
 	{ "normal",      (NihConfigHandler)stanza_normal      },
 	{ "console",     (NihConfigHandler)stanza_console     },
@@ -1539,38 +1529,6 @@ finish:
 }
 
 /**
- * stanza_daemon:
- * @job: job being parsed,
- * @stanza: stanza found,
- * @file: file or string to parse,
- * @len: length of @file,
- * @pos: offset within @file,
- * @lineno: line number.
- *
- * Parse a daemon stanza from @file.  This sets the daemon flag for the
- * job and has no arguments.
- *
- * Returns: zero on success, negative value on error.
- **/
-static int
-stanza_daemon (JobConfig       *job,
-	       NihConfigStanza *stanza,
-	       const char      *file,
-	       size_t           len,
-	       size_t          *pos,
-	       size_t          *lineno)
-{
-	nih_assert (job != NULL);
-	nih_assert (stanza != NULL);
-	nih_assert (file != NULL);
-	nih_assert (pos != NULL);
-
-	job->daemon = TRUE;
-
-	return nih_config_skip_comment (file, len, pos, lineno);
-}
-
-/**
  * stanza_respawn:
  * @job: job being parsed,
  * @stanza: stanza found,
@@ -1749,112 +1707,6 @@ stanza_instance (JobConfig       *job,
 	job->instance = TRUE;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
-}
-
-/**
- * stanza_pid:
- * @job: job being parsed,
- * @stanza: stanza found,
- * @file: file or string to parse,
- * @len: length of @file,
- * @pos: offset within @file,
- * @lineno: line number.
- *
- * Parse a pid stanza from @file.  This stanza expects an second-level
- * stanza argument indicating which job parameter to set, followed by
- * an argument that sets that.  All are related to discovering the pid
- * of a forked daemon.
- *
- * Returns: zero on success, negative value on error.
- **/
-static int
-stanza_pid (JobConfig       *job,
-	    NihConfigStanza *stanza,
-	    const char      *file,
-	    size_t           len,
-	    size_t          *pos,
-	    size_t          *lineno)
-{
-	char   *arg;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
-
-	nih_assert (job != NULL);
-	nih_assert (stanza != NULL);
-	nih_assert (file != NULL);
-	nih_assert (pos != NULL);
-
-	a_pos = *pos;
-	a_lineno = (lineno ? *lineno : 1);
-
-	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
-				     NIH_CONFIG_CNLWS, FALSE);
-	if (! arg)
-		goto finish;
-
-	if (! strcmp (arg, "file")) {
-		nih_free (arg);
-
-		if (job->pid_file)
-			nih_free (job->pid_file);
-
-		job->pid_file = nih_config_next_arg (job, file, len,
-						     &a_pos, &a_lineno);
-		if (! job->pid_file)
-			goto finish;
-
-		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
-
-	} else if (! strcmp (arg, "binary")) {
-		nih_free (arg);
-
-		if (job->pid_binary)
-			nih_free (job->pid_binary);
-
-		job->pid_binary = nih_config_next_arg (job, file, len,
-						       &a_pos, &a_lineno);
-		if (! job->pid_binary)
-			goto finish;
-
-		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
-
-	} else if (! strcmp (arg, "timeout")) {
-		char *endptr;
-
-		nih_free (arg);
-
-		/* Update error position to the timeout value */
-		*pos = a_pos;
-		if (lineno)
-			*lineno = a_lineno;
-
-		arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
-		if (! arg)
-			goto finish;
-
-		job->pid_timeout = strtol (arg, &endptr, 10);
-		if (*endptr || (job->pid_timeout < 0)) {
-			nih_free (arg);
-
-			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
-					  _(PARSE_ILLEGAL_INTERVAL_STR));
-		}
-		nih_free (arg);
-
-		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
-
-	} else {
-		nih_free (arg);
-
-		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
-				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-	}
-finish:
-	*pos = a_pos;
-	if (lineno)
-		*lineno = a_lineno;
-
-	return ret;
 }
 
 /**

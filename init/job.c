@@ -209,9 +209,6 @@ job_config_new (const void *parent,
 
 	config->wait_for = JOB_WAIT_NONE;
 
-	config->normalexit = NULL;
-	config->normalexit_len = 0;
-
 	config->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 
 	config->instance = FALSE;
@@ -220,10 +217,8 @@ job_config_new (const void *parent,
 	config->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
 	config->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
 
-	config->daemon = FALSE;
-	config->pid_file = NULL;
-	config->pid_binary = NULL;
-	config->pid_timeout = JOB_DEFAULT_PID_TIMEOUT;
+	config->normalexit = NULL;
+	config->normalexit_len = 0;
 
 	config->console = CONSOLE_NONE;
 	config->env = NULL;
@@ -421,8 +416,6 @@ job_new (JobConfig  *config)
 
 	job->respawn_time = 0;
 	job->respawn_count = 0;
-
-	job->pid_timer = NULL;
 
 	nih_list_add (&config->instances, &job->entry);
 
@@ -677,8 +670,7 @@ job_change_state (Job      *job,
 			if (job->config->process[PROCESS_MAIN])
 				job_run_process (job, PROCESS_MAIN);
 
-			if ((! job->config->daemon)
-			    && (job->config->wait_for == JOB_WAIT_NONE))
+			if (job->config->wait_for == JOB_WAIT_NONE)
 				state = job_next_state (job);
 
 			break;

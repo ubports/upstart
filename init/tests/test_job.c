@@ -119,9 +119,6 @@ test_config_new (void)
 
 		TEST_EQ (config->wait_for, JOB_WAIT_NONE);
 
-		TEST_EQ_P (config->normalexit, NULL);
-		TEST_EQ (config->normalexit_len, 0);
-
 		TEST_EQ (config->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
 
 		TEST_EQ (config->instance, FALSE);
@@ -130,10 +127,8 @@ test_config_new (void)
 		TEST_EQ (config->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
 		TEST_EQ (config->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
 
-		TEST_EQ (config->daemon, FALSE);
-		TEST_EQ_P (config->pid_file, NULL);
-		TEST_EQ_P (config->pid_binary, NULL);
-		TEST_EQ (config->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
+		TEST_EQ_P (config->normalexit, NULL);
+		TEST_EQ (config->normalexit_len, 0);
 
 		TEST_EQ (config->console, CONSOLE_NONE);
 		TEST_EQ_P (config->env, NULL);
@@ -349,8 +344,6 @@ test_new (void)
 
 		TEST_EQ (job->respawn_count, 0);
 		TEST_EQ (job->respawn_time, 0);
-
-		TEST_EQ_P (job->pid_timer, NULL);
 
 		event_operator_reset (job->start_on);
 		event_operator_reset (job->stop_on);
@@ -1470,73 +1463,6 @@ test_change_state (void)
 	}
 
 	config->process[PROCESS_MAIN] = tmp;
-
-
-	/* Check that a job which has a main process that becomes a daemon
-	 * can move from pre-start to spawned and have the process run.
-	 * The state will remain in spawned until that process dies, and
-	 * we have a better pid.
-	 */
-	TEST_FEATURE ("pre-start to spawned for daemon");
-	config->daemon = TRUE;
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_instance (config);
-		}
-
-		job->goal = JOB_START;
-		job->state = JOB_PRE_START;
-		job->pid[PROCESS_MAIN] = 0;
-
-		job->blocked = NULL;
-
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_change_state (job, JOB_SPAWNED);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_SPAWNED);
-		TEST_NE (job->pid[PROCESS_MAIN], 0);
-
-		waitpid (job->pid[PROCESS_MAIN], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		strcpy (filename, dirname);
-		strcat (filename, "/run");
-		TEST_EQ (stat (filename, &statbuf), 0);
-		unlink (filename);
-
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
-
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
-
-		TEST_LIST_EMPTY (events);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		nih_free (job);
-	}
-
-	config->daemon = FALSE;
 
 
 	/* Check that a job which has a main process that needs to wait for

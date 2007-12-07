@@ -39,15 +39,6 @@
 
 
 /**
- * JOB_DEFAULT_PID_TIMEOUT:
- *
- * The default length of time to wait after spawning a daemon process for
- * the pid to be obtained before giving up and assuming the job did not
- * start.
- **/
-#define JOB_DEFAULT_PID_TIMEOUT 10
-
-/**
  * JOB_DEFAULT_KILL_TIMEOUT:
  *
  * The default length of time to wait after sending a process the TERM
@@ -114,10 +105,6 @@ typedef struct job_process {
  * @respawn_interval: barrier for @respawn_limit,
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
- * @daemon: process forks into background; pid needs to be obtained,
- * @pid_file: obtain pid by reading this file,
- * @pid_binary: obtain pid by locating this binary,
- * @pid_timeout: time to wait before giving up obtaining pid,
  * @console: how to arrange the job's stdin/out/err file descriptors,
  * @env: NULL-terminated list of environment strings to set,
  * @umask: file mode creation mask,
@@ -150,9 +137,6 @@ struct job_config {
 
 	JobWaitType     wait_for;
 
-	int            *normalexit;
-	size_t          normalexit_len;
-
 	time_t          kill_timeout;
 
 	int             instance;
@@ -161,10 +145,8 @@ struct job_config {
 	int             respawn_limit;
 	time_t          respawn_interval;
 
-	int             daemon;
-	char           *pid_file;
-	char           *pid_binary;
-	time_t          pid_timeout;
+	int            *normalexit;
+	size_t          normalexit_len;
 
 	ConsoleType     console;
 	char          **env;
@@ -195,8 +177,7 @@ struct job_config {
  * @exit_status: exit status of the last failed process,
  * @kill_timer: timer to kill process,
  * @respawn_time: time service was first respawned,
- * @respawn_count: number of respawns since @respawn_time,
- * @pid_timer: timer for pid location,
+ * @respawn_count: number of respawns since @respawn_time.
  *
  * This structure represents a known task or service that should be tracked
  * by the init daemon; as tasks and services are fundamentally identical,
@@ -228,9 +209,6 @@ typedef struct job {
 
 	time_t          respawn_time;
 	int             respawn_count;
-
-	NihTimer       *pid_timer;
-
 } Job;
 
 
