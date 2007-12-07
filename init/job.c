@@ -417,6 +417,9 @@ job_new (JobConfig  *config)
 	job->respawn_time = 0;
 	job->respawn_count = 0;
 
+	job->trace_forks = 0;
+	job->trace_state = TRACE_NONE;
+
 	nih_list_add (&config->instances, &job->entry);
 
 	return job;

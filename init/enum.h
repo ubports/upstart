@@ -91,6 +91,20 @@ typedef enum process_type {
 } ProcessType;
 
 /**
+ * TraceState:
+ *
+ * We trace jobs to follow forks and detect execs in order to be able to
+ * supervise daemon processes.  Unfortunately due to the "unique and arcane"
+ * nature of ptrace(), we need to track some state.
+ **/
+typedef enum trace_state {
+	TRACE_NONE,
+	TRACE_NEW,
+	TRACE_NEW_CHILD,
+	TRACE_NORMAL
+} TraceState;
+
+/**
  * ConsoleType:
  *
  * This is used to identify how a job would like its standard input, output

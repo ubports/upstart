@@ -1,5 +1,13 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add new trace_forks member to keep count of how
+	many forks we've seen and trace_state member to track whether we've
+	just started the trace or just forked.
+	* init/enum.h (TraceState): Add enumeration to keep track of ptrace
+	state to differentiate between a signal and an event.
+	* init/job.c (job_new): Initialise new members.
+	* init/tests/test_job.c (test_new): Check new members are initialised
+
 	* init/enum.h (JobWaitType): Add new daemon and fork wait types.
 	* init/parse_job.c (stanza_wait): Add parsing for daemon and fork.
 	* init/tests/test_parse_job.c (test_stanza_wait): Add tests too.

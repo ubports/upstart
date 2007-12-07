@@ -177,7 +177,9 @@ struct job_config {
  * @exit_status: exit status of the last failed process,
  * @kill_timer: timer to kill process,
  * @respawn_time: time service was first respawned,
- * @respawn_count: number of respawns since @respawn_time.
+ * @respawn_count: number of respawns since @respawn_time,
+ * @trace_forks: number of forks traced,
+ * @trace_state: state of trace.
  *
  * This structure represents a known task or service that should be tracked
  * by the init daemon; as tasks and services are fundamentally identical,
@@ -209,6 +211,9 @@ typedef struct job {
 
 	time_t          respawn_time;
 	int             respawn_count;
+
+	int             trace_forks;
+	TraceState      trace_state;
 } Job;
 
 

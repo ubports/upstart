@@ -345,6 +345,9 @@ test_new (void)
 		TEST_EQ (job->respawn_count, 0);
 		TEST_EQ (job->respawn_time, 0);
 
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
 		event_operator_reset (job->start_on);
 		event_operator_reset (job->stop_on);
 
