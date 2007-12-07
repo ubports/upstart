@@ -104,13 +104,14 @@ process_spawn (Job          *job,
 	if (pid > 0) {
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
-		nih_debug ("Spawned process %d for %s (#%u)", pid,
-			   job->config->name, job->id);
+		nih_debug ("Spawned process %d for %s (#%u)",
+			   pid, job->config->name, job->id);
 		return pid;
 	} else if (pid < 0) {
-		sigprocmask (SIG_SETMASK, &orig_set, NULL);
+		nih_error_raise_system ();
 
-		nih_return_system_error (-1);
+		sigprocmask (SIG_SETMASK, &orig_set, NULL);
+		return -1;
 	}
 
 

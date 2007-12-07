@@ -1,3 +1,8 @@
+2007-12-07  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): raise the system error before
+	calling another syscall, in case we overwrite errno.
+
 2007-12-06  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_child_handler): Implement a combined child event
