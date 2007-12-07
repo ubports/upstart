@@ -1,5 +1,7 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/job.c (job_child_handler): Add code to handle the trapped
 	signal and ptrace event cases, distinguishing between a trapped
 	signal and process stopped after exec or fork using our trace

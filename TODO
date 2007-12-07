@@ -145,9 +145,6 @@ Low Priority:
 
 Unfinished Features:
 
- * Handle locating the pid for a spawned daemon, use an inotify watch
-   on the pid file or scan /proc.
-
  * Get the LANG environment variable somehow.
 
 
