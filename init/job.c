@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <sys/ptrace.h>
 #include <sys/resource.h>
 
 #include <stdio.h>
@@ -46,6 +47,8 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>
+
+#include <linux/ptrace.h>
 
 #include "enum.h"
 
@@ -66,14 +69,20 @@
 
 
 /* Prototypes for static functions */
-static Event *     job_emit_event         (Job *job)
+static Event *     job_emit_event              (Job *job)
 	__attribute__ ((malloc));
-static int         job_catch_runaway      (Job *job);
-static void        job_kill_timer         (ProcessType process,
-					   NihTimer *timer);
-static void        job_process_terminated (Job *job, ProcessType process,
-					   int status);
-static void        job_process_stopped    (Job *job, ProcessType process);
+static int         job_catch_runaway           (Job *job);
+static void        job_kill_timer              (ProcessType process,
+						NihTimer *timer);
+static void        job_process_terminated      (Job *job, ProcessType process,
+						int status);
+static void        job_process_stopped         (Job *job, ProcessType process);
+static void        job_process_trace_new       (Job *job, ProcessType process);
+static void        job_process_trace_new_child (Job *job, ProcessType process);
+static void        job_process_trace_signal    (Job *job, ProcessType process,
+						int signum);
+static void        job_process_trace_fork      (Job *job, ProcessType process);
+static void        job_process_trace_exec      (Job *job, ProcessType process);
 
 
 /**
@@ -1402,11 +1411,43 @@ job_child_handler (void           *data,
 			job_process_stopped (job, process);
 
 		break;
+	case NIH_CHILD_TRAPPED:
+		/* Child received a signal while we were tracing it.  This
+		 * can be a signal raised inside the kernel as a side-effect
+		 * of the trace because the child called fork() or exec();
+		 * we only know that from our own state tracking.
+		 */
+		if ((job->trace_state == TRACE_NEW)
+		    && (status == SIGTRAP)) {
+			job_process_trace_new (job, process);
+		} else if ((job->trace_state == TRACE_NEW_CHILD)
+			   && (status == SIGSTOP)) {
+			job_process_trace_new_child (job, process);
+		} else {
+			job_process_trace_signal (job, process, status);
+		}
+		break;
+	case NIH_CHILD_PTRACE:
+		/* Child called an important syscall that can modify the
+		 * state of the process trace we hold.
+		 */
+		switch (status) {
+		case PTRACE_EVENT_FORK:
+			job_process_trace_fork (job, process);
+			break;
+		case PTRACE_EVENT_EXEC:
+			job_process_trace_exec (job, process);
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+		break;
 	default:
 		nih_assert_not_reached ();
 	}
 
 }
+
 
 /**
  * job_process_terminated:
@@ -1639,6 +1680,239 @@ job_process_stopped (Job         *job,
 		kill (job->pid[process], SIGCONT);
 		job_change_state (job, job_next_state (job));
 	}
+}
+
+
+/**
+ * job_process_trace_new:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called when the traced @process attached to @job calls
+ * its first exec(), still within the Upstart code before passing control
+ * to the new executable.
+ *
+ * It sets the options for the trace so that forks and execs are reported.
+ **/
+static void
+job_process_trace_new (Job         *job,
+		       ProcessType  process)
+{
+	nih_assert (job != NULL);
+	nih_assert ((job->trace_state == TRACE_NEW)
+		    || (job->trace_state == TRACE_NEW_CHILD));
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+		return;
+
+	/* Set options so that we are notified when the process forks, and
+	 * get a different kind of notification when it execs to a plain
+	 * SIGTRAP.
+	 */
+	if (ptrace (PTRACE_SETOPTIONS, job->pid[process], NULL,
+		    PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC) < 0) {
+		nih_warn (_("Failed to set ptrace options for "
+			    "%s (#%u) %s process (%d): %s"),
+			  job->config->name, job->id,
+			  process_name (process), job->pid[process],
+			  strerror (errno));
+		return;
+	}
+
+	job->trace_state = TRACE_NORMAL;
+
+	/* Allow the process to continue without delivering the
+	 * kernel-generated signal that was for our eyes not theirs.
+	 */
+	if (ptrace (PTRACE_CONT, job->pid[process], NULL, 0) < 0)
+		nih_warn (_("Failed to continue traced %s (#%u) %s process (%d): %s"),
+			  job->config->name, job->id,
+			  process_name (process), job->pid[process],
+			  strerror (errno));
+}
+
+/**
+ * job_process_trace_new_child:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job stops
+ * after the fork() so that we can set the options before continuing it.
+ *
+ * Check to see whether we've reached the number of forks we expected, if
+ * so detach the process and move towards the running state; otherwise we
+ * set our important ptrace options, update the trace state so that
+ * further SIGSTOP or SIGTRAP signals are treated as just that and allow
+ * the process to continue.
+ **/
+static void
+job_process_trace_new_child (Job         *job,
+			     ProcessType  process)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->trace_state == TRACE_NEW_CHILD);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+		return;
+
+	/* We need to fork at least twice unless we're only waiting for
+	 * a single fork when we only need to fork once; once that limit
+	 * has been reached, end the trace.
+	 */
+	job->trace_forks++;
+	if ((job->trace_forks > 1) || (job->config->wait_for == JOB_WAIT_FORK))
+	{
+		if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
+			nih_warn (_("Failed to detach traced "
+				    "%s (#%u) %s process (%d): %s"),
+				  job->config->name, job->id,
+				  process_name (process), job->pid[process],
+				  strerror (errno));
+
+		job->trace_state = TRACE_NONE;
+		job_change_state (job, job_next_state (job));
+		return;
+	}
+
+	job_process_trace_new (job, process);
+}
+
+/**
+ * job_process_trace_signal:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job has
+ * a signal sent to it.
+ *
+ * We don't care about these, they're a side effect of ptrace that we can't
+ * turn off, so we just deliver them untampered with.
+ **/
+static void
+job_process_trace_signal (Job         *job,
+			  ProcessType  process,
+			  int          signum)
+{
+	nih_assert (job != NULL);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	    || (job->trace_state != TRACE_NORMAL))
+		return;
+
+	/* Deliver the signal */
+	if (ptrace (PTRACE_CONT, job->pid[process], NULL, signum) < 0)
+		nih_warn (_("Failed to deliver signal to traced "
+			    "%s (#%u) %s process (%d): %s"),
+			  job->config->name, job->id,
+			  process_name (process), job->pid[process],
+			  strerror (errno));
+}
+
+/**
+ * job_process_trace_fork:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job calls
+ * the fork() system call.
+ *
+ * We obtain the new child process id from the message and update the
+ * structure so that we follow that instead, detaching from the process that
+ * called fork.
+ **/
+static void
+job_process_trace_fork (Job         *job,
+			ProcessType  process)
+{
+	unsigned long data;
+
+	nih_assert (job != NULL);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	    || (job->trace_state != TRACE_NORMAL))
+		return;
+
+	/* Obtain the child process id from the ptrace event. */
+	if (ptrace (PTRACE_GETEVENTMSG, job->pid[process], NULL, &data) < 0) {
+		nih_warn (_("Failed to obtain child process id "
+			    "for %s (#%u) %s process (%d): %s"),
+			  job->config->name, job->id,
+			  process_name (process), job->pid[process],
+			  strerror (errno));
+		return;
+	}
+
+	nih_info (_("%s (#%u) %s process (%d) became new process (%d)"),
+		  job->config->name, job->id,
+		  process_name (process), job->pid[process], (pid_t)data);
+
+	/* We no longer care about this process, it's the child that we're
+	 * interested in from now on, so detach it and allow it to go about
+	 * its business unhindered.
+	 */
+	if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
+		nih_warn (_("Failed to detach traced %s (#%u) %s process (%d): %s"),
+			  job->config->name, job->id,
+			  process_name (process), job->pid[process],
+			  strerror (errno));
+
+	/* Update the process we're supervising which is about to get SIGSTOP
+	 * so set the trace options to capture it.
+	 */
+	job->pid[process] = (pid_t)data;
+	job->trace_state = TRACE_NEW_CHILD;
+}
+
+/**
+ * job_process_trace_exec:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job calls
+ * the exec() system call after we've set options on it to distinguish them
+ * from ordinary SIGTRAPs.
+ *
+ * We assume that if the job calls exec that it's finished forking so we can
+ * drop the trace entirely; we have no interest in tracing the new child.
+ **/
+static void
+job_process_trace_exec (Job         *job,
+			ProcessType  process)
+{
+	nih_assert (job != NULL);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned and we're tracing it.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	    || (job->trace_state != TRACE_NORMAL))
+		return;
+
+	nih_info (_("%s (#%u) %s process (%d) executable changed"),
+		  job->config->name, job->id,
+		  process_name (process), job->pid[process]);
+
+	if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
+		nih_warn (_("Failed to detach traced "
+			    "%s (#%u) %s process (%d): %s"),
+			  job->config->name, job->id,
+			  process_name (process), job->pid[process],
+			  strerror (errno));
+
+	job->trace_state = TRACE_NONE;
+	job_change_state (job, job_next_state (job));
 }
 
 

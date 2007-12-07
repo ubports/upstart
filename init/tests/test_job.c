@@ -3806,6 +3806,7 @@ test_child_handler (void)
 	FILE       *output;
 	int         exitcodes[2] = { 100, SIGINT << 8 }, status;
 	pid_t       pid;
+	siginfo_t   info;
 
 	TEST_FUNCTION ("job_child_handler");
 	program_name = "test";
@@ -5655,6 +5656,381 @@ test_child_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+	nih_free (config->process[PROCESS_POST_START]);
+	config->process[PROCESS_POST_START] = NULL;
+
+
+	/* Check that a traced process has a signal delivered to it
+	 * unchanged.
+	 */
+	TEST_FEATURE ("with signal delivered to traced process");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			signal (SIGTERM, SIG_IGN);
+			raise (SIGTERM);
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_TRAPPED, SIGTERM);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NORMAL);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that a new traced process which receives SIGTRAP doesn't
+	 * have it delivered, and instead has its options set.
+	 */
+	TEST_FEATURE ("with trapped new traced process");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_state = TRACE_NEW;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGTRAP);
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_TRAPPED, SIGTRAP);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NORMAL);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that a new traced process child which receives SIGSTOP
+	 * doesn't have it delivered, and instead has its fork count
+	 * incremented and its options set.
+	 */
+	TEST_FEATURE ("with trapped new traced process");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_state = TRACE_NEW_CHILD;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_TRAPPED, SIGSTOP);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 1);
+		TEST_EQ (job->trace_state, TRACE_NORMAL);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that the second child of a daemon process is detached
+	 * and ends the trace, moving the job into the running state.
+	 */
+	TEST_FEATURE ("with second child of daemon process");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_forks = 1;
+			job->trace_state = TRACE_NEW_CHILD;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			pause ();
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_TRAPPED, SIGSTOP);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 2);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
+		kill (job->pid[PROCESS_MAIN], SIGTERM);
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that the first child of a forking process is detached
+	 * and ends the trace, moving the job into the running state.
+	 */
+	TEST_FEATURE ("with first child of forking process");
+	config->wait_for = JOB_WAIT_FORK;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_forks = 0;
+			job->trace_state = TRACE_NEW_CHILD;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			pause ();
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid,
+					   NIH_CHILD_TRAPPED, SIGSTOP);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 1);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
+		kill (job->pid[PROCESS_MAIN], SIGTERM);
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGTERM);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that when a process forks, the trace state is set to expect
+	 * a new child, the job is updated to the new child and the old
+	 * parent is detached.
+	 */
+	TEST_FEATURE ("with forked process");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			fork ();
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+		assert0 (ptrace (PTRACE_SETOPTIONS, pid, NULL,
+				 PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC));
+		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid, NIH_CHILD_PTRACE,
+					   PTRACE_EVENT_FORK);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_NE (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NEW_CHILD);
+
+		waitpid (pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN],
+				 &info, WSTOPPED | WNOWAIT));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_code, CLD_TRAPPED);
+		TEST_EQ (info.si_status, SIGSTOP);
+
+		assert0 (ptrace (PTRACE_DETACH, job->pid[PROCESS_MAIN],
+				 NULL, 0));
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		nih_free (job);
+	}
+
+	config->wait_for = JOB_WAIT_NONE;
+
+
+	/* Check that should the process call exec() it ends the tracing
+	 * even if we haven't had enough forks yet and moves the job into
+	 * the running state.
+	 */
+	TEST_FEATURE ("with exec call by process");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 1;
+			job->trace_forks = 1;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			execl ("/bin/true", "true", NULL);
+			exit (15);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+		assert0 (ptrace (PTRACE_SETOPTIONS, pid, NULL,
+				 PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC));
+		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, pid, NIH_CHILD_PTRACE,
+					   PTRACE_EVENT_EXEC);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 1);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
 
 		nih_free (job);
 	}

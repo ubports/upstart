@@ -1,5 +1,28 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_child_handler): Add code to handle the trapped
+	signal and ptrace event cases, distinguishing between a trapped
+	signal and process stopped after exec or fork using our trace
+	state member.  Call out to other functions to do the work.
+	(job_process_trace_new): Called after the first exec to set the
+	ptrace options, update the trace state and allow the process to
+	continue without delivering the signal.  Also called after the
+	fork to do the same.
+	(job_process_trace_new_child): Called after a fork for the new child;
+	increments the fork counter and if it goes over the number we want,
+	detaches from the process and allows it to move to running.  Otherwise
+	calls job_process_trace_new() instead.
+	(job_process_trace_signal): Called when a signal is trapped, simply
+	delivers it to the process unchanged.
+	(job_process_trace_fork): Called before a fork for the parent, obtains
+	the new child process id from the event, updating the job structure,
+	and detaches from the parent which we're no longer interested in.
+	(job_process_trace_exec): Called after an exec other than the first,
+	assumed to be the end of forking so detaches from the process and
+	allows it to move to running.
+	* init/tests/test_job.c (test_child_handler): Add test cases for
+	the various ptrace states.
+
 	* init/job.c (job_run_process): Set process trace state to new for
 	the main job if we need to wait for the daemon or fork; otherwise
 	reset the state.
