@@ -1,5 +1,12 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Set a ptrace before execing the
+	binary if the trace state is TRACE_NEW, set by the caller.
+	* init/tests/test_process.c (test_spawn): Make sure that a job is
+	ptraced if set up properly.
+	(child): Add a simple case that just exits immediately for testing
+	the above.
+
 	* init/job.h (Job): Add new trace_forks member to keep count of how
 	many forks we've seen and trace_state member to track whether we've
 	just started the trace or just forked.

@@ -48,6 +48,7 @@
  * This set of tests at least ensures some level of code coverage.
  */
 enum child_tests {
+	TEST_SIMPLE,
 	TEST_PIDS,
 	TEST_CONSOLE,
 	TEST_PWD,
@@ -67,6 +68,8 @@ child (enum child_tests  test,
 	out = fopen (filename, "w");
 
 	switch (test) {
+	case TEST_SIMPLE:
+		exit (0);
 	case TEST_PIDS:
 		fprintf (out, "pid: %d\n", getpid ());
 		fprintf (out, "ppid: %d\n", getppid ());
@@ -105,6 +108,7 @@ test_spawn (void)
 	Job           *job;
 	EventOperator *oper;
 	pid_t          pid;
+	siginfo_t      info;
 
 	TEST_FUNCTION ("process_spawn");
 	TEST_FILENAME (filename);
@@ -293,6 +297,57 @@ test_spawn (void)
 	TEST_FILE_END (output);
 
 	fclose (output);
+	unlink (filename);
+
+	nih_free (config);
+
+
+	/* Check that when we spawn an ordinary job, it isn't usually ptraced
+	 * since that's a special honour reserved for daemons that we expect
+	 * to fork.
+	 */
+	TEST_FEATURE ("with non-daemon job");
+	sprintf (function, "%d", TEST_SIMPLE);
+
+	config = job_config_new (NULL, "test");
+
+	job = job_instance (config);
+	pid = process_spawn (job, args);
+
+	TEST_EQ (job->trace_state, TRACE_NONE);
+
+	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
+	TEST_EQ (info.si_code, CLD_EXITED);
+	TEST_EQ (info.si_status, 0);
+
+	unlink (filename);
+
+	nih_free (config);
+
+
+	/* Check that when we spawn a daemon job, it requests that its parent
+	 * traces it and sets the job's trace state to TRACE_NEW.
+	 */
+	TEST_FEATURE ("with daemon job");
+	sprintf (function, "%d", TEST_SIMPLE);
+
+	config = job_config_new (NULL, "test");
+	config->wait_for = JOB_WAIT_DAEMON;
+
+	job = job_instance (config);
+	job->trace_state = TRACE_NEW;
+	pid = process_spawn (job, args);
+
+	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
+	TEST_EQ (info.si_code, CLD_TRAPPED);
+	TEST_EQ (info.si_status, SIGTRAP);
+
+	assert0 (ptrace (PTRACE_DETACH, pid, NULL, 0));
+
+	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
+	TEST_EQ (info.si_code, CLD_EXITED);
+	TEST_EQ (info.si_status, 0);
+
 	unlink (filename);
 
 	nih_free (config);

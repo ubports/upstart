@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
+#include <sys/ptrace.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -153,6 +154,14 @@ process_spawn (Job          *job,
 	 */
 	if (process_setup_environment (job) < 0)
 		goto error;
+
+	/* Set up a process trace if we need to trace forks */
+	if (job->trace_state == TRACE_NEW) {
+		if (ptrace (PTRACE_TRACEME, 0, NULL, 0) < 0) {
+			nih_error_raise_system();
+			goto error;
+		}
+	}
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0)
