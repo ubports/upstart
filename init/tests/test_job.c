@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/ptrace.h>
 #include <sys/select.h>
 
 #include <time.h>
@@ -3138,6 +3139,7 @@ test_run_process (void)
 	struct stat    statbuf;
 	char           filename[PATH_MAX], buf[80];
 	int            status, first;
+	siginfo_t      info;
 
 	TEST_FUNCTION ("job_run_process");
 	TEST_FILENAME (filename);
@@ -3497,7 +3499,168 @@ test_run_process (void)
 		nih_free (config);
 	}
 no_devfd:
-	;
+
+
+	/* Check that if we're running a non-daemon job, the trace state
+	 * is reset and no process trace is established.
+	 */
+	TEST_FEATURE ("with non-daemon job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->process[PROCESS_MAIN] = job_process_new (config);
+			config->process[PROCESS_MAIN]->command = "true";
+
+			job = job_instance (config);
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			job->trace_forks = 2;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN], &info,
+				 WEXITED | WSTOPPED));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_code, CLD_EXITED);
+		TEST_EQ (info.si_status, 0);
+
+		nih_free (config);
+	}
+
+
+	/* Check that if we're running a script for a daemon job, the
+	 * trace state is reset and no process trace is established.
+	 */
+	TEST_FEATURE ("with script for daemon job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->process[PROCESS_PRE_START] = job_process_new (config);
+			config->process[PROCESS_PRE_START]->command = "true";
+
+			job = job_instance (config);
+			job->goal = JOB_START;
+			job->state = JOB_PRE_START;
+
+			job->trace_forks = 2;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		job_run_process (job, PROCESS_PRE_START);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
+		TEST_NE (job->pid[PROCESS_PRE_START], 0);
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_PRE_START], &info,
+				 WEXITED | WSTOPPED));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_PRE_START]);
+		TEST_EQ (info.si_code, CLD_EXITED);
+		TEST_EQ (info.si_status, 0);
+
+		nih_free (config);
+	}
+
+
+	/* Check that if we're running a daemon job, the trace state
+	 * is reset and a process trace is established so that we can
+	 * follow the forks.
+	 */
+	TEST_FEATURE ("with daemon job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->wait_for = JOB_WAIT_DAEMON;
+			config->process[PROCESS_MAIN] = job_process_new (config);
+			config->process[PROCESS_MAIN]->command = "true";
+
+			job = job_instance (config);
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			job->trace_forks = 2;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NEW);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN], &info,
+				 WEXITED | WSTOPPED));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_code, CLD_TRAPPED);
+		TEST_EQ (info.si_status, SIGTRAP);
+
+		assert0 (ptrace (PTRACE_DETACH, job->pid[PROCESS_MAIN],
+				 NULL, 0));
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN], &info,
+				 WEXITED | WSTOPPED));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_code, CLD_EXITED);
+		TEST_EQ (info.si_status, 0);
+
+		nih_free (config);
+	}
+
+
+	/* Check that if we're running a forking job, the trace state
+	 * is reset and a process trace is established so that we can
+	 * follow the fork.
+	 */
+	TEST_FEATURE ("with forking job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->wait_for = JOB_WAIT_FORK;
+			config->process[PROCESS_MAIN] = job_process_new (config);
+			config->process[PROCESS_MAIN]->command = "true";
+
+			job = job_instance (config);
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			job->trace_forks = 2;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		job_run_process (job, PROCESS_MAIN);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NEW);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN], &info,
+				 WEXITED | WSTOPPED));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_code, CLD_TRAPPED);
+		TEST_EQ (info.si_status, SIGTRAP);
+
+		assert0 (ptrace (PTRACE_DETACH, job->pid[PROCESS_MAIN],
+				 NULL, 0));
+
+		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN], &info,
+				 WEXITED | WSTOPPED));
+		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_code, CLD_EXITED);
+		TEST_EQ (info.si_status, 0);
+
+		nih_free (config);
+	}
 }
 
 

@@ -1,5 +1,11 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Set process trace state to new for
+	the main job if we need to wait for the daemon or fork; otherwise
+	reset the state.
+	* init/tests/test_job.c (test_run_process): Add test cases to make
+	sure the trace state is set right and picked up by process_spawn.
+
 	* init/process.c (process_spawn): Set a ptrace before execing the
 	binary if the trace state is TRACE_NEW, set by the caller.
 	* init/tests/test_process.c (test_spawn): Make sure that a job is

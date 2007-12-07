@@ -1164,6 +1164,19 @@ job_run_process (Job         *job,
 	}
 
 
+	/* If we're about to spawn the main job and we need to wait for it
+	 * to become a daemon or fork before we can move out of spawned, we
+	 * need to set a trace on it.
+	 */
+	job->trace_forks = 0;
+	if ((process == PROCESS_MAIN)
+	    && ((job->config->wait_for == JOB_WAIT_DAEMON)
+		|| (job->config->wait_for == JOB_WAIT_FORK))) {
+		job->trace_state = TRACE_NEW;
+	} else {
+		job->trace_state = TRACE_NONE;
+	}
+
 	/* Spawn the process, repeat until fork() works */
 	while ((job->pid[process] = process_spawn (job, argv)) < 0) {
 		NihError *err;
