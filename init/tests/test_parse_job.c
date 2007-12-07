@@ -3752,6 +3752,73 @@ test_stanza_wait (void)
 		nih_free (job);
 	}
 
+
+	/* Check that wait for daemon sets the job's wait for member to
+	 * JOB_WAIT_DAEMON.
+	 */
+	TEST_FEATURE ("with daemon argument");
+	strcpy (buf, "wait for daemon\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->wait_for, JOB_WAIT_DAEMON);
+
+		nih_free (job);
+	}
+
+
+	/* Check that wait for fork sets the job's wait for member to
+	 * JOB_WAIT_FORK.
+	 */
+	TEST_FEATURE ("with fork argument");
+	strcpy (buf, "wait for fork\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->wait_for, JOB_WAIT_FORK);
+
+		nih_free (job);
+	}
+
+
 	/* Check that wait for none sets the job's wait for member to
 	 * JOB_WAIT_NONE.
 	 */
@@ -3784,9 +3851,10 @@ test_stanza_wait (void)
 		nih_free (job);
 	}
 
+
 	/* Check that the last of multiple wait for stanzas is used.
 	 */
-	TEST_FEATURE ("with multiple stanzas");
+	TEST_FEATURE ("with multiple for stanzas");
 	strcpy (buf, "wait for stop\n");
 	strcat (buf, "wait for none\n");
 
@@ -3815,6 +3883,7 @@ test_stanza_wait (void)
 
 		nih_free (job);
 	}
+
 
 	/* Check that a wait for stanza without an argument results in a
 	 * syntax error.
@@ -3850,6 +3919,25 @@ test_stanza_wait (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
 	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a wait for stanza with an extra fourth argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "wait for daemon foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 16);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 

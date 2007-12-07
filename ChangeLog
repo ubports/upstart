@@ -1,5 +1,9 @@
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/enum.h (JobWaitType): Add new daemon and fork wait types.
+	* init/parse_job.c (stanza_wait): Add parsing for daemon and fork.
+	* init/tests/test_parse_job.c (test_stanza_wait): Add tests too.
+
 	* init/job.h (JobConfig): Remove daemon and pid members.
 	(Job): Remove pid_timer member.
 	(JOB_DEFAULT_PID_TIMEOUT): Remove this constant.

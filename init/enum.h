@@ -68,7 +68,9 @@ typedef enum job_state {
  **/
 typedef enum job_wait_type {
 	JOB_WAIT_NONE,
-	JOB_WAIT_STOP
+	JOB_WAIT_STOP,
+	JOB_WAIT_DAEMON,
+	JOB_WAIT_FORK
 } JobWaitType;
 
 /**

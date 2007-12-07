@@ -1501,6 +1501,10 @@ stanza_wait (JobConfig       *job,
 
 		if (! strcmp (arg, "stop")) {
 			job->wait_for = JOB_WAIT_STOP;
+		} else if (! strcmp (arg, "daemon")) {
+			job->wait_for = JOB_WAIT_DAEMON;
+		} else if (! strcmp (arg, "fork")) {
+			job->wait_for = JOB_WAIT_FORK;
 		} else if (! strcmp (arg, "none")) {
 			job->wait_for = JOB_WAIT_NONE;
 		} else {
