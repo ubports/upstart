@@ -1,5 +1,7 @@
 2007-12-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Fix some documentation strings.
+	
 	* init/process.c (process_kill): Move to beneath the process setup
 	functions.
 	* init/process.h: Adjust ordering here too.

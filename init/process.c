@@ -92,14 +92,15 @@ process_spawn (Job          *job,
 
 	nih_assert (job != NULL);
 
-	/* Block signals before we fork to avoid child running our signal
-	 * handlers before it's reset them.
+	/* Block all signals while we fork to avoid the child process running
+	 * our own signal handlers before we've reset them all back to the
+	 * default.
 	 */
 	sigfillset (&child_set);
 	sigprocmask (SIG_BLOCK, &child_set, &orig_set);
 
-	/* Fork the child process, and return either the id or failure
-	 * back to the caller.
+	/* Fork the child process, handling success and failure by resetting
+	 * the signal mask and returning the new process id or a raised error.
 	 */
 	pid = fork ();
 	if (pid > 0) {
@@ -115,10 +116,13 @@ process_spawn (Job          *job,
 
 	/* We're now in the child process.
 	 *
-	 * First we put all the signal handlers back to their default
-	 * handling; this means the child won't be unexpectedly ignoring
-	 * them and means we won't surprisingly handle them before we've
-	 * exec()d the new process.
+	 * The reset of this function sets the child up and ends by executing
+	 * the new binary.  Failures are handled by terminating the child.
+	 */
+
+	/* Reset all the signal handlers back to their default handling so
+	 * the child isn't unexpectedly ignoring any, and so we won't
+	 * surprisingly handle them before we've exec()d the new process.
 	 */
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
@@ -128,11 +132,12 @@ process_spawn (Job          *job,
 	 */
 	setsid ();
 
-	/* Next we close the standard file descriptors so we don't
-	 * inherit them directly from init but get to pick them ourselves.
+	/* Close the standard file descriptors (which init always has open)
+	 * so we don't inherit them directly but get to pick them ourselves.
 	 *
-	 * Any other open descriptor must have had the FD_CLOEXEC flag set,
-	 * so will get automatically closed when we exec() later.
+	 * Any other open descriptor must be intended for the child, or have
+	 * the FD_CLOEXEC flag set so it's automatically closed when we exec()
+	 * later.
 	 */
 	for (i = 0; i < 3; i++)
 		close (i);
