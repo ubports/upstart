@@ -123,6 +123,11 @@ process_spawn (Job          *job,
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
+	/* Become the leader of a new session and process group, shedding
+	 * any controlling tty (which we shouldn't have had anyway).
+	 */
+	setsid ();
+
 	/* Next we close the standard file descriptors so we don't
 	 * inherit them directly from init but get to pick them ourselves.
 	 *
@@ -131,9 +136,6 @@ process_spawn (Job          *job,
 	 */
 	for (i = 0; i < 3; i++)
 		close (i);
-
-	/* Become the leader of a new session and process group */
-	setsid ();
 
 	/* The job defines what the process's standard input, output and
 	 * error file descriptors should look like; set those up.

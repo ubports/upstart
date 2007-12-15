@@ -1,3 +1,8 @@
+2007-12-15  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_spawn): Group console closing and setup
+	together, becoming the session and process group leader first.
+
 2007-12-07  Scott James Remnant  <scott@netsplit.com>
 
 	* init/process.c (process_spawn): Drop the debug message since
