@@ -289,39 +289,6 @@ process_setup_environment (Job *job)
 	return 0;
 }
 
-
-/**
- * process_kill:
- * @job: job context of process to be killed,
- * @pid: process id of process,
- * @force: force the death.
- *
- * This function only sends the process a TERM signal (KILL if @force is
- * TRUE), it is up to the caller to ensure that the state change is saved
- * into the job and the process is watched; one may also wish to send
- * further signals later.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-process_kill (Job   *job,
-	      pid_t  pid,
-	      int    force)
-{
-	int signal;
-
-	nih_assert (job != NULL);
-	nih_assert (pid > 0);
-
-	signal = (force ? SIGKILL : SIGTERM);
-
-	if (kill (-pid, signal) < 0)
-		nih_return_system_error (-1);
-
-	return 0;
-}
-
-
 /**
  * process_setup_console:
  * @job: job details,
@@ -434,6 +401,38 @@ process_setup_console (Job         *job,
 	/* Copy to standard output and standard error */
 	while (dup (fd) < 2)
 		;
+
+	return 0;
+}
+
+
+/**
+ * process_kill:
+ * @job: job context of process to be killed,
+ * @pid: process id of process,
+ * @force: force the death.
+ *
+ * This function only sends the process a TERM signal (KILL if @force is
+ * TRUE), it is up to the caller to ensure that the state change is saved
+ * into the job and the process is watched; one may also wish to send
+ * further signals later.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+process_kill (Job   *job,
+	      pid_t  pid,
+	      int    force)
+{
+	int signal;
+
+	nih_assert (job != NULL);
+	nih_assert (pid > 0);
+
+	signal = (force ? SIGKILL : SIGTERM);
+
+	if (kill (-pid, signal) < 0)
+		nih_return_system_error (-1);
 
 	return 0;
 }

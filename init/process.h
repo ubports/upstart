@@ -32,10 +32,11 @@ NIH_BEGIN_EXTERN
 
 pid_t process_spawn         (Job *job, char * const argv[])
 	__attribute__ ((warn_unused_result));
-int   process_kill          (Job *job, pid_t pid, int force)
-	__attribute__ ((warn_unused_result));
 
 int   process_setup_console (Job *job, ConsoleType type)
+	__attribute__ ((warn_unused_result));
+
+int   process_kill          (Job *job, pid_t pid, int force)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
