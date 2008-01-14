@@ -2,7 +2,7 @@ The upstart source tree is available using Bazaar-NG with the
 following URL, if you plan to hack on upstart please work off this
 branch.
 
-	http://bazaar.launchpad.net/~keybuk/upstart/main
+	http://bazaar.launchpad.net/~keybuk/upstart/trunk
 
 Releases are available from:
 
@@ -29,7 +29,7 @@ source.
 If you checked upstart out from Bazaar-NG you will also need to check
 libnih out from the following URL:
 
-	http://bazaar.launchpad.net/~keybuk/libnih/main
+	http://bazaar.launchpad.net/~keybuk/libnih/trunk
 
 and from the upstart working directory run the nihify script found in
 the libnih working directory, usually just:

@@ -1,3 +1,7 @@
+2008-01-14  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Correct bzr URLs to trunk.
+
 2007-12-15  Scott James Remnant  <scott@netsplit.com>
 
 	* init/process.c (process_spawn): Fix some documentation strings.
