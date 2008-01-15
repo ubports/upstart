@@ -38,6 +38,9 @@ enum {
 	PARSE_EXPECTED_EVENT,
 	PARSE_EXPECTED_OPERATOR,
 	PARSE_MISMATCHED_PARENS,
+
+	/* Errors while handling processes */
+	PROCESS_ERROR,
 };
 
 /* Error strings for defined messages */

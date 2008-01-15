@@ -54,10 +54,30 @@
 #include "job.h"
 #include "process.h"
 #include "paths.h"
+#include "errors.h"
+
+
+/**
+ * ProcessWireError:
+ *
+ * This structure is used to pass an error from the child process back to the
+ * parent.  It contains the same basic particulars as a ProcessError but
+ * without the message.
+ **/
+typedef struct process_wire_error {
+	ProcessErrorType type;
+	int              arg;
+	int              errnum;
+} ProcessWireError;
 
 
 /* Prototypes for static functions */
-static int process_setup_environment (Job *job);
+static int  process_setup_environment (Job *job)
+	__attribute__ ((warn_unused_result));
+static void process_error_abort       (int fd, ProcessErrorType type, int arg)
+	__attribute__ ((noreturn));
+static int  process_error_read        (int fd)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -77,8 +97,10 @@ static int process_setup_environment (Job *job);
  * This function only spawns the process, it is up to the caller to ensure
  * that the information is saved into the job and the process is watched, etc.
  *
- * Note that the only error raised within this function is a failure of the
- * fork() syscall as the environment is set up within the child process.
+ * Spawning a process may fail for temporary reasons, usually due to a failure
+ * of the fork() syscall or communication with the child; or more permanent
+ * reasons such as a failure to setup the child environment.  These latter
+ * are always represented by a PROCESS_ERROR error.
  *
  * Returns: process id of new process on success, -1 on raised error
  **/
@@ -114,14 +136,20 @@ process_spawn (Job          *job,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
-		/* FIXME read the error from the child */
-		close (fds[0]);
+		/* Read error from the pipe, return if one is raised */
+		if (process_error_read (fds[0]) < 0) {
+			close (fds[0]);
+			return -1;
+		}
 
+		close (fds[0]);
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();
 
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
+		close (fds[0]);
+		close (fds[1]);
 		return -1;
 	}
 
@@ -152,24 +180,6 @@ process_spawn (Job          *job,
 	if (process_setup_console (job->config->console, FALSE) < 0)
 		goto error;
 
-	/* Set the process environment, taking environment variables from
-	 * the job definition, the events that started/stopped it and also
-	 * include the standard ones that tell you which job you are.
-	 */
-	if (process_setup_environment (job) < 0)
-		goto error;
-
-
-	/* Set the file mode creation mask; this is one of the few operations
-	 * that can never fail.
-	 */
-	umask (job->config->umask);
-
-	/* Adjust the process priority ("nice level").
-	 */
-	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0)
-		goto error;
-
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job configuration such that they inherit from
 	 * ourselves (and we inherit from kernel defaults).
@@ -181,6 +191,23 @@ process_spawn (Job          *job,
 		if (setrlimit (i, job->config->limits[i]) < 0)
 			goto error;
 	}
+
+	/* Set the process environment, taking environment variables from
+	 * the job definition, the events that started/stopped it and also
+	 * include the standard ones that tell you which job you are.
+	 */
+	if (process_setup_environment (job) < 0)
+		goto error;
+
+	/* Set the file mode creation mask; this is one of the few operations
+	 * that can never fail.
+	 */
+	umask (job->config->umask);
+
+	/* Adjust the process priority ("nice level").
+	 */
+	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0)
+		goto error;
 
 	/* Change the root directory, confining path resolution within it;
 	 * we do this before the working directory call so that is always
@@ -294,6 +321,191 @@ process_setup_environment (Job *job)
 			nih_return_system_error (-1);
 
 	return 0;
+}
+
+
+/**
+ * process_error_abort:
+ * @fd: writing end of pipe,
+ * @type: step that failed,
+ * @arg: argument to @type.
+ *
+ * Abort the child process, first writing the error details in @type, @arg
+ * and the currently raised NihError to the writing end of the pipe specified
+ * by @fd.
+ *
+ * This function calls the abort() system call, so never returns.
+ **/
+static void
+process_error_abort (int              fd,
+		     ProcessErrorType type,
+		     int              arg)
+{
+	NihError         *err;
+	ProcessWireError  wire_err;
+
+	/* Get the currently raised system error */
+	err = nih_error_get ();
+
+	/* Fill in the structure we send over the pipe */
+	wire_err.type = type;
+	wire_err.arg = arg;
+	wire_err.errnum = err->number;
+
+	/* Write structure to the pipe; in theory this should never fail, but
+	 * if it does, we abort anyway.
+	 */
+	write (fd, &wire_err, sizeof (wire_err));
+
+	abort ();
+}
+
+/**
+ * process_error_read:
+ * @fd: reading end of pipe.
+ *
+ * Read from the reading end of the pipe specified by @fd, if we receive
+ * data then the child raised a process error which we reconstruct and raise
+ * again; otherwise no problem was found and no action is taken.
+ *
+ * The reconstructed error will be of PROCESS_ERROR type, the human-readable
+ * message is generated according to the type of process error and argument
+ * passed along with it.
+ *
+ * Returns: zero if no error was found, or negative value on raised error.
+ **/
+static int
+process_error_read (int fd)
+{
+	ProcessWireError  wire_err;
+	ssize_t           len;
+	ProcessError     *err;
+	const char       *res;
+
+	/* Read the error from the pipe; a zero read indicates that the
+	 * exec succeeded so we return success, otherwise if we don't receive
+	 * a ProcessWireError structure, we return a temporary error so we
+	 * try again.
+	 */
+	len = read (fd, &wire_err, sizeof (wire_err));
+	if (len == 0) {
+		return 0;
+	} else if (len < 0) {
+		nih_return_system_error (-1);
+	} else if (len != sizeof (wire_err)) {
+		errno = EILSEQ;
+		nih_return_system_error (-1);
+	}
+
+	/* Construct a ProcessError to be raised containing information
+	 * from the wire, augmented with human-readable information we
+	 * generate here.
+	 */
+	NIH_MUST (err = nih_new (NULL, ProcessError));
+
+	err->type = wire_err.type;
+	err->arg = wire_err.arg;
+	err->errnum = wire_err.errnum;
+
+	err->error.number = PROCESS_ERROR;
+
+	switch (err->type) {
+	case PROCESS_ERROR_CONSOLE:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to open console: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_RLIMIT:
+		switch (err->arg) {
+		case RLIMIT_CPU:
+			res = "cpu";
+			break;
+		case RLIMIT_FSIZE:
+			res = "fsize";
+			break;
+		case RLIMIT_DATA:
+			res = "data";
+			break;
+		case RLIMIT_STACK:
+			res = "stack";
+			break;
+		case RLIMIT_CORE:
+			res = "core";
+			break;
+		case RLIMIT_RSS:
+			res = "rss";
+			break;
+		case RLIMIT_NPROC:
+			res = "nproc";
+			break;
+		case RLIMIT_NOFILE:
+			res = "nofile";
+			break;
+		case RLIMIT_MEMLOCK:
+			res = "memlock";
+			break;
+		case RLIMIT_AS:
+			res = "as";
+			break;
+		case RLIMIT_LOCKS:
+			res = "locks";
+			break;
+		case RLIMIT_SIGPENDING:
+			res = "sigpending";
+			break;
+		case RLIMIT_MSGQUEUE:
+			res = "msgqueue";
+			break;
+		case RLIMIT_NICE:
+			res = "nice";
+			break;
+		case RLIMIT_RTPRIO:
+			res = "rtprio";
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to set \"%s\" resource limit: %s"),
+				  res, strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_ENVIRON:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to set up environment: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_PRIORITY:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to set process priority: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_CHROOT:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to change root directory: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_CHDIR:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to change working directory: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_PTRACE:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to set process trace: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_EXEC:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to execute process: %s"),
+				  strerror (err->errnum)));
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	nih_error_raise_again (&err->error);
+	return -1;
 }
 
 

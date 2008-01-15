@@ -1,5 +1,20 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/errors.h: Add PROCESS_ERROR to the enum, but not to the string
+	list since there's no specific defined string for this one.
+	* init/process.h (ProcessError): Structure that builds on NihError
+	to add additional information for a process error.
+	(ProcessErrorType): enum of different process error types.
+	* init/process.c (process_spawn): After forking read the error in
+	the parent, returning if we raise one.
+	Ensure we close the pipe if the fork fails.
+	Re-order so that we set the environment, umask and priority after the
+	resource limits (which should apply to them).
+	(process_error_abort): New function to immediately abort with an
+	error, writing it on the pipe first.
+	(process_error_read): Counterpart function to read the error from
+	the pipe and raise it, with appropriate error messages.
+
 	* init/process.c (process_spawn): Create a pipe to use for
 	communication with the child, ensuring its closed before the parent
 	returns and ensuring that the writing end is close-on-exec in the
