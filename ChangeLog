@@ -1,5 +1,9 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_goal): Document in which states this function
+	has unexpected side-effects such as freeing the job, since we do
+	attempt to call it from within job_change_state().
+
 	* init/process.c (process_setup_limits): Integrate this function back
 	into process_spawn() since there's no reason for it to be separate.
 	(process_setup_console): Alter this function so it closes the original

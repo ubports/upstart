@@ -546,7 +546,9 @@ job_instance (JobConfig *config)
  * the running process) to correctly enter the new goal.
  *
  * WARNING: On return from this function, @job may no longer be valid
- * since it will be freed once it becomes fully stopped.
+ * since it will be freed once it becomes fully stopped; it may only be
+ * called without unexpected side-effects if you are not in the WAITING
+ * or RUNNING state and changing the goal to START or STOP respectively.
  **/
 void
 job_change_goal (Job     *job,
