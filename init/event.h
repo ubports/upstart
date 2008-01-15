@@ -138,7 +138,11 @@ typedef struct event_operator {
  *
  * Name of the event that we generate when init is first executed.
  **/
+#ifndef DEBUG
 #define STARTUP_EVENT "startup"
+#else /* DEBUG */
+#define STARTUP_EVENT "debug"
+#endif
 
 /**
  * STALLED_EVENT:

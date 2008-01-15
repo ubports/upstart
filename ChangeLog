@@ -1,5 +1,11 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Selectively compile out certain pieces when make is
+	run with CPPFLAGS=-DDEBUG, giving us a build that'll happily run from
+	a user terminal.
+	* init/event.h: Change the startup event to "debug" when built like
+	that, so we don't accidentally do bad things.
+
 	* init/job.c (job_run_process): Catch PROCESS_ERROR and abort the
 	attempt to run the process, returning a non-temporary error condition.
 	* init/tests/test_job.c (test_run_process): Add test case for

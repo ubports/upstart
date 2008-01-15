@@ -59,11 +59,15 @@
 
 
 /* Prototypes for static functions */
+#ifndef DEBUG
 static void crash_handler   (int signum);
+#endif /* DEBUG */
 static void term_handler    (void *data, NihSignal *signal);
+#ifndef DEBUG
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
+#endif /* DEBUG */
 static void hup_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
 
@@ -129,6 +133,7 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+#ifndef DEBUG
 	/* Check we're root */
 	if (getuid ()) {
 		nih_fatal (_("Need to be root"));
@@ -188,6 +193,9 @@ main (int   argc,
 	 * going to go away soon.
 	 */
 	chdir ("/");
+#else /* DEBUG */
+	nih_log_set_priority (NIH_LOG_DEBUG);
+#endif /* DEBUG */
 
 
 	/* Reset the signal state and install the signal handler for those
@@ -197,11 +205,13 @@ main (int   argc,
 	if (! (restart || rescue))
 		nih_signal_reset ();
 
- 	/* Catch fatal errors immediately rather than waiting for a new
+#ifndef DEBUG							\
+	/* Catch fatal errors immediately rather than waiting for a new
 	 * iteration through the main loop.
 	 */
 	nih_signal_set_handler (SIGSEGV, crash_handler);
 	nih_signal_set_handler (SIGABRT, crash_handler);
+#endif /* DEBUG */
 
 	/* Don't ignore SIGCHLD or SIGALRM, but don't respond to them
 	 * directly; it's enough that they interrupt the main loop and
@@ -217,6 +227,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGCONT, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL));
 
+#ifndef DEBUG
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
@@ -236,6 +247,7 @@ main (int   argc,
 	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
 	nih_signal_set_handler (SIGPWR, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
+#endif /* DEBUG */
 
 	/* SIGHUP instructs us to re-load our configuration */
 	nih_signal_set_handler (SIGHUP, nih_signal_handler);
@@ -268,11 +280,13 @@ main (int   argc,
 
 	conf_reload ();
 
+#ifndef DEBUG								\
 	/* Now that the startup is complete, send all further logging output
 	 * to syslog instead of to the console.
 	 */
 	openlog (program_name, LOG_CONS, LOG_DAEMON);
 	nih_log_set_logger (nih_logger_syslog);
+#endif /* DEBUG */
 
 
 	/* Generate and run the startup event or read the state from the
@@ -299,6 +313,7 @@ main (int   argc,
 }
 
 
+#ifndef DEBUG
 /**
  * crash_handler:
  * @signum: signal number received.
@@ -405,6 +420,7 @@ crash_handler (int signum)
 	/* Oh Bugger */
 	exit (1);
 }
+#endif
 
 /**
  * term_handler:
@@ -457,6 +473,7 @@ term_handler (void      *data,
 }
 
 
+#ifndef DEBUG
 /**
  * cad_handler:
  * @data: unused,
@@ -504,6 +521,7 @@ pwr_handler (void      *data,
 {
 	event_new (NULL, PWRSTATUS_EVENT, NULL, NULL);
 }
+#endif
 
 /**
  * hup_handler:
