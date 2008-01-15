@@ -35,10 +35,12 @@
 #include <nih/macros.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/error.h>
 
 #include "job.h"
 #include "event.h"
 #include "process.h"
+#include "errors.h"
 
 
 /* Sadly we can't test everything that process_spawn() does simply because
@@ -109,6 +111,8 @@ test_spawn (void)
 	EventOperator *oper;
 	pid_t          pid;
 	siginfo_t      info;
+	NihError      *err;
+	ProcessError  *perr;
 
 	TEST_FUNCTION ("process_spawn");
 	TEST_FILENAME (filename);
@@ -129,6 +133,7 @@ test_spawn (void)
 
 	job = job_instance (config);
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
@@ -167,6 +172,7 @@ test_spawn (void)
 
 	job = job_instance (config);
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
@@ -193,6 +199,7 @@ test_spawn (void)
 
 	job = job_instance (config);
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
@@ -221,6 +228,7 @@ test_spawn (void)
 	job = job_instance (config);
 	job->id = 1000;
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
@@ -282,6 +290,7 @@ test_spawn (void)
 	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
@@ -313,6 +322,7 @@ test_spawn (void)
 
 	job = job_instance (config);
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	TEST_EQ (job->trace_state, TRACE_NONE);
 
@@ -337,6 +347,7 @@ test_spawn (void)
 	job = job_instance (config);
 	job->trace_state = TRACE_NEW;
 	pid = process_spawn (job, args);
+	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
 	TEST_EQ (info.si_code, CLD_TRAPPED);
@@ -349,6 +360,34 @@ test_spawn (void)
 	TEST_EQ (info.si_status, 0);
 
 	unlink (filename);
+
+	nih_free (config);
+
+
+	/* Check that attempting to spawn a binary that doesn't exist returns
+	 * an error immediately with all of the expected information in the
+	 * error structure.
+	 */
+	TEST_FEATURE ("with no such file");
+	args[0] = filename;
+	args[1] = filename;
+	args[2] = NULL;
+
+	config = job_config_new (NULL, "test");
+
+	job = job_instance (config);
+	pid = process_spawn (job, args);
+	TEST_LT (pid, 0);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PROCESS_ERROR);
+	TEST_ALLOC_SIZE (err, sizeof (ProcessError));
+
+	perr = (ProcessError *)err;
+	TEST_EQ (perr->type, PROCESS_ERROR_EXEC);
+	TEST_EQ (perr->arg, 0);
+	TEST_EQ (perr->errnum, ENOENT);
+	nih_free (perr);
 
 	nih_free (config);
 }

@@ -108,10 +108,9 @@ pid_t
 process_spawn (Job          *job,
 	       char * const  argv[])
 {
-	NihError *err;
-	sigset_t  child_set, orig_set;
-	pid_t     pid;
-	int       i, fds[2];
+	sigset_t child_set, orig_set;
+	pid_t    pid;
+	int      i, fds[2];
 
 	nih_assert (job != NULL);
 
@@ -178,7 +177,7 @@ process_spawn (Job          *job,
 	 * later.
 	 */
 	if (process_setup_console (job->config->console, FALSE) < 0)
-		goto error;
+		process_error_abort (fds[1], PROCESS_ERROR_CONSOLE, 0);
 
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job configuration such that they inherit from
@@ -188,8 +187,10 @@ process_spawn (Job          *job,
 		if (! job->config->limits[i])
 			continue;
 
-		if (setrlimit (i, job->config->limits[i]) < 0)
-			goto error;
+		if (setrlimit (i, job->config->limits[i]) < 0) {
+			nih_error_raise_system ();
+			process_error_abort (fds[1], PROCESS_ERROR_RLIMIT, i);
+		}
 	}
 
 	/* Set the process environment, taking environment variables from
@@ -197,7 +198,7 @@ process_spawn (Job          *job,
 	 * include the standard ones that tell you which job you are.
 	 */
 	if (process_setup_environment (job) < 0)
-		goto error;
+		process_error_abort (fds[1], PROCESS_ERROR_ENVIRON, 0);
 
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
@@ -206,24 +207,30 @@ process_spawn (Job          *job,
 
 	/* Adjust the process priority ("nice level").
 	 */
-	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0)
-		goto error;
+	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0) {
+		nih_error_raise_system ();
+		process_error_abort (fds[1], PROCESS_ERROR_PRIORITY, 0);
+	}
 
 	/* Change the root directory, confining path resolution within it;
 	 * we do this before the working directory call so that is always
 	 * relative to the new root.
 	 */
 	if (job->config->chroot) {
-		if (chroot (job->config->chroot) < 0)
-			goto error;
+		if (chroot (job->config->chroot) < 0) {
+			nih_error_raise_system ();
+			process_error_abort (fds[1], PROCESS_ERROR_CHROOT, 0);
+		}
 	}
 
 	/* Change the working directory of the process, either to the one
 	 * configured in the job, or to the root directory of the filesystem
 	 * (or at least relative to the chroot).
 	 */
-	if (chdir (job->config->chdir ? job->config->chdir : "/") < 0)
-		nih_return_system_error (-1);
+	if (chdir (job->config->chdir ? job->config->chdir : "/") < 0) {
+		nih_error_raise_system ();
+		process_error_abort (fds[1], PROCESS_ERROR_CHDIR, 0);
+	}
 
 
 	/* Reset all the signal handlers back to their default handling so
@@ -237,22 +244,17 @@ process_spawn (Job          *job,
 	if (job->trace_state == TRACE_NEW) {
 		if (ptrace (PTRACE_TRACEME, 0, NULL, 0) < 0) {
 			nih_error_raise_system();
-			goto error;
+			process_error_abort (fds[1], PROCESS_ERROR_PTRACE, 0);
 		}
 	}
 
 	/* Execute the process, if we escape from here it failed */
-	if (execvp (argv[0], argv) < 0)
+	if (execvp (argv[0], argv) < 0) {
 		nih_error_raise_system ();
+		process_error_abort (fds[1], PROCESS_ERROR_EXEC, 0);
+	}
 
-error:
-	err = nih_error_get ();
-
-	nih_error (_("Unable to execute \"%s\" for %s (#%u): %s"),
-		   argv[0], job->config->name, job->id, err->message);
-	nih_free (err);
-
-	exit (255);
+	nih_assert_not_reached ();
 }
 
 /**

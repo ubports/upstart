@@ -1,5 +1,11 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Call process_error_abort() on any
+	error condition.
+	* init/tests/test_process.c (test_spawn): Add a test case for failing
+	to spawn a process and receiving ProcessError correctly; fix other
+	cases to ensure they return a pid.
+
 	* init/errors.h: Add PROCESS_ERROR to the enum, but not to the string
 	list since there's no specific defined string for this one.
 	* init/process.h (ProcessError): Structure that builds on NihError
