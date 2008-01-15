@@ -57,6 +57,7 @@
 #include "job.h"
 #include "conf.h"
 #include "paths.h"
+#include "errors.h"
 
 
 /**
@@ -1101,7 +1102,7 @@ job_run_process (Job         *job,
 	 * the best way to deal with things like variables.
 	 */
 	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
-		struct stat  statbuf;
+		struct stat statbuf;
 
 		argc = 0;
 		NIH_MUST (argv = nih_str_array_new (NULL));
@@ -1195,8 +1196,29 @@ job_run_process (Job         *job,
 		NihError *err;
 
 		err = nih_error_get ();
-		if (! error)
-			nih_warn ("%s: %s", _("Failed to spawn process"),
+		if (err->number == PROCESS_ERROR) {
+			/* Non-temporary error condition, we're not going
+			 * to be able to spawn this process.  Clean up after
+			 * ourselves before returning.
+			 */
+			nih_free (argv);
+			if (script) {
+				close (fds[0]);
+				close (fds[1]);
+				nih_free (script);
+			}
+
+			job->trace_state = TRACE_NONE;
+			job->pid[process] = 0;
+
+			/* Return non-temporary error condition */
+			nih_warn (_("Failed to spawn %s (#%u) %s process: %s"),
+				  job->config->name, job->id,
+				  process_name (process), err->message);
+			nih_free (err);
+			return -1;
+		} else if (! error)
+			nih_warn ("%s: %s", _("Temporary process spawn error"),
 				  err->message);
 		nih_free (err);
 

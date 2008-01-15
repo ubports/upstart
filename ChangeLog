@@ -1,5 +1,10 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Catch PROCESS_ERROR and abort the
+	attempt to run the process, returning a non-temporary error condition.
+	* init/tests/test_job.c (test_run_process): Add test case for
+	attempting to spawn a file that doesn't exist.
+
 	* init/process.c (process_error_read): Avoid the word process, since
 	it's likely included in the higher error message.
 

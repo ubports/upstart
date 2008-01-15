@@ -3672,6 +3672,43 @@ no_devfd:
 
 		nih_free (config);
 	}
+
+
+	/* Check that if we try and run a command that doesn't exist,
+	 * job_run_process() raises a ProcessError and the command doesn't
+	 * have any stored process id for it.
+	 */
+	TEST_FEATURE ("with no such file");
+	output = tmpfile ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->process[PROCESS_MAIN] = job_process_new (config);
+			config->process[PROCESS_MAIN]->command = filename;
+
+			job = job_instance (config);
+			job->id = 1;
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+		}
+
+		TEST_DIVERT_STDERR (output) {
+			ret = job_run_process (job, PROCESS_MAIN);
+		}
+		rewind (output);
+		TEST_LT (ret, 0);
+
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (#1) main "
+				       "process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (config);
+	}
 }
 
 
