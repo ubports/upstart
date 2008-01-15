@@ -113,10 +113,9 @@ typedef enum trace_state {
  * process) or to the logging daemon.
  **/
 typedef enum console_type {
-	CONSOLE_LOGGED,
+	CONSOLE_NONE,
 	CONSOLE_OUTPUT,
-	CONSOLE_OWNER,
-	CONSOLE_NONE
+	CONSOLE_OWNER
 } ConsoleType;
 
 

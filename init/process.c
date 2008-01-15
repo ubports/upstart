@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <termios.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -55,7 +56,6 @@
 
 
 /* Prototypes for static functions */
-static int process_setup_limits      (Job *job);
 static int process_setup_environment (Job *job);
 
 
@@ -120,44 +120,72 @@ process_spawn (Job          *job,
 	 * the new binary.  Failures are handled by terminating the child.
 	 */
 
+	/* Become the leader of a new session and process group, shedding
+	 * any controlling tty (which we shouldn't have had anyway).
+	 */
+	setsid ();
+
+	/* Set the standard file descriptors to an output of our chosing;
+	 * any other open descriptor must be intended for the child, or have
+	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
+	 * later.
+	 */
+	if (process_setup_console (job->config->console, FALSE) < 0)
+		goto error;
+
+	/* Set the process environment, taking environment variables from
+	 * the job definition, the events that started/stopped it and also
+	 * include the standard ones that tell you which job you are.
+	 */
+	if (process_setup_environment (job) < 0)
+		goto error;
+
+
+	/* Set the file mode creation mask; this is one of the few operations
+	 * that can never fail.
+	 */
+	umask (job->config->umask);
+
+	/* Adjust the process priority ("nice level").
+	 */
+	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0)
+		goto error;
+
+	/* Set resource limits for the process, skipping over any that
+	 * aren't set in the job configuration such that they inherit from
+	 * ourselves (and we inherit from kernel defaults).
+	 */
+	for (i = 0; i < RLIMIT_NLIMITS; i++) {
+		if (! job->config->limits[i])
+			continue;
+
+		if (setrlimit (i, job->config->limits[i]) < 0)
+			goto error;
+	}
+
+	/* Change the root directory, confining path resolution within it;
+	 * we do this before the working directory call so that is always
+	 * relative to the new root.
+	 */
+	if (job->config->chroot) {
+		if (chroot (job->config->chroot) < 0)
+			goto error;
+	}
+
+	/* Change the working directory of the process, either to the one
+	 * configured in the job, or to the root directory of the filesystem
+	 * (or at least relative to the chroot).
+	 */
+	if (chdir (job->config->chdir ? job->config->chdir : "/") < 0)
+		nih_return_system_error (-1);
+
+
 	/* Reset all the signal handlers back to their default handling so
 	 * the child isn't unexpectedly ignoring any, and so we won't
 	 * surprisingly handle them before we've exec()d the new process.
 	 */
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
-
-	/* Become the leader of a new session and process group, shedding
-	 * any controlling tty (which we shouldn't have had anyway).
-	 */
-	setsid ();
-
-	/* Close the standard file descriptors (which init always has open)
-	 * so we don't inherit them directly but get to pick them ourselves.
-	 *
-	 * Any other open descriptor must be intended for the child, or have
-	 * the FD_CLOEXEC flag set so it's automatically closed when we exec()
-	 * later.
-	 */
-	for (i = 0; i < 3; i++)
-		close (i);
-
-	/* The job defines what the process's standard input, output and
-	 * error file descriptors should look like; set those up.
-	 */
-	if (process_setup_console (job, job->config->console) < 0)
-		goto error;
-
-	/* The job also gives us a consistent world to run all processes
-	 * in, including resource limits and suchlike.  Set that all up.
-	 */
-	if (process_setup_limits (job) < 0)
-		goto error;
-
-	/* And finally set up the environment variables for the process.
-	 */
-	if (process_setup_environment (job) < 0)
-		goto error;
 
 	/* Set up a process trace if we need to trace forks */
 	if (job->trace_state == TRACE_NEW) {
@@ -179,51 +207,6 @@ error:
 	nih_free (err);
 
 	exit (255);
-}
-
-/**
- * process_setup_limits:
- * @job: job details.
- *
- * Set up the boundaries for the current process such as the file creation
- * mask, priority, limits, working directory, etc. from the details stored
- * in the @job given.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-process_setup_limits (Job *job)
-{
-	int i;
-
-	nih_assert (job != NULL);
-
-	umask (job->config->umask);
-
-	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0)
-		nih_return_system_error (-1);
-
-	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (! job->config->limits[i])
-			continue;
-
-		if (setrlimit (i, job->config->limits[i]) < 0)
-			nih_return_system_error (-1);
-	}
-
-	if (job->config->chroot) {
-		if (chroot (job->config->chroot) < 0)
-			nih_return_system_error (-1);
-		if (chdir ("/") < 0)
-			nih_return_system_error (-1);
-	}
-
-	if (job->config->chdir) {
-		if (chdir (job->config->chdir) < 0)
-			nih_return_system_error (-1);
-	}
-
-	return 0;
 }
 
 /**
@@ -294,113 +277,84 @@ process_setup_environment (Job *job)
 	return 0;
 }
 
+
 /**
  * process_setup_console:
- * @job: job details,
- * @type: console type.
+ * @type: console type,
+ * @reset: reset console to sane defaults.
  *
  * Set up the standard input, output and error file descriptors for the
- * current process based on the console @type given.
+ * current process based on the console @type given.  If @reset is TRUE then
+ * the console device will be reset to sane defaults.
  *
  * Returns: zero on success, negative value on raised error.
  **/
 int
-process_setup_console (Job         *job,
-		       ConsoleType  type)
+process_setup_console (ConsoleType type,
+		       int         reset)
 {
-	int fd = -1;
+	int fd = -1, i;
 
+	/* Close the standard file descriptors since we're about to re-open
+	 * them; it may be that some of these aren't already open, we get
+	 * called in some very strange ways.
+	 */
+	for (i = 0; i < 3; i++)
+		close (i);
+
+	/* Open the new first file descriptor, which should always become
+	 * file zero.
+	 */
 	switch (type) {
-	case CONSOLE_LOGGED:
-		/* Input from /dev/null, output to the logging process */
-		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
-		if (fd >= 0) {
-			int                 sock;
-			struct sockaddr_un  addr;
-			size_t              addrlen, namelen;
-			const char         *name;
-
-			/* Open a unix stream socket */
-			sock = socket (PF_UNIX, SOCK_STREAM, 0);
-			if (sock < 0) {
-				nih_warn (_("Unable to open logd socket: %s"),
-					  strerror (errno));
-				break;
-			}
-
-			/* Use the abstract namespace */
-			addr.sun_family = AF_UNIX;
-			addr.sun_path[0] = '\0';
-
-			/* Specifically /com/ubuntu/upstart/logd */
-			addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
-			addrlen += snprintf (addr.sun_path + 1,
-					     sizeof (addr.sun_path) - 1,
-					     "/com/ubuntu/upstart/logd");
-
-			/* Connect to the logging daemon (note: this blocks,
-			 * but that's ok, we're in the child)
-			 */
-			if (connect (sock, (struct sockaddr *)&addr,
-				     addrlen) < 0) {
-				if (errno != ECONNREFUSED)
-					nih_warn (_("Unable to connect to "
-						    "logd: %s"),
-						  strerror (errno));
-
-				close (sock);
-				break;
-			}
-
-			/* First send the length of the job name */
-			name = job ? job->config->name : program_name;
-			namelen = strlen (name);
-			if (write (sock, &namelen, sizeof (namelen)) < 0) {
-				nih_warn (_("Unable to send name to logd: %s"),
-					  strerror (errno));
-				close (sock);
-				break;
-			}
-
-			/* Then send the job name */
-			if (write (sock, name, namelen) < 0) {
-				nih_warn (_("Unable to send name to logd: %s"),
-					  strerror (errno));
-				close (sock);
-				break;
-			}
-
-			/* Socket is ready to be used for output */
-			fd = sock;
-		}
-
-		break;
-
 	case CONSOLE_OUTPUT:
+	case CONSOLE_OWNER:
 		/* Ordinary console input and output */
 		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
-		break;
+		if (fd < 0)
+			nih_return_system_error (-1);
 
-	case CONSOLE_OWNER:
-		/* As CONSOLE_OUTPUT but with ^C, etc. sent */
-		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
-		if (fd >= 0)
+		if (type == CONSOLE_OWNER)
 			ioctl (fd, TIOCSCTTY, 1);
-
 		break;
-
 	case CONSOLE_NONE:
 		/* No console really means /dev/null */
 		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
+		if (fd < 0)
+			nih_return_system_error (-1);
 		break;
 	}
 
-	/* Failed to open a console?  Use /dev/null */
-	if (fd < 0) {
-		nih_warn (_("Failed to open console: %s"), strerror (errno));
+	/* Reset to sane defaults, cribbed from sysvinit, initng, etc. */
+	if (reset) {
+		struct termios tty;
 
-		if ((fd = open (DEV_NULL, O_RDWR | O_NOCTTY)) < 0)
-			nih_return_system_error (-1);
+		tcgetattr (0, &tty);
+
+		tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB
+				| PARENB | PARODD);
+		tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
+
+		/* Set up usual keys */
+		tty.c_cc[VINTR]  = 3;   /* ^C */
+		tty.c_cc[VQUIT]  = 28;  /* ^\ */
+		tty.c_cc[VERASE] = 127;
+		tty.c_cc[VKILL]  = 24;  /* ^X */
+		tty.c_cc[VEOF]   = 4;   /* ^D */
+		tty.c_cc[VTIME]  = 0;
+		tty.c_cc[VMIN]   = 1;
+		tty.c_cc[VSTART] = 17;  /* ^Q */
+		tty.c_cc[VSTOP]  = 19;  /* ^S */
+		tty.c_cc[VSUSP]  = 26;  /* ^Z */
+
+		/* Pre and post processing */
+		tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
+		tty.c_oflag = (OPOST | ONLCR);
+		tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL
+			       | ECHOPRT | ECHOKE);
+
+		/* Set the terminal line and flush it */
+		tcsetattr (0, TCSANOW, &tty);
+		tcflush (0, TCIOFLUSH);
 	}
 
 	/* Copy to standard output and standard error */

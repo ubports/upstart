@@ -1931,14 +1931,12 @@ stanza_console (JobConfig       *job,
 	if (! arg)
 		goto finish;
 
-	if (! strcmp (arg, "logged")) {
-		job->console = CONSOLE_LOGGED;
+	if (! strcmp (arg, "none")) {
+		job->console = CONSOLE_NONE;
 	} else if (! strcmp (arg, "output")) {
 		job->console = CONSOLE_OUTPUT;
 	} else if (! strcmp (arg, "owner")) {
 		job->console = CONSOLE_OWNER;
-	} else if (! strcmp (arg, "none")) {
-		job->console = CONSOLE_NONE;
 	} else {
 		nih_free (arg);
 

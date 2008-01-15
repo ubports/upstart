@@ -37,7 +37,6 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <termios.h>
 
 #include <linux/kd.h>
 
@@ -60,14 +59,13 @@
 
 
 /* Prototypes for static functions */
-static void reset_console   (void);
 static void crash_handler   (int signum);
+static void term_handler    (void *data, NihSignal *signal);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
 static void hup_handler     (void *data, NihSignal *signal);
 static void stop_handler    (void *data, NihSignal *signal);
-static void term_handler    (void *data, NihSignal *signal);
 
 
 /**
@@ -146,7 +144,6 @@ main (int   argc,
 		exit (1);
 	}
 
-
 	/* Clear our arguments from the command-line, so that we show up in
 	 * ps or top output as /sbin/init, with no extra flags.
 	 *
@@ -169,29 +166,28 @@ main (int   argc,
 		*arg_end = ' ';
 	}
 
-	/* Become session and process group leader (should be already,
-	 * but you never know what initramfs did)
+
+	/* Become the leader of a new session and process group, shedding
+	 * any controlling tty (which we shouldn't have had anyway - but
+	 * you never know what initramfs did).
 	 */
 	setsid ();
 
-	/* Send all logging output to syslog */
-	openlog (program_name, LOG_CONS, LOG_DAEMON);
-	nih_log_set_logger (nih_logger_syslog);
-
-	/* Close any file descriptors we inherited, and open the console
-	 * device instead.  Normally we reset the console, unless we're
-	 * inheriting one from another init process.
+	/* Set the standard file descriptors to the ordinary console device,
+	 * resetting it to sane defaults unless we're inheriting from another
+	 * init process which we know left it in a sane state.
 	 */
-	for (int i = 0; i < 3; i++)
-		close (i);
-
-	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
+	if (process_setup_console (CONSOLE_OUTPUT, ! (restart || rescue)) < 0)
 		nih_free (nih_error_get ());
-	if (! (restart || rescue))
-		reset_console ();
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);
+
+	/* Switch to the root directory in case we were started from some
+	 * strange place, or worse, some directory in the initramfs that's
+	 * going to go away soon.
+	 */
+	chdir ("/");
 
 
 	/* Reset the signal state and install the signal handler for those
@@ -201,18 +197,18 @@ main (int   argc,
 	if (! (restart || rescue))
 		nih_signal_reset ();
 
+ 	/* Catch fatal errors immediately rather than waiting for a new
+	 * iteration through the main loop.
+	 */
+	nih_signal_set_handler (SIGSEGV, crash_handler);
+	nih_signal_set_handler (SIGABRT, crash_handler);
+
 	/* Don't ignore SIGCHLD or SIGALRM, but don't respond to them
 	 * directly; it's enough that they interrupt the main loop and
 	 * get dealt with during it.
 	 */
 	nih_signal_set_handler (SIGCHLD, nih_signal_handler);
 	nih_signal_set_handler (SIGALRM, nih_signal_handler);
-
-	/* Catch fatal errors immediately rather than waiting for a new
-	 * iteration through the main loop.
-	 */
-	nih_signal_set_handler (SIGSEGV, crash_handler);
-	nih_signal_set_handler (SIGABRT, crash_handler);
 
 	/* Allow SIGTSTP and SIGCONT to pause and unpause event processing */
 	nih_signal_set_handler (SIGTSTP, nih_signal_handler);
@@ -245,9 +241,13 @@ main (int   argc,
 	nih_signal_set_handler (SIGHUP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
 
-	/* SIGTERM instructs us to re-exec ourselves */
+	/* SIGTERM instructs us to re-exec ourselves; this should be the
+	 * last in the list to ensure that all other signals are handled
+	 * before a SIGTERM.
+	 */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
+
 
 	/* Watch children for events */
 	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
@@ -268,6 +268,13 @@ main (int   argc,
 
 	conf_reload ();
 
+	/* Now that the startup is complete, send all further logging output
+	 * to syslog instead of to the console.
+	 */
+	openlog (program_name, LOG_CONS, LOG_DAEMON);
+	nih_log_set_logger (nih_logger_syslog);
+
+
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
@@ -281,50 +288,14 @@ main (int   argc,
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
 
-	/* Run through the loop at least once */
+	/* Run through the loop at least once to deal with signals that were
+	 * delivered to the previous process while the mask was set or to
+	 * process the startup event we emitted.
+	 */
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
 	return ret;
-}
-
-
-/**
- * reset_console:
- *
- * Set up the console flags to something sensible.  Cribbed from sysvinit,
- * initng, etc.
- **/
-static void
-reset_console (void)
-{
-	struct termios tty;
-
-	tcgetattr (0, &tty);
-
-	tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB | PARODD);
-	tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
-
-	/* Set up usual keys */
-	tty.c_cc[VINTR]  = 3;   /* ^C */
-	tty.c_cc[VQUIT]  = 28;  /* ^\ */
-	tty.c_cc[VERASE] = 127;
-	tty.c_cc[VKILL]  = 24;  /* ^X */
-	tty.c_cc[VEOF]   = 4;   /* ^D */
-	tty.c_cc[VTIME]  = 0;
-	tty.c_cc[VMIN]   = 1;
-	tty.c_cc[VSTART] = 17;  /* ^Q */
-	tty.c_cc[VSTOP]  = 19;  /* ^S */
-	tty.c_cc[VSUSP]  = 26;  /* ^Z */
-
-	/* Pre and post processing */
-	tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
-	tty.c_oflag = (OPOST | ONLCR);
-	tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL | ECHOPRT | ECHOKE);
-
-	/* Set the terminal line and flush it */
-	tcsetattr (0, TCSANOW, &tty);
-	tcflush (0, TCIOFLUSH);
 }
 
 
@@ -368,13 +339,13 @@ crash_handler (int signum)
 		sigemptyset (&act.sa_mask);
 		sigaction (signum, &act, NULL);
 
-		/* Dump in the root directory */
-		chdir ("/");
-
 		/* Don't limit the core dump size */
 		limit.rlim_cur = RLIM_INFINITY;
 		limit.rlim_max = RLIM_INFINITY;
 		setrlimit (RLIMIT_CORE, &limit);
+
+		/* Dump in the root directory */
+		chdir ("/");
 
 		/* Raise the signal again */
 		raise (signum);
@@ -434,6 +405,57 @@ crash_handler (int signum)
 	/* Oh Bugger */
 	exit (1);
 }
+
+/**
+ * term_handler:
+ * @data: unused,
+ * @signal: signal caught.
+ *
+ * This is called when we receive the TERM signal, which instructs us
+ * to reexec ourselves.
+ **/
+static void
+term_handler (void      *data,
+	      NihSignal *signal)
+{
+	NihError   *err;
+	const char *loglevel;
+	sigset_t    mask, oldmask;
+
+	nih_assert (argv0 != NULL);
+	nih_assert (signal != NULL);
+
+	nih_warn (_("Re-executing %s"), argv0);
+
+	/* Block signals while we work.  We're the last signal handler
+	 * installed so this should mean that they're all handled now.
+	 *
+	 * The child must make sure that it unblocks these again when
+	 * it's ready.
+	 */
+	sigfillset (&mask);
+	sigprocmask (SIG_BLOCK, &mask, &oldmask);
+
+	/* Argument list */
+	if (nih_log_priority <= NIH_LOG_DEBUG) {
+		loglevel = "--debug";
+	} else if (nih_log_priority <= NIH_LOG_INFO) {
+		loglevel = "--verbose";
+	} else if (nih_log_priority >= NIH_LOG_ERROR) {
+		loglevel = "--error";
+	} else {
+		loglevel = NULL;
+	}
+	execl (argv0, argv0, "--restart", loglevel, NULL);
+	nih_error_raise_system ();
+
+	err = nih_error_get ();
+	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
+	nih_free (err);
+
+	sigprocmask (SIG_SETMASK, &oldmask, NULL);
+}
+
 
 /**
  * cad_handler:
@@ -521,55 +543,4 @@ stop_handler (void      *data,
 		nih_info (_("Event queue paused"));
 		paused = TRUE;
 	}
-}
-
-
-/**
- * term_handler:
- * @data: unused,
- * @signal: signal caught.
- *
- * This is called when we receive the TERM signal, which instructs us
- * to reexec ourselves.
- **/
-static void
-term_handler (void      *data,
-	      NihSignal *signal)
-{
-	NihError   *err;
-	const char *loglevel;
-	sigset_t    mask, oldmask;
-
-	nih_assert (argv0 != NULL);
-	nih_assert (signal != NULL);
-
-	nih_warn (_("Re-executing %s"), argv0);
-
-	/* Block signals while we work.  We're the last signal handler
-	 * installed so this should mean that they're all handled now.
-	 *
-	 * The child must make sure that it unblocks these again when
-	 * it's ready.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
-	/* Argument list */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		loglevel = NULL;
-	}
-	execl (argv0, argv0, "--restart", loglevel, NULL);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
-	nih_free (err);
-
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }

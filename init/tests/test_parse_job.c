@@ -5113,11 +5113,11 @@ test_stanza_console (void)
 
 	TEST_FUNCTION ("stanza_console");
 
-	/* Check that console logged sets the job's console to
-	 * CONSOLE_LOGGED.
+	/* Check that console none sets the job's console to
+	 * CONSOLE_NONE.
 	 */
-	TEST_FEATURE ("with logged argument");
-	strcpy (buf, "console logged\n");
+	TEST_FEATURE ("with none argument");
+	strcpy (buf, "console none\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5140,7 +5140,7 @@ test_stanza_console (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->console, CONSOLE_LOGGED);
+		TEST_EQ (job->console, CONSOLE_NONE);
 
 		nih_free (job);
 	}
@@ -5212,44 +5212,11 @@ test_stanza_console (void)
 	}
 
 
-	/* Check that console none sets the job's console to
-	 * CONSOLE_NONE.
-	 */
-	TEST_FEATURE ("with none argument");
-	strcpy (buf, "console none\n");
-
-	TEST_ALLOC_FAIL {
-		pos = 0;
-		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
-				 &pos, &lineno);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (job, NULL);
-
-			err = nih_error_get ();
-			TEST_EQ (err->number, ENOMEM);
-			nih_free (err);
-
-			continue;
-		}
-
-		TEST_EQ (pos, strlen (buf));
-		TEST_EQ (lineno, 2);
-
-		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
-
-		TEST_EQ (job->console, CONSOLE_NONE);
-
-		nih_free (job);
-	}
-
-
 	/* Check that the last of multiple console stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
 	strcpy (buf, "console output\n");
-	strcat (buf, "console logged\n");
+	strcat (buf, "console owner\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -5272,7 +5239,7 @@ test_stanza_console (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->console, CONSOLE_LOGGED);
+		TEST_EQ (job->console, CONSOLE_OWNER);
 
 		nih_free (job);
 	}

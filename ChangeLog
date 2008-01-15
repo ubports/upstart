@@ -1,3 +1,26 @@
+2008-01-15  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_setup_limits): Integrate this function back
+	into process_spawn() since there's no reason for it to be separate.
+	(process_setup_console): Alter this function so it closes the original
+	console descriptors, opens the new ones and can reset them to if
+	required -- in particular, this no longer takes a Job parameter.
+	(process_spawn): Use the new process_setup_console function and
+	integrate code from process_setup_limits().
+	* init/process.h: Update function prototype.
+	* init/main.c (main): Use the new process_setup_console() argument
+	form.  Move syslog opening to the end of the function, rather than
+	where it is now where it could be at risk of being closed again
+	immediately.  Change the root directory in case we're run in some
+	weird way.
+	(reset_console): Remove function since the code is now in
+	process_setup_console()
+	* init/enum.h (console_type): Remove CONSOLE_LOGGED and make the
+	CONSOLE_NONE constant be zero.
+	* init/parse_job.c (stanza_console): Drop parsing of "logged"
+	* init/tests/test_parse_job.c (test_stanza_console): Drop testing
+	of "logged" parsing.
+
 2008-01-14  Scott James Remnant  <scott@netsplit.com>
 
 	* HACKING: Correct bzr URLs to trunk.
