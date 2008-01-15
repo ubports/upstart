@@ -1,5 +1,10 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Create a pipe to use for
+	communication with the child, ensuring its closed before the parent
+	returns and ensuring that the writing end is close-on-exec in the
+	child.
+
 	* init/job.c (job_run_process): Change to return a value indicating
 	whether there's been a non-temporary error (always returns zero so
 	far).

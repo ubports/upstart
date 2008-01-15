@@ -46,6 +46,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/signal.h>
+#include <nih/io.h>
 #include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -88,9 +89,15 @@ process_spawn (Job          *job,
 	NihError *err;
 	sigset_t  child_set, orig_set;
 	pid_t     pid;
-	int       i;
+	int       i, fds[2];
 
 	nih_assert (job != NULL);
+
+	/* Create a pipe to communicate with the child process until it
+	 * execs so we know whether that was successful or an error occurred.
+	 */
+	if (pipe (fds) < 0)
+		nih_return_system_error (-1);
 
 	/* Block all signals while we fork to avoid the child process running
 	 * our own signal handlers before we've reset them all back to the
@@ -105,6 +112,11 @@ process_spawn (Job          *job,
 	pid = fork ();
 	if (pid > 0) {
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
+		close (fds[1]);
+
+		/* FIXME read the error from the child */
+		close (fds[0]);
+
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();
@@ -119,6 +131,13 @@ process_spawn (Job          *job,
 	 * The reset of this function sets the child up and ends by executing
 	 * the new binary.  Failures are handled by terminating the child.
 	 */
+
+	/* Close the reading end of the pipe with our parent and mark the
+	 * writing end to be closed-on-exec so the parent knows we got that
+	 * far because read() returned zero.
+	 */
+	close (fds[0]);
+	nih_io_set_cloexec (fds[1]);
 
 	/* Become the leader of a new session and process group, shedding
 	 * any controlling tty (which we shouldn't have had anyway).
