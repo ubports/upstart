@@ -1,5 +1,8 @@
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_error_read): Avoid the word process, since
+	it's likely included in the higher error message.
+
 	* init/process.c (process_spawn): Call process_error_abort() on any
 	error condition.
 	* init/tests/test_process.c (test_spawn): Add a test case for failing

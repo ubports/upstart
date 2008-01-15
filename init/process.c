@@ -479,7 +479,7 @@ process_error_read (int fd)
 		break;
 	case PROCESS_ERROR_PRIORITY:
 		NIH_MUST (err->error.message = nih_sprintf (
-				  err, _("unable to set process priority: %s"),
+				  err, _("unable to set priority: %s"),
 				  strerror (err->errnum)));
 		break;
 	case PROCESS_ERROR_CHROOT:
@@ -494,12 +494,12 @@ process_error_read (int fd)
 		break;
 	case PROCESS_ERROR_PTRACE:
 		NIH_MUST (err->error.message = nih_sprintf (
-				  err, _("unable to set process trace: %s"),
+				  err, _("unable to set trace: %s"),
 				  strerror (err->errnum)));
 		break;
 	case PROCESS_ERROR_EXEC:
 		NIH_MUST (err->error.message = nih_sprintf (
-				  err, _("unable to execute process: %s"),
+				  err, _("unable to execute: %s"),
 				  strerror (err->errnum)));
 		break;
 	default:
