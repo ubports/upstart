@@ -3138,7 +3138,7 @@ test_run_process (void)
 	FILE          *output;
 	struct stat    statbuf;
 	char           filename[PATH_MAX], buf[80];
-	int            status, first;
+	int            ret, status, first;
 	siginfo_t      info;
 
 	TEST_FUNCTION ("job_run_process");
@@ -3162,7 +3162,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3193,7 +3194,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3230,7 +3232,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3268,7 +3271,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3322,7 +3326,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3369,7 +3374,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3455,7 +3461,8 @@ test_run_process (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3519,7 +3526,8 @@ no_devfd:
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
@@ -3554,7 +3562,8 @@ no_devfd:
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		job_run_process (job, PROCESS_PRE_START);
+		ret = job_run_process (job, PROCESS_PRE_START);
+		TEST_EQ (ret, 0);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
@@ -3591,7 +3600,8 @@ no_devfd:
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NEW);
@@ -3637,7 +3647,8 @@ no_devfd:
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		job_run_process (job, PROCESS_MAIN);
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NEW);

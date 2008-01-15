@@ -1074,12 +1074,14 @@ job_catch_runaway (Job *job)
  * In either case the shell is run with the -e option so that commands will
  * fail if their exit status is not checked.
  *
- * No error is returned from this function because it will block until
- * the process_spawn() calls succeeds, that can only fail for temporary
- * reasons (such as a lack of process ids) which would cause problems
- * carrying on anyway.
+ * This function will block until the process_spawn() call succeeds or
+ * a non-temporary error occurs (such as file not found).  It is up to the
+ * called to decide whether non-temporary errors are a reason to change the
+ * job state or not.
+ *
+ * Returns: zero on success, negative value on non-temporary error.
  **/
-void
+int
 job_run_process (Job         *job,
 		 ProcessType  process)
 {
@@ -1234,6 +1236,8 @@ job_run_process (Job         *job,
 
 		nih_free (script);
 	}
+
+	return 0;
 }
 
 /**
