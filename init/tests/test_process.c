@@ -2,7 +2,7 @@
  *
  * test_process.c - test suite for init/process.c
  *
- * Copyright © 2007 Canonical Ltd.
+ * Copyright © 2008 Canonical Ltd.
  * Author: Scott James Remnant <scott@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
