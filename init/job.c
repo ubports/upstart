@@ -672,7 +672,16 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_STARTING);
 
 			if (job->config->process[PROCESS_PRE_START]) {
-				job_run_process (job, PROCESS_PRE_START);
+				if (job_run_process (job, PROCESS_PRE_START) < 0) {
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
+
+					if (! job->failed) {
+						job->failed = TRUE;
+						job->failed_process = PROCESS_PRE_START;
+						job->exit_status = -1;
+					}
+				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -682,11 +691,21 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
-			if (job->config->process[PROCESS_MAIN])
-				job_run_process (job, PROCESS_MAIN);
+			if (job->config->process[PROCESS_MAIN]) {
+				if (job_run_process (job, PROCESS_MAIN) < 0) {
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
 
-			if (job->config->wait_for == JOB_WAIT_NONE)
+					if (! job->failed) {
+						job->failed = TRUE;
+						job->failed_process = PROCESS_MAIN;
+						job->exit_status = -1;
+					}
+				} else if (job->config->wait_for == JOB_WAIT_NONE)
+					state = job_next_state (job);
+			} else {
 				state = job_next_state (job);
+			}
 
 			break;
 		case JOB_POST_START:
@@ -694,7 +713,8 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->config->process[PROCESS_POST_START]) {
-				job_run_process (job, PROCESS_POST_START);
+				if (job_run_process (job, PROCESS_POST_START) < 0)
+					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
 			}
@@ -726,7 +746,8 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_RUNNING);
 
 			if (job->config->process[PROCESS_PRE_STOP]) {
-				job_run_process (job, PROCESS_PRE_STOP);
+				if (job_run_process (job, PROCESS_PRE_STOP) < 0)
+					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
 			}
@@ -758,7 +779,16 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->config->process[PROCESS_POST_STOP]) {
-				job_run_process (job, PROCESS_POST_STOP);
+				if (job_run_process (job, PROCESS_POST_STOP) < 0) {
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
+
+					if (! job->failed) {
+						job->failed = TRUE;
+						job->failed_process = PROCESS_POST_STOP;
+						job->exit_status = -1;
+					}
+				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -977,31 +1007,34 @@ job_emit_event (Job *job)
 					  process_name (job->failed_process)));
 		}
 
-		/* If the job is terminated by a signal, that is stored in
-		 * the higher byte, and we set EXIT_SIGNAL instead of
-		 * EXIT_STATUS.
-		 */
-		if (job->exit_status & ~0xff) {
-			const char *sig;
+		/* Don't add any environment if the job failed to spawn */
+		if (job->exit_status != -1) {
+			/* If terminated by a signal, that is stored in the
+			 * higher byte, and we set EXIT_SIGNAL instead of
+			 * EXIT_STATUS.
+			 */
+			if (job->exit_status & ~0xff) {
+				const char *sig;
 
-			sig = nih_signal_to_name (job->exit_status >> 8);
-			if (sig) {
-				NIH_MUST (exit = nih_sprintf (
-						  NULL, "EXIT_SIGNAL=%s",
-						  sig));
+				sig = nih_signal_to_name (job->exit_status >> 8);
+				if (sig) {
+					NIH_MUST (exit = nih_sprintf (
+							  NULL, "EXIT_SIGNAL=%s",
+							  sig));
+				} else {
+					NIH_MUST (exit = nih_sprintf (
+							  NULL, "EXIT_SIGNAL=%d",
+							  job->exit_status >> 8));
+				}
 			} else {
-				NIH_MUST (exit = nih_sprintf (
-						  NULL, "EXIT_SIGNAL=%d",
-						  job->exit_status >> 8));
+				NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
+							      job->exit_status));
 			}
-		} else {
-			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
-						      job->exit_status));
-		}
 
-		len = 0;
-		NIH_MUST (env = nih_str_array_new (NULL));
-		NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
+			len = 0;
+			NIH_MUST (env = nih_str_array_new (NULL));
+			NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
+		}
 
 	} else if (stop) {
 		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));

@@ -1033,7 +1033,7 @@ test_change_state (void)
 	Event       *cause, *event;
 	struct stat  statbuf;
 	char         dirname[PATH_MAX], filename[PATH_MAX];
-	JobProcess  *tmp;
+	JobProcess  *tmp, *fail;
 	pid_t        pid;
 	int          status;
 
@@ -1060,6 +1060,9 @@ test_change_state (void)
 					       "wibble", NULL);
 	config->stop_on = event_operator_new (config, EVENT_MATCH,
 					      "wibble", NULL);
+
+	fail = job_process_new (config);
+	fail->command = nih_sprintf (fail, "%s/no/such/file", dirname);
 
 	event_init ();
 
@@ -1332,6 +1335,86 @@ test_change_state (void)
 	config->process[PROCESS_PRE_START] = tmp;
 
 
+	/* Check that a job with a start process that fails to run moves
+	 * from starting to pre-start, the goal gets changed to stop, the
+	 * status to stopping and the failed information set correctly.
+	 */
+	TEST_FEATURE ("starting to pre-start for failed process");
+	tmp = config->process[PROCESS_PRE_START];
+	config->process[PROCESS_PRE_START] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 99;
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->pid[PROCESS_PRE_START] = 0;
+
+		job->blocked = NULL;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_PRE_START);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
+
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "pre-start");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_P (event->env, NULL);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_PRE_START);
+		TEST_EQ (job->exit_status, -1);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+				       "pre-start process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	config->process[PROCESS_PRE_START] = tmp;
+
+
 	/* Check that a job with a main process can move from pre-start to
 	 * spawned and have the process run, and as it's not going to wait,
 	 * the state will be skipped forwards to running and the started
@@ -1462,6 +1545,86 @@ test_change_state (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->process[PROCESS_MAIN] = tmp;
+
+
+	/* Check that a job with a main process that fails has its goal
+	 * changed to stop, the state changed to stopping and failed
+	 * information filled in.
+	 */
+	TEST_FEATURE ("pre-start to spawned for failed process");
+	tmp = config->process[PROCESS_MAIN];
+	config->process[PROCESS_MAIN] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 99;
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocked = NULL;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_SPAWNED);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "main");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_P (event->env, NULL);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, -1);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+				       "main process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}
@@ -1668,6 +1831,83 @@ test_change_state (void)
 
 		nih_free (job);
 	}
+
+
+	/* Check that a job with a post-start process ignores the failure
+	 * of that process and can move from spawned to post-start, skipping
+	 * over that state, and instead going to the running state.  Because
+	 * we get there, we should get a started event emitted.
+	 */
+	TEST_FEATURE ("spawned to post-start for failed process");
+	config->process[PROCESS_POST_START] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 99;
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocked = NULL;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->start_on->blocked = TRUE;
+		event_block (job->start_on->event);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_POST_START);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, TRUE);
+
+		event_operator_reset (job->start_on);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+				       "post-start process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	config->process[PROCESS_POST_START] = NULL;
 
 
 	/* Check that a task can move from post-start to running, which will
@@ -1932,6 +2172,83 @@ test_change_state (void)
 
 		nih_free (job);
 	}
+
+
+	/* Check that a job with a pre-stop process ignores any failure and
+	 * moves from running to pre-stop, and then straight into the stopping
+	 * state, emitting that event.
+	 */
+	TEST_FEATURE ("running to pre-stop for failed process");
+	config->process[PROCESS_PRE_STOP] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 99;
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocked = NULL;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_PRE_STOP);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_EQ (job->stop_on->value, TRUE);
+		TEST_EQ_P (job->stop_on->event, cause);
+		TEST_EQ (job->stop_on->blocked, TRUE);
+
+		event_operator_reset (job->stop_on);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "ok");
+		TEST_EQ_P (event->args[2], NULL);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+				       "pre-stop process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	config->process[PROCESS_PRE_STOP] = NULL;
 
 
 	/* Check that a job can move from running to stopping, by-passing
@@ -2487,6 +2804,72 @@ test_change_state (void)
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
+	}
+
+	config->process[PROCESS_POST_STOP] = tmp;
+
+
+	/* Check that a job with a stop process that fails to run moves
+	 * from killed to post-start, the goal gets changed to stop, the
+	 * status to stopped (and thus through to being deleted) and the
+	 * failed information set correctly.
+	 */
+	TEST_FEATURE ("killed to post-stop for failed process");
+	tmp = config->process[PROCESS_POST_STOP];
+	config->process[PROCESS_POST_STOP] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_instance (config);
+			job->id = 99;
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_KILLED;
+
+		job->blocked = NULL;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_FREE_TAG (job);
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_POST_STOP);
+		}
+		rewind (output);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->refs, 0);
+		TEST_EQ (cause->blockers, 0);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->args[0], "test");
+		TEST_EQ_STR (event->args[1], "failed");
+		TEST_EQ_STR (event->args[2], "post-stop");
+		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_P (event->env, NULL);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+				       "post-stop process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
 	}
 
 	config->process[PROCESS_POST_STOP] = tmp;

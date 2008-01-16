@@ -1,3 +1,17 @@
+2008-01-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_change_state): Check the return value of
+	job_run_process() and if particular processes fail, change the
+	goal to stop and push the job into the next state; setting the job
+	as failed along the way.
+	(job_emit_event): If the exit_status is -1 then it means the job
+	failed to spawn, so don't place EXIT_SIGNAL or EXIT_STATUS in the
+	event environment.
+	* init/tests/test_job.c (test_change_state): Check what happens when
+	each process type fails, make sure that the job is stopped for
+	pre-start, spawned and post-stop and the failure is ignored for
+	post-start and pre-stop.
+
 2008-01-15  Scott James Remnant  <scott@netsplit.com>
 
 	* init/main.c: Selectively compile out certain pieces when make is
