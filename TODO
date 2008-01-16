@@ -97,11 +97,6 @@ Medium Priority:
  * Likewise iterating through all the Jobs to find a pid is messy; we
    should have a lookup table for these too.
 
- * When spawning a process, keep a pipe open (but mark it FD_CLOEXEC); if
-   we encounter any problems write the error code to this pipe and die.
-   Then from above, we can read this pipe to determine whether the job
-   failed before or after the exec.  (Might be a cleaner way to do this).
-
  * Interval for respawn limit should be settable to "ever" to support maximum
    possible number of restarts before the job is disabled.  Though how does
    one reset it?
