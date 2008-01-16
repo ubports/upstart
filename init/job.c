@@ -70,6 +70,8 @@
 
 
 /* Prototypes for static functions */
+static void        job_failed                  (Job *job, ProcessType process,
+						int status);
 static Event *     job_emit_event              (Job *job)
 	__attribute__ ((malloc));
 static int         job_catch_runaway           (Job *job);
@@ -643,15 +645,9 @@ job_change_state (Job      *job,
 				nih_warn (_("%s (#%u) respawning too fast, stopped"),
 					  job->config->name, job->id);
 
+				job_failed (job, -1, 0);
 				job_change_goal (job, JOB_STOP);
 				state = JOB_WAITING;
-
-				if (! job->failed) {
-					job->failed = TRUE;
-					job->failed_process = -1;
-					job->exit_status = 0;
-				}
-
 				break;
 			}
 
@@ -673,14 +669,9 @@ job_change_state (Job      *job,
 
 			if (job->config->process[PROCESS_PRE_START]) {
 				if (job_run_process (job, PROCESS_PRE_START) < 0) {
+					job_failed (job, PROCESS_PRE_START, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
-
-					if (! job->failed) {
-						job->failed = TRUE;
-						job->failed_process = PROCESS_PRE_START;
-						job->exit_status = -1;
-					}
 				}
 			} else {
 				state = job_next_state (job);
@@ -693,14 +684,9 @@ job_change_state (Job      *job,
 
 			if (job->config->process[PROCESS_MAIN]) {
 				if (job_run_process (job, PROCESS_MAIN) < 0) {
+					job_failed (job, PROCESS_MAIN, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
-
-					if (! job->failed) {
-						job->failed = TRUE;
-						job->failed_process = PROCESS_MAIN;
-						job->exit_status = -1;
-					}
 				} else if (job->config->wait_for == JOB_WAIT_NONE)
 					state = job_next_state (job);
 			} else {
@@ -780,14 +766,9 @@ job_change_state (Job      *job,
 
 			if (job->config->process[PROCESS_POST_STOP]) {
 				if (job_run_process (job, PROCESS_POST_STOP) < 0) {
+					job_failed (job, PROCESS_POST_STOP, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
-
-					if (! job->failed) {
-						job->failed = TRUE;
-						job->failed_process = PROCESS_POST_STOP;
-						job->exit_status = -1;
-					}
 				}
 			} else {
 				state = job_next_state (job);
@@ -945,6 +926,58 @@ job_next_state (Job *job)
 }
 
 /**
+ * job_failed:
+ * @job: job that has failed,
+ * @process: process that failed,
+ * @status: status of @process at failure.
+ *
+ * Mark @job as having failed, unless it already has been marked so, storing
+ * @process and @status so that they may show up as arguments and environment
+ * to the stop and stopped events generated for the job.
+ *
+ * Additionally this marks the start and stop events as failed as well; this
+ * is reported to the emitted of the event, and also causes a failed event
+ * to be generated.
+ *
+ * @process may be -1 to indicate a failure to respawn, and @exit_status
+ * may be -1 to indicate a spawn failure.
+ **/
+static void
+job_failed (Job         *job,
+	    ProcessType  process,
+	    int          status)
+{
+	nih_assert (job != NULL);
+
+	if (job->failed)
+		return;
+
+	job->failed = TRUE;
+	job->failed_process = process;
+	job->exit_status = status;
+
+	if (job->start_on) {
+		NIH_TREE_FOREACH (&job->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			if ((oper->type == EVENT_MATCH) && oper->value
+			    && oper->event && oper->blocked)
+				oper->event->failed = TRUE;
+		}
+	}
+
+	if (job->stop_on) {
+		NIH_TREE_FOREACH (&job->stop_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			if ((oper->type == EVENT_MATCH) && oper->value
+			    && oper->event && oper->blocked)
+				oper->event->failed = TRUE;
+		}
+	}
+}
+
+/**
  * job_emit_event:
  * @job: job generating the event.
  *
@@ -966,7 +999,7 @@ job_emit_event (Job *job)
 	Event       *event;
 	const char  *name;
 	int          stop = FALSE;
-	char       **args = NULL, **env = NULL;
+	char       **args = NULL, **env = NULL, *exit;
 	size_t       len;
 
 	nih_assert (job != NULL);
@@ -994,52 +1027,61 @@ job_emit_event (Job *job)
 	NIH_MUST (args = nih_str_array_new (NULL));
 	NIH_MUST (nih_str_array_add (&args, NULL, &len, job->config->name));
 
-	if (stop && job->failed) {
-		char *exit;
+	/* Don't include additional arguments unless this is a stop event. */
+	if (! stop)
+		goto emit;
 
-		NIH_MUST (nih_str_array_add (&args, NULL, &len, "failed"));
-		if (job->failed_process == -1) {
-			NIH_MUST (nih_str_array_add (
-					  &args, NULL, &len, "respawn"));
-		} else {
-			NIH_MUST (nih_str_array_add (
-					  &args, NULL, &len,
-					  process_name (job->failed_process)));
-		}
-
-		/* Don't add any environment if the job failed to spawn */
-		if (job->exit_status != -1) {
-			/* If terminated by a signal, that is stored in the
-			 * higher byte, and we set EXIT_SIGNAL instead of
-			 * EXIT_STATUS.
-			 */
-			if (job->exit_status & ~0xff) {
-				const char *sig;
-
-				sig = nih_signal_to_name (job->exit_status >> 8);
-				if (sig) {
-					NIH_MUST (exit = nih_sprintf (
-							  NULL, "EXIT_SIGNAL=%s",
-							  sig));
-				} else {
-					NIH_MUST (exit = nih_sprintf (
-							  NULL, "EXIT_SIGNAL=%d",
-							  job->exit_status >> 8));
-				}
-			} else {
-				NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
-							      job->exit_status));
-			}
-
-			len = 0;
-			NIH_MUST (env = nih_str_array_new (NULL));
-			NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
-		}
-
-	} else if (stop) {
+	/* Add only a simple "ok" argument if the job didn't fail. */
+	if (! job->failed) {
 		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));
+		goto emit;
 	}
 
+	/* All failure events get a "failed" argument. */
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "failed"));
+
+	/* Check for respawn failure, which has a special "respawn" argument
+	 * and no environment.
+	 */
+	if (job->failed_process == -1) {
+		NIH_MUST (nih_str_array_add (&args, NULL, &len, "respawn"));
+		goto emit;
+	}
+
+	/* All other failure events get the process name as an argument. */
+	NIH_MUST (nih_str_array_add (&args, NULL, &len,
+				     process_name (job->failed_process)));
+
+	/* Check for spawn failure, which receives no environment */
+	if (job->exit_status == -1)
+		goto emit;
+
+	/* If the job was terminated by a signal, that will be stored in the
+	 * higher byte and we set EXIT_SIGNAL instead of EXIT_STATUS.
+	 */
+	if (job->exit_status & ~0xff) {
+		const char *sig;
+
+		sig = nih_signal_to_name (job->exit_status >> 8);
+		if (sig) {
+			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_SIGNAL=%s",
+						      sig));
+		} else {
+			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_SIGNAL=%d",
+						      job->exit_status >> 8));
+		}
+	} else {
+		NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
+					      job->exit_status));
+	}
+
+	/* Add to the environment */
+	len = 0;
+	NIH_MUST (env = nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
+
+
+emit:
 	event = event_new (NULL, name, args, env);
 
 	return event;
@@ -1661,39 +1703,9 @@ job_process_terminated (Job         *job,
 	job->pid[process] = 0;
 
 
-	/* Mark the job as failed; this information shows up as arguments
-	 * and environment to the stop and stopped events generated for the
-	 * job.
-	 *
-	 * In addition, mark the events that caused the state change as
-	 * failed as well; this is reported to the emitter of the event,
-	 * and also causes a failed event to be generated.
-	 */
-	if (failed && (! job->failed)) {
-		job->failed = TRUE;
-		job->failed_process = process;
-		job->exit_status = status;
-
-		if (job->start_on) {
-			NIH_TREE_FOREACH (&job->start_on->node, iter) {
-				EventOperator *oper = (EventOperator *)iter;
-
-				if ((oper->type == EVENT_MATCH) && oper->value
-				    && oper->event && oper->blocked)
-					oper->event->failed = TRUE;
-			}
-		}
-
-		if (job->stop_on) {
-			NIH_TREE_FOREACH (&job->stop_on->node, iter) {
-				EventOperator *oper = (EventOperator *)iter;
-
-				if ((oper->type == EVENT_MATCH) && oper->value
-				    && oper->event && oper->blocked)
-					oper->event->failed = TRUE;
-			}
-		}
-	}
+	/* Mark the job as failed */
+	if (failed)
+		job_failed (job, process, status);
 
 	/* Change the goal to stop; normally this doesn't have any
 	 * side-effects, except when we're in the RUNNING state when it'll

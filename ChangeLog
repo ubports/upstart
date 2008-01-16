@@ -1,5 +1,17 @@
 2008-01-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_failed): Separate the logic that marks the job
+	and its associated events as failed into its own function, since
+	it's a large enough amount of code that we were otherwise duplicating
+	everywhere else (and in a few places, failing to mark the events as
+	failed as well).
+	(job_change_state, job_process_terminated): Call job_failed instead
+	of doing it ourselves.
+	(job_emit_event): De-nest the logic and fix so that we don't add
+	environment to the failed respawn event.
+	* init/tests/test_job.c (test_change_state): Add checks on whether
+	the event was marked as failed or not.
+
 	* TODO: Update.
 
 	* configure.ac (AC_COPYRIGHT): Update copyright to 2008.
