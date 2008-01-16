@@ -1,5 +1,9 @@
 2008-01-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_change_state): Remove useless check
+	of job->start_on from a killed/post-stop check (noticed while
+	writing the other).
+
 	* init/job.c (job_change_state): Check the return value of
 	job_run_process() and if particular processes fail, change the
 	goal to stop and push the job into the next state; setting the job

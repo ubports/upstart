@@ -2766,11 +2766,6 @@ test_change_state (void)
 
 		job->blocked = NULL;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->stop_on->blocked = FALSE;
-
 		job->stop_on->value = TRUE;
 		job->stop_on->event = cause;
 		event_ref (job->stop_on->event);
