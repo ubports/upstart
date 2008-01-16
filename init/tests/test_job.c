@@ -4473,6 +4473,9 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_PRE_START]);
+	config->process[PROCESS_PRE_START] = NULL;
+
 
 	/* Check that we can handle a failing pre-start process of the job,
 	 * which changes the goal to stop and transitions a state change in
@@ -4480,6 +4483,9 @@ test_child_handler (void)
 	 * and the job and event should be marked as failed.
 	 */
 	TEST_FEATURE ("with failed pre-start process");
+	config->process[PROCESS_PRE_START] = job_process_new (config);
+	config->process[PROCESS_PRE_START]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -4538,12 +4544,18 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_PRE_START]);
+	config->process[PROCESS_PRE_START] = NULL;
+
 
 	/* Check that we can handle a killed starting task, which should
 	 * act as if it failed.  A different error should be output and
 	 * the failed exit status should contain the signal and the high bit.
 	 */
 	TEST_FEATURE ("with killed pre-start process");
+	config->process[PROCESS_PRE_START] = job_process_new (config);
+	config->process[PROCESS_PRE_START]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -4601,6 +4613,9 @@ test_child_handler (void)
 
 		nih_free (job);
 	}
+
+	nih_free (config->process[PROCESS_PRE_START]);
+	config->process[PROCESS_PRE_START] = NULL;
 
 
 	/* Check that we can catch the running task failing, and if the job
@@ -5099,11 +5114,17 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 	}
 
+	nih_free (config->process[PROCESS_POST_STOP]);
+	config->process[PROCESS_POST_STOP] = NULL;
+
 
 	/* Check that we can handle a failing post-stop process of the job,
 	 * which should get marked as failed if the job hasn't been already.
 	 */
 	TEST_FEATURE ("with failed post-stop process");
+	config->process[PROCESS_POST_STOP] = job_process_new (config);
+	config->process[PROCESS_POST_STOP]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5146,11 +5167,17 @@ test_child_handler (void)
 		TEST_FILE_RESET (output);
 	}
 
+	nih_free (config->process[PROCESS_POST_STOP]);
+	config->process[PROCESS_POST_STOP] = NULL;
+
 
 	/* Check that a failing stopping task doesn't overwrite the record
 	 * of a failing earlier task.
 	 */
 	TEST_FEATURE ("with stopping task failure after failure");
+	config->process[PROCESS_POST_STOP] = job_process_new (config);
+	config->process[PROCESS_POST_STOP]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5192,6 +5219,9 @@ test_child_handler (void)
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 	}
+
+	nih_free (config->process[PROCESS_POST_STOP]);
+	config->process[PROCESS_POST_STOP] = NULL;
 
 
 	/* Check that we can handle the post-start task of the job exiting,
@@ -5261,12 +5291,18 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_POST_START]);
+	config->process[PROCESS_POST_START] = NULL;
+
 
 	/* Check that we can handle the running task of the job exiting, even
 	 * if it dies during the post-start state, which should set the goal to
 	 * stop and transition a state change into the stopping state.
 	 */
 	TEST_FEATURE ("with running process in post-start state");
+	config->process[PROCESS_POST_START] = job_process_new (config);
+	config->process[PROCESS_POST_START]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5317,6 +5353,9 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_POST_START]);
+	config->process[PROCESS_POST_START] = NULL;
+
 
 	/* Check that we can handle the running task of the job exiting while
 	 * there is a post-start script running; this should only set the goal
@@ -5324,6 +5363,9 @@ test_child_handler (void)
 	 * stop.
 	 */
 	TEST_FEATURE ("with running process while post-start running");
+	config->process[PROCESS_POST_START] = job_process_new (config);
+	config->process[PROCESS_POST_START]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5374,6 +5416,9 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_POST_START]);
+	config->process[PROCESS_POST_START] = NULL;
+
 
 	/* Check that we can handle the running process exiting before the
 	 * post-start process finishes.  This should mark the job to be
@@ -5381,6 +5426,9 @@ test_child_handler (void)
 	 * exiting afterwards should change the state.
 	 */
 	TEST_FEATURE ("with running then post-start process");
+	config->process[PROCESS_POST_START] = job_process_new (config);
+	config->process[PROCESS_POST_START]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5454,6 +5502,9 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_POST_START]);
+	config->process[PROCESS_POST_START] = NULL;
+
 
 	/* Check that we can handle a failed running process before the
 	 * post-start process finishes.  This should mark the job to be
@@ -5461,6 +5512,9 @@ test_child_handler (void)
 	 * process exiting afterwards should change the state.
 	 */
 	TEST_FEATURE ("with failed running then post-start process");
+	config->process[PROCESS_POST_START] = job_process_new (config);
+	config->process[PROCESS_POST_START]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5542,6 +5596,9 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_POST_START]);
+	config->process[PROCESS_POST_START] = NULL;
+
 
 	/* Check that we can handle the pre-stop task of the job exiting, the
 	 * exit status should be ignored and the job transitioned into
@@ -5612,12 +5669,18 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_PRE_STOP]);
+	config->process[PROCESS_PRE_STOP] = NULL;
+
 
 	/* Check that we can handle the running task of the job exiting, even
 	 * if it dies during the pre-stop state, which transition a state
 	 * change into the stopping state.
 	 */
 	TEST_FEATURE ("with running process in pre-stop state");
+	config->process[PROCESS_PRE_STOP] = job_process_new (config);
+	config->process[PROCESS_PRE_STOP]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5668,12 +5731,18 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
+	nih_free (config->process[PROCESS_PRE_STOP]);
+	config->process[PROCESS_PRE_STOP] = NULL;
+
 
 	/* Check that we can handle the running task of the job exiting while
 	 * there is a pre-stop script running; this should have no other effect
 	 * since we also have to wait for the pre-stop script to stop.
 	 */
 	TEST_FEATURE ("with running process while pre-stop running");
+	config->process[PROCESS_PRE_STOP] = job_process_new (config);
+	config->process[PROCESS_PRE_STOP]->command = "echo";
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_instance (config);
@@ -5723,6 +5792,9 @@ test_child_handler (void)
 
 		nih_free (job);
 	}
+
+	nih_free (config->process[PROCESS_PRE_STOP]);
+	config->process[PROCESS_PRE_STOP] = NULL;
 
 
 	/* Check that we ignore a process stopping on a signal if it isn't
@@ -6055,15 +6127,10 @@ test_child_handler (void)
 		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], pid);
-		TEST_NE (job->pid[PROCESS_POST_START], 0);
 
 		waitpid (job->pid[PROCESS_MAIN], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (job->pid[PROCESS_POST_START], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -6087,9 +6154,6 @@ test_child_handler (void)
 	}
 
 	config->wait_for = JOB_WAIT_NONE;
-
-	nih_free (config->process[PROCESS_POST_START]);
-	config->process[PROCESS_POST_START] = NULL;
 
 
 	/* Check that a traced process has a signal delivered to it

@@ -1,5 +1,10 @@
 2008-01-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_handler): After adding extra
+	processes, make sure we clean up again so each test is roughly
+	independant.  Fix the final test case to not rely on previous
+	setup and work on its own.
+
 	* init/tests/test_job.c (test_change_state): Remove useless check
 	of job->start_on from a killed/post-stop check (noticed while
 	writing the other).
