@@ -97,10 +97,6 @@ Medium Priority:
  * Likewise iterating through all the Jobs to find a pid is messy; we
    should have a lookup table for these too.
 
- * Interval for respawn limit should be settable to "ever" to support maximum
-   possible number of restarts before the job is disabled.  Though how does
-   one reset it?
-
 
 Low Priority:
 
