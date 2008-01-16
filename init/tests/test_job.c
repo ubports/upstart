@@ -22,6 +22,10 @@
 
 #include <nih/test.h>
 
+#if HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif /* HAVE_VALGRIND_VALGRIND_H */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -5797,6 +5801,11 @@ test_child_handler (void)
 	config->process[PROCESS_PRE_STOP] = NULL;
 
 
+#if HAVE_VALGRIND_VALGRIND_H
+	/* These tests fail when running under valgrind.
+	 */
+	if (! RUNNING_ON_VALGRIND) {
+#endif
 	/* Check that we ignore a process stopping on a signal if it isn't
 	 * the main process of the job.
 	 */
@@ -6526,6 +6535,9 @@ test_child_handler (void)
 	}
 
 	config->wait_for = JOB_WAIT_NONE;
+#if HAVE_VALGRIND_VALGRIND_H
+	}
+#endif
 
 
 	fclose (output);

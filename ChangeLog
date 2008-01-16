@@ -1,5 +1,10 @@
 2008-01-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_handler): Don't run the signal
+	and ptrace tests while in valgrind, sometimes signals (specifically
+	SIGCONT after SIGSTOP) don't behave right and we kinda need that
+	reliability.
+
 	* init/tests/test_job.c (test_child_handler): After adding extra
 	processes, make sure we clean up again so each test is roughly
 	independant.  Fix the final test case to not rely on previous
