@@ -1,5 +1,7 @@
 2008-01-16  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (AC_COPYRIGHT): Update copyright to 2008.
+
 	* TODO: Update.
 
 	* init/tests/test_job.c (test_child_handler): Don't run the signal
