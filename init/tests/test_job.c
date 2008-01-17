@@ -3579,14 +3579,13 @@ test_next_state (void)
 void
 test_run_process (void)
 {
-	JobConfig     *config = NULL;
-	Job           *job = NULL;
-	EventOperator *oper;
-	FILE          *output;
-	struct stat    statbuf;
-	char           filename[PATH_MAX], buf[80];
-	int            ret, status, first;
-	siginfo_t      info;
+	JobConfig   *config = NULL;
+	Job         *job = NULL;
+	FILE        *output;
+	struct stat  statbuf;
+	char         filename[PATH_MAX], buf[80];
+	int          ret, status, first;
+	siginfo_t    info;
 
 	TEST_FUNCTION ("job_run_process");
 	TEST_FILENAME (filename);
@@ -3736,63 +3735,6 @@ test_run_process (void)
 	}
 
 
-	/* Check that a small shell script will have arguments passed to
-	 * it listing the events that caused it to start.
-	 */
-	TEST_FEATURE ("with small script and start events");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			config = job_config_new (NULL, "test");
-			config->process[PROCESS_MAIN] = job_process_new (config);
-			config->process[PROCESS_MAIN]->script = TRUE;
-			config->process[PROCESS_MAIN]->command = nih_sprintf (
-				config->process[PROCESS_MAIN],
-				"exec > %s\necho $0\necho $@", filename);
-
-			config->start_on = event_operator_new (
-				config, EVENT_AND, NULL, NULL);
-
-			oper = event_operator_new (
-				config->start_on, EVENT_MATCH, "foo", NULL);
-			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL, NULL);
-			nih_tree_add (&config->start_on->node, &oper->node,
-				      NIH_TREE_LEFT);
-			event_ref (oper->event);
-
-			oper = event_operator_new (
-				config->start_on, EVENT_MATCH, "bar", NULL);
-			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL, NULL);
-			nih_tree_add (&config->start_on->node, &oper->node,
-				      NIH_TREE_RIGHT);
-			event_ref (oper->event);
-
-			job = job_instance (config);
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-		}
-
-		ret = job_run_process (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
-
-		TEST_NE (job->pid[PROCESS_MAIN], 0);
-
-		waitpid (job->pid[PROCESS_MAIN], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "/bin/sh\n");
-		TEST_FILE_EQ (output, "foo bar\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_free (config);
-	}
-
-
 	if (stat ("/dev/fd", &statbuf) < 0) {
 		printf ("SKIP: no /dev/fd\n");
 		goto no_devfd;
@@ -3867,94 +3809,7 @@ test_run_process (void)
 	}
 
 
-	/* Check that a long shell script will have arguments passed to it
-	 * listing the events that caused it to start.
-	 */
-	TEST_FEATURE ("with long script and start events");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			config = job_config_new (NULL, "test");
-			config->process[PROCESS_MAIN] = job_process_new (config);
-			config->process[PROCESS_MAIN]->script = TRUE;
-			config->process[PROCESS_MAIN]->command = nih_alloc (
-				config->process[PROCESS_MAIN], 4096);
-			sprintf (config->process[PROCESS_MAIN]->command,
-				 "exec > %s\necho $0\necho $@\n", filename);
-			while (strlen (config->process[PROCESS_MAIN]->command) < 4000)
-				strcat (config->process[PROCESS_MAIN]->command,
-					"# this just bulks it out a bit");
-
-			config->start_on = event_operator_new (
-				config, EVENT_AND, NULL, NULL);
-
-			oper = event_operator_new (
-				config->start_on, EVENT_MATCH, "foo", NULL);
-			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL, NULL);
-			nih_tree_add (&config->start_on->node, &oper->node,
-				      NIH_TREE_LEFT);
-			event_ref (oper->event);
-
-			oper = event_operator_new (
-				config->start_on, EVENT_MATCH, "bar", NULL);
-			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL, NULL);
-			nih_tree_add (&config->start_on->node, &oper->node,
-				      NIH_TREE_RIGHT);
-			event_ref (oper->event);
-
-			job = job_instance (config);
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-		}
-
-		ret = job_run_process (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
-
-		TEST_NE (job->pid[PROCESS_MAIN], 0);
-
-		/* Loop until we've fed all of the data. */
-		first = TRUE;
-		for (;;) {
-			fd_set readfds, writefds, exceptfds;
-			int    nfds;
-
-			nfds = 0;
-			FD_ZERO (&readfds);
-			FD_ZERO (&writefds);
-			FD_ZERO (&exceptfds);
-
-			nih_io_select_fds (&nfds, &readfds,
-					   &writefds, &exceptfds);
-			if (! nfds) {
-				if (first)
-					TEST_FAILED ("expected to have "
-						     "data to feed.");
-				break;
-			}
-			first = FALSE;
-
-			select (nfds, &readfds, &writefds, &exceptfds, NULL);
-
-			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
-		}
-
-		waitpid (job->pid[PROCESS_MAIN], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ_N (output, "/dev/fd/");
-		TEST_FILE_EQ (output, "foo bar\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_free (config);
-	}
 no_devfd:
-
-
 	/* Check that if we're running a non-daemon job, the trace state
 	 * is reset and no process trace is established.
 	 */
