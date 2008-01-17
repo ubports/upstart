@@ -100,12 +100,6 @@ Medium Priority:
 
 Low Priority:
 
- * If environment variables don't have an = in them, copy that variable
-   from init's environment (default PATH, TERM).  On the subject of
-   process_setup_environment, it's getty very messy; it's about time it
-   got cleaned up -- and maybe don't use putenv/setenv since they're a
-   little strange.
-
  * Need to add dependencies to jobs, which are files that must exist before
    the job can be started (because Debian/Ubuntu like to litter config files
    like jobs)
