@@ -925,6 +925,7 @@ job_next_state (Job *job)
 	}
 }
 
+
 /**
  * job_failed:
  * @job: job that has failed,
@@ -1122,7 +1123,6 @@ job_catch_runaway (Job *job)
 
 	return FALSE;
 }
-
 
 
 /**

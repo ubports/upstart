@@ -72,8 +72,6 @@ typedef struct process_wire_error {
 
 
 /* Prototypes for static functions */
-static int  process_setup_environment (Job *job)
-	__attribute__ ((warn_unused_result));
 static void process_error_abort       (int fd, ProcessErrorType type, int arg)
 	__attribute__ ((noreturn));
 static int  process_error_read        (int fd)
@@ -197,8 +195,7 @@ process_spawn (Job          *job,
 	 * the job definition, the events that started/stopped it and also
 	 * include the standard ones that tell you which job you are.
 	 */
-	if (process_setup_environment (job) < 0)
-		process_error_abort (fds[1], PROCESS_ERROR_ENVIRON, 0);
+	NIH_MUST (environ = process_environment (job));
 
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
@@ -256,75 +253,6 @@ process_spawn (Job          *job,
 
 	nih_assert_not_reached ();
 }
-
-/**
- * process_setup_environment:
- * @job: job details.
- *
- * Set up the environment variables for the current process based on the
- * the details in @job.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-process_setup_environment (Job *job)
-{
-	char **env;
-	char  *path, *term, *jobid;
-
-	nih_assert (job != NULL);
-
-	/* Inherit PATH and TERM from our parent's environment, everything
-	 * else is often just overspill from initramfs.
-	 */
-	NIH_MUST (path = nih_strdup (NULL, getenv ("PATH")));
-	NIH_MUST (term = nih_strdup (NULL, getenv ("TERM")));
-
-	if (clearenv () < 0)
-		nih_return_system_error (-1);
-
-	if (path) {
-		if (setenv ("PATH", path, TRUE) < 0)
-			nih_return_system_error (-1);
-		nih_free (path);
-	}
-
-	if (term) {
-		if (setenv ("TERM", term, TRUE) < 0)
-			nih_return_system_error (-1);
-		nih_free (term);
-	}
-
-	NIH_MUST (jobid = nih_sprintf (NULL, "%u", job->id));
-	if (setenv ("UPSTART_JOB_ID", jobid, TRUE) < 0)
-		nih_return_system_error (-1);
-	nih_free (jobid);
-
-	if (setenv ("UPSTART_JOB", job->config->name, TRUE) < 0)
-		nih_return_system_error (-1);
-
-	/* Put all environment from the job's start events */
-	if (job->start_on) {
-		NIH_TREE_FOREACH (&job->start_on->node, iter) {
-			EventOperator *oper = (EventOperator *)iter;
-
-			if ((oper->type == EVENT_MATCH)
-			    && oper->value
-			    && oper->event)
-				for (env = oper->event->env;
-				     env && *env; env++)
-					if (putenv (*env) < 0)
-						nih_return_system_error (-1);
-		}
-	}
-
-	for (env = job->config->env; env && *env; env++)
-		if (putenv (*env) < 0)
-			nih_return_system_error (-1);
-
-	return 0;
-}
-
 
 /**
  * process_error_abort:
@@ -627,4 +555,237 @@ process_kill (Job   *job,
 		nih_return_system_error (-1);
 
 	return 0;
+}
+
+
+/**
+ * process_environment:
+ * @job: job to construct environment for.
+ *
+ * Constructs an environment table containing information about @job
+ * and the event(s) that started it, including their own environment
+ * variables.
+ *
+ * This table is suitable for storing in @job's env member so that it is
+ * used for all processes spawned by the job.
+ *
+ * The returned table is an nih_alloc() child of @job.
+ *
+ * Returns: new environment table or NULL on insufficient memory.
+ **/
+char **
+process_environment (Job *job)
+{
+	const char  *builtin[] = { PROCESS_ENVIRONMENT, NULL };
+	char       **e;
+	char       **env, *value;
+	size_t       len;
+
+	nih_assert (job != NULL);
+
+	len = 0;
+	env = nih_str_array_new (job);
+	if (! env)
+		return NULL;
+
+	/* Copy the builtin set of environment variables, usually these just
+	 * pick up the values from init's own environment.
+	 */
+	for (e = (char **)builtin; e && *e; e++)
+		if (! process_environment_add (&env, job, &len, *e))
+			goto error;
+
+	/* Copy the set of environment variables from the job configuration,
+	 * these often have values but also often don't and we want them to
+	 * override the builtins.
+	 */
+	for (e = job->config->env; e && *e; e++)
+		if (! process_environment_add (&env, job, &len, *e))
+			goto error;
+
+	/* Copy the environment variables from the event(s) that started the
+	 * job, these always have values and override those builtin and in
+	 * the job configuration (so those provide defaults).  Keep a record
+	 * of which events we copy in, and then provide those in the special
+	 * UPSTART_EVENTS variable.
+	 */
+	if (job->start_on) {
+		char   *list, *new_list;
+		size_t  listsz;
+		int     found = FALSE;
+
+		list = nih_strdup (NULL, "UPSTART_EVENTS");
+		if (! list)
+			goto error;
+
+		listsz = strlen (list);
+
+		NIH_TREE_FOREACH (&job->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			if ((oper->type != EVENT_MATCH) || (! oper->value)
+			    || (oper->event == NULL))
+				continue;
+
+			/* Append the name of the event to the list that we
+			 * build to store in the UPSTART_EVENTS variable.
+			 */
+			new_list = nih_realloc (
+				list, NULL,
+				listsz + strlen (oper->event->name) + 2);
+			if (! new_list) {
+				nih_free (list);
+				goto error;
+			}
+
+			list = new_list;
+			list[listsz++] = (found ? ' ' : '=');
+			list[listsz] = '\0';
+
+			strcat (list, oper->event->name);
+			listsz += strlen (oper->event->name);
+
+			/* Add the environment from the event as well */
+			for (e = oper->event->env; e && *e; e++) {
+				if (! process_environment_add (&env, job,
+							       &len, *e)) {
+					nih_free (list);
+					goto error;
+				}
+			}
+
+			found = TRUE;
+		}
+
+		/* Append the UPSTART_EVENTS variable to the environment */
+		if (found) {
+			if (! process_environment_add (&env, job, &len, list)) {
+				nih_free (list);
+				goto error;
+			}
+		}
+
+		nih_free (list);
+	}
+
+	/* Place the job name in the UPSTART_JOB environment variable; this
+	 * is useful for scripts that want to know who they're being run by
+	 * and cannot be overriden.
+	 */
+	value = nih_sprintf (NULL, "UPSTART_JOB=%s", job->config->name);
+	if (! value)
+		goto error;
+	if (! process_environment_add (&env, job, &len, value)) {
+		nih_free (value);
+		goto error;
+	}
+	nih_free (value);
+
+	/* Place the job id in the UPSTART_JOB_ID environment variable; this
+	 * is used by initctl when no other arguments are given, so it changes
+	 * the actual job being run -- again cannot be overriden.
+	 */
+	value = nih_sprintf (NULL, "UPSTART_JOB_ID=%u", job->id);
+	if (! value)
+		goto error;
+	if (! process_environment_add (&env, job, &len, value)) {
+		nih_free (value);
+		goto error;
+	}
+	nih_free (value);
+
+	return env;
+
+error:
+	nih_free (env);
+	return NULL;
+}
+
+/**
+ * process_environment_add:
+ * @env: pointer to environment table,
+ * @parent: parent of @env,
+ * @len: length of @env,
+ * @str: string to add.
+ *
+ * Add the new environment variable @str to the table @env (which has @len
+ * elements, excluding the final NULL element), either replacing an existing
+ * entry or appended to the end.  Both the array and the new string within it
+ * are allocated using nih_alloc(), @parent must be that of @env.
+ *
+ * @str may be in KEY=VALUE format, in which case the given key will be
+ * replaced with that value or appended to the table; or it may simply
+ * be in KEY format, which which case the value is taken from init's own
+ * environment.
+ *
+ * @len will be updated to contain the new array length and @env will
+ * be updated to point to the new array pointer; use the return value
+ * simply to check for success.
+ *
+ * Returns: new array pointer or NULL if insufficient memory.
+ **/
+char **
+process_environment_add (char       ***env,
+			 const void   *parent,
+			 size_t       *len,
+			 const char   *str)
+{
+	size_t   key;
+	char   **e, *new_str;
+
+	nih_assert (env != NULL);
+	nih_assert (len != NULL);
+	nih_assert (str != NULL);
+
+	/* Calculate the length of the key in the string, if we reach the
+	 * end of the string, then we lookup the value in the environment
+	 * and use that as the new value otherwise use the string given.
+	 */
+	key = strcspn (str, "=");
+	if (str[key] == '=') {
+		new_str = nih_strdup (*env, str);
+		if (! new_str)
+			return NULL;
+	} else {
+		const char *value;
+
+		value = getenv (str);
+		if (value) {
+			new_str = nih_sprintf (*env, "%s=%s", str, value);
+			if (! new_str)
+				return NULL;
+		} else {
+			new_str = NULL;
+		}
+	}
+
+	/* Check the environment table for an existing entry for the key,
+	 * if we find one we overwrite it instead of extending the table.
+	 */
+	for (e = *env; *e; e++) {
+		if ((strncmp (*e, str, key) == 0) && ((*e)[key] == '=')) {
+			nih_free (*e);
+
+			if (new_str) {
+				*e = new_str;
+			} else {
+				memmove (e, e + 1,
+					 (char *)(*env + *len) - (char *)e);
+				(*len)--;
+			}
+
+			return *env;
+		}
+	}
+
+	/* No existing entry exists so extend the table instead.
+	 */
+	if (new_str) {
+		if (! nih_str_array_addp (env, parent, len, new_str)) {
+			nih_free (new_str);
+			return NULL;
+		}
+	}
+
+	return *env;
 }

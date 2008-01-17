@@ -30,6 +30,16 @@
 
 
 /**
+ * PROCESS_ENVIRONMENT:
+ *
+ * Environment variables to always copy from our own environment.
+ **/
+#define PROCESS_ENVIRONMENT \
+	"PATH",		    \
+	"TERM"
+
+
+/**
  * ProcessErrorType:
  *
  * These constants represent the different steps of process spawning that
@@ -75,13 +85,20 @@ typedef struct process_error {
 
 NIH_BEGIN_EXTERN
 
-pid_t process_spawn         (Job *job, char * const argv[])
+pid_t  process_spawn           (Job *job, char * const argv[])
 	__attribute__ ((warn_unused_result));
 
-int   process_setup_console (ConsoleType type, int reset)
+int    process_setup_console   (ConsoleType type, int reset)
 	__attribute__ ((warn_unused_result));
 
-int   process_kill          (Job *job, pid_t pid, int force)
+int    process_kill            (Job *job, pid_t pid, int force)
+	__attribute__ ((warn_unused_result));
+
+char **process_environment     (Job *job)
+	__attribute__ ((warn_unused_result, malloc));
+
+char **process_environment_add (char ***env, const void *parent,
+				size_t *len, const char *str)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

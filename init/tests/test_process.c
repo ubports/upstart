@@ -235,9 +235,9 @@ test_spawn (void)
 
 	TEST_FILE_EQ_N (output, "PATH=");
 	TEST_FILE_EQ_N (output, "TERM=");
-	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
-	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
 	TEST_FILE_END (output);
 
 	fclose (output);
@@ -247,7 +247,7 @@ test_spawn (void)
 
 
 	/* Check that a job's environment includes the variables from all
-	 * events that started the job, but not overriding those specified
+	 * events that started the job, overriding those specified
 	 * in the job.
 	 */
 	TEST_FEATURE ("with environment from start events");
@@ -297,12 +297,13 @@ test_spawn (void)
 
 	TEST_FILE_EQ_N (output, "PATH=");
 	TEST_FILE_EQ_N (output, "TERM=");
-	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
-	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
-	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "FOO=APPLE\n");
 	TEST_FILE_EQ (output, "TEA=YES\n");
 	TEST_FILE_EQ (output, "BAR=ORANGE\n");
 	TEST_FILE_EQ (output, "COFFEE=NO\n");
+	TEST_FILE_EQ (output, "UPSTART_EVENTS=wibble wobble\n");
+	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
 	TEST_FILE_END (output);
 
 	fclose (output);
@@ -466,6 +467,594 @@ test_kill (void)
 }
 
 
+void
+test_environment (void)
+{
+	JobConfig      *config;
+	Job            *job;
+	EventOperator  *oper;
+	char          **env;
+
+	TEST_FUNCTION ("process_environment");
+
+	/* Check that a job created with an empty environment will just have
+	 * the built-ins and special variables in its environment.
+	 */
+	TEST_FEATURE ("with empty environment");
+	config = job_config_new (NULL, "test");
+
+	job = job_instance (config);
+	job->id = 99;
+
+	TEST_ALLOC_FAIL {
+		env = process_environment (job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_PARENT (env, job);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STRN (env[0], "PATH=");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STRN (env[1], "TERM=");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_EQ_STR (env[2], "UPSTART_JOB=test");
+		TEST_ALLOC_PARENT (env[3], env);
+		TEST_EQ_STR (env[3], "UPSTART_JOB_ID=99");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (job);
+	nih_free (config);
+
+
+	/* Check that a job created with defined environment variables will
+	 * have those appended to the environment as well as the builtins
+	 * and specials.
+	 */
+	TEST_FEATURE ("with configured environment");
+	config = job_config_new (NULL, "test");
+	config->env = nih_str_array_new (config);
+	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
+
+	job = job_instance (config);
+	job->id = 99;
+
+	TEST_ALLOC_FAIL {
+		env = process_environment (job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_PARENT (env, job);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 7);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STRN (env[0], "PATH=");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STRN (env[1], "TERM=");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_EQ_STR (env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[3], env);
+		TEST_EQ_STR (env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[4], env);
+		TEST_EQ_STR (env[4], "UPSTART_JOB=test");
+		TEST_ALLOC_PARENT (env[5], env);
+		TEST_EQ_STR (env[5], "UPSTART_JOB_ID=99");
+		TEST_EQ_P (env[6], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (job);
+	nih_free (config);
+
+
+	/* Check that a job created with environment in its start events will
+	 * have those added to the environment as well as built-ins,
+	 * specials and one containing the list of events.
+	 */
+	TEST_FEATURE ("with environment from start events");
+	config = job_config_new (NULL, "test");
+
+	job = job_instance (config);
+	job->id = 99;
+
+	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (oper, "wibble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "TEA=YES"));
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (oper, "wobble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "BAR=ORANGE"));
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "COFFEE=NO"));
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
+
+	TEST_ALLOC_FAIL {
+		env = process_environment (job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_PARENT (env, job);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 10);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STRN (env[0], "PATH=");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STRN (env[1], "TERM=");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_EQ_STR (env[2], "FOO=APPLE");
+		TEST_ALLOC_PARENT (env[3], env);
+		TEST_EQ_STR (env[3], "TEA=YES");
+		TEST_ALLOC_PARENT (env[4], env);
+		TEST_EQ_STR (env[4], "BAR=ORANGE");
+		TEST_ALLOC_PARENT (env[5], env);
+		TEST_EQ_STR (env[5], "COFFEE=NO");
+		TEST_ALLOC_PARENT (env[6], env);
+		TEST_EQ_STR (env[6], "UPSTART_EVENTS=wibble wobble");
+		TEST_ALLOC_PARENT (env[7], env);
+		TEST_EQ_STR (env[7], "UPSTART_JOB=test");
+		TEST_ALLOC_PARENT (env[8], env);
+		TEST_EQ_STR (env[8], "UPSTART_JOB_ID=99");
+		TEST_EQ_P (env[9], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (job);
+	nih_free (config);
+
+
+	/* Check that configured environment and that from start events can
+	 * override built-ins, that those from start events can override
+	 * configured environment and that nothing can override the specials.
+	 */
+	TEST_FEATURE ("with environment from multiple sources");
+	config = job_config_new (NULL, "test");
+	config->env = nih_str_array_new (config);
+	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
+	assert (nih_str_array_add (&(config->env), config, NULL, "TERM=elmo"));
+	assert (nih_str_array_add (&(config->env), config, NULL,
+				   "UPSTART_JOB=evil"));
+
+	job = job_instance (config);
+	job->id = 99;
+
+	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (oper, "wibble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "FOO=APPLE"));
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "TEA=YES"));
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
+
+	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
+	oper->value = TRUE;
+	oper->event = event_new (oper, "wobble", NULL, NULL);
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "PATH=/tmp"));
+	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
+				     NULL, "UPSTART_JOB_ID=nonesuch"));
+	event_ref (oper->event);
+	oper->blocked = TRUE;
+	event_block (oper->event);
+	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
+
+	TEST_ALLOC_FAIL {
+		env = process_environment (job);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_PARENT (env, job);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 9);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STR (env[0], "PATH=/tmp");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STR (env[1], "TERM=elmo");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_EQ_STR (env[2], "FOO=APPLE");
+		TEST_ALLOC_PARENT (env[3], env);
+		TEST_EQ_STR (env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[4], env);
+		TEST_EQ_STR (env[4], "UPSTART_JOB=test");
+		TEST_ALLOC_PARENT (env[5], env);
+		TEST_EQ_STR (env[5], "TEA=YES");
+		TEST_ALLOC_PARENT (env[6], env);
+		TEST_EQ_STR (env[6], "UPSTART_JOB_ID=99");
+		TEST_ALLOC_PARENT (env[7], env);
+		TEST_EQ_STR (env[7], "UPSTART_EVENTS=wibble wobble");
+		TEST_EQ_P (env[8], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (job);
+	nih_free (config);
+}
+
+void
+test_environment_add (void)
+{
+	char   **env = NULL, **ret;
+	size_t   len = 0;
+
+	TEST_FUNCTION ("process_environment_add");
+
+	/* Check that we can add a variable to a new environment table
+	 * and that it is appended to the array.
+	 */
+	TEST_FEATURE ("with empty table");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+		}
+
+		ret = process_environment_add (&env, NULL, &len, "FOO=BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 0);
+			TEST_EQ_P (env[0], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 1);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 8);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can add a variable to an environment table with
+	 * existing different entries and that it is appended to the array.
+	 */
+	TEST_FEATURE ("with new variable");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = process_environment_add (&env, NULL, &len,
+					       "FRODO=BAGGINS");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_ALLOC_SIZE (env[2], 14);
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can add a variable from the environment to the table
+	 * and that it is appended to the array.
+	 */
+	TEST_FEATURE ("with new variable from environment");
+	putenv ("FRODO=BAGGINS");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = process_environment_add (&env, NULL, &len, "FRODO");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_ALLOC_SIZE (env[2], 14);
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("FRODO");
+
+
+	/* Check that when we attempt to add a variable that's not in the
+	 * environment, the table is not extended.
+	 */
+	TEST_FEATURE ("with new variable unset in environment");
+	unsetenv ("FRODO");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = process_environment_add (&env, NULL, &len, "FRODO");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 2);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_P (env[2], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can replace a variable in the environment table
+	 * when one already exists with the same or different value.
+	 */
+	TEST_FEATURE ("with replacement variable");
+	TEST_ALLOC_FAIL {
+		char *old_env;
+
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+		}
+
+		old_env = env[1];
+		TEST_FREE_TAG (old_env);
+
+		ret = process_environment_add (&env, NULL, &len,
+					       "BAR=WIBBLE");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			TEST_NOT_FREE (old_env);
+
+			TEST_EQ (len, 3);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_P (env[3], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_FREE (old_env);
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_ALLOC_SIZE (env[1], 11);
+		TEST_EQ_STR (env[1], "BAR=WIBBLE");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can replace a variable from the environment in the
+	 * environment table when one already exists with the same or
+	 * different value.
+	 */
+	TEST_FEATURE ("with replacement variable from environment");
+	putenv ("BAR=WIBBLE");
+
+	TEST_ALLOC_FAIL {
+		char *old_env;
+
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BILBO=TOOK"));
+		}
+
+		old_env = env[1];
+		TEST_FREE_TAG (old_env);
+
+		ret = process_environment_add (&env, NULL, &len, "BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			TEST_NOT_FREE (old_env);
+
+			TEST_EQ (len, 4);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_STR (env[3], "BILBO=TOOK");
+			TEST_EQ_P (env[4], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_FREE (old_env);
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 4);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_ALLOC_SIZE (env[1], 11);
+		TEST_EQ_STR (env[1], "BAR=WIBBLE");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_STR (env[3], "BILBO=TOOK");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("BAR");
+
+
+	/* Check that when we attempt to replace a variable that's unset
+	 * in the environment, the existing variable is removed from the
+	 * table.
+	 */
+	TEST_FEATURE ("with replacement variable unset in environment");
+	unsetenv ("BAR");
+
+	TEST_ALLOC_FAIL {
+		char *old_env;
+
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BILBO=TOOK"));
+		}
+
+		old_env = env[1];
+		TEST_FREE_TAG (old_env);
+
+		ret = process_environment_add (&env, NULL, &len, "BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			TEST_NOT_FREE (old_env);
+
+			TEST_EQ (len, 4);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_STR (env[3], "BILBO=TOOK");
+			TEST_EQ_P (env[4], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_FREE (old_env);
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "FRODO=BAGGINS");
+		TEST_EQ_STR (env[2], "BILBO=TOOK");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("BAR");
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -495,6 +1084,8 @@ main (int   argc,
 	/* Otherwise run the tests as normal */
 	test_spawn ();
 	test_kill ();
+	test_environment ();
+	test_environment_add ();
 
 	return 0;
 }

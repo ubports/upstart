@@ -1,3 +1,25 @@
+2008-01-17  Scott James Remnant  <scott@netsplit.com>
+
+	* init/process.c (process_environment): Function to build an
+	environment table for a job containing built-in variables, those
+	from the configuration, events and finally the upstart job ones.
+	(process_environment_add): Helper function for the above that
+	handles adding a variable to the array; dealing with fetching the
+	value from init's environment if necessary.
+	(process_setup_environment): This function now gets dropped in
+	favour of the new ones.
+	(process_spawn): Call the new process_environment() function and set
+	the environ variable directly.
+	* init/process.h (PROCESS_ENVIRONMENT): Define built-in environment
+	variables that are always copied from our own environment.
+	Add prototypes.
+	* init/tests/test_process.c (test_environment): Check that the
+	environment is built correctly and that each bit overrides the
+	right other bit.
+	(test_environment_add): Check that the array is built correctly.
+	(test_spawn): Adjust order and values of expected environment
+	to match what's now set.
+
 2008-01-16  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_failed): Separate the logic that marks the job
