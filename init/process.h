@@ -91,7 +91,7 @@ pid_t  process_spawn           (Job *job, char * const argv[], int trace)
 int    process_setup_console   (ConsoleType type, int reset)
 	__attribute__ ((warn_unused_result));
 
-int    process_kill            (Job *job, pid_t pid, int force)
+int    process_kill            (JobConfig *config, pid_t pid, int force)
 	__attribute__ ((warn_unused_result));
 
 char **process_environment     (Job *job)

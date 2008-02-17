@@ -395,13 +395,11 @@ void
 test_kill (void)
 {
 	JobConfig *config;
-	Job       *job;
 	pid_t      pid1, pid2;
 	int        ret, status;
 
 	TEST_FUNCTION ("process_kill");
 	config = job_config_new (NULL, "test");
-	job = job_instance (config);
 
 	/* Check that when we normally kill the process, the TERM signal
 	 * is sent to all processes in its process group.
@@ -417,7 +415,7 @@ test_kill (void)
 	setpgid (pid1, pid1);
 	setpgid (pid2, pid1);
 
-	ret = process_kill (job, pid1, FALSE);
+	ret = process_kill (config, pid1, FALSE);
 	waitpid (pid1, &status, 0);
 
 	TEST_EQ (ret, 0);
@@ -445,14 +443,14 @@ test_kill (void)
 	setpgid (pid1, pid1);
 	setpgid (pid2, pid1);
 
-	ret = process_kill (job, pid1, TRUE);
+	ret = process_kill (config, pid1, TRUE);
 	waitpid (pid1, &status, 0);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
 
-	ret = process_kill (job, pid1, TRUE);
+	ret = process_kill (config, pid1, TRUE);
 	waitpid (pid2, &status, 0);
 
 	TEST_EQ (ret, 0);

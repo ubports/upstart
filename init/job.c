@@ -1341,7 +1341,7 @@ job_kill_process (Job         *job,
 		  job->config->name, job->id,
 		  process_name (process), job->pid[process]);
 
-	if (process_kill (job, job->pid[process], FALSE) < 0) {
+	if (process_kill (job->config, job->pid[process], FALSE) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -1386,7 +1386,7 @@ job_kill_timer (ProcessType  process,
 		  job->config->name, job->id,
 		  process_name (process), job->pid[process]);
 
-	if (process_kill (job, job->pid[process], TRUE) < 0) {
+	if (process_kill (job->config, job->pid[process], TRUE) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();

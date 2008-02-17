@@ -1,5 +1,14 @@
 2008-02-17  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_kill): Change to accept a JobConfig rather
+	than a Job, since in theory this should only ever need that in a
+	future where we can specify a kill signal (right now it's not used
+	for anything!)
+	* init/process.h: Update prototype.
+	* init/tests/test_process.c (test_kill): Update test cases.
+	* init/job.c (job_kill_process, job_kill_timer): Pass in JobConfig
+	instead of Job.
+
 	* init/process.c (process_spawn): Accept trace as an argument instead
 	of using a random piece of job state to determine whether to trace
 	or not.

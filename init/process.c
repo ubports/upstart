@@ -536,7 +536,7 @@ process_setup_console (ConsoleType type,
 
 /**
  * process_kill:
- * @job: job context of process to be killed,
+ * @config: job configuration of process to be killed,
  * @pid: process id of process,
  * @force: force the death.
  *
@@ -548,13 +548,13 @@ process_setup_console (ConsoleType type,
  * Returns: zero on success, negative value on raised error.
  **/
 int
-process_kill (Job   *job,
-	      pid_t  pid,
-	      int    force)
+process_kill (JobConfig *config,
+	      pid_t      pid,
+	      int        force)
 {
 	int signal;
 
-	nih_assert (job != NULL);
+	nih_assert (config != NULL);
 	nih_assert (pid > 0);
 
 	signal = (force ? SIGKILL : SIGTERM);
