@@ -1,3 +1,8 @@
+2008-02-17  Scott James Remnant  <scott@netsplit.com>
+
+	* README: Update kernel recommendation to 2.6.24, since that's
+	the oldest version that the test suite will complete under.
+
 2008-01-17  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update.

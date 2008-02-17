@@ -33,7 +33,7 @@ releases of the kernel, C library or compiler.
 
 The recommended versions are:
 
-	* Linux 2.6.17 or later
+	* Linux 2.6.24 or later
 	* GCC 4.1 or later
 	* GNU C Library (glibc) 2.4 or later
 
