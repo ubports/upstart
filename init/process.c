@@ -81,7 +81,8 @@ static int  process_error_read        (int fd)
 /**
  * process_spawn:
  * @job: job context for process to be spawned in,
- * @argv: NULL-terminated list of arguments for the process.
+ * @argv: NULL-terminated list of arguments for the process,
+ * @trace: whether to trace this process.
  *
  * This function spawns a new process using the @job details to set up the
  * environment for it; the process is always a session and process group
@@ -92,8 +93,14 @@ static int  process_error_read        (int fd)
  * the first argument containing the path or filename of the binary.  The
  * PATH environment in @job will be searched.
  *
+ * If @trace is TRUE, the process will be traced with ptrace and this will
+ * cause the process to be stopped when the exec() call is made.  You must
+ * wait for this and then may use it to set options before continuing the
+ * process.
+ *
  * This function only spawns the process, it is up to the caller to ensure
- * that the information is saved into the job and the process is watched, etc.
+ * that the information is saved into the job and that the process is watched,
+ * etc.
  *
  * Spawning a process may fail for temporary reasons, usually due to a failure
  * of the fork() syscall or communication with the child; or more permanent
@@ -104,7 +111,8 @@ static int  process_error_read        (int fd)
  **/
 pid_t
 process_spawn (Job          *job,
-	       char * const  argv[])
+	       char * const  argv[],
+	       int           trace)
 {
 	sigset_t child_set, orig_set;
 	pid_t    pid;
@@ -238,7 +246,7 @@ process_spawn (Job          *job,
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
 	/* Set up a process trace if we need to trace forks */
-	if (job->trace_state == TRACE_NEW) {
+	if (trace) {
 		if (ptrace (PTRACE_TRACEME, 0, NULL, 0) < 0) {
 			nih_error_raise_system();
 			process_error_abort (fds[1], PROCESS_ERROR_PTRACE, 0);

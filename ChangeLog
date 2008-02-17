@@ -1,5 +1,15 @@
 2008-02-17  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Accept trace as an argument instead
+	of using a random piece of job state to determine whether to trace
+	or not.
+	* init/process.h: Update prototype.
+	* init/tests/test_process.c (test_spawn): Update tests to pass in
+	via argument whether to trace the job or not.
+	* init/job.c (job_run_process): Pass in the trace variable rather
+	than relying on it working it out for itself; this means we don't
+	need to set the state until after, therefore don't need to reset it.
+
 	* AUTHORS, logd/jobs.d/logd.in: Update e-mail addresses.
 
 	* README: Update kernel recommendation to 2.6.24, since that's

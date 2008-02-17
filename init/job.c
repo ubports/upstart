@@ -1164,7 +1164,7 @@ job_run_process (Job         *job,
 	JobProcess  *proc;
 	char       **argv, *script = NULL;
 	size_t       argc;
-	int          error = FALSE, fds[2];
+	int          error = FALSE, fds[2], trace = FALSE;
 
 	nih_assert (job != NULL);
 
@@ -1243,17 +1243,13 @@ job_run_process (Job         *job,
 	 * to become a daemon or fork before we can move out of spawned, we
 	 * need to set a trace on it.
 	 */
-	job->trace_forks = 0;
 	if ((process == PROCESS_MAIN)
 	    && ((job->config->wait_for == JOB_WAIT_DAEMON)
-		|| (job->config->wait_for == JOB_WAIT_FORK))) {
-		job->trace_state = TRACE_NEW;
-	} else {
-		job->trace_state = TRACE_NONE;
-	}
+		|| (job->config->wait_for == JOB_WAIT_FORK)))
+		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
-	while ((job->pid[process] = process_spawn (job, argv)) < 0) {
+	while ((job->pid[process] = process_spawn (job, argv, trace)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -1269,7 +1265,6 @@ job_run_process (Job         *job,
 				nih_free (script);
 			}
 
-			job->trace_state = TRACE_NONE;
 			job->pid[process] = 0;
 
 			/* Return non-temporary error condition */
@@ -1292,6 +1287,8 @@ job_run_process (Job         *job,
 		  job->config->name, job->id,
 		  process_name (process), job->pid[process]);
 
+	job->trace_forks = 0;
+	job->trace_state = trace ? TRACE_NEW : TRACE_NONE;
 
 	/* Feed the script to the child process */
 	if (script) {

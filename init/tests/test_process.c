@@ -132,7 +132,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 
 	job = job_instance (config);
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -171,7 +171,7 @@ test_spawn (void)
 	config->console = CONSOLE_NONE;
 
 	job = job_instance (config);
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -198,7 +198,7 @@ test_spawn (void)
 	config->chdir = "/tmp";
 
 	job = job_instance (config);
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -227,7 +227,7 @@ test_spawn (void)
 
 	job = job_instance (config);
 	job->id = 1000;
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -289,7 +289,7 @@ test_spawn (void)
 	event_block (oper->event);
 	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -322,10 +322,8 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 
 	job = job_instance (config);
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
-
-	TEST_EQ (job->trace_state, TRACE_NONE);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
 	TEST_EQ (info.si_code, CLD_EXITED);
@@ -336,8 +334,8 @@ test_spawn (void)
 	nih_free (config);
 
 
-	/* Check that when we spawn a daemon job, it requests that its parent
-	 * traces it and sets the job's trace state to TRACE_NEW.
+	/* Check that when we spawn a daemon job, we can request that the
+	 * parent be traced.
 	 */
 	TEST_FEATURE ("with daemon job");
 	sprintf (function, "%d", TEST_SIMPLE);
@@ -346,8 +344,7 @@ test_spawn (void)
 	config->wait_for = JOB_WAIT_DAEMON;
 
 	job = job_instance (config);
-	job->trace_state = TRACE_NEW;
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, TRUE);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -377,7 +374,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 
 	job = job_instance (config);
-	pid = process_spawn (job, args);
+	pid = process_spawn (job, args, FALSE);
 	TEST_LT (pid, 0);
 
 	err = nih_error_get ();

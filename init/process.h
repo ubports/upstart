@@ -85,7 +85,7 @@ typedef struct process_error {
 
 NIH_BEGIN_EXTERN
 
-pid_t  process_spawn           (Job *job, char * const argv[])
+pid_t  process_spawn           (Job *job, char * const argv[], int trace)
 	__attribute__ ((warn_unused_result));
 
 int    process_setup_console   (ConsoleType type, int reset)
