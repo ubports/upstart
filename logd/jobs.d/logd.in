@@ -4,7 +4,7 @@
 # other services can be logged.
 
 description	"service logging daemon"
-author		"Scott James Remnant <scott@ubuntu.com>"
+author		"Scott James Remnant <scott@netsplit.com>"
 
 stop on runlevel [016]
 
