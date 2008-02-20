@@ -233,15 +233,15 @@ JobProcess *job_process_new           (const void *parent)
 JobConfig * job_config_new            (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-JobConfig * job_config_replace        (JobConfig *job_config);
+JobConfig * job_config_replace        (JobConfig *config);
 
-Job *       job_new                   (JobConfig *job_config)
+Job *       job_new                   (JobConfig *config)
 	__attribute__ ((warn_unused_result, malloc));
 
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 Job *       job_find_by_id            (unsigned int id);
 
-Job *       job_instance              (JobConfig *job_config);
+Job *       job_instance              (JobConfig *config);
 
 void        job_change_goal           (Job *job, JobGoal goal);
 
