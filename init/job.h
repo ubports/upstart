@@ -238,8 +238,8 @@ JobConfig * job_config_replace        (JobConfig *config);
 Job *       job_new                   (JobConfig *config)
 	__attribute__ ((warn_unused_result, malloc));
 
-Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 Job *       job_find_by_id            (unsigned int id);
+Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 
 Job *       job_instance              (JobConfig *config);
 

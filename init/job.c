@@ -439,6 +439,33 @@ job_new (JobConfig  *config)
 
 
 /**
+ * job_find_by_id:
+ * @id: unique job id to find.
+ *
+ * Finds the job with the unique id @id in the jobs hash table.
+ *
+ * Returns: job found or NULL if not known.
+ **/
+Job *
+job_find_by_id (unsigned int id)
+{
+	job_init ();
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		JobConfig *config = (JobConfig *)iter;
+
+		NIH_LIST_FOREACH (&config->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (job->id == id)
+				return job;
+		}
+	}
+
+	return NULL;
+}
+
+/**
  * job_find_by_pid:
  * @pid: process id to find,
  * @process: pointer to place process which is running @pid.
@@ -472,33 +499,6 @@ job_find_by_pid (pid_t        pid,
 					return job;
 				}
 			}
-		}
-	}
-
-	return NULL;
-}
-
-/**
- * job_find_by_id:
- * @id: unique job id to find.
- *
- * Finds the job with the unique id @id in the jobs hash table.
- *
- * Returns: job found or NULL if not known.
- **/
-Job *
-job_find_by_id (unsigned int id)
-{
-	job_init ();
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		JobConfig *config = (JobConfig *)iter;
-
-		NIH_LIST_FOREACH (&config->instances, job_iter) {
-			Job *job = (Job *)job_iter;
-
-			if (job->id == id)
-				return job;
 		}
 	}
 

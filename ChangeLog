@@ -1,5 +1,8 @@
 2008-02-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c: Switch around job_find_by_pid and job_find_by_id
+	* init/job.h: Likewise.
+
 	* init/job.h: Update prototypes to match variable names in the
 	code.
 
