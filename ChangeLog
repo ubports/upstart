@@ -1,5 +1,10 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_match): Rewrite to match both
+	positionally and by name.
+	* init/tests/test_event.c (test_operator_match): Update tests to
+	check the new behaviour works.
+
 	* init/parse_job.c (parse_on_operand): Add arguments to env list
 	rather than args; sanity check afterwards to ensure that positional
 	doesn't follow name-based -- when parsing the job is the right place

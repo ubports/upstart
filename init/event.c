@@ -677,9 +677,12 @@ event_operator_update (EventOperator *oper)
  * @event: event to match.
  *
  * Compares @oper against @event to see whether they are identical in name,
- * and whether @event contains at least the number of arguments given in
- * @oper, and that each of those arguments matches as a glob to environment
- * in @event.
+ * and whether @event contains a superset of the environment variables
+ * given in @oper.
+ *
+ * Matching of environment variables is done first by position until the
+ * first variable in @oper with a name specified is found, and subsequently
+ * by name.  Each value matches against @event as a glob.
  *
  * This may only be called if the type of @oper is EVENT_MATCH.
  *
@@ -689,7 +692,7 @@ int
 event_operator_match (EventOperator *oper,
 		      Event         *event)
 {
-	char **env1, **env2;
+	char **oenv, **eenv;
 
 	nih_assert (oper != NULL);
 	nih_assert (oper->type == EVENT_MATCH);
@@ -701,17 +704,48 @@ event_operator_match (EventOperator *oper,
 	if (strcmp (oper->name, event->name))
 		return FALSE;
 
-	/* Match environment using the operator's environment as globs */
-	for (env1 = oper->env, env2 = event->env;
-	     env1 && env2 && *env1 && *env2; env1++, env2++)
-		if (fnmatch (*env1, *env2, 0))
+	/* Match operator arguments against those from the event, starting
+	 * both from the beginning.
+	 */
+	for (oenv = oper->env, eenv = event->env; oenv && *oenv;
+	     oenv++, eenv++) {
+		char *oval, *eval;
+
+		oval = strchr (*oenv, '=');
+		if (oval) {
+			/* Hunt through the environment table to find the
+			 * equivalent entry; break out to leave the pointer
+			 * pointing at it.
+			 */
+			for (eenv = event->env; eenv && *eenv; eenv++)
+				if (strncmp (*eenv, *oenv, oval - *oenv) == 0)
+					break;
+
+			/* Value to match against follows the equals. */
+			oval++;
+		} else {
+			/* Value to match against is the whole string. */
+			oval = *oenv;
+		}
+
+		/* Make sure we haven't gone off the end of the event
+		 * environment; this catches both too many positional
+		 * arguments and no such environment variable.
+		 */
+		if (! (eenv && *eenv))
 			return FALSE;
 
-	/* Must be at least the same number of environment in event as
-	 * there are in oper
-	 */
-	if (env1 && *env1)
-		return FALSE;
+		/* Grab the value out by looking for the equals, we don't
+		 * care about the name if we're positional and we've already
+		 * matched it when not.
+		 */
+		eval = strchr (*eenv, '=');
+		nih_assert (eval != NULL);
+		eval++;
+
+		if (fnmatch (oval, eval, 0))
+			return FALSE;
+	}
 
 	return TRUE;
 }

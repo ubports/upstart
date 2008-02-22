@@ -957,8 +957,7 @@ test_operator_match (void)
 {
 	EventOperator *oper;
 	Event         *event;
-	char          *env1[] = { "foo", "bar", "baz", NULL };
-	char          *env2[] = { "foo", "bar", "baz", NULL };
+	char          *env1[5], *env2[5];
 
 	TEST_FUNCTION ("event_operator_match");
 	event = event_new (NULL, "foo", NULL);
@@ -981,31 +980,205 @@ test_operator_match (void)
 
 	/* Check that two events with the same environment lists match. */
 	TEST_FEATURE ("with same environment lists");
-	oper->env = env1;
-	event->env = env2;
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO=bar";
+	oper->env[2] = "MERRY=baz";
+	oper->env[3] = NULL;
 
 	TEST_TRUE (event_operator_match (oper, event));
 
 
+	/* Check that two events with the same environment lists but wrong
+	 * values do not match.
+	 */
+	TEST_FEATURE ("with environment lists and wrong values");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO=baz";
+	oper->env[2] = "MERRY=bar";
+	oper->env[3] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event));
+
+
 	/* Check that the environment list in the operator may be shorter. */
-	TEST_FEATURE ("with shorter list in operator");
-	env1[2] = NULL;
+	TEST_FEATURE ("with shorter environment list in operator");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO=bar";
+	oper->env[2] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that the operator may match the event's environment list
+	 * by value only.
+	 */
+	TEST_FEATURE ("with matching value lists");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "foo";
+	oper->env[1] = "bar";
+	oper->env[2] = "baz";
+	oper->env[3] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that the operator may not match the event's environment list
+	 * by value if a value is wrong.
+	 */
+	TEST_FEATURE ("with non-matching value lists");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "foo";
+	oper->env[1] = "baz";
+	oper->env[2] = "bar";
+	oper->env[3] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event));
+
+
+	/* Check that when the operator matches by value, the list of values
+	 * may be smaller than the actual environment.
+	 */
+	TEST_FEATURE ("with shorter value list in operator");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "foo";
+	oper->env[1] = "bar";
+	oper->env[2] = NULL;
 
 	TEST_TRUE (event_operator_match (oper, event));
 
 
 	/* Check that the environment list in event may not be shorter. */
 	TEST_FEATURE ("with shorter list in event");
-	env1[2] = env2[2];
-	env2[2] = NULL;
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "foo";
+	oper->env[1] = "bar";
+	oper->env[2] = "baz";
+	oper->env[3] = NULL;
 
 	TEST_FALSE (event_operator_match (oper, event));
 
 
-	/* Check that the operator environment lists may be globs. */
+	/* Check that two events with the same environment lists match
+	 * in any order.
+	 */
+	TEST_FEATURE ("with different order environment lists");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "BILBO=bar";
+	oper->env[1] = "FRODO=foo";
+	oper->env[2] = "MERRY=baz";
+	oper->env[3] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that the operator may match by value until it first matches
+	 * by name.
+	 */
+	TEST_FEATURE ("with value list and variable list");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = "PIPPIN=quux";
+	event->env[4] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "foo";
+	oper->env[1] = "bar";
+	oper->env[2] = "PIPPIN=quux";
+	oper->env[3] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that unknown variable names never match. */
+	TEST_FEATURE ("with unknown variable in operator");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "MERRY=baz";
+	oper->env[1] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event));
+
+
+	/* Check that the operator environment may be globs. */
 	TEST_FEATURE ("with globs in operator environment");
-	env2[2] = env1[2];
-	env1[2] = "b?z*";
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "BILBO=b?r";
+	oper->env[1] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event));
+
+
+	/* Check that the operator values may be globs. */
+	TEST_FEATURE ("with globs in operator value");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "f*";
+	oper->env[1] = NULL;
 
 	TEST_TRUE (event_operator_match (oper, event));
 
