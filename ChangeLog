@@ -1,5 +1,8 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main, cad_handler, kbd_handler, pwr_handler):
+	Update event_new() calls to remove extra argument.
+
 	* init/job.c (job_change_state): Update event_new () call.
 	(job_emit_event): Update to put failure information in environment.
 	* init/tests/test_job.c (test_new, test_instance)
