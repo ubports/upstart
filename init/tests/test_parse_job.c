@@ -1813,6 +1813,60 @@ test_stanza_start (void)
 	}
 
 
+	/* Check that a start on stanza may have an event name followed
+	 * by arguments matched by position and then arguments matched by
+	 * name.  Various rules of quoting should be allowed for both;
+	 * this is all tested elsewhere, but I want to make sure I don't
+	 * break something I'm going to document.
+	 */
+	TEST_FEATURE ("with event name and various arguments");
+	strcpy (buf, "start on wibble foo bar KEY=b?z* \"FRODO=foo bar\" "
+		"BILBO=\"foo bar\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 6);
+		TEST_EQ_STR (oper->env[0], "foo");
+		TEST_EQ_STR (oper->env[1], "bar");
+		TEST_EQ_STR (oper->env[2], "KEY=b?z*");
+		TEST_EQ_STR (oper->env[3], "FRODO=foo bar");
+		TEST_EQ_STR (oper->env[4], "BILBO=foo bar");
+		TEST_EQ_P (oper->env[5], NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_free (job);
+	}
+
+
 	/* Check that a start on stanza may have a multiple events seperated
 	 * by an operator; the operator will be the root of the expression,
 	 * with the two events as its children.
@@ -2451,6 +2505,25 @@ test_stanza_start (void)
 	TEST_EQ (pos, 22);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
+
+
+	/* Check that positional arguments to events may not follow
+	 * named-based ones, resulting in a syntax error.
+	 */
+	TEST_FEATURE ("with positional arguments after name-based ones");
+	strcpy (buf, "start on wibble foo KEY=bar baz\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_VARIABLE);
+	TEST_EQ (pos, 31);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
 }
 
 void
@@ -2548,6 +2621,60 @@ test_stanza_stop (void)
 		TEST_EQ_STR (oper->env[1], "bar");
 		TEST_EQ_STR (oper->env[2], "b?z*");
 		TEST_EQ_P (oper->env[3], NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_free (job);
+	}
+
+
+	/* Check that a stop on stanza may have an event name followed
+	 * by arguments matched by position and then arguments matched by
+	 * name.  Various rules of quoting should be allowed for both;
+	 * this is all tested elsewhere, but I want to make sure I don't
+	 * break something I'm going to document.
+	 */
+	TEST_FEATURE ("with event name and various arguments");
+	strcpy (buf, "stop on wibble foo bar KEY=b?z* \"FRODO=foo bar\" "
+		"BILBO=\"foo bar\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_ALLOC_SIZE (job->stop_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->stop_on, job);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 6);
+		TEST_EQ_STR (oper->env[0], "foo");
+		TEST_EQ_STR (oper->env[1], "bar");
+		TEST_EQ_STR (oper->env[2], "KEY=b?z*");
+		TEST_EQ_STR (oper->env[3], "FRODO=foo bar");
+		TEST_EQ_STR (oper->env[4], "BILBO=foo bar");
+		TEST_EQ_P (oper->env[5], NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -3193,6 +3320,25 @@ test_stanza_stop (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_EXPECTED_OPERATOR);
 	TEST_EQ (pos, 21);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that positional arguments to events may not follow
+	 * named-based ones, resulting in a syntax error.
+	 */
+	TEST_FEATURE ("with positional arguments after name-based ones");
+	strcpy (buf, "stop on wibble foo KEY=bar baz\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_EXPECTED_VARIABLE);
+	TEST_EQ (pos, 30);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }

@@ -1,9 +1,16 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
 	* init/parse_job.c (parse_on_operand): Add arguments to env list
-	rather than args (rename).
+	rather than args; sanity check afterwards to ensure that positional
+	doesn't follow name-based -- when parsing the job is the right place
+	to catch this.
 	* init/tests/test_parse_job.c (test_stanza_start)
 	(test_stanza_stop): Change args to env when checking operators.
+	Check that arguments may be quoted in manners that we expect to be
+	sane.  Check that positional arguments cannot follow name-based ones.
+	* init/errors.h: Add new error.
+	* init/conf.c (conf_reload_path): Treat expected variable as a
+	permanent error.
 
 	* init/tests/test_process.c (test_spawn, test_environment): 
 	Update event_new() calls to remove extra argument.

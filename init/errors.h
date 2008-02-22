@@ -37,6 +37,7 @@ enum {
 	PARSE_ILLEGAL_LIMIT,
 	PARSE_EXPECTED_EVENT,
 	PARSE_EXPECTED_OPERATOR,
+	PARSE_EXPECTED_VARIABLE,
 	PARSE_MISMATCHED_PARENS,
 
 	/* Errors while handling processes */
@@ -51,6 +52,7 @@ enum {
 #define PARSE_ILLEGAL_LIMIT_STR		N_("Illegal limit, expected 'unlimited' or integer")
 #define PARSE_EXPECTED_EVENT_STR	N_("Expected event")
 #define PARSE_EXPECTED_OPERATOR_STR	N_("Expected operator")
+#define PARSE_EXPECTED_VARIABLE_STR	N_("Expected variable name before value")
 #define PARSE_MISMATCHED_PARENS_STR	N_("Mismatched parentheses")
 
 #endif /* INIT_ERRORS_H */

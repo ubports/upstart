@@ -575,7 +575,7 @@ finish:
  * @stack: input operator stack,
  * @root: output operator.
  *
- * This function parses a single token from the arguments of the "or"
+ * This function parses a single token from the arguments of the "on"
  * stanza.  If the token is not a valid operator, this will call
  * parse_on_operand() instead.
  *
@@ -857,14 +857,29 @@ parse_on_operand (JobConfig        *job,
 		item->data = oper;
 		nih_list_add_after (stack, &item->entry);
 	} else {
-		/* Argument is an argument to the event on the top of the
-		 * stack, so append it to the existing argument, array
-		 * by reparenting the parsed string.
+		char **e;
+		int    pos = TRUE;
+
+		/* Argument is an environment variable for the event on
+		 * the top of the stack, so we append it there.
 		 */
 		if (! nih_str_array_addp (&oper->env, oper, NULL, arg)) {
 			nih_error_raise_system ();
 			nih_free (arg);
 			return -1;
+		}
+
+		/* Sanity check the event's environment to ensure that no
+		 * positional arguments follow name-based ones.
+		 */
+		for (e = oper->env; e && *e; e++) {
+			if (strchr (*e, '=')) {
+				pos = FALSE;
+			} else if (! pos) {
+				nih_error_raise (PARSE_EXPECTED_VARIABLE,
+						 _(PARSE_EXPECTED_VARIABLE_STR));
+				return -1;
+			}
 		}
 	}
 
