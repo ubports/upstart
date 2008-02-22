@@ -1,5 +1,10 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (parse_on_operand): Add arguments to env list
+	rather than args (rename).
+	* init/tests/test_parse_job.c (test_stanza_start)
+	(test_stanza_stop): Change args to env when checking operators.
+
 	* init/tests/test_process.c (test_spawn, test_environment): 
 	Update event_new() calls to remove extra argument.
 

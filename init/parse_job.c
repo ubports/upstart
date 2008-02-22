@@ -861,7 +861,7 @@ parse_on_operand (JobConfig        *job,
 		 * stack, so append it to the existing argument, array
 		 * by reparenting the parsed string.
 		 */
-		if (! nih_str_array_addp (&oper->args, oper, NULL, arg)) {
+		if (! nih_str_array_addp (&oper->env, oper, NULL, arg)) {
 			nih_error_raise_system ();
 			nih_free (arg);
 			return -1;

@@ -1753,7 +1753,7 @@ test_stanza_start (void)
 		oper = job->start_on;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -1799,11 +1799,11 @@ test_stanza_start (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
 
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 4);
-		TEST_EQ_STR (oper->args[0], "foo");
-		TEST_EQ_STR (oper->args[1], "bar");
-		TEST_EQ_STR (oper->args[2], "b?z*");
-		TEST_EQ_P (oper->args[3], NULL);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 4);
+		TEST_EQ_STR (oper->env[0], "foo");
+		TEST_EQ_STR (oper->env[1], "bar");
+		TEST_EQ_STR (oper->env[2], "b?z*");
+		TEST_EQ_P (oper->env[3], NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -1856,7 +1856,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -1865,7 +1865,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -1920,10 +1920,10 @@ test_stanza_start (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
 
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
-		TEST_EQ_STR (oper->args[0], "foo");
-		TEST_EQ_STR (oper->args[1], "bar");
-		TEST_EQ_P (oper->args[2], NULL);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->env[0], "foo");
+		TEST_EQ_STR (oper->env[1], "bar");
+		TEST_EQ_P (oper->env[2], NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -1933,10 +1933,10 @@ test_stanza_start (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
 
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
-		TEST_EQ_STR (oper->args[0], "frodo");
-		TEST_EQ_STR (oper->args[1], "bilbo");
-		TEST_EQ_P (oper->args[2], NULL);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->env[0], "frodo");
+		TEST_EQ_STR (oper->env[1], "bilbo");
+		TEST_EQ_P (oper->env[2], NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -1997,7 +1997,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.left->left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->start_on->node.left);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2006,7 +2006,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.left->right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->start_on->node.left);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2015,7 +2015,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wiggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2067,7 +2067,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2085,7 +2085,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.right->left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2094,7 +2094,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.right->right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wiggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2147,7 +2147,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->start_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2165,7 +2165,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.right->left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2174,7 +2174,7 @@ test_stanza_start (void)
 		oper = (EventOperator *)job->start_on->node.right->right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wiggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->start_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2217,7 +2217,7 @@ test_stanza_start (void)
 		oper = job->start_on;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "waggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2497,7 +2497,7 @@ test_stanza_stop (void)
 		oper = job->stop_on;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2543,11 +2543,11 @@ test_stanza_stop (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
 
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 4);
-		TEST_EQ_STR (oper->args[0], "foo");
-		TEST_EQ_STR (oper->args[1], "bar");
-		TEST_EQ_STR (oper->args[2], "b?z*");
-		TEST_EQ_P (oper->args[3], NULL);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 4);
+		TEST_EQ_STR (oper->env[0], "foo");
+		TEST_EQ_STR (oper->env[1], "bar");
+		TEST_EQ_STR (oper->env[2], "b?z*");
+		TEST_EQ_P (oper->env[3], NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2600,7 +2600,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2609,7 +2609,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2664,10 +2664,10 @@ test_stanza_stop (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
 
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
-		TEST_EQ_STR (oper->args[0], "foo");
-		TEST_EQ_STR (oper->args[1], "bar");
-		TEST_EQ_P (oper->args[2], NULL);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->env[0], "foo");
+		TEST_EQ_STR (oper->env[1], "bar");
+		TEST_EQ_P (oper->env[2], NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2677,10 +2677,10 @@ test_stanza_stop (void)
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
 
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
-		TEST_EQ_STR (oper->args[0], "frodo");
-		TEST_EQ_STR (oper->args[1], "bilbo");
-		TEST_EQ_P (oper->args[2], NULL);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 3);
+		TEST_EQ_STR (oper->env[0], "frodo");
+		TEST_EQ_STR (oper->env[1], "bilbo");
+		TEST_EQ_P (oper->env[2], NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2741,7 +2741,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.left->left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->stop_on->node.left);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2750,7 +2750,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.left->right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->stop_on->node.left);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2759,7 +2759,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wiggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2811,7 +2811,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2829,7 +2829,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.right->left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2838,7 +2838,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.right->right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wiggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2891,7 +2891,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, &job->stop_on->node);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2909,7 +2909,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.right->left;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wobble");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2918,7 +2918,7 @@ test_stanza_stop (void)
 		oper = (EventOperator *)job->stop_on->node.right->right;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "wiggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, job->stop_on->node.right);
 		TEST_EQ_P (oper->node.left, NULL);
@@ -2961,7 +2961,7 @@ test_stanza_stop (void)
 		oper = job->stop_on;
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "waggle");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ_P (oper->node.parent, NULL);
 		TEST_EQ_P (oper->node.left, NULL);
