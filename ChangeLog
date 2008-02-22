@@ -1,5 +1,8 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_process.c (test_spawn, test_environment): 
+	Update event_new() calls to remove extra argument.
+
 	* init/main.c (main, cad_handler, kbd_handler, pwr_handler):
 	Update event_new() calls to remove extra argument.
 

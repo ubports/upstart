@@ -267,7 +267,7 @@ test_spawn (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL, NULL);
+	oper->event = event_new (oper, "wibble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "FOO=APPLE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -279,7 +279,7 @@ test_spawn (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "wobble", NULL, NULL);
+	oper->event = event_new (oper, "wobble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "BAR=ORANGE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -566,7 +566,7 @@ test_environment (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL, NULL);
+	oper->event = event_new (oper, "wibble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "FOO=APPLE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -578,7 +578,7 @@ test_environment (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "wobble", NULL, NULL);
+	oper->event = event_new (oper, "wobble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "BAR=ORANGE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -645,7 +645,7 @@ test_environment (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL, NULL);
+	oper->event = event_new (oper, "wibble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "FOO=APPLE"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -657,7 +657,7 @@ test_environment (void)
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "wobble", NULL, NULL);
+	oper->event = event_new (oper, "wobble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
 				     NULL, "PATH=/tmp"));
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
