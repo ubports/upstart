@@ -39,7 +39,7 @@ void
 test_new (void)
 {
 	Event         *event;
-	char         **args, **env;
+	char         **env;
 	unsigned int   last_id = -1;
 
 	/* Check that we can create a new event; the structure should
@@ -51,18 +51,14 @@ test_new (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			args = nih_str_array_new (NULL);
-			NIH_MUST (nih_str_array_add (&args, NULL, NULL,
-						     "foo"));
-			NIH_MUST (nih_str_array_add (&args, NULL, NULL,
-						     "bar"));
-
 			env = nih_str_array_new (NULL);
 			NIH_MUST (nih_str_array_add (&env, NULL, NULL,
 						     "FOO=BAR"));
+			NIH_MUST (nih_str_array_add (&env, NULL, NULL,
+						     "BAR=FRODO"));
 		}
 
-		event = event_new (NULL, "test", args, env);
+		event = event_new (NULL, "test", env);
 
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_LIST_NOT_EMPTY (&event->entry);
@@ -78,9 +74,6 @@ test_new (void)
 
 		TEST_EQ_STR (event->name, "test");
 		TEST_ALLOC_PARENT (event->name, event);
-
-		TEST_EQ_P (event->args, args);
-		TEST_ALLOC_PARENT (event->args, event);
 
 		TEST_EQ_P (event->env, env);
 		TEST_ALLOC_PARENT (event->env, event);
@@ -101,7 +94,7 @@ test_find_by_id (void)
 	 * have it returned.
 	 */
 	TEST_FEATURE ("with id in pending queue");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 
 	ret = event_find_by_id (event->id);
 
@@ -128,7 +121,7 @@ test_ref (void)
 	 * that the event has, while leaving the blockers at zero.
 	 */
 	TEST_FUNCTION ("event_ref");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->refs = 4;
 
 	event_ref (event);
@@ -148,7 +141,7 @@ test_unref (void)
 	 * that the event has, while leaving the blockers at zero.
 	 */
 	TEST_FUNCTION ("event_unref");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->refs = 4;
 
 	event_unref (event);
@@ -168,7 +161,7 @@ test_block (void)
 	 * that the event has, while leaving the references at zero.
 	 */
 	TEST_FUNCTION ("event_block");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->blockers = 4;
 
 	event_block (event);
@@ -188,7 +181,7 @@ test_unblock (void)
 	 * that the event has, while leaving the references at zero.
 	 */
 	TEST_FUNCTION ("event_unblock");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->blockers = 4;
 
 	event_unblock (event);
@@ -227,7 +220,7 @@ test_poll (void)
 
 	nih_hash_add (jobs, &config->entry);
 
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->id = 0xdeafbeef;
 
 	event_poll ();
@@ -255,7 +248,7 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with blocked handling event");
 	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test", NULL, NULL);
+		event = event_new (NULL, "test", NULL);
 		event->progress = EVENT_HANDLING;
 		event->blockers = 1;
 
@@ -271,7 +264,7 @@ test_poll (void)
 	 * freed.
 	 */
 	TEST_FEATURE ("with finished event");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->id = 0xdeafbeef;
 	event->progress = EVENT_HANDLING;
 
@@ -312,7 +305,7 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with referenced event");
 	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test", NULL, NULL);
+		event = event_new (NULL, "test", NULL);
 		event->progress = EVENT_DONE;
 		event->refs = 1;
 
@@ -329,7 +322,7 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with no-op pending event");
 	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test", NULL, NULL);
+		event = event_new (NULL, "test", NULL);
 
 		TEST_FREE_TAG (event);
 
@@ -345,7 +338,7 @@ test_poll (void)
 	 * cause.
 	 */
 	TEST_FEATURE ("with failed event");
-	event = event_new (NULL, "test", NULL, NULL);
+	event = event_new (NULL, "test", NULL);
 	event->failed = TRUE;
 	event->progress = EVENT_FINISHED;
 
@@ -385,7 +378,7 @@ test_poll (void)
 	 * events (otherwise we could be there all night :p)
 	 */
 	TEST_FEATURE ("with failed failed event");
-	event = event_new (NULL, "test/failed", NULL, NULL);
+	event = event_new (NULL, "test/failed", NULL);
 	event->failed = TRUE;
 	event->progress = EVENT_FINISHED;
 
@@ -421,7 +414,7 @@ void
 test_operator_new (void)
 {
 	EventOperator  *oper;
-	char          **args;
+	char          **env;
 
 	TEST_FUNCTION ("event_operator_new");
 
@@ -447,7 +440,7 @@ test_operator_new (void)
 		TEST_EQ_STR (oper->name, "test");
 		TEST_ALLOC_PARENT (oper->name, oper);
 
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ_P (oper->event, NULL);
 		TEST_EQ (oper->blocked, FALSE);
 
@@ -455,25 +448,25 @@ test_operator_new (void)
 	}
 
 
-	/* Check that arguments passed to event_operator_new are reparented
+	/* Check that environment passed to event_operator_new is reparented
 	 * to belong to the structure itself.
 	 */
-	TEST_FEATURE ("with EVENT_MATCH and arguments");
+	TEST_FEATURE ("with EVENT_MATCH and environment");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			args = nih_str_array_new (NULL);
-			NIH_MUST (nih_str_array_add (&args, NULL,
+			env = nih_str_array_new (NULL);
+			NIH_MUST (nih_str_array_add (&env, NULL,
 						     NULL, "foo"));
-			NIH_MUST (nih_str_array_add (&args, NULL,
-						     NULL, "bar"));
+			NIH_MUST (nih_str_array_add (&env, NULL,
+						     NULL, "BAR=frodo"));
 		}
 
-		oper = event_operator_new (NULL, EVENT_MATCH, "test", args);
+		oper = event_operator_new (NULL, EVENT_MATCH, "test", env);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (oper, NULL);
-			TEST_ALLOC_PARENT (args, NULL);
-			nih_free (args);
+			TEST_ALLOC_PARENT (env, NULL);
+			nih_free (env);
 			continue;
 		}
 
@@ -485,8 +478,8 @@ test_operator_new (void)
 		TEST_EQ_STR (oper->name, "test");
 		TEST_ALLOC_PARENT (oper->name, oper);
 
-		TEST_EQ_P (oper->args, args);
-		TEST_ALLOC_PARENT (oper->args, oper);
+		TEST_EQ_P (oper->env, env);
+		TEST_ALLOC_PARENT (oper->env, oper);
 
 		TEST_EQ_P (oper->event, NULL);
 		TEST_EQ (oper->blocked, FALSE);
@@ -511,7 +504,7 @@ test_operator_new (void)
 		TEST_EQ_P (oper->node.right, NULL);
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->name, NULL);
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ_P (oper->event, NULL);
 		TEST_EQ (oper->blocked, FALSE);
 
@@ -553,7 +546,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->type, EVENT_OR);
 		TEST_EQ (copy->value, TRUE);
 		TEST_EQ_P (copy->name, NULL);
-		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->env, NULL);
 		TEST_EQ_P (copy->event, NULL);
 		TEST_EQ (copy->blocked, FALSE);
 
@@ -563,9 +556,9 @@ test_operator_copy (void)
 
 
 	/* Check that we can copy and EVENT_MATCH operator which does not
-	 * have any arguments or matched event.
+	 * have any environment or matched event.
 	 */
-	TEST_FEATURE ("with EVENT_MATCH and no arguments or event");
+	TEST_FEATURE ("with EVENT_MATCH and no environment or event");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			oper = event_operator_new (NULL, EVENT_MATCH,
@@ -589,7 +582,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->value, TRUE);
 		TEST_EQ_STR (copy->name, "test");
 		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->env, NULL);
 		TEST_EQ_P (copy->event, NULL);
 		TEST_EQ (copy->blocked, FALSE);
 
@@ -598,19 +591,19 @@ test_operator_copy (void)
 	}
 
 
-	/* Check that arguments to an EVENT_MATCH operator are also copied,
-	 * and each argument within the array copied too.
+	/* Check that environment to an EVENT_MATCH operator are also copied,
+	 * and each entry within the array copied too.
 	 */
-	TEST_FEATURE ("with EVENT_MATCH and arguments");
+	TEST_FEATURE ("with EVENT_MATCH and environment");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			oper = event_operator_new (NULL, EVENT_MATCH,
 						   "test", NULL);
 			oper->value = TRUE;
 
-			NIH_MUST (nih_str_array_add (&oper->args, oper,
+			NIH_MUST (nih_str_array_add (&oper->env, oper,
 						     NULL, "FOO=foo"));
-			NIH_MUST (nih_str_array_add (&oper->args, oper,
+			NIH_MUST (nih_str_array_add (&oper->env, oper,
 						     NULL, "BAR=bar"));
 		}
 
@@ -631,13 +624,13 @@ test_operator_copy (void)
 		TEST_EQ_STR (copy->name, "test");
 		TEST_ALLOC_PARENT (copy->name, copy);
 
-		TEST_ALLOC_PARENT (copy->args, copy);
-		TEST_ALLOC_SIZE (copy->args, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (copy->args[0], copy->args);
-		TEST_ALLOC_PARENT (copy->args[1], copy->args);
-		TEST_EQ_STR (copy->args[0], "FOO=foo");
-		TEST_EQ_STR (copy->args[1], "BAR=bar");
-		TEST_EQ_P (copy->args[2], NULL);
+		TEST_ALLOC_PARENT (copy->env, copy);
+		TEST_ALLOC_SIZE (copy->env, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (copy->env[0], copy->env);
+		TEST_ALLOC_PARENT (copy->env[1], copy->env);
+		TEST_EQ_STR (copy->env[0], "FOO=foo");
+		TEST_EQ_STR (copy->env[1], "BAR=bar");
+		TEST_EQ_P (copy->env[2], NULL);
 
 		TEST_EQ_P (copy->event, NULL);
 		TEST_EQ (copy->blocked, FALSE);
@@ -657,7 +650,7 @@ test_operator_copy (void)
 						   "test", NULL);
 			oper->value = TRUE;
 
-			oper->event = event_new (oper, "test", NULL, NULL);
+			oper->event = event_new (oper, "test", NULL);
 			event_ref (oper->event);
 		}
 
@@ -677,7 +670,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->value, TRUE);
 		TEST_EQ_STR (copy->name, "test");
 		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->env, NULL);
 
 		TEST_EQ_P (copy->event, oper->event);
 		TEST_EQ (copy->event->refs, 2);
@@ -699,7 +692,7 @@ test_operator_copy (void)
 						   "test", NULL);
 			oper->value = TRUE;
 
-			oper->event = event_new (oper, "test", NULL, NULL);
+			oper->event = event_new (oper, "test", NULL);
 			event_ref (oper->event);
 
 			event_block (oper->event);
@@ -724,7 +717,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->value, TRUE);
 		TEST_EQ_STR (copy->name, "test");
 		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->env, NULL);
 
 		TEST_EQ_P (copy->event, oper->event);
 		TEST_EQ (copy->event->refs, 2);
@@ -747,7 +740,7 @@ test_operator_copy (void)
 			oper1 = event_operator_new (NULL, EVENT_MATCH,
 						    "foo", NULL);
 			oper1->value = TRUE;
-			oper1->event = event_new (oper1, "foo", NULL, NULL);
+			oper1->event = event_new (oper1, "foo", NULL);
 			event_ref (oper1->event);
 
 			event_block (oper1->event);
@@ -758,7 +751,7 @@ test_operator_copy (void)
 			oper2 = event_operator_new (NULL, EVENT_MATCH,
 						    "bar", NULL);
 			oper2->value = TRUE;
-			oper2->event = event_new (oper2, "foo", NULL, NULL);
+			oper2->event = event_new (oper2, "foo", NULL);
 			event_ref (oper2->event);
 
 			event_block (oper2->event);
@@ -789,7 +782,7 @@ test_operator_copy (void)
 		TEST_EQ (copy->type, EVENT_OR);
 		TEST_EQ (copy->value, TRUE);
 		TEST_EQ_P (copy->name, NULL);
-		TEST_EQ_P (copy->args, NULL);
+		TEST_EQ_P (copy->env, NULL);
 
 		copy1 = (EventOperator *)copy->node.left;
 		TEST_ALLOC_SIZE (copy1, sizeof (EventOperator));
@@ -801,7 +794,7 @@ test_operator_copy (void)
 		TEST_EQ (copy1->value, TRUE);
 		TEST_EQ_STR (copy1->name, "foo");
 		TEST_ALLOC_PARENT (copy1->name, copy1);
-		TEST_EQ_P (copy1->args, NULL);
+		TEST_EQ_P (copy1->env, NULL);
 
 		TEST_EQ_P (copy1->event, oper1->event);
 		TEST_EQ (copy1->event->refs, 2);
@@ -820,7 +813,7 @@ test_operator_copy (void)
 		TEST_EQ (copy2->value, TRUE);
 		TEST_EQ_STR (copy2->name, "bar");
 		TEST_ALLOC_PARENT (copy2->name, copy2);
-		TEST_EQ_P (copy2->args, NULL);
+		TEST_EQ_P (copy2->env, NULL);
 
 		TEST_EQ_P (copy2->event, oper2->event);
 		TEST_EQ (copy2->event->refs, 2);
@@ -848,7 +841,7 @@ test_operator_destroy (void)
 	 */
 	TEST_FUNCTION ("event_operator_destroy");
 	oper = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
-	event = event_new (NULL, "foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL);
 
 	nih_free (oper);
 
@@ -964,11 +957,11 @@ test_operator_match (void)
 {
 	EventOperator *oper;
 	Event         *event;
-	char          *args1[] = { "foo", "bar", "baz", NULL };
-	char          *args2[] = { "foo", "bar", "baz", NULL };
+	char          *env1[] = { "foo", "bar", "baz", NULL };
+	char          *env2[] = { "foo", "bar", "baz", NULL };
 
 	TEST_FUNCTION ("event_operator_match");
-	event = event_new (NULL, "foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL);
 
 	/* Check that two events with different names do not match. */
 	TEST_FEATURE ("with different name events");
@@ -986,33 +979,33 @@ test_operator_match (void)
 	TEST_TRUE (event_operator_match (oper, event));
 
 
-	/* Check that two events with the same arguments lists match. */
-	TEST_FEATURE ("with same argument lists");
-	oper->args = args1;
-	event->args = args2;
+	/* Check that two events with the same environment lists match. */
+	TEST_FEATURE ("with same environment lists");
+	oper->env = env1;
+	event->env = env2;
 
 	TEST_TRUE (event_operator_match (oper, event));
 
 
-	/* Check that the argument list in the operator may be shorter. */
+	/* Check that the environment list in the operator may be shorter. */
 	TEST_FEATURE ("with shorter list in operator");
-	args1[2] = NULL;
+	env1[2] = NULL;
 
 	TEST_TRUE (event_operator_match (oper, event));
 
 
-	/* Check that the argument list in event may not be shorter. */
+	/* Check that the environment list in event may not be shorter. */
 	TEST_FEATURE ("with shorter list in event");
-	args1[2] = args2[2];
-	args2[2] = NULL;
+	env1[2] = env2[2];
+	env2[2] = NULL;
 
 	TEST_FALSE (event_operator_match (oper, event));
 
 
-	/* Check that the opeartor argument lists may be globs. */
-	TEST_FEATURE ("with globs in operator arguments");
-	args2[2] = args1[2];
-	args1[2] = "b?z*";
+	/* Check that the operator environment lists may be globs. */
+	TEST_FEATURE ("with globs in operator environment");
+	env2[2] = env1[2];
+	env1[2] = "b?z*";
 
 	TEST_TRUE (event_operator_match (oper, event));
 
@@ -1044,7 +1037,7 @@ test_operator_handle (void)
 
 	/* Check that a non-matching event doesn't touch the tree. */
 	TEST_FEATURE ("with non-matching event");
-	event = event_new (NULL, "frodo", NULL, NULL);
+	event = event_new (NULL, "frodo", NULL);
 	ret = event_operator_handle (oper1, event);
 
 	TEST_EQ (ret, FALSE);
@@ -1070,7 +1063,7 @@ test_operator_handle (void)
 	 * TRUE.
 	 */
 	TEST_FEATURE ("with matching event");
-	event = event_new (NULL, "foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL);
 	ret = event_operator_handle (oper1, event);
 
 	TEST_EQ (ret, TRUE);
@@ -1095,7 +1088,7 @@ test_operator_handle (void)
 	 * Since the event tips the balance, it should update the expression.
 	 */
 	TEST_FEATURE ("with matching event and complete expression");
-	event = event_new (NULL, "bar", NULL, NULL);
+	event = event_new (NULL, "bar", NULL);
 	ret = event_operator_handle (oper1, event);
 
 	TEST_EQ (ret, TRUE);
@@ -1147,8 +1140,8 @@ test_operator_unblock (void)
 	nih_tree_add (&oper2->node, &oper4->node, NIH_TREE_RIGHT);
 	nih_tree_add (&oper1->node, &oper5->node, NIH_TREE_RIGHT);
 
-	event1 = event_new (NULL, "foo", NULL, NULL);
-	event2 = event_new (NULL, "bar", NULL, NULL);
+	event1 = event_new (NULL, "foo", NULL);
+	event2 = event_new (NULL, "bar", NULL);
 
 	event_operator_handle (oper1, event1);
 	event_operator_handle (oper1, event2);
@@ -1220,8 +1213,8 @@ test_operator_reset (void)
 	nih_tree_add (&oper2->node, &oper4->node, NIH_TREE_RIGHT);
 	nih_tree_add (&oper1->node, &oper5->node, NIH_TREE_RIGHT);
 
-	event1 = event_new (NULL, "foo", NULL, NULL);
-	event2 = event_new (NULL, "bar", NULL, NULL);
+	event1 = event_new (NULL, "foo", NULL);
+	event2 = event_new (NULL, "bar", NULL);
 
 	event_operator_handle (oper1, event1);
 	event_operator_handle (oper1, event2);

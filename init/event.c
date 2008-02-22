@@ -156,15 +156,13 @@ event_next_id (void)
  * event_new:
  * @parent: parent of new event,
  * @name: name of event to emit,
- * @args: arguments to event,
  * @env: environment for event.
  *
  * Allocates an Event structure for the event details given and
  * appends it to the queue of events.
  *
- * Both @args and @env are optional, and may be NULL; if they are given,
- * then the array itself it reparented to belong to the event structure
- * and should not be modified.
+ * @env is optional, and may be NULL; if given, then the array itself is
+ * reparented to belong to the event structure and should not be modified.
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
@@ -183,7 +181,6 @@ event_next_id (void)
 Event *
 event_new (const void  *parent,
 	   const char  *name,
-	   char      **args,
 	   char      **env)
 {
 	Event *event;
@@ -209,10 +206,6 @@ event_new (const void  *parent,
 
 	/* Fill in the event details */
 	NIH_MUST (event->name = nih_strdup (event, name));
-
-	event->args = args;
-	if (event->args)
-		nih_alloc_reparent (event->args, event);
 
 	event->env = env;
 	if (event->env)
@@ -456,12 +449,8 @@ event_finished (Event *event)
 
 			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
 						      event->name));
-			new_event = event_new (NULL, name, NULL, NULL);
+			new_event = event_new (NULL, name, NULL);
 			nih_free (name);
-
-			if (event->args)
-				NIH_MUST (new_event->args = nih_str_array_copy (
-						  new_event, NULL, event->args));
 
 			if (event->env)
 				NIH_MUST (new_event->env = nih_str_array_copy (
@@ -478,13 +467,13 @@ event_finished (Event *event)
  * @parent: parent of new operator,
  * @type: type of operator,
  * @name: name of event to match.
- * @args: arguments of event to match.
+ * @env: environment of event to match.
  *
  * Allocates and returns a new EventOperator structure with the @type given,
  * if @type is EVENT_MATCH then the operator will be used to match an event
  * with the given @name and @arguments using event_match().
  *
- * @args is optional, and may be NULL; if given, then the array itself is
+ * @env is optional, and may be NULL; if given, then the array itself is
  * reparented to belong to the EventOperator structure and should not be
  * modified.
  *
@@ -499,12 +488,12 @@ EventOperator *
 event_operator_new (const void         *parent,
 		    EventOperatorType   type,
 		    const char         *name,
-		    char              **args)
+		    char              **env)
 {
 	EventOperator *oper;
 
 	nih_assert ((type == EVENT_MATCH) || (name == NULL));
-	nih_assert ((type == EVENT_MATCH) || (args == NULL));
+	nih_assert ((type == EVENT_MATCH) || (env == NULL));
 	nih_assert ((type != EVENT_MATCH) || (name != NULL));
 
 	oper = nih_new (parent, EventOperator);
@@ -523,12 +512,12 @@ event_operator_new (const void         *parent,
 			return NULL;
 		}
 
-		oper->args = args;
-		if (oper->args)
-			nih_alloc_reparent (oper->args, oper);
+		oper->env = env;
+		if (oper->env)
+			nih_alloc_reparent (oper->env, oper);
 	} else {
 		oper->name = NULL;
-		oper->args = NULL;
+		oper->env = NULL;
 	}
 
 	oper->event = NULL;
@@ -576,9 +565,9 @@ event_operator_copy (const void          *parent,
 
 	oper->value = old_oper->value;
 
-	if (old_oper->args) {
-		oper->args = nih_str_array_copy (oper, NULL, old_oper->args);
-		if (! oper->args) {
+	if (old_oper->env) {
+		oper->env = nih_str_array_copy (oper, NULL, old_oper->env);
+		if (! oper->env) {
 			nih_free (oper);
 			return NULL;
 		}
@@ -689,7 +678,8 @@ event_operator_update (EventOperator *oper)
  *
  * Compares @oper against @event to see whether they are identical in name,
  * and whether @event contains at least the number of arguments given in
- * @oper, and that each of those arguments matches as a glob.
+ * @oper, and that each of those arguments matches as a glob to environment
+ * in @event.
  *
  * This may only be called if the type of @oper is EVENT_MATCH.
  *
@@ -699,7 +689,7 @@ int
 event_operator_match (EventOperator *oper,
 		      Event         *event)
 {
-	char **arg1, **arg2;
+	char **env1, **env2;
 
 	nih_assert (oper != NULL);
 	nih_assert (oper->type == EVENT_MATCH);
@@ -711,16 +701,16 @@ event_operator_match (EventOperator *oper,
 	if (strcmp (oper->name, event->name))
 		return FALSE;
 
-	/* Match arguments using the operator's argument as a glob */
-	for (arg1 = oper->args, arg2 = event->args;
-	     arg1 && arg2 && *arg1 && *arg2; arg1++, arg2++)
-		if (fnmatch (*arg1, *arg2, 0))
+	/* Match environment using the operator's environment as globs */
+	for (env1 = oper->env, env2 = event->env;
+	     env1 && env2 && *env1 && *env2; env1++, env2++)
+		if (fnmatch (*env1, *env2, 0))
 			return FALSE;
 
-	/* Must be at least the same number of arguments in event as
+	/* Must be at least the same number of environment in event as
 	 * there are in oper
 	 */
-	if (arg1 && *arg1)
+	if (env1 && *env1)
 		return FALSE;
 
 	return TRUE;

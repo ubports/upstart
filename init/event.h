@@ -48,7 +48,6 @@ typedef enum event_progress {
  * @entry: list header,
  * @id: unique id assigned to each event,
  * @name: string name of the event,
- * @args: NULL-terminated list of arguments,
  * @env: NULL-terminated list of environment variables.
  * @progress: progress of event,
  * @failed: whether this event has failed,
@@ -57,9 +56,8 @@ typedef enum event_progress {
  *
  * Events are one of the core concepts of upstart; they occur whenever
  * something, somewhere changes state.  They are idenitied by a unique
- * @name string, and can carry further information in the form of @args
- * and @env; both of which are passed to any jobs whose goal is changed
- * by this event.
+ * @name string, and can carry further information in the form of @env
+ * which are passed to any jobs whose goal is changed by this event.
  *
  * This structure holds all the information on an active event, including
  * the information contained within the event and the current progress of
@@ -73,7 +71,6 @@ typedef struct event {
 	unsigned int     id;
 
  	char            *name;
-	char           **args;
 	char           **env;
 
 	EventProgress    progress;
@@ -102,7 +99,7 @@ typedef enum event_operator_type {
  * @type: operator type,
  * @value: operator value,
  * @name: name of event to match (EVENT_MATCH only),
- * @args: arguments of event to match (EVENT_MATCH only),
+ * @env: environment variables of event to match (EVENT_MATCH only),
  * @event: event matched (EVENT_MATCH only),
  * @blocked: whether @event is blocked (EVENT_MATCH only).
  *
@@ -126,7 +123,7 @@ typedef struct event_operator {
 	int                 value;
 
 	char               *name;
-	char              **args;
+	char              **env;
 
 	Event              *event;
 	int                 blocked;
@@ -225,7 +222,7 @@ NihList      *events;
 void           event_init             (void);
 
 Event         *event_new              (const void *parent, const char *name,
-				       char **args, char **env)
+				       char **env)
 	__attribute__ ((malloc));
 
 Event         *event_find_by_id       (unsigned int id);
@@ -239,7 +236,7 @@ void           event_poll             (void);
 
 EventOperator *event_operator_new     (const void *parent,
 				       EventOperatorType type,
-				       const char *name, char **args)
+				       const char *name, char **env)
 	__attribute__ ((warn_unused_result, malloc));
 EventOperator *event_operator_copy    (const void *parent,
 				       const EventOperator *old_oper)

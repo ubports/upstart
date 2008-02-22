@@ -1,5 +1,18 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h (Event): Remove args member.
+	(EventOperator): Rename args member to env.
+	Update prototypes to match.
+	* init/event.c (event_new): Remove args member.
+	(event_finished): Remove copying of args member to failed event.
+	(event_operator_new): Rename args member to env.
+	(event_operator_copy): Rename args copying to env.
+	(event_operator_match): ??
+	* init/tests/test_event.c (test_new): Update test to remove args.
+	(test_operator_new): Update test to rename args to env.
+	(test_operator_copy): Update test to rename args to env.
+	(test_operator_match): ???
+
 	* TODO: Update with job atomicity notes.
 
 2008-02-20  Scott James Remnant  <scott@netsplit.com>
