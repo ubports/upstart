@@ -1,5 +1,13 @@
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Update event_new () call.
+	(job_emit_event): Update to put failure information in environment.
+	* init/tests/test_job.c (test_new, test_instance)
+	(test_child_handler, test_handle_event)
+	(test_handle_event_finished): Remove extra argument to event_new,
+	rename args to env in operator where necessary.
+	(test_change_state): Update to check emitted event by full environment.
+
 	* init/event.h (Event): Remove args member.
 	(EventOperator): Rename args member to env.
 	Update prototypes to match.

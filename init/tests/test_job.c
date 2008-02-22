@@ -266,15 +266,15 @@ test_new (void)
 
 	oper = event_operator_new (config, EVENT_MATCH, "foo", NULL);
 	oper->value = TRUE;
-	oper->event = event_new (oper, "foo", NULL, NULL);
+	oper->event = event_new (oper, "foo", NULL);
 	event_ref (oper->event);
 	oper->blocked = TRUE;
 	event_block (oper->event);
 	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
 
 	oper = event_operator_new (config, EVENT_MATCH, "bar", NULL);
-	NIH_MUST (nih_str_array_add (&oper->args, oper, NULL, "frodo"));
-	NIH_MUST (nih_str_array_add (&oper->args, oper, NULL, "bilbo"));
+	NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "frodo"));
+	NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "bilbo"));
 	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	config->stop_on = event_operator_new (config, EVENT_MATCH,
@@ -303,7 +303,7 @@ test_new (void)
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "foo");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ (oper->value, TRUE);
 		TEST_EQ (oper->blocked, TRUE);
 		TEST_EQ (oper->event->refs, 2);
@@ -314,20 +314,20 @@ test_new (void)
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "bar");
-		TEST_ALLOC_PARENT (oper->args, oper);
-		TEST_ALLOC_SIZE (oper->args, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (oper->args[0], oper->args);
-		TEST_ALLOC_PARENT (oper->args[1], oper->args);
-		TEST_EQ_STR (oper->args[0], "frodo");
-		TEST_EQ_STR (oper->args[1], "bilbo");
-		TEST_EQ_P (oper->args[2], NULL);
+		TEST_ALLOC_PARENT (oper->env, oper);
+		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 3);
+		TEST_ALLOC_PARENT (oper->env[0], oper->env);
+		TEST_ALLOC_PARENT (oper->env[1], oper->env);
+		TEST_EQ_STR (oper->env[0], "frodo");
+		TEST_EQ_STR (oper->env[1], "bilbo");
+		TEST_EQ_P (oper->env[2], NULL);
 
 		oper = (EventOperator *)job->stop_on;
 		TEST_ALLOC_PARENT (oper, job);
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ (oper->type, EVENT_MATCH);
 		TEST_EQ_STR (oper->name, "baz");
-		TEST_EQ_P (oper->args, NULL);
+		TEST_EQ_P (oper->env, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -579,14 +579,14 @@ test_instance (void)
 
 			oper = (EventOperator *)config->start_on->node.left;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL, NULL);
+			oper->event = event_new (oper, "foo", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
 
 			oper = (EventOperator *)config->start_on->node.right;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL, NULL);
+			oper->event = event_new (oper, "bar", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
@@ -647,14 +647,14 @@ test_instance (void)
 
 			oper = (EventOperator *)config->start_on->node.left;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL, NULL);
+			oper->event = event_new (oper, "foo", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
 
 			oper = (EventOperator *)config->start_on->node.right;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL, NULL);
+			oper->event = event_new (oper, "bar", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
@@ -694,14 +694,14 @@ test_instance (void)
 
 			oper = (EventOperator *)config->start_on->node.left;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL, NULL);
+			oper->event = event_new (oper, "foo", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
 
 			oper = (EventOperator *)config->start_on->node.right;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL, NULL);
+			oper->event = event_new (oper, "bar", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
@@ -761,14 +761,14 @@ test_instance (void)
 
 			oper = (EventOperator *)config->start_on->node.left;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL, NULL);
+			oper->event = event_new (oper, "foo", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
 
 			oper = (EventOperator *)config->start_on->node.right;
 			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL, NULL);
+			oper->event = event_new (oper, "bar", NULL);
 			event_ref (oper->event);
 			oper->blocked = TRUE;
 			event_block (oper->event);
@@ -1070,7 +1070,7 @@ test_change_state (void)
 
 	event_init ();
 
-	cause = event_new (NULL, "wibble", NULL, NULL);
+	cause = event_new (NULL, "wibble", NULL);
 	nih_list_remove (&cause->entry);
 
 
@@ -1119,8 +1119,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "starting");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1185,10 +1185,10 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "respawn");
-		TEST_EQ_P (event->args[3], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=respawn");
+		TEST_EQ_P (event->env[3], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1329,8 +1329,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1402,11 +1402,10 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "pre-start");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_P (event->env, NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=pre-start");
+		TEST_EQ_P (event->env[3], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1487,8 +1486,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1552,8 +1551,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1625,11 +1624,10 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_P (event->env, NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_P (event->env[3], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1843,8 +1841,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1914,8 +1912,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -1985,8 +1983,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2053,8 +2051,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2193,9 +2191,9 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=ok");
+		TEST_EQ_P (event->env[2], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2264,9 +2262,9 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=ok");
+		TEST_EQ_P (event->env[2], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2335,12 +2333,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2402,12 +2399,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_SIGNAL=SEGV");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2469,12 +2465,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_SIGNAL=33");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_SIGNAL=33");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2586,9 +2581,9 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "ok");
-		TEST_EQ_P (event->args[2], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=ok");
+		TEST_EQ_P (event->env[2], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2844,12 +2839,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2907,11 +2901,10 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "post-stop");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_P (event->env, NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=post-stop");
+		TEST_EQ_P (event->env[3], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -2971,12 +2964,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -3030,12 +3022,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -3043,7 +3034,6 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stalled");
-		TEST_EQ_P (event->args, NULL);
 		TEST_EQ_P (event->env, NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
@@ -3109,8 +3099,8 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "starting");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_P (event->args[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
 		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -3180,11 +3170,10 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "respawn");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_P (event->env, NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=respawn");
+		TEST_EQ_P (event->env[3], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -3252,12 +3241,11 @@ test_change_state (void)
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->args[0], "test");
-		TEST_EQ_STR (event->args[1], "failed");
-		TEST_EQ_STR (event->args[2], "main");
-		TEST_EQ_P (event->args[3], NULL);
-		TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[4], NULL);
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		nih_free (event);
@@ -3324,12 +3312,11 @@ test_change_state (void)
 	event = (Event *)events->next;
 	TEST_ALLOC_SIZE (event, sizeof (Event));
 	TEST_EQ_STR (event->name, "stopped");
-	TEST_EQ_STR (event->args[0], "test");
-	TEST_EQ_STR (event->args[1], "failed");
-	TEST_EQ_STR (event->args[2], "main");
-	TEST_EQ_P (event->args[3], NULL);
-	TEST_EQ_STR (event->env[0], "EXIT_STATUS=1");
-	TEST_EQ_P (event->env[1], NULL);
+	TEST_EQ_STR (event->env[0], "JOB=test");
+	TEST_EQ_STR (event->env[1], "RESULT=failed");
+	TEST_EQ_STR (event->env[2], "PROCESS=main");
+	TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+	TEST_EQ_P (event->env[4], NULL);
 	TEST_EQ (event->refs, 0);
 	TEST_EQ (event->blockers, 0);
 	nih_free (event);
@@ -4174,7 +4161,7 @@ test_child_handler (void)
 					      "foo", NULL);
 	nih_hash_add (jobs, &config->entry);
 
-	event = event_new (NULL, "foo", NULL, NULL);
+	event = event_new (NULL, "foo", NULL);
 
 
 	/* Check that the child handler can be called with a pid that doesn't
@@ -6517,7 +6504,7 @@ test_handle_event (void)
 	 * and doesn't result in the event being given any jobs.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	event = event_new (NULL, "biscuit", NULL, NULL);
+	event = event_new (NULL, "biscuit", NULL);
 
 	TEST_ALLOC_FAIL {
 		event->blockers = 0;
@@ -6576,7 +6563,7 @@ test_handle_event (void)
 	 * expression.
 	 */
 	TEST_FEATURE ("with matching event to stop");
-	event = event_new (NULL, "wibble", NULL, NULL);
+	event = event_new (NULL, "wibble", NULL);
 
 	TEST_ALLOC_FAIL {
 		event->blockers = 0;
@@ -6639,8 +6626,8 @@ test_handle_event (void)
 	 * the job, spawning a new instance.
 	 */
 	TEST_FEATURE ("with matching event to start");
-	event = event_new (NULL, "wibble", NULL, NULL);
-	event2 = event_new (NULL, "wobble", NULL, NULL);
+	event = event_new (NULL, "wibble", NULL);
+	event2 = event_new (NULL, "wobble", NULL);
 
 	TEST_ALLOC_FAIL {
 		event->blockers = 0;
@@ -6774,7 +6761,7 @@ test_handle_event_finished (void)
 	/* Check that a non matching event has no effect on either job.
 	 */
 	TEST_FEATURE ("with non-matching event");
-	event = event_new (NULL, "biscuit", NULL, NULL);
+	event = event_new (NULL, "biscuit", NULL);
 
 	TEST_ALLOC_FAIL {
 		job1->goal = JOB_STOP;
@@ -6803,7 +6790,7 @@ test_handle_event_finished (void)
 	 * and then started or stopped as appropriate.
 	 */
 	TEST_FEATURE ("with matching event");
-	event = event_new (NULL, "wibble", NULL, NULL);
+	event = event_new (NULL, "wibble", NULL);
 
 	TEST_ALLOC_FAIL {
 		job1->goal = JOB_STOP;

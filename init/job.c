@@ -813,7 +813,7 @@ job_change_state (Job      *job,
 				nih_info (_("System has stalled, "
 					    "generating %s event"),
 					  STALLED_EVENT);
-				event_new (NULL, STALLED_EVENT, NULL, NULL);
+				event_new (NULL, STALLED_EVENT, NULL);
 			}
 
 			return;
@@ -1000,7 +1000,7 @@ job_emit_event (Job *job)
 	Event       *event;
 	const char  *name;
 	int          stop = FALSE;
-	char       **args = NULL, **env = NULL, *exit;
+	char       **env = NULL, *str;
 	size_t       len;
 
 	nih_assert (job != NULL);
@@ -1025,8 +1025,11 @@ job_emit_event (Job *job)
 	}
 
 	len = 0;
-	NIH_MUST (args = nih_str_array_new (NULL));
-	NIH_MUST (nih_str_array_add (&args, NULL, &len, job->config->name));
+	NIH_MUST (env = nih_str_array_new (NULL));
+
+	/* Add the job name */
+	NIH_MUST (str = nih_sprintf (NULL, "JOB=%s", job->config->name));
+	NIH_MUST (nih_str_array_addp (&env, NULL, &len, str));
 
 	/* Don't include additional arguments unless this is a stop event. */
 	if (! stop)
@@ -1034,24 +1037,26 @@ job_emit_event (Job *job)
 
 	/* Add only a simple "ok" argument if the job didn't fail. */
 	if (! job->failed) {
-		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));
+		NIH_MUST (nih_str_array_add (&env, NULL, &len, "RESULT=ok"));
 		goto emit;
 	}
 
 	/* All failure events get a "failed" argument. */
-	NIH_MUST (nih_str_array_add (&args, NULL, &len, "failed"));
+	NIH_MUST (nih_str_array_add (&env, NULL, &len, "RESULT=failed"));
 
 	/* Check for respawn failure, which has a special "respawn" argument
 	 * and no environment.
 	 */
 	if (job->failed_process == -1) {
-		NIH_MUST (nih_str_array_add (&args, NULL, &len, "respawn"));
+		NIH_MUST (nih_str_array_add (&env, NULL, &len,
+					     "PROCESS=respawn"));
 		goto emit;
 	}
 
 	/* All other failure events get the process name as an argument. */
-	NIH_MUST (nih_str_array_add (&args, NULL, &len,
+	NIH_MUST (str = nih_sprintf (NULL, "PROCESS=%s",
 				     process_name (job->failed_process)));
+	NIH_MUST (nih_str_array_addp (&env, NULL, &len, str));
 
 	/* Check for spawn failure, which receives no environment */
 	if (job->exit_status == -1)
@@ -1065,25 +1070,20 @@ job_emit_event (Job *job)
 
 		sig = nih_signal_to_name (job->exit_status >> 8);
 		if (sig) {
-			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_SIGNAL=%s",
-						      sig));
+			NIH_MUST (str = nih_sprintf (NULL, "EXIT_SIGNAL=%s",
+						     sig));
 		} else {
-			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_SIGNAL=%d",
-						      job->exit_status >> 8));
+			NIH_MUST (str = nih_sprintf (NULL, "EXIT_SIGNAL=%d",
+						     job->exit_status >> 8));
 		}
 	} else {
-		NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
-					      job->exit_status));
+		NIH_MUST (str = nih_sprintf (NULL, "EXIT_STATUS=%d",
+					     job->exit_status));
 	}
-
-	/* Add to the environment */
-	len = 0;
-	NIH_MUST (env = nih_str_array_new (NULL));
-	NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
-
+	NIH_MUST (nih_str_array_addp (&env, NULL, &len, str));
 
 emit:
-	event = event_new (NULL, name, args, env);
+	event = event_new (NULL, name, env);
 
 	return event;
 }
