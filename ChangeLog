@@ -1,3 +1,7 @@
+2008-02-22  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update with job atomicity notes.
+
 2008-02-20  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c: Switch around job_find_by_pid and job_find_by_id

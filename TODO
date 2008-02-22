@@ -1,55 +1,155 @@
+Job Atomicity:
+
+  start by event:
+    for config:
+        event_operator_handle (config.start_on, $event)
+        if config.start_on:
+            env = job_config_environment (config)
+            (env, blocking) = event_operator_collect (config.start_on)
+{            job = job_instance (config, env)
+{            if not job:
+{                job = job_new (config)
+            job_start (job, env, blocking)
+
+            event_oper_reset (config.start_on)
+
+  stop by event:
+    for config:
+        for job in config:
+            event_operator_handle (job.stop_on, $event)
+            if job.stop_on:
+                (env, blocking) = event_operator_collect (job.stop_on)
+                job_stop (job, env, blocking)
+
+                event_oper_reset (job.stop_on)
+
+
+  start by name:
+    env = job_config_environment ($config)
+    if $env:
+        env += $env
+
+{    job = job_instance ($config, env)
+{    if not job:
+{        job = job_new ($config)
+    elif not $env:
+        env = NULL
+
+    job_start (job, env, NULL)
+
+  stop by name:
+    if $env:
+        job = job_instance ($config, $env)
+        if job:
+            job_stop (job, $env, NULL)
+            return
+
+    for job in $config:
+        job_stop (job, $env, NULL)
+
+
+  start by id
+    if $env:
+        env = job_config_environment ($job.config)
+        env += $env
+    else:
+        env = NULL
+    job_start ($job, env, NULL)
+
+  stop by id:
+    job_stop ($job, $env, NULL)
+
+
+job_config_environment (config)
+    env = COPY (builtin)
+    env += config.env
+  return env
+
+
+# starting with an environment replaces any previous environment,
+#   without means the previous environment is always used
+#
+# starting with blocked events replaces any previous blocked events
+#   which are allowed to continue (this seems a bit whack)
+job_start (job, env, blocking)
+    if job.goal != START:
+        if env != NULL:
+            env += "UPSTART_JOB=${job.name}"
+            env += "UPSTART_JOB_ID=${job.id}"
+            free (job.next_env)
+            job.next_env = env
+        if blocking != NULL:
+            unblock (job.next_blocking)
+            job.next_blocking = blocking
+        job_change_goal (job, START)
+
+# this would end up discarding a previous change to the run environment
+#   just so it can put back the previous environment -- that's kinda sucky
+job_stop (job, env)
+    if job.goal != STOP:
+        if env != NULL:
+            free (job.next_env)
+            job.next_env = job.env
+            job.env = COPY (job.next_env)
+            job.env += env
+            job.env += "UPSTART_JOB=${job.name}"
+            job.env += "UPSTART_JOB_ID=${job.id}"
+        if blocking != NULL:
+            unblock (job.next_blocking)
+            job.next_blocking = job.blocking
+            job.blocking = COPY (job.next_blocking)
+	    job.blocking += blocking
+        job_change_goal (job, STOP)
+
+
 High Priority:
 
- * The "Event Expression"/"State" code isn't complete yet, and has atomicity
-   issues.
-   * Using start_on/stop_on to store referenced events for the environment
-     isn't going to work; it means that it's trivial for jobs to be re-started
-     or re-stopped by just one event rather than the whole sequence.  As soon
-     as the sequence is complete, we should transfer the events that matter to
-     a "state instance" and use *that* for the environment.
+ * Job atomicity issues when starting and stopping the job need to be solved.
 
-     * This works for the "start state", but not for the "stop state": I
-       actually don't mind this on the whole, because it means the
-       pre-stop/post-stop will actually get the environment of the start
-       bits of the job as well.  It's not perfect though, because we still
-       need to somehow fail the stop events in the event that there's an
-       error stopping (err, is this ever true?) even if not, we still need
-       to unblock the buggers.
+   * We cannot use start_on/stop_on to store the referenced events and hold
+     the blocks because we need to reset them so that the entire sequence of
+     events has to happen to change the goal again, not just one of them.
 
-   * All of this doesn't sit well with restarting; for example, what if a getty
-     instance is started by tty-added tty1 ... tty-removed tty1, and then the
-     same event happens again?  possibly while the instance is still running
-     or stopping!
+   * Thus from start_on/stop_on we need to "collect" the environment and
+     list of events -- we'll be smart about this and ignore parts of the tree
+     that aren't true.
 
-     * Maybe states/jobs should specify what makes an instance unique - and
-       this becomes the instance arguments?
+   * We'll only block on one command at a time, if blocking on start and the
+     job is stopped, the start command will exit with an error since it wasn't
+     completed (it won't wait to stop)
 
-     * See also instance names.
+   * The instance will therefore hold the list of events it is blocking,
+     and this is reset every time the job is started or stopped by the actual
+     goal change?
 
-     * This needs event variables for keys!  If we have the "environment"
-       of a job, this starts to become possible.
+   * Instances don't need start_on, instead they have the above blocking list
+     and hold their own environment internally.
 
-   * One way would be to always combine an EventOperator set with an
-     "EventState" when the operator becomes true, the current values are
-     copied into the EventState and the operator tree automatically reset. 
-     You would then unblock and unreference the EventState part, not the
-     EventOperator part (which is always blocked or empty).
+   * Can't just set this environment on the command, since we want to retain
+     the previous one until stopped.
 
-     * This makes the combined thing atomic and repeatable.
+   * Set environment in the starting state from the "next environment" if
+     not NULL.
 
-     * We'd need one for both start and stop (since we'd need to know the state
-       that caused us to stop).
+   * Set the next environment in start to the new one, or leave as NULL if
+     no environment provided.
 
-     * We'd have to reset the operator and state if we're started manually or
-       stopped manually?  This isn't true right now, and I'm not sure what the
-       desired result is.
+   * (the NULL piece allows an environment-less restart to leave the
+      environment of a job alone)
 
-     * Event States themselves need this for the instances, since if we permit
-       instances to restart, we do need to track their "start" events not to
-       mention their "stop" events.
+   * stop_on is only used for instances (the configured one is copied into
+     the instance)
 
-   * Make sure that event subscribers get notified of the job event, but
-     don't get notified twice!
+   * Collect the list of events into the ordinary blocking set (since we're
+     resetting and failing the previously blocking events -- do we actually
+     fail?)
+
+   * Collect the environment into a "stop environment" table.
+
+   * "stop environment" table is only used for the pre-stop script.
+
+   * It's reset on waiting, starting and whenever a new stop command is issued,
+     so there can only ever be one.
 
  * Configuration reloading needs to happen with an initctl command;
    we also need to support re-exec via initctl as well.
