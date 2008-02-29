@@ -82,13 +82,22 @@
 #endif
 
 /**
+ * SBINDIR:
+ *
+ * Directory containing system binaries.
+ **/
+#ifndef SBINDIR
+#define SBINDIR "/sbin"
+#endif
+
+/**
  * TELINIT:
  *
  * This is the telinit binary used when init is executed as an ordinary
  * process.
  **/
 #ifndef TELINIT
-#define TELINIT "/sbin/telinit"
+#define TELINIT SBINDIR "/telinit"
 #endif
 
 

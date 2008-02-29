@@ -1,3 +1,14 @@
+2008-02-29  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am (AM_CPPFLAGS): Replace TELINIT definition with
+	SBINDIR, pointing at the common directory.
+	* compat/sysv/Makefile.am (AM_CPPFLAGS): Replace SHUTDOWN definition
+	with SBINDIR, pointing at the common directory.
+	* init/paths.h (TELINIT): Redefine to be SBINDIR with "/telinit"
+	on the end; define SBINDIR if necessary.
+	* compat/sysv/reboot.c (SHUTDOWN): Redefine to be SBINDIR with
+	"/shutdown" on the end; define SBINDIR if necessary.
+
 2008-02-22  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.c (event_operator_match): Rewrite to match both

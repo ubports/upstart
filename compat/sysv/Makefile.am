@@ -2,7 +2,7 @@
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
-	-DSHUTDOWN="\"$(sbindir)/shutdown\"" \
+	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
 	-I$(top_srcdir)/intl
 

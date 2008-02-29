@@ -66,12 +66,21 @@
 #endif
 
 /**
+ * SBINDIR:
+ *
+ * Directory containing system binaries.
+ **/
+#ifndef SBINDIR
+#define SBINDIR "/sbin"
+#endif
+
+/**
  * SHUTDOWN:
  *
  * Program to call when not called with -f.
  **/
 #ifndef SHUTDOWN
-#define SHUTDOWN "/sbin/shutdown"
+#define SHUTDOWN SBINDIR "/shutdown"
 #endif
 
 

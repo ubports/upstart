@@ -6,7 +6,7 @@ AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DCONFDIR="\"$(initconfdir)\"" \
 	-DLEGACY_CONFDIR="\"$(sysconfdir)/event.d\"" \
-	-DTELINIT="\"$(sbindir)/telinit\"" \
+	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
 	-I$(top_srcdir)/intl
 
