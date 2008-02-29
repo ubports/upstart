@@ -38,6 +38,19 @@ AC_ARG_ENABLE(compat,
 esac], [compat_sysv=none])dnl
 AM_CONDITIONAL(COMPAT_SYSV, test "x$compat" = "xsysv")dnl
 
+AC_MSG_CHECKING([whether to include sbindir in PATH])
+eval upstart_sbindir=\"$sbindir\"
+case $upstart_sbindir in
+    /sbin|//sbin|/usr/sbin|/usr/local/sbin)
+    	AC_MSG_RESULT([no])
+	;;
+    *)
+    	AC_MSG_RESULT([yes])
+	AC_DEFINE_UNQUOTED([EXTRA_PATH], ["$upstart_sbindir"],
+			   [Directory to append to path.])
+	;;
+esac
+
 
 AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
 		  nih/Makefile init/Makefile doc/Makefile ])

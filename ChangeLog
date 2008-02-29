@@ -1,5 +1,10 @@
 2008-02-29  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Compare the evaluated $sbindir against the common
+	things we put in PATH, if it doesn't match, define EXTRA_PATH to
+	contain it.
+	* init/paths.h: Append EXTRA_PATH to PATH if defined.
+
 	* init/Makefile.am (AM_CPPFLAGS): Replace TELINIT definition with
 	SBINDIR, pointing at the common directory.
 	* compat/sysv/Makefile.am (AM_CPPFLAGS): Replace SHUTDOWN definition
