@@ -176,7 +176,7 @@ test_config_replace (void)
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
 	config3 = file3->job = job_config_new (NULL, "frodo");
 
-	job = job_instance (config3);
+	job = job_new (config3);
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
@@ -282,16 +282,21 @@ test_new (void)
 
 
 	TEST_ALLOC_FAIL {
+		job_instances = 0;
+
 		job = job_new (config);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (job, NULL);
+			TEST_EQ (job_instances, 0);
 			continue;
 		}
 
 		TEST_ALLOC_PARENT (job, config);
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->entry);
+
+		TEST_EQ (job_instances, 1);
 
 		oper = (EventOperator *)job->start_on;
 		TEST_ALLOC_PARENT (oper, job);
@@ -391,20 +396,20 @@ test_find_by_pid (void)
 	config3->process[PROCESS_POST_STOP] = job_process_new (config3);
 	nih_hash_add (jobs, &config3->entry);
 
-	job1 = job_instance (config1);
+	job1 = job_new (config1);
 	job1->pid[PROCESS_MAIN] = 10;
 	job1->pid[PROCESS_POST_START] = 15;
 
-	job2 = job_instance (config1);
+	job2 = job_new (config1);
 
-	job3 = job_instance (config2);
+	job3 = job_new (config2);
 	job3->pid[PROCESS_PRE_START] = 20;
 
-	job4 = job_instance (config2);
+	job4 = job_new (config2);
 	job4->pid[PROCESS_MAIN] = 25;
 	job4->pid[PROCESS_PRE_STOP] = 30;
 
-	job5 = job_instance (config3);
+	job5 = job_new (config3);
 	job5->pid[PROCESS_POST_STOP] = 35;
 
 	/* Check that we can find a job that exists by the pid of its
@@ -509,9 +514,9 @@ test_find_by_id (void)
 	config2 = job_config_new (NULL, "bar");
 	nih_hash_add (jobs, &config2->entry);
 
-	job1 = job_instance (config1);
-	job2 = job_instance (config1);
-	job3 = job_instance (config2);
+	job1 = job_new (config1);
+	job2 = job_new (config1);
+	job3 = job_new (config2);
 
 
 	/* Check that we can find a job by its id. */
@@ -551,7 +556,6 @@ test_instance (void)
 {
 	JobConfig     *config;
 	Job           *job, *ptr;
-	EventOperator *oper;
 
 	TEST_FUNCTION ("job_instance");
 
@@ -559,261 +563,63 @@ test_instance (void)
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = "echo";
 
-	config->start_on = event_operator_new (config, EVENT_AND, NULL, NULL);
 
-	oper = event_operator_new (config->start_on, EVENT_MATCH, "foo", NULL);
-	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
-
-	oper = event_operator_new (config->start_on, EVENT_MATCH, "bar", NULL);
-	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
-
-
-	/* Check that a new job is created for a single-instance job, and
-	 * that it is the first item in the instances list; the event
-	 * operator in the config should have been reset.
+	/* Check that NULL is returned for an inactive single instance job,
+	 * which should indicate a new instance should be created.
 	 */
 	TEST_FEATURE ("with inactive single-instance job");
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			config->start_on->value = TRUE;
-
-			oper = (EventOperator *)config->start_on->node.left;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-
-			oper = (EventOperator *)config->start_on->node.right;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-		}
-
 		job = job_instance (config);
 
-		TEST_LIST_NOT_EMPTY (&config->instances);
-		TEST_EQ_P (job, (Job *)config->instances.next);
-
-		oper = config->start_on;
-		TEST_EQ (oper->value, FALSE);
-
-		oper = (EventOperator *)config->start_on->node.left;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-		oper = (EventOperator *)config->start_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-
-		oper = job->start_on;
-		TEST_EQ (oper->value, TRUE);
-
-		oper = (EventOperator *)job->start_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 1);
-		TEST_EQ (oper->event->blockers, 1);
-
-		oper = (EventOperator *)job->start_on->node.right;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 1);
-		TEST_EQ (oper->event->blockers, 1);
-
-		event_operator_reset (job->start_on);
-
-		nih_free (job);
+		TEST_EQ_P (job, NULL);
 	}
 
 
-	/* Check that for a single-instance job with an existing instance,
-	 * we get the existing instance returned; the event operator
-	 * should still have been reset.
+	/* Check that the active instance of a single-instance job is
+	 * returned.
 	 */
 	TEST_FEATURE ("with active single-instance job");
-	job = job_instance (config);
+	job = job_new (config);
 
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			config->start_on->value = TRUE;
-
-			oper = (EventOperator *)config->start_on->node.left;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-
-			oper = (EventOperator *)config->start_on->node.right;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-		}
-
 		ptr = job_instance (config);
 
 		TEST_EQ_P (ptr, job);
-
-		oper = config->start_on;
-		TEST_EQ (oper->value, FALSE);
-
-		oper = (EventOperator *)config->start_on->node.left;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-		oper = (EventOperator *)config->start_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
 	}
 
 	nih_free (job);
 
 
-	/* Check that a new job is created for a multi-instance job, and
-	 * that it is the first item in the instances list; the event
-	 * operator in the config should have been reset.
+	/* Check that NULL is returned for an inactive multi-instance job,
+	 * indicating that a new instance should be created (which is
+	 * always true in this case).
 	 */
 	TEST_FEATURE ("with inactive multi-instance job");
 	config->instance = TRUE;
 
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			config->start_on->value = TRUE;
-
-			oper = (EventOperator *)config->start_on->node.left;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-
-			oper = (EventOperator *)config->start_on->node.right;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-		}
-
 		job = job_instance (config);
 
-		TEST_LIST_NOT_EMPTY (&config->instances);
-		TEST_EQ_P (job, (Job *)config->instances.next);
-
-		oper = config->start_on;
-		TEST_EQ (oper->value, FALSE);
-
-		oper = (EventOperator *)config->start_on->node.left;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-		oper = (EventOperator *)config->start_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-
-		oper = job->start_on;
-		TEST_EQ (oper->value, TRUE);
-
-		oper = (EventOperator *)job->start_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 1);
-		TEST_EQ (oper->event->blockers, 1);
-
-		oper = (EventOperator *)job->start_on->node.right;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 1);
-		TEST_EQ (oper->event->blockers, 1);
-
-		event_operator_reset (job->start_on);
-
-		nih_free (job);
+		TEST_EQ_P (job, NULL);
 	}
 
+	config->instance = FALSE;
 
-	/* Check that for a multi-instance job with an existing instance,
-	 * we get a new instance as if it wasn't there.
+
+	/* Check that NULL is still returned for an active multi-instance job,
+	 * since we always want to create a new instance so none can match.
 	 */
 	TEST_FEATURE ("with active single-instance job");
-	job = job_instance (config);
+	config->instance = TRUE;
+	job = job_new (config);
 
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			config->start_on->value = TRUE;
-
-			oper = (EventOperator *)config->start_on->node.left;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "foo", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-
-			oper = (EventOperator *)config->start_on->node.right;
-			oper->value = TRUE;
-			oper->event = event_new (oper, "bar", NULL);
-			event_ref (oper->event);
-			oper->blocked = TRUE;
-			event_block (oper->event);
-		}
-
 		ptr = job_instance (config);
 
-		TEST_NE_P (ptr, job);
-
-		oper = config->start_on;
-		TEST_EQ (oper->value, FALSE);
-
-		oper = (EventOperator *)config->start_on->node.left;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-		oper = (EventOperator *)config->start_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-
-
-		oper = ptr->start_on;
-		TEST_EQ (oper->value, TRUE);
-
-		oper = (EventOperator *)ptr->start_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 1);
-		TEST_EQ (oper->event->blockers, 1);
-
-		oper = (EventOperator *)ptr->start_on->node.right;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 1);
-		TEST_EQ (oper->event->blockers, 1);
-
-		event_operator_reset (ptr->start_on);
-
-		nih_free (ptr);
+		TEST_EQ_P (ptr, NULL);
 	}
 
+	config->instance = FALSE;
 	nih_free (job);
 
 
@@ -846,7 +652,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with waiting job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -873,7 +679,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with stopping job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -899,7 +705,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with running job and start");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -925,7 +731,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with running job and stop");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -953,7 +759,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with running job and no process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -979,7 +785,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with starting job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1003,7 +809,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with waiting job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -1080,7 +886,7 @@ test_change_state (void)
 	TEST_FEATURE ("waiting to starting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1144,7 +950,7 @@ test_change_state (void)
 	TEST_FEATURE ("waiting to starting too fast");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -1211,7 +1017,7 @@ test_change_state (void)
 	TEST_FEATURE ("starting to pre-start");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1279,7 +1085,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1357,7 +1163,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -1436,7 +1242,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-start to spawned");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1512,7 +1318,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1579,7 +1385,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -1660,7 +1466,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1730,7 +1536,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1800,7 +1606,7 @@ test_change_state (void)
 	TEST_FEATURE ("spawned to post-start without process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -1867,7 +1673,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -1942,7 +1748,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-start to running");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -2010,7 +1816,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -2080,7 +1886,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2150,7 +1956,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to pre-stop without process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2217,7 +2023,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -2294,7 +2100,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2360,7 +2166,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping for killed process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2426,7 +2232,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping for unknown signal");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2490,7 +2296,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-stop to running");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2542,7 +2348,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-stop to stopping");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2605,7 +2411,7 @@ test_change_state (void)
 	TEST_FEATURE ("stopping to killed");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2673,7 +2479,7 @@ test_change_state (void)
 	TEST_FEATURE ("stopping to killed without process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2738,7 +2544,7 @@ test_change_state (void)
 	TEST_FEATURE ("killed to post-stop");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2807,7 +2613,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2865,7 +2671,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -2927,7 +2733,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to waiting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -2985,7 +2791,7 @@ test_change_state (void)
 		job_instances = 0;
 
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -3051,7 +2857,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to starting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_START;
@@ -3126,7 +2932,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 99;
 		}
 
@@ -3202,7 +3008,7 @@ test_change_state (void)
 			file->job = job_config_new (NULL, "test");
 			replacement = file->job;
 
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		nih_hash_add (jobs, &config->entry);
@@ -3272,7 +3078,7 @@ test_change_state (void)
 	replacement = file->job;
 
 	config->deleted = TRUE;
-	job = job_instance (config);
+	job = job_new (config);
 
 	nih_hash_add (jobs, &config->entry);
 
@@ -3349,7 +3155,7 @@ test_next_state (void)
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = "echo";
 
-	job = job_instance (config);
+	job = job_new (config);
 
 	/* Check that the next state if we're starting a waiting job is
 	 * starting.
@@ -3590,7 +3396,7 @@ test_run_process (void)
 				config->process[PROCESS_MAIN],
 				"touch %s", filename);
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -3622,7 +3428,7 @@ test_run_process (void)
 				config->process[PROCESS_MAIN],
 				"echo $$ > %s", filename);
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -3660,7 +3466,7 @@ test_run_process (void)
 				config->process[PROCESS_MAIN],
 				"exec > %s\necho $0\necho $@", filename);
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -3699,7 +3505,7 @@ test_run_process (void)
 				"exec > %s\ntest -d %s\necho oops",
 				filename, filename);
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -3745,7 +3551,7 @@ test_run_process (void)
 				strcat (config->process[PROCESS_MAIN]->command,
 					"# this just bulks it out a bit");
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -3807,7 +3613,7 @@ no_devfd:
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -3843,7 +3649,7 @@ no_devfd:
 			config->process[PROCESS_PRE_START] = job_process_new (config);
 			config->process[PROCESS_PRE_START]->command = "true";
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_PRE_START;
 
@@ -3881,7 +3687,7 @@ no_devfd:
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -3928,7 +3734,7 @@ no_devfd:
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -3976,7 +3782,7 @@ no_devfd:
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = filename;
 
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
@@ -4028,7 +3834,7 @@ test_kill_process (void)
 	TEST_FEATURE ("with easily killed process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -4073,7 +3879,7 @@ test_kill_process (void)
 		int wait_fd = 0;
 
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 		}
 
 		job->goal = JOB_STOP;
@@ -4170,7 +3976,7 @@ test_child_handler (void)
 	TEST_FEATURE ("with unknown pid");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4224,7 +4030,7 @@ test_child_handler (void)
 	TEST_FEATURE ("with running process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4283,7 +4089,7 @@ test_child_handler (void)
 		NihTimer *timer = NULL;
 
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4334,7 +4140,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4399,7 +4205,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4469,7 +4275,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4541,7 +4347,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4611,7 +4417,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4681,7 +4487,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4748,7 +4554,7 @@ test_child_handler (void)
 	TEST_FEATURE ("with killed running process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4799,7 +4605,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4869,7 +4675,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4935,7 +4741,7 @@ test_child_handler (void)
 	TEST_FEATURE ("with running task and zero exit");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -4993,7 +4799,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5038,7 +4844,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5091,7 +4897,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5146,7 +4952,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5216,7 +5022,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5279,7 +5085,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5342,7 +5148,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5428,7 +5234,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5522,7 +5328,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5594,7 +5400,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5656,7 +5462,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5721,7 +5527,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5795,7 +5601,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5867,7 +5673,7 @@ test_child_handler (void)
 	TEST_FEATURE ("with stopped main process for non-wait job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -5937,7 +5743,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -6010,7 +5816,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 		}
 
@@ -6080,7 +5886,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_state = TRACE_NORMAL;
 		}
@@ -6129,7 +5935,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_state = TRACE_NEW;
 		}
@@ -6178,7 +5984,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_state = TRACE_NEW_CHILD;
 		}
@@ -6226,7 +6032,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_forks = 1;
 			job->trace_state = TRACE_NEW_CHILD;
@@ -6277,7 +6083,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_forks = 0;
 			job->trace_state = TRACE_NEW_CHILD;
@@ -6329,7 +6135,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_state = TRACE_NORMAL;
 		}
@@ -6397,7 +6203,7 @@ test_child_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_instance (config);
+			job = job_new (config);
 			job->id = 1;
 			job->trace_forks = 1;
 			job->trace_state = TRACE_NORMAL;
@@ -6510,7 +6316,10 @@ test_handle_event (void)
 		event->blockers = 0;
 		event->refs = 0;
 
-		job2 = job_instance (config2);
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+		}
+
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
 		job2->blocked = NULL;
@@ -6569,7 +6378,10 @@ test_handle_event (void)
 		event->blockers = 0;
 		event->refs = 0;
 
-		job2 = job_instance (config2);
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+		}
+
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
 		job2->blocked = NULL;
@@ -6636,7 +6448,10 @@ test_handle_event (void)
 		event2->blockers = 0;
 		event2->refs = 0;
 
-		job2 = job_instance (config2);
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+		}
+
 		job2->goal = JOB_START;
 		job2->state = JOB_RUNNING;
 		job2->blocked = NULL;
@@ -6659,6 +6474,19 @@ test_handle_event (void)
 		TEST_EQ (job1->blocked->refs, 1);
 		event_unref (job1->blocked);
 
+		oper = config1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)config1->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)config1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
 		oper = job1->start_on;
 		TEST_EQ (oper->value, TRUE);
 
@@ -6671,19 +6499,6 @@ test_handle_event (void)
 		TEST_EQ (oper->value, TRUE);
 		TEST_EQ_P (oper->event, event2);
 		TEST_EQ (oper->blocked, TRUE);
-
-		oper = config1->start_on;
-		TEST_EQ (oper->value, FALSE);
-
-		oper = (EventOperator *)config1->start_on->node.left;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
-
-		oper = (EventOperator *)config1->start_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_STOPPING);
@@ -6739,7 +6554,7 @@ test_handle_event_finished (void)
 	config1->start_on = event_operator_new (config1, EVENT_MATCH,
 						"wibble", NULL);
 
-	job1 = job_instance (config1);
+	job1 = job_new (config1);
 
 	nih_hash_add (jobs, &config1->entry);
 
@@ -6753,7 +6568,7 @@ test_handle_event_finished (void)
 	config2->stop_on = event_operator_new (config2, EVENT_MATCH,
 					       "wibble", NULL);
 
-	job2 = job_instance (config2);
+	job2 = job_new (config2);
 
 	nih_hash_add (jobs, &config2->entry);
 

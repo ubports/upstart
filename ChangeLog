@@ -1,3 +1,31 @@
+2008-03-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_new): Increment the number of instances.
+	(job_instance): Simplify the function, it now only returns the
+	existing instance or NULL.  This makes it easier to extend when
+	we have env-limited instances later on.
+	(job_handle_event): If job_instance returns NULL, create
+	a new instance with job_new() and always reset the operator afterwards.
+	* init/tests/test_job.c (test_new): Check that the instances variable
+	is incremented when a new job is created.
+	(test_instance): Change to check that it returns NULL when there is
+	no active instance, or for multi-instance jobs, instead of creating
+	a new one itself.
+	(test_config_replace, test_find_by_pid)
+	(test_find_by_id, test_change_goal, test_change_state)
+	(test_next_state, test_run_process, test_kill_process)
+	(test_child_handler, test_handle_event)
+	(test_handle_event_finished): Call job_new to create a new instance
+	from a config, instead of job_instance.
+
+	* init/tests/test_conf.c (test_source_reload_job_dir)
+	(test_file_destroy): Call job_new to create a new instance from a
+	config, instead of job_instance.
+	* init/tests/test_event.c (test_poll): Call job_new to create a new
+	instance from a config, instead of job_instance.
+	* init/tests/test_process.c (test_spawn, test_environment): Call
+	job_new to create a new instance from a config, instead of job_instance
+
 2008-02-29  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Compare the evaluated $sbindir against the common

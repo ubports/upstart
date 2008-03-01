@@ -131,7 +131,7 @@ test_spawn (void)
 
 	config = job_config_new (NULL, "test");
 
-	job = job_instance (config);
+	job = job_new (config);
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
@@ -170,7 +170,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 	config->console = CONSOLE_NONE;
 
-	job = job_instance (config);
+	job = job_new (config);
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
@@ -197,7 +197,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 	config->chdir = "/tmp";
 
-	job = job_instance (config);
+	job = job_new (config);
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
@@ -225,7 +225,7 @@ test_spawn (void)
 	env[0] = "FOO=bar";
 	env[1] = NULL;
 
-	job = job_instance (config);
+	job = job_new (config);
 	job->id = 1000;
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
@@ -260,7 +260,7 @@ test_spawn (void)
 	env[0] = "FOO=bar";
 	env[1] = NULL;
 
-	job = job_instance (config);
+	job = job_new (config);
 	job->id = 1000;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
@@ -321,7 +321,7 @@ test_spawn (void)
 
 	config = job_config_new (NULL, "test");
 
-	job = job_instance (config);
+	job = job_new (config);
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
@@ -343,7 +343,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 	config->wait_for = JOB_WAIT_DAEMON;
 
-	job = job_instance (config);
+	job = job_new (config);
 	pid = process_spawn (job, args, TRUE);
 	TEST_GT (pid, 0);
 
@@ -373,7 +373,7 @@ test_spawn (void)
 
 	config = job_config_new (NULL, "test");
 
-	job = job_instance (config);
+	job = job_new (config);
 	pid = process_spawn (job, args, FALSE);
 	TEST_LT (pid, 0);
 
@@ -478,7 +478,7 @@ test_environment (void)
 	TEST_FEATURE ("with empty environment");
 	config = job_config_new (NULL, "test");
 
-	job = job_instance (config);
+	job = job_new (config);
 	job->id = 99;
 
 	TEST_ALLOC_FAIL {
@@ -518,7 +518,7 @@ test_environment (void)
 	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
 	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
 
-	job = job_instance (config);
+	job = job_new (config);
 	job->id = 99;
 
 	TEST_ALLOC_FAIL {
@@ -559,7 +559,7 @@ test_environment (void)
 	TEST_FEATURE ("with environment from start events");
 	config = job_config_new (NULL, "test");
 
-	job = job_instance (config);
+	job = job_new (config);
 	job->id = 99;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
@@ -638,7 +638,7 @@ test_environment (void)
 	assert (nih_str_array_add (&(config->env), config, NULL,
 				   "UPSTART_JOB=evil"));
 
-	job = job_instance (config);
+	job = job_new (config);
 	job->id = 99;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);

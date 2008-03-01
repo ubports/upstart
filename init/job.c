@@ -433,6 +433,7 @@ job_new (JobConfig  *config)
 	job->trace_state = TRACE_NONE;
 
 	nih_list_add (&config->instances, &job->entry);
+	job_instances++;
 
 	return job;
 }
@@ -510,32 +511,21 @@ job_find_by_pid (pid_t        pid,
  * job_instance:
  * @config: job configuration to spawn from.
  *
- * This function is used to obtain the relevant job instance from @config,
- * spawning a new instance if necessary.
+ * This function is used to obtain the relevant job instance from @config;
+ * for multi-instance jobs no instance is relevant, so this will always
+ * return NULL.
  *
- * Returns: new or existing instance.
+ * Returns: existing instance or NULL if a new one should be created.
  **/
 Job *
 job_instance (JobConfig *config)
 {
-	Job *job;
-
 	nih_assert (config != NULL);
 
-	if (config->instance || NIH_LIST_EMPTY (&config->instances)) {
-		NIH_MUST (job = job_new (config));
+	if (config->instance || NIH_LIST_EMPTY (&config->instances))
+		return NULL;
 
-		job_instances++;
-	} else {
-		job = (Job *)config->instances.next;
-	}
-
-	/* Reset the configuration so it can start other instances.
-	 */
-	if (config->start_on)
-		event_operator_reset (config->start_on);
-
-	return job;
+	return (Job *)config->instances.next;
 }
 
 
@@ -2017,7 +2007,10 @@ job_handle_event (Event *event)
 			Job *job;
 
 			job = job_instance (config);
+			if (! job)
+				NIH_MUST (job = job_new (config));
 			job_change_goal (job, JOB_START);
+			event_operator_reset (config->start_on);
 		}
 	}
 }
