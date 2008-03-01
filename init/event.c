@@ -38,6 +38,7 @@
 #include <nih/main.h>
 #include <nih/logging.h>
 
+#include "environ.h"
 #include "event.h"
 #include "job.h"
 
@@ -692,7 +693,8 @@ int
 event_operator_match (EventOperator *oper,
 		      Event         *event)
 {
-	char **oenv, **eenv;
+	char * const *oenv;
+	char * const *eenv;
 
 	nih_assert (oper != NULL);
 	nih_assert (oper->type == EVENT_MATCH);
@@ -714,12 +716,9 @@ event_operator_match (EventOperator *oper,
 		oval = strchr (*oenv, '=');
 		if (oval) {
 			/* Hunt through the environment table to find the
-			 * equivalent entry; break out to leave the pointer
-			 * pointing at it.
-			 */
-			for (eenv = event->env; eenv && *eenv; eenv++)
-				if (strncmp (*eenv, *oenv, oval - *oenv) == 0)
-					break;
+			 * equivalent entry */
+			eenv = environ_lookup (event->env, *oenv,
+					       oval - *oenv);
 
 			/* Value to match against follows the equals. */
 			oval++;

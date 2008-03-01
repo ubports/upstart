@@ -1,5 +1,29 @@
 2008-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_environment_add): Move and rename this
+	function, since it's not really process associated
+	(process_environment): Change to use environ_add or environ_setf
+	instead.
+	* init/process.h: Remove prototype.
+	* init/environ.c (environ_add): New name/location of
+	process_environment_add, modified to not take a copy of the string
+	(environ_set): Wrapper for the above for common dealing with
+	environment we want to set from a format string.
+	(environ_get, environ_getn, environ_lookup): Functions to get an
+	environment variable entry; largely cripped from event.c but
+	bug-fixed at the same time.
+	* init/environ.h: Function prototypes.
+	* init/event.c (event_operator_match): Change to use environ_lookup
+	* init/tests/test_process.c (test_environment_add): Move the tests.
+	* init/tests/test_environ.c: Test suite for environment handling
+	* init/Makefile.am (init_SOURCES): Build environ.c and environ.h
+	(TESTS): Build environment test suite
+	(test_environ_SOURCES, test_environ_LDFLAGS, test_environ_LDADD):
+	Details for environment test suite
+	(test_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_parse_job_LDADD, test_parse_conf_LDADD, test_conf_LDADD):
+	Link environ.o to other test suites
+
 	* init/job.c (job_new): Increment the number of instances.
 	(job_instance): Simplify the function, it now only returns the
 	existing instance or NULL.  This makes it easier to extend when

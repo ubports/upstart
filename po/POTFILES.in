@@ -21,6 +21,7 @@ nih/errors.h
 
 init/conf.c
 init/enum.c
+init/environ.c
 init/event.c
 init/job.c
 init/main.c

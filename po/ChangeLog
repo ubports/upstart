@@ -1,3 +1,7 @@
+2008-03-01  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Add init/environ.c
+
 2007-11-30  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Update for recent changes (ie. the dropping of

@@ -97,10 +97,6 @@ int    process_kill            (JobConfig *config, pid_t pid, int force)
 char **process_environment     (Job *job)
 	__attribute__ ((warn_unused_result, malloc));
 
-char **process_environment_add (char ***env, const void *parent,
-				size_t *len, const char *str)
-	__attribute__ ((warn_unused_result));
-
 NIH_END_EXTERN
 
 #endif /* INIT_PROCESS_H */

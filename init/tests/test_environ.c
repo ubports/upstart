@@ -1,0 +1,592 @@
+/* upstart
+ *
+ * test_environ.c - test suite for init/environ.c
+ *
+ * Copyright © 2008 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ */
+
+#include <nih/test.h>
+
+#include <nih/macros.h>
+#include <nih/alloc.h>
+#include <nih/string.h>
+
+#include "environ.h"
+
+
+void
+test_add (void)
+{
+	char   **env = NULL, **ret;
+	size_t   len = 0;
+
+	TEST_FUNCTION ("environ_add");
+
+	/* Check that we can add a variable to a new environment table
+	 * and that it is appended to the array.
+	 */
+	TEST_FEATURE ("with empty table");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+		}
+
+		ret = environ_add (&env, NULL, &len, "FOO=BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 0);
+			TEST_EQ_P (env[0], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 1);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 8);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can add a variable to an environment table with
+	 * existing different entries and that it is appended to the array.
+	 */
+	TEST_FEATURE ("with new variable");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = environ_add (&env, NULL, &len,
+					       "FRODO=BAGGINS");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_ALLOC_SIZE (env[2], 14);
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can add a variable from the environment to the table
+	 * and that it is appended to the array.
+	 */
+	TEST_FEATURE ("with new variable from environment");
+	putenv ("FRODO=BAGGINS");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = environ_add (&env, NULL, &len, "FRODO");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_ALLOC_SIZE (env[2], 14);
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("FRODO");
+
+
+	/* Check that when we attempt to add a variable that's not in the
+	 * environment, the table is not extended.
+	 */
+	TEST_FEATURE ("with new variable unset in environment");
+	unsetenv ("FRODO");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = environ_add (&env, NULL, &len, "FRODO");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 2);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_P (env[2], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can replace a variable in the environment table
+	 * when one already exists with the same or different value.
+	 */
+	TEST_FEATURE ("with replacement variable");
+	TEST_ALLOC_FAIL {
+		char *old_env;
+
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+		}
+
+		old_env = env[1];
+		TEST_FREE_TAG (old_env);
+
+		ret = environ_add (&env, NULL, &len,
+					       "BAR=WIBBLE");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			TEST_NOT_FREE (old_env);
+
+			TEST_EQ (len, 3);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_P (env[3], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_FREE (old_env);
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_ALLOC_SIZE (env[1], 11);
+		TEST_EQ_STR (env[1], "BAR=WIBBLE");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that we can replace a variable from the environment in the
+	 * environment table when one already exists with the same or
+	 * different value.
+	 */
+	TEST_FEATURE ("with replacement variable from environment");
+	putenv ("BAR=WIBBLE");
+
+	TEST_ALLOC_FAIL {
+		char *old_env;
+
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BILBO=TOOK"));
+		}
+
+		old_env = env[1];
+		TEST_FREE_TAG (old_env);
+
+		ret = environ_add (&env, NULL, &len, "BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			TEST_NOT_FREE (old_env);
+
+			TEST_EQ (len, 4);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_STR (env[3], "BILBO=TOOK");
+			TEST_EQ_P (env[4], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_FREE (old_env);
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 4);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_ALLOC_SIZE (env[1], 11);
+		TEST_EQ_STR (env[1], "BAR=WIBBLE");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_STR (env[3], "BILBO=TOOK");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("BAR");
+
+
+	/* Check that when we attempt to replace a variable that's unset
+	 * in the environment, the existing variable is removed from the
+	 * table.
+	 */
+	TEST_FEATURE ("with replacement variable unset in environment");
+	unsetenv ("BAR");
+
+	TEST_ALLOC_FAIL {
+		char *old_env;
+
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BILBO=TOOK"));
+		}
+
+		old_env = env[1];
+		TEST_FREE_TAG (old_env);
+
+		ret = environ_add (&env, NULL, &len, "BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			TEST_NOT_FREE (old_env);
+
+			TEST_EQ (len, 4);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_STR (env[3], "BILBO=TOOK");
+			TEST_EQ_P (env[4], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_FREE (old_env);
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "FRODO=BAGGINS");
+		TEST_EQ_STR (env[2], "BILBO=TOOK");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("BAR");
+}
+
+
+void
+test_set (void)
+{
+	char   **env = NULL, **ret;
+	size_t   len = 0;
+
+	TEST_FUNCTION ("environ_set");
+
+	/* Check that an environment variable can be set from a format
+	 * string.
+	 */
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+		}
+
+		ret = environ_set (&env, NULL, &len, "FOO=%d", 1234);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 0);
+			TEST_EQ_P (env[0], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 1);
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 9);
+		TEST_EQ_STR (env[0], "FOO=1234");
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+}
+
+
+void
+test_lookup (void)
+{
+	char        **env = NULL;
+	size_t        len = 0;
+	char * const *ret;
+
+	TEST_FUNCTION ("environ_lookup");
+
+	len = 0;
+	env = nih_str_array_new (NULL);
+
+
+	/* Check that an empty table always returns NULL. */
+	TEST_FEATURE ("with empty table");
+	ret = environ_lookup (env, "FOO", 3);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	assert (nih_str_array_add (&env, NULL, &len, "FOOLISH=no"));
+	assert (nih_str_array_add (&env, NULL, &len, "BAR=BAZ"));
+
+
+	/* Check that a key that is present is returned. */
+	TEST_FEATURE ("with key to be found");
+	ret = environ_lookup (env, "BAR", 3);
+
+	TEST_EQ_P (ret, &env[1]);
+
+
+	/* Check that a key that doesn't exist returns NULL. */
+	TEST_FEATURE ("with key not found");
+	ret = environ_lookup (env, "MEEP", 4);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	/* Check that the key is not prefix-matched. */
+	TEST_FEATURE ("with key that is prefix of another");
+	ret = environ_lookup (env, "FOO", 3);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	/* Check that the length is honoured. */
+	TEST_FEATURE ("with longer key");
+	ret = environ_lookup (env, "FOOLISH", 3);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	nih_free (env);
+}
+
+void
+test_get (void)
+{
+	char       **env = NULL;
+	size_t       len = 0;
+	const char  *ret;
+
+	TEST_FUNCTION ("environ_get");
+
+	len = 0;
+	env = nih_str_array_new (NULL);
+
+
+	/* Check that an empty table always returns NULL. */
+	TEST_FEATURE ("with empty table");
+	ret = environ_get (env, "FOO");
+
+	TEST_EQ_P (ret, NULL);
+
+
+	assert (nih_str_array_add (&env, NULL, &len, "FOOLISH=no"));
+	assert (nih_str_array_add (&env, NULL, &len, "BAR=BAZ"));
+
+
+	/* Check that a key that is present is returned. */
+	TEST_FEATURE ("with key to be found");
+	ret = environ_get (env, "BAR");
+
+	TEST_EQ_P (ret, env[1]);
+
+
+	/* Check that a key that doesn't exist returns NULL. */
+	TEST_FEATURE ("with key not found");
+	ret = environ_get (env, "MEEP");
+
+	TEST_EQ_P (ret, NULL);
+
+
+	/* Check that the key is not prefix-matched. */
+	TEST_FEATURE ("with key that is prefix of another");
+	ret = environ_get (env, "FOO");
+
+	TEST_EQ_P (ret, NULL);
+
+
+	nih_free (env);
+}
+
+void
+test_getn (void)
+{
+	char       **env = NULL;
+	size_t       len = 0;
+	const char  *ret;
+
+	TEST_FUNCTION ("environ_getn");
+
+	len = 0;
+	env = nih_str_array_new (NULL);
+
+
+	/* Check that an empty table always returns NULL. */
+	TEST_FEATURE ("with empty table");
+	ret = environ_getn (env, "FOO", 3);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	assert (nih_str_array_add (&env, NULL, &len, "FOOLISH=no"));
+	assert (nih_str_array_add (&env, NULL, &len, "BAR=BAZ"));
+
+
+	/* Check that a key that is present is returned. */
+	TEST_FEATURE ("with key to be found");
+	ret = environ_getn (env, "BAR", 3);
+
+	TEST_EQ_P (ret, env[1]);
+
+
+	/* Check that a key that doesn't exist returns NULL. */
+	TEST_FEATURE ("with key not found");
+	ret = environ_getn (env, "MEEP", 4);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	/* Check that the key is not prefix-matched. */
+	TEST_FEATURE ("with key that is prefix of another");
+	ret = environ_getn (env, "FOO", 3);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	/* Check that the length is honoured. */
+	TEST_FEATURE ("with longer key");
+	ret = environ_getn (env, "FOOLISH", 3);
+
+	TEST_EQ_P (ret, NULL);
+
+
+	nih_free (env);
+}
+
+
+int
+main (int   argc,
+      char *argv[])
+{
+	test_add ();
+	test_set ();
+	test_lookup ();
+	test_get ();
+	test_getn ();
+
+	return 0;
+}
