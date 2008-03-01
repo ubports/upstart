@@ -264,6 +264,7 @@ test_spawn (void)
 	job->id = 1000;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
+	job->start_on->value = TRUE;
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
@@ -484,11 +485,6 @@ test_environment (void)
 	TEST_ALLOC_FAIL {
 		env = process_environment (job);
 
-		if (test_alloc_failed) {
-			TEST_EQ_P (env, NULL);
-			continue;
-		}
-
 		TEST_ALLOC_PARENT (env, job);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
 		TEST_ALLOC_PARENT (env[0], env);
@@ -524,11 +520,6 @@ test_environment (void)
 	TEST_ALLOC_FAIL {
 		env = process_environment (job);
 
-		if (test_alloc_failed) {
-			TEST_EQ_P (env, NULL);
-			continue;
-		}
-
 		TEST_ALLOC_PARENT (env, job);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 7);
 		TEST_ALLOC_PARENT (env[0], env);
@@ -563,6 +554,7 @@ test_environment (void)
 	job->id = 99;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
+	job->start_on->value = TRUE;
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
@@ -590,11 +582,6 @@ test_environment (void)
 
 	TEST_ALLOC_FAIL {
 		env = process_environment (job);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (env, NULL);
-			continue;
-		}
 
 		TEST_ALLOC_PARENT (env, job);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 10);
@@ -642,6 +629,7 @@ test_environment (void)
 	job->id = 99;
 
 	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
+	job->start_on->value = TRUE;
 
 	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
 	oper->value = TRUE;
@@ -669,11 +657,6 @@ test_environment (void)
 
 	TEST_ALLOC_FAIL {
 		env = process_environment (job);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (env, NULL);
-			continue;
-		}
 
 		TEST_ALLOC_PARENT (env, job);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 9);

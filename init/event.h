@@ -248,6 +248,11 @@ void           event_operator_update  (EventOperator *oper);
 int            event_operator_match   (EventOperator *oper, Event *event);
 
 int            event_operator_handle  (EventOperator *root, Event *event);
+
+void           event_operator_collect (EventOperator *root, NihList *list,
+				       char ***env, const void *parent,
+				       size_t *len, const char *key);
+
 void           event_operator_unblock (EventOperator *root);
 void           event_operator_reset   (EventOperator *root);
 

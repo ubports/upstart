@@ -580,7 +580,7 @@ process_kill (JobConfig *config,
  *
  * The returned table is an nih_alloc() child of @job.
  *
- * Returns: new environment table or NULL on insufficient memory.
+ * Returns: new environment table.
  **/
 char **
 process_environment (Job *job)
@@ -593,24 +593,20 @@ process_environment (Job *job)
 	nih_assert (job != NULL);
 
 	len = 0;
-	env = nih_str_array_new (job);
-	if (! env)
-		return NULL;
+	NIH_MUST (env = nih_str_array_new (job));
 
 	/* Copy the builtin set of environment variables, usually these just
 	 * pick up the values from init's own environment.
 	 */
 	for (e = (char **)builtin; e && *e; e++)
-		if (! environ_add (&env, job, &len, *e))
-			goto error;
+		NIH_MUST (environ_add (&env, job, &len, *e));
 
 	/* Copy the set of environment variables from the job configuration,
 	 * these often have values but also often don't and we want them to
 	 * override the builtins.
 	 */
 	for (e = job->config->env; e && *e; e++)
-		if (! environ_add (&env, job, &len, *e))
-			goto error;
+		NIH_MUST (environ_add (&env, job, &len, *e));
 
 	/* Copy the environment variables from the event(s) that started the
 	 * job, these always have values and override those builtin and in
@@ -618,83 +614,23 @@ process_environment (Job *job)
 	 * of which events we copy in, and then provide those in the special
 	 * UPSTART_EVENTS variable.
 	 */
-	if (job->start_on) {
-		char   *list, *new_list;
-		size_t  listsz;
-		int     found = FALSE;
-
-		list = nih_strdup (NULL, "UPSTART_EVENTS");
-		if (! list)
-			goto error;
-
-		listsz = strlen (list);
-
-		NIH_TREE_FOREACH (&job->start_on->node, iter) {
-			EventOperator *oper = (EventOperator *)iter;
-
-			if ((oper->type != EVENT_MATCH) || (! oper->value)
-			    || (oper->event == NULL))
-				continue;
-
-			/* Append the name of the event to the list that we
-			 * build to store in the UPSTART_EVENTS variable.
-			 */
-			new_list = nih_realloc (
-				list, NULL,
-				listsz + strlen (oper->event->name) + 2);
-			if (! new_list) {
-				nih_free (list);
-				goto error;
-			}
-
-			list = new_list;
-			list[listsz++] = (found ? ' ' : '=');
-			list[listsz] = '\0';
-
-			strcat (list, oper->event->name);
-			listsz += strlen (oper->event->name);
-
-			/* Add the environment from the event as well */
-			for (e = oper->event->env; e && *e; e++) {
-				if (! environ_add (&env, job, &len, *e)) {
-					nih_free (list);
-					goto error;
-				}
-			}
-
-			found = TRUE;
-		}
-
-		/* Append the UPSTART_EVENTS variable to the environment */
-		if (found) {
-			if (! environ_add (&env, job, &len, list)) {
-				nih_free (list);
-				goto error;
-			}
-		}
-
-		nih_free (list);
-	}
+	if (job->start_on)
+		event_operator_collect (job->start_on, NULL, &env, job, &len,
+					"UPSTART_EVENTS");
 
 	/* Place the job name in the UPSTART_JOB environment variable; this
 	 * is useful for scripts that want to know who they're being run by
 	 * and cannot be overriden.
 	 */
-	if (! environ_set (&env, job, &len, "UPSTART_JOB=%s",
-			   job->config->name))
-		goto error;
+	NIH_MUST (environ_set (&env, job, &len, "UPSTART_JOB=%s",
+			       job->config->name));
 
 	/* Place the job id in the UPSTART_JOB_ID environment variable; this
 	 * is used by initctl when no other arguments are given, so it changes
 	 * the actual job being run -- again cannot be overriden.
 	 */
-	if (! environ_set (&env, job, &len, "UPSTART_JOB_ID=%u",
-			   job->id))
-		goto error;
+	NIH_MUST (environ_set (&env, job, &len, "UPSTART_JOB_ID=%u",
+			       job->id));
 
 	return env;
-
-error:
-	nih_free (env);
-	return NULL;
 }

@@ -1,5 +1,22 @@
 2008-03-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_collect): Create a mega-function to
+	iterate an EventOperator tree (filtering out those bits that aren't
+	TRUE) and collect the events, adding them to a linked list, adding
+	their environment to a table and making a string list for another
+	environment variable.  Fundamentally this function marshals data
+	out of the Event subsystem into the right format for the Job subsystem.
+	* init/event.h: Add prototype.
+	* init/tests/test_event.c (test_operator_collect): Tests for the
+	collector function; some bits may seem similar to test_process.c
+	* init/process.c (process_environment): Use event_operator_collect
+	to gather the environment, instead of its own code (which pretty
+	much got pasted into event_operator_collect anyway).  Force everything
+	else to allocate matching the caller.
+	* init/tests/test_process.c (test_spawn, test_environment): Had
+	forgotten to set the value of the intermediate AND operator to TRUE,
+	necessary now.
+
 	* init/process.c (process_environment_add): Move and rename this
 	function, since it's not really process associated
 	(process_environment): Change to use environ_add or environ_setf

@@ -815,6 +815,139 @@ event_operator_handle (EventOperator *root,
 	return ret;
 }
 
+
+/**
+ * event_operator_filter:
+ * @data: not used,
+ * @oper: EventOperator to check.
+ *
+ * Used when iterating the operator tree to filter out those operators and
+ * their children for which the value is not TRUE.
+ *
+ * Returns: TRUE if operator should be ignored, FALSE otherwise.
+ **/
+static int
+event_operator_filter (void          *data,
+		       EventOperator *oper)
+{
+	nih_assert (oper != NULL);
+
+	return oper->value != TRUE;
+}
+
+/**
+ * event_operator_collect:
+ * @root: operator tree to collect from,
+ * @list: list to add events to,
+ * @parent: parent of @env,
+ * @env: table to add event environment to,
+ * @len: length of @env,
+ * @key: key of variable to contain event names.
+ *
+ * Collects events from the portion of the EventOperator tree rooted at @oper
+ * that are TRUE, ignoring the rest.
+ *
+ * If @list is not NULL, an NihListEntry structure will be appended for each
+ * event with the data pointer pointing at the Event itself, the event will
+ * be both referenced and blocked (if blocked in the operator) by this;
+ * the created structure will have @list as a parent.
+ *
+ * If @env is not NULL, environment from each event (in tree order) will be
+ * added to the table so that it contains the complete environment of the
+ * operator.
+ *
+ * @len will be updated to contain the new array length and @env will
+ * be updated to point to the new array pointer.
+ *
+ * If @key is not NULL, a key of that name will be set in @env (which must
+ * not be NULL) containing a space-separated list of event names.
+ **/
+void
+event_operator_collect (EventOperator   *root,
+			NihList         *list,
+			char          ***env,
+			const void      *parent,
+			size_t          *len,
+			const char      *key)
+{
+	char   *evlist;
+	size_t  evlistsz;
+
+	nih_assert (root != NULL);
+	nih_assert ((parent == NULL) || (env != NULL));
+	nih_assert ((len == NULL) || (env != NULL));
+	nih_assert ((key == NULL) || (env != NULL));
+
+	/* Initialise the event list variable with the name given. */
+	if (key) {
+		NIH_MUST (evlist = nih_sprintf (NULL, "%s=", key));
+		evlistsz = strlen (evlist);
+	}
+
+	/* Iterate the operator tree, filtering out nodes with a non-TRUE
+	 * value and their children.  The rationale for this is that this
+	 * then matches only the events that had an active role in starting
+	 * the job, not the ones that were also blocked, but the other half
+	 * of their logic wasn't present.
+	 */
+	NIH_TREE_FOREACH_FULL (&root->node, iter,
+			       (NihTreeFilter)event_operator_filter, NULL) {
+		EventOperator  *oper = (EventOperator *)iter;
+
+		if (oper->type != EVENT_MATCH)
+			continue;
+
+		nih_assert (oper->event != NULL);
+
+		/* Append to list, referencing and blocking if necessary */
+		if (list) {
+			NihListEntry *entry;
+
+			NIH_MUST (entry = nih_list_entry_new (list));
+			entry->data = oper->event;
+
+			nih_list_add (list, &entry->entry);
+
+			event_ref (oper->event);
+			if (oper->blocked)
+				event_block (oper->event);
+		}
+
+		/* Add the environment from the event */
+		if (env) {
+			char **e;
+
+			for (e = oper->event->env; e && *e; e++)
+				NIH_MUST (environ_add (env, parent, len, *e));
+		}
+
+		/* Append the name of the event to the string we're building */
+		if (key) {
+			char *new_evlist;
+
+			NIH_MUST (new_evlist = nih_realloc (evlist, NULL, evlistsz
+							    + strlen (oper->event->name)
+							    + 2));
+
+			evlist = new_evlist;
+			if (evlist[evlistsz-1] != '=') {
+				evlist[evlistsz++] = ' ';
+				evlist[evlistsz] = '\0';
+			}
+
+			strcat (evlist, oper->event->name);
+			evlistsz += strlen (oper->event->name);
+		}
+	}
+
+	/* Append the event list to the environment */
+	if (env && key) {
+		NIH_MUST (environ_add (env, parent, len, evlist));
+		nih_free (evlist);
+	}
+}
+
+
 /**
  * event_operator_unblock:
  * @root: operator tree to update.
