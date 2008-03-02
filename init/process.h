@@ -84,9 +84,6 @@ int    process_setup_console   (ConsoleType type, int reset)
 int    process_kill            (JobConfig *config, pid_t pid, int force)
 	__attribute__ ((warn_unused_result));
 
-char **process_environment     (Job *job)
-	__attribute__ ((warn_unused_result, malloc));
-
 NIH_END_EXTERN
 
 #endif /* INIT_PROCESS_H */

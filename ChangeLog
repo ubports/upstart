@@ -1,5 +1,14 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Take the environment directly out
+	the job structure, rather than recreating it.
+	(process_environment): Drop function, absorbed elsewhere.
+	* init/process.h: Remove prototype.
+	* init/tests/test_process.c (test_spawn): Set the job_id variable
+	before calling job_new and set config->start_on instead of
+	job->start_on so that job_new can pick up both.
+	(test_environment): Remove test cases.
+
 	* init/job.h (Job): finally gains env pointer of its own.
 	* init/job.c (job_new): Initialise the environment, moving the last
 	of the code from process_environment -- this is only temporary

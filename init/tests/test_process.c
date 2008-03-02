@@ -225,8 +225,8 @@ test_spawn (void)
 	env[0] = "FOO=bar";
 	env[1] = NULL;
 
+	job_id = 1000;
 	job = job_new (config);
-	job->id = 1000;
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
 
@@ -260,13 +260,11 @@ test_spawn (void)
 	env[0] = "FOO=bar";
 	env[1] = NULL;
 
-	job = job_new (config);
-	job->id = 1000;
+	config->start_on = event_operator_new (config, EVENT_AND, NULL, NULL);
+	config->start_on->value = TRUE;
 
-	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
-	job->start_on->value = TRUE;
-
-	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
+	oper = event_operator_new (config->start_on, EVENT_MATCH,
+				   "wibble", NULL);
 	oper->value = TRUE;
 	oper->event = event_new (oper, "wibble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -276,9 +274,10 @@ test_spawn (void)
 	event_ref (oper->event);
 	oper->blocked = TRUE;
 	event_block (oper->event);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
+	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
 
-	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
+	oper = event_operator_new (config->start_on, EVENT_MATCH,
+				   "wobble", NULL);
 	oper->value = TRUE;
 	oper->event = event_new (oper, "wobble", NULL);
 	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
@@ -288,7 +287,10 @@ test_spawn (void)
 	event_ref (oper->event);
 	oper->blocked = TRUE;
 	event_block (oper->event);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
+	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
+
+	job_id = 1000;
+	job = job_new (config);
 
 	pid = process_spawn (job, args, FALSE);
 	TEST_GT (pid, 0);
@@ -463,229 +465,6 @@ test_kill (void)
 }
 
 
-void
-test_environment (void)
-{
-	JobConfig      *config;
-	Job            *job;
-	EventOperator  *oper;
-	char          **env;
-
-	TEST_FUNCTION ("process_environment");
-
-	/* Check that a job created with an empty environment will just have
-	 * the built-ins and special variables in its environment.
-	 */
-	TEST_FEATURE ("with empty environment");
-	config = job_config_new (NULL, "test");
-
-	job = job_new (config);
-	job->id = 99;
-
-	TEST_ALLOC_FAIL {
-		env = process_environment (job);
-
-		TEST_ALLOC_PARENT (env, job);
-		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
-		TEST_ALLOC_PARENT (env[0], env);
-		TEST_EQ_STRN (env[0], "PATH=");
-		TEST_ALLOC_PARENT (env[1], env);
-		TEST_EQ_STRN (env[1], "TERM=");
-		TEST_ALLOC_PARENT (env[2], env);
-		TEST_EQ_STR (env[2], "UPSTART_JOB=test");
-		TEST_ALLOC_PARENT (env[3], env);
-		TEST_EQ_STR (env[3], "UPSTART_JOB_ID=99");
-		TEST_EQ_P (env[4], NULL);
-
-		nih_free (env);
-	}
-
-	nih_free (job);
-	nih_free (config);
-
-
-	/* Check that a job created with defined environment variables will
-	 * have those appended to the environment as well as the builtins
-	 * and specials.
-	 */
-	TEST_FEATURE ("with configured environment");
-	config = job_config_new (NULL, "test");
-	config->env = nih_str_array_new (config);
-	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
-	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
-
-	job = job_new (config);
-	job->id = 99;
-
-	TEST_ALLOC_FAIL {
-		env = process_environment (job);
-
-		TEST_ALLOC_PARENT (env, job);
-		TEST_ALLOC_SIZE (env, sizeof (char *) * 7);
-		TEST_ALLOC_PARENT (env[0], env);
-		TEST_EQ_STRN (env[0], "PATH=");
-		TEST_ALLOC_PARENT (env[1], env);
-		TEST_EQ_STRN (env[1], "TERM=");
-		TEST_ALLOC_PARENT (env[2], env);
-		TEST_EQ_STR (env[2], "FOO=BAR");
-		TEST_ALLOC_PARENT (env[3], env);
-		TEST_EQ_STR (env[3], "BAR=BAZ");
-		TEST_ALLOC_PARENT (env[4], env);
-		TEST_EQ_STR (env[4], "UPSTART_JOB=test");
-		TEST_ALLOC_PARENT (env[5], env);
-		TEST_EQ_STR (env[5], "UPSTART_JOB_ID=99");
-		TEST_EQ_P (env[6], NULL);
-
-		nih_free (env);
-	}
-
-	nih_free (job);
-	nih_free (config);
-
-
-	/* Check that a job created with environment in its start events will
-	 * have those added to the environment as well as built-ins,
-	 * specials and one containing the list of events.
-	 */
-	TEST_FEATURE ("with environment from start events");
-	config = job_config_new (NULL, "test");
-
-	job = job_new (config);
-	job->id = 99;
-
-	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
-	job->start_on->value = TRUE;
-
-	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "TEA=YES"));
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
-
-	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wobble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "BAR=ORANGE"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "COFFEE=NO"));
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
-
-	TEST_ALLOC_FAIL {
-		env = process_environment (job);
-
-		TEST_ALLOC_PARENT (env, job);
-		TEST_ALLOC_SIZE (env, sizeof (char *) * 10);
-		TEST_ALLOC_PARENT (env[0], env);
-		TEST_EQ_STRN (env[0], "PATH=");
-		TEST_ALLOC_PARENT (env[1], env);
-		TEST_EQ_STRN (env[1], "TERM=");
-		TEST_ALLOC_PARENT (env[2], env);
-		TEST_EQ_STR (env[2], "FOO=APPLE");
-		TEST_ALLOC_PARENT (env[3], env);
-		TEST_EQ_STR (env[3], "TEA=YES");
-		TEST_ALLOC_PARENT (env[4], env);
-		TEST_EQ_STR (env[4], "BAR=ORANGE");
-		TEST_ALLOC_PARENT (env[5], env);
-		TEST_EQ_STR (env[5], "COFFEE=NO");
-		TEST_ALLOC_PARENT (env[6], env);
-		TEST_EQ_STR (env[6], "UPSTART_EVENTS=wibble wobble");
-		TEST_ALLOC_PARENT (env[7], env);
-		TEST_EQ_STR (env[7], "UPSTART_JOB=test");
-		TEST_ALLOC_PARENT (env[8], env);
-		TEST_EQ_STR (env[8], "UPSTART_JOB_ID=99");
-		TEST_EQ_P (env[9], NULL);
-
-		nih_free (env);
-	}
-
-	nih_free (job);
-	nih_free (config);
-
-
-	/* Check that configured environment and that from start events can
-	 * override built-ins, that those from start events can override
-	 * configured environment and that nothing can override the specials.
-	 */
-	TEST_FEATURE ("with environment from multiple sources");
-	config = job_config_new (NULL, "test");
-	config->env = nih_str_array_new (config);
-	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
-	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
-	assert (nih_str_array_add (&(config->env), config, NULL, "TERM=elmo"));
-	assert (nih_str_array_add (&(config->env), config, NULL,
-				   "UPSTART_JOB=evil"));
-
-	job = job_new (config);
-	job->id = 99;
-
-	job->start_on = event_operator_new (job, EVENT_AND, NULL, NULL);
-	job->start_on->value = TRUE;
-
-	oper = event_operator_new (job->start_on, EVENT_MATCH, "wibble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "TEA=YES"));
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_LEFT);
-
-	oper = event_operator_new (job->start_on, EVENT_MATCH, "wobble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wobble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "PATH=/tmp"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "UPSTART_JOB_ID=nonesuch"));
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&job->start_on->node, &oper->node, NIH_TREE_RIGHT);
-
-	TEST_ALLOC_FAIL {
-		env = process_environment (job);
-
-		TEST_ALLOC_PARENT (env, job);
-		TEST_ALLOC_SIZE (env, sizeof (char *) * 9);
-		TEST_ALLOC_PARENT (env[0], env);
-		TEST_EQ_STR (env[0], "PATH=/tmp");
-		TEST_ALLOC_PARENT (env[1], env);
-		TEST_EQ_STR (env[1], "TERM=elmo");
-		TEST_ALLOC_PARENT (env[2], env);
-		TEST_EQ_STR (env[2], "FOO=APPLE");
-		TEST_ALLOC_PARENT (env[3], env);
-		TEST_EQ_STR (env[3], "BAR=BAZ");
-		TEST_ALLOC_PARENT (env[4], env);
-		TEST_EQ_STR (env[4], "UPSTART_JOB=test");
-		TEST_ALLOC_PARENT (env[5], env);
-		TEST_EQ_STR (env[5], "TEA=YES");
-		TEST_ALLOC_PARENT (env[6], env);
-		TEST_EQ_STR (env[6], "UPSTART_JOB_ID=99");
-		TEST_ALLOC_PARENT (env[7], env);
-		TEST_EQ_STR (env[7], "UPSTART_EVENTS=wibble wobble");
-		TEST_EQ_P (env[8], NULL);
-
-		nih_free (env);
-	}
-
-	nih_free (job);
-	nih_free (config);
-}
-
-
 int
 main (int   argc,
       char *argv[])
@@ -715,7 +494,6 @@ main (int   argc,
 	/* Otherwise run the tests as normal */
 	test_spawn ();
 	test_kill ();
-	test_environment ();
 
 	return 0;
 }

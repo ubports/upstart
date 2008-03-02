@@ -204,7 +204,7 @@ process_spawn (Job          *job,
 	 * the job definition, the events that started/stopped it and also
 	 * include the standard ones that tell you which job you are.
 	 */
-	NIH_MUST (environ = process_environment (job));
+	environ = job->env;
 
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
@@ -564,60 +564,4 @@ process_kill (JobConfig *config,
 		nih_return_system_error (-1);
 
 	return 0;
-}
-
-
-/**
- * process_environment:
- * @job: job to construct environment for.
- *
- * Constructs an environment table containing information about @job
- * and the event(s) that started it, including their own environment
- * variables.
- *
- * This table is suitable for storing in @job's env member so that it is
- * used for all processes spawned by the job.
- *
- * The returned table is an nih_alloc() child of @job.
- *
- * Returns: new environment table.
- **/
-char **
-process_environment (Job *job)
-{
-	char   **env;
-	size_t   len;
-
-	nih_assert (job != NULL);
-
-	/* Initialise the table with the environment of the job configuration
-	 * which will include the builtins.
-	 */
-	NIH_MUST (env = job_config_environment (job, job->config, &len));
-
-	/* Copy the environment variables from the event(s) that started the
-	 * job, these always have values and override those builtin and in
-	 * the job configuration (so those provide defaults).  Keep a record
-	 * of which events we copy in, and then provide those in the special
-	 * UPSTART_EVENTS variable.
-	 */
-	if (job->start_on)
-		event_operator_collect (job->start_on, &env, job, &len,
-					"UPSTART_EVENTS", NULL);
-
-	/* Place the job name in the UPSTART_JOB environment variable; this
-	 * is useful for scripts that want to know who they're being run by
-	 * and cannot be overriden.
-	 */
-	NIH_MUST (environ_set (&env, job, &len, "UPSTART_JOB=%s",
-			       job->config->name));
-
-	/* Place the job id in the UPSTART_JOB_ID environment variable; this
-	 * is used by initctl when no other arguments are given, so it changes
-	 * the actual job being run -- again cannot be overriden.
-	 */
-	NIH_MUST (environ_set (&env, job, &len, "UPSTART_JOB_ID=%u",
-			       job->id));
-
-	return env;
 }
