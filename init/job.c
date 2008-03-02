@@ -1245,8 +1245,8 @@ job_run_process (Job         *job,
 		 ProcessType  process)
 {
 	JobProcess  *proc;
-	char       **argv, **env, *script = NULL;
-	size_t       argc;
+	char       **argv, **env, **e, *script = NULL;
+	size_t       argc, envc;
 	int          error = FALSE, fds[2], trace = FALSE;
 
 	nih_assert (job != NULL);
@@ -1322,16 +1322,24 @@ job_run_process (Job         *job,
 	}
 
 	/* We provide the standard job environment to all of its processes,
+	 * except for pre-stop which also has the stop event environment,
 	 * adding special variables that indicate which job it was -- mostly
 	 * so that initctl can have clever behaviour when called within them.
 	 */
-	env = NULL;
-	if (job->env)
-		NIH_MUST (env = nih_str_array_copy (NULL, NULL, job->env));
+	envc = 0;
+	if (job->env) {
+		NIH_MUST (env = nih_str_array_copy (NULL, &envc, job->env));
+	} else {
+		NIH_MUST (env = nih_str_array_new (NULL));
+	}
 
-	NIH_MUST (environ_set (&env, NULL, NULL,
+	if ((process == PROCESS_PRE_STOP) && job->stop_env)
+		for (e = job->stop_env; *e; e++)
+			NIH_MUST (environ_set (&env, NULL, &envc, *e));
+
+	NIH_MUST (environ_set (&env, NULL, &envc,
 			       "UPSTART_JOB=%s", job->config->name));
-	NIH_MUST (environ_set (&env, NULL, NULL,
+	NIH_MUST (environ_set (&env, NULL, &envc,
 			       "UPSTART_JOB_ID=%u", job->id));
 
 	/* If we're about to spawn the main job and we need to wait for it

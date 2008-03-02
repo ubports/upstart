@@ -1,5 +1,11 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Append the environment from the
+	stop events if given the pre-stop process to run; do this before
+	the special events so they can never be overriden.
+	* init/tests/test_job.c (test_run_process): Check that the stop event
+	environment is included for pre-stop and not for other jobs.
+
 	* init/job.c (job_handle_event): Remove setting of UPSTART_JOB
 	and UPSTART_JOB_ID, we set that when we run the process.
 	* init/tests/test_job.c (test_handle_event): Don't check for

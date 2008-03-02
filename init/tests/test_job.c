@@ -3805,6 +3805,11 @@ test_run_process (void)
 
 			assert (nih_str_array_add (&job->env, job, NULL, "FOO=BAR"));
 			assert (nih_str_array_add (&job->env, job, NULL, "BAR=BAZ"));
+
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "FOO=SMACK"));
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "CRACKLE=FIZZ"));
 		}
 
 		ret = job_run_process (job, PROCESS_MAIN);
@@ -3823,6 +3828,58 @@ test_run_process (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ_N (output, "UPSTART_JOB_ID=");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_free (config);
+	}
+
+
+	/* Check that the pre-stop job is run with the environment from the
+	 * stop_env member as well as from the env member, overriding where
+	 * necessary, and the job name and id appended.
+	 */
+	TEST_FEATURE ("with environment for pre-stop");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->process[PROCESS_PRE_STOP] = job_process_new (config);
+			config->process[PROCESS_PRE_STOP]->command = nih_sprintf (
+				config->process[PROCESS_PRE_STOP],
+				"%s %s", argv0, filename);
+
+			job = job_new (config);
+			job->goal = JOB_STOP;
+			job->state = JOB_PRE_STOP;
+
+			assert (nih_str_array_add (&job->env, job, NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&job->env, job, NULL, "BAR=BAZ"));
+
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "FOO=SMACK"));
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "CRACKLE=FIZZ"));
+		}
+
+		ret = job_run_process (job, PROCESS_PRE_STOP);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_PRE_STOP], 0);
+
+		waitpid (job->pid[PROCESS_PRE_STOP], NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		/* Read back the environment to make sure it matched that from
+		 * the job.
+		 */
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		TEST_FILE_EQ (output, "BAR=BAZ\n");
+		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ_N (output, "UPSTART_JOB_ID=");
+		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
 
