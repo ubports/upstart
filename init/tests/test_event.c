@@ -1375,50 +1375,6 @@ test_operator_collect (void)
 	}
 
 
-	/* Check that if we get a list to append to, the events are appended
-	 * in tree order and each event is referenced and blocked; the
-	 * event that was matched, but not in the operator tree, should
-	 * not be added.
-	 */
-	TEST_FEATURE ("with list to append to");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			list = nih_list_new (NULL);
-		}
-
-		event_operator_collect (root, list, NULL, NULL, NULL, NULL);
-
-		TEST_LIST_NOT_EMPTY (list);
-
-		entry = (NihListEntry *)list->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, list);
-		TEST_EQ_P (entry->data, oper3->event);
-		TEST_EQ (oper3->event->refs, 2);
-		TEST_EQ (oper3->event->blockers, 2);
-		event_unblock (oper3->event);
-		event_unref (oper3->event);
-		nih_free (entry);
-
-		entry = (NihListEntry *)list->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, list);
-		TEST_EQ_P (entry->data, oper4->event);
-		TEST_EQ (oper4->event->refs, 2);
-		TEST_EQ (oper4->event->blockers, 2);
-		event_unblock (oper4->event);
-		event_unref (oper4->event);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (list);
-
-		TEST_EQ (oper6->event->refs, 1);
-		TEST_EQ (oper6->event->blockers, 1);
-
-		nih_free (list);
-	}
-
-
 	/* Check that if we give an environment table, the environment from
 	 * each of the events is appended to it; except for the event that
 	 * was matched but not in the true tree.
@@ -1428,7 +1384,7 @@ test_operator_collect (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (root, NULL, &env, NULL, &len, NULL);
+		event_operator_collect (root, &env, NULL, &len, NULL, NULL);
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
@@ -1465,8 +1421,8 @@ test_operator_collect (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (root, NULL, &env, NULL, &len,
-					"UPSTART_EVENTS");
+		event_operator_collect (root, &env, NULL, &len,
+					"UPSTART_EVENTS", NULL);
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 6);
@@ -1497,6 +1453,50 @@ test_operator_collect (void)
 	}
 
 
+	/* Check that if we get a list to append to, the events are appended
+	 * in tree order and each event is referenced and blocked; the
+	 * event that was matched, but not in the operator tree, should
+	 * not be added.
+	 */
+	TEST_FEATURE ("with list to append to");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			list = nih_list_new (NULL);
+		}
+
+		event_operator_collect (root, NULL, NULL, NULL, NULL, list);
+
+		TEST_LIST_NOT_EMPTY (list);
+
+		entry = (NihListEntry *)list->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, list);
+		TEST_EQ_P (entry->data, oper3->event);
+		TEST_EQ (oper3->event->refs, 2);
+		TEST_EQ (oper3->event->blockers, 2);
+		event_unblock (oper3->event);
+		event_unref (oper3->event);
+		nih_free (entry);
+
+		entry = (NihListEntry *)list->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, list);
+		TEST_EQ_P (entry->data, oper4->event);
+		TEST_EQ (oper4->event->refs, 2);
+		TEST_EQ (oper4->event->blockers, 2);
+		event_unblock (oper4->event);
+		event_unref (oper4->event);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (list);
+
+		TEST_EQ (oper6->event->refs, 1);
+		TEST_EQ (oper6->event->blockers, 1);
+
+		nih_free (list);
+	}
+
+
 	/* Check that if we give all the arguments, all of the side-effects
 	 * are combined.
 	 */
@@ -1509,8 +1509,8 @@ test_operator_collect (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (root, list, &env, NULL, &len,
-					"UPSTART_EVENTS");
+		event_operator_collect (root, &env, NULL, &len,
+					"UPSTART_EVENTS", list);
 
 		TEST_LIST_NOT_EMPTY (list);
 
@@ -1572,8 +1572,8 @@ test_operator_collect (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (oper5, list, &env, NULL, &len,
-					"UPSTART_EVENTS");
+		event_operator_collect (oper5, &env, NULL, &len,
+					"UPSTART_EVENTS", list);
 
 		TEST_LIST_EMPTY (list);
 

@@ -1,5 +1,11 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_collect): Make list the last argument
+	for consistency with future functions.
+	* init/event.h: Update prototype.
+	* init/tests/test_event.c (test_operator_collect): Swap arguments.
+	* init/process.c (process_environment): Update.
+
 	* init/job.c (job_config_environment): Function to generate an
 	environment table from a JobConfig, code largely moved from process.c
 	* init/job.h: Add protoyype.

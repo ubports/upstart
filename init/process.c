@@ -602,8 +602,8 @@ process_environment (Job *job)
 	 * UPSTART_EVENTS variable.
 	 */
 	if (job->start_on)
-		event_operator_collect (job->start_on, NULL, &env, job, &len,
-					"UPSTART_EVENTS");
+		event_operator_collect (job->start_on, &env, job, &len,
+					"UPSTART_EVENTS", NULL);
 
 	/* Place the job name in the UPSTART_JOB environment variable; this
 	 * is useful for scripts that want to know who they're being run by

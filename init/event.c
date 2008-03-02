@@ -838,11 +838,11 @@ event_operator_filter (void          *data,
 /**
  * event_operator_collect:
  * @root: operator tree to collect from,
- * @list: list to add events to,
  * @parent: parent of @env,
  * @env: table to add event environment to,
  * @len: length of @env,
- * @key: key of variable to contain event names.
+ * @key: key of variable to contain event names,
+ * @list: list to add events to.
  *
  * Collects events from the portion of the EventOperator tree rooted at @oper
  * that are TRUE, ignoring the rest.
@@ -864,11 +864,11 @@ event_operator_filter (void          *data,
  **/
 void
 event_operator_collect (EventOperator   *root,
-			NihList         *list,
 			char          ***env,
 			const void      *parent,
 			size_t          *len,
-			const char      *key)
+			const char      *key,
+			NihList         *list)
 {
 	char   *evlist;
 	size_t  evlistsz;
@@ -899,20 +899,6 @@ event_operator_collect (EventOperator   *root,
 
 		nih_assert (oper->event != NULL);
 
-		/* Append to list, referencing and blocking if necessary */
-		if (list) {
-			NihListEntry *entry;
-
-			NIH_MUST (entry = nih_list_entry_new (list));
-			entry->data = oper->event;
-
-			nih_list_add (list, &entry->entry);
-
-			event_ref (oper->event);
-			if (oper->blocked)
-				event_block (oper->event);
-		}
-
 		/* Add the environment from the event */
 		if (env) {
 			char **e;
@@ -937,6 +923,20 @@ event_operator_collect (EventOperator   *root,
 
 			strcat (evlist, oper->event->name);
 			evlistsz += strlen (oper->event->name);
+		}
+
+		/* Append to list, referencing and blocking if necessary */
+		if (list) {
+			NihListEntry *entry;
+
+			NIH_MUST (entry = nih_list_entry_new (list));
+			entry->data = oper->event;
+
+			nih_list_add (list, &entry->entry);
+
+			event_ref (oper->event);
+			if (oper->blocked)
+				event_block (oper->event);
 		}
 	}
 
