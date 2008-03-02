@@ -585,28 +585,15 @@ process_kill (JobConfig *config,
 char **
 process_environment (Job *job)
 {
-	const char  *builtin[] = { PROCESS_ENVIRONMENT, NULL };
-	char       **e;
-	char       **env;
-	size_t       len;
+	char   **env;
+	size_t   len;
 
 	nih_assert (job != NULL);
 
-	len = 0;
-	NIH_MUST (env = nih_str_array_new (job));
-
-	/* Copy the builtin set of environment variables, usually these just
-	 * pick up the values from init's own environment.
+	/* Initialise the table with the environment of the job configuration
+	 * which will include the builtins.
 	 */
-	for (e = (char **)builtin; e && *e; e++)
-		NIH_MUST (environ_add (&env, job, &len, *e));
-
-	/* Copy the set of environment variables from the job configuration,
-	 * these often have values but also often don't and we want them to
-	 * override the builtins.
-	 */
-	for (e = job->config->env; e && *e; e++)
-		NIH_MUST (environ_add (&env, job, &len, *e));
+	NIH_MUST (env = job_config_environment (job, job->config, &len));
 
 	/* Copy the environment variables from the event(s) that started the
 	 * job, these always have values and override those builtin and in

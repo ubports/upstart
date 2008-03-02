@@ -51,7 +51,7 @@
 #include <linux/ptrace.h>
 
 #include "enum.h"
-
+#include "environ.h"
 #include "event.h"
 #include "process.h"
 #include "job.h"
@@ -291,6 +291,65 @@ job_config_replace (JobConfig *config)
 		}
 	}
 
+	return NULL;
+}
+
+/**
+ * job_config_environment:
+ * @parent: parent for new table,
+ * @config: configuration of job,
+ * @len: pointer to variable to store table length.
+ *
+ * Constructs an environment table containing the standard environment
+ * variables and defined in the job's @config.
+ *
+ * This table is suitable for storing in @job's env member so that it is
+ * used for all processes spawned by the job.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.
+ *
+ * If @len is not NULL it will be updated to contain the new array length.
+ *
+ * Returns: new environment table or NULL if insufficient memory.
+ **/
+char **
+job_config_environment (const void *parent,
+			JobConfig  *config,
+			size_t     *len)
+{
+	const char  *builtin[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
+	char       **e;
+	char       **env;
+
+	nih_assert (config != NULL);
+
+	env = nih_str_array_new (parent);
+	if (! env)
+		return NULL;
+	if (len)
+		*len = 0;
+
+	/* Copy the builtin set of environment variables, usually these just
+	 * pick up the values from init's own environment.
+	 */
+	for (e = (char **)builtin; e && *e; e++)
+		if (! environ_add (&env, parent, len, *e))
+			goto error;
+
+	/* Copy the set of environment variables from the job configuration,
+	 * these often have values but also often don't and we want them to
+	 * override the builtins.
+	 */
+	for (e = config->env; e && *e; e++)
+		if (! environ_add (&env, parent, len, *e))
+			goto error;
+
+	return env;
+
+error:
+	nih_free (env);
 	return NULL;
 }
 

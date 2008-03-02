@@ -68,6 +68,17 @@
  **/
 #define JOB_DEFAULT_UMASK 022
 
+/**
+ * JOB_DEFAULT_ENVIRONMENT:
+ *
+ * Environment variables to always copy from our own environment, these
+ * can be overriden in the job definition or by events since they have the
+ * lowest priority.
+ **/
+#define JOB_DEFAULT_ENVIRONMENT \
+	"PATH",			\
+	"TERM"
+
 
 /**
  * JobProcess:
@@ -230,10 +241,16 @@ void        job_init                  (void);
 JobProcess *job_process_new           (const void *parent)
 	__attribute__ ((warn_unused_result, malloc));
 
+
 JobConfig * job_config_new            (const void *parent, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
 JobConfig * job_config_replace        (JobConfig *config);
+
+char      **job_config_environment    (const void *parent, JobConfig *config,
+				       size_t *len)
+	__attribute__ ((warn_unused_result, malloc));
+
 
 Job *       job_new                   (JobConfig *config)
 	__attribute__ ((warn_unused_result, malloc));
@@ -250,6 +267,7 @@ JobState    job_next_state            (Job *job);
 
 int         job_run_process           (Job *job, ProcessType process);
 void        job_kill_process          (Job *job, ProcessType process);
+
 
 void        job_child_handler         (void *ptr, pid_t pid,
 				       NihChildEvents event, int status);

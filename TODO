@@ -4,7 +4,7 @@ Job Atomicity:
     for config:
         event_operator_handle (config.start_on, $event)
         if config.start_on:
-!!          env = job_config_environment (config)
+**          env = job_config_environment (config)
 **          (env, blocking) = event_operator_collect (config.start_on)
              job = job_instance (config, env)
              if not job:
@@ -25,7 +25,7 @@ Job Atomicity:
 
 
   start by name:
-!!  env = job_config_environment ($config)
+    env = job_config_environment ($config)
     if $env:
         env += $env
 
@@ -50,7 +50,7 @@ Job Atomicity:
     # allows to be restarted with the same environment, since the race is
     # negated by fact you have its id, so it will just fail if you lost
     if $env:
-!!      env = job_config_environment ($job.config)
+        env = job_config_environment ($job.config)
         env += $env
     else:
         env = NULL

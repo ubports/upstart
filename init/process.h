@@ -30,16 +30,6 @@
 
 
 /**
- * PROCESS_ENVIRONMENT:
- *
- * Environment variables to always copy from our own environment.
- **/
-#define PROCESS_ENVIRONMENT \
-	"PATH",		    \
-	"TERM"
-
-
-/**
  * ProcessErrorType:
  *
  * These constants represent the different steps of process spawning that

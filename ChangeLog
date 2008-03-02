@@ -1,5 +1,17 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_config_environment): Function to generate an
+	environment table from a JobConfig, code largely moved from process.c
+	* init/job.h: Add protoyype.
+	(JOB_DEFAULT_ENVIRONMENT): List of environment variables to always
+	copy from the environment (moved from process.h)
+	* init/tests/test_job.c (test_config_environment): Add test case,
+	again largely copied from test_process.c
+	* init/process.c (process_environment): Call job_config_environment
+	instead of the code moved out.
+	* init/process.h (PROCESS_ENVIRONMENT): Move to job.h
+	* TODO: Update.
+
 	* TODO: Update.
 
 2008-03-01  Scott James Remnant  <scott@netsplit.com>

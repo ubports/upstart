@@ -244,6 +244,119 @@ test_config_replace (void)
 	nih_free (config1);
 }
 
+void
+test_config_environment (void)
+{
+	JobConfig  *config;
+	char      **env;
+	size_t      len;
+
+	TEST_FUNCTION ("job_config_environment");
+
+	/* Check that a job created with an empty environment will just have
+	 * the built-ins in the returned environment.
+	 */
+	TEST_FEATURE ("with no configured environment");
+	config = job_config_new (NULL, "test");
+
+	TEST_ALLOC_FAIL {
+		env = job_config_environment (NULL, config, &len);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_NE_P (env, NULL);
+		TEST_EQ (len, 2);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 3);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STRN (env[0], "PATH=");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STRN (env[1], "TERM=");
+		TEST_EQ_P (env[2], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (config);
+
+
+	/* Check that a job created with defined environment variables will
+	 * have those appended to the environment as well as the builtins.
+	 */
+	TEST_FEATURE ("with configured environment");
+	config = job_config_new (NULL, "test");
+	config->env = nih_str_array_new (config);
+	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
+
+	TEST_ALLOC_FAIL {
+		env = job_config_environment (NULL, config, &len);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_NE_P (env, NULL);
+		TEST_EQ (len, 4);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STRN (env[0], "PATH=");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STRN (env[1], "TERM=");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_EQ_STR (env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[3], env);
+		TEST_EQ_STR (env[3], "BAR=BAZ");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (config);
+
+
+	/* Check that configured environment override built-ins.
+	 */
+	TEST_FEATURE ("with configuration overriding built-ins");
+	config = job_config_new (NULL, "test");
+	config->env = nih_str_array_new (config);
+	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
+	assert (nih_str_array_add (&(config->env), config, NULL, "TERM=elmo"));
+
+	TEST_ALLOC_FAIL {
+		env = job_config_environment (NULL, config, &len);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (env, NULL);
+			continue;
+		}
+
+		TEST_NE_P (env, NULL);
+		TEST_EQ (len, 4);
+		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_EQ_STRN (env[0], "PATH=");
+		TEST_ALLOC_PARENT (env[1], env);
+		TEST_EQ_STR (env[1], "TERM=elmo");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_EQ_STR (env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (env[3], env);
+		TEST_EQ_STR (env[3], "BAR=BAZ");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (config);
+}
+
 
 void
 test_new (void)
@@ -6658,6 +6771,7 @@ main (int   argc,
 
 	test_config_new ();
 	test_config_replace ();
+	test_config_environment ();
 
 	test_new ();
 	test_find_by_pid ();
