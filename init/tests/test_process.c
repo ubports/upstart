@@ -105,10 +105,8 @@ test_spawn (void)
 {
 	FILE          *output;
 	char           function[PATH_MAX], filename[PATH_MAX], buf[80];
-	char          *env[2], *args[4];
+	char          *env[3], *args[4];
 	JobConfig     *config;
-	Job           *job;
-	EventOperator *oper;
 	pid_t          pid;
 	siginfo_t      info;
 	NihError      *err;
@@ -131,8 +129,7 @@ test_spawn (void)
 
 	config = job_config_new (NULL, "test");
 
-	job = job_new (config);
-	pid = process_spawn (job, args, FALSE);
+	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -170,8 +167,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 	config->console = CONSOLE_NONE;
 
-	job = job_new (config);
-	pid = process_spawn (job, args, FALSE);
+	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -197,8 +193,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 	config->chdir = "/tmp";
 
-	job = job_new (config);
-	pid = process_spawn (job, args, FALSE);
+	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -213,100 +208,27 @@ test_spawn (void)
 	nih_free (config);
 
 
-	/* Check that a job is run in a consistent environment containing
-	 * only approved variables, or those set within the job.
+	/* Check that a job is run with only the environment variables
+	 * specifiec in the function call.
 	 */
 	TEST_FEATURE ("with environment");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	putenv ("BAR=baz");
 
-	config = job_config_new (NULL, "test");
-	config->env = env;
-	env[0] = "FOO=bar";
-	env[1] = NULL;
+	env[0] = "PATH=/bin";
+	env[1] = "FOO=bar";
+	env[2] = NULL;
 
-	job_id = 1000;
-	job = job_new (config);
-	pid = process_spawn (job, args, FALSE);
+	config = job_config_new (NULL, "test");
+
+	pid = process_spawn (config, args, env, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	TEST_FILE_EQ_N (output, "PATH=");
-	TEST_FILE_EQ_N (output, "TERM=");
+	TEST_FILE_EQ (output, "PATH=/bin\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
-	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
-	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
-	TEST_FILE_END (output);
-
-	fclose (output);
-	unlink (filename);
-
-	nih_free (config);
-
-
-	/* Check that a job's environment includes the variables from all
-	 * events that started the job, overriding those specified
-	 * in the job.
-	 */
-	TEST_FEATURE ("with environment from start events");
-	sprintf (function, "%d", TEST_ENVIRONMENT);
-	putenv ("BAZ=baz");
-	putenv ("COFFEE=YES");
-
-	config = job_config_new (NULL, "test");
-	config->env = env;
-	env[0] = "FOO=bar";
-	env[1] = NULL;
-
-	config->start_on = event_operator_new (config, EVENT_AND, NULL, NULL);
-	config->start_on->value = TRUE;
-
-	oper = event_operator_new (config->start_on, EVENT_MATCH,
-				   "wibble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "TEA=YES"));
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
-
-	oper = event_operator_new (config->start_on, EVENT_MATCH,
-				   "wobble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wobble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "BAR=ORANGE"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "COFFEE=NO"));
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
-
-	job_id = 1000;
-	job = job_new (config);
-
-	pid = process_spawn (job, args, FALSE);
-	TEST_GT (pid, 0);
-
-	waitpid (pid, NULL, 0);
-	output = fopen (filename, "r");
-
-	TEST_FILE_EQ_N (output, "PATH=");
-	TEST_FILE_EQ_N (output, "TERM=");
-	TEST_FILE_EQ (output, "FOO=APPLE\n");
-	TEST_FILE_EQ (output, "TEA=YES\n");
-	TEST_FILE_EQ (output, "BAR=ORANGE\n");
-	TEST_FILE_EQ (output, "COFFEE=NO\n");
-	TEST_FILE_EQ (output, "UPSTART_EVENTS=wibble wobble\n");
-	TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
-	TEST_FILE_EQ (output, "UPSTART_JOB_ID=1000\n");
 	TEST_FILE_END (output);
 
 	fclose (output);
@@ -324,8 +246,7 @@ test_spawn (void)
 
 	config = job_config_new (NULL, "test");
 
-	job = job_new (config);
-	pid = process_spawn (job, args, FALSE);
+	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -346,8 +267,7 @@ test_spawn (void)
 	config = job_config_new (NULL, "test");
 	config->wait_for = JOB_WAIT_DAEMON;
 
-	job = job_new (config);
-	pid = process_spawn (job, args, TRUE);
+	pid = process_spawn (config, args, NULL, TRUE);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -376,8 +296,7 @@ test_spawn (void)
 
 	config = job_config_new (NULL, "test");
 
-	job = job_new (config);
-	pid = process_spawn (job, args, FALSE);
+	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_LT (pid, 0);
 
 	err = nih_error_get ();

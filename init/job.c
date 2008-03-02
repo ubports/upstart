@@ -1309,7 +1309,8 @@ job_run_process (Job         *job,
 		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
-	while ((job->pid[process] = process_spawn (job, argv, trace)) < 0) {
+	while ((job->pid[process] = process_spawn (job->config, argv,
+						   job->env, trace)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();

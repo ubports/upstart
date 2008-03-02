@@ -1,5 +1,16 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_spawn): Accept the environment list as
+	a parameter, then finally we can change this function to take a
+	JobConfig as the first argument.
+	(process_error_read): Remove the associated error handler.
+	* init/process.h: Change prototype.
+	(ProcessErrorType): Remove error enum for environment.
+	* init/tests/test_process.c (test_spawn): Update calls in test to
+	just pass in an environment array (direct testing).
+	* init/job.c (job_run_process): Pass configuration and environment
+	to process_spawn.
+
 	* init/process.c (process_spawn): Take the environment directly out
 	the job structure, rather than recreating it.
 	(process_environment): Drop function, absorbed elsewhere.

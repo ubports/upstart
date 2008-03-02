@@ -51,7 +51,6 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include "environ.h"
 #include "job.h"
 #include "process.h"
 #include "paths.h"
@@ -81,18 +80,19 @@ static int  process_error_read        (int fd)
 
 /**
  * process_spawn:
- * @job: job context for process to be spawned in,
+ * @config: job configuration of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
+ * @env: NULL-terminated list of environment variables for the process,
  * @trace: whether to trace this process.
  *
- * This function spawns a new process using the @job details to set up the
+ * This function spawns a new process using the @config details to set up the
  * environment for it; the process is always a session and process group
  * leader as we never want anything in our own group.
  *
  * The process to be executed is given in the @argv array which is passed
  * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
- * PATH environment in @job will be searched.
+ * PATH environment in @config will be searched.
  *
  * If @trace is TRUE, the process will be traced with ptrace and this will
  * cause the process to be stopped when the exec() call is made.  You must
@@ -111,15 +111,16 @@ static int  process_error_read        (int fd)
  * Returns: process id of new process on success, -1 on raised error
  **/
 pid_t
-process_spawn (Job          *job,
+process_spawn (JobConfig    *config,
 	       char * const  argv[],
+	       char * const *env,
 	       int           trace)
 {
 	sigset_t child_set, orig_set;
 	pid_t    pid;
 	int      i, fds[2];
 
-	nih_assert (job != NULL);
+	nih_assert (config != NULL);
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
@@ -183,7 +184,7 @@ process_spawn (Job          *job,
 	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
 	 * later.
 	 */
-	if (process_setup_console (job->config->console, FALSE) < 0)
+	if (process_setup_console (config->console, FALSE) < 0)
 		process_error_abort (fds[1], PROCESS_ERROR_CONSOLE, 0);
 
 	/* Set resource limits for the process, skipping over any that
@@ -191,29 +192,26 @@ process_spawn (Job          *job,
 	 * ourselves (and we inherit from kernel defaults).
 	 */
 	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (! job->config->limits[i])
+		if (! config->limits[i])
 			continue;
 
-		if (setrlimit (i, job->config->limits[i]) < 0) {
+		if (setrlimit (i, config->limits[i]) < 0) {
 			nih_error_raise_system ();
 			process_error_abort (fds[1], PROCESS_ERROR_RLIMIT, i);
 		}
 	}
 
-	/* Set the process environment, taking environment variables from
-	 * the job definition, the events that started/stopped it and also
-	 * include the standard ones that tell you which job you are.
-	 */
-	environ = job->env;
+	/* Set the process environment from the function paramters. */
+	environ = (char **)env;
 
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
 	 */
-	umask (job->config->umask);
+	umask (config->umask);
 
 	/* Adjust the process priority ("nice level").
 	 */
-	if (setpriority (PRIO_PROCESS, 0, job->config->nice) < 0) {
+	if (setpriority (PRIO_PROCESS, 0, config->nice) < 0) {
 		nih_error_raise_system ();
 		process_error_abort (fds[1], PROCESS_ERROR_PRIORITY, 0);
 	}
@@ -222,8 +220,8 @@ process_spawn (Job          *job,
 	 * we do this before the working directory call so that is always
 	 * relative to the new root.
 	 */
-	if (job->config->chroot) {
-		if (chroot (job->config->chroot) < 0) {
+	if (config->chroot) {
+		if (chroot (config->chroot) < 0) {
 			nih_error_raise_system ();
 			process_error_abort (fds[1], PROCESS_ERROR_CHROOT, 0);
 		}
@@ -233,7 +231,7 @@ process_spawn (Job          *job,
 	 * configured in the job, or to the root directory of the filesystem
 	 * (or at least relative to the chroot).
 	 */
-	if (chdir (job->config->chdir ? job->config->chdir : "/") < 0) {
+	if (chdir (config->chdir ? config->chdir : "/") < 0) {
 		nih_error_raise_system ();
 		process_error_abort (fds[1], PROCESS_ERROR_CHDIR, 0);
 	}
@@ -409,11 +407,6 @@ process_error_read (int fd)
 				  err, _("unable to set \"%s\" resource limit: %s"),
 				  res, strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_ENVIRON:
-		NIH_MUST (err->error.message = nih_sprintf (
-				  err, _("unable to set up environment: %s"),
-				  strerror (err->errnum)));
-		break;
 	case PROCESS_ERROR_PRIORITY:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to set priority: %s"),
@@ -445,6 +438,38 @@ process_error_read (int fd)
 
 	nih_error_raise_again (&err->error);
 	return -1;
+}
+
+
+/**
+ * process_kill:
+ * @config: job configuration of process to be killed,
+ * @pid: process id of process,
+ * @force: force the death.
+ *
+ * This function only sends the process a TERM signal (KILL if @force is
+ * TRUE), it is up to the caller to ensure that the state change is saved
+ * into the job and the process is watched; one may also wish to send
+ * further signals later.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+process_kill (JobConfig *config,
+	      pid_t      pid,
+	      int        force)
+{
+	int signal;
+
+	nih_assert (config != NULL);
+	nih_assert (pid > 0);
+
+	signal = (force ? SIGKILL : SIGTERM);
+
+	if (kill (-pid, signal) < 0)
+		nih_return_system_error (-1);
+
+	return 0;
 }
 
 
@@ -530,38 +555,6 @@ process_setup_console (ConsoleType type,
 	/* Copy to standard output and standard error */
 	while (dup (fd) < 2)
 		;
-
-	return 0;
-}
-
-
-/**
- * process_kill:
- * @config: job configuration of process to be killed,
- * @pid: process id of process,
- * @force: force the death.
- *
- * This function only sends the process a TERM signal (KILL if @force is
- * TRUE), it is up to the caller to ensure that the state change is saved
- * into the job and the process is watched; one may also wish to send
- * further signals later.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-process_kill (JobConfig *config,
-	      pid_t      pid,
-	      int        force)
-{
-	int signal;
-
-	nih_assert (config != NULL);
-	nih_assert (pid > 0);
-
-	signal = (force ? SIGKILL : SIGTERM);
-
-	if (kill (-pid, signal) < 0)
-		nih_return_system_error (-1);
 
 	return 0;
 }

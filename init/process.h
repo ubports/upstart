@@ -38,7 +38,6 @@
 typedef enum process_error_type {
 	PROCESS_ERROR_CONSOLE,
 	PROCESS_ERROR_RLIMIT,
-	PROCESS_ERROR_ENVIRON,
 	PROCESS_ERROR_PRIORITY,
 	PROCESS_ERROR_CHROOT,
 	PROCESS_ERROR_CHDIR,
@@ -75,13 +74,14 @@ typedef struct process_error {
 
 NIH_BEGIN_EXTERN
 
-pid_t  process_spawn           (Job *job, char * const argv[], int trace)
-	__attribute__ ((warn_unused_result));
-
-int    process_setup_console   (ConsoleType type, int reset)
+pid_t  process_spawn           (JobConfig *config, char * const argv[],
+				char * const *env, int trace)
 	__attribute__ ((warn_unused_result));
 
 int    process_kill            (JobConfig *config, pid_t pid, int force)
+	__attribute__ ((warn_unused_result));
+
+int    process_setup_console   (ConsoleType type, int reset)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
