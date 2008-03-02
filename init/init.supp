@@ -49,3 +49,17 @@
    fun:nih_list_new
    fun:conf_init
 }
+
+# job_run_process will leak its args member to children, knowing full
+# well they will either exec() or exit()
+{
+   job-run-process-args
+   Memcheck:Leak
+   fun:realloc
+   fun:_test_allocator
+   fun:nih_realloc
+   fun:nih_str_array_addp
+   fun:nih_str_array_addn
+   fun:nih_str_split
+   fun:job_run_process
+}

@@ -1,5 +1,9 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp (job-run-process-args): Add a suppression for the
+	fact that job_run_process will leak its arguments to a new process
+	assuming that it will call exec() or exit()
+
 	* init/tests/test_job.c (test_child_handler): Remove bogus free tag
 	of the list, which we don't use in this test (valgrind failure)
 
