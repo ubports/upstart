@@ -72,6 +72,7 @@
 /* Prototypes for static functions */
 static void        job_failed                  (Job *job, ProcessType process,
 						int status);
+static void        job_unblock                 (Job *job, int failed);
 static Event *     job_emit_event              (Job *job)
 	__attribute__ ((malloc));
 static int         job_catch_runaway           (Job *job);
@@ -463,8 +464,6 @@ job_new (JobConfig  *config)
 			goto error;
 	}
 
-	job->start_env = NULL;
-
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
@@ -476,6 +475,9 @@ job_new (JobConfig  *config)
 		job->pid[i] = 0;
 
 	job->blocked = NULL;
+	job->blocking = NULL;
+
+	job->start_env = NULL;
 
 	job->failed = FALSE;
 	job->failed_process = -1;
@@ -785,6 +787,7 @@ job_change_state (Job      *job,
 
 			/* If we're a service, our goal is to be running. */
 			if (job->config->service) {
+				job_unblock (job, FALSE);
 				if (job->start_on)
 					event_operator_unblock (job->start_on);
 			}
@@ -845,6 +848,7 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
+			job_unblock (job, FALSE);
 			if (job->start_on)
 				event_operator_reset (job->start_on);
 			if (job->stop_on)
@@ -1038,6 +1042,45 @@ job_failed (Job         *job,
 			    && oper->event && oper->blocked)
 				oper->event->failed = TRUE;
 		}
+	}
+
+	job_unblock (job, TRUE);
+}
+
+/**
+ * job_unblock:
+ * @job: job that is blocking,
+ * @failed: mark events as failed.
+ *
+ * This function unblocks any events blocking on @job; it is called when the
+ * job reaches a rest state (waiting for all, running for services), when a
+ * new command is received or when the job fails.
+ *
+ * If @failed is TRUE then the events that are blocking will be marked as
+ * failed.
+ **/
+static void
+job_unblock (Job *job,
+	     int  failed)
+{
+	nih_assert (job != NULL);
+
+	if (job->blocking) {
+		NIH_LIST_FOREACH (job->blocking, iter) {
+			NihListEntry *entry = (NihListEntry *)iter;
+			Event        *event = (Event *)entry->data;
+
+			nih_assert (event != NULL);
+
+			if (failed)
+				event->failed = TRUE;
+
+			event_unblock (event);
+			event_unref (event);
+		}
+
+		nih_free (job->blocking);
+		job->blocking = NULL;
 	}
 }
 
@@ -2078,18 +2121,21 @@ job_handle_event (Event *event)
 		if (config->start_on
 		    && event_operator_handle (config->start_on, event)
 		    && config->start_on->value) {
-			Job     *job;
-			char   **env;
-			size_t   len;
+			char    **env;
+			size_t    len;
+			NihList  *list;
+			Job      *job;
 
 			/* Construct the environment for the new instance
-			 * from the configuration and the start events.
+			 * from the configuration and the start events
+			 * and collect the list of events we have to block.
 			 */
+			NIH_MUST (list = nih_list_new (NULL));
 			NIH_MUST (env = job_config_environment (
 					  NULL, config, &len));
 			event_operator_collect (config->start_on,
 						&env, NULL, &len,
-						"UPSTART_EVENTS", NULL);
+						"UPSTART_EVENTS", list);
 
 			/* Locate the current instance or create a new one */
 			job = job_instance (config);
@@ -2098,20 +2144,35 @@ job_handle_event (Event *event)
 
 			/* Start the job with the environment we want */
 			if (job->goal != JOB_START) {
-				nih_alloc_reparent (env, job);
-
-				NIH_MUST (environ_set (&env, job, NULL,
-						       "UPSTART_JOB=%s", job->config->name));
-				NIH_MUST (environ_set (&env, job, NULL,
-						       "UPSTART_JOB_ID=%u", job->id));
-
 				if (job->start_env)
 					nih_free (job->start_env);
 
+				nih_alloc_reparent (env, job);
 				job->start_env = env;
+
+				NIH_MUST (environ_set (&job->start_env, job, NULL,
+						       "UPSTART_JOB=%s", job->config->name));
+				NIH_MUST (environ_set (&job->start_env, job, NULL,
+						       "UPSTART_JOB_ID=%u", job->id));
+
+				job_unblock (job, FALSE);
+
+				nih_alloc_reparent (list, job);
+				job->blocking = list;
 
 				job_change_goal (job, JOB_START);
 			} else {
+				NIH_LIST_FOREACH (list, iter) {
+					NihListEntry *entry = (NihListEntry *)iter;
+					Event        *event = (Event *)entry->data;
+
+					nih_assert (event != NULL);
+
+					event_unblock (event);
+					event_unref (event);
+				}
+
+				nih_free (list);
 				nih_free (env);
 			}
 

@@ -1,5 +1,28 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (job): Add blocking member, a list of events that we're
+	blocking from finishing.
+	* init/job.c (job_new): Initialise blocking member to NULL.
+	(job_handle_event): Collect the list of events from the operator
+	and store them in the job's blocking list (unblocking any existing
+	first); if the job is already running, unblock unref and discard.
+	(job_unblock): New function to deal with unblocking the events we're
+	holding onto and resetting the blocking list; this will be extended
+	later to also unblock any command.
+	(job_change_state): Unblock events in running for services and in
+	waiting for everything.
+	(job_failed): Unblock events and mark them as failed.
+	* init/tests/test_job.c (test_new): Check that it's initialised to NULL
+	(test_handle_event): Extend the test cases to check the value of the
+	blocking list, and to make sure that the previous blocking list is
+	overwritten when necessary.
+	(test_change_state, test_child_handler): Extend test cases so that
+	wherever we're had a blocked event in start_on, we also have that in
+	the blocking list.
+	* init/tests/test_event.c (test_poll): Temporarily increase the
+	expected number of references/blockers to the event in the poll
+	test.
+
 	* init/job.h (Job): Add start_env member, this stores the environment
 	to use when starting the event so it doesn't overwrite the current
 	environment of a restarting job.

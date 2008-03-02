@@ -226,8 +226,8 @@ test_poll (void)
 	event_poll ();
 
 	TEST_EQ (event->progress, EVENT_HANDLING);
-	TEST_EQ (event->refs, 1);
-	TEST_EQ (event->blockers, 1);
+	TEST_EQ (event->refs, 2);
+	TEST_EQ (event->blockers, 2);
 
 	TEST_LIST_NOT_EMPTY (&config->instances);
 
