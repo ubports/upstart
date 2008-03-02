@@ -694,6 +694,21 @@ job_change_state (Job      *job,
 				job->start_env = NULL;
 			}
 
+			/* Throw away the stop environment */
+			if (job->stop_env) {
+				nih_free (job->stop_env);
+				job->stop_env = NULL;
+			}
+
+			/* Reset the stop operator */
+			if (job->stop_on)
+				event_operator_reset (job->stop_on);
+
+			/* Clear any old failed information */
+			job->failed = FALSE;
+			job->failed_process = -1;
+			job->exit_status = 0;
+
 			/* Catch runaway jobs; make sure we do this before
 			 * we emit the starting event, so other jobs don't
 			 * think we're going to be started.
@@ -707,14 +722,6 @@ job_change_state (Job      *job,
 				state = JOB_WAITING;
 				break;
 			}
-
-			/* Clear any old failed information */
-			job->failed = FALSE;
-			job->failed_process = -1;
-			job->exit_status = 0;
-
-			if (job->stop_on)
-				event_operator_reset (job->stop_on);
 
 			job->blocked = job_emit_event (job);
 			event_ref (job->blocked);
@@ -769,6 +776,13 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_PRE_STOP));
 
 			if (old_state == JOB_PRE_STOP) {
+				/* Throw away the stop environment */
+				if (job->stop_env) {
+					nih_free (job->stop_env);
+					job->stop_env = NULL;
+				}
+
+				/* Reset the stop operator */
 				if (job->stop_on)
 					event_operator_reset (job->stop_on);
 

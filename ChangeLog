@@ -1,5 +1,10 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Throw away the stop environment
+	when starting and returning to running.
+	* init/tests/test_job.c (test_change_state): Make sure the stop
+	environment is actually thrown away.
+
 	* init/job.c (job_run_process): Append the environment from the
 	stop events if given the pre-stop process to run; do this before
 	the special events so they can never be overriden.

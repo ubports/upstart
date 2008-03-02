@@ -914,19 +914,20 @@ test_change_goal (void)
 void
 test_change_state (void)
 {
-	FILE         *output;
-	ConfSource   *source = NULL;
-	ConfFile     *file = NULL;
-	JobConfig    *config, *replacement = NULL, *ptr;
-	Job          *job = NULL;
-	NihList      *list;
-	NihListEntry *entry;
-	Event        *cause, *event;
-	struct stat   statbuf;
-	char          dirname[PATH_MAX], filename[PATH_MAX], **env1, **env2;
-	JobProcess   *tmp, *fail;
-	pid_t         pid;
-	int           status;
+	FILE          *output;
+	ConfSource    *source = NULL;
+	ConfFile      *file = NULL;
+	JobConfig     *config, *replacement = NULL, *ptr;
+	Job           *job = NULL;
+	NihList       *list;
+	NihListEntry  *entry;
+	Event         *cause, *event;
+	struct stat    statbuf;
+	char           dirname[PATH_MAX], filename[PATH_MAX];
+	char         **env1, **env2, **env3;
+	JobProcess    *tmp, *fail;
+	pid_t          pid;
+	int            status;
 
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
@@ -2444,12 +2445,18 @@ test_change_state (void)
 
 
 	/* Check that a job can move from pre-stop back to running again;
-	 * clearing the block and reference on the events that stopped it.
+	 * clearing the block and reference on the events that stopped it
+	 * including their environment.
 	 */
 	TEST_FEATURE ("pre-stop to running");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "BAZ=BAZ"));
 		}
 
 		job->goal = JOB_STOP;
@@ -2463,6 +2470,9 @@ test_change_state (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		env1 = job->stop_env;
+		TEST_FREE_TAG (env1);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2483,6 +2493,9 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->value, FALSE);
 		TEST_EQ_P (job->stop_on->event, NULL);
 		TEST_EQ (job->stop_on->blocked, FALSE);
+
+		TEST_FREE (env1);
+		TEST_EQ_P (job->stop_env, NULL);
 
 		TEST_LIST_EMPTY (events);
 
@@ -3013,6 +3026,11 @@ test_change_state (void)
 			assert (nih_str_array_add (&(job->start_env), job,
 						   NULL, "BAZ=BAZ"));
 
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "BAZ=BAZ"));
+
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
 
@@ -3039,9 +3057,11 @@ test_change_state (void)
 
 		env1 = job->env;
 		env2 = job->start_env;
+		env3 = job->stop_env;
 
 		TEST_FREE_TAG (env1);
 		TEST_FREE_TAG (env2);
+		TEST_FREE_TAG (env3);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -3061,6 +3081,9 @@ test_change_state (void)
 		TEST_NOT_FREE (env2);
 		TEST_EQ_P (job->env, env2);
 		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_FREE (env3);
+		TEST_EQ_P (job->stop_env, NULL);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
