@@ -4,12 +4,12 @@ Job Atomicity:
     for config:
         event_operator_handle (config.start_on, $event)
         if config.start_on:
-            env = job_config_environment (config)
-            (env, blocking) = event_operator_collect (config.start_on)
-{            job = job_instance (config, env)
-{            if not job:
-{                job = job_new (config)
-            job_start (job, env, blocking)
+!!          env = job_config_environment (config)
+**          (env, blocking) = event_operator_collect (config.start_on)
+             job = job_instance (config, env)
+             if not job:
+                 job = job_new (config)
+!!          job_start (job, env, blocking)
 
             event_oper_reset (config.start_on)
 
@@ -18,52 +18,46 @@ Job Atomicity:
         for job in config:
             event_operator_handle (job.stop_on, $event)
             if job.stop_on:
-                (env, blocking) = event_operator_collect (job.stop_on)
-                job_stop (job, env, blocking)
+**              (env, blocking) = event_operator_collect (job.stop_on)
+!!              job_stop (job, env, blocking)
 
                 event_oper_reset (job.stop_on)
 
 
   start by name:
-    env = job_config_environment ($config)
+!!  env = job_config_environment ($config)
     if $env:
         env += $env
 
-{    job = job_instance ($config, env)
-{    if not job:
-{        job = job_new ($config)
-    elif not $env:
-        env = NULL
+    job = job_instance ($config, env)
+    if not job:
+        job = job_new ($config)
 
-    job_start (job, env, NULL)
+!!  job_start (job, env, NULL)
 
   stop by name:
     if $env:
         job = job_instance ($config, $env)
         if job:
-            job_stop (job, $env, NULL)
+!!          job_stop (job, $env, NULL)
             return
 
     for job in $config:
-        job_stop (job, $env, NULL)
+!!      job_stop (job, $env, NULL)
 
 
   start by id
+    # allows to be restarted with the same environment, since the race is
+    # negated by fact you have its id, so it will just fail if you lost
     if $env:
-        env = job_config_environment ($job.config)
+!!      env = job_config_environment ($job.config)
         env += $env
     else:
         env = NULL
-    job_start ($job, env, NULL)
+!!  job_start ($job, env, NULL)
 
   stop by id:
-    job_stop ($job, $env, NULL)
-
-
-job_config_environment (config)
-    env = COPY (builtin)
-    env += config.env
-  return env
+!!  job_stop ($job, $env, NULL)
 
 
 # starting with an environment replaces any previous environment,
