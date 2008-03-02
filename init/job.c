@@ -1245,7 +1245,7 @@ job_run_process (Job         *job,
 		 ProcessType  process)
 {
 	JobProcess  *proc;
-	char       **argv, *script = NULL;
+	char       **argv, **env, *script = NULL;
 	size_t       argc;
 	int          error = FALSE, fds[2], trace = FALSE;
 
@@ -1321,6 +1321,18 @@ job_run_process (Job         *job,
 						" \t\r\n", TRUE));
 	}
 
+	/* We provide the standard job environment to all of its processes,
+	 * adding special variables that indicate which job it was -- mostly
+	 * so that initctl can have clever behaviour when called within them.
+	 */
+	env = NULL;
+	if (job->env)
+		NIH_MUST (env = nih_str_array_copy (NULL, NULL, job->env));
+
+	NIH_MUST (environ_set (&env, NULL, NULL,
+			       "UPSTART_JOB=%s", job->config->name));
+	NIH_MUST (environ_set (&env, NULL, NULL,
+			       "UPSTART_JOB_ID=%u", job->id));
 
 	/* If we're about to spawn the main job and we need to wait for it
 	 * to become a daemon or fork before we can move out of spawned, we
@@ -1333,7 +1345,7 @@ job_run_process (Job         *job,
 
 	/* Spawn the process, repeat until fork() works */
 	while ((job->pid[process] = process_spawn (job->config, argv,
-						   job->env, trace)) < 0) {
+						   env, trace)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -1343,6 +1355,7 @@ job_run_process (Job         *job,
 			 * ourselves before returning.
 			 */
 			nih_free (argv);
+			nih_free (env);
 			if (script) {
 				close (fds[0]);
 				close (fds[1]);
@@ -1366,6 +1379,7 @@ job_run_process (Job         *job,
 	}
 
 	nih_free (argv);
+	nih_free (env);
 
 	nih_info (_("%s (#%u) %s process (%d)"),
 		  job->config->name, job->id,

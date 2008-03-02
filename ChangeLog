@@ -1,5 +1,11 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_run_process): Copy the environment to pass it to
+	the job, appending the UPSTART_JOB and UPSTART_JOB_ID variables here;
+	we never want to be able to match these, etc.
+	* init/tests/test_job.c (test_run_process): Add tests to make sure
+	that the environment is actually set in the processes we run.
+
 	* init/job.h (Job): Add stop_env member to store environment from
 	stop events for the stop script.
 	* init/job.c (job_new): Initialise stop_env to NULL.

@@ -53,6 +53,8 @@
 #include "conf.h"
 
 
+static char *argv0;
+
 void
 test_process_new (void)
 {
@@ -3778,6 +3780,49 @@ test_run_process (void)
 
 		output = fopen (filename, "r");
 		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_free (config);
+	}
+
+
+	/* Check that a job is run with the environment from its env member,
+	 * with the job name and id appended to it.
+	 */
+	TEST_FEATURE ("with environment");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->process[PROCESS_MAIN] = job_process_new (config);
+			config->process[PROCESS_MAIN]->command = nih_sprintf (
+				config->process[PROCESS_MAIN],
+				"%s %s", argv0, filename);
+
+			job = job_new (config);
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			assert (nih_str_array_add (&job->env, job, NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&job->env, job, NULL, "BAR=BAZ"));
+		}
+
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		/* Read back the environment to make sure it matched that from
+		 * the job.
+		 */
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "FOO=BAR\n");
+		TEST_FILE_EQ (output, "BAR=BAZ\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ_N (output, "UPSTART_JOB_ID=");
 		fclose (output);
 		unlink (filename);
 
@@ -7618,6 +7663,32 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* We re-exec this binary to test various children features.  To
+	 * do that, we need to know the full path to the program.
+	 */
+	argv0 = argv[0];
+	if (argv0[0] != '/') {
+		char path[PATH_MAX];
+
+		getcwd (path, sizeof (path));
+		strcat (path, "/");
+		strcat (path, argv0);
+
+		argv0 = path;
+	}
+
+	/* If an argument is given, it's a filename to write the environment to
+	 */
+	if (argc == 2) {
+		FILE *out;
+
+		out = fopen (argv[1], "w");
+		for (char **env = environ; *env; env++)
+			fprintf (out, "%s\n", *env);
+		exit (0);
+	}
+
+	/* Otherwise run the tests as normal */
 	test_process_new ();
 
 	test_config_new ();
