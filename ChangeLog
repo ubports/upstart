@@ -1,5 +1,32 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add start_env member, this stores the environment
+	to use when starting the event so it doesn't overwrite the current
+	environment of a restarting job.
+	* init/job.c (job_handle_event): Do the heavy lifting of starting a
+	new job instance here; construct the environment from the built-ins
+	and configured, append that collected from the start events, locate
+	or create a new instance, add the job name and id then copy into
+	the new start_env member before starting the job.  At some point
+	this will probably all become a function since it'll be similar for
+	the control functions.
+	(job_change_state): Copy the start_env member into the env member
+	when in the starting state; thus the job environment remains the same
+	until restarted.
+	(job_new): Remove code to initialise the environment, we now do that
+	when actually starting the instance.
+	* init/tests/test_job.c (test_handle_event): Add test cases for
+	starting the job, making sure that the environment is correctly
+	copied into the right field and also checking what happens if it's
+	already stopping or running.
+	(test_change_state): Make sure that start_env is correctly copied
+	over into env, overwriting what is there if non-NULL or keeping it
+	if NULL.
+	(test_new): Remove checks for environment setup, since we don't do
+	that anymore here; replace with checking for NULL and restore the
+	alloc fail tests.
+	* TODO: Update.
+
 	* init/environ.c (environ_add): Allow it to accept NULL length, since
 	we can't always keep that around.
 

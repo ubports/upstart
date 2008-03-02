@@ -374,12 +374,6 @@ test_new (void)
 	job_init ();
 
 	config = job_config_new (NULL, "test");
-	config->env = nih_str_array_new (config);
-	assert (nih_str_array_add (&(config->env), config, NULL, "FOO=BAR"));
-	assert (nih_str_array_add (&(config->env), config, NULL, "BAR=BAZ"));
-	assert (nih_str_array_add (&(config->env), config, NULL, "TERM=elmo"));
-	assert (nih_str_array_add (&(config->env), config, NULL,
-				   "UPSTART_JOB=evil"));
 
 	config->start_on = event_operator_new (config, EVENT_OR, NULL, NULL);
 	config->start_on->value = TRUE;
@@ -388,12 +382,6 @@ test_new (void)
 				   "wibble", NULL);
 	oper->value = TRUE;
 	oper->event = event_new (oper, "wibble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "FOO=APPLE"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "TEA=YES"));
-	NIH_MUST (nih_str_array_add (&oper->event->env, oper->event,
-				     NULL, "UPSTART_JOB_ID=nonesuch"));
 	event_ref (oper->event);
 	oper->blocked = TRUE;
 	event_block (oper->event);
@@ -409,20 +397,17 @@ test_new (void)
 					      "baz", NULL);
 
 
-	/* FIXME these are temporarily commented out because job_new calls
-	 * event_operator_collect which can't fail because it blocks events
-	 */
-//	TEST_ALLOC_FAIL {
+	TEST_ALLOC_FAIL {
 		job_instances = 0;
 		job_id = 99;
 
 		job = job_new (config);
 
-/*		if (test_alloc_failed) {
+		if (test_alloc_failed) {
 			TEST_EQ_P (job, NULL);
 			TEST_EQ (job_instances, 0);
 			continue;
-			} */
+		}
 
 		TEST_ALLOC_PARENT (job, config);
 		TEST_ALLOC_SIZE (job, sizeof (Job));
@@ -431,27 +416,7 @@ test_new (void)
 		TEST_EQ (job_instances, 1);
 
 		TEST_EQ (job->id, 99);
-
-		TEST_NE_P (job->env, NULL);
-		TEST_ALLOC_PARENT (job->env, job);
-		TEST_ALLOC_SIZE (job->env, sizeof (char *) * 9);
-		TEST_ALLOC_PARENT (job->env[0], job->env);
-		TEST_EQ_STRN (job->env[0], "PATH=");
-		TEST_ALLOC_PARENT (job->env[1], job->env);
-		TEST_EQ_STR (job->env[1], "TERM=elmo");
-		TEST_ALLOC_PARENT (job->env[2], job->env);
-		TEST_EQ_STR (job->env[2], "FOO=APPLE");
-		TEST_ALLOC_PARENT (job->env[3], job->env);
-		TEST_EQ_STR (job->env[3], "BAR=BAZ");
-		TEST_ALLOC_PARENT (job->env[4], job->env);
-		TEST_EQ_STR (job->env[4], "UPSTART_JOB=test");
-		TEST_ALLOC_PARENT (job->env[5], job->env);
-		TEST_EQ_STR (job->env[5], "TEA=YES");
-		TEST_ALLOC_PARENT (job->env[6], job->env);
-		TEST_EQ_STR (job->env[6], "UPSTART_JOB_ID=99");
-		TEST_ALLOC_PARENT (job->env[7], job->env);
-		TEST_EQ_STR (job->env[7], "UPSTART_EVENTS=wibble");
-		TEST_EQ_P (job->env[8], NULL);
+		TEST_EQ_P (job->env, NULL);
 
 		oper = (EventOperator *)job->start_on;
 		TEST_ALLOC_PARENT (oper, job);
@@ -469,15 +434,6 @@ test_new (void)
 		TEST_NE_P (oper->event, NULL);
 		TEST_EQ (oper->event->refs, 2);
 		TEST_EQ (oper->event->blockers, 2);
-		TEST_ALLOC_PARENT (oper->event->env, oper->event);
-		TEST_ALLOC_SIZE (oper->event->env, sizeof (char *) * 4);
-		TEST_ALLOC_PARENT (oper->event->env[0], oper->event->env);
-		TEST_EQ_STR (oper->event->env[0], "FOO=APPLE");
-		TEST_ALLOC_PARENT (oper->event->env[1], oper->event->env);
-		TEST_EQ_STR (oper->event->env[1], "TEA=YES");
-		TEST_ALLOC_PARENT (oper->event->env[2], oper->event->env);
-		TEST_EQ_STR (oper->event->env[2], "UPSTART_JOB_ID=nonesuch");
-		TEST_EQ_P (oper->event->env[3], NULL);
 
 		oper = (EventOperator *)job->start_on->node.right;
 		TEST_ALLOC_PARENT (oper, job->start_on);
@@ -503,6 +459,8 @@ test_new (void)
 		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ (oper->blocked, FALSE);
+
+		TEST_EQ_P (job->start_env, NULL);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -532,7 +490,7 @@ test_new (void)
 		event_operator_reset (job->stop_on);
 
 		nih_free (job);
-//	}
+	}
 
 	event_operator_reset (config->start_on);
 	event_operator_reset (config->stop_on);
@@ -1012,7 +970,7 @@ test_change_state (void)
 	Job         *job = NULL;
 	Event       *cause, *event;
 	struct stat  statbuf;
-	char         dirname[PATH_MAX], filename[PATH_MAX];
+	char         dirname[PATH_MAX], filename[PATH_MAX], **env1, **env2;
 	JobProcess  *tmp, *fail;
 	pid_t        pid;
 	int          status;
@@ -1051,12 +1009,18 @@ test_change_state (void)
 
 
 	/* Check that a job can move from waiting to starting.  This
-	 * should emit the starting event and block on it.
+	 * should emit the starting event and block on it and copy the
+	 * environment from start_env.
 	 */
 	TEST_FEATURE ("waiting to starting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
 		}
 
 		job->goal = JOB_START;
@@ -1071,6 +1035,8 @@ test_change_state (void)
 		job->start_on->blocked = TRUE;
 		event_block (job->start_on->event);
 
+		env1 = job->start_env;
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_POST_STOP;
 		job->exit_status = 1;
@@ -1083,6 +1049,9 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
@@ -3022,12 +2991,23 @@ test_change_state (void)
 	/* Check that a job can move from post-stop to starting.  This
 	 * should emit the starting event and block on it, as well as clear
 	 * any failed state information; but only unblock and unreference the
-	 * stop events, the start events should remain referenced.
+	 * stop events, the start events should remain referenced while the
+	 * environment should be replaced with the new one.
 	 */
 	TEST_FEATURE ("post-stop to starting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=TEA"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=COFFEE"));
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
 		}
 
 		job->goal = JOB_START;
@@ -3047,6 +3027,12 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		env1 = job->env;
+		env2 = job->start_env;
+
+		TEST_FREE_TAG (env1);
+		TEST_FREE_TAG (env2);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
@@ -3059,6 +3045,95 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (env1);
+
+		TEST_NOT_FREE (env2);
+		TEST_EQ_P (job->env, env2);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_EQ (job->start_on->value, TRUE);
+		TEST_EQ_P (job->start_on->event, cause);
+		TEST_EQ (job->start_on->blocked, FALSE);
+
+		TEST_EQ (job->stop_on->value, FALSE);
+		TEST_EQ_P (job->stop_on->event, NULL);
+		TEST_EQ (job->stop_on->blocked, FALSE);
+
+		event_operator_reset (job->start_on);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 0);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
+	/* Check that when there is no new environment, the old one is left
+	 * intact when the job moves from post-stop to starting.
+	 */
+	TEST_FEATURE ("post-stop to starting without new environment");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config);
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=TEA"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=COFFEE"));
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		job->start_on->value = TRUE;
+		job->start_on->event = cause;
+		event_ref (job->start_on->event);
+		job->stop_on->blocked = FALSE;
+
+		job->stop_on->value = TRUE;
+		job->stop_on->event = cause;
+		event_ref (job->stop_on->event);
+		job->stop_on->blocked = TRUE;
+		event_block (job->stop_on->event);
+
+		env1 = job->env;
+
+		TEST_FREE_TAG (env1);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
@@ -6437,14 +6512,18 @@ test_child_handler (void)
 void
 test_handle_event (void)
 {
-	JobConfig     *config1, *config2;
-	Job           *job1, *job2;
-	Event         *event, *event2;
-	EventOperator *oper;
+	JobConfig      *config1, *config2;
+	Job            *job1, *job2, *ptr;
+	Event          *event, *event2;
+	EventOperator  *oper;
+	char          **env1, **env2;
 
 	TEST_FUNCTION ("job_handle_event");
 	config1 = job_config_new (NULL, "foo");
 	config1->respawn_limit = 0;
+
+	assert (nih_str_array_add (&(config1->env), config1, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&(config1->env), config1, NULL, "BAR=BAZ"));
 
 	config1->start_on = event_operator_new (config1, EVENT_AND,
 						NULL, NULL);
@@ -6605,7 +6684,10 @@ test_handle_event (void)
 
 
 	/* Check that a second event can complete an expression and affect
-	 * the job, spawning a new instance.
+	 * the job, spawning a new instance.  The environment from the config,
+	 * plus the job-unique variables should be in the instances's
+	 * environment, since they would have been copied out of start_env
+	 * on starting.
 	 */
 	TEST_FEATURE ("with matching event to start");
 	event = event_new (NULL, "wibble", NULL);
@@ -6618,22 +6700,14 @@ test_handle_event (void)
 		event2->blockers = 0;
 		event2->refs = 0;
 
-		TEST_ALLOC_SAFE {
-			job2 = job_new (config2);
-		}
-
-		job2->goal = JOB_START;
-		job2->state = JOB_RUNNING;
-		job2->blocked = NULL;
-
 		job_handle_event (event);
 		job_handle_event (event2);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 
-		TEST_EQ (event2->refs, 2);
-		TEST_EQ (event2->blockers, 2);
+		TEST_EQ (event2->refs, 1);
+		TEST_EQ (event2->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
 		job1 = (Job *)config1->instances.next;
@@ -6643,6 +6717,27 @@ test_handle_event (void)
 		TEST_NE_P (job1->blocked, NULL);
 		TEST_EQ (job1->blocked->refs, 1);
 		event_unref (job1->blocked);
+
+		TEST_NE_P (job1->env, NULL);
+		TEST_ALLOC_PARENT (job1->env, job1);
+		TEST_ALLOC_SIZE (job1->env, sizeof (char *) * 8);
+		TEST_ALLOC_PARENT (job1->env[0], job1->env);
+		TEST_EQ_STRN (job1->env[0], "PATH=");
+		TEST_ALLOC_PARENT (job1->env[1], job1->env);
+		TEST_EQ_STRN (job1->env[1], "TERM=");
+		TEST_ALLOC_PARENT (job1->env[2], job1->env);
+		TEST_EQ_STR (job1->env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (job1->env[3], job1->env);
+		TEST_EQ_STR (job1->env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (job1->env[4], job1->env);
+		TEST_EQ_STR (job1->env[4], "UPSTART_EVENTS=wibble wobble");
+		TEST_ALLOC_PARENT (job1->env[5], job1->env);
+		TEST_EQ_STR (job1->env[5], "UPSTART_JOB=foo");
+		TEST_ALLOC_PARENT (job1->env[6], job1->env);
+		TEST_EQ_STRN (job1->env[6], "UPSTART_JOB_ID=");
+		TEST_EQ_P (job1->env[7], NULL);
+
+		TEST_EQ_P (job1->start_env, NULL);
 
 		oper = config1->start_on;
 		TEST_EQ (oper->value, FALSE);
@@ -6670,30 +6765,313 @@ test_handle_event (void)
 		TEST_EQ_P (oper->event, event2);
 		TEST_EQ (oper->blocked, TRUE);
 
-		TEST_EQ (job2->goal, JOB_STOP);
-		TEST_EQ (job2->state, JOB_STOPPING);
-		TEST_NE_P (job2->blocked, NULL);
-		TEST_EQ (job2->blocked->refs, 1);
-		event_unref (job2->blocked);
+		event_operator_reset (job1->start_on);
 
-		oper = job2->stop_on;
+		nih_free (job1);
+	}
+
+	nih_free (event);
+	nih_free (event2);
+
+
+	/* Check that the environment variables from the event are also copied
+	 * into the job's environment.
+	 */
+	TEST_FEATURE ("with environment in event");
+	event = event_new (NULL, "wibble", NULL);
+	assert (nih_str_array_add (&(event->env), event,
+				   NULL, "FRODO=baggins"));
+	assert (nih_str_array_add (&(event->env), event,
+				   NULL, "BILBO=took"));
+
+	event2 = event_new (NULL, "wobble", NULL);
+	assert (nih_str_array_add (&(event2->env), event2,
+				   NULL, "FRODO=brandybuck"));
+	assert (nih_str_array_add (&(event2->env), event2,
+				   NULL, "TEA=MILK"));
+
+	TEST_ALLOC_FAIL {
+		event->blockers = 0;
+		event->refs = 0;
+
+		event2->blockers = 0;
+		event2->refs = 0;
+
+		job_handle_event (event);
+		job_handle_event (event2);
+
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
+
+		TEST_EQ (event2->refs, 1);
+		TEST_EQ (event2->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&config1->instances);
+		job1 = (Job *)config1->instances.next;
+
+		TEST_EQ (job1->goal, JOB_START);
+		TEST_EQ (job1->state, JOB_STARTING);
+		TEST_NE_P (job1->blocked, NULL);
+		TEST_EQ (job1->blocked->refs, 1);
+		event_unref (job1->blocked);
+
+		TEST_NE_P (job1->env, NULL);
+		TEST_ALLOC_PARENT (job1->env, job1);
+		TEST_ALLOC_SIZE (job1->env, sizeof (char *) * 11);
+		TEST_ALLOC_PARENT (job1->env[0], job1->env);
+		TEST_EQ_STRN (job1->env[0], "PATH=");
+		TEST_ALLOC_PARENT (job1->env[1], job1->env);
+		TEST_EQ_STRN (job1->env[1], "TERM=");
+		TEST_ALLOC_PARENT (job1->env[2], job1->env);
+		TEST_EQ_STR (job1->env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (job1->env[3], job1->env);
+		TEST_EQ_STR (job1->env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (job1->env[4], job1->env);
+		TEST_EQ_STR (job1->env[4], "FRODO=brandybuck");
+		TEST_ALLOC_PARENT (job1->env[5], job1->env);
+		TEST_EQ_STR (job1->env[5], "BILBO=took");
+		TEST_ALLOC_PARENT (job1->env[6], job1->env);
+		TEST_EQ_STR (job1->env[6], "TEA=MILK");
+		TEST_ALLOC_PARENT (job1->env[7], job1->env);
+		TEST_EQ_STR (job1->env[7], "UPSTART_EVENTS=wibble wobble");
+		TEST_ALLOC_PARENT (job1->env[8], job1->env);
+		TEST_EQ_STR (job1->env[8], "UPSTART_JOB=foo");
+		TEST_ALLOC_PARENT (job1->env[9], job1->env);
+		TEST_EQ_STRN (job1->env[9], "UPSTART_JOB_ID=");
+		TEST_EQ_P (job1->env[10], NULL);
+
+		TEST_EQ_P (job1->start_env, NULL);
+
+		oper = config1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)config1->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)config1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = job1->start_on;
 		TEST_EQ (oper->value, TRUE);
 
-		oper = (EventOperator *)job2->stop_on->node.left;
+		oper = (EventOperator *)job1->start_on->node.left;
 		TEST_EQ (oper->value, TRUE);
 		TEST_EQ_P (oper->event, event);
 		TEST_EQ (oper->blocked, TRUE);
 
-		oper = (EventOperator *)job2->stop_on->node.right;
+		oper = (EventOperator *)job1->start_on->node.right;
 		TEST_EQ (oper->value, TRUE);
 		TEST_EQ_P (oper->event, event2);
 		TEST_EQ (oper->blocked, TRUE);
 
 		event_operator_reset (job1->start_on);
-		event_operator_reset (job2->stop_on);
 
 		nih_free (job1);
-		nih_free (job2);
+	}
+
+	nih_free (event);
+	nih_free (event2);
+
+
+	/* Check that the event can restart an instance that is stopping,
+	 * storing the environment in the start_env member since it should
+	 * not overwrite the previous environment until it actually restarts.
+	 */
+	TEST_FEATURE ("with restart of stopping job");
+	event = event_new (NULL, "wibble", NULL);
+	assert (nih_str_array_add (&(event->env), event,
+				   NULL, "FRODO=baggins"));
+	assert (nih_str_array_add (&(event->env), event,
+				   NULL, "BILBO=took"));
+
+	event2 = event_new (NULL, "wobble", NULL);
+	assert (nih_str_array_add (&(event2->env), event2,
+				   NULL, "FRODO=brandybuck"));
+	assert (nih_str_array_add (&(event2->env), event2,
+				   NULL, "TEA=MILK"));
+
+	TEST_ALLOC_FAIL {
+		event->blockers = 0;
+		event->refs = 0;
+
+		event2->blockers = 0;
+		event2->refs = 0;
+
+		TEST_ALLOC_SAFE {
+			job1 = job_new (config1);
+
+			assert (nih_str_array_add (&(job1->env), job1,
+						   NULL, "FOO=wibble"));
+			assert (nih_str_array_add (&(job1->env), job1,
+						   NULL, "BAR=wobble"));
+
+			assert (nih_str_array_add (&(job1->start_env), job1,
+						   NULL, "FOO=tea"));
+			assert (nih_str_array_add (&(job1->start_env), job1,
+						   NULL, "BAR=coffee"));
+		}
+
+		job1->goal = JOB_STOP;
+		job1->state = JOB_STOPPING;
+		job1->blocked = NULL;
+
+		env1 = job1->env;
+		TEST_FREE_TAG (env1);
+
+		env2 = job1->start_env;
+		TEST_FREE_TAG (env2);
+
+		job_handle_event (event);
+		job_handle_event (event2);
+
+		/* FIXME these are zero because we don't hold on to the
+		 * references when restarting an existing job
+		 */
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+
+		TEST_EQ (event2->refs, 0);
+		TEST_EQ (event2->blockers, 0);
+
+		TEST_LIST_NOT_EMPTY (&config1->instances);
+		ptr = (Job *)config1->instances.next;
+
+		TEST_EQ_P (ptr, job1);
+
+		TEST_EQ (job1->goal, JOB_START);
+		TEST_EQ (job1->state, JOB_STOPPING);
+		TEST_EQ_P (job1->blocked, NULL);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job1->env, env1);
+
+		TEST_FREE (env2);
+
+		TEST_NE_P (job1->start_env, NULL);
+		TEST_ALLOC_PARENT (job1->start_env, job1);
+		TEST_ALLOC_SIZE (job1->start_env, sizeof (char *) * 11);
+		TEST_ALLOC_PARENT (job1->start_env[0], job1->start_env);
+		TEST_EQ_STRN (job1->start_env[0], "PATH=");
+		TEST_ALLOC_PARENT (job1->start_env[1], job1->start_env);
+		TEST_EQ_STRN (job1->start_env[1], "TERM=");
+		TEST_ALLOC_PARENT (job1->start_env[2], job1->start_env);
+		TEST_EQ_STR (job1->start_env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (job1->start_env[3], job1->start_env);
+		TEST_EQ_STR (job1->start_env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (job1->start_env[4], job1->start_env);
+		TEST_EQ_STR (job1->start_env[4], "FRODO=brandybuck");
+		TEST_ALLOC_PARENT (job1->start_env[5], job1->start_env);
+		TEST_EQ_STR (job1->start_env[5], "BILBO=took");
+		TEST_ALLOC_PARENT (job1->start_env[6], job1->start_env);
+		TEST_EQ_STR (job1->start_env[6], "TEA=MILK");
+		TEST_ALLOC_PARENT (job1->start_env[7], job1->start_env);
+		TEST_EQ_STR (job1->start_env[7], "UPSTART_EVENTS=wibble wobble");
+		TEST_ALLOC_PARENT (job1->start_env[8], job1->start_env);
+		TEST_EQ_STR (job1->start_env[8], "UPSTART_JOB=foo");
+		TEST_ALLOC_PARENT (job1->start_env[9], job1->start_env);
+		TEST_EQ_STRN (job1->start_env[9], "UPSTART_JOB_ID=");
+		TEST_EQ_P (job1->start_env[10], NULL);
+
+		oper = config1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)config1->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)config1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		nih_free (job1);
+	}
+
+	nih_free (event);
+	nih_free (event2);
+
+
+	/* Check that a job that is already running is not affected by the
+	 * start events happening again.
+	 */
+	TEST_FEATURE ("with already running job");
+	event = event_new (NULL, "wibble", NULL);
+	event2 = event_new (NULL, "wobble", NULL);
+
+	TEST_ALLOC_FAIL {
+		event->blockers = 0;
+		event->refs = 0;
+
+		event2->blockers = 0;
+		event2->refs = 0;
+
+		TEST_ALLOC_SAFE {
+			job1 = job_new (config1);
+
+			assert (nih_str_array_add (&(job1->env), job1,
+						   NULL, "FOO=wibble"));
+			assert (nih_str_array_add (&(job1->env), job1,
+						   NULL, "BAR=wobble"));
+
+			assert (nih_str_array_add (&(job1->start_env), job1,
+						   NULL, "FOO=tea"));
+			assert (nih_str_array_add (&(job1->start_env), job1,
+						   NULL, "BAR=coffee"));
+		}
+
+		job1->goal = JOB_START;
+		job1->state = JOB_RUNNING;
+		job1->blocked = NULL;
+
+		env1 = job1->env;
+		TEST_FREE_TAG (env1);
+
+		env2 = job1->start_env;
+		TEST_FREE_TAG (env2);
+
+		job_handle_event (event);
+		job_handle_event (event2);
+
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
+
+		TEST_EQ (event2->refs, 0);
+		TEST_EQ (event2->blockers, 0);
+
+		TEST_LIST_NOT_EMPTY (&config1->instances);
+		ptr = (Job *)config1->instances.next;
+
+		TEST_EQ_P (ptr, job1);
+
+		TEST_EQ (job1->goal, JOB_START);
+		TEST_EQ (job1->state, JOB_RUNNING);
+		TEST_EQ_P (job1->blocked, NULL);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job1->env, env1);
+
+		TEST_NOT_FREE (env2);
+		TEST_EQ_P (job1->start_env, env2);
+
+		oper = config1->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)config1->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)config1->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ (oper->blocked, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		nih_free (job1);
 	}
 
 	nih_free (event);

@@ -430,9 +430,8 @@ job_next_id (void)
 Job *
 job_new (JobConfig  *config)
 {
-	Job    *job;
-	int     i;
-	size_t  len;
+	Job *job;
+	int  i;
 
 	nih_assert (config != NULL);
 
@@ -447,9 +446,7 @@ job_new (JobConfig  *config)
 	job->id = job_next_id ();
 	job->config = config;
 
-	job->env = job_config_environment (job, config, &len);
-	if (! job->env)
-		goto error;
+	job->env = NULL;
 
 	job->start_on = NULL;
 	job->stop_on = NULL;
@@ -458,9 +455,6 @@ job_new (JobConfig  *config)
 		job->start_on = event_operator_copy (job, config->start_on);
 		if (! job->start_on)
 			goto error;
-
-		event_operator_collect (job->start_on, &job->env, job, &len,
-					"UPSTART_EVENTS", NULL);
 	}
 
 	if (config->stop_on) {
@@ -469,10 +463,7 @@ job_new (JobConfig  *config)
 			goto error;
 	}
 
-	NIH_MUST (environ_set (&job->env, job, &len,
-			       "UPSTART_JOB=%s", job->config->name));
-	NIH_MUST (environ_set (&job->env, job, &len,
-			       "UPSTART_JOB_ID=%u", job->id));
+	job->start_env = NULL;
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
@@ -696,6 +687,18 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert ((old_state == JOB_WAITING)
 				    || (old_state == JOB_POST_STOP));
+
+			/* Throw away our old environment and use the newly
+			 * set environment from now on; unless that's NULL
+			 * in which case we just keep our old environment.
+			 */
+			if (job->start_env) {
+				if (job->env)
+					nih_free (job->env);
+
+				job->env = job->start_env;
+				job->start_env = NULL;
+			}
 
 			/* Catch runaway jobs; make sure we do this before
 			 * we emit the starting event, so other jobs don't
@@ -2075,12 +2078,43 @@ job_handle_event (Event *event)
 		if (config->start_on
 		    && event_operator_handle (config->start_on, event)
 		    && config->start_on->value) {
-			Job *job;
+			Job     *job;
+			char   **env;
+			size_t   len;
 
+			/* Construct the environment for the new instance
+			 * from the configuration and the start events.
+			 */
+			NIH_MUST (env = job_config_environment (
+					  NULL, config, &len));
+			event_operator_collect (config->start_on,
+						&env, NULL, &len,
+						"UPSTART_EVENTS", NULL);
+
+			/* Locate the current instance or create a new one */
 			job = job_instance (config);
 			if (! job)
 				NIH_MUST (job = job_new (config));
-			job_change_goal (job, JOB_START);
+
+			/* Start the job with the environment we want */
+			if (job->goal != JOB_START) {
+				nih_alloc_reparent (env, job);
+
+				NIH_MUST (environ_set (&env, job, NULL,
+						       "UPSTART_JOB=%s", job->config->name));
+				NIH_MUST (environ_set (&env, job, NULL,
+						       "UPSTART_JOB_ID=%u", job->id));
+
+				if (job->start_env)
+					nih_free (job->start_env);
+
+				job->start_env = env;
+
+				job_change_goal (job, JOB_START);
+			} else {
+				nih_free (env);
+			}
+
 			event_operator_reset (config->start_on);
 		}
 	}

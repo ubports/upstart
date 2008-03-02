@@ -4,12 +4,12 @@ Job Atomicity:
     for config:
         event_operator_handle (config.start_on, $event)
         if config.start_on:
-**          env = job_config_environment (config)
-**          (env, blocking) = event_operator_collect (config.start_on)
-             job = job_instance (config, env)
-             if not job:
-                 job = job_new (config)
-!!          job_start (job, env, blocking)
+            env = job_config_environment (config)
+*           (env, blocking) = event_operator_collect (config.start_on)
+            job = job_instance (config, env)
+            if not job:
+                job = job_new (config)
+*           job_start (job, env, blocking)
 
             event_oper_reset (config.start_on)
 
@@ -33,7 +33,7 @@ Job Atomicity:
     if not job:
         job = job_new ($config)
 
-!!  job_start (job, env, NULL)
+    job_start (job, env, NULL)
 
   stop by name:
     if $env:
@@ -54,7 +54,7 @@ Job Atomicity:
         env += $env
     else:
         env = NULL
-!!  job_start ($job, env, NULL)
+    job_start ($job, env, NULL)
 
   stop by id:
 !!  job_stop ($job, $env, NULL)
@@ -72,9 +72,9 @@ job_start (job, env, blocking)
             env += "UPSTART_JOB_ID=${job.id}"
             free (job.next_env)
             job.next_env = env
-        if blocking != NULL:
-            unblock (job.next_blocking)
-            job.next_blocking = blocking
+!!      if blocking != NULL:
+!!          unblock (job.next_blocking)
+!!          job.next_blocking = blocking
         job_change_goal (job, START)
 
 # this would end up discarding a previous change to the run environment

@@ -180,6 +180,7 @@ struct job_config {
  * @env: NULL-terminated list of environment variables,
  * @start_on: event operator expression that started this job,
  * @stop_on: event operator expression that can stop this job.
+ * @start_env: environment to use next time the job is started,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
  * @pid: current process ids,
@@ -209,6 +210,8 @@ typedef struct job {
 
 	EventOperator  *start_on;
 	EventOperator  *stop_on;
+
+	char          **start_env;
 
 	JobGoal         goal;
 	JobState        state;
