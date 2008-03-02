@@ -1,5 +1,10 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_event): Remove setting of UPSTART_JOB
+	and UPSTART_JOB_ID, we set that when we run the process.
+	* init/tests/test_job.c (test_handle_event): Don't check for
+	UPSTART_JOB and UPSTART_JOB_ID since we no longer copy it in here.
+
 	* init/job.c (job_run_process): Copy the environment to pass it to
 	the job, appending the UPSTART_JOB and UPSTART_JOB_ID variables here;
 	we never want to be able to match these, etc.

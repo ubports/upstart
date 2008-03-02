@@ -6806,7 +6806,7 @@ test_handle_event (void)
 
 		TEST_NE_P (job1->env, NULL);
 		TEST_ALLOC_PARENT (job1->env, job1);
-		TEST_ALLOC_SIZE (job1->env, sizeof (char *) * 8);
+		TEST_ALLOC_SIZE (job1->env, sizeof (char *) * 6);
 		TEST_ALLOC_PARENT (job1->env[0], job1->env);
 		TEST_EQ_STRN (job1->env[0], "PATH=");
 		TEST_ALLOC_PARENT (job1->env[1], job1->env);
@@ -6817,11 +6817,7 @@ test_handle_event (void)
 		TEST_EQ_STR (job1->env[3], "BAR=BAZ");
 		TEST_ALLOC_PARENT (job1->env[4], job1->env);
 		TEST_EQ_STR (job1->env[4], "UPSTART_EVENTS=wibble wobble");
-		TEST_ALLOC_PARENT (job1->env[5], job1->env);
-		TEST_EQ_STR (job1->env[5], "UPSTART_JOB=foo");
-		TEST_ALLOC_PARENT (job1->env[6], job1->env);
-		TEST_EQ_STRN (job1->env[6], "UPSTART_JOB_ID=");
-		TEST_EQ_P (job1->env[7], NULL);
+		TEST_EQ_P (job1->env[5], NULL);
 
 		TEST_EQ_P (job1->start_env, NULL);
 
@@ -6914,7 +6910,7 @@ test_handle_event (void)
 
 		TEST_NE_P (job1->env, NULL);
 		TEST_ALLOC_PARENT (job1->env, job1);
-		TEST_ALLOC_SIZE (job1->env, sizeof (char *) * 11);
+		TEST_ALLOC_SIZE (job1->env, sizeof (char *) * 9);
 		TEST_ALLOC_PARENT (job1->env[0], job1->env);
 		TEST_EQ_STRN (job1->env[0], "PATH=");
 		TEST_ALLOC_PARENT (job1->env[1], job1->env);
@@ -6931,11 +6927,7 @@ test_handle_event (void)
 		TEST_EQ_STR (job1->env[6], "TEA=MILK");
 		TEST_ALLOC_PARENT (job1->env[7], job1->env);
 		TEST_EQ_STR (job1->env[7], "UPSTART_EVENTS=wibble wobble");
-		TEST_ALLOC_PARENT (job1->env[8], job1->env);
-		TEST_EQ_STR (job1->env[8], "UPSTART_JOB=foo");
-		TEST_ALLOC_PARENT (job1->env[9], job1->env);
-		TEST_EQ_STRN (job1->env[9], "UPSTART_JOB_ID=");
-		TEST_EQ_P (job1->env[10], NULL);
+		TEST_EQ_P (job1->env[8], NULL);
 
 		TEST_EQ_P (job1->start_env, NULL);
 
@@ -7083,7 +7075,7 @@ test_handle_event (void)
 
 		TEST_NE_P (job1->start_env, NULL);
 		TEST_ALLOC_PARENT (job1->start_env, job1);
-		TEST_ALLOC_SIZE (job1->start_env, sizeof (char *) * 11);
+		TEST_ALLOC_SIZE (job1->start_env, sizeof (char *) * 9);
 		TEST_ALLOC_PARENT (job1->start_env[0], job1->start_env);
 		TEST_EQ_STRN (job1->start_env[0], "PATH=");
 		TEST_ALLOC_PARENT (job1->start_env[1], job1->start_env);
@@ -7100,11 +7092,7 @@ test_handle_event (void)
 		TEST_EQ_STR (job1->start_env[6], "TEA=MILK");
 		TEST_ALLOC_PARENT (job1->start_env[7], job1->start_env);
 		TEST_EQ_STR (job1->start_env[7], "UPSTART_EVENTS=wibble wobble");
-		TEST_ALLOC_PARENT (job1->start_env[8], job1->start_env);
-		TEST_EQ_STR (job1->start_env[8], "UPSTART_JOB=foo");
-		TEST_ALLOC_PARENT (job1->start_env[9], job1->start_env);
-		TEST_EQ_STRN (job1->start_env[9], "UPSTART_JOB_ID=");
-		TEST_EQ_P (job1->start_env[10], NULL);
+		TEST_EQ_P (job1->start_env[8], NULL);
 
 		oper = config1->start_on;
 		TEST_EQ (oper->value, FALSE);

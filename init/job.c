@@ -2167,11 +2167,6 @@ job_handle_event (Event *event)
 				nih_alloc_reparent (env, job);
 				job->start_env = env;
 
-				NIH_MUST (environ_set (&job->start_env, job, NULL,
-						       "UPSTART_JOB=%s", job->config->name));
-				NIH_MUST (environ_set (&job->start_env, job, NULL,
-						       "UPSTART_JOB_ID=%u", job->id));
-
 				job_unblock (job, FALSE);
 
 				nih_alloc_reparent (list, job);
