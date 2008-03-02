@@ -1,5 +1,14 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): finally gains env pointer of its own.
+	* init/job.c (job_new): Initialise the environment, moving the last
+	of the code from process_environment -- this is only temporary
+	though in the interests of refactoring, it'll move out of here again
+	soon enough.
+	* init/tests/test_job.c (test_new): Make sure that the environment is
+	set in a manner which tests the overriding of things by other things;
+	we have to temporarily comment out the alloc fail stuff though :-(
+
 	* init/event.c (event_operator_collect): Make list the last argument
 	for consistency with future functions.
 	* init/event.h: Update prototype.

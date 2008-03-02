@@ -177,6 +177,7 @@ struct job_config {
  * @entry: list header,
  * @id: unique job id,
  * @config: pointer to JobConfig structure,
+ * @env: NULL-terminated list of environment variables,
  * @start_on: event operator expression that started this job,
  * @stop_on: event operator expression that can stop this job.
  * @goal: whether the job is to be stopped or started,
@@ -203,6 +204,8 @@ typedef struct job {
 
 	unsigned int    id;
 	JobConfig      *config;
+
+	char          **env;
 
 	EventOperator  *start_on;
 	EventOperator  *stop_on;

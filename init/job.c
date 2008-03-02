@@ -430,8 +430,9 @@ job_next_id (void)
 Job *
 job_new (JobConfig  *config)
 {
-	Job *job;
-	int  i;
+	Job    *job;
+	int     i;
+	size_t  len;
 
 	nih_assert (config != NULL);
 
@@ -446,33 +447,39 @@ job_new (JobConfig  *config)
 	job->id = job_next_id ();
 	job->config = config;
 
+	job->env = job_config_environment (job, config, &len);
+	if (! job->env)
+		goto error;
+
 	job->start_on = NULL;
 	job->stop_on = NULL;
 
 	if (config->start_on) {
 		job->start_on = event_operator_copy (job, config->start_on);
-		if (! job->start_on) {
-			nih_free (job);
-			return NULL;
-		}
+		if (! job->start_on)
+			goto error;
+
+		event_operator_collect (job->start_on, &job->env, job, &len,
+					"UPSTART_EVENTS", NULL);
 	}
 
 	if (config->stop_on) {
 		job->stop_on = event_operator_copy (job, config->stop_on);
-		if (! job->stop_on) {
-			nih_free (job);
-			return NULL;
-		}
+		if (! job->stop_on)
+			goto error;
 	}
+
+	NIH_MUST (environ_set (&job->env, job, &len,
+			       "UPSTART_JOB=%s", job->config->name));
+	NIH_MUST (environ_set (&job->env, job, &len,
+			       "UPSTART_JOB_ID=%u", job->id));
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
 	job->pid = nih_alloc (job, sizeof (pid_t) * PROCESS_LAST);
-	if (! job->pid) {
-		nih_free (job);
-		return NULL;
-	}
+	if (! job->pid)
+		goto error;
 
 	for (i = 0; i < PROCESS_LAST; i++)
 		job->pid[i] = 0;
@@ -495,6 +502,10 @@ job_new (JobConfig  *config)
 	job_instances++;
 
 	return job;
+
+error:
+	nih_free (job);
+	return NULL;
 }
 
 
