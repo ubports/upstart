@@ -177,15 +177,14 @@ struct job_config {
  * @entry: list header,
  * @id: unique job id,
  * @config: pointer to JobConfig structure,
- * @env: NULL-terminated list of environment variables,
- * @start_on: event operator expression that started this job,
  * @stop_on: event operator expression that can stop this job.
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
  * @pid: current process ids,
+ * @env: NULL-terminated list of environment variables,
+ * @start_env: environment to use next time the job is started,
  * @blocked: emitted event we're waiting to finish,
  * @blocking: list of events we're blocking from finishing,
- * @start_env: environment to use next time the job is started,
  * @failed: whether the last process ran failed,
  * @failed_process: the last process that failed,
  * @exit_status: exit status of the last failed process,
@@ -206,10 +205,6 @@ typedef struct job {
 
 	unsigned int    id;
 	JobConfig      *config;
-
-	char          **env;
-
-	EventOperator  *start_on;
 	EventOperator  *stop_on;
 
 	JobGoal         goal;
@@ -217,10 +212,11 @@ typedef struct job {
 
 	pid_t          *pid;
 
+	char          **env;
+	char          **start_env;
+
 	Event          *blocked;
 	NihList        *blocking;
-
-	char          **start_env;
 
 	int             failed;
 	ProcessType     failed_process;

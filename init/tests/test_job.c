@@ -375,24 +375,6 @@ test_new (void)
 
 	config = job_config_new (NULL, "test");
 
-	config->start_on = event_operator_new (config, EVENT_OR, NULL, NULL);
-	config->start_on->value = TRUE;
-
-	oper = event_operator_new (config->start_on, EVENT_MATCH,
-				   "wibble", NULL);
-	oper->value = TRUE;
-	oper->event = event_new (oper, "wibble", NULL);
-	event_ref (oper->event);
-	oper->blocked = TRUE;
-	event_block (oper->event);
-	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_LEFT);
-
-	oper = event_operator_new (config->start_on, EVENT_MATCH,
-				   "wobble", NULL);
-	NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "FOO=frodo"));
-	NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "BAR=bilbo"));
-	nih_tree_add (&config->start_on->node, &oper->node, NIH_TREE_RIGHT);
-
 	config->stop_on = event_operator_new (config, EVENT_MATCH,
 					      "baz", NULL);
 
@@ -417,39 +399,6 @@ test_new (void)
 
 		TEST_EQ (job->id, 99);
 		TEST_EQ_P (job->env, NULL);
-
-		oper = (EventOperator *)job->start_on;
-		TEST_ALLOC_PARENT (oper, job);
-		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
-		TEST_EQ (oper->type, EVENT_OR);
-
-		oper = (EventOperator *)job->start_on->node.left;
-		TEST_ALLOC_PARENT (oper, job->start_on);
-		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
-		TEST_EQ (oper->type, EVENT_MATCH);
-		TEST_EQ_STR (oper->name, "wibble");
-		TEST_EQ_P (oper->env, NULL);
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ (oper->blocked, TRUE);
-		TEST_NE_P (oper->event, NULL);
-		TEST_EQ (oper->event->refs, 2);
-		TEST_EQ (oper->event->blockers, 2);
-
-		oper = (EventOperator *)job->start_on->node.right;
-		TEST_ALLOC_PARENT (oper, job->start_on);
-		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
-		TEST_EQ (oper->type, EVENT_MATCH);
-		TEST_EQ_STR (oper->name, "wobble");
-		TEST_ALLOC_PARENT (oper->env, oper);
-		TEST_ALLOC_SIZE (oper->env, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (oper->env[0], oper->env);
-		TEST_EQ_STR (oper->env[0], "FOO=frodo");
-		TEST_ALLOC_PARENT (oper->env[1], oper->env);
-		TEST_EQ_STR (oper->env[1], "BAR=bilbo");
-		TEST_EQ_P (oper->env[2], NULL);
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
-		TEST_EQ_P (oper->event, NULL);
 
 		oper = (EventOperator *)job->stop_on;
 		TEST_ALLOC_PARENT (oper, job);
@@ -487,13 +436,11 @@ test_new (void)
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
 
-		event_operator_reset (job->start_on);
 		event_operator_reset (job->stop_on);
 
 		nih_free (job);
 	}
 
-	event_operator_reset (config->start_on);
 	event_operator_reset (config->stop_on);
 
 	nih_free (config);
@@ -1041,12 +988,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		env1 = job->start_env;
@@ -1060,20 +1001,14 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->env, env1);
 		TEST_EQ_P (job->start_env, NULL);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1127,12 +1062,6 @@ test_change_state (void)
 
 		job->blocked = NULL;
 		cause->failed = FALSE;
-
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
 
 		TEST_FREE_TAG (list);
 
@@ -1208,12 +1137,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1235,17 +1158,11 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1293,12 +1210,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1320,17 +1231,11 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1389,12 +1294,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1410,17 +1309,11 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 0);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -1481,12 +1374,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1508,17 +1395,11 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1573,12 +1454,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1590,17 +1465,11 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1659,12 +1528,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1680,17 +1543,11 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 0);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -1753,12 +1610,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1780,17 +1631,11 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1841,12 +1686,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1869,17 +1708,11 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -1927,12 +1760,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -1945,17 +1772,11 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -2014,12 +1835,6 @@ test_change_state (void)
 
 		TEST_FREE_TAG (list);
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
@@ -2033,17 +1848,11 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -2103,12 +1912,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -2121,17 +1924,11 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -2160,9 +1957,7 @@ test_change_state (void)
 
 	/* Check that a service can move from post-start to running, which
 	 * will emit the started event and unblock the events that caused
-	 * us to start since the job has reached the desired state.  The
-	 * event should stay referenced in the expression since it might
-	 * be useful for respawning later.
+	 * us to start since the job has reached the desired state.
 	 */
 	TEST_FEATURE ("post-start to running for service");
 	config->service = TRUE;
@@ -2188,12 +1983,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
@@ -2206,17 +1995,11 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, FALSE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -3109,11 +2892,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = FALSE;
-
 		job->stop_on->value = TRUE;
 		job->stop_on->event = cause;
 		event_ref (job->stop_on->event);
@@ -3166,11 +2944,6 @@ test_change_state (void)
 
 		job->blocked = NULL;
 		cause->failed = FALSE;
-
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = FALSE;
 
 		job->stop_on->value = TRUE;
 		job->stop_on->event = cause;
@@ -3253,12 +3026,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->stop_on->value = TRUE;
@@ -3282,8 +3049,8 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_FREE (env1);
@@ -3294,15 +3061,9 @@ test_change_state (void)
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
 		TEST_EQ (job->stop_on->value, FALSE);
 		TEST_EQ_P (job->stop_on->event, NULL);
 		TEST_EQ (job->stop_on->blocked, FALSE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -3358,12 +3119,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->stop_on->value = TRUE;
@@ -3385,8 +3140,8 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (cause->refs, 2);
-		TEST_EQ (cause->blockers, 2);
+		TEST_EQ (cause->refs, 1);
+		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_NOT_FREE (env1);
@@ -3395,15 +3150,9 @@ test_change_state (void)
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
 
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, cause);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
 		TEST_EQ (job->stop_on->value, FALSE);
 		TEST_EQ_P (job->stop_on->event, NULL);
 		TEST_EQ (job->stop_on->blocked, FALSE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -3459,12 +3208,6 @@ test_change_state (void)
 
 		job->blocked = NULL;
 		cause->failed = FALSE;
-
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
 
 		TEST_FREE_TAG (list);
 
@@ -3542,11 +3285,6 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = cause;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = FALSE;
-
 		job->stop_on->value = TRUE;
 		job->stop_on->event = cause;
 		event_ref (job->stop_on->event);
@@ -3610,11 +3348,6 @@ test_change_state (void)
 
 	job->blocked = NULL;
 	cause->failed = FALSE;
-
-	job->start_on->value = TRUE;
-	job->start_on->event = cause;
-	event_ref (job->start_on->event);
-	job->start_on->blocked = FALSE;
 
 	job->stop_on->value = TRUE;
 	job->stop_on->event = cause;
@@ -4518,12 +4251,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -4539,17 +4266,11 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -4589,12 +4310,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -4610,19 +4325,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -4717,12 +4426,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = 0;
 		job->pid[PROCESS_PRE_START] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -4741,17 +4444,11 @@ test_child_handler (void)
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -4798,12 +4495,6 @@ test_child_handler (void)
 		job->state = JOB_PRE_START;
 		job->pid[PROCESS_PRE_START] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -4822,19 +4513,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -4882,12 +4567,6 @@ test_child_handler (void)
 		job->state = JOB_PRE_START;
 		job->pid[PROCESS_PRE_START] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -4906,19 +4585,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -4968,12 +4641,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -4992,19 +4659,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5055,12 +4716,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5079,19 +4734,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5142,12 +4791,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5166,19 +4809,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -5276,12 +4913,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5300,19 +4931,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5363,12 +4988,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5387,19 +5006,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5446,12 +5059,6 @@ test_child_handler (void)
 		job->state = JOB_RUNNING;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5467,19 +5074,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5675,12 +5276,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = 1;
 		job->pid[PROCESS_POST_START] = 2;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5700,17 +5295,11 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5761,12 +5350,6 @@ test_child_handler (void)
 		job->state = JOB_POST_START;
 		job->pid[PROCESS_MAIN] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5782,19 +5365,13 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5842,12 +5419,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = 1;
 		job->pid[PROCESS_POST_START] = 2;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5864,17 +5435,11 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 2);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5922,12 +5487,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = 1;
 		job->pid[PROCESS_POST_START] = 2;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -5944,15 +5503,11 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 2);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5969,19 +5524,13 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -6029,12 +5578,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = 1;
 		job->pid[PROCESS_POST_START] = 2;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -6054,15 +5597,11 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 2);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -6083,19 +5622,13 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 0);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
 		TEST_EQ (job->blocked->refs, 1);
 		event_unref (job->blocked);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -6344,12 +5877,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = 1;
 		job->pid[PROCESS_POST_START] = pid;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -6376,17 +5903,11 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -6435,12 +5956,6 @@ test_child_handler (void)
 		job->pid[PROCESS_MAIN] = pid;
 		job->pid[PROCESS_POST_START] = 1;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -6467,17 +5982,11 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -6523,12 +6032,6 @@ test_child_handler (void)
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -6554,17 +6057,11 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -6610,12 +6107,6 @@ test_child_handler (void)
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -6641,17 +6132,11 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -6700,12 +6185,6 @@ test_child_handler (void)
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
 
-		job->start_on->value = TRUE;
-		job->start_on->event = event;
-		event_ref (job->start_on->event);
-		job->start_on->blocked = TRUE;
-		event_block (job->start_on->event);
-
 		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
@@ -6729,17 +6208,11 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 2);
-		TEST_EQ (event->blockers, 2);
+		TEST_EQ (event->refs, 1);
+		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->start_on->value, TRUE);
-		TEST_EQ_P (job->start_on->event, event);
-		TEST_EQ (job->start_on->blocked, TRUE);
-
-		event_operator_reset (job->start_on);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -7339,11 +6812,11 @@ test_handle_event (void)
 		job_handle_event (event1);
 		job_handle_event (event2);
 
-		TEST_EQ (event1->refs,2);
-		TEST_EQ (event1->blockers, 2);
+		TEST_EQ (event1->refs, 1);
+		TEST_EQ (event1->blockers, 1);
 
-		TEST_EQ (event2->refs, 2);
-		TEST_EQ (event2->blockers, 2);
+		TEST_EQ (event2->refs, 1);
+		TEST_EQ (event2->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
 		job1 = (Job *)config1->instances.next;
@@ -7387,21 +6860,6 @@ test_handle_event (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-
-		oper = job1->start_on;
-		TEST_EQ (oper->value, TRUE);
-
-		oper = (EventOperator *)job1->start_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ_P (oper->event, event1);
-		TEST_EQ (oper->blocked, TRUE);
-
-		oper = (EventOperator *)job1->start_on->node.right;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ_P (oper->event, event2);
-		TEST_EQ (oper->blocked, TRUE);
-
-		event_operator_reset (job1->start_on);
 
 		TEST_NE_P (job1->blocking, NULL);
 		TEST_ALLOC_SIZE (job1->blocking, sizeof (NihList));
@@ -7462,11 +6920,11 @@ test_handle_event (void)
 		job_handle_event (event1);
 		job_handle_event (event2);
 
-		TEST_EQ (event1->refs, 2);
-		TEST_EQ (event1->blockers, 2);
+		TEST_EQ (event1->refs, 1);
+		TEST_EQ (event1->blockers, 1);
 
-		TEST_EQ (event2->refs, 2);
-		TEST_EQ (event2->blockers, 2);
+		TEST_EQ (event2->refs, 1);
+		TEST_EQ (event2->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
 		job1 = (Job *)config1->instances.next;
@@ -7516,21 +6974,6 @@ test_handle_event (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-
-		oper = job1->start_on;
-		TEST_EQ (oper->value, TRUE);
-
-		oper = (EventOperator *)job1->start_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ_P (oper->event, event1);
-		TEST_EQ (oper->blocked, TRUE);
-
-		oper = (EventOperator *)job1->start_on->node.right;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ_P (oper->event, event2);
-		TEST_EQ (oper->blocked, TRUE);
-
-		event_operator_reset (job1->start_on);
 
 		TEST_NE_P (job1->blocking, NULL);
 		TEST_ALLOC_SIZE (job1->blocking, sizeof (NihList));

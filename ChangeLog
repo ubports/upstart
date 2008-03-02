@@ -1,5 +1,24 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Remove the start_on member.
+	* init/job.c (job_new): Don't initialise start_on since it's gone.
+	(job_change_state): Drop call to unblock the start_on operator since
+	the events are already unblocked by job_unblock.
+	(job_failed): Drop setting of start_on events to failed since this
+	is already done by job_unblock.  This results in a slight change in
+	behaviour, now when a job fails to start - the event or command will
+	be immediately unblocked since there's no point waiting until it
+	stops again - it was waiting for it to start.
+	* init/tests/test_job.c (test_new): Remove start_on checks
+	(test_change_state, test_child_handler, test_handle_event): Remove
+	all references to start_on, instead relying on the blocking checks
+	instead.
+	* init/tests/test_event.c (test_poll): Remove solitary reference
+	to job's start_on, this wasn't necessary anyway - we proved that it
+	was the right event by affecting the job.  Revert previous commit
+	that temporarily increased the number of references, they should be
+	one again now only the blocking list holds them.
+
 	* init/job.h (job): Add blocking member, a list of events that we're
 	blocking from finishing.
 	* init/job.c (job_new): Initialise blocking member to NULL.

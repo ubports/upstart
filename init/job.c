@@ -447,17 +447,7 @@ job_new (JobConfig  *config)
 	job->id = job_next_id ();
 	job->config = config;
 
-	job->env = NULL;
-
-	job->start_on = NULL;
 	job->stop_on = NULL;
-
-	if (config->start_on) {
-		job->start_on = event_operator_copy (job, config->start_on);
-		if (! job->start_on)
-			goto error;
-	}
-
 	if (config->stop_on) {
 		job->stop_on = event_operator_copy (job, config->stop_on);
 		if (! job->stop_on)
@@ -474,10 +464,11 @@ job_new (JobConfig  *config)
 	for (i = 0; i < PROCESS_LAST; i++)
 		job->pid[i] = 0;
 
+	job->env = NULL;
+	job->start_env = NULL;
+
 	job->blocked = NULL;
 	job->blocking = NULL;
-
-	job->start_env = NULL;
 
 	job->failed = FALSE;
 	job->failed_process = -1;
@@ -786,11 +777,8 @@ job_change_state (Job      *job,
 			job_emit_event (job);
 
 			/* If we're a service, our goal is to be running. */
-			if (job->config->service) {
+			if (job->config->service)
 				job_unblock (job, FALSE);
-				if (job->start_on)
-					event_operator_unblock (job->start_on);
-			}
 
 			break;
 		case JOB_PRE_STOP:
@@ -849,8 +837,6 @@ job_change_state (Job      *job,
 			job_emit_event (job);
 
 			job_unblock (job, FALSE);
-			if (job->start_on)
-				event_operator_reset (job->start_on);
 			if (job->stop_on)
 				event_operator_reset (job->stop_on);
 
@@ -1023,16 +1009,6 @@ job_failed (Job         *job,
 	job->failed = TRUE;
 	job->failed_process = process;
 	job->exit_status = status;
-
-	if (job->start_on) {
-		NIH_TREE_FOREACH (&job->start_on->node, iter) {
-			EventOperator *oper = (EventOperator *)iter;
-
-			if ((oper->type == EVENT_MATCH) && oper->value
-			    && oper->event && oper->blocked)
-				oper->event->failed = TRUE;
-		}
-	}
 
 	if (job->stop_on) {
 		NIH_TREE_FOREACH (&job->stop_on->node, iter) {
