@@ -1,5 +1,15 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add stop_env member to store environment from
+	stop events for the stop script.
+	* init/job.c (job_new): Initialise stop_env to NULL.
+	(job_handle_event): Copy environment from the stop_on operator into
+	the stop_env member.
+	* init/tests/test_job.c (test_new): Check that stop_env is NULL.
+	(test_handle_event): Add lots of tests to make sure that the
+	environment is collected from the events and stored in stop_env
+	properly, overwriting what was there already if necessary.
+
 	* init/init.supp (job-run-process-args): Add a suppression for the
 	fact that job_run_process will leak its arguments to a new process
 	assuming that it will call exec() or exit()

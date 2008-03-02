@@ -398,7 +398,6 @@ test_new (void)
 		TEST_EQ (job_instances, 1);
 
 		TEST_EQ (job->id, 99);
-		TEST_EQ_P (job->env, NULL);
 
 		oper = (EventOperator *)job->stop_on;
 		TEST_ALLOC_PARENT (oper, job);
@@ -415,7 +414,9 @@ test_new (void)
 		TEST_EQ_P (job->blocked, NULL);
 		TEST_EQ_P (job->blocking, NULL);
 
+		TEST_EQ_P (job->env, NULL);
 		TEST_EQ_P (job->start_env, NULL);
+		TEST_EQ_P (job->stop_env, NULL);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6652,11 +6653,11 @@ test_handle_event (void)
 	config2->stop_on = event_operator_new (config2, EVENT_OR, NULL, NULL);
 
 	oper = event_operator_new (config2->stop_on, EVENT_MATCH,
-				   "wibble", NULL);
+				   "foo", NULL);
 	nih_tree_add (&config2->stop_on->node, &oper->node, NIH_TREE_LEFT);
 
 	oper = event_operator_new (config2->stop_on, EVENT_MATCH,
-				   "wobble", NULL);
+				   "bar", NULL);
 	nih_tree_add (&config2->stop_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	nih_hash_add (jobs, &config2->entry);
@@ -6716,73 +6717,6 @@ test_handle_event (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 		TEST_EQ (oper->blocked, FALSE);
-
-		nih_free (job2);
-	}
-
-	nih_free (event1);
-
-
-	/* Check that a matching event is recorded against the operator that
-	 * matches it, but only affects the job if it completes the
-	 * expression.
-	 */
-	TEST_FEATURE ("with matching event to stop");
-	event1 = event_new (NULL, "wibble", NULL);
-
-	TEST_ALLOC_FAIL {
-		event1->blockers = 0;
-		event1->refs = 0;
-
-		TEST_ALLOC_SAFE {
-			job2 = job_new (config2);
-		}
-
-		job2->goal = JOB_START;
-		job2->state = JOB_RUNNING;
-		job2->blocked = NULL;
-
-		job_handle_event (event1);
-
-		TEST_EQ (event1->refs, 2);
-		TEST_EQ (event1->blockers, 2);
-
-		TEST_LIST_EMPTY (&config1->instances);
-
-		oper = config1->start_on;
-		TEST_EQ (oper->value, FALSE);
-
-		oper = (EventOperator *)config1->start_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ_P (oper->event, event1);
-		TEST_EQ (oper->blocked, TRUE);
-
-		oper = (EventOperator *)config1->start_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
-
-		TEST_EQ (job2->goal, JOB_STOP);
-		TEST_EQ (job2->state, JOB_STOPPING);
-		TEST_NE_P (job2->blocked, NULL);
-		TEST_EQ (job2->blocked->refs, 1);
-		event_unref (job2->blocked);
-
-		oper = job2->stop_on;
-		TEST_EQ (oper->value, TRUE);
-
-		oper = (EventOperator *)job2->stop_on->node.left;
-		TEST_EQ (oper->value, TRUE);
-		TEST_EQ_P (oper->event, event1);
-		TEST_EQ (oper->blocked, TRUE);
-
-		oper = (EventOperator *)job2->stop_on->node.right;
-		TEST_EQ (oper->value, FALSE);
-		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
-
-		event_operator_reset (config1->start_on);
-		event_operator_reset (job2->stop_on);
 
 		nih_free (job2);
 	}
@@ -6895,7 +6829,7 @@ test_handle_event (void)
 	/* Check that the environment variables from the event are also copied
 	 * into the job's environment.
 	 */
-	TEST_FEATURE ("with environment in event");
+	TEST_FEATURE ("with environment in start event");
 	event1 = event_new (NULL, "wibble", NULL);
 	assert (nih_str_array_add (&(event1->env), event1,
 				   NULL, "FRODO=baggins"));
@@ -7053,7 +6987,7 @@ test_handle_event (void)
 			event_block (event3);
 
 			entry = nih_list_entry_new (job1->blocking);
-			entry->data = event_new (NULL, "flpbble", NULL);
+			entry->data = event_new (NULL, "flobble", NULL);
 			nih_list_add (job1->blocking, &entry->entry);
 			event4 = entry->data;
 			event_ref (event4);
@@ -7290,6 +7224,274 @@ test_handle_event (void)
 
 	nih_free (event1);
 	nih_free (event2);
+
+
+	/* Check that a matching event is recorded against the operator that
+	 * matches it, but only affects the job if it completes the
+	 * expression.  The name of the event should be added to the stop_env
+	 * member of the job, used for pre-stop later.
+	 */
+	TEST_FEATURE ("with matching event to stop");
+	event1 = event_new (NULL, "foo", NULL);
+
+	TEST_ALLOC_FAIL {
+		event1->blockers = 0;
+		event1->refs = 0;
+
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+		}
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->blocked = NULL;
+
+		job_handle_event (event1);
+
+		TEST_EQ (event1->refs, 1);
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&config2->instances);
+		TEST_EQ_P ((Job *)config2->instances.next, job2);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_NE_P (job2->blocked, NULL);
+		TEST_EQ (job2->blocked->refs, 1);
+		event_unref (job2->blocked);
+
+		TEST_NE_P (job2->stop_env, NULL);
+		TEST_ALLOC_PARENT (job2->stop_env, job2);
+		TEST_ALLOC_SIZE (job2->stop_env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (job2->stop_env[0], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[0], "UPSTART_STOP_EVENTS=foo");
+		TEST_EQ_P (job2->stop_env[1], NULL);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event1);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		event_operator_reset (job2->stop_on);
+
+		nih_free (job2);
+	}
+
+	nih_free (event1);
+
+
+	/* Check that the environment variables from the event are also copied
+	 * into the job's stop_env member.
+	 */
+	TEST_FEATURE ("with environment in stop event");
+	event1 = event_new (NULL, "foo", NULL);
+	assert (nih_str_array_add (&(event1->env), event1,
+				   NULL, "FOO=foo"));
+	assert (nih_str_array_add (&(event1->env), event1,
+				   NULL, "BAR=bar"));
+
+	TEST_ALLOC_FAIL {
+		event1->blockers = 0;
+		event1->refs = 0;
+
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+		}
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->blocked = NULL;
+
+		job_handle_event (event1);
+
+		TEST_EQ (event1->refs, 1);
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&config2->instances);
+		TEST_EQ_P ((Job *)config2->instances.next, job2);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_NE_P (job2->blocked, NULL);
+		TEST_EQ (job2->blocked->refs, 1);
+		event_unref (job2->blocked);
+
+		TEST_NE_P (job2->stop_env, NULL);
+		TEST_ALLOC_PARENT (job2->stop_env, job2);
+		TEST_ALLOC_SIZE (job2->stop_env, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job2->stop_env[0], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[0], "FOO=foo");
+		TEST_ALLOC_PARENT (job2->stop_env[1], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[1], "BAR=bar");
+		TEST_ALLOC_PARENT (job2->stop_env[2], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[2], "UPSTART_STOP_EVENTS=foo");
+		TEST_EQ_P (job2->stop_env[3], NULL);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event1);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		event_operator_reset (job2->stop_on);
+
+		nih_free (job2);
+	}
+
+	nih_free (event1);
+
+
+	/* Check that the event can resume stopping a job that's stopping
+	 * but previously was marked for restarting.
+	 */
+	TEST_FEATURE ("with stop of restarting job");
+	event1 = event_new (NULL, "foo", NULL);
+	assert (nih_str_array_add (&(event1->env), event1,
+				   NULL, "FOO=foo"));
+	assert (nih_str_array_add (&(event1->env), event1,
+				   NULL, "BAR=bar"));
+
+	TEST_ALLOC_FAIL {
+		event1->blockers = 0;
+		event1->refs = 0;
+
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+
+			assert (nih_str_array_add (&(job2->stop_env), job2,
+						   NULL, "FOO=wibble"));
+			assert (nih_str_array_add (&(job2->stop_env), job2,
+						   NULL, "BAR=wobble"));
+		}
+
+		job2->goal = JOB_START;
+		job2->state = JOB_STOPPING;
+		job2->blocked = NULL;
+
+		env1 = job2->stop_env;
+		TEST_FREE_TAG (env1);
+
+		job_handle_event (event1);
+
+		TEST_EQ (event1->refs, 1);
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&config2->instances);
+		TEST_EQ_P ((Job *)config2->instances.next, job2);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_EQ_P (job2->blocked, NULL);
+
+		TEST_FREE (env1);
+
+		TEST_NE_P (job2->stop_env, NULL);
+		TEST_ALLOC_PARENT (job2->stop_env, job2);
+		TEST_ALLOC_SIZE (job2->stop_env, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job2->stop_env[0], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[0], "FOO=foo");
+		TEST_ALLOC_PARENT (job2->stop_env[1], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[1], "BAR=bar");
+		TEST_ALLOC_PARENT (job2->stop_env[2], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[2], "UPSTART_STOP_EVENTS=foo");
+		TEST_EQ_P (job2->stop_env[3], NULL);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event1);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		event_operator_reset (job2->stop_on);
+
+		nih_free (job2);
+	}
+
+	nih_free (event1);
+
+
+	/* Check that a job that is already stopping is not affected by the
+	 * stop events happening again.
+	 */
+	TEST_FEATURE ("with already stopping job");
+	event1 = event_new (NULL, "foo", NULL);
+
+	TEST_ALLOC_FAIL {
+		event1->blockers = 0;
+		event1->refs = 0;
+
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+
+			assert (nih_str_array_add (&(job2->stop_env), job2,
+						   NULL, "FOO=wibble"));
+			assert (nih_str_array_add (&(job2->stop_env), job2,
+						   NULL, "BAR=wobble"));
+		}
+
+		job2->goal = JOB_STOP;
+		job2->state = JOB_STOPPING;
+		job2->blocked = NULL;
+
+		env1 = job2->stop_env;
+		TEST_FREE_TAG (env1);
+
+		job_handle_event (event1);
+
+		TEST_EQ (event1->refs, 1);
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&config2->instances);
+		TEST_EQ_P ((Job *)config2->instances.next, job2);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_EQ_P (job2->blocked, NULL);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job2->stop_env, env1);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event1);
+		TEST_EQ (oper->blocked, TRUE);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+		TEST_EQ (oper->blocked, FALSE);
+
+		event_operator_reset (job2->stop_on);
+
+		nih_free (job2);
+	}
+
+	nih_free (event1);
 
 
 	nih_free (config1);

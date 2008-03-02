@@ -183,6 +183,7 @@ struct job_config {
  * @pid: current process ids,
  * @env: NULL-terminated list of environment variables,
  * @start_env: environment to use next time the job is started,
+ * @stop_env: environment to add for the next pre-stop script,
  * @blocked: emitted event we're waiting to finish,
  * @blocking: list of events we're blocking from finishing,
  * @failed: whether the last process ran failed,
@@ -214,6 +215,7 @@ typedef struct job {
 
 	char          **env;
 	char          **start_env;
+	char          **stop_env;
 
 	Event          *blocked;
 	NihList        *blocking;

@@ -466,6 +466,7 @@ job_new (JobConfig  *config)
 
 	job->env = NULL;
 	job->start_env = NULL;
+	job->stop_env = NULL;
 
 	job->blocked = NULL;
 	job->blocking = NULL;
@@ -2086,8 +2087,34 @@ job_handle_event (Event *event)
 
 			if (job->stop_on
 			    && event_operator_handle (job->stop_on, event)
-			    && job->stop_on->value)
-				job_change_goal (job, JOB_STOP);
+			    && job->stop_on->value) {
+				char   **env = NULL;
+				size_t   len = 0;
+
+				/* Collect environment that stopped the job
+				 * for the pre-stop script; it can make a
+				 * more informed decision whether the stop is
+				 * valid.  We don't add config environment
+				 * since this is appended to the existing job
+				 * environment.
+				 */
+				event_operator_collect (job->stop_on,
+							&env, NULL, &len,
+							"UPSTART_STOP_EVENTS",
+							NULL);
+
+				if (job->goal != JOB_STOP) {
+					if (job->stop_env)
+						nih_free (job->stop_env);
+
+					nih_alloc_reparent (env, job);
+					job->stop_env = env;
+
+					job_change_goal (job, JOB_STOP);
+				} else {
+					nih_free (env);
+				}
+			}
 
 		}
 
