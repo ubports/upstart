@@ -787,13 +787,15 @@ job_change_state (Job      *job,
 					event_operator_reset (job->stop_on);
 
 				break;
+			} else {
+				job_emit_event (job);
+
+				/* If we're a service, our goal is to be
+				 * running.
+				 */
+				if (job->config->service)
+					job_unblock (job, FALSE);
 			}
-
-			job_emit_event (job);
-
-			/* If we're a service, our goal is to be running. */
-			if (job->config->service)
-				job_unblock (job, FALSE);
 
 			break;
 		case JOB_PRE_STOP:

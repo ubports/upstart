@@ -1,5 +1,8 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Shouldn't emit the started event
+	on pre-stop cancellation, and shouldn't unblock the job because
+	it's a service.
 	* init/job.c (job_change_state): Throw away the stop environment
 	when starting and returning to running.
 	* init/tests/test_job.c (test_change_state): Make sure the stop
