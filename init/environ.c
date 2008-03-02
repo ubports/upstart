@@ -66,12 +66,22 @@ environ_add (char       ***env,
 	     size_t       *len,
 	     const char   *str)
 {
-	size_t   key;
+	size_t   key, _len;
 	char   **old_str, *new_str;
 
 	nih_assert (env != NULL);
-	nih_assert (len != NULL);
 	nih_assert (str != NULL);
+
+	/* Calculate the length in case we need to remove entries */
+	if (! len) {
+		char **e;
+
+		len = &_len;
+
+		_len = 0;
+		for (e = *env; e && *e; e++)
+			_len++;
+	}
 
 	/* Calculate the length of the key in the string, if we reach the
 	 * end of the string, then we lookup the value in the environment
@@ -162,7 +172,6 @@ environ_set (char       ***env,
 	char    **ret;
 
 	nih_assert (env != NULL);
-	nih_assert (len != NULL);
 	nih_assert (format != NULL);
 
 	va_start (args, format);

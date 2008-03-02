@@ -1,5 +1,8 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_add): Allow it to accept NULL length, since
+	we can't always keep that around.
+
 	* init/process.c (process_spawn): Accept the environment list as
 	a parameter, then finally we can change this function to take a
 	JobConfig as the first argument.
