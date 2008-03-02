@@ -4857,8 +4857,6 @@ test_child_handler (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
-		TEST_FREE_TAG (list);
-
 		job->blocked = NULL;
 		event->failed = FALSE;
 

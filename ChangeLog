@@ -1,5 +1,8 @@
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_handler): Remove bogus free tag
+	of the list, which we don't use in this test (valgrind failure)
+
 	* init/job.h (Job): Remove the start_on member.
 	* init/job.c (job_new): Don't initialise start_on since it's gone.
 	(job_change_state): Drop call to unblock the start_on operator since
