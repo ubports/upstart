@@ -1,5 +1,7 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Add thoughts on blocking commands.
+
 	* TODO: Update.
 
 	* init/event.h (Event): Remove the refs member; we now never hold
