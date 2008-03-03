@@ -1,152 +1,18 @@
-Job Atomicity:
-
-  start by event:
-    for config:
-        event_operator_handle (config.start_on, $event)
-        if config.start_on:
-            env = job_config_environment (config)
-*           (env, blocking) = event_operator_collect (config.start_on)
-            job = job_instance (config, env)
-            if not job:
-                job = job_new (config)
-*           job_start (job, env, blocking)
-
-            event_oper_reset (config.start_on)
-
-  stop by event:
-    for config:
-        for job in config:
-            event_operator_handle (job.stop_on, $event)
-            if job.stop_on:
-**              (env, blocking) = event_operator_collect (job.stop_on)
-!!              job_stop (job, env, blocking)
-
-                event_oper_reset (job.stop_on)
-
-
-  start by name:
-    env = job_config_environment ($config)
-    if $env:
-        env += $env
-
-    job = job_instance ($config, env)
-    if not job:
-        job = job_new ($config)
-
-    job_start (job, env, NULL)
-
-  stop by name:
-    if $env:
-        job = job_instance ($config, $env)
-        if job:
-!!          job_stop (job, $env, NULL)
-            return
-
-    for job in $config:
-!!      job_stop (job, $env, NULL)
-
-
-  start by id
-    # allows to be restarted with the same environment, since the race is
-    # negated by fact you have its id, so it will just fail if you lost
-    if $env:
-        env = job_config_environment ($job.config)
-        env += $env
-    else:
-        env = NULL
-    job_start ($job, env, NULL)
-
-  stop by id:
-!!  job_stop ($job, $env, NULL)
-
-
-# starting with an environment replaces any previous environment,
-#   without means the previous environment is always used
-#
-# starting with blocked events replaces any previous blocked events
-#   which are allowed to continue (this seems a bit whack)
-job_start (job, env, blocking)
-    if job.goal != START:
-        if env != NULL:
-            env += "UPSTART_JOB=${job.name}"
-            env += "UPSTART_JOB_ID=${job.id}"
-            free (job.next_env)
-            job.next_env = env
-!!      if blocking != NULL:
-!!          unblock (job.next_blocking)
-!!          job.next_blocking = blocking
-        job_change_goal (job, START)
-
-# this would end up discarding a previous change to the run environment
-#   just so it can put back the previous environment -- that's kinda sucky
-job_stop (job, env)
-    if job.goal != STOP:
-        if env != NULL:
-            free (job.next_env)
-            job.next_env = job.env
-            job.env = COPY (job.next_env)
-            job.env += env
-            job.env += "UPSTART_JOB=${job.name}"
-            job.env += "UPSTART_JOB_ID=${job.id}"
-        if blocking != NULL:
-            unblock (job.next_blocking)
-            job.next_blocking = job.blocking
-            job.blocking = COPY (job.next_blocking)
-	    job.blocking += blocking
-        job_change_goal (job, STOP)
-
-
 High Priority:
 
- * Job atomicity issues when starting and stopping the job need to be solved.
+ * Expand variables; now we have the concept of a job environment, we can
+   expand strings in the configuration with them; I'm particularly thinking
+   of the stop event tree here.
 
-   * We cannot use start_on/stop_on to store the referenced events and hold
-     the blocks because we need to reset them so that the entire sequence of
-     events has to happen to change the goal again, not just one of them.
+ * Named instances; expand an instance variable string using variables from
+   the environment to get a unique string we can lookup in the job.  If this
+   exists already, we're not a new instance.
 
-   * Thus from start_on/stop_on we need to "collect" the environment and
-     list of events -- we'll be smart about this and ignore parts of the tree
-     that aren't true.
-
-   * We'll only block on one command at a time, if blocking on start and the
-     job is stopped, the start command will exit with an error since it wasn't
-     completed (it won't wait to stop)
-
-   * The instance will therefore hold the list of events it is blocking,
-     and this is reset every time the job is started or stopped by the actual
-     goal change?
-
-   * Instances don't need start_on, instead they have the above blocking list
-     and hold their own environment internally.
-
-   * Can't just set this environment on the command, since we want to retain
-     the previous one until stopped.
-
-   * Set environment in the starting state from the "next environment" if
-     not NULL.
-
-   * Set the next environment in start to the new one, or leave as NULL if
-     no environment provided.
-
-   * (the NULL piece allows an environment-less restart to leave the
-      environment of a job alone)
-
-   * stop_on is only used for instances (the configured one is copied into
-     the instance)
-
-   * Collect the list of events into the ordinary blocking set (since we're
-     resetting and failing the previously blocking events -- do we actually
-     fail?)
-
-   * Collect the environment into a "stop environment" table.
-
-   * "stop environment" table is only used for the pre-stop script.
-
-   * It's reset on waiting, starting and whenever a new stop command is issued,
-     so there can only ever be one.
+ * Restore IPC using D-BUS.
 
  * Configuration reloading needs to happen with an initctl command;
-   we also need to support re-exec via initctl as well.
+   we also need to support re-exec via initctl as well.  Should we get
+   rid of the signals, or at least change the TERM one?
 
  * Restore serialisation of state between upstart processes.  Having made
    the structures in memory more sane, this should be easier again, as
@@ -155,8 +21,6 @@ High Priority:
     * Event queue
     * Job hash (referencing cause and blocked events by id, also need to
       ensure we handle instance jobs proeprly)
-    * NotifySubscription list (which references both events by id and jobs
-      by name [or id])
    
    I want to use the IPC protocol for this, since it's somewhat stable
    now.  Handing off will still use the "fork a child, exec in the parent"
@@ -166,6 +30,21 @@ High Priority:
       file descriptor number to the new init process.
     * In the child, close the control socket we had open and open an
       ordinary socket; blocking-write the information to that and then die.
+
+
+Medium Priority:
+
+ * Need to add dependencies to jobs, which are files that must exist before
+   the job can be started (because Debian/Ubuntu like to litter config files
+   like jobs)
+
+ * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
+   which state do we keep it in while it's waiting?
+
+ * job_handle_event has become someone large, with two blocks of code that
+   look very similar.  In addition, these blocks of code will be very similar
+   to those for manually starting a job; find some way to reduce these to
+   a common function?
 
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
@@ -183,20 +62,13 @@ High Priority:
      DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
 
 
-Medium Priority:
+Low Priority:
 
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
 
  * Likewise iterating through all the Jobs to find a pid is messy; we
    should have a lookup table for these too.
-
-
-Low Priority:
-
- * Need to add dependencies to jobs, which are files that must exist before
-   the job can be started (because Debian/Ubuntu like to litter config files
-   like jobs)
 
  * process_setup_console is due for an overhaul as well; especially if
    we want to be able to pass file descriptors in.  Am somewhat tempted
@@ -212,7 +84,8 @@ Low Priority:
  * May need a way to force ignoring of the KILL signal, and assuming that
    a job that won't die really has.
 
- * Replace logd raise/wait/kill interlock with a pipe-based one?
+ * Make the logd raise/wait/kill interlock compatible with the "wait for stop"
+   behaviour.
 
  * Replace logd with something else that's more standard in the system,
    and just use a normal API to communicate with it.
@@ -221,23 +94,20 @@ Low Priority:
    and the scripts being run end up vanishing because they can't write
    data.
 
-
-Unfinished Features:
-
  * Get the LANG environment variable somehow.
 
 
 Future Features:
 
- * Instances; sometimes you want a given number of instances running, with
-   each one being able to determine which instance it was (maybe file events
-   is the way to solve this?)
+ * Roles; services define roles that they can perform ("web server") and
+   can be found by their role.  Other jobs could require that a role be
+   performed for them to start (creeping into deps here).  Use affinity
+   tags to work out which of many services to start.
 
  * Per-user services; will need to use PAM to set up the session.
    We want to do this for "root-user services" but not for jobs/tasks
 
- * Passing of environment and file descriptors from event over control
-   socket.
+ * Passing of file descriptors from event over control socket.
 
  * Register jobs over the control socket, ideal way is to register some kind
    of automatic source and attach them to that.
@@ -247,7 +117,7 @@ Future Features:
  * Scheduled times ("every day at 3:00")
 
  * Load average checking, maybe have separate CPU, Network and I/O
-   stats?
+   stats?  See also resources.
 
  * Actions: "reload" and optional replacements for "stop", "start", etc.
 
@@ -258,9 +128,6 @@ Future Features:
 
    Would be done by making script a char *, and putting the interpreter into
    command?
-
- * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
-   which state do we keep it in while it's waiting?
 
  * Watershed jobs (this actually might apply to events, since you might
    want to try starting again if a particular event has come in since you

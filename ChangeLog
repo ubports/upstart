@@ -1,5 +1,7 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/event.h (Event): Remove the refs member; we now never hold
 	a reference to an event we're blocking since we always copy the
 	environment out if we want to keep it.
