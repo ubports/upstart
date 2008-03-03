@@ -1,5 +1,8 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_emit_event): Use environ_add/set for style
+	reasons.
+
 	* init/job.c (job_handle_event): Reset the stop_on operator after
 	processing the event, thus the expression needs to be completely
 	reevaluated before the job can be stopped again by it.  At last,

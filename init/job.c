@@ -1080,7 +1080,7 @@ job_emit_event (Job *job)
 	Event       *event;
 	const char  *name;
 	int          stop = FALSE;
-	char       **env = NULL, *str;
+	char       **env = NULL;
 	size_t       len;
 
 	nih_assert (job != NULL);
@@ -1108,8 +1108,7 @@ job_emit_event (Job *job)
 	NIH_MUST (env = nih_str_array_new (NULL));
 
 	/* Add the job name */
-	NIH_MUST (str = nih_sprintf (NULL, "JOB=%s", job->config->name));
-	NIH_MUST (nih_str_array_addp (&env, NULL, &len, str));
+	NIH_MUST (environ_set (&env, NULL, &len, "JOB=%s", job->config->name));
 
 	/* Don't include additional arguments unless this is a stop event. */
 	if (! stop)
@@ -1117,26 +1116,24 @@ job_emit_event (Job *job)
 
 	/* Add only a simple "ok" argument if the job didn't fail. */
 	if (! job->failed) {
-		NIH_MUST (nih_str_array_add (&env, NULL, &len, "RESULT=ok"));
+		NIH_MUST (environ_add (&env, NULL, &len, "RESULT=ok"));
 		goto emit;
 	}
 
 	/* All failure events get a "failed" argument. */
-	NIH_MUST (nih_str_array_add (&env, NULL, &len, "RESULT=failed"));
+	NIH_MUST (environ_add (&env, NULL, &len, "RESULT=failed"));
 
 	/* Check for respawn failure, which has a special "respawn" argument
 	 * and no environment.
 	 */
 	if (job->failed_process == -1) {
-		NIH_MUST (nih_str_array_add (&env, NULL, &len,
-					     "PROCESS=respawn"));
+		NIH_MUST (environ_add (&env, NULL, &len, "PROCESS=respawn"));
 		goto emit;
 	}
 
 	/* All other failure events get the process name as an argument. */
-	NIH_MUST (str = nih_sprintf (NULL, "PROCESS=%s",
-				     process_name (job->failed_process)));
-	NIH_MUST (nih_str_array_addp (&env, NULL, &len, str));
+	NIH_MUST (environ_set (&env, NULL, &len, "PROCESS=%s",
+			       process_name (job->failed_process)));
 
 	/* Check for spawn failure, which receives no environment */
 	if (job->exit_status == -1)
@@ -1150,17 +1147,17 @@ job_emit_event (Job *job)
 
 		sig = nih_signal_to_name (job->exit_status >> 8);
 		if (sig) {
-			NIH_MUST (str = nih_sprintf (NULL, "EXIT_SIGNAL=%s",
-						     sig));
+			NIH_MUST (environ_set (&env, NULL, &len,
+					       "EXIT_SIGNAL=%s", sig));
 		} else {
-			NIH_MUST (str = nih_sprintf (NULL, "EXIT_SIGNAL=%d",
-						     job->exit_status >> 8));
+			NIH_MUST (environ_set (&env, NULL, &len,
+					       "EXIT_SIGNAL=%d",
+					       job->exit_status >> 8));
 		}
 	} else {
-		NIH_MUST (str = nih_sprintf (NULL, "EXIT_STATUS=%d",
-					     job->exit_status));
+		NIH_MUST (environ_set (&env, NULL, &len,
+				       "EXIT_STATUS=%d", job->exit_status));
 	}
-	NIH_MUST (nih_str_array_addp (&env, NULL, &len, str));
 
 emit:
 	event = event_new (NULL, name, env);
