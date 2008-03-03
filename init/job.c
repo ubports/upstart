@@ -782,6 +782,9 @@ job_change_state (Job      *job,
 					job->stop_env = NULL;
 				}
 
+				/* Cancel the stop attempt */
+				job_unblock (job, FALSE);
+
 				/* Reset the stop operator */
 				if (job->stop_on)
 					event_operator_reset (job->stop_on);
@@ -2126,8 +2129,9 @@ job_handle_event (Event *event)
 			if (job->stop_on
 			    && event_operator_handle (job->stop_on, event)
 			    && job->stop_on->value) {
-				char   **env = NULL;
-				size_t   len = 0;
+				char    **env = NULL;
+				size_t    len = 0;
+				NihList  *list;
 
 				/* Collect environment that stopped the job
 				 * for the pre-stop script; it can make a
@@ -2136,10 +2140,11 @@ job_handle_event (Event *event)
 				 * since this is appended to the existing job
 				 * environment.
 				 */
+				NIH_MUST (list = nih_list_new (NULL));
 				event_operator_collect (job->stop_on,
 							&env, NULL, &len,
 							"UPSTART_STOP_EVENTS",
-							NULL);
+							list);
 
 				if (job->goal != JOB_STOP) {
 					if (job->stop_env)
@@ -2148,8 +2153,24 @@ job_handle_event (Event *event)
 					nih_alloc_reparent (env, job);
 					job->stop_env = env;
 
+					job_unblock (job, FALSE);
+
+					nih_alloc_reparent (list, job);
+					job->blocking = list;
+
 					job_change_goal (job, JOB_STOP);
 				} else {
+					NIH_LIST_FOREACH (list, iter) {
+						NihListEntry *entry = (NihListEntry *)iter;
+						Event        *event = (Event *)entry->data;
+
+						nih_assert (event != NULL);
+
+						event_unblock (event);
+						event_unref (event);
+					}
+
+					nih_free (list);
 					nih_free (env);
 				}
 			}

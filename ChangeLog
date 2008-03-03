@@ -1,8 +1,21 @@
+2008-03-03  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.c (job_handle_event): Collect the stop events and store
+	them in the blocking list, unblocking any that were there before
+	such as the start events.
+	(job_change_state): Unblock blocking events when returning to running
+	from pre-stop.
+	* init/tests/test_job.c (test_handle_event): Make sure the stop
+	events are collected and replace any previously blocking events.
+	(test_change_state, test_child_handler): Test that stop events in
+	the blocking list are kept and unblocked when necessary.
+
 2008-03-02  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_change_state): Shouldn't emit the started event
 	on pre-stop cancellation, and shouldn't unblock the job because
 	it's a service.
+
 	* init/job.c (job_change_state): Throw away the stop environment
 	when starting and returning to running.
 	* init/tests/test_job.c (test_change_state): Make sure the stop

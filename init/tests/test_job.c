@@ -2041,6 +2041,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2056,6 +2065,8 @@ test_change_state (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2077,8 +2088,8 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
@@ -2088,6 +2099,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2111,6 +2128,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2126,6 +2152,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
@@ -2136,8 +2164,8 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
@@ -2147,6 +2175,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2179,6 +2213,15 @@ test_change_state (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 99;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2194,6 +2237,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
@@ -2207,8 +2252,8 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
@@ -2218,6 +2263,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2255,6 +2306,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2269,6 +2329,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
@@ -2278,8 +2340,8 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
@@ -2289,6 +2351,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2321,6 +2389,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2335,6 +2412,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = SIGSEGV << 8;
@@ -2344,8 +2423,8 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
@@ -2355,6 +2434,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2387,6 +2472,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2401,6 +2495,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 33 << 8;
@@ -2410,8 +2506,8 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
@@ -2421,6 +2517,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2457,6 +2559,15 @@ test_change_state (void)
 						   NULL, "FOO=BAR"));
 			assert (nih_str_array_add (&(job->stop_env), job,
 						   NULL, "BAZ=BAZ"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2470,6 +2581,8 @@ test_change_state (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		env1 = job->stop_env;
 		TEST_FREE_TAG (env1);
@@ -2497,6 +2610,9 @@ test_change_state (void)
 		TEST_FREE (env1);
 		TEST_EQ_P (job->stop_env, NULL);
 
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
+
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
@@ -2515,6 +2631,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2529,6 +2654,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
@@ -2538,8 +2665,8 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, (Event *)events->next);
@@ -2549,6 +2676,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2578,6 +2711,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2597,6 +2739,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
@@ -2611,8 +2755,8 @@ test_change_state (void)
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
@@ -2622,6 +2766,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2646,6 +2796,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2660,6 +2819,8 @@ test_change_state (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2680,8 +2841,8 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
@@ -2691,6 +2852,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2711,6 +2878,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2725,6 +2901,8 @@ test_change_state (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2745,8 +2923,8 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->refs, 2);
+		TEST_EQ (cause->blockers, 2);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
@@ -2756,6 +2934,12 @@ test_change_state (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2780,6 +2964,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2794,6 +2987,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
@@ -2807,6 +3002,8 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2839,6 +3036,15 @@ test_change_state (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 99;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_START;
@@ -2852,6 +3058,8 @@ test_change_state (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2869,6 +3077,8 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
+
+		TEST_FREE (list);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2900,6 +3110,15 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2914,6 +3133,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
@@ -2927,6 +3148,8 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2953,6 +3176,15 @@ test_change_state (void)
 
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -2967,6 +3199,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
@@ -2980,6 +3214,8 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -3145,13 +3381,13 @@ test_change_state (void)
 		job->blocked = NULL;
 		cause->failed = FALSE;
 
-		TEST_FREE_TAG (list);
-
 		job->stop_on->value = TRUE;
 		job->stop_on->event = cause;
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		env1 = job->env;
 
@@ -3301,6 +3537,15 @@ test_change_state (void)
 			replacement = file->job;
 
 			job = job_new (config);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_ref (cause);
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		nih_hash_add (jobs, &config->entry);
@@ -3317,6 +3562,8 @@ test_change_state (void)
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
 
+		TEST_FREE_TAG (list);
+
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
@@ -3330,6 +3577,8 @@ test_change_state (void)
 		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -3369,6 +3618,15 @@ test_change_state (void)
 
 	nih_hash_add (jobs, &config->entry);
 
+	job->blocking = nih_list_new (job);
+	list = job->blocking;
+
+	entry = nih_list_entry_new (job->blocking);
+	entry->data = cause;
+	event_ref (cause);
+	event_block (cause);
+	nih_list_add (job->blocking, &entry->entry);
+
 	job->goal = JOB_STOP;
 	job->state = JOB_POST_STOP;
 
@@ -3380,6 +3638,8 @@ test_change_state (void)
 	event_ref (job->stop_on->event);
 	job->stop_on->blocked = TRUE;
 	event_block (job->stop_on->event);
+
+	TEST_FREE_TAG (list);
 
 	job->failed = TRUE;
 	job->failed_process = PROCESS_MAIN;
@@ -3396,6 +3656,8 @@ test_change_state (void)
 	TEST_EQ (cause->refs, 0);
 	TEST_EQ (cause->blockers, 0);
 	TEST_EQ (cause->failed, FALSE);
+
+	TEST_FREE (list);
 
 	event = (Event *)events->next;
 	TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -4485,6 +4747,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -4496,6 +4767,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -4521,6 +4794,8 @@ test_child_handler (void)
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
+
+		TEST_FREE (list);
 	}
 
 
@@ -4971,6 +5246,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -4982,6 +5266,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -5002,6 +5288,8 @@ test_child_handler (void)
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
+
+		TEST_FREE (list);
 
 		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
 				       "killed by TERM signal\n"));
@@ -5231,6 +5519,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -5242,6 +5539,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -5259,6 +5558,8 @@ test_child_handler (void)
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
+
+		TEST_FREE (list);
 	}
 
 	nih_free (config->process[PROCESS_POST_STOP]);
@@ -5276,6 +5577,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -5287,6 +5597,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -5307,6 +5619,8 @@ test_child_handler (void)
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
+
+		TEST_FREE (list);
 
 		TEST_FILE_EQ (output, ("test: test (#1) post-stop process (1) "
 				       "terminated with status 1\n"));
@@ -5329,6 +5643,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -5340,6 +5663,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = TRUE;
@@ -5360,6 +5685,8 @@ test_child_handler (void)
 		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
+
+		TEST_FREE (list);
 
 		TEST_FILE_EQ (output, ("test: test (#1) post-stop process (1) "
 				       "terminated with status 1\n"));
@@ -5781,6 +6108,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -5793,6 +6129,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -5811,8 +6149,8 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 		TEST_EQ (job->pid[PROCESS_PRE_STOP], 0);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 2);
+		TEST_EQ (event->blockers, 2);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
@@ -5824,6 +6162,12 @@ test_child_handler (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, event);
+		event_unblock (event);
+		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5853,6 +6197,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -5864,6 +6217,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -5878,8 +6233,8 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 2);
+		TEST_EQ (event->blockers, 2);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
@@ -5891,6 +6246,12 @@ test_child_handler (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, event);
+		event_unblock (event);
+		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5915,6 +6276,15 @@ test_child_handler (void)
 		TEST_ALLOC_SAFE {
 			job = job_new (config);
 			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_ref (event);
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
 		}
 
 		job->goal = JOB_STOP;
@@ -5927,6 +6297,8 @@ test_child_handler (void)
 		event_ref (job->stop_on->event);
 		job->stop_on->blocked = TRUE;
 		event_block (job->stop_on->event);
+
+		TEST_FREE_TAG (list);
 
 		job->blocked = NULL;
 		event->failed = FALSE;
@@ -5942,8 +6314,8 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_PRE_STOP], 2);
 
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->refs, 2);
+		TEST_EQ (event->blockers, 2);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
@@ -5953,6 +6325,12 @@ test_child_handler (void)
 		TEST_EQ (job->stop_on->blocked, TRUE);
 
 		event_operator_reset (job->stop_on);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, event);
+		event_unblock (event);
+		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -7324,6 +7702,9 @@ test_handle_event (void)
 		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job1->blocking, list);
+
 		event_unblock (event3);
 		event_unref (event3);
 
@@ -7361,8 +7742,8 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 1);
-		TEST_EQ (event1->blockers, 1);
+		TEST_EQ (event1->refs, 2);
+		TEST_EQ (event1->blockers, 2);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
 		TEST_EQ_P ((Job *)config2->instances.next, job2);
@@ -7395,6 +7776,23 @@ test_handle_event (void)
 
 		event_operator_reset (job2->stop_on);
 
+		TEST_NE_P (job2->blocking, NULL);
+		TEST_ALLOC_SIZE (job2->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job2->blocking, job2);
+
+		TEST_LIST_NOT_EMPTY (job2->blocking);
+
+		entry = (NihListEntry *)job2->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job2->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		event_unblock (event);
+		event_unref (event);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job2->blocking);
+
 		nih_free (job2);
 	}
 
@@ -7425,8 +7823,8 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 1);
-		TEST_EQ (event1->blockers, 1);
+		TEST_EQ (event1->refs, 2);
+		TEST_EQ (event1->blockers, 2);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
 		TEST_EQ_P ((Job *)config2->instances.next, job2);
@@ -7463,6 +7861,23 @@ test_handle_event (void)
 
 		event_operator_reset (job2->stop_on);
 
+		TEST_NE_P (job2->blocking, NULL);
+		TEST_ALLOC_SIZE (job2->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job2->blocking, job2);
+
+		TEST_LIST_NOT_EMPTY (job2->blocking);
+
+		entry = (NihListEntry *)job2->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job2->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		event_unblock (event);
+		event_unref (event);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job2->blocking);
+
 		nih_free (job2);
 	}
 
@@ -7490,6 +7905,22 @@ test_handle_event (void)
 						   NULL, "FOO=wibble"));
 			assert (nih_str_array_add (&(job2->stop_env), job2,
 						   NULL, "BAR=wobble"));
+
+			job2->blocking = nih_list_new (job2);
+
+			entry = nih_list_entry_new (job2->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job2->blocking, &entry->entry);
+			event3 = entry->data;
+			event_ref (event3);
+			event_block (event3);
+
+			entry = nih_list_entry_new (job2->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job2->blocking, &entry->entry);
+			event4 = entry->data;
+			event_ref (event4);
+			event_block (event4);
 		}
 
 		job2->goal = JOB_START;
@@ -7499,10 +7930,19 @@ test_handle_event (void)
 		env1 = job2->stop_env;
 		TEST_FREE_TAG (env1);
 
+		list = job2->blocking;
+		TEST_FREE_TAG (list);
+
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 1);
-		TEST_EQ (event1->blockers, 1);
+		TEST_EQ (event1->refs, 2);
+		TEST_EQ (event1->blockers, 2);
+
+		TEST_EQ (event3->refs, 0);
+		TEST_EQ (event3->blockers, 0);
+
+		TEST_EQ (event4->refs, 0);
+		TEST_EQ (event4->blockers, 0);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
 		TEST_EQ_P ((Job *)config2->instances.next, job2);
@@ -7539,7 +7979,28 @@ test_handle_event (void)
 
 		event_operator_reset (job2->stop_on);
 
+		TEST_FREE (list);
+
+		TEST_NE_P (job2->blocking, NULL);
+		TEST_ALLOC_SIZE (job2->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job2->blocking, job2);
+
+		TEST_LIST_NOT_EMPTY (job2->blocking);
+
+		entry = (NihListEntry *)job2->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job2->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		event_unblock (event);
+		event_unref (event);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job2->blocking);
+
 		nih_free (job2);
+		nih_free (event3);
+		nih_free (event4);
 	}
 
 	nih_free (event1);
@@ -7562,6 +8023,22 @@ test_handle_event (void)
 						   NULL, "FOO=wibble"));
 			assert (nih_str_array_add (&(job2->stop_env), job2,
 						   NULL, "BAR=wobble"));
+
+			job2->blocking = nih_list_new (job2);
+
+			entry = nih_list_entry_new (job2->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job2->blocking, &entry->entry);
+			event3 = entry->data;
+			event_ref (event3);
+			event_block (event3);
+
+			entry = nih_list_entry_new (job2->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job2->blocking, &entry->entry);
+			event4 = entry->data;
+			event_ref (event4);
+			event_block (event4);
 		}
 
 		job2->goal = JOB_STOP;
@@ -7571,10 +8048,19 @@ test_handle_event (void)
 		env1 = job2->stop_env;
 		TEST_FREE_TAG (env1);
 
+		list = job2->blocking;
+		TEST_FREE_TAG (list);
+
 		job_handle_event (event1);
 
 		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
+
+		TEST_EQ (event3->refs, 1);
+		TEST_EQ (event3->blockers, 1);
+
+		TEST_EQ (event4->refs, 1);
+		TEST_EQ (event4->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
 		TEST_EQ_P ((Job *)config2->instances.next, job2);
@@ -7601,7 +8087,18 @@ test_handle_event (void)
 
 		event_operator_reset (job2->stop_on);
 
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job2->blocking, list);
+
+		event_unblock (event3);
+		event_unref (event3);
+
+		event_unblock (event4);
+		event_unref (event4);
+
 		nih_free (job2);
+		nih_free (event3);
+		nih_free (event4);
 	}
 
 	nih_free (event1);
