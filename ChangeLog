@@ -1,5 +1,19 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_valid): New function to check the validity
+	of an environment variable name, should call before accepting any.
+	(environ_expand_until): New function to expand variable references
+	in a string using an environment table; supports a few common
+	shell-like expressions.
+	(environ_getn): Change to return the value of the string, not the
+	entire environment string.
+	* init/environ.h: Add prototypes.
+	* init/errors.h: Add errors raised by new functions.
+	* init/tests/test_environ.c (test_valid, test_expand): Add test
+	cases for the new functions.
+	(test_get, test_getn): Change test case to check for the variable
+	value instead of returning the whole string.
+
 	* TODO: Add thoughts on blocking commands.
 
 	* TODO: Update.

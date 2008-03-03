@@ -29,6 +29,15 @@
 enum {
 	UPSTART_ERROR_START = NIH_ERROR_APPLICATION_START,
 
+	/* Errors while dealing with environment */
+	ENVIRON_ILLEGAL_PARAM,
+	ENVIRON_UNKNOWN_PARAM,
+	ENVIRON_EXPECTED_OPERATOR,
+	ENVIRON_MISMATCHED_BRACES,
+
+	/* Errors while handling processes */
+	PROCESS_ERROR,
+
 	/* Errors while parsing configuration files */
 	PARSE_ILLEGAL_INTERVAL,
 	PARSE_ILLEGAL_EXIT,
@@ -39,12 +48,13 @@ enum {
 	PARSE_EXPECTED_OPERATOR,
 	PARSE_EXPECTED_VARIABLE,
 	PARSE_MISMATCHED_PARENS,
-
-	/* Errors while handling processes */
-	PROCESS_ERROR,
 };
 
 /* Error strings for defined messages */
+#define ENVIRON_ILLEGAL_PARAM_STR	N_("Illegal parameter")
+#define ENVIRON_UNKNOWN_PARAM_STR	N_("Unknown parameter")
+#define ENVIRON_EXPECTED_OPERATOR_STR	N_("Expected operator")
+#define ENVIRON_MISMATCHED_BRACES_STR	N_("Mismatched braces")
 #define PARSE_ILLEGAL_INTERVAL_STR	N_("Illegal interval, expected number of seconds")
 #define PARSE_ILLEGAL_EXIT_STR		N_("Illegal exit status, expected integer")
 #define PARSE_ILLEGAL_UMASK_STR		N_("Illegal file creation mask, expected octal integer")

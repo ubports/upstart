@@ -33,8 +33,16 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/logging.h>
+#include <nih/error.h>
 
 #include "environ.h"
+#include "errors.h"
+
+
+/* Prototypes for static functions */
+static char *environ_expand_until (char **str, const void *parent,
+				   size_t *len, size_t *pos, char * const *env,
+				   const char *until);
 
 
 /**
@@ -223,7 +231,8 @@ environ_lookup (char * const *env,
  * @key: key to lookup.
  *
  * Lookup the environment variable named @key in the @env table given
- * which contains entries of KEY=VALUE form.
+ * which contains entries of KEY=VALUE form and return a pointer to the
+ * value.
  *
  * Returns: string from @env or NULL if not found.
  **/
@@ -243,7 +252,8 @@ environ_get (char * const *env,
  * @len: length of @key.
  *
  * Lookup the environment variable named @key, which is @len characters long,
- * in the @env table given which contains entries of KEY=VALUE form.
+ * in the @env table given which contains entries of KEY=VALUE form and
+ * return a pointer to the value.
  *
  * Returns: string from @env or NULL if not found.
  **/
@@ -257,8 +267,380 @@ environ_getn (char * const *env,
 	nih_assert (key != NULL);
 
 	e = environ_lookup (env, key, len);
-	if (e)
-		return *e;
+	if (e) {
+		const char *ret;
 
+		ret = strchr (*e, '=');
+		nih_assert (ret != NULL);
+
+		return ret + 1;
+	}
+
+	return NULL;
+}
+
+
+/**
+ * environ_valid:
+ * @key: string to check,
+ * @len: length of @key.
+ *
+ * Check whether the environment key @key, that is @len characters long,
+ * is valid according to the usual rules.  Names may begin with an alpha or
+ * an underscore, and then consist of any number of alphanumerics and
+ * underscores.
+ *
+ * Returns: TRUE if @key is a valid variable name, FALSE otherwise.
+ **/
+int
+environ_valid (const char *key,
+	       size_t      len)
+{
+	nih_assert (key != NULL);
+
+	if (! len)
+		return FALSE;
+
+	if ((*key != '_')
+	    && ((*key < 'A') || (*key > 'Z'))
+	    && ((*key < 'a') || (*key > 'z')))
+		return FALSE;
+
+	while (--len) {
+		++key;
+		if ((*key != '_')
+		    && ((*key < 'A') || (*key > 'Z'))
+		    && ((*key < 'a') || (*key > 'z'))
+		    && ((*key < '0') || (*key > '9')))
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+/**
+ * environ_expand:
+ * @parent: parent of new string,
+ * @string: string to expand,
+ * @env: NULL-terminated list of environment variables to use.
+ *
+ * Expand variable references in @string using the NULL-terminated list of
+ * KEY=VALUE strings in the given @env table, returning a newly allocated
+ * string with the references replaced by the values.
+ *
+ * Variables may be referenced trivially as $KEY, or where ambiguity is
+ * present as ${KEY}.  References may be nested, so ${$KEY}} will first
+ * expand $KEY, and then expand the variable named within that variable.
+ *
+ * Shell like operator expansions are also permitted.  ${KEY:-default}
+ * will expand to $KEY if not unset or null, "default" otherwise.
+ * ${KEY-default} is as above, but expands to null if $KEY is null.
+ *
+ * ${KEY:+alternate} will expand to null if $KEY is unset or null,
+ * "alternate" otherwise.  ${KEY+alternate} is as above, but will expand
+ * to "alternate" only if $KEY is unset.
+ *
+ * Unknown parameters are raised as an error instead of being substituted
+ * with null, for that behaviour you should explicity use ${KEY-}
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.
+ *
+ * Returns: newly allocated string or NULL on raised error.
+ **/
+char *
+environ_expand (const void   *parent,
+		const char   *string,
+		char * const *env)
+{
+	char   *str;
+	size_t  len, pos;
+
+	nih_assert (string != NULL);
+
+	str = nih_strdup (parent, string);
+	if (! str) {
+		nih_error_raise_system ();
+		return NULL;
+	}
+
+	len = strlen (string);
+	pos = 0;
+
+	if (! environ_expand_until (&str, parent, &len, &pos, env, ""))
+		return NULL;
+
+	return str;
+}
+
+/**
+ * environ_expand_until:
+ * @str: string being expanded,
+ * @parent: parent of @str,
+ * @len: length of @str,
+ * @pos: current position within @str,
+ * @env: NULL-terminated list of environment variables to use,
+ * @until: characters to stop expansion on.
+ *
+ * Perform an in-place expansion of variable references in @str using the
+ * NULL-terminated list of KEY=VALUE strings in the given @env table,
+ * stopping expansion when any of the characters in @until or the end of
+ * @str is reached.
+ *
+ * See environ_expand() for the valid references.
+ *
+ * @len will be updated after each expansion to contain the new length,
+ * which may be shorter or longer than before depending on the relative
+ * lengths of the reference and value.
+ *
+ * @pos will be likewise updated to point to the character listed in @until.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.
+ *
+ * Returns: reallocated string or NULL on raised error.
+ **/
+static char *
+environ_expand_until (char        **str,
+		      const void   *parent,
+		      size_t       *len,
+		      size_t       *pos,
+		      char * const *env,
+		      const char   *until)
+{
+	nih_assert (str != NULL);
+	nih_assert (*str != NULL);
+	nih_assert (len != NULL);
+	nih_assert (pos != NULL);
+	nih_assert (until != NULL);
+
+	for (;;) {
+		enum { OP_VALUE, OP_DEFAULT, OP_ALTERNATE } op = OP_VALUE;
+		size_t      start, end;
+		size_t      name_start, name_end;
+		size_t      arg_start, arg_end;
+		int         ignore_empty = FALSE;
+		const char *value;
+		size_t      value_len, offset;
+
+		/* Locate the start of the next reference, if we have no
+		 * further references, we can exit the loop and return the
+		 * string.
+		 */
+		while (((*str)[*pos] != '$')
+		       && (! strchr (until, (*str)[*pos])))
+			(*pos)++;
+		if ((*str)[*pos] != '$')
+			break;
+
+		/* Look at the next character to find out whether this is
+		 * a simple expansion, a bracketed expansion or a lone
+		 * dollar sign.
+		 */
+		start = (*pos)++;
+		if (((*str)[*pos] == '_')
+		    || (((*str)[*pos] >= 'A') && ((*str)[*pos] <= 'Z'))
+		    || (((*str)[*pos] >= 'a') && ((*str)[*pos] <= 'z')))
+		{
+			/* Simple reference; use all following alphanumeric
+			 * characters and leave pos pointing at the first
+			 * non-reference character.
+			 */
+			name_start = (*pos)++;
+			while (((*str)[*pos] == '_')
+			       || (((*str)[*pos] >= 'A') && ((*str)[*pos] <= 'Z'))
+			       || (((*str)[*pos] >= 'a') && ((*str)[*pos] <= 'z'))
+			       || (((*str)[*pos] >= '0') && ((*str)[*pos] <= '9')))
+				(*pos)++;
+			name_end = end = (*pos);
+
+		} else if (((*str)[*pos] == '{')
+			   && ((*str)[*pos + 1] == '}')) {
+			/* Empty bracketed expression; this is a special that
+			 * is always replaced by the literal dollar sign.
+			 */
+			*pos += 2;
+			end = *pos;
+
+			value = "$";
+			value_len = 1;
+			goto subst;
+
+		} else if ((*str)[*pos] == '{') {
+			/* Bracketed reference; step over the bracket and
+			 * treat the inner as another string to be expanded,
+			 * terminated by any character that terminates the
+			 * name part of the reference.
+			 */
+			name_start = ++(*pos);
+			if (! environ_expand_until (str, parent, len, pos,
+						    env, "}:-+"))
+				return NULL;
+
+			name_end = (*pos);
+
+			/* Check the environment variable name is
+			 * actually valid
+			 */
+			if (! environ_valid (*str + name_start,
+					     name_end - name_start)) {
+				nih_error_raise_printf (
+					ENVIRON_ILLEGAL_PARAM,
+					"%s: %.*s", _(ENVIRON_ILLEGAL_PARAM_STR),
+					(int)(name_end - name_start),
+					*str + name_start);
+
+				goto error;
+			}
+
+			/* Check for an expression operator; if we find one,
+			 * step over it and evalulate the rest of the bracketed
+			 * expression to find the substitute value.
+			 */
+			if (((*str)[*pos] == ':')
+			    && (*str)[*pos + 1] == '-') {
+				(*pos) += 2;
+				op = OP_DEFAULT;
+				ignore_empty = TRUE;
+			} else if (((*str)[*pos] == ':')
+			    && (*str)[*pos + 1] == '+') {
+				(*pos) += 2;
+				op = OP_ALTERNATE;
+				ignore_empty = TRUE;
+			} else if ((*str)[*pos] == '-') {
+				(*pos)++;
+				op = OP_DEFAULT;
+			} else if ((*str)[*pos] == '+') {
+				(*pos)++;
+				op = OP_ALTERNATE;
+			} else if (((*str)[*pos] != '}')
+				   && ((*str)[*pos] != '\0')) {
+				nih_error_raise (ENVIRON_EXPECTED_OPERATOR,
+						 _(ENVIRON_EXPECTED_OPERATOR_STR));
+				goto error;
+			}
+
+			/* Expand any argument appearing after the expression
+			 * operator; for simple value expansion, this will
+			 * be almost a no-op, except we'll have defined values
+			 */
+			arg_start = *pos;
+			if (! environ_expand_until (str, parent, len, pos,
+							    env, "}"))
+				return NULL;
+
+			arg_end = (*pos);
+
+			/* Make sure the final character ends the bracketed
+			 * expression and that we haven't hit the end of the
+			 * string.
+			 */
+			if ((*str)[*pos] != '}') {
+				nih_error_raise (ENVIRON_MISMATCHED_BRACES,
+						 _(ENVIRON_MISMATCHED_BRACES_STR));
+				goto error;
+			}
+
+			end = ++(*pos);
+		} else {
+			continue;
+		}
+
+		/* Lookup the environment variable.  How we handle whether
+		 * this is NULL or not depends on the operator in effect.
+		 */
+		value = environ_getn (env, *str + name_start,
+				      name_end - name_start);
+
+		switch (op) {
+		case OP_VALUE:
+			/* Value must be directly substituted from the
+			 * environment; if it doesn't exist, raise an error.
+			 */
+			if (value == NULL) {
+				nih_error_raise_printf (
+					ENVIRON_UNKNOWN_PARAM,
+					"%s: %.*s", _(ENVIRON_UNKNOWN_PARAM_STR),
+					(int)(name_end - name_start),
+					*str + name_start);
+				goto error;
+			}
+
+			value_len = strlen (value);
+			break;
+		case OP_DEFAULT:
+			/* Value may be directly substitued from the
+			 * environment if set, otherwise we substitute from
+			 * the argument to the expression.
+			 */
+			if ((value == NULL)
+			    || (ignore_empty && (value[0] == '\0'))) {
+				value = *str + arg_start;
+				value_len = arg_end - arg_start;
+			} else {
+				value_len = strlen (value);
+			}
+			break;
+		case OP_ALTERNATE:
+			/* Substitute the empty string if the value is
+			 * NULL or unset, otherwise substitute the argument
+			 * to the expression.
+			 */
+			if ((value == NULL)
+			    || (ignore_empty && (value[0] == '\0'))) {
+				value = "";
+				value_len = 0;
+			} else {
+				value = *str + arg_start;
+				value_len = arg_end - arg_start;
+			}
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+
+	subst:
+		/* Work out whether we need to extend the string to fit the
+		 * value in place, then adjust the string so that there's
+		 * the right gap for the value to slot in.
+		 */
+		if (value_len > end - start) {
+			char *new_str;
+
+			offset = value_len - (end - start);
+			new_str = nih_realloc (*str, parent,
+					       *len + offset + 1);
+			if (! new_str) {
+				nih_error_raise_system ();
+				goto error;
+			}
+
+			*str = new_str;
+
+			memmove (*str + end + offset, *str + end,
+				 *len - end + 1);
+			memmove (*str + start, value, value_len);
+
+			*len += offset;
+			*pos += offset;
+		} else if (value_len < end - start) {
+			offset = (end - start) - value_len;
+
+			memmove (*str + start, value, value_len);
+			memmove (*str + end - offset, *str + end,
+				 *len - end + 1);
+
+			*len -= offset;
+			*pos -= offset;
+		}
+	}
+
+	return *str;
+
+error:
+	nih_free (*str);
 	return NULL;
 }

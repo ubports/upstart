@@ -25,8 +25,12 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/error.h>
+
+#include <errno.h>
 
 #include "environ.h"
+#include "errors.h"
 
 
 void
@@ -502,7 +506,7 @@ test_get (void)
 	TEST_FEATURE ("with key to be found");
 	ret = environ_get (env, "BAR");
 
-	TEST_EQ_P (ret, env[1]);
+	TEST_EQ_STR (ret, "BAZ");
 
 
 	/* Check that a key that doesn't exist returns NULL. */
@@ -550,7 +554,7 @@ test_getn (void)
 	TEST_FEATURE ("with key to be found");
 	ret = environ_getn (env, "BAR", 3);
 
-	TEST_EQ_P (ret, env[1]);
+	TEST_EQ_STR (ret, "BAZ");
 
 
 	/* Check that a key that doesn't exist returns NULL. */
@@ -578,6 +582,681 @@ test_getn (void)
 }
 
 
+void
+test_valid (void)
+{
+	int valid;
+
+	TEST_FUNCTION ("environ_valid");
+
+	/* Check that an all-uppercase key is valid. */
+	TEST_FEATURE ("with uppercase key");
+	valid = environ_valid ("FOO", 3);
+
+	TEST_TRUE (valid);
+
+
+	/* Check that an all-lowercase key is valid. */
+	TEST_FEATURE ("with lowercase key");
+	valid = environ_valid ("foo", 3);
+
+	TEST_TRUE (valid);
+
+
+	/* Check that an all-alphanumeric key is valid. */
+	TEST_FEATURE ("with alphanumeric key");
+	valid = environ_valid ("Foo45", 5);
+
+	TEST_TRUE (valid);
+
+
+	/* Check that an underscores in the key are valid. */
+	TEST_FEATURE ("with underscores in key");
+	valid = environ_valid ("FOO_45", 6);
+
+	TEST_TRUE (valid);
+
+
+	/* Check that a key may begin with an underscore. */
+	TEST_FEATURE ("with initial underscore");
+	valid = environ_valid ("_FOO", 4);
+
+	TEST_TRUE (valid);
+
+
+	/* Check that a key may not begin with a number. */
+	TEST_FEATURE ("with initial number");
+	valid = environ_valid ("9FOO", 4);
+
+	TEST_FALSE (valid);
+
+
+	/* Check that a key may not begin with any other character. */
+	TEST_FEATURE ("with initial dash");
+	valid = environ_valid ("-FOO", 4);
+
+	TEST_FALSE (valid);
+
+
+	/* Check that a key may not contain dashes. */
+	TEST_FEATURE ("with dash");
+	valid = environ_valid ("FOO-BAR", 7);
+
+	TEST_FALSE (valid);
+
+
+	/* Check that a key may not contain spaces. */
+	TEST_FEATURE ("with space");
+	valid = environ_valid ("FOO BAR", 7);
+
+	TEST_FALSE (valid);
+
+
+	/* Check that the length is honoured. */
+	TEST_FEATURE ("with longer string then key");
+	valid = environ_valid ("FOO BAR", 3);
+
+	TEST_TRUE (valid);
+}
+
+
+void
+test_expand (void)
+{
+	NihError *error;
+	char     *env[6], *str;
+
+	TEST_FUNCTION ("environ_expand");
+	env[0] = "FOO=frodo";
+	env[1] = "BAR=bilbo";
+	env[2] = "BAZ=xx";
+	env[3] = "HOBBIT=FOO";
+	env[4] = "NULL=";
+	env[5] = NULL;
+
+	nih_error_push_context();
+	nih_error_pop_context ();
+
+
+	/* Check that we can expand a simple string containing a reference
+	 * from the environment, with the reference replaced by the environment
+	 * variable value.
+	 */
+	TEST_FEATURE ("with simple expansion");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "this is a $FOO test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "this is a frodo test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can expand a simple string containing a reference
+	 * from the environment that is smaller than the reference, with the
+	 * reference replaced by the environment variable value.
+	 */
+	TEST_FEATURE ("with simple expansion of smaller value");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "this is a $BAZ test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "this is a xx test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can expand a string containing multiple simple
+	 * references, with each replaced by the variable value.
+	 */
+	TEST_FEATURE ("with multiple simple expansions");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "test $FOO $BAR$BAZ", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test frodo bilboxx");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can expand a string containing a bracketed
+	 * reference, allowing it to nestle against other alphanumerics.
+	 */
+	TEST_FEATURE ("with simple bracketed expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${BAR}test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "bilbotest");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can expand a string containing multiple bracketed
+	 * references, allowing it to nestle against other alphanumerics.
+	 */
+	TEST_FEATURE ("with multiple simple bracketed expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${BAR}${FOO}test${BAZ}", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "bilbofrodotestxx");
+
+		nih_free (str);
+	}
+
+
+	/* Check that simple expressions may appear within bracketed
+	 * expressions, causing them to be evaluted and the evalution
+	 * serving as the reference.
+	 */
+	TEST_FEATURE ("with simple expression inside bracketed expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${$HOBBIT} baggins", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "frodo baggins");
+
+		nih_free (str);
+	}
+
+
+	/* Check that bracketed expressions may appear within bracketed
+	 * expressions.
+	 */
+	TEST_FEATURE ("with bracketed expression inside bracketed expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${${HOBBIT}} baggins", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "frodo baggins");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can substitute a default value if the variable
+	 * we were after was unset.
+	 */
+	TEST_FEATURE ("with bracketed default expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${MEEP-a }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "a test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that a default expression uses the environment value if
+	 * it is actually set.
+	 */
+	TEST_FEATURE ("with bracketed default expression for set variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${BAZ-a }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "xxtest");
+
+		nih_free (str);
+	}
+
+
+	/* Check that a default expression uses the environment value if
+	 * it is actually set, even if it is NULL.
+	 */
+	TEST_FEATURE ("with bracketed default expression for null variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${NULL-a }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can substitute a default value if the variable
+	 * we were after was unset (or null).
+	 */
+	TEST_FEATURE ("with bracketed default or null expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${MEEP:-a }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "a test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that a default or null expression uses the environment value
+	 * if it is actually set and not null.
+	 */
+	TEST_FEATURE ("with bracketed default or null expression for set variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${BAZ:-a }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "xxtest");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can substitute a default value if the variable
+	 * we were after was null.
+	 */
+	TEST_FEATURE ("with bracketed default or null expression for null variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${NULL:-a }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "a test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we don't substitute an alternate value if the
+	 * variable we were after was unset.
+	 */
+	TEST_FEATURE ("with bracketed alternate expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${MEEP+good }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we use the alternate value if the environment variable
+	 * is actually set.
+	 */
+	TEST_FEATURE ("with bracketed alternate expression for set variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${BAZ+good }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "good test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we use the alternate value if the environment variable
+	 * is set, even if it is NULL.
+	 */
+	TEST_FEATURE ("with bracketed alternate expression for null variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${NULL+good }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "good test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we don't substitute an alternate value if the
+	 * variable we were after was unset (or null).
+	 */
+	TEST_FEATURE ("with bracketed alternate or null expression");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${MEEP:+good }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we use the alternate value if the environment variable
+	 * is actually set and not null.
+	 */
+	TEST_FEATURE ("with bracketed alternate or null expression for set variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${BAZ:+good }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "good test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we don't substitute an alternate value if the
+	 * variable we were after was set, but was null.
+	 */
+	TEST_FEATURE ("with bracketed alternate or null expression for null variable");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${NULL:+good }test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that references on either side of an expression are
+	 * expanded before evaluation.
+	 */
+	TEST_FEATURE ("with references in bracketed expression argument");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${$BAZ:-${$HOBBIT}}test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "frodotest");
+
+		nih_free (str);
+	}
+
+
+	/* Check that a literal dollar sign with no following text is
+	 * treated just as a dollar sign.
+	 */
+	TEST_FEATURE ("with dollar sign in whitespace");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "this is a $ test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "this is a $ test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that a literal dollar sign in text can be followed by empty
+	 * brackets to be just as a dollar sign.
+	 */
+	TEST_FEATURE ("with bracketed dollar sign");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "${}test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "$test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that attempting to expand an unknown variable results in
+	 * an error being raised.
+	 */
+	TEST_FEATURE ("with simple expansion of unknown variable");
+	str = environ_expand (NULL, "this is a $WIBBLE test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_UNKNOWN_PARAM);
+	nih_free (error);
+
+
+	/* Check that attempting to expand an unknown variable results in
+	 * an error being raised.
+	 */
+	TEST_FEATURE ("with bracketed expansion of unknown variable");
+	str = environ_expand (NULL, "this is a ${WIBBLE} test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_UNKNOWN_PARAM);
+	nih_free (error);
+
+
+	/* Check that attempting to expand an unknown variable results in
+	 * an error being raised.
+	 */
+	TEST_FEATURE ("with expansion of unknown variable within expression name");
+	str = environ_expand (NULL, "this is a ${$WIBBLE:-$FOO} test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_UNKNOWN_PARAM);
+	nih_free (error);
+
+
+	/* Check that attempting to expand an unknown variable results in
+	 * an error being raised.
+	 */
+	TEST_FEATURE ("with expansion of unknown variable within expression argument");
+	str = environ_expand (NULL, "this is a ${$FOO:-$WIBBLE} test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_UNKNOWN_PARAM);
+	nih_free (error);
+
+
+	/* Check that attempting to expand an illegal variable name results in
+	 * an error being raised.
+	 */
+	TEST_FEATURE ("with expansion of illegal variable");
+	str = environ_expand (NULL, "this is a ${WIB WOB} test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_ILLEGAL_PARAM);
+	nih_free (error);
+
+
+	/* Check that inventing a new operator results in an error
+	 * being raised.
+	 */
+	TEST_FEATURE ("with unknown operator in expression");
+	str = environ_expand (NULL, "this is a ${$FOO:!$BAR test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_EXPECTED_OPERATOR);
+	nih_free (error);
+
+
+	/* Check that forgetting to close a brace results in an error
+	 * being raised.
+	 */
+	TEST_FEATURE ("with missing close brace after expression");
+	str = environ_expand (NULL, "this is a ${$FOO:-$BAR test", env);
+
+	TEST_EQ_P (str, NULL);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, ENVIRON_MISMATCHED_BRACES);
+	nih_free (error);
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -587,6 +1266,8 @@ main (int   argc,
 	test_lookup ();
 	test_get ();
 	test_getn ();
+	test_valid ();
+	test_expand ();
 
 	return 0;
 }

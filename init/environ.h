@@ -39,6 +39,12 @@ char * const *environ_lookup (char * const *env, const char *key, size_t len);
 const char *  environ_get    (char * const *env, const char *key);
 const char *  environ_getn   (char * const *env, const char *key, size_t len);
 
+int           environ_valid  (const char *key, size_t len);
+
+char *        environ_expand (const void *parent, const char *string,
+			      char * const *env)
+	__attribute__ ((malloc, warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_ENVIRON_H */
