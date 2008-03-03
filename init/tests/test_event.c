@@ -69,7 +69,6 @@ test_new (void)
 		TEST_EQ (event->progress, EVENT_PENDING);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 
 		TEST_EQ_STR (event->name, "test");
@@ -113,52 +112,12 @@ test_find_by_id (void)
 
 
 void
-test_ref (void)
-{
-	Event *event;
-
-	/* Check that calling event_ref increments the number of references
-	 * that the event has, while leaving the blockers at zero.
-	 */
-	TEST_FUNCTION ("event_ref");
-	event = event_new (NULL, "test", NULL);
-	event->refs = 4;
-
-	event_ref (event);
-
-	TEST_EQ (event->refs, 5);
-	TEST_EQ (event->blockers, 0);
-
-	nih_free (event);
-}
-
-void
-test_unref (void)
-{
-	Event *event;
-
-	/* Check that calling event_unref decrements the number of references
-	 * that the event has, while leaving the blockers at zero.
-	 */
-	TEST_FUNCTION ("event_unref");
-	event = event_new (NULL, "test", NULL);
-	event->refs = 4;
-
-	event_unref (event);
-
-	TEST_EQ (event->refs, 3);
-	TEST_EQ (event->blockers, 0);
-
-	nih_free (event);
-}
-
-void
 test_block (void)
 {
 	Event *event;
 
 	/* Check that calling event_block increments the number of blockers
-	 * that the event has, while leaving the references at zero.
+	 * that the event has.
 	 */
 	TEST_FUNCTION ("event_block");
 	event = event_new (NULL, "test", NULL);
@@ -167,7 +126,6 @@ test_block (void)
 	event_block (event);
 
 	TEST_EQ (event->blockers, 5);
-	TEST_EQ (event->refs, 0);
 
 	nih_free (event);
 }
@@ -178,7 +136,7 @@ test_unblock (void)
 	Event *event;
 
 	/* Check that calling event_unblock increments the number of blockers
-	 * that the event has, while leaving the references at zero.
+	 * that the event has.
 	 */
 	TEST_FUNCTION ("event_unblock");
 	event = event_new (NULL, "test", NULL);
@@ -187,7 +145,6 @@ test_unblock (void)
 	event_unblock (event);
 
 	TEST_EQ (event->blockers, 3);
-	TEST_EQ (event->refs, 0);
 
 	nih_free (event);
 }
@@ -226,7 +183,6 @@ test_poll (void)
 	event_poll ();
 
 	TEST_EQ (event->progress, EVENT_HANDLING);
-	TEST_EQ (event->refs, 1);
 	TEST_EQ (event->blockers, 1);
 
 	TEST_LIST_NOT_EMPTY (&config->instances);
@@ -296,22 +252,6 @@ test_poll (void)
 	TEST_FREE (event);
 
 	nih_free (config);
-
-
-	/* Check that a finished event with remaining references is held
-	 * in the done state, and not freed immediately.
-	 */
-	TEST_FEATURE ("with referenced event");
-	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test", NULL);
-		event->progress = EVENT_DONE;
-		event->refs = 1;
-
-		event_poll ();
-
-		TEST_LIST_NOT_EMPTY (&event->entry);
-		nih_free (event);
-	}
 
 
 	/* Check that a pending event which doesn't cause any jobs to be
@@ -438,7 +378,6 @@ test_operator_new (void)
 
 		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		nih_free (oper);
 	}
@@ -478,7 +417,6 @@ test_operator_new (void)
 		TEST_ALLOC_PARENT (oper->env, oper);
 
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		nih_free (oper);
 	}
@@ -502,7 +440,6 @@ test_operator_new (void)
 		TEST_EQ_P (oper->name, NULL);
 		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		nih_free (oper);
 	}
@@ -544,7 +481,6 @@ test_operator_copy (void)
 		TEST_EQ_P (copy->name, NULL);
 		TEST_EQ_P (copy->env, NULL);
 		TEST_EQ_P (copy->event, NULL);
-		TEST_EQ (copy->blocked, FALSE);
 
 		nih_free (copy);
 		nih_free (oper);
@@ -580,7 +516,6 @@ test_operator_copy (void)
 		TEST_ALLOC_PARENT (copy->name, copy);
 		TEST_EQ_P (copy->env, NULL);
 		TEST_EQ_P (copy->event, NULL);
-		TEST_EQ (copy->blocked, FALSE);
 
 		nih_free (copy);
 		nih_free (oper);
@@ -629,7 +564,6 @@ test_operator_copy (void)
 		TEST_EQ_P (copy->env[2], NULL);
 
 		TEST_EQ_P (copy->event, NULL);
-		TEST_EQ (copy->blocked, FALSE);
 
 		nih_free (copy);
 		nih_free (oper);
@@ -647,60 +581,13 @@ test_operator_copy (void)
 			oper->value = TRUE;
 
 			oper->event = event_new (oper, "test", NULL);
-			event_ref (oper->event);
-		}
-
-		copy = event_operator_copy (NULL, oper);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			nih_free (oper);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
-		TEST_EQ_P (copy->node.parent, NULL);
-		TEST_EQ_P (copy->node.left, NULL);
-		TEST_EQ_P (copy->node.right, NULL);
-		TEST_EQ (copy->type, EVENT_MATCH);
-		TEST_EQ (copy->value, TRUE);
-		TEST_EQ_STR (copy->name, "test");
-		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_P (copy->env, NULL);
-
-		TEST_EQ_P (copy->event, oper->event);
-		TEST_EQ (copy->event->refs, 2);
-		TEST_EQ (copy->event->blockers, 0);
-		TEST_EQ (copy->blocked, FALSE);
-
-		nih_free (copy);
-		nih_free (oper);
-	}
-
-
-	/* Check that if the EVENT_MATCH operator has a blocked event,
-	 * the event is copied and referenced and blocked a second time.
-	 */
-	TEST_FEATURE ("with EVENT_MATCH and blocked event");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			oper = event_operator_new (NULL, EVENT_MATCH,
-						   "test", NULL);
-			oper->value = TRUE;
-
-			oper->event = event_new (oper, "test", NULL);
-			event_ref (oper->event);
-
 			event_block (oper->event);
-			oper->blocked = TRUE;
 		}
 
 		copy = event_operator_copy (NULL, oper);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (copy, NULL);
-			TEST_EQ (oper->event->refs, 1);
-			TEST_EQ (oper->event->blockers, 1);
 			nih_free (oper);
 			continue;
 		}
@@ -716,13 +603,12 @@ test_operator_copy (void)
 		TEST_EQ_P (copy->env, NULL);
 
 		TEST_EQ_P (copy->event, oper->event);
-		TEST_EQ (copy->event->refs, 2);
 		TEST_EQ (copy->event->blockers, 2);
-		TEST_EQ (copy->blocked, TRUE);
 
 		nih_free (copy);
 		nih_free (oper);
 	}
+
 
 	/* Check that if the operator has children, these are copied as
 	 * well, including their state.
@@ -737,10 +623,7 @@ test_operator_copy (void)
 						    "foo", NULL);
 			oper1->value = TRUE;
 			oper1->event = event_new (oper1, "foo", NULL);
-			event_ref (oper1->event);
-
 			event_block (oper1->event);
-			oper1->blocked = TRUE;
 			nih_tree_add (&oper->node, &oper1->node,
 				      NIH_TREE_LEFT);
 
@@ -748,10 +631,7 @@ test_operator_copy (void)
 						    "bar", NULL);
 			oper2->value = TRUE;
 			oper2->event = event_new (oper2, "foo", NULL);
-			event_ref (oper2->event);
-
 			event_block (oper2->event);
-			oper2->blocked = TRUE;
 			nih_tree_add (&oper->node, &oper2->node,
 				      NIH_TREE_RIGHT);
 		}
@@ -761,10 +641,8 @@ test_operator_copy (void)
 		if (test_alloc_failed) {
 			TEST_EQ_P (copy, NULL);
 			nih_free (oper);
-			TEST_EQ (oper1->event->refs, 1);
 			TEST_EQ (oper1->event->blockers, 1);
 			nih_free (oper1);
-			TEST_EQ (oper2->event->refs, 1);
 			TEST_EQ (oper2->event->blockers, 1);
 			nih_free (oper2);
 			continue;
@@ -793,9 +671,7 @@ test_operator_copy (void)
 		TEST_EQ_P (copy1->env, NULL);
 
 		TEST_EQ_P (copy1->event, oper1->event);
-		TEST_EQ (copy1->event->refs, 2);
 		TEST_EQ (copy1->event->blockers, 2);
-		TEST_EQ (copy1->blocked, TRUE);
 
 		nih_free (copy1);
 
@@ -812,9 +688,7 @@ test_operator_copy (void)
 		TEST_EQ_P (copy2->env, NULL);
 
 		TEST_EQ_P (copy2->event, oper2->event);
-		TEST_EQ (copy2->event->refs, 2);
 		TEST_EQ (copy2->event->blockers, 2);
-		TEST_EQ (copy2->blocked, TRUE);
 
 		nih_free (copy2);
 		nih_free (copy);
@@ -832,19 +706,34 @@ test_operator_destroy (void)
 	EventOperator *oper;
 	Event         *event;
 
+	TEST_FUNCTION ("event_operator_destroy");
+
+
 	/* Check that when an event operator is destroyed, the referenced
 	 * event is unblocked and unreferenced.
 	 */
-	TEST_FUNCTION ("event_operator_destroy");
+	TEST_FEATURE ("with referenced event");
 	oper = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	oper->value = TRUE;
+
 	event = event_new (NULL, "foo", NULL);
+	oper->event = event;
+	event_block (event);
 
 	nih_free (oper);
 
-	TEST_EQ (event->refs, 0);
 	TEST_EQ (event->blockers, 0);
 
 	nih_free (event);
+
+
+	/* Check that when an event operator without an event is destroyed,
+	 * everything works.
+	 */
+	TEST_FEATURE ("without referenced event");
+	oper = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
+	nih_free (oper);
+
 
 	event_poll ();
 }
@@ -1214,15 +1103,11 @@ test_operator_handle (void)
 	TEST_EQ (oper2->value, FALSE);
 	TEST_EQ (oper3->value, FALSE);
 	TEST_EQ_P (oper3->event, NULL);
-	TEST_EQ (oper3->blocked, FALSE);
 	TEST_EQ (oper4->value, FALSE);
 	TEST_EQ_P (oper4->event, NULL);
-	TEST_EQ (oper4->blocked, FALSE);
 	TEST_EQ (oper5->value, FALSE);
 	TEST_EQ_P (oper5->event, NULL);
-	TEST_EQ (oper5->blocked, FALSE);
 
-	TEST_EQ (event->refs, 0);
 	TEST_EQ (event->blockers, 0);
 
 
@@ -1240,15 +1125,11 @@ test_operator_handle (void)
 	TEST_EQ (oper2->value, FALSE);
 	TEST_EQ (oper3->value, TRUE);
 	TEST_EQ_P (oper3->event, event);
-	TEST_EQ (oper3->blocked, TRUE);
 	TEST_EQ (oper4->value, FALSE);
 	TEST_EQ_P (oper4->event, NULL);
-	TEST_EQ (oper4->blocked, FALSE);
 	TEST_EQ (oper5->value, FALSE);
 	TEST_EQ_P (oper5->event, NULL);
-	TEST_EQ (oper5->blocked, FALSE);
 
-	TEST_EQ (event->refs, 1);
 	TEST_EQ (event->blockers, 1);
 
 
@@ -1265,15 +1146,11 @@ test_operator_handle (void)
 	TEST_EQ (oper2->value, TRUE);
 	TEST_EQ (oper3->value, TRUE);
 	TEST_NE_P (oper3->event, NULL);
-	TEST_EQ (oper3->blocked, TRUE);
 	TEST_EQ (oper4->value, TRUE);
 	TEST_EQ_P (oper4->event, event);
-	TEST_EQ (oper4->blocked, TRUE);
 	TEST_EQ (oper5->value, FALSE);
 	TEST_EQ_P (oper5->event, NULL);
-	TEST_EQ (oper5->blocked, FALSE);
 
-	TEST_EQ (event->refs, 1);
 	TEST_EQ (event->blockers, 1);
 
 
@@ -1321,8 +1198,6 @@ test_operator_collect (void)
 
 	oper3->value = TRUE;
 	oper3->event = event1 = event_new (NULL, "foo", NULL);
-	event_ref (oper3->event);
-	oper3->blocked = TRUE;
 	event_block (oper3->event);
 
 	NIH_MUST (nih_str_array_add (&oper3->event->env, oper3->event,
@@ -1332,8 +1207,6 @@ test_operator_collect (void)
 
 	oper4->value = TRUE;
 	oper4->event = event2 = event_new (NULL, "bar", NULL);
-	event_ref (oper4->event);
-	oper4->blocked = TRUE;
 	event_block (oper4->event);
 
 	NIH_MUST (nih_str_array_add (&oper4->event->env, oper4->event,
@@ -1343,8 +1216,6 @@ test_operator_collect (void)
 
 	oper6->value = TRUE;
 	oper6->event = event3 = event_new (NULL, "bilbo", NULL);
-	event_ref (oper6->event);
-	oper6->blocked = TRUE;
 	event_block (oper6->event);
 
 	NIH_MUST (nih_str_array_add (&oper6->event->env, oper6->event,
@@ -1360,13 +1231,8 @@ test_operator_collect (void)
 	TEST_ALLOC_FAIL {
 		event_operator_collect (root, NULL, NULL, NULL, NULL, NULL);
 
-		TEST_EQ (oper3->event->refs, 1);
 		TEST_EQ (oper3->event->blockers, 1);
-
-		TEST_EQ (oper4->event->refs, 1);
 		TEST_EQ (oper4->event->blockers, 1);
-
-		TEST_EQ (oper6->event->refs, 1);
 		TEST_EQ (oper6->event->blockers, 1);
 	}
 
@@ -1396,13 +1262,8 @@ test_operator_collect (void)
 		TEST_EQ_STR (env[3], "COFFEE=NO");
 		TEST_EQ_P (env[4], NULL);
 
-		TEST_EQ (oper3->event->refs, 1);
 		TEST_EQ (oper3->event->blockers, 1);
-
-		TEST_EQ (oper4->event->refs, 1);
 		TEST_EQ (oper4->event->blockers, 1);
-
-		TEST_EQ (oper6->event->refs, 1);
 		TEST_EQ (oper6->event->blockers, 1);
 
 		nih_free (env);
@@ -1436,13 +1297,8 @@ test_operator_collect (void)
 		TEST_EQ_STR (env[4], "UPSTART_EVENTS=foo bar");
 		TEST_EQ_P (env[5], NULL);
 
-		TEST_EQ (oper3->event->refs, 1);
 		TEST_EQ (oper3->event->blockers, 1);
-
-		TEST_EQ (oper4->event->refs, 1);
 		TEST_EQ (oper4->event->blockers, 1);
-
-		TEST_EQ (oper6->event->refs, 1);
 		TEST_EQ (oper6->event->blockers, 1);
 
 		nih_free (env);
@@ -1468,25 +1324,20 @@ test_operator_collect (void)
 		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
 		TEST_ALLOC_PARENT (entry, list);
 		TEST_EQ_P (entry->data, oper3->event);
-		TEST_EQ (oper3->event->refs, 2);
 		TEST_EQ (oper3->event->blockers, 2);
 		event_unblock (oper3->event);
-		event_unref (oper3->event);
 		nih_free (entry);
 
 		entry = (NihListEntry *)list->next;
 		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
 		TEST_ALLOC_PARENT (entry, list);
 		TEST_EQ_P (entry->data, oper4->event);
-		TEST_EQ (oper4->event->refs, 2);
 		TEST_EQ (oper4->event->blockers, 2);
 		event_unblock (oper4->event);
-		event_unref (oper4->event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (list);
 
-		TEST_EQ (oper6->event->refs, 1);
 		TEST_EQ (oper6->event->blockers, 1);
 
 		nih_free (list);
@@ -1514,25 +1365,20 @@ test_operator_collect (void)
 		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
 		TEST_ALLOC_PARENT (entry, list);
 		TEST_EQ_P (entry->data, oper3->event);
-		TEST_EQ (oper3->event->refs, 2);
 		TEST_EQ (oper3->event->blockers, 2);
 		event_unblock (oper3->event);
-		event_unref (oper3->event);
 		nih_free (entry);
 
 		entry = (NihListEntry *)list->next;
 		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
 		TEST_ALLOC_PARENT (entry, list);
 		TEST_EQ_P (entry->data, oper4->event);
-		TEST_EQ (oper4->event->refs, 2);
 		TEST_EQ (oper4->event->blockers, 2);
 		event_unblock (oper4->event);
-		event_unref (oper4->event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (list);
 
-		TEST_EQ (oper6->event->refs, 1);
 		TEST_EQ (oper6->event->blockers, 1);
 
 		TEST_NE_P (env, NULL);
@@ -1573,13 +1419,8 @@ test_operator_collect (void)
 
 		TEST_LIST_EMPTY (list);
 
-		TEST_EQ (oper3->event->refs, 1);
 		TEST_EQ (oper3->event->blockers, 1);
-
-		TEST_EQ (oper4->event->refs, 1);
 		TEST_EQ (oper4->event->blockers, 1);
-
-		TEST_EQ (oper6->event->refs, 1);
 		TEST_EQ (oper6->event->blockers, 1);
 
 		TEST_NE_P (env, NULL);
@@ -1601,78 +1442,6 @@ test_operator_collect (void)
 	nih_free (event3);
 }
 
-
-void
-test_operator_unblock (void)
-{
-	EventOperator *oper1, *oper2, *oper3, *oper4, *oper5;
-	Event         *event1, *event2;
-
-	/* Check that we can unblock all of the events in the tree, but that
-	 * the references remain.
-	 */
-	TEST_FUNCTION ("event_operator_unblock");
-	oper1 = event_operator_new (NULL, EVENT_OR, NULL, NULL);
-	oper2 = event_operator_new (NULL, EVENT_AND, NULL, NULL);
-	oper3 = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
-	oper4 = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
-	oper5 = event_operator_new (NULL, EVENT_MATCH, "baz", NULL);
-
-	nih_tree_add (&oper1->node, &oper2->node, NIH_TREE_LEFT);
-	nih_tree_add (&oper2->node, &oper3->node, NIH_TREE_LEFT);
-	nih_tree_add (&oper2->node, &oper4->node, NIH_TREE_RIGHT);
-	nih_tree_add (&oper1->node, &oper5->node, NIH_TREE_RIGHT);
-
-	event1 = event_new (NULL, "foo", NULL);
-	event2 = event_new (NULL, "bar", NULL);
-
-	event_operator_handle (oper1, event1);
-	event_operator_handle (oper1, event2);
-
-	TEST_EQ (oper1->value, TRUE);
-	TEST_EQ (oper2->value, TRUE);
-	TEST_EQ (oper3->value, TRUE);
-	TEST_EQ_P (oper3->event, event1);
-	TEST_EQ (oper3->blocked, TRUE);
-	TEST_EQ (oper4->value, TRUE);
-	TEST_EQ (oper4->event, event2);
-	TEST_EQ (oper4->blocked, TRUE);
-	TEST_EQ (oper5->value, FALSE);
-	TEST_EQ (oper5->blocked, FALSE);
-
-	TEST_EQ (event1->refs, 1);
-	TEST_EQ (event1->blockers, 1);
-	TEST_EQ (event2->refs, 1);
-	TEST_EQ (event2->blockers, 1);
-
-	event_operator_unblock (oper1);
-
-	TEST_EQ (oper1->value, TRUE);
-	TEST_EQ (oper2->value, TRUE);
-	TEST_EQ (oper3->value, TRUE);
-	TEST_EQ_P (oper3->event, event1);
-	TEST_EQ (oper3->blocked, FALSE);
-	TEST_EQ (oper4->value, TRUE);
-	TEST_EQ (oper4->event, event2);
-	TEST_EQ (oper4->blocked, FALSE);
-	TEST_EQ (oper5->value, FALSE);
-	TEST_EQ (oper5->blocked, FALSE);
-
-	TEST_EQ (event1->refs, 1);
-	TEST_EQ (event1->blockers, 0);
-	TEST_EQ (event2->refs, 1);
-	TEST_EQ (event2->blockers, 0);
-
-	event_operator_reset (oper1);
-
-	nih_free (oper1);
-	nih_free (oper2);
-	nih_free (oper3);
-	nih_free (oper4);
-	nih_free (oper5);
-
-	event_poll ();
-}
 
 void
 test_operator_reset (void)
@@ -1706,16 +1475,11 @@ test_operator_reset (void)
 	TEST_EQ (oper2->value, TRUE);
 	TEST_EQ (oper3->value, TRUE);
 	TEST_EQ_P (oper3->event, event1);
-	TEST_EQ (oper3->blocked, TRUE);
 	TEST_EQ (oper4->value, TRUE);
 	TEST_EQ (oper4->event, event2);
-	TEST_EQ (oper4->blocked, TRUE);
 	TEST_EQ (oper5->value, FALSE);
-	TEST_EQ (oper5->blocked, FALSE);
 
-	TEST_EQ (event1->refs, 1);
 	TEST_EQ (event1->blockers, 1);
-	TEST_EQ (event2->refs, 1);
 	TEST_EQ (event2->blockers, 1);
 
 	event_operator_reset (oper1);
@@ -1724,16 +1488,11 @@ test_operator_reset (void)
 	TEST_EQ (oper2->value, FALSE);
 	TEST_EQ (oper3->value, FALSE);
 	TEST_EQ_P (oper3->event, NULL);
-	TEST_EQ (oper3->blocked, FALSE);
 	TEST_EQ (oper4->value, FALSE);
 	TEST_EQ (oper4->event, NULL);
-	TEST_EQ (oper4->blocked, FALSE);
 	TEST_EQ (oper5->value, FALSE);
-	TEST_EQ (oper5->blocked, FALSE);
 
-	TEST_EQ (event1->refs, 0);
 	TEST_EQ (event1->blockers, 0);
-	TEST_EQ (event2->refs, 0);
 	TEST_EQ (event2->blockers, 0);
 
 	nih_free (oper1);
@@ -1752,8 +1511,6 @@ main (int   argc,
 {
 	test_new ();
 	test_find_by_id ();
-	test_ref ();
-	test_unref ();
 	test_block ();
 	test_unblock ();
 	test_poll ();
@@ -1765,7 +1522,6 @@ main (int   argc,
 	test_operator_match ();
 	test_operator_handle ();
 	test_operator_collect ();
-	test_operator_unblock ();
 	test_operator_reset ();
 
 	return 0;

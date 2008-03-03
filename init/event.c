@@ -169,9 +169,9 @@ event_next_id (void)
  * into the handling queue.  It is not removed from that queue until there
  * are no longer anything referencing it.
  *
- * The event is created with nothing referencing or blocking it.  Be sure
- * to call event_ref() or event_block() otherwise it will be automatically
- * freed next time through the main loop.
+ * The event is created with nothing blocking it.  Be sure to call
+ * event_block() otherwise it will be automatically freed next time
+ * through the main loop.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -199,7 +199,6 @@ event_new (const void  *parent,
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
 
-	event->refs = 0;
 	event->blockers = 0;
 
 	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destroy);
@@ -248,44 +247,6 @@ event_find_by_id (unsigned int id)
 
 
 /**
- * event_ref:
- * @event: event to reference.
- *
- * This function should be called by jobs that wish to hold a reference on
- * the event without blocking it from finishing.
- *
- * Once the reference is no longer needed, you must call event_unref()
- * otherwise it will never be freed.
- **/
-void
-event_ref (Event *event)
-{
-	nih_assert (event != NULL);
-
-	event->refs++;
-}
-
-/**
- * event_unref:
- * @event: event to unreference.
- *
- * This function should be called by jobs that are holding a reference on the
- * event without blocking the it from finishing, and wish to discard
- * that reference.
- *
- * It must match a previous call to event_ref().
- **/
-void
-event_unref (Event *event)
-{
-	nih_assert (event != NULL);
-	nih_assert (event->refs > 0);
-
-	event->refs--;
-}
-
-
-/**
  * event_block:
  * @emission: event to block.
  *
@@ -293,9 +254,7 @@ event_unref (Event *event)
  * the event and block it from finishing.
  *
  * Once the reference is no longer needed, you must call event_unblock()
- * to allow the event to be finished, and potentially freed.  If you wish
- * to continue to hold the reference afterwards, call event_ref() along
- * with the call to emission_unblock().
+ * to allow the event to be finished, and potentially freed.
  **/
 void
 event_block (Event *event)
@@ -310,11 +269,9 @@ event_block (Event *event)
  * @event: event to unblock.
  *
  * This function should be called by jobs that are holding a reference on the
- * emission which blocks it from finishing, and wish to discard that reference.
+ * event which blocks it from finishing, and wish to discard that reference.
  *
- * It must match a previous call to event_block().  If you wish to continue
- * to hold the reference afterwards, call event_ref() along with the call
- * to this function.
+ * It must match a previous call to event_block().
  **/
 void
 event_unblock (Event *event)
@@ -384,13 +341,6 @@ event_poll (void)
 			case EVENT_FINISHED:
 				event_finished (event);
 				poll_again = TRUE;
-
-				/* fall through */
-			case EVENT_DONE:
-				if (event->refs)
-					break;
-
-				nih_free (event);
 				break;
 			default:
 				nih_assert_not_reached ();
@@ -459,7 +409,7 @@ event_finished (Event *event)
 		}
 	}
 
-	event->progress = EVENT_DONE;
+	nih_free (event);
 }
 
 
@@ -522,7 +472,6 @@ event_operator_new (const void         *parent,
 	}
 
 	oper->event = NULL;
-	oper->blocked = FALSE;
 
 	nih_alloc_set_destructor (oper, (NihDestructor)event_operator_destroy);
 
@@ -537,9 +486,9 @@ event_operator_new (const void         *parent,
  * Allocates and returns a new EventOperator structure which is an identical
  * copy of @old_oper; including any matched state or events.
  *
- * If @old_oper is referencing or blocking an event, that status is also
- * copied into the newly returned operator; which will hold an additional
- * reference, and additional block if appropriate, on the event.
+ * If @old_oper is referencing an event, that status is also copied into the
+ * newly returned operator; which will hold an additional block if
+ * appropriate, on the event.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -576,11 +525,7 @@ event_operator_copy (const void          *parent,
 
 	if (old_oper->event) {
 		oper->event = old_oper->event;
-		event_ref (oper->event);
-
-		oper->blocked = old_oper->blocked;
-		if (oper->blocked)
-			event_block (oper->event);
+		event_block (oper->event);
 	}
 
 	if (old_oper->node.left) {
@@ -626,12 +571,8 @@ event_operator_destroy (EventOperator *oper)
 {
 	nih_assert (oper != NULL);
 
-	if (oper->event) {
-		if (oper->blocked)
-			event_unblock (oper->event);
-
-		event_unref (oper->event);
-	}
+	if (oper->event)
+		event_unblock (oper->event);
 
 	nih_tree_destroy (&oper->node);
 
@@ -798,10 +739,7 @@ event_operator_handle (EventOperator *root,
 				oper->value = TRUE;
 
 				oper->event = event;
-				event_ref (oper->event);
-
 				event_block (oper->event);
-				oper->blocked = TRUE;
 
 				ret = TRUE;
 			}
@@ -934,9 +872,7 @@ event_operator_collect (EventOperator   *root,
 
 			nih_list_add (list, &entry->entry);
 
-			event_ref (oper->event);
-			if (oper->blocked)
-				event_block (oper->event);
+			event_block (oper->event);
 		}
 	}
 
@@ -947,33 +883,6 @@ event_operator_collect (EventOperator   *root,
 	}
 }
 
-
-/**
- * event_operator_unblock:
- * @root: operator tree to update.
- *
- * Updates the EventOperator tree rooted at @oper, unblocking any events
- * that were matched while retaining the references on them.
- *
- * This makes no change to the values of the operator tree.
- **/
-void
-event_operator_unblock (EventOperator *root)
-{
-	nih_assert (root != NULL);
-
-	NIH_TREE_FOREACH_POST (&root->node, iter) {
-		EventOperator *oper = (EventOperator *)iter;
-
-		if (oper->type != EVENT_MATCH)
-			continue;
-
-		if (oper->event && oper->blocked) {
-			event_unblock (oper->event);
-			oper->blocked = FALSE;
-		}
-	}
-}
 
 /**
  * event_operator_reset:
@@ -1001,12 +910,7 @@ event_operator_reset (EventOperator *root)
 			oper->value = FALSE;
 
 			if (oper->event) {
-				if (oper->blocked) {
-					event_unblock (oper->event);
-					oper->blocked = FALSE;
-				}
-
-				event_unref (oper->event);
+				event_unblock (oper->event);
 				oper->event = NULL;
 			}
 			break;

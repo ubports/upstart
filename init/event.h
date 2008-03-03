@@ -39,8 +39,7 @@
 typedef enum event_progress {
 	EVENT_PENDING,
 	EVENT_HANDLING,
-	EVENT_FINISHED,
-	EVENT_DONE
+	EVENT_FINISHED
 } EventProgress;
 
 /**
@@ -51,7 +50,6 @@ typedef enum event_progress {
  * @env: NULL-terminated list of environment variables.
  * @progress: progress of event,
  * @failed: whether this event has failed,
- * @refs: number of references to this event,
  * @blockers: number of blockers for finishing.
  *
  * Events are one of the core concepts of upstart; they occur whenever
@@ -63,8 +61,7 @@ typedef enum event_progress {
  * the information contained within the event and the current progress of
  * that event through the queue.
  *
- * Events remain in the handling state while @blockers is non-zero, and
- * are not freed while @refs is non-zero.
+ * Events remain in the handling state while @blockers is non-zero.
  **/
 typedef struct event {
 	NihList          entry;
@@ -76,7 +73,6 @@ typedef struct event {
 	EventProgress    progress;
 	int              failed;
 
-	unsigned int     refs;
 	unsigned int     blockers;
 } Event;
 
@@ -100,8 +96,7 @@ typedef enum event_operator_type {
  * @value: operator value,
  * @name: name of event to match (EVENT_MATCH only),
  * @env: environment variables of event to match (EVENT_MATCH only),
- * @event: event matched (EVENT_MATCH only),
- * @blocked: whether @event is blocked (EVENT_MATCH only).
+ * @event: event matched (EVENT_MATCH only).
  *
  * This structure is used to build up an event expression tree; the leaf
  * nodes are all of EVENT_MATCH type which match a specific event, the other
@@ -126,7 +121,6 @@ typedef struct event_operator {
 	char              **env;
 
 	Event              *event;
-	int                 blocked;
 } EventOperator;
 
 
@@ -227,12 +221,11 @@ Event         *event_new              (const void *parent, const char *name,
 
 Event         *event_find_by_id       (unsigned int id);
 
-void           event_ref              (Event *event);
-void           event_unref            (Event *event);
 void           event_block            (Event *event);
 void           event_unblock          (Event *event);
 
 void           event_poll             (void);
+
 
 EventOperator *event_operator_new     (const void *parent,
 				       EventOperatorType type,
@@ -253,7 +246,6 @@ void           event_operator_collect (EventOperator *root, char ***env,
 				       const void *parent, size_t *len,
 				       const char *key, NihList *list);
 
-void           event_operator_unblock (EventOperator *root);
 void           event_operator_reset   (EventOperator *root);
 
 NIH_END_EXTERN

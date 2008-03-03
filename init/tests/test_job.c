@@ -408,7 +408,6 @@ test_new (void)
 		TEST_EQ_STR (oper->name, "baz");
 		TEST_EQ_P (oper->env, NULL);
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -975,7 +974,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -999,7 +997,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1012,7 +1009,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1048,7 +1044,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1079,7 +1074,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
@@ -1119,7 +1113,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1152,7 +1145,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1162,7 +1154,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1192,7 +1183,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1225,7 +1215,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1235,7 +1224,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1274,7 +1262,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1301,7 +1288,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
@@ -1352,7 +1338,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1385,7 +1370,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1395,7 +1379,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1431,7 +1414,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1453,7 +1435,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1463,7 +1444,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1502,7 +1482,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1529,7 +1508,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
@@ -1582,7 +1560,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1615,7 +1592,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1625,7 +1601,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1657,7 +1632,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1692,7 +1666,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1702,7 +1675,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -1732,7 +1704,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1756,7 +1727,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1766,7 +1736,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1803,7 +1772,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1830,7 +1798,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1840,7 +1807,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1880,7 +1846,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1904,7 +1869,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -1914,7 +1878,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1949,7 +1912,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -1973,7 +1935,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2019,7 +1980,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2054,7 +2014,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2064,7 +2023,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2094,7 +2052,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2118,7 +2075,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2128,7 +2084,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2165,7 +2120,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2192,7 +2146,6 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2202,7 +2155,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2244,7 +2196,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2266,7 +2217,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2276,7 +2226,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2313,7 +2262,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2335,7 +2283,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2345,7 +2292,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2382,7 +2328,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2404,7 +2349,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2414,7 +2358,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2455,7 +2398,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2481,7 +2423,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2517,7 +2458,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2539,7 +2479,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2549,7 +2488,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -2583,7 +2521,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2615,7 +2552,6 @@ test_change_state (void)
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2625,7 +2561,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2656,7 +2591,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2689,7 +2623,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2699,7 +2632,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2726,7 +2658,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2759,7 +2690,6 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2769,7 +2699,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		TEST_LIST_EMPTY (events);
 
@@ -2800,7 +2729,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2823,7 +2751,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2864,7 +2791,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2890,7 +2816,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
@@ -2930,7 +2855,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -2953,7 +2877,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -2988,7 +2911,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -3011,7 +2933,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -3068,7 +2989,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -3098,7 +3018,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -3117,7 +3036,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -3154,7 +3072,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -3180,7 +3097,6 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (cause->refs, 1);
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -3194,7 +3110,6 @@ test_change_state (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, cause);
 		event_unblock (cause);
-		event_unref (cause);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -3232,7 +3147,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -3261,7 +3175,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
 
@@ -3307,7 +3220,6 @@ test_change_state (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = cause;
-			event_ref (cause);
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -3332,7 +3244,6 @@ test_change_state (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (cause->refs, 0);
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
@@ -3379,7 +3290,6 @@ test_change_state (void)
 
 	entry = nih_list_entry_new (job->blocking);
 	entry->data = cause;
-	event_ref (cause);
 	event_block (cause);
 	nih_list_add (job->blocking, &entry->entry);
 
@@ -3403,7 +3313,6 @@ test_change_state (void)
 	TEST_FREE (config);
 	TEST_FREE (job);
 
-	TEST_EQ (cause->refs, 0);
 	TEST_EQ (cause->blockers, 0);
 	TEST_EQ (cause->failed, FALSE);
 
@@ -4378,7 +4287,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4402,7 +4310,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4412,7 +4319,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4437,7 +4343,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4461,7 +4366,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4471,7 +4375,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4499,7 +4402,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4531,7 +4433,6 @@ test_child_handler (void)
 		TEST_FREE (timer);
 		TEST_FREE (job);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4557,7 +4458,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4585,7 +4485,6 @@ test_child_handler (void)
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4595,7 +4494,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4627,7 +4525,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4654,7 +4551,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -4697,7 +4593,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4724,7 +4619,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -4769,7 +4663,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4796,7 +4689,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4806,7 +4698,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4842,7 +4733,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4869,7 +4759,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4879,7 +4768,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -4915,7 +4803,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -4942,7 +4829,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -4982,7 +4868,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5009,7 +4894,6 @@ test_child_handler (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5040,7 +4924,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5067,7 +4950,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5077,7 +4959,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5113,7 +4994,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5140,7 +5020,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5150,7 +5029,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5182,7 +5060,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5206,7 +5083,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5216,7 +5092,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5243,7 +5118,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5267,7 +5141,6 @@ test_child_handler (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5295,7 +5168,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5322,7 +5194,6 @@ test_child_handler (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -5355,7 +5226,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5382,7 +5252,6 @@ test_child_handler (void)
 
 		TEST_FREE (job);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -5417,7 +5286,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5446,7 +5314,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5456,7 +5323,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5492,7 +5358,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5516,7 +5381,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5526,7 +5390,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5558,7 +5421,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5584,7 +5446,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 2);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5594,7 +5455,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5626,7 +5486,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5652,7 +5511,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 2);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5673,7 +5531,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5683,7 +5540,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5715,7 +5571,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5744,7 +5599,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 2);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -5769,7 +5623,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->refs, 0);
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
@@ -5808,7 +5661,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5837,7 +5689,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 		TEST_EQ (job->pid[PROCESS_PRE_STOP], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5847,7 +5698,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5883,7 +5733,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5907,7 +5756,6 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5917,7 +5765,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5948,7 +5795,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -5974,7 +5820,6 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_PRE_STOP], 2);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -5984,7 +5829,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6018,7 +5862,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -6059,7 +5902,6 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -6069,7 +5911,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6097,7 +5938,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -6138,7 +5978,6 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -6148,7 +5987,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6174,7 +6012,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -6213,7 +6050,6 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -6223,7 +6059,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6249,7 +6084,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -6288,7 +6122,6 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -6298,7 +6131,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6327,7 +6159,6 @@ test_child_handler (void)
 
 			entry = nih_list_entry_new (job->blocking);
 			entry->data = event;
-			event_ref (event);
 			event_block (event);
 			nih_list_add (job->blocking, &entry->entry);
 		}
@@ -6364,7 +6195,6 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -6374,7 +6204,6 @@ test_child_handler (void)
 		TEST_EQ_P (job->blocking, list);
 		TEST_EQ_P (entry->data, event);
 		event_unblock (event);
-		event_unref (event);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6828,7 +6657,6 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job2 = job_new (config2);
@@ -6840,7 +6668,6 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 0);
 		TEST_EQ (event1->blockers, 0);
 
 		TEST_LIST_EMPTY (&config1->instances);
@@ -6851,16 +6678,13 @@ test_handle_event (void)
 		oper = (EventOperator *)config1->start_on->node.left;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		oper = (EventOperator *)config1->start_on->node.right;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_EQ (job2->goal, JOB_START);
 		TEST_EQ (job2->state, JOB_RUNNING);
-		TEST_EQ_P (job2->blocked, NULL);
 
 		oper = job2->stop_on;
 		TEST_EQ (oper->value, FALSE);
@@ -6868,12 +6692,10 @@ test_handle_event (void)
 		oper = (EventOperator *)job2->stop_on->node.left;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		oper = (EventOperator *)job2->stop_on->node.right;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		nih_free (job2);
 	}
@@ -6893,18 +6715,12 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
-
 		event2->blockers = 0;
-		event2->refs = 0;
 
 		job_handle_event (event1);
 		job_handle_event (event2);
 
-		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
-
-		TEST_EQ (event2->refs, 1);
 		TEST_EQ (event2->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
@@ -6936,12 +6752,10 @@ test_handle_event (void)
 
 		oper = (EventOperator *)config1->start_on->node.left;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		oper = (EventOperator *)config1->start_on->node.right;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		TEST_NE_P (job1->blocking, NULL);
@@ -6956,7 +6770,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event1);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		entry = (NihListEntry *)job1->blocking->next;
@@ -6965,7 +6778,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event2);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (job1->blocking);
@@ -6995,18 +6807,12 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
-
 		event2->blockers = 0;
-		event2->refs = 0;
 
 		job_handle_event (event1);
 		job_handle_event (event2);
 
-		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
-
-		TEST_EQ (event2->refs, 1);
 		TEST_EQ (event2->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
@@ -7044,12 +6850,10 @@ test_handle_event (void)
 
 		oper = (EventOperator *)config1->start_on->node.left;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		oper = (EventOperator *)config1->start_on->node.right;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		TEST_NE_P (job1->blocking, NULL);
@@ -7064,7 +6868,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event1);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		entry = (NihListEntry *)job1->blocking->next;
@@ -7073,7 +6876,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event2);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (job1->blocking);
@@ -7104,10 +6906,7 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
-
 		event2->blockers = 0;
-		event2->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job1 = job_new (config1);
@@ -7128,14 +6927,12 @@ test_handle_event (void)
 			entry->data = event_new (NULL, "flibble", NULL);
 			nih_list_add (job1->blocking, &entry->entry);
 			event3 = entry->data;
-			event_ref (event3);
 			event_block (event3);
 
 			entry = nih_list_entry_new (job1->blocking);
 			entry->data = event_new (NULL, "flobble", NULL);
 			nih_list_add (job1->blocking, &entry->entry);
 			event4 = entry->data;
-			event_ref (event4);
 			event_block (event4);
 		}
 
@@ -7155,16 +6952,9 @@ test_handle_event (void)
 		job_handle_event (event1);
 		job_handle_event (event2);
 
-		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
-
-		TEST_EQ (event2->refs, 1);
 		TEST_EQ (event2->blockers, 1);
-
-		TEST_EQ (event3->refs, 0);
 		TEST_EQ (event3->blockers, 0);
-
-		TEST_EQ (event4->refs, 0);
 		TEST_EQ (event4->blockers, 0);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
@@ -7207,12 +6997,10 @@ test_handle_event (void)
 
 		oper = (EventOperator *)config1->start_on->node.left;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		oper = (EventOperator *)config1->start_on->node.right;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		TEST_FREE (list);
@@ -7229,7 +7017,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event1);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		entry = (NihListEntry *)job1->blocking->next;
@@ -7238,7 +7025,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event2);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (job1->blocking);
@@ -7261,10 +7047,7 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
-
 		event2->blockers = 0;
-		event2->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job1 = job_new (config1);
@@ -7285,14 +7068,12 @@ test_handle_event (void)
 			entry->data = event_new (NULL, "flibble", NULL);
 			nih_list_add (job1->blocking, &entry->entry);
 			event3 = entry->data;
-			event_ref (event3);
 			event_block (event3);
 
 			entry = nih_list_entry_new (job1->blocking);
 			entry->data = event_new (NULL, "flpbble", NULL);
 			nih_list_add (job1->blocking, &entry->entry);
 			event4 = entry->data;
-			event_ref (event4);
 			event_block (event4);
 		}
 
@@ -7312,16 +7093,9 @@ test_handle_event (void)
 		job_handle_event (event1);
 		job_handle_event (event2);
 
-		TEST_EQ (event1->refs, 0);
 		TEST_EQ (event1->blockers, 0);
-
-		TEST_EQ (event2->refs, 0);
 		TEST_EQ (event2->blockers, 0);
-
-		TEST_EQ (event3->refs, 1);
 		TEST_EQ (event3->blockers, 1);
-
-		TEST_EQ (event4->refs, 1);
 		TEST_EQ (event4->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config1->instances);
@@ -7344,22 +7118,17 @@ test_handle_event (void)
 
 		oper = (EventOperator *)config1->start_on->node.left;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		oper = (EventOperator *)config1->start_on->node.right;
 		TEST_EQ (oper->value, FALSE);
-		TEST_EQ (oper->blocked, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job1->blocking, list);
 
 		event_unblock (event3);
-		event_unref (event3);
-
 		event_unblock (event4);
-		event_unref (event4);
 
 		nih_free (job1);
 		nih_free (event3);
@@ -7380,7 +7149,6 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job2 = job_new (config2);
@@ -7392,7 +7160,6 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
@@ -7415,12 +7182,10 @@ test_handle_event (void)
 		oper = (EventOperator *)job2->stop_on->node.left;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		oper = (EventOperator *)job2->stop_on->node.right;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_NE_P (job2->blocking, NULL);
 		TEST_ALLOC_SIZE (job2->blocking, sizeof (NihList));
@@ -7434,7 +7199,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event1);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (job2->blocking);
@@ -7457,7 +7221,6 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job2 = job_new (config2);
@@ -7469,7 +7232,6 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
@@ -7496,12 +7258,10 @@ test_handle_event (void)
 		oper = (EventOperator *)job2->stop_on->node.left;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		oper = (EventOperator *)job2->stop_on->node.right;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_NE_P (job2->blocking, NULL);
 		TEST_ALLOC_SIZE (job2->blocking, sizeof (NihList));
@@ -7515,7 +7275,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event1);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (job2->blocking);
@@ -7538,7 +7297,6 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job2 = job_new (config2);
@@ -7554,14 +7312,12 @@ test_handle_event (void)
 			entry->data = event_new (NULL, "flibble", NULL);
 			nih_list_add (job2->blocking, &entry->entry);
 			event3 = entry->data;
-			event_ref (event3);
 			event_block (event3);
 
 			entry = nih_list_entry_new (job2->blocking);
 			entry->data = event_new (NULL, "flobble", NULL);
 			nih_list_add (job2->blocking, &entry->entry);
 			event4 = entry->data;
-			event_ref (event4);
 			event_block (event4);
 		}
 
@@ -7577,13 +7333,8 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 1);
 		TEST_EQ (event1->blockers, 1);
-
-		TEST_EQ (event3->refs, 0);
 		TEST_EQ (event3->blockers, 0);
-
-		TEST_EQ (event4->refs, 0);
 		TEST_EQ (event4->blockers, 0);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
@@ -7612,12 +7363,10 @@ test_handle_event (void)
 		oper = (EventOperator *)job2->stop_on->node.left;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		oper = (EventOperator *)job2->stop_on->node.right;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_FREE (list);
 
@@ -7633,7 +7382,6 @@ test_handle_event (void)
 		event = (Event *)entry->data;
 		TEST_EQ_P (event, event1);
 		event_unblock (event);
-		event_unref (event);
 		nih_free (entry);
 
 		TEST_LIST_EMPTY (job2->blocking);
@@ -7654,7 +7402,6 @@ test_handle_event (void)
 
 	TEST_ALLOC_FAIL {
 		event1->blockers = 0;
-		event1->refs = 0;
 
 		TEST_ALLOC_SAFE {
 			job2 = job_new (config2);
@@ -7670,14 +7417,12 @@ test_handle_event (void)
 			entry->data = event_new (NULL, "flibble", NULL);
 			nih_list_add (job2->blocking, &entry->entry);
 			event3 = entry->data;
-			event_ref (event3);
 			event_block (event3);
 
 			entry = nih_list_entry_new (job2->blocking);
 			entry->data = event_new (NULL, "flobble", NULL);
 			nih_list_add (job2->blocking, &entry->entry);
 			event4 = entry->data;
-			event_ref (event4);
 			event_block (event4);
 		}
 
@@ -7693,13 +7438,8 @@ test_handle_event (void)
 
 		job_handle_event (event1);
 
-		TEST_EQ (event1->refs, 0);
 		TEST_EQ (event1->blockers, 0);
-
-		TEST_EQ (event3->refs, 1);
 		TEST_EQ (event3->blockers, 1);
-
-		TEST_EQ (event4->refs, 1);
 		TEST_EQ (event4->blockers, 1);
 
 		TEST_LIST_NOT_EMPTY (&config2->instances);
@@ -7718,21 +7458,16 @@ test_handle_event (void)
 		oper = (EventOperator *)job2->stop_on->node.left;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		oper = (EventOperator *)job2->stop_on->node.right;
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
-		TEST_EQ (oper->blocked, FALSE);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job2->blocking, list);
 
 		event_unblock (event3);
-		event_unref (event3);
-
 		event_unblock (event4);
-		event_unref (event4);
 
 		nih_free (job2);
 		nih_free (event3);
@@ -7829,7 +7564,6 @@ test_handle_event_finished (void)
 		job2->state = JOB_STARTING;
 		job2->pid[PROCESS_PRE_START] = 0;
 		job2->blocked = event;
-		event->refs = 1;
 		event->blockers = 1;
 
 		job_handle_event_finished (event);
@@ -7846,7 +7580,6 @@ test_handle_event_finished (void)
 		TEST_GT (job2->pid[PROCESS_PRE_START], 0);
 		TEST_EQ_P (job2->blocked, NULL);
 
-		TEST_EQ (event->refs, 1);
 		TEST_EQ (event->blockers, 1);
 
 		waitpid (job2->pid[PROCESS_PRE_START], NULL, 0);

@@ -1048,7 +1048,6 @@ job_unblock (Job *job,
 				event->failed = TRUE;
 
 			event_unblock (event);
-			event_unref (event);
 		}
 
 		nih_free (job->blocking);
@@ -2140,7 +2139,6 @@ job_handle_event (Event *event)
 						nih_assert (event != NULL);
 
 						event_unblock (event);
-						event_unref (event);
 					}
 
 					nih_free (list);
@@ -2201,7 +2199,6 @@ job_handle_event (Event *event)
 					nih_assert (event != NULL);
 
 					event_unblock (event);
-					event_unref (event);
 				}
 
 				nih_free (list);

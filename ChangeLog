@@ -1,5 +1,50 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h (Event): Remove the refs member; we now never hold
+	a reference to an event we're blocking since we always copy the
+	environment out if we want to keep it.
+	(EventOperator): Events are always blocked while we hold them,
+	so drop the blocked member.
+	(EventProgress): The done state is no longer needed, we can free
+	in finished now.
+	* init/event.c (event_ref, event_unref): Drop these functions.
+	(event_new): Don't ininitialise the refs member since it's gone.
+	(event_poll): Remove the done state since it's directly freed
+	in event_finished again
+	(event_finished): No done state, event is freed before return.
+	(event_operator_new): No blocked member.
+	(event_operator_copy): Always block the event after copying.
+	(event_operator_destroy): Simply unblock.
+	(event_operator_handle): Simply block the event on match.
+	(event_operator_collect): Always block the copied event
+	(event_operator_unblock): This function is no longer required, since
+	it has an identical effect to reset.
+	(event_operator_reset): Simply unblock the event.
+	* init/tests/test_event.c (test_new): Drop the check for refs
+	being initialised to zero.
+	(test_ref, test_unref, test_operator_collect): Drop test for
+	functions that have been dropped in the code.
+	(test_operator_new): Drop the check for blocked being initialised
+	to FALSE.
+	(test_block, test_unblock, test_operator_destroy): Drop any references
+	to the refs member.
+	(test_operator_destroy): Actually fix the function to test things.
+	(test_poll): Drop the check for remaining in the done state.
+	(test_operator_new, test_operator_copy): Drop the checks for blocked.
+	(test_operator_handle, test_operator_collect, test_opreator_reset):
+	Drop references to refs and blocked.
+	* init/job.c (job_unblock, job_handle_event): Drop the call to
+	event_unref() since the next call was always event_unblock() and
+	that's the one that we didn't delete.
+	* init/tests/test_job.c (test_change_state, test_child_handler)
+	(test_handle_event, test_handle_event_finished): Events don't
+	have references anymore, so remove calls to reference, unreference
+	and checks for the reference count - it's all done with blocks now.
+	(test_new): Remove check that the operator is not blocked for a
+	new job since there's no such thing now.
+	(test_handle_event): Operators don't have a blocked member anymore,
+	if there's an event, it's blocked.
+
 	* init/job.c (job_change_state): Don't reference the event we're
 	blocked on, we'll always know when it's finished.
 	(job_handle_event_finished): Likewise no reason to unreference it.
