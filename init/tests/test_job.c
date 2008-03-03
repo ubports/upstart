@@ -744,8 +744,6 @@ test_change_goal (void)
 		TEST_EQ (job->state, JOB_STARTING);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		nih_free (job);
 	}
@@ -825,8 +823,6 @@ test_change_goal (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		nih_free (job);
 	}
@@ -851,8 +847,6 @@ test_change_goal (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		nih_free (job);
 	}
@@ -1025,8 +1019,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "starting");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1100,8 +1092,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[1], "RESULT=failed");
 		TEST_EQ_STR (event->env[2], "PROCESS=respawn");
 		TEST_EQ_P (event->env[3], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1252,8 +1242,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1329,8 +1317,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[1], "RESULT=failed");
 		TEST_EQ_STR (event->env[2], "PROCESS=pre-start");
 		TEST_EQ_P (event->env[3], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1416,8 +1402,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1486,8 +1470,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1563,8 +1545,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[1], "RESULT=failed");
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_P (event->env[3], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1793,8 +1773,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1869,8 +1847,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -1945,8 +1921,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2013,8 +1987,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "started");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2164,8 +2136,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_STR (event->env[1], "RESULT=ok");
 		TEST_EQ_P (event->env[2], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2240,8 +2210,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_STR (event->env[1], "RESULT=ok");
 		TEST_EQ_P (event->env[2], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2318,8 +2286,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2389,8 +2355,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_SIGNAL=SEGV");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2460,8 +2424,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_SIGNAL=33");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2595,8 +2557,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_STR (event->env[1], "RESULT=ok");
 		TEST_EQ_P (event->env[2], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2877,8 +2837,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -2945,8 +2903,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[1], "RESULT=failed");
 		TEST_EQ_STR (event->env[2], "PROCESS=post-stop");
 		TEST_EQ_P (event->env[3], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3011,8 +2967,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3071,16 +3025,12 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stalled");
 		TEST_EQ_P (event->env, NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3174,8 +3124,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "starting");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3253,8 +3201,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->name, "starting");
 		TEST_EQ_STR (event->env[0], "JOB=test");
 		TEST_EQ_P (event->env[1], NULL);
-		TEST_EQ (event->refs, 1);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3328,8 +3274,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[1], "RESULT=failed");
 		TEST_EQ_STR (event->env[2], "PROCESS=respawn");
 		TEST_EQ_P (event->env[3], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3402,8 +3346,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
-		TEST_EQ (event->refs, 0);
-		TEST_EQ (event->blockers, 0);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3475,8 +3417,6 @@ test_change_state (void)
 	TEST_EQ_STR (event->env[2], "PROCESS=main");
 	TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 	TEST_EQ_P (event->env[4], NULL);
-	TEST_EQ (event->refs, 0);
-	TEST_EQ (event->blockers, 0);
 	nih_free (event);
 
 	TEST_LIST_EMPTY (events);
@@ -4526,8 +4466,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -4721,8 +4659,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -4793,8 +4729,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -4867,8 +4801,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -4942,8 +4874,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5017,8 +4947,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -5144,8 +5072,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5219,8 +5145,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5287,8 +5211,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5599,8 +5521,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5758,8 +5678,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5856,8 +5774,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, TRUE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_FREE (list);
 		TEST_EQ_P (job->blocking, NULL);
@@ -5926,8 +5842,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -5998,8 +5912,6 @@ test_child_handler (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_NE_P (job->blocked, NULL);
-		TEST_EQ (job->blocked->refs, 1);
-		event_unref (job->blocked);
 
 		TEST_NOT_FREE (list);
 		TEST_EQ_P (job->blocking, list);
@@ -7001,8 +6913,6 @@ test_handle_event (void)
 		TEST_EQ (job1->goal, JOB_START);
 		TEST_EQ (job1->state, JOB_STARTING);
 		TEST_NE_P (job1->blocked, NULL);
-		TEST_EQ (job1->blocked->refs, 1);
-		event_unref (job1->blocked);
 
 		TEST_NE_P (job1->env, NULL);
 		TEST_ALLOC_PARENT (job1->env, job1);
@@ -7105,8 +7015,6 @@ test_handle_event (void)
 		TEST_EQ (job1->goal, JOB_START);
 		TEST_EQ (job1->state, JOB_STARTING);
 		TEST_NE_P (job1->blocked, NULL);
-		TEST_EQ (job1->blocked->refs, 1);
-		event_unref (job1->blocked);
 
 		TEST_NE_P (job1->env, NULL);
 		TEST_ALLOC_PARENT (job1->env, job1);
@@ -7493,8 +7401,6 @@ test_handle_event (void)
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_STOPPING);
 		TEST_NE_P (job2->blocked, NULL);
-		TEST_EQ (job2->blocked->refs, 1);
-		event_unref (job2->blocked);
 
 		TEST_NE_P (job2->stop_env, NULL);
 		TEST_ALLOC_PARENT (job2->stop_env, job2);
@@ -7572,8 +7478,6 @@ test_handle_event (void)
 		TEST_EQ (job2->goal, JOB_STOP);
 		TEST_EQ (job2->state, JOB_STOPPING);
 		TEST_NE_P (job2->blocked, NULL);
-		TEST_EQ (job2->blocked->refs, 1);
-		event_unref (job2->blocked);
 
 		TEST_NE_P (job2->stop_env, NULL);
 		TEST_ALLOC_PARENT (job2->stop_env, job2);
@@ -7925,7 +7829,7 @@ test_handle_event_finished (void)
 		job2->state = JOB_STARTING;
 		job2->pid[PROCESS_PRE_START] = 0;
 		job2->blocked = event;
-		event->refs = 3;
+		event->refs = 1;
 		event->blockers = 1;
 
 		job_handle_event_finished (event);

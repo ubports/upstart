@@ -279,8 +279,6 @@ test_poll (void)
 	job->state = JOB_STARTING;
 	job->blocked = event;
 
-	event_ref (job->blocked);
-
 	TEST_FREE_TAG (event);
 
 	event_poll ();

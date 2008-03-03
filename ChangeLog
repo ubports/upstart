@@ -1,5 +1,15 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Don't reference the event we're
+	blocked on, we'll always know when it's finished.
+	(job_handle_event_finished): Likewise no reason to unreference it.
+	* init/tests/test_job.c (test_change_goal, test_child_handler)
+	(test_handle_event, test_change_state)
+	(test_handle_event_finished): Remove the expectation that the blocked
+	event is referenced by the job.
+	* init/tests/test_event.c (test_poll): Don't reference the event,
+	since the job would not have.
+
 	* init/job.c (job_emit_event): Use environ_add/set for style
 	reasons.
 

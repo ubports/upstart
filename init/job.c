@@ -720,7 +720,6 @@ job_change_state (Job      *job,
 			}
 
 			job->blocked = job_emit_event (job);
-			event_ref (job->blocked);
 
 			break;
 		case JOB_PRE_START:
@@ -811,7 +810,6 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_PRE_STOP));
 
 			job->blocked = job_emit_event (job);
-			event_ref (job->blocked);
 
 			break;
 		case JOB_KILLED:
@@ -2239,7 +2237,6 @@ job_handle_event_finished (Event *event)
 			if (job->blocked != event)
 				continue;
 
-			event_unref (job->blocked);
 			job->blocked = NULL;
 
 			job_change_state (job, job_next_state (job));
