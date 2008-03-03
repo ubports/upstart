@@ -1,5 +1,22 @@
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_handle_event): Reset the stop_on operator after
+	processing the event, thus the expression needs to be completely
+	reevaluated before the job can be stopped again by it.  At last,
+	correct behaviour!
+	(job_change_state): No reason to reset the stop_on operator when
+	starting since it's always reset after evaluating to TRUE now;
+	likewise no reason to reset on re-entering running or waiting,
+	job_unblock() is sufficient.
+	(job_failed): No reason to iterate stop_on to set failed, it's
+	empty - job_unblock() does what we want.
+	* init/tests/test_job.c (test_handle_event): Check that the operator
+	is actually reset and the event not referenced when handling from
+	the event.
+	(test_change_state, test_child_handler): Don't put anything in stop_on
+	and thus don't expect anything to come out of it -- event environment
+	is all done in stop_env and blocking done in blocking.
+
 	* init/job.c (job_handle_event): Collect the stop events and store
 	them in the blocking list, unblocking any that were there before
 	such as the start events.

@@ -700,10 +700,6 @@ job_change_state (Job      *job,
 				job->stop_env = NULL;
 			}
 
-			/* Reset the stop operator */
-			if (job->stop_on)
-				event_operator_reset (job->stop_on);
-
 			/* Clear any old failed information */
 			job->failed = FALSE;
 			job->failed_process = -1;
@@ -784,12 +780,6 @@ job_change_state (Job      *job,
 
 				/* Cancel the stop attempt */
 				job_unblock (job, FALSE);
-
-				/* Reset the stop operator */
-				if (job->stop_on)
-					event_operator_reset (job->stop_on);
-
-				break;
 			} else {
 				job_emit_event (job);
 
@@ -857,8 +847,6 @@ job_change_state (Job      *job,
 			job_emit_event (job);
 
 			job_unblock (job, FALSE);
-			if (job->stop_on)
-				event_operator_reset (job->stop_on);
 
 			/* Remove the job from the list of instances and
 			 * then allow a better configuration to replace us
@@ -1029,16 +1017,6 @@ job_failed (Job         *job,
 	job->failed = TRUE;
 	job->failed_process = process;
 	job->exit_status = status;
-
-	if (job->stop_on) {
-		NIH_TREE_FOREACH (&job->stop_on->node, iter) {
-			EventOperator *oper = (EventOperator *)iter;
-
-			if ((oper->type == EVENT_MATCH) && oper->value
-			    && oper->event && oper->blocked)
-				oper->event->failed = TRUE;
-		}
-	}
 
 	job_unblock (job, TRUE);
 }
@@ -2173,6 +2151,8 @@ job_handle_event (Event *event)
 					nih_free (list);
 					nih_free (env);
 				}
+
+				event_operator_reset (job->stop_on);
 			}
 
 		}
