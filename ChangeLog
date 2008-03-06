@@ -1,3 +1,7 @@
+2008-03-06  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_operator_collect): Just use strcat functions.
+
 2008-03-03  Scott James Remnant  <scott@netsplit.com>
 
 	* init/environ.c (environ_valid): New function to check the validity

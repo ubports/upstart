@@ -808,8 +808,7 @@ event_operator_collect (EventOperator   *root,
 			const char      *key,
 			NihList         *list)
 {
-	char   *evlist;
-	size_t  evlistsz;
+	char *evlist;
 
 	nih_assert (root != NULL);
 	nih_assert ((parent == NULL) || (env != NULL));
@@ -817,10 +816,8 @@ event_operator_collect (EventOperator   *root,
 	nih_assert ((key == NULL) || (env != NULL));
 
 	/* Initialise the event list variable with the name given. */
-	if (key) {
+	if (key)
 		NIH_MUST (evlist = nih_sprintf (NULL, "%s=", key));
-		evlistsz = strlen (evlist);
-	}
 
 	/* Iterate the operator tree, filtering out nodes with a non-TRUE
 	 * value and their children.  The rationale for this is that this
@@ -847,20 +844,13 @@ event_operator_collect (EventOperator   *root,
 
 		/* Append the name of the event to the string we're building */
 		if (key) {
-			char *new_evlist;
-
-			NIH_MUST (new_evlist = nih_realloc (evlist, NULL, evlistsz
-							    + strlen (oper->event->name)
-							    + 2));
-
-			evlist = new_evlist;
-			if (evlist[evlistsz-1] != '=') {
-				evlist[evlistsz++] = ' ';
-				evlist[evlistsz] = '\0';
+			if (evlist[strlen (evlist) - 1] != '=') {
+				NIH_MUST (nih_strcat_sprintf (&evlist, NULL, " %s",
+							      oper->event->name));
+			} else {
+				NIH_MUST (nih_strcat (&evlist, NULL,
+						      oper->event->name));
 			}
-
-			strcat (evlist, oper->event->name);
-			evlistsz += strlen (oper->event->name);
 		}
 
 		/* Append to list, referencing and blocking if necessary */
