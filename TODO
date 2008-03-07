@@ -1,5 +1,8 @@
 High Priority:
 
+ * Respawn timeouts are actually broken with the new model, since they apply
+   to the single instance that is destroyed.
+
  * Expand variables; now we have the concept of a job environment, we can
    expand strings in the configuration with them; I'm particularly thinking
    of the stop event tree here.

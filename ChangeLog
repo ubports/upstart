@@ -1,5 +1,7 @@
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update, I found a bug with the current model.
+
 	* init/tests/test_environ.c (test_expand): Check that a string
 	without an expansion still works ok.
 
