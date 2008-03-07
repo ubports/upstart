@@ -51,8 +51,7 @@ static void event_finished (Event *event);
 /**
  * paused:
  *
- * Do not process the event queue or detect a stalled system
- * while this is TRUE.
+ * Do not process the event queue while this is TRUE.
  **/
 int paused = FALSE;
 
@@ -157,13 +156,15 @@ event_next_id (void)
  * event_new:
  * @parent: parent of new event,
  * @name: name of event to emit,
- * @env: environment for event.
+ * @env: NULL-terminated array of environment variables for event.
  *
  * Allocates an Event structure for the event details given and
  * appends it to the queue of events.
  *
- * @env is optional, and may be NULL; if given, then the array itself is
- * reparented to belong to the event structure and should not be modified.
+ * @env is optional, and may be NULL; if given it should be a NULL-terminated
+ * array of environment variables in KEY=VALUE form.  The @env array itself
+ * will be reparented to the event structure and should not be modified after
+ * the call.
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
@@ -291,12 +292,11 @@ event_unblock (Event *event)
  * in the finished state will have subscribers and jobs notified that the
  * event has completed.
  *
- * Events remain in the handling state while they have blocking jobs,
- * and remain in the done state while they have references.
+ * Events remain in the handling state while they have blocking jobs.
  *
  * This function will only return once the events list is empty, or all
- * events are in the handling or done states; so any time an event queues
- * another, it will be processed immediately.
+ * events are in the handling state; so any time an event queues another,
+ * it will be processed immediately.
  *
  * Normally this function is used as a main loop callback.
  **/
@@ -316,9 +316,8 @@ event_poll (void)
 		NIH_LIST_FOREACH_SAFE (events, iter) {
 			Event *event = (Event *)iter;
 
-			/* Ignore events that we're handling and are not
-			 * blocked, or that are done but still have references,
-			 * there's nothing we can do to hurry them.
+			/* Ignore events that we're handling and are
+			 * blocked, there's nothing we can do to hurry them.
 			 *
 			 * Decide whether to poll again based on the state
 			 * before handling the event; that way we always loop
@@ -417,16 +416,17 @@ event_finished (Event *event)
  * event_operator_new:
  * @parent: parent of new operator,
  * @type: type of operator,
- * @name: name of event to match.
- * @env: environment of event to match.
+ * @name: name of event to match,
+ * @env: NULL-terminated array of environment variables to match.
  *
  * Allocates and returns a new EventOperator structure with the @type given,
  * if @type is EVENT_MATCH then the operator will be used to match an event
  * with the given @name and @arguments using event_match().
  *
- * @env is optional, and may be NULL; if given, then the array itself is
- * reparented to belong to the EventOperator structure and should not be
- * modified.
+ * @env is optional, and may be NULL; if given it should be a NULL-terminated
+ * array of environment variables in KEY=VALUE form.  The @env array itself
+ * will be reparented to the event structure and should not be modified after
+ * the call.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -622,9 +622,9 @@ event_operator_update (EventOperator *oper)
  * and whether @event contains a superset of the environment variables
  * given in @oper.
  *
- * Matching of environment variables is done first by position until the
- * first variable in @oper with a name specified is found, and subsequently
- * by name.  Each value matches against @event as a glob.
+ * Matching of environment is done first by position until the first variable
+ * in @oper with a name specified is found, and subsequently by name.  Each
+ * value is matched against the equivalent in @event as a glob.
  *
  * This may only be called if the type of @oper is EVENT_MATCH.
  *
@@ -647,8 +647,8 @@ event_operator_match (EventOperator *oper,
 	if (strcmp (oper->name, event->name))
 		return FALSE;
 
-	/* Match operator arguments against those from the event, starting
-	 * both from the beginning.
+	/* Match operator environment variables against those from the event,
+	 * starting both from the beginning.
 	 */
 	for (oenv = oper->env, eenv = event->env; oenv && *oenv;
 	     oenv++, eenv++) {
@@ -656,7 +656,7 @@ event_operator_match (EventOperator *oper,
 
 		oval = strchr (*oenv, '=');
 		if (oval) {
-			/* Hunt through the environment table to find the
+			/* Hunt through the event environment to find the
 			 * equivalent entry */
 			eenv = environ_lookup (event->env, *oenv,
 					       oval - *oenv);
@@ -669,8 +669,8 @@ event_operator_match (EventOperator *oper,
 		}
 
 		/* Make sure we haven't gone off the end of the event
-		 * environment; this catches both too many positional
-		 * arguments and no such environment variable.
+		 * environment array; this catches both too many positional
+		 * matches and no such variable.
 		 */
 		if (! (eenv && *eenv))
 			return FALSE;
@@ -701,9 +701,8 @@ event_operator_match (EventOperator *oper,
  * nodes to match.
  *
  * If @event is matched within this tree, it will be referenced and blocked
- * by the nodes that match it.  The blockage can be cleared by using
- * event_operator_unblock() and the references cleared by using
- * event_operator_reset().
+ * by the nodes that match it.  The blockage and references can be cleared
+ * using event_operator_reset().
  *
  * Note that this returns to indicate whether a successful match was made;
  * you should also check the value of @oper to make sure you react to this,
@@ -777,7 +776,7 @@ event_operator_filter (void          *data,
  * event_operator_collect:
  * @root: operator tree to collect from,
  * @parent: parent of @env,
- * @env: table to add event environment to,
+ * @env: NULL-terminated array of environment variables to add to,
  * @len: length of @env,
  * @key: key of variable to contain event names,
  * @list: list to add events to.
@@ -790,9 +789,9 @@ event_operator_filter (void          *data,
  * be both referenced and blocked (if blocked in the operator) by this;
  * the created structure will have @list as a parent.
  *
- * If @env is not NULL, environment from each event (in tree order) will be
- * added to the table so that it contains the complete environment of the
- * operator.
+ * If @env is not NULL, environment variables from each event (in tree order)
+ * will be added to the NULL-terminated array so that it contains the complete
+ * environment of the operator.
  *
  * @len will be updated to contain the new array length and @env will
  * be updated to point to the new array pointer.
@@ -834,7 +833,7 @@ event_operator_collect (EventOperator   *root,
 
 		nih_assert (oper->event != NULL);
 
-		/* Add the environment from the event */
+		/* Add environment from the event */
 		if (env) {
 			char **e;
 

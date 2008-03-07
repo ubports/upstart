@@ -1,5 +1,7 @@
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c, init/event.h, init/environ.c: Documentation tweaks.
+
 	* init/job.c (job_change_state): Remove the code to check for runaway
 	jobs from here, we'll always let people explicitly start an instance.
 	(job_process_terminated): Call job_catch_runaway when actually doing

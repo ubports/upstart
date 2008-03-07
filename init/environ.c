@@ -341,7 +341,7 @@ environ_valid (const char *key,
  * "alternate" otherwise.  ${KEY+alternate} is as above, but will expand
  * to "alternate" only if $KEY is unset.
  *
- * Unknown parameters are raised as an error instead of being substituted
+ * Unknown references are raised as an error instead of being substituted
  * with null, for that behaviour you should explicity use ${KEY-}
  *
  * If @parent is not NULL, it should be a pointer to another allocated

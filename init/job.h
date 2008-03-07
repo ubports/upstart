@@ -105,7 +105,7 @@ typedef struct job_process {
  * @version: version of the job; intended for humans,
  * @start_on: event operator expression that can start this job,
  * @stop_on: event operator expression that can stop this job.
- * @emits: list of additional events that this job can emit,
+ * @emits: array of additional events that this job can emit,
  * @process: processes to be run,
  * @wait_for: what to wait for before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
@@ -117,7 +117,7 @@ typedef struct job_process {
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
  * @console: how to arrange the job's stdin/out/err file descriptors,
- * @env: NULL-terminated list of environment strings to set,
+ * @env: NULL-terminated array of default environment variables,
  * @umask: file mode creation mask,
  * @nice: process priority,
  * @limits: resource limits indexed by resource,

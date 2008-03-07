@@ -47,7 +47,7 @@ typedef enum event_progress {
  * @entry: list header,
  * @id: unique id assigned to each event,
  * @name: string name of the event,
- * @env: NULL-terminated list of environment variables.
+ * @env: NULL-terminated array of environment variables,
  * @progress: progress of event,
  * @failed: whether this event has failed,
  * @blockers: number of blockers for finishing.
