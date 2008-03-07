@@ -75,11 +75,11 @@ static void        job_failed                  (Job *job, ProcessType process,
 static void        job_unblock                 (Job *job, int failed);
 static Event *     job_emit_event              (Job *job)
 	__attribute__ ((malloc));
-static int         job_catch_runaway           (Job *job);
 static void        job_kill_timer              (ProcessType process,
 						NihTimer *timer);
 static void        job_process_terminated      (Job *job, ProcessType process,
 						int status);
+static int         job_catch_runaway           (Job *job);
 static void        job_process_stopped         (Job *job, ProcessType process);
 static void        job_process_trace_new       (Job *job, ProcessType process);
 static void        job_process_trace_new_child (Job *job, ProcessType process);
@@ -705,20 +705,6 @@ job_change_state (Job      *job,
 			job->failed_process = -1;
 			job->exit_status = 0;
 
-			/* Catch runaway jobs; make sure we do this before
-			 * we emit the starting event, so other jobs don't
-			 * think we're going to be started.
-			 */
-			if (job_catch_runaway (job)) {
-				nih_warn (_("%s (#%u) respawning too fast, stopped"),
-					  job->config->name, job->id);
-
-				job_failed (job, -1, 0);
-				job_change_goal (job, JOB_STOP);
-				state = JOB_WAITING;
-				break;
-			}
-
 			job->blocked = job_emit_event (job);
 
 			break;
@@ -1160,42 +1146,6 @@ emit:
 	event = event_new (NULL, name, env);
 
 	return event;
-}
-
-/**
- * job_catch_runaway
- * @job: job being started.
- *
- * This function is called when changing the state of a job to starting,
- * before emitting the event.  It ensures that a job doesn't end up in
- * a restart loop by limiting the number of restarts in a particular
- * time limit.
- *
- * Returns: TRUE if the job is respawning too fast, FALSE if not.
- */
-static int
-job_catch_runaway (Job *job)
-{
-	nih_assert (job != NULL);
-
-	if (job->config->respawn_limit && job->config->respawn_interval) {
-		time_t interval;
-
-		/* Time since last respawn ... this goes very large if we
-		 * haven't done one, which is fine
-		 */
-		interval = time (NULL) - job->respawn_time;
-		if (interval < job->config->respawn_interval) {
-			job->respawn_count++;
-			if (job->respawn_count > job->config->respawn_limit)
-				return TRUE;
-		} else {
-			job->respawn_time = time (NULL);
-			job->respawn_count = 1;
-		}
-	}
-
-	return FALSE;
 }
 
 
@@ -1687,14 +1637,23 @@ job_process_terminated (Job         *job,
 			}
 
 			/* We might be able to respawn the failed job;
-			 * that's a simple matter of doing nothing.
+			 * that's a simple matter of doing nothing.  Check
+			 * the job isn't running away first though.
 			 */
 			if (failed && job->config->respawn) {
-				nih_warn (_("%s (#%u) %s process ended, respawning"),
-					  job->config->name, job->id,
-					  process_name (process));
-				failed = FALSE;
-				break;
+				if (job_catch_runaway (job)) {
+					nih_warn (_("%s (#%u) respawning too fast, stopped"),
+						  job->config->name, job->id);
+
+					failed = FALSE;
+					job_failed (job, -1, 0);
+				} else {
+					nih_warn (_("%s (#%u) %s process ended, respawning"),
+						  job->config->name, job->id,
+						  process_name (process));
+					failed = FALSE;
+					break;
+				}
 			}
 		}
 
@@ -1801,6 +1760,42 @@ job_process_terminated (Job         *job,
 
 	if (state)
 		job_change_state (job, job_next_state (job));
+}
+
+/**
+ * job_catch_runaway
+ * @job: job being started.
+ *
+ * This function is called when changing the state of a job to starting,
+ * before emitting the event.  It ensures that a job doesn't end up in
+ * a restart loop by limiting the number of restarts in a particular
+ * time limit.
+ *
+ * Returns: TRUE if the job is respawning too fast, FALSE if not.
+ */
+static int
+job_catch_runaway (Job *job)
+{
+	nih_assert (job != NULL);
+
+	if (job->config->respawn_limit && job->config->respawn_interval) {
+		time_t interval;
+
+		/* Time since last respawn ... this goes very large if we
+		 * haven't done one, which is fine
+		 */
+		interval = time (NULL) - job->respawn_time;
+		if (interval < job->config->respawn_interval) {
+			job->respawn_count++;
+			if (job->respawn_count > job->config->respawn_limit)
+				return TRUE;
+		} else {
+			job->respawn_time = time (NULL);
+			job->respawn_count = 1;
+		}
+	}
+
+	return FALSE;
 }
 
 /**

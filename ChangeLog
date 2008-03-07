@@ -1,5 +1,17 @@
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Remove the code to check for runaway
+	jobs from here, we'll always let people explicitly start an instance.
+	(job_process_terminated): Call job_catch_runaway when actually doing
+	the respawn instead.
+	* init/tests/test_job.c (test_change_state): Remove "too fast" checks,
+	we're going to allow start/stop requests to restart jobs as much as
+	they like since this is an external request.
+	(test_handle_event, test_handle_event_finished): No need to remove
+	a respawn limit with this behaviour.
+	(test_child_handler): Instead check that the respawn counter is
+	dealt with by the child handler.
+
 	* TODO: Update, I found a bug with the current model.
 
 	* init/tests/test_environ.c (test_expand): Check that a string

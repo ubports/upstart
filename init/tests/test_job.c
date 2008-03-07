@@ -939,7 +939,6 @@ test_change_state (void)
 	config->process[PROCESS_POST_STOP] = job_process_new (config);
 	config->process[PROCESS_POST_STOP]->command = nih_sprintf (
 		config->process[PROCESS_POST_STOP], "touch %s/stop", dirname);
-	config->respawn_limit = 0;
 
 	config->start_on = event_operator_new (config, EVENT_MATCH,
 					       "wibble", NULL);
@@ -1025,79 +1024,6 @@ test_change_state (void)
 
 		nih_free (job);
 	}
-
-
-	/* Check that if a job tries to move from waiting to starting too
-	 * many times in a given period then it is caught, a message is
-	 * output and the job deleted again.  We get a stopped event, and
-	 * the cause is cleared.  The failed information should reflect
-	 * that we were stopped by the starting state.
-	 */
-	TEST_FEATURE ("waiting to starting too fast");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (config);
-			job->id = 99;
-
-			job->blocking = nih_list_new (job);
-			list = job->blocking;
-
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = cause;
-			event_block (cause);
-			nih_list_add (job->blocking, &entry->entry);
-		}
-
-		job->goal = JOB_START;
-		job->state = JOB_WAITING;
-
-		job->blocked = NULL;
-		cause->failed = FALSE;
-
-		TEST_FREE_TAG (list);
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		config->respawn_limit = 10;
-		config->respawn_interval = 1000;
-		job->respawn_time = time (NULL);
-		job->respawn_count = 10;
-
-		TEST_FREE_TAG (job);
-
-		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_STARTING);
-		}
-		rewind (output);
-
-		TEST_FREE (job);
-
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->failed, TRUE);
-
-		TEST_FREE (list);
-
-		event = (Event *)events->next;
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=respawn");
-		TEST_EQ_P (event->env[3], NULL);
-		nih_free (event);
-
-		TEST_LIST_EMPTY (events);
-
-		TEST_FILE_EQ (output, ("test: test (#99) respawning too fast, "
-				       "stopped\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	config->respawn_limit = 0;
-	config->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
 
 
 	/* Check that a job with a start process can move from starting
@@ -3128,79 +3054,6 @@ test_change_state (void)
 	}
 
 
-	/* Check that if a job tries to move from post-stop to starting too
-	 * many times in a given period then it is caught, a message is
-	 * output and the job deleted.  We get a stopped event, and any
-	 * blocks and references on start or stop events are cleared.
-	 */
-	TEST_FEATURE ("post-stop to starting too fast");
-	config->respawn_limit = 10;
-	config->respawn_interval = 1000;
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (config);
-			job->id = 99;
-
-			job->blocking = nih_list_new (job);
-			list = job->blocking;
-
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = cause;
-			event_block (cause);
-			nih_list_add (job->blocking, &entry->entry);
-		}
-
-		job->goal = JOB_START;
-		job->state = JOB_POST_STOP;
-
-		job->blocked = NULL;
-		cause->failed = FALSE;
-
-		TEST_FREE_TAG (list);
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job->respawn_time = time (NULL);
-		job->respawn_count = 10;
-
-		TEST_FREE_TAG (job);
-
-		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_STARTING);
-		}
-		rewind (output);
-
-		TEST_FREE (job);
-
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->failed, TRUE);
-
-		TEST_FREE (list);
-
-		event = (Event *)events->next;
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=respawn");
-		TEST_EQ_P (event->env[3], NULL);
-		nih_free (event);
-
-		TEST_LIST_EMPTY (events);
-
-		TEST_FILE_EQ (output, ("test: test (#99) respawning too fast, "
-				       "stopped\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	config->respawn_limit = 0;
-	config->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
-
-
 	/* Check that a job which has a better replacement can move from
 	 * post-stop to waiting, and be removed from the jobs hash table
 	 * and replaced by the better one.
@@ -4120,7 +3973,6 @@ test_kill_process (void)
 	TEST_FUNCTION ("job_kill_process");
 	config = job_config_new (NULL, "test");
 	config->kill_timeout = 1000;
-	config->respawn_limit = 0;
 
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = nih_strdup (
@@ -4652,6 +4504,8 @@ test_child_handler (void)
 	 */
 	TEST_FEATURE ("with respawn of running process");
 	config->respawn = TRUE;
+	config->respawn_limit = 5;
+	config->respawn_interval = 10;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -4689,6 +4543,9 @@ test_child_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
+		TEST_EQ (job->respawn_count, 1);
+		TEST_LE (job->respawn_time, time (NULL));
+
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
@@ -4705,6 +4562,79 @@ test_child_handler (void)
 
 		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
 				       "respawning\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	config->respawn = FALSE;
+
+
+	/* Check that if the process has been respawned too many times
+	 * recently, the goal is changed to stop and the process moved into
+	 * the stopping state.
+	 */
+	TEST_FEATURE ("with too many respawns of running process");
+	config->respawn = TRUE;
+	config->respawn_limit = 5;
+	config->respawn_interval = 10;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config);
+			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
+
+			job->respawn_count = 5;
+			job->respawn_time = time (NULL) - 5;
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (list);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (job->respawn_count, 6);
+
+		TEST_EQ (event->blockers, 0);
+		TEST_EQ (event->failed, TRUE);
+
+		TEST_NE_P (job->blocked, NULL);
+
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test (#1) respawning too fast, "
+				       "stopped\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 
@@ -6614,7 +6544,6 @@ test_handle_event (void)
 
 	TEST_FUNCTION ("job_handle_event");
 	config1 = job_config_new (NULL, "foo");
-	config1->respawn_limit = 0;
 
 	assert (nih_str_array_add (&(config1->env), config1, NULL, "FOO=BAR"));
 	assert (nih_str_array_add (&(config1->env), config1, NULL, "BAR=BAZ"));
@@ -6634,7 +6563,6 @@ test_handle_event (void)
 
 
 	config2 = job_config_new (NULL, "bar");
-	config2->respawn_limit = 0;
 
 	config2->stop_on = event_operator_new (config2, EVENT_OR, NULL, NULL);
 
@@ -7492,7 +7420,6 @@ test_handle_event_finished (void)
 
 	TEST_FUNCTION ("job_handle_event_finished");
 	config1 = job_config_new (NULL, "foo");
-	config1->respawn_limit = 0;
 	config1->process[PROCESS_PRE_START] = job_process_new (config1);
 	config1->process[PROCESS_PRE_START]->command = "echo";
 	config1->process[PROCESS_POST_STOP] = job_process_new (config1);
@@ -7506,7 +7433,6 @@ test_handle_event_finished (void)
 	nih_hash_add (jobs, &config1->entry);
 
 	config2 = job_config_new (NULL, "bar");
-	config2->respawn_limit = 0;
 	config2->process[PROCESS_PRE_START] = job_process_new (config2);
 	config2->process[PROCESS_PRE_START]->command = "echo";
 	config2->process[PROCESS_POST_STOP] = job_process_new (config2);
