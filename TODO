@@ -1,16 +1,5 @@
 High Priority:
 
- * Respawn timeouts are actually broken with the new model, since they apply
-   to the single instance that is destroyed.
-
- * Expand variables; now we have the concept of a job environment, we can
-   expand strings in the configuration with them; I'm particularly thinking
-   of the stop event tree here.
-
- * Named instances; expand an instance variable string using variables from
-   the environment to get a unique string we can lookup in the job.  If this
-   exists already, we're not a new instance.
-
  * When we start or stop a job by a command, a reference to the command should
    be stored in the Job instead of blocking with the same rules.  It may be
    useful to not just have failed=TRUE/FALSE for job_unblock() but a more
