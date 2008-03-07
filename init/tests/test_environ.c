@@ -678,6 +678,27 @@ test_expand (void)
 	nih_error_pop_context ();
 
 
+	/* Check that we can expand a string containing no expansion.
+	 */
+	TEST_FEATURE ("with no expansion");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "this is a test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "this is a test");
+
+		nih_free (str);
+	}
+
+
 	/* Check that we can expand a simple string containing a reference
 	 * from the environment, with the reference replaced by the environment
 	 * variable value.

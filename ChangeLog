@@ -1,3 +1,8 @@
+2008-03-07  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_environ.c (test_expand): Check that a string
+	without an expansion still works ok.
+
 2008-03-06  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.c (event_operator_collect): Just use strcat functions.
