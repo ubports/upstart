@@ -37,10 +37,12 @@
 #include <nih/list.h>
 #include <nih/main.h>
 #include <nih/logging.h>
+#include <nih/error.h>
 
 #include "environ.h"
 #include "event.h"
 #include "job.h"
+#include "errors.h"
 
 
 /* Prototypes for static functions */
@@ -616,15 +618,20 @@ event_operator_update (EventOperator *oper)
 /**
  * event_operator_match:
  * @oper: operator to match against.
- * @event: event to match.
+ * @event: event to match,
+ * @env: NULL-terminated array of environment variables for expansion.
  *
  * Compares @oper against @event to see whether they are identical in name,
  * and whether @event contains a superset of the environment variables
  * given in @oper.
  *
+ * @env is optional, and may be NULL; if given it should be a NULL-terminated
+ * array of environment variables in KEY=VALUE form.
+ *
  * Matching of environment is done first by position until the first variable
  * in @oper with a name specified is found, and subsequently by name.  Each
- * value is matched against the equivalent in @event as a glob.
+ * value is matched against the equivalent in @event as a glob, undergoing
+ * expansion against @env first.
  *
  * This may only be called if the type of @oper is EVENT_MATCH.
  *
@@ -632,7 +639,8 @@ event_operator_update (EventOperator *oper)
  **/
 int
 event_operator_match (EventOperator *oper,
-		      Event         *event)
+		      Event         *event,
+		      char * const  *env)
 {
 	char * const *oenv;
 	char * const *eenv;
@@ -652,7 +660,8 @@ event_operator_match (EventOperator *oper,
 	 */
 	for (oenv = oper->env, eenv = event->env; oenv && *oenv;
 	     oenv++, eenv++) {
-		char *oval, *eval;
+		char *oval, *expoval, *eval;
+		int   ret;
 
 		oval = strchr (*oenv, '=');
 		if (oval) {
@@ -683,7 +692,25 @@ event_operator_match (EventOperator *oper,
 		nih_assert (eval != NULL);
 		eval++;
 
-		if (fnmatch (oval, eval, 0))
+		/* Expand operator value against given environment before
+		 * matching; silently discard errors, since otherwise we'd
+		 * be excessively noisy on every event.
+		 */
+		while (! (expoval = environ_expand (NULL, oval, env))) {
+			NihError *err;
+
+			err = nih_error_get ();
+			if (err->number != ENOMEM) {
+				nih_free (err);
+				return FALSE;
+			}
+			nih_free (err);
+		}
+
+		ret = fnmatch (expoval, eval, 0);
+		nih_free (expoval);
+
+		if (ret)
 			return FALSE;
 	}
 
@@ -694,11 +721,16 @@ event_operator_match (EventOperator *oper,
 /**
  * event_operator_handle:
  * @root: operator tree to update,
- * @event: event to match against.
+ * @event: event to match against,
+ * @env: NULL-terminated array of environment variables for expansion.
  *
  * Handles the emission of @event, matching it against EVENT_MATCH nodes in
  * the EventOperator tree rooted at @oper, and updating the values of other
  * nodes to match.
+ *
+ * @env is optional, and may be NULL; if given it should be a NULL-terminated
+ * array of environment variables in KEY=VALUE form and will be used to expand
+ * EVENT_MATCH nodes before matching them,
  *
  * If @event is matched within this tree, it will be referenced and blocked
  * by the nodes that match it.  The blockage and references can be cleared
@@ -713,7 +745,8 @@ event_operator_match (EventOperator *oper,
  **/
 int
 event_operator_handle (EventOperator *root,
-		       Event         *event)
+		       Event         *event,
+		       char * const  *env)
 {
 	int ret = FALSE;
 
@@ -734,7 +767,7 @@ event_operator_handle (EventOperator *root,
 			event_operator_update (oper);
 			break;
 		case EVENT_MATCH:
-			if (event_operator_match (oper, event)) {
+			if (event_operator_match (oper, event, env)) {
 				oper->value = TRUE;
 
 				oper->event = event;

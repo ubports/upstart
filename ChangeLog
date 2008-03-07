@@ -1,5 +1,22 @@
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_operator_match): Accept an environment array
+	and expand the operator value against it before attempting to match.
+	(event_operator_handle): Also accept the environment array and pass
+	through to calls to event_operator_match().
+	* init/event.h: Update prototypes.
+	* init/tests/test_event.c (test_operator_match): Add extra NULL
+	argument to most tests, and add tests for known and unknown variable
+	references.
+	(test_operator_handle): Add extra NULL arguments to most tests, and
+	add test for passing of environment through.
+	(test_operator_reset): Add extra NULL argument to call.
+	* init/job.c (job_handle_event): Pass the job environment for the
+	stop event handling, but NULL for the start event.
+	* init/tests/test_job.c (test_handle_event): Make sure that a stop
+	operator is expanded from the job environment before being matched
+	against the stop event.
+
 	* init/event.c, init/event.h, init/environ.c: Documentation tweaks.
 
 	* init/job.c (job_change_state): Remove the code to check for runaway

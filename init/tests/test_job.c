@@ -6572,6 +6572,8 @@ test_handle_event (void)
 
 	oper = event_operator_new (config2->stop_on, EVENT_MATCH,
 				   "bar", NULL);
+	assert (nih_str_array_add (&(oper->env), oper, NULL,
+				   "SNITCH=$COLOUR"));
 	nih_tree_add (&config2->stop_on->node, &oper->node, NIH_TREE_RIGHT);
 
 	nih_hash_add (jobs, &config2->entry);
@@ -7400,6 +7402,85 @@ test_handle_event (void)
 		nih_free (job2);
 		nih_free (event3);
 		nih_free (event4);
+	}
+
+	nih_free (event1);
+
+
+	/* Check that the operator for the stop event can match against
+	 * environment variables expanded from the job's env member.
+	 */
+	TEST_FEATURE ("with environment expansion in stop event");
+	event1 = event_new (NULL, "bar", NULL);
+	assert (nih_str_array_add (&(event1->env), event1,
+				   NULL, "SNITCH=GOLD"));
+	assert (nih_str_array_add (&(event1->env), event1,
+				   NULL, "SEAKER=WIZARD"));
+
+	TEST_ALLOC_FAIL {
+		event1->blockers = 0;
+
+		TEST_ALLOC_SAFE {
+			job2 = job_new (config2);
+
+			assert (nih_str_array_add (&(job2->env), job2,
+						   NULL, "COLOUR=GOLD"));
+		}
+
+		job2->goal = JOB_START;
+		job2->state = JOB_RUNNING;
+		job2->blocked = NULL;
+
+		job_handle_event (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&config2->instances);
+		TEST_EQ_P ((Job *)config2->instances.next, job2);
+
+		TEST_EQ (job2->goal, JOB_STOP);
+		TEST_EQ (job2->state, JOB_STOPPING);
+		TEST_NE_P (job2->blocked, NULL);
+
+		TEST_NE_P (job2->stop_env, NULL);
+		TEST_ALLOC_PARENT (job2->stop_env, job2);
+		TEST_ALLOC_SIZE (job2->stop_env, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job2->stop_env[0], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[0], "SNITCH=GOLD");
+		TEST_ALLOC_PARENT (job2->stop_env[1], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[1], "SEAKER=WIZARD");
+		TEST_ALLOC_PARENT (job2->stop_env[2], job2->stop_env);
+		TEST_EQ_STR (job2->stop_env[2], "UPSTART_STOP_EVENTS=bar");
+		TEST_EQ_P (job2->stop_env[3], NULL);
+
+		oper = job2->stop_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)job2->stop_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)job2->stop_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		TEST_NE_P (job2->blocking, NULL);
+		TEST_ALLOC_SIZE (job2->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job2->blocking, job2);
+
+		TEST_LIST_NOT_EMPTY (job2->blocking);
+
+		entry = (NihListEntry *)job2->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job2->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		event_unblock (event);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job2->blocking);
+
+		nih_free (job2);
 	}
 
 	nih_free (event1);

@@ -842,7 +842,7 @@ test_operator_match (void)
 {
 	EventOperator *oper;
 	Event         *event;
-	char          *env1[5], *env2[5];
+	char          *env1[5], *env2[5], *env[4];
 
 	TEST_FUNCTION ("event_operator_match");
 	event = event_new (NULL, "foo", NULL);
@@ -851,7 +851,7 @@ test_operator_match (void)
 	TEST_FEATURE ("with different name events");
 	oper = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
 
-	TEST_FALSE (event_operator_match (oper, event));
+	TEST_FALSE (event_operator_match (oper, event, NULL));
 
 	nih_free (oper);
 
@@ -860,7 +860,7 @@ test_operator_match (void)
 	TEST_FEATURE ("with same name events");
 	oper = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that two events with the same environment lists match. */
@@ -877,7 +877,7 @@ test_operator_match (void)
 	oper->env[2] = "MERRY=baz";
 	oper->env[3] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that two events with the same environment lists but wrong
@@ -896,7 +896,7 @@ test_operator_match (void)
 	oper->env[2] = "MERRY=bar";
 	oper->env[3] = NULL;
 
-	TEST_FALSE (event_operator_match (oper, event));
+	TEST_FALSE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the environment list in the operator may be shorter. */
@@ -912,7 +912,7 @@ test_operator_match (void)
 	oper->env[1] = "BILBO=bar";
 	oper->env[2] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the operator may match the event's environment list
@@ -931,7 +931,7 @@ test_operator_match (void)
 	oper->env[2] = "baz";
 	oper->env[3] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the operator may not match the event's environment list
@@ -950,7 +950,7 @@ test_operator_match (void)
 	oper->env[2] = "bar";
 	oper->env[3] = NULL;
 
-	TEST_FALSE (event_operator_match (oper, event));
+	TEST_FALSE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that when the operator matches by value, the list of values
@@ -968,7 +968,7 @@ test_operator_match (void)
 	oper->env[1] = "bar";
 	oper->env[2] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the environment list in event may not be shorter. */
@@ -984,7 +984,7 @@ test_operator_match (void)
 	oper->env[2] = "baz";
 	oper->env[3] = NULL;
 
-	TEST_FALSE (event_operator_match (oper, event));
+	TEST_FALSE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that two events with the same environment lists match
@@ -1003,7 +1003,7 @@ test_operator_match (void)
 	oper->env[2] = "MERRY=baz";
 	oper->env[3] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the operator may match by value until it first matches
@@ -1023,7 +1023,7 @@ test_operator_match (void)
 	oper->env[2] = "PIPPIN=quux";
 	oper->env[3] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that unknown variable names never match. */
@@ -1037,7 +1037,7 @@ test_operator_match (void)
 	oper->env[0] = "MERRY=baz";
 	oper->env[1] = NULL;
 
-	TEST_FALSE (event_operator_match (oper, event));
+	TEST_FALSE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the operator environment may be globs. */
@@ -1051,7 +1051,7 @@ test_operator_match (void)
 	oper->env[0] = "BILBO=b?r";
 	oper->env[1] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
 
 
 	/* Check that the operator values may be globs. */
@@ -1065,7 +1065,44 @@ test_operator_match (void)
 	oper->env[0] = "f*";
 	oper->env[1] = NULL;
 
-	TEST_TRUE (event_operator_match (oper, event));
+	TEST_TRUE (event_operator_match (oper, event, NULL));
+
+
+	/* Check that the operator values may contain variable references
+	 * which will be expanded before match.
+	 */
+	TEST_FEATURE ("with variable reference in operator");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "$FOO";
+	oper->env[1] = NULL;
+
+	env[0] = "FOO=foo";
+	env[1] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event, env));
+
+
+	/* Check that unknown variable references do not match.
+	 */
+	TEST_FEATURE ("with unknown variable reference in operator");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "$WIBBLE";
+	oper->env[1] = NULL;
+
+	env[0] = "FOO=foo";
+	env[1] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event, env));
 
 
 	nih_free (oper);
@@ -1077,6 +1114,7 @@ void
 test_operator_handle (void)
 {
 	EventOperator *oper1, *oper2, *oper3, *oper4, *oper5;
+	char          *env1[2], *env2[3], *env[2];
 	Event         *event;
 	int            ret;
 
@@ -1086,6 +1124,9 @@ test_operator_handle (void)
 	oper3 = event_operator_new (NULL, EVENT_MATCH, "foo", NULL);
 	oper4 = event_operator_new (NULL, EVENT_MATCH, "bar", NULL);
 	oper5 = event_operator_new (NULL, EVENT_MATCH, "baz", NULL);
+	oper5->env = env1;
+	oper5->env[0] = "BAR=$WIBBLE";
+	oper5->env[1] = NULL;
 
 	nih_tree_add (&oper1->node, &oper2->node, NIH_TREE_LEFT);
 	nih_tree_add (&oper2->node, &oper3->node, NIH_TREE_LEFT);
@@ -1096,7 +1137,7 @@ test_operator_handle (void)
 	/* Check that a non-matching event doesn't touch the tree. */
 	TEST_FEATURE ("with non-matching event");
 	event = event_new (NULL, "frodo", NULL);
-	ret = event_operator_handle (oper1, event);
+	ret = event_operator_handle (oper1, event, NULL);
 
 	TEST_EQ (ret, FALSE);
 	TEST_EQ (oper1->value, FALSE);
@@ -1118,7 +1159,7 @@ test_operator_handle (void)
 	 */
 	TEST_FEATURE ("with matching event");
 	event = event_new (NULL, "foo", NULL);
-	ret = event_operator_handle (oper1, event);
+	ret = event_operator_handle (oper1, event, NULL);
 
 	TEST_EQ (ret, TRUE);
 	TEST_EQ (oper1->value, FALSE);
@@ -1139,7 +1180,7 @@ test_operator_handle (void)
 	 */
 	TEST_FEATURE ("with matching event and complete expression");
 	event = event_new (NULL, "bar", NULL);
-	ret = event_operator_handle (oper1, event);
+	ret = event_operator_handle (oper1, event, NULL);
 
 	TEST_EQ (ret, TRUE);
 	TEST_EQ (oper1->value, TRUE);
@@ -1150,6 +1191,35 @@ test_operator_handle (void)
 	TEST_EQ_P (oper4->event, event);
 	TEST_EQ (oper5->value, FALSE);
 	TEST_EQ_P (oper5->event, NULL);
+
+	TEST_EQ (event->blockers, 1);
+
+	event_operator_reset (oper1);
+
+
+	/* Check that an environment array is passed through and used to
+	 * match the expression.
+	 */
+	TEST_FEATURE ("with environment");
+	event = event_new (NULL, "baz", NULL);
+	event->env = env2;
+	event->env[0] = "FOO=bar";
+	event->env[1] = "BAR=baz";
+	event->env[2] = NULL;
+
+	env[0] = "WIBBLE=baz";
+	env[1] = NULL;
+	ret = event_operator_handle (oper1, event, env);
+
+	TEST_EQ (ret, TRUE);
+	TEST_EQ (oper1->value, TRUE);
+	TEST_EQ (oper2->value, FALSE);
+	TEST_EQ (oper3->value, FALSE);
+	TEST_EQ_P (oper4->event, NULL);
+	TEST_EQ (oper4->value, FALSE);
+	TEST_EQ_P (oper4->event, NULL);
+	TEST_EQ (oper5->value, TRUE);
+	TEST_EQ_P (oper5->event, event);
 
 	TEST_EQ (event->blockers, 1);
 
@@ -1468,8 +1538,8 @@ test_operator_reset (void)
 	event1 = event_new (NULL, "foo", NULL);
 	event2 = event_new (NULL, "bar", NULL);
 
-	event_operator_handle (oper1, event1);
-	event_operator_handle (oper1, event2);
+	event_operator_handle (oper1, event1, NULL);
+	event_operator_handle (oper1, event2, NULL);
 
 	TEST_EQ (oper1->value, TRUE);
 	TEST_EQ (oper2->value, TRUE);

@@ -2094,7 +2094,8 @@ job_handle_event (Event *event)
 			Job *job = (Job *)job_iter;
 
 			if (job->stop_on
-			    && event_operator_handle (job->stop_on, event)
+			    && event_operator_handle (job->stop_on, event,
+						      job->env)
 			    && job->stop_on->value) {
 				char    **env = NULL;
 				size_t    len = 0;
@@ -2149,7 +2150,7 @@ job_handle_event (Event *event)
 		 * see whether we need a new instance.
 		 */
 		if (config->start_on
-		    && event_operator_handle (config->start_on, event)
+		    && event_operator_handle (config->start_on, event, NULL)
 		    && config->start_on->value) {
 			char    **env;
 			size_t    len;
