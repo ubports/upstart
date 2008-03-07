@@ -1,3 +1,11 @@
+2008-03-07  Scott James Remnant  <scott@netsplit.com>
+
+	* ca.po, fr.po, sv.po: Remove, abandoning Rosetta for translations
+	for the time being since the workflow doesn't help me get updated
+	translations into releases.  Please provide translations by hand
+	based on an upstart.pot file generated in trunk.
+	* LINGUAS: Remove.
+
 2008-03-01  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Add init/environ.c
