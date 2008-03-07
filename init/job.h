@@ -110,6 +110,7 @@ typedef struct job_process {
  * @wait_for: what to wait for before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @instance: job may have multiple instances,
+ * @instance_name: pattern to identify instances,
  * @service: job has reached its goal when running,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
@@ -151,6 +152,8 @@ struct job_config {
 	time_t          kill_timeout;
 
 	int             instance;
+	char           *instance_name;
+
 	int             service;
 	int             respawn;
 	int             respawn_limit;
@@ -177,6 +180,7 @@ struct job_config {
  * @entry: list header,
  * @id: unique job id,
  * @config: pointer to JobConfig structure,
+ * @name: unique instance name,
  * @stop_on: event operator expression that can stop this job.
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
@@ -206,6 +210,8 @@ typedef struct job {
 
 	unsigned int    id;
 	JobConfig      *config;
+	char           *name;
+
 	EventOperator  *stop_on;
 
 	JobGoal         goal;
@@ -258,13 +264,13 @@ char      **job_config_environment    (const void *parent, JobConfig *config,
 	__attribute__ ((warn_unused_result, malloc));
 
 
-Job *       job_new                   (JobConfig *config)
+Job *       job_new                   (JobConfig *config, char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
 Job *       job_find_by_id            (unsigned int id);
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 
-Job *       job_instance              (JobConfig *config);
+Job *       job_instance              (JobConfig *config, const char *name);
 
 void        job_change_goal           (Job *job, JobGoal goal);
 

@@ -4666,7 +4666,8 @@ test_stanza_instance (void)
 
 	TEST_FUNCTION ("stanza_instance");
 
-	/* Check that an instance stanza sets the job's instance flag.
+	/* Check that an instance stanza sets the job's instance flag and
+	 * leaves the instance name as NULL.
 	 */
 	TEST_FEATURE ("with no argument");
 	strcpy (buf, "instance\n");
@@ -4693,6 +4694,7 @@ test_stanza_instance (void)
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->instance);
+		TEST_EQ_P (job->instance_name, NULL);
 
 		nih_free (job);
 	}
@@ -4726,16 +4728,88 @@ test_stanza_instance (void)
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->instance);
+		TEST_EQ_P (job->instance_name, NULL);
 
 		nih_free (job);
 	}
 
 
-	/* Check that any arguments to the instance stanza results in
-	 * a syntax error.
+	/* Check that an instance stanza with an argument sets both the
+	 * job's instance flag and the instance name.
 	 */
 	TEST_FEATURE ("with argument");
-	strcpy (buf, "instance foo\n");
+	strcpy (buf, "instance $FOO\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_TRUE (job->instance);
+
+		TEST_ALLOC_PARENT (job->instance_name, job);
+		TEST_EQ_STR (job->instance_name, "$FOO");
+
+		nih_free (job);
+	}
+
+
+	/* Check that an instance stanza without an argument after one
+	 * with resets the name to NULL.
+	 */
+	TEST_FEATURE ("with multiple stanzas to reset name");
+	strcpy (buf, "instance $FOO\n");
+	strcpy (buf, "instance\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_TRUE (job->instance);
+		TEST_EQ_P (job->instance_name, NULL);
+
+		nih_free (job);
+	}
+
+
+	/* Check that extra arguments to the instance stanza results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "instance $FOO foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4745,7 +4819,7 @@ test_stanza_instance (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (pos, 9);
+	TEST_EQ (pos, 14);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }

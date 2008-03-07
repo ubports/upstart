@@ -230,7 +230,7 @@ test_poll (void)
 
 	nih_hash_add (jobs, &config->entry);
 
-	job = job_new (config);
+	job = job_new (config, NULL);
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 	job->blocked = event;

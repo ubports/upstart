@@ -225,6 +225,8 @@ job_config_new (const void *parent,
 	config->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 
 	config->instance = FALSE;
+	config->instance_name = NULL;
+
 	config->service = FALSE;
 	config->respawn = FALSE;
 	config->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
@@ -420,16 +422,22 @@ job_next_id (void)
 
 /**
  * job_new:
- * @config: configuration for new job.
+ * @config: configuration for new job,
+ * @name: name for new instance.
  *
  * Allocates and returns a new Job structure for the @config given,
  * appending it to the list of instances for @config.  The returned job
  * will also be an nih_alloc() child of @config.
  *
+ * @name is optional and may be NULL, but if given it will be reparented
+ * to be an nih_alloc() child of the returned job and should not be modified
+ * after the call.
+ *
  * Returns: newly allocated job structure or NULL if insufficient memory.
  **/
 Job *
-job_new (JobConfig  *config)
+job_new (JobConfig *config,
+	 char      *name)
 {
 	Job *job;
 	int  i;
@@ -446,6 +454,7 @@ job_new (JobConfig  *config)
 
 	job->id = job_next_id ();
 	job->config = config;
+	job->name = name;
 
 	job->stop_on = NULL;
 	if (config->stop_on) {
@@ -485,6 +494,9 @@ job_new (JobConfig  *config)
 
 	nih_list_add (&config->instances, &job->entry);
 	job_instances++;
+
+	if (job->name)
+		nih_alloc_reparent (job->name, job);
 
 	return job;
 
@@ -564,23 +576,55 @@ job_find_by_pid (pid_t        pid,
 
 /**
  * job_instance:
- * @config: job configuration to spawn from.
+ * @config: job configuration to look in,
+ * @name: name of instance to find.
  *
- * This function is used to obtain the relevant job instance from @config;
- * for multi-instance jobs no instance is relevant, so this will always
- * return NULL.
+ * This function is used to find a particular instance of @config.
+ *
+ * For single-instance jobs, this will always be that instance if active
+ * or NULL if not, so a new one will be created.
+ *
+ * For unlimited-instance jobs, this will always return NULL since a new
+ * instance should always be created.
+ *
+ * For limited-instance jobs, @name must not be NULL and will be looked up
+ * in the list of active instances.
  *
  * Returns: existing instance or NULL if a new one should be created.
  **/
 Job *
-job_instance (JobConfig *config)
+job_instance (JobConfig  *config,
+	      const char *name)
 {
 	nih_assert (config != NULL);
 
-	if (config->instance || NIH_LIST_EMPTY (&config->instances))
+	/* There aren't any instances in the list, always return NULL */
+	if (NIH_LIST_EMPTY (&config->instances))
 		return NULL;
 
-	return (Job *)config->instances.next;
+	/* Not an instance job, always return the first instance */
+	if (! config->instance)
+		return (Job *)config->instances.next;
+
+	/* Unlimited instance job, always return NULL since they'll want to
+	 * spawn a new one.
+	 */
+	if (! config->instance_name)
+		return NULL;
+
+	nih_assert (name != NULL);
+
+	/* Lookup an instance with the name given */
+	NIH_LIST_FOREACH (&config->instances, iter) {
+		Job *job = (Job *)iter;
+
+		nih_assert (job->name != NULL);
+
+		if (! strcmp (job->name, name))
+			return job;
+	}
+
+	return NULL;
 }
 
 
@@ -2152,7 +2196,7 @@ job_handle_event (Event *event)
 		if (config->start_on
 		    && event_operator_handle (config->start_on, event, NULL)
 		    && config->start_on->value) {
-			char    **env;
+			char    **env, *name = NULL;
 			size_t    len;
 			NihList  *list;
 			Job      *job;
@@ -2168,10 +2212,31 @@ job_handle_event (Event *event)
 						&env, NULL, &len,
 						"UPSTART_EVENTS", list);
 
+			/* Expand the instance name against the environment */
+			if (config->instance_name) {
+				NIH_SHOULD (name = environ_expand (
+						    NULL, config->instance_name,
+						    env));
+				if (! name) {
+					NihError *err;
+
+					err = nih_error_get ();
+					nih_warn (_("Failed to obtain %s instance: %s"),
+						  config->name, err->message);
+					nih_free (err);
+
+					goto error;
+				}
+			}
+
 			/* Locate the current instance or create a new one */
-			job = job_instance (config);
-			if (! job)
-				NIH_MUST (job = job_new (config));
+			job = job_instance (config, name);
+			if (! job) {
+				NIH_MUST (job = job_new (config, name));
+			} else {
+				if (name)
+					nih_free (name);
+			}
 
 			/* Start the job with the environment we want */
 			if (job->goal != JOB_START) {
@@ -2188,6 +2253,7 @@ job_handle_event (Event *event)
 
 				job_change_goal (job, JOB_START);
 			} else {
+			error:
 				NIH_LIST_FOREACH (list, iter) {
 					NihListEntry *entry = (NihListEntry *)iter;
 					Event        *event = (Event *)entry->data;

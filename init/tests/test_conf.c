@@ -474,7 +474,7 @@ test_source_reload_job_dir (void)
 	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
-	instance = job_new (job);
+	instance = job_new (job, NULL);
 	instance->goal = JOB_START;
 	instance->state = JOB_RUNNING;
 
@@ -646,7 +646,7 @@ test_source_reload_job_dir (void)
 	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
-	instance = job_new (job);
+	instance = job_new (job, NULL);
 	instance->goal = JOB_START;
 	instance->state = JOB_RUNNING;
 
@@ -3200,7 +3200,7 @@ test_file_destroy (void)
 
 	TEST_FREE_TAG (job);
 
-	instance = job_new (job);
+	instance = job_new (job, NULL);
 	instance->goal = JOB_START;
 	instance->state = JOB_RUNNING;
 

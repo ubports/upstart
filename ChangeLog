@@ -1,5 +1,26 @@
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobConfig): Add instance_name member.
+	(Job): Add name member.
+	* init/job.c (job_config_new): Initialise instance name to NULL.
+	(job_new): Accept the name as an argument, reparenting and stealing
+	(job_handle_event): Expand the instance name and pass to job_new
+	(job_instance): Accept a name and look that up in the list of current
+	instances returning the instance if found.
+	* init/tests/test_job.c: Add extra argument to all job_new calls
+	(test_config_new): Make sure instance name is initialised to NULL.
+	(test_handle_event): Make sure the job name is set from the instance,
+	and make sure an existing instance is reused if we can.
+	(test_instance): Make sure that the existing instance is returned.
+	* init/parse_job.c (stanza_instance): Check for an optional argument
+	and store it in the instance_name member if it exists, otherwise
+	free and reset the instance_name member.
+	* init/tests/test_parse_job.c (test_stanza_instance): Check the new
+	argument is handled properly and stored in the right place.
+	* init/tests/test_conf.c (test_source_reload_job_dir)
+	(test_file_destroy): Add extra NULL to job_new
+	* init/tests/test_event.c (test_poll): Add extra NULL to job_new
+
 	* init/event.c (event_operator_match): Accept an environment array
 	and expand the operator value against it before attempting to match.
 	(event_operator_handle): Also accept the environment array and pass
