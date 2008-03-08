@@ -220,7 +220,7 @@ job_config_new (const void *parent,
 	for (i = 0; i < PROCESS_LAST; i++)
 		config->process[i] = NULL;
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 	config->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 
@@ -776,7 +776,7 @@ job_change_state (Job      *job,
 					job_failed (job, PROCESS_MAIN, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
-				} else if (job->config->wait_for == JOB_WAIT_NONE)
+				} else if (job->config->expect == JOB_EXPECT_NONE)
 					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
@@ -1327,13 +1327,13 @@ job_run_process (Job         *job,
 	NIH_MUST (environ_set (&env, NULL, &envc,
 			       "UPSTART_JOB_ID=%u", job->id));
 
-	/* If we're about to spawn the main job and we need to wait for it
-	 * to become a daemon or fork before we can move out of spawned, we
-	 * need to set a trace on it.
+	/* If we're about to spawn the main job and we expect it to become
+	 * a daemon or fork before we can move out of spawned, we need to
+	 * set a trace on it.
 	 */
 	if ((process == PROCESS_MAIN)
-	    && ((job->config->wait_for == JOB_WAIT_DAEMON)
-		|| (job->config->wait_for == JOB_WAIT_FORK)))
+	    && ((job->config->expect == JOB_EXPECT_DAEMON)
+		|| (job->config->expect == JOB_EXPECT_FORK)))
 		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
@@ -1868,7 +1868,7 @@ job_process_stopped (Job         *job,
 	/* Send SIGCONT back and change the state to the next one, if this
 	 * job behaves that way.
 	 */
-	if (job->config->wait_for == JOB_WAIT_STOP) {
+	if (job->config->expect == JOB_EXPECT_STOP) {
 		kill (job->pid[process], SIGCONT);
 		job_change_state (job, job_next_state (job));
 	}
@@ -1953,12 +1953,12 @@ job_process_trace_new_child (Job         *job,
 	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
 		return;
 
-	/* We need to fork at least twice unless we're only waiting for
-	 * a single fork when we only need to fork once; once that limit
+	/* We need to fork at least twice unless we're expecting a
+	 * single fork when we only need to fork once; once that limit
 	 * has been reached, end the trace.
 	 */
 	job->trace_forks++;
-	if ((job->trace_forks > 1) || (job->config->wait_for == JOB_WAIT_FORK))
+	if ((job->trace_forks > 1) || (job->config->expect == JOB_EXPECT_FORK))
 	{
 		if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
 			nih_warn (_("Failed to detach traced "

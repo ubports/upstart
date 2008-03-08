@@ -1,5 +1,17 @@
 2008-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/enum.h (JobWaitType): Rename to JobExpect
+	* init/job.h (JobConfig): Rename wait_for to expect
+	* init/job.c (job_config_new, job_change_state, job_run_process)
+	(job_process_stopped, job_process_trace_new_child): Rename wait_for
+	to expect in all occurances.
+	* init/tests/test_job.c: Likewise rename all occurances.
+	* init/parse_job.c (stanza_wait): Rename to stanza_expect and drop
+	the intermediate argument.
+	* init/tests/test_parse_job.c (test_stanza_wait): Rename to
+	test_stanza_expect and adjust tests to match new syntax.
+	* init/tests/test_process.c (test_spawn): Remove set of wait_for.
+
 	* doc/states.dot: Remove the state transition from starting to
 	waiting ("emit_stopped" in the graph); we don't have a "respawning
 	too fast" exit here anymore, so always go to stopping.

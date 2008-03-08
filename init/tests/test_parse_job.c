@@ -3857,20 +3857,20 @@ test_stanza_emits (void)
 }
 
 void
-test_stanza_wait (void)
+test_stanza_expect (void)
 {
-	JobConfig*job;
-	NihError *err;
-	size_t    pos, lineno;
-	char      buf[1024];
+	JobConfig *job;
+	NihError  *err;
+	size_t     pos, lineno;
+	char       buf[1024];
 
-	TEST_FUNCTION ("stanza_wait");
+	TEST_FUNCTION ("stanza_expect");
 
-	/* Check that wait for stop sets the job's wait for member to
-	 * JOB_WAIT_STOP.
+	/* Check that expect stop sets the job's expect member to
+	 * JOB_EXPECT_STOP.
 	 */
 	TEST_FEATURE ("with stop argument");
-	strcpy (buf, "wait for stop\n");
+	strcpy (buf, "expect stop\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3893,17 +3893,17 @@ test_stanza_wait (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->wait_for, JOB_WAIT_STOP);
+		TEST_EQ (job->expect, JOB_EXPECT_STOP);
 
 		nih_free (job);
 	}
 
 
-	/* Check that wait for daemon sets the job's wait for member to
-	 * JOB_WAIT_DAEMON.
+	/* Check that expect daemon sets the job's expect member to
+	 * JOB_EXPECT_DAEMON.
 	 */
 	TEST_FEATURE ("with daemon argument");
-	strcpy (buf, "wait for daemon\n");
+	strcpy (buf, "expect daemon\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3926,17 +3926,17 @@ test_stanza_wait (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->wait_for, JOB_WAIT_DAEMON);
+		TEST_EQ (job->expect, JOB_EXPECT_DAEMON);
 
 		nih_free (job);
 	}
 
 
-	/* Check that wait for fork sets the job's wait for member to
-	 * JOB_WAIT_FORK.
+	/* Check that expect fork sets the job's expect member to
+	 * JOB_EXPECT_FORK.
 	 */
 	TEST_FEATURE ("with fork argument");
-	strcpy (buf, "wait for fork\n");
+	strcpy (buf, "expect fork\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3959,17 +3959,17 @@ test_stanza_wait (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->wait_for, JOB_WAIT_FORK);
+		TEST_EQ (job->expect, JOB_EXPECT_FORK);
 
 		nih_free (job);
 	}
 
 
-	/* Check that wait for none sets the job's wait for member to
-	 * JOB_WAIT_NONE.
+	/* Check that expect none sets the job's expect member to
+	 * JOB_EXPECT_NONE.
 	 */
 	TEST_FEATURE ("with none argument");
-	strcpy (buf, "wait for none\n");
+	strcpy (buf, "expect none\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -3992,17 +3992,17 @@ test_stanza_wait (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->wait_for, JOB_WAIT_NONE);
+		TEST_EQ (job->expect, JOB_EXPECT_NONE);
 
 		nih_free (job);
 	}
 
 
-	/* Check that the last of multiple wait for stanzas is used.
+	/* Check that the last of multiple expect stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple for stanzas");
-	strcpy (buf, "wait for stop\n");
-	strcat (buf, "wait for none\n");
+	strcpy (buf, "expect stop\n");
+	strcat (buf, "expect none\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4025,17 +4025,17 @@ test_stanza_wait (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_EQ (job->wait_for, JOB_WAIT_NONE);
+		TEST_EQ (job->expect, JOB_EXPECT_NONE);
 
 		nih_free (job);
 	}
 
 
-	/* Check that a wait for stanza without an argument results in a
+	/* Check that a expect stanza without an argument results in a
 	 * syntax error.
 	 */
 	TEST_FEATURE ("with missing argument");
-	strcpy (buf, "wait for\n");
+	strcpy (buf, "expect\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4045,16 +4045,16 @@ test_stanza_wait (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (pos, 8);
+	TEST_EQ (pos, 6);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
-	/* Check that a wait for stanza with an unknown third argument results
+	/* Check that a expect stanza with an unknown argument results
 	 * in a syntax error.
 	 */
-	TEST_FEATURE ("with unknown third argument");
-	strcpy (buf, "wait for foo\n");
+	TEST_FEATURE ("with unknown argument");
+	strcpy (buf, "expect foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4064,16 +4064,16 @@ test_stanza_wait (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (pos, 9);
+	TEST_EQ (pos, 7);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
 
-	/* Check that a wait for stanza with an extra fourth argument
+	/* Check that a expect stanza with an extra argument
 	 * results in a syntax error.
 	 */
 	TEST_FEATURE ("with extra argument");
-	strcpy (buf, "wait for daemon foo\n");
+	strcpy (buf, "expect daemon foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4083,45 +4083,7 @@ test_stanza_wait (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (pos, 16);
-	TEST_EQ (lineno, 1);
-	nih_free (err);
-
-
-	/* Check that a wait stanza with something other than "for"
-	 * results in a syntax error.
-	 */
-	TEST_FEATURE ("with unknown argument");
-	strcpy (buf, "wait wibble\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
-	TEST_EQ (pos, 5);
-	TEST_EQ (lineno, 1);
-	nih_free (err);
-
-
-	/* Check that a wait stanza without an argument results in a
-	 * syntax error.
-	 */
-	TEST_FEATURE ("with missing for");
-	strcpy (buf, "wait\n");
-
-	pos = 0;
-	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
-
-	TEST_EQ_P (job, NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
-	TEST_EQ (pos, 4);
+	TEST_EQ (pos, 14);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -7096,7 +7058,7 @@ main (int   argc,
 	test_stanza_version ();
 	test_stanza_author ();
 	test_stanza_emits ();
-	test_stanza_wait ();
+	test_stanza_expect ();
 	test_stanza_respawn ();
 	test_stanza_service ();
 	test_stanza_instance ();

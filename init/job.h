@@ -107,7 +107,7 @@ typedef struct job_process {
  * @stop_on: event operator expression that can stop this job.
  * @emits: array of additional events that this job can emit,
  * @process: processes to be run,
- * @wait_for: what to wait for before entering the next state after spawned,
+ * @expect: what to expect before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @instance: job may have multiple instances,
  * @instance_name: pattern to identify instances,
@@ -147,7 +147,7 @@ struct job_config {
 
 	JobProcess    **process;
 
-	JobWaitType     wait_for;
+	JobExpect       expect;
 
 	time_t          kill_timeout;
 

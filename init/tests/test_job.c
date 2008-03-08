@@ -124,7 +124,7 @@ test_config_new (void)
 		for (i = 0; i < PROCESS_LAST; i++)
 			TEST_EQ_P (config->process[i], NULL);
 
-		TEST_EQ (config->wait_for, JOB_WAIT_NONE);
+		TEST_EQ (config->expect, JOB_EXPECT_NONE);
 
 		TEST_EQ (config->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
 
@@ -1574,7 +1574,7 @@ test_change_state (void)
 	 * waiting for happens.
 	 */
 	TEST_FEATURE ("pre-start to spawned for waiting job");
-	config->wait_for = JOB_WAIT_STOP;
+	config->expect = JOB_EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -1636,7 +1636,7 @@ test_change_state (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that a job with a post-start process can move from spawned
@@ -3936,7 +3936,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
-			config->wait_for = JOB_WAIT_DAEMON;
+			config->expect = JOB_EXPECT_DAEMON;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
 
@@ -3983,7 +3983,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
-			config->wait_for = JOB_WAIT_FORK;
+			config->expect = JOB_EXPECT_FORK;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
 
@@ -5879,7 +5879,7 @@ test_child_handler (void)
 	 * the main process of the job.
 	 */
 	TEST_FEATURE ("with stopped non-main process");
-	config->wait_for = JOB_WAIT_STOP;
+	config->expect = JOB_EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -5948,14 +5948,14 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that we ignore the main process stopping on a signal if the
 	 * job isn't in the spawned state.
 	 */
 	TEST_FEATURE ("with stopped main process outside of spawned");
-	config->wait_for = JOB_WAIT_STOP;
+	config->expect = JOB_EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6024,7 +6024,7 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that we ignore the main process stopping on a signal in
@@ -6101,7 +6101,7 @@ test_child_handler (void)
 	 * signal.
 	 */
 	TEST_FEATURE ("with stopped main process but wrong signal");
-	config->wait_for = JOB_WAIT_STOP;
+	config->expect = JOB_EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6168,7 +6168,7 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that if we're waiting in spawned for the main process to
@@ -6176,7 +6176,7 @@ test_child_handler (void)
 	 * changed to running.
 	 */
 	TEST_FEATURE ("with stopped main process waiting in spawned");
-	config->wait_for = JOB_WAIT_STOP;
+	config->expect = JOB_EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6241,14 +6241,14 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that a traced process has a signal delivered to it
 	 * unchanged.
 	 */
 	TEST_FEATURE ("with signal delivered to traced process");
-	config->wait_for = JOB_WAIT_DAEMON;
+	config->expect = JOB_EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6290,14 +6290,14 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that a new traced process which receives SIGTRAP doesn't
 	 * have it delivered, and instead has its options set.
 	 */
 	TEST_FEATURE ("with trapped new traced process");
-	config->wait_for = JOB_WAIT_DAEMON;
+	config->expect = JOB_EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6338,7 +6338,7 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that a new traced process child which receives SIGSTOP
@@ -6346,7 +6346,7 @@ test_child_handler (void)
 	 * incremented and its options set.
 	 */
 	TEST_FEATURE ("with trapped new traced process");
-	config->wait_for = JOB_WAIT_DAEMON;
+	config->expect = JOB_EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6387,14 +6387,14 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that the second child of a daemon process is detached
 	 * and ends the trace, moving the job into the running state.
 	 */
 	TEST_FEATURE ("with second child of daemon process");
-	config->wait_for = JOB_WAIT_DAEMON;
+	config->expect = JOB_EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6438,14 +6438,14 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that the first child of a forking process is detached
 	 * and ends the trace, moving the job into the running state.
 	 */
 	TEST_FEATURE ("with first child of forking process");
-	config->wait_for = JOB_WAIT_FORK;
+	config->expect = JOB_EXPECT_FORK;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6489,7 +6489,7 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that when a process forks, the trace state is set to expect
@@ -6497,7 +6497,7 @@ test_child_handler (void)
 	 * parent is detached.
 	 */
 	TEST_FEATURE ("with forked process");
-	config->wait_for = JOB_WAIT_DAEMON;
+	config->expect = JOB_EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6557,7 +6557,7 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 
 
 	/* Check that should the process call exec() it ends the tracing
@@ -6565,7 +6565,7 @@ test_child_handler (void)
 	 * the running state.
 	 */
 	TEST_FEATURE ("with exec call by process");
-	config->wait_for = JOB_WAIT_DAEMON;
+	config->expect = JOB_EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -6613,7 +6613,7 @@ test_child_handler (void)
 		nih_free (job);
 	}
 
-	config->wait_for = JOB_WAIT_NONE;
+	config->expect = JOB_EXPECT_NONE;
 #if HAVE_VALGRIND_VALGRIND_H
 	}
 #endif

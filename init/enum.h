@@ -61,17 +61,17 @@ typedef enum job_state {
 } JobState;
 
 /**
- * JobWaitType:
+ * JobExpect:
  *
  * This is used to determine whether to leave the job in the spawned state
  * until a particular event occurs.
  **/
-typedef enum job_wait_type {
-	JOB_WAIT_NONE,
-	JOB_WAIT_STOP,
-	JOB_WAIT_DAEMON,
-	JOB_WAIT_FORK
-} JobWaitType;
+typedef enum job_expect {
+	JOB_EXPECT_NONE,
+	JOB_EXPECT_STOP,
+	JOB_EXPECT_DAEMON,
+	JOB_EXPECT_FORK
+} JobExpect;
 
 /**
  * ProcessType:

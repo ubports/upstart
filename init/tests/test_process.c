@@ -265,7 +265,6 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	config = job_config_new (NULL, "test");
-	config->wait_for = JOB_WAIT_DAEMON;
 
 	pid = process_spawn (config, args, NULL, TRUE);
 	TEST_GT (pid, 0);
