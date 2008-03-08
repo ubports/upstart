@@ -1,5 +1,9 @@
 2008-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* HACKING: Terminology changes: Bazaar-NG is now just Bazaar;
+        Malone is now just Launchpad's bug tracking system.  Update bugs
+	URL to match modern form.
+
 	* init/enum.h (JobWaitType): Rename to JobExpect
 	* init/job.h (JobConfig): Rename wait_for to expect
 	* init/job.c (job_config_new, job_change_state, job_run_process)
