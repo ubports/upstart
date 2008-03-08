@@ -38,7 +38,6 @@ digraph {
 
 	waiting -> starting [color=green];
 	starting -> pre_start [color=green];
-	starting -> emit_stopped [color=red,label="respawnining too fast"];
 	starting -> stopping [color=red];
 	pre_start -> spawned [color=green];
 	pre_start -> stopping [color=red];

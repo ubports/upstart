@@ -1,5 +1,10 @@
 2008-03-08  Scott James Remnant  <scott@netsplit.com>
 
+	* doc/states.dot: Remove the state transition from starting to
+	waiting ("emit_stopped" in the graph); we don't have a "respawning
+	too fast" exit here anymore, so always go to stopping.
+	* doc/states.png: Regenerate.
+
 	* TODO: Document the problems with overflowing ids and instance
 	counter before I forget about them.
 
