@@ -1,3 +1,8 @@
+2008-03-08  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Document the problems with overflowing ids and instance
+	counter before I forget about them.
+
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update.

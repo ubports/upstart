@@ -44,6 +44,11 @@ Medium Priority:
    to those for manually starting a job; find some way to reduce these to
    a common function?
 
+ * We shouldn't allow events or jobs to have duplicate ids, and shouldn't
+   allow the job_instances variable to overflow -- since these could be
+   security issues later on.  If there's no room, you shouldn't be able to
+   create a new event or job.
+
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
    - should be able to read current runlevel (as runlevel does right now)
