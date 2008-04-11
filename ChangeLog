@@ -1,5 +1,25 @@
 2008-04-11  Scott James Remnant  <scott@netsplit.com>
 
+	Change the default job type from task to service, which will
+	finally match people's expectations.
+
+	* init/job.h (JobConfig): Replace service member with task
+	* init/job.c (job_config_new): Initialise task to FALSE
+	(job_change_state): Unblock if not a task instead of if a service
+	* init/tests/test_job.c (test_config_new): Make sure task is FALSE
+	(test_change_state): Check service by default, task with flag;
+	this also means we expect blockers to be cleared if we end up in
+	running for the other checks
+	(test_child_handler): Expect blockers to be cleared if we end up
+	in running now that service is the default.
+	* init/tests/test_event.c (test_poll): Test with a task since
+	we want to remain blocked for longer.
+	* init/parse_job.c (stanza_respawn): Don't set service to TRUE
+	(stanza_service): Rename to stanza_task and set task flag instead
+	* init/tests/test_parse_job.c (test_stanza_respawn): Remove checks
+	for setting of service flag
+	(test_stanza_service): Rename to test_stanza_task and test task
+
 	* init/job.c (job_init): Create hash using nih_hash_string_new()
 	* init/conf.c (conf_source_new): Likewise.
 

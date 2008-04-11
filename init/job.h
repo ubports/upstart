@@ -109,9 +109,9 @@ typedef struct job_process {
  * @process: processes to be run,
  * @expect: what to expect before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
+ * @task: job does not reach its goal until stopped again,
  * @instance: job may have multiple instances,
  * @instance_name: pattern to identify instances,
- * @service: job has reached its goal when running,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -130,7 +130,7 @@ typedef struct job_process {
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
  * fundamentally identical except for when they "finish", they are both
- * collated together and only differ in the value of @service.
+ * collated together and only differ in the value of @task.
  **/
 typedef struct job_config JobConfig;
 struct job_config {
@@ -151,10 +151,11 @@ struct job_config {
 
 	time_t          kill_timeout;
 
+	int             task;
+
 	int             instance;
 	char           *instance_name;
 
-	int             service;
 	int             respawn;
 	int             respawn_limit;
 	time_t          respawn_interval;
@@ -194,7 +195,7 @@ struct job_config {
  * @failed_process: the last process that failed,
  * @exit_status: exit status of the last failed process,
  * @kill_timer: timer to kill process,
- * @respawn_time: time service was first respawned,
+ * @respawn_time: time job was first respawned,
  * @respawn_count: number of respawns since @respawn_time,
  * @trace_forks: number of forks traced,
  * @trace_state: state of trace.
@@ -203,7 +204,7 @@ struct job_config {
  * by the init daemon; as tasks and services are fundamentally identical,
  * except for the handling when the main process terminates, they are both
  * collated together in this structure and only differ in the value of the
- * @service member.
+ * @task member.
  **/
 typedef struct job {
 	NihList         entry;

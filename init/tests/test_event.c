@@ -169,6 +169,7 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with pending event");
 	config = job_config_new (NULL, "test");
+	config->task = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
 

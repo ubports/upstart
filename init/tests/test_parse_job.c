@@ -4098,7 +4098,7 @@ test_stanza_respawn (void)
 
 	TEST_FUNCTION ("stanza_respawn");
 
-	/* Check that a respawn stanza sets the job's respawn and service */
+	/* Check that a respawn stanza sets the job's respawn flag */
 	TEST_FEATURE ("with no argument");
 	strcpy (buf, "respawn\n");
 
@@ -4124,7 +4124,6 @@ test_stanza_respawn (void)
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->respawn);
-		TEST_TRUE (job->service);
 
 		nih_free (job);
 	}
@@ -4159,7 +4158,6 @@ test_stanza_respawn (void)
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
 		TEST_TRUE (job->respawn);
-		TEST_TRUE (job->service);
 
 		nih_free (job);
 	}
@@ -4457,20 +4455,20 @@ test_stanza_respawn (void)
 }
 
 void
-test_stanza_service (void)
+test_stanza_task (void)
 {
 	JobConfig*job;
 	NihError *err;
 	size_t    pos, lineno;
 	char      buf[1024];
 
-	TEST_FUNCTION ("stanza_service");
+	TEST_FUNCTION ("stanza_task");
 
-	/* Check that a service stanza without any arguments sets the job's
-	 * service flag.
+	/* Check that a task stanza without any arguments sets the job's
+	 * task flag.
 	 */
 	TEST_FEATURE ("with no arguments");
-	strcpy (buf, "service\n");
+	strcpy (buf, "task\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4493,16 +4491,16 @@ test_stanza_service (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_TRUE (job->service);
+		TEST_TRUE (job->task);
 
 		nih_free (job);
 	}
 
 
-	/* Check that multiple service stanzas are permitted. */
+	/* Check that multiple task stanzas are permitted. */
 	TEST_FEATURE ("with multiple stanzas");
-	strcpy (buf, "service\n");
-	strcat (buf, "service\n");
+	strcpy (buf, "task\n");
+	strcat (buf, "task\n");
 
 	TEST_ALLOC_FAIL {
 		pos = 0;
@@ -4525,85 +4523,17 @@ test_stanza_service (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
 
-		TEST_TRUE (job->service);
+		TEST_TRUE (job->task);
 
 		nih_free (job);
 	}
 
 
-	/* Check that we can specify both of the respawn and service stanzas.
-	 */
-	TEST_FEATURE ("with respawn followed by service");
-	strcpy (buf, "respawn\n");
-	strcat (buf, "service\n");
-
-	TEST_ALLOC_FAIL {
-		pos = 0;
-		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
-				 &pos, &lineno);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (job, NULL);
-
-			err = nih_error_get ();
-			TEST_EQ (err->number, ENOMEM);
-			nih_free (err);
-
-			continue;
-		}
-
-		TEST_EQ (pos, strlen (buf));
-		TEST_EQ (lineno, 3);
-
-		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
-
-		TEST_TRUE (job->respawn);
-		TEST_TRUE (job->service);
-
-		nih_free (job);
-	}
-
-
-	/* Check that we can specify both of the service and respawn stanzas.
-	 */
-	TEST_FEATURE ("with service followed by respawn");
-	strcpy (buf, "service\n");
-	strcat (buf, "respawn\n");
-
-	TEST_ALLOC_FAIL {
-		pos = 0;
-		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
-				 &pos, &lineno);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (job, NULL);
-
-			err = nih_error_get ();
-			TEST_EQ (err->number, ENOMEM);
-			nih_free (err);
-
-			continue;
-		}
-
-		TEST_EQ (pos, strlen (buf));
-		TEST_EQ (lineno, 3);
-
-		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
-
-		TEST_TRUE (job->respawn);
-		TEST_TRUE (job->service);
-
-		nih_free (job);
-	}
-
-
-	/* Check that a service stanza with arguments results in a syntax
+	/* Check that a task stanza with arguments results in a syntax
 	 * error.
 	 */
 	TEST_FEATURE ("with arguments");
-	strcpy (buf, "service foo\n");
+	strcpy (buf, "task foo\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4613,7 +4543,7 @@ test_stanza_service (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
-	TEST_EQ (pos, 8);
+	TEST_EQ (pos, 5);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -7060,7 +6990,7 @@ main (int   argc,
 	test_stanza_emits ();
 	test_stanza_expect ();
 	test_stanza_respawn ();
-	test_stanza_service ();
+	test_stanza_task ();
 	test_stanza_instance ();
 	test_stanza_kill ();
 	test_stanza_normal ();

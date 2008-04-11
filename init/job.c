@@ -224,10 +224,11 @@ job_config_new (const void *parent,
 
 	config->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 
+	config->task = FALSE;
+
 	config->instance = FALSE;
 	config->instance_name = NULL;
 
-	config->service = FALSE;
 	config->respawn = FALSE;
 	config->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
 	config->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
@@ -812,10 +813,10 @@ job_change_state (Job      *job,
 			} else {
 				job_emit_event (job);
 
-				/* If we're a service, our goal is to be
+				/* If we're not a task, our goal is to be
 				 * running.
 				 */
-				if (job->config->service)
+				if (! job->config->task)
 					job_unblock (job, FALSE);
 			}
 

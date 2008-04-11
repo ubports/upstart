@@ -128,10 +128,11 @@ test_config_new (void)
 
 		TEST_EQ (config->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
 
+		TEST_EQ (config->task, FALSE);
+
 		TEST_EQ (config->instance, FALSE);
 		TEST_EQ_P (config->instance_name, NULL);
 
-		TEST_EQ (config->service, FALSE);
 		TEST_EQ (config->respawn, FALSE);
 		TEST_EQ (config->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
 		TEST_EQ (config->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
@@ -1240,15 +1241,13 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, cause);
-		event_unblock (cause);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1395,15 +1394,13 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, cause);
-		event_unblock (cause);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1460,15 +1457,13 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, cause);
-		event_unblock (cause);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1752,15 +1747,13 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, cause);
-		event_unblock (cause);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1823,15 +1816,13 @@ test_change_state (void)
 		TEST_EQ (job->state, JOB_RUNNING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, cause);
-		event_unblock (cause);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		event = (Event *)events->next;
 		TEST_ALLOC_SIZE (event, sizeof (Event));
@@ -1858,76 +1849,11 @@ test_change_state (void)
 	config->process[PROCESS_POST_START] = NULL;
 
 
-	/* Check that a task can move from post-start to running, which will
-	 * emit the started event but leave events blocked and referenced.
-	 */
-	TEST_FEATURE ("post-start to running");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-
-			job->blocking = nih_list_new (job);
-			list = job->blocking;
-
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = cause;
-			event_block (cause);
-			nih_list_add (job->blocking, &entry->entry);
-		}
-
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->pid[PROCESS_MAIN] = 1;
-
-		job->blocked = NULL;
-		cause->failed = FALSE;
-
-		TEST_FREE_TAG (list);
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_change_state (job, JOB_RUNNING);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->pid[PROCESS_MAIN], 1);
-
-		TEST_EQ (cause->blockers, 1);
-		TEST_EQ (cause->failed, FALSE);
-
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, cause);
-		event_unblock (cause);
-
-		event = (Event *)events->next;
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "started");
-		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_P (event->env[1], NULL);
-		nih_free (event);
-
-		TEST_LIST_EMPTY (events);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		nih_free (job);
-	}
-
-
 	/* Check that a service can move from post-start to running, which
 	 * will emit the started event and unblock the events that caused
 	 * us to start since the job has reached the desired state.
 	 */
 	TEST_FEATURE ("post-start to running for service");
-	config->service = TRUE;
-
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
@@ -1984,7 +1910,72 @@ test_change_state (void)
 		nih_free (job);
 	}
 
-	config->service = FALSE;
+
+	/* Check that a task can move from post-start to running, which will
+	 * emit the started event but leave events blocked and referenced.
+	 */
+	TEST_FEATURE ("post-start to running for task");
+	config->task = TRUE;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_P (event->env[1], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->task = FALSE;
 
 
 	/* Check that a job with a pre-stop process can move from running
@@ -4436,15 +4427,13 @@ test_child_handler (void)
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, event);
-		event_unblock (event);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -5343,15 +5332,13 @@ test_child_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, event);
-		event_unblock (event);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -6224,15 +6211,13 @@ test_child_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ_P (job->blocked, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
-		TEST_EQ_P (entry->data, event);
-		event_unblock (event);
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);

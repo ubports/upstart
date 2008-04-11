@@ -146,7 +146,7 @@ static int stanza_respawn     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
-static int stanza_service     (JobConfig *job, NihConfigStanza *stanza,
+static int stanza_task        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
@@ -213,7 +213,7 @@ static NihConfigStanza stanzas[] = {
 	{ "emits",       (NihConfigHandler)stanza_emits       },
 	{ "expect",      (NihConfigHandler)stanza_expect      },
 	{ "respawn",     (NihConfigHandler)stanza_respawn     },
-	{ "service",     (NihConfigHandler)stanza_service     },
+	{ "task",        (NihConfigHandler)stanza_task        },
 	{ "instance",    (NihConfigHandler)stanza_instance    },
 	{ "kill",        (NihConfigHandler)stanza_kill        },
 	{ "normal",      (NihConfigHandler)stanza_normal      },
@@ -1537,8 +1537,8 @@ finish:
  * @lineno: line number.
  *
  * Parse a daemon stanza from @file.  This either has no arguments, in
- * which case it sets the respawn and service flags for the job, or it has
- * the "limit" argument and sets the respawn rate limit.
+ * which case it sets the respawn flag for the job, or it has the "limit"
+ * argument and sets the respawn rate limit.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1562,7 +1562,6 @@ stanza_respawn (JobConfig       *job,
 	/* Deal with the no-argument form first */
 	if (! nih_config_has_token (file, len, pos, lineno)) {
 		job->respawn = TRUE;
-		job->service = TRUE;
 
 		return nih_config_skip_comment (file, len, pos, lineno);
 	}
@@ -1645,7 +1644,7 @@ finish:
 }
 
 /**
- * stanza_service:
+ * stanza_task:
  * @job: job being parsed,
  * @stanza: stanza found,
  * @file: file or string to parse,
@@ -1653,25 +1652,25 @@ finish:
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse a service stanza from @file.  This sets the service flag for the
- * job, and takes no further arguments.
+ * Parse a task stanza from @file.  This sets the task flag for the job, and
+ * takes no further arguments.
  *
  * Returns: zero on success, negative value on error.
  **/
 static int
-stanza_service (JobConfig       *job,
-		NihConfigStanza *stanza,
-		const char      *file,
-		size_t           len,
-		size_t          *pos,
-		size_t          *lineno)
+stanza_task (JobConfig       *job,
+	     NihConfigStanza *stanza,
+	     const char      *file,
+	     size_t           len,
+	     size_t          *pos,
+	     size_t          *lineno)
 {
 	nih_assert (job != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	job->service = TRUE;
+	job->task = TRUE;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }
