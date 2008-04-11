@@ -1664,14 +1664,15 @@ job_process_terminated (Job         *job,
 		 * the exit signal or status is in that list, and only
 		 * if not, do we consider it failed.
 		 *
-		 * For jobs that can be respawned, a zero exit status is
+		 * For services that can be respawned, a zero exit status is
 		 * also a failure unless listed.
 		 *
 		 * If the job is already to be stopped, we never consider
 		 * it to be failed since we probably caused the termination.
 		 */
 		if ((job->goal != JOB_STOP)
-		    && (status || job->config->respawn))
+		    && (status || (job->config->respawn
+				   && (! job->config->task))))
 		{
 			failed = TRUE;
 			for (size_t i = 0; i < job->config->normalexit_len; i++) {

@@ -4583,14 +4583,14 @@ test_child_handler (void)
 	config->process[PROCESS_PRE_START] = NULL;
 
 
-	/* Check that we can catch the running task failing, and if the job
-	 * is to be respawned, go into the stopping state but don't change
-	 * the goal to stop.
+	/* Check that we can catch the running task of a service stopping
+	 * with an error, and if the job is to be respawned, go into
+	 * the stopping state but don't change the goal to stop.
 	 *
 	 * This should also emit a warning, but should not set the failed
 	 * state since we're dealing with it.
 	 */
-	TEST_FEATURE ("with respawn of running process");
+	TEST_FEATURE ("with respawn of running service process");
 	config->respawn = TRUE;
 	config->respawn_limit = 5;
 	config->respawn_interval = 10;
@@ -4623,7 +4623,7 @@ test_child_handler (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 1);
 		}
 		rewind (output);
 
@@ -4648,6 +4648,8 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
+		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+				       "terminated with status 1\n"));
 		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
 				       "respawning\n"));
 		TEST_FILE_END (output);
@@ -4657,6 +4659,86 @@ test_child_handler (void)
 	}
 
 	config->respawn = FALSE;
+
+
+	/* Check that we can catch the running task of a service stopping
+	 * with an error, and if the job is to be respawned, go into
+	 * the stopping state but don't change the goal to stop.
+	 *
+	 * This should also emit a warning, but should not set the failed
+	 * state since we're dealing with it.
+	 */
+	TEST_FEATURE ("with respawn of running task process");
+	config->task = TRUE;
+	config->respawn = TRUE;
+	config->respawn_limit = 5;
+	config->respawn_interval = 10;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (list);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 1);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (job->respawn_count, 1);
+		TEST_LE (job->respawn_time, time (NULL));
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_NE_P (job->blocked, NULL);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, event);
+		event_unblock (event);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+				       "terminated with status 1\n"));
+		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
+				       "respawning\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	config->respawn = FALSE;
+	config->task = FALSE;
 
 
 	/* Check that if the process has been respawned too many times
@@ -4802,6 +4884,140 @@ test_child_handler (void)
 	config->respawn = FALSE;
 	config->normalexit = NULL;
 	config->normalexit_len = 0;
+
+
+	/* Check that a zero exit is not considered normal for a service
+	 * by default.
+	 */
+	TEST_FEATURE ("with respawn of service process and zero exit code");
+	config->respawn = TRUE;
+	config->respawn_limit = 5;
+	config->respawn_interval = 10;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (list);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (job->respawn_count, 1);
+		TEST_LE (job->respawn_time, time (NULL));
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_NE_P (job->blocked, NULL);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, event);
+		event_unblock (event);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
+				       "respawning\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	config->respawn = FALSE;
+
+
+	/* Check that zero is considered a normal exit code for a task.
+	 */
+	TEST_FEATURE ("with respawn of task process and zero exit code");
+	config->task = TRUE;
+	config->respawn = TRUE;
+	config->respawn_limit = 5;
+	config->respawn_interval = 10;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->id = 1;
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event;
+			event_block (event);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (list);
+
+		job->blocked = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_child_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_NE_P (job->blocked, NULL);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, event);
+		event_unblock (event);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	config->respawn = FALSE;
+	config->task = FALSE;
 
 
 	/* Check that a running task that fails with an exit status not

@@ -1,5 +1,11 @@
 2008-04-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_child_handler): Add tests to make
+	sure that respawn works for both services and tasks; the only
+	difference we want for tasks is that zero is a normal exit code.
+	* init/job.c (job_process_terminated): Status need not be non-zero
+	if the job is not a task.
+
 	Change the default job type from task to service, which will
 	finally match people's expectations.
 
