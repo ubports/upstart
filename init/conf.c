@@ -146,8 +146,7 @@ conf_source_new (const void     *parent,
 	source->watch = NULL;
 
 	source->flag = FALSE;
-	source->files = nih_hash_new (source, 0,
-				      (NihKeyFunction)nih_hash_string_key);
+	source->files = nih_hash_string_new (source, 0);
 	if (! source->files) {
 		nih_free (source);
 		return NULL;

@@ -127,7 +127,7 @@ void
 job_init (void)
 {
 	if (! jobs)
-		NIH_MUST (jobs = nih_hash_new (NULL, 0, nih_hash_string_key));
+		NIH_MUST (jobs = nih_hash_string_new (NULL, 0));
 }
 
 
