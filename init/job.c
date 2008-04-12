@@ -98,14 +98,6 @@ static void        job_process_trace_exec      (Job *job, ProcessType process);
  **/
 NihHash *jobs = NULL;
 
-/**
- * job_instances:
- *
- * This counter tracks the number of active job instances; it is incremented
- * each time a new one is spawned, and decremented each time one is destroyed.
- **/
-unsigned int job_instances = 0;
-
 
 /**
  * job_init:
@@ -419,7 +411,6 @@ job_new (JobConfig *config,
 	job->trace_state = TRACE_NONE;
 
 	nih_list_add (&config->instances, &job->entry);
-	job_instances++;
 
 	if (job->name)
 		nih_alloc_reparent (job->name, job);
@@ -821,17 +812,6 @@ job_change_state (Job      *job,
 				nih_free (job->config);
 			} else {
 				nih_free (job);
-			}
-
-			/* Decrease the instances counter, if it hits zero,
-			 * we've stalled.
-			 */
-			job_instances--;
-			if (! job_instances) {
-				nih_info (_("System has stalled, "
-					    "generating %s event"),
-					  STALLED_EVENT);
-				event_new (NULL, STALLED_EVENT, NULL);
 			}
 
 			return;

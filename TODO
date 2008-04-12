@@ -44,9 +44,6 @@ Medium Priority:
    to those for manually starting a job; find some way to reduce these to
    a common function?
 
- * We shouldn't allow the job_instances variable to overflow, since this
-   will mean that you can prematurely cause the "stalled" event to occur.
-
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
    - should be able to read current runlevel (as runlevel does right now)

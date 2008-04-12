@@ -134,14 +134,6 @@ typedef struct event_operator {
 #endif
 
 /**
- * STALLED_EVENT:
- *
- * Name of the event that we generate if the system stalls (all jobs are
- * stopped/waiting)
- **/
-#define STALLED_EVENT "stalled"
-
-/**
  * CTRLALTDEL_EVENT:
  *
  * Name of the event that we generate when the Control-Alt-Delete key

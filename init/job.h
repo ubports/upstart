@@ -241,8 +241,7 @@ typedef struct job {
 
 NIH_BEGIN_EXTERN
 
-NihHash      *jobs;
-unsigned int  job_instances;
+NihHash *jobs;
 
 
 void        job_init                  (void);

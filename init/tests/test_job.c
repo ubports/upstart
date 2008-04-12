@@ -387,21 +387,16 @@ test_new (void)
 					      "baz", NULL);
 
 	TEST_ALLOC_FAIL {
-		job_instances = 0;
-
 		job = job_new (config, NULL);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (job, NULL);
-			TEST_EQ (job_instances, 0);
 			continue;
 		}
 
 		TEST_ALLOC_PARENT (job, config);
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->entry);
-
-		TEST_EQ (job_instances, 1);
 
 		TEST_EQ_P (job->config, config);
 		TEST_EQ_P (job->name, NULL);
@@ -2849,68 +2844,6 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
-		nih_free (event);
-
-		TEST_LIST_EMPTY (events);
-	}
-
-
-	/* Check that if the last active instance is deleted that the
-	 * stalled event is emitted.
-	 */
-	TEST_FEATURE ("post-stop to waiting for last instance");
-	TEST_ALLOC_FAIL {
-		job_instances = 0;
-
-		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-
-			job->blocking = nih_list_new (job);
-			list = job->blocking;
-
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = cause;
-			event_block (cause);
-			nih_list_add (job->blocking, &entry->entry);
-		}
-
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		job->blocked = NULL;
-		cause->failed = FALSE;
-
-		TEST_FREE_TAG (list);
-
-		job->failed = TRUE;
-		job->failed_process = PROCESS_MAIN;
-		job->exit_status = 1;
-
-		TEST_FREE_TAG (job);
-
-		job_change_state (job, JOB_WAITING);
-
-		TEST_FREE (job);
-
-		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->failed, FALSE);
-
-		TEST_FREE (list);
-
-		event = (Event *)events->next;
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "stopped");
-		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=main");
-		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
-		TEST_EQ_P (event->env[4], NULL);
-		nih_free (event);
-
-		event = (Event *)events->next;
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "stalled");
-		TEST_EQ_P (event->env, NULL);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);

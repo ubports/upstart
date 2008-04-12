@@ -1,5 +1,16 @@
 2008-04-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Don't generate the stalled event;
+	there's nothing useful you can do with it other than start a root
+	shell and that's just a security hole waiting to happen.
+	(job_new): Don't increment the instances counter.
+	* init/job.h: Remove extern for instances counter.
+	* init/tests/test_job.c (test_new): Remove the check that the
+	instance counter is incremented.
+	(test_change_state): Remove the test for the stalled event.
+	* init/event.h (STALLED): Remove stalled event definition,
+	* TODO: Update.
+
 	* init/job.h (Job): And while we're at it, the instance name is
 	guaranteed unique for a given job name, which is also guaranteed
 	to be unique - so don't bother with job ids either, since they
