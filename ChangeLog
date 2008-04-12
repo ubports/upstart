@@ -1,5 +1,8 @@
 2008-04-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Use a better name for kbdrequest
+	* init/event.h (KBDREQUEST_EVENT): Rename event to keyboard-request
+
 	* init/main.c: Drop the attempt to rescue a crashed system by
 	carrying on with no state
 	(crash_handler): After the child has core dumped, the parent will

@@ -196,7 +196,7 @@ main (int   argc,
 	if (! restart)
 		nih_signal_reset ();
 
-#ifndef DEBUG							\
+#ifndef DEBUG
 	/* Catch fatal errors immediately rather than waiting for a new
 	 * iteration through the main loop.
 	 */
@@ -227,7 +227,7 @@ main (int   argc,
 	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
-	 * generate a kbdrequest event.
+	 * generate a keyboard-request event.
 	 */
 	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0) {
 		nih_signal_set_handler (SIGWINCH, nih_signal_handler);
@@ -271,7 +271,7 @@ main (int   argc,
 
 	conf_reload ();
 
-#ifndef DEBUG								\
+#ifndef DEBUG
 	/* Now that the startup is complete, send all further logging output
 	 * to syslog instead of to the console.
 	 */

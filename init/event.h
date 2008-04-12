@@ -133,6 +133,7 @@ typedef struct event_operator {
 #define STARTUP_EVENT "debug"
 #endif
 
+
 /**
  * CTRLALTDEL_EVENT:
  *
@@ -147,7 +148,7 @@ typedef struct event_operator {
  * Name of the event that we generate when the Alt-UpArrow key combination
  * is pressed.
  **/
-#define KBDREQUEST_EVENT "kbdrequest"
+#define KBDREQUEST_EVENT "keyboard-request"
 
 /**
  * PWRSTATUS_EVENT:
