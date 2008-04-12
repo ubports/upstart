@@ -388,7 +388,6 @@ test_new (void)
 
 	TEST_ALLOC_FAIL {
 		job_instances = 0;
-		job_id = 99;
 
 		job = job_new (config, NULL);
 
@@ -404,7 +403,6 @@ test_new (void)
 
 		TEST_EQ (job_instances, 1);
 
-		TEST_EQ (job->id, 99);
 		TEST_EQ_P (job->config, config);
 		TEST_EQ_P (job->name, NULL);
 
@@ -613,56 +611,6 @@ test_find_by_pid (void)
 	nih_free (config2);
 	nih_free (config3);
 	ptr = job_find_by_pid (20, NULL);
-
-	TEST_EQ_P (ptr, NULL);
-}
-
-void
-test_find_by_id (void)
-{
-	JobConfig    *config1, *config2;
-	Job          *job1, *job2, *job3, *ptr;
-	unsigned int  id;
-
-	TEST_FUNCTION ("job_find_by_id");
-	config1 = job_config_new (NULL, "foo");
-	nih_hash_add (jobs, &config1->entry);
-
-	config2 = job_config_new (NULL, "bar");
-	nih_hash_add (jobs, &config2->entry);
-
-	job1 = job_new (config1, NULL);
-	job2 = job_new (config1, NULL);
-	job3 = job_new (config2, NULL);
-
-
-	/* Check that we can find a job by its id. */
-	TEST_FEATURE ("with id we expect to find");
-	ptr = job_find_by_id (job2->id);
-
-	TEST_EQ_P (ptr, job2);
-
-
-	/* Check that we get NULL if the id doesn't exist. */
-	TEST_FEATURE ("with id we do not expect to find");
-	id = job3->id;
-	while ((id == job1->id) || (id == job2->id) || (id == job3->id))
-		id++;
-
-	ptr = job_find_by_id (id);
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that we get NULL if the job list is empty, and nothing
-	 * bad happens.
-	 */
-	TEST_FEATURE ("with empty job table");
-	id = job1->id;
-
-	nih_free (config1);
-	nih_free (config2);
-	ptr = job_find_by_id (id);
 
 	TEST_EQ_P (ptr, NULL);
 }
@@ -1279,7 +1227,6 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 99;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1335,7 +1282,7 @@ test_change_state (void)
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
 		TEST_EQ (job->exit_status, -1);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
 				       "pre-start process: unable to execute: "
 				       "No such file or directory\n"));
 		TEST_FILE_END (output);
@@ -1495,7 +1442,6 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 99;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1551,7 +1497,7 @@ test_change_state (void)
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, -1);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
 				       "main process: unable to execute: "
 				       "No such file or directory\n"));
 		TEST_FILE_END (output);
@@ -1783,7 +1729,6 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 99;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1837,7 +1782,7 @@ test_change_state (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
 				       "post-start process: unable to execute: "
 				       "No such file or directory\n"));
 		TEST_FILE_END (output);
@@ -2129,7 +2074,6 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 99;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2186,7 +2130,7 @@ test_change_state (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
 				       "pre-stop process: unable to execute: "
 				       "No such file or directory\n"));
 		TEST_FILE_END (output);
@@ -2800,7 +2744,6 @@ test_change_state (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 99;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2848,7 +2791,7 @@ test_change_state (void)
 
 		TEST_LIST_EMPTY (events);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (#99) "
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
 				       "post-stop process: unable to execute: "
 				       "No such file or directory\n"));
 		TEST_FILE_END (output);
@@ -3673,9 +3616,9 @@ test_run_process (void)
 
 
 	/* Check that a job is run with the environment from its env member,
-	 * with the job name and id appended to it.
+	 * with the job name appended to it.
 	 */
-	TEST_FEATURE ("with environment");
+	TEST_FEATURE ("with environment of unnamed instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
@@ -3712,7 +3655,56 @@ test_run_process (void)
 		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
-		TEST_FILE_EQ_N (output, "UPSTART_JOB_ID=");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_free (config);
+	}
+
+
+	/* Check that a job is run with the environment from its env member,
+	 * with the job name and instance name appended to it.
+	 */
+	TEST_FEATURE ("with environment of named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			config = job_config_new (NULL, "test");
+			config->process[PROCESS_MAIN] = job_process_new (config);
+			config->process[PROCESS_MAIN]->command = nih_sprintf (
+				config->process[PROCESS_MAIN],
+				"%s %s", argv0, filename);
+
+			job = job_new (config, NULL);
+			job->name = "foo";
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			assert (nih_str_array_add (&job->env, job, NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&job->env, job, NULL, "BAR=BAZ"));
+
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "FOO=SMACK"));
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "CRACKLE=FIZZ"));
+		}
+
+		ret = job_run_process (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		/* Read back the environment to make sure it matched that from
+		 * the job.
+		 */
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "FOO=BAR\n");
+		TEST_FILE_EQ (output, "BAR=BAZ\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -3763,7 +3755,6 @@ test_run_process (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
-		TEST_FILE_EQ_N (output, "UPSTART_JOB_ID=");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -4027,7 +4018,7 @@ no_devfd:
 			config->process[PROCESS_MAIN]->command = filename;
 
 			job = job_new (config, NULL);
-			job->id = 1;
+			job->name = "foo";
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -4040,7 +4031,7 @@ no_devfd:
 
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (#1) main "
+		TEST_FILE_EQ (output, ("test: Failed to spawn test (foo) main "
 				       "process: unable to execute: "
 				       "No such file or directory\n"));
 		TEST_FILE_END (output);
@@ -4222,7 +4213,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4278,7 +4268,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4337,7 +4326,6 @@ test_child_handler (void)
 
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4393,7 +4381,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4458,7 +4445,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4503,7 +4489,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
 		TEST_EQ (job->exit_status, 1);
 
-		TEST_FILE_EQ (output, ("test: test (#1) pre-start process (1) "
+		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
 				       "terminated with status 1\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4526,7 +4512,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4571,7 +4556,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
 		TEST_EQ (job->exit_status, SIGTERM << 8);
 
-		TEST_FILE_EQ (output, ("test: test (#1) pre-start process (1) "
+		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
 				       "killed by TERM signal\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4598,7 +4583,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4648,9 +4632,9 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
-		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
+		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4677,7 +4661,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4727,9 +4710,9 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
-		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
+		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4753,7 +4736,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4803,7 +4785,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) respawning too fast, "
+		TEST_FILE_EQ (output, ("test: test respawning too fast, "
 				       "stopped\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4826,7 +4808,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4873,7 +4854,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 100\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4897,7 +4878,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -4947,7 +4927,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process ended, "
+		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -4969,7 +4949,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5030,7 +5009,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5075,7 +5053,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 99);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 99\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5095,7 +5073,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5133,7 +5110,7 @@ test_child_handler (void)
 
 		TEST_FREE (list);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "killed by TERM signal\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5151,7 +5128,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5198,7 +5174,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 100\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5221,7 +5197,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5268,7 +5243,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "killed by INT signal\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5287,7 +5262,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5345,7 +5319,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5395,7 +5368,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5433,7 +5405,7 @@ test_child_handler (void)
 
 		TEST_FREE (list);
 
-		TEST_FILE_EQ (output, ("test: test (#1) post-stop process (1) "
+		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
 				       "terminated with status 1\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5453,7 +5425,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5491,7 +5462,7 @@ test_child_handler (void)
 
 		TEST_FREE (list);
 
-		TEST_FILE_EQ (output, ("test: test (#1) post-stop process (1) "
+		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
 				       "terminated with status 1\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5513,7 +5484,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5560,7 +5530,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) post-start process (2) "
+		TEST_FILE_EQ (output, ("test: test post-start process (2) "
 				       "terminated with status 1\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5583,7 +5553,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5646,7 +5615,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5711,7 +5679,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5796,7 +5763,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5843,7 +5809,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, SIGSEGV << 8);
 
-		TEST_FILE_EQ (output, ("test: test (#1) main process (1) "
+		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "killed by SEGV signal\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5886,7 +5852,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -5935,7 +5900,7 @@ test_child_handler (void)
 		TEST_EQ (job->failed_process, -1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output, ("test: test (#1) pre-stop process (2) "
+		TEST_FILE_EQ (output, ("test: test pre-stop process (2) "
 				       "terminated with status 1\n"));
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
@@ -5958,7 +5923,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6020,7 +5984,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6087,7 +6050,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6163,7 +6125,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6237,7 +6198,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6309,7 +6269,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6384,7 +6343,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -6454,7 +6412,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_state = TRACE_NORMAL;
 		}
 
@@ -6503,7 +6460,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_state = TRACE_NEW;
 		}
 
@@ -6552,7 +6508,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_state = TRACE_NEW_CHILD;
 		}
 
@@ -6600,7 +6555,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_forks = 1;
 			job->trace_state = TRACE_NEW_CHILD;
 		}
@@ -6651,7 +6605,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_forks = 0;
 			job->trace_state = TRACE_NEW_CHILD;
 		}
@@ -6703,7 +6656,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_state = TRACE_NORMAL;
 		}
 
@@ -6771,7 +6723,6 @@ test_child_handler (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (config, NULL);
-			job->id = 1;
 			job->trace_forks = 1;
 			job->trace_state = TRACE_NORMAL;
 		}
@@ -8203,7 +8154,6 @@ main (int   argc,
 
 	test_new ();
 	test_find_by_pid ();
-	test_find_by_id ();
 	test_instance ();
 	test_change_goal ();
 	test_change_state ();

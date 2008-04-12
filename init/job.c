@@ -90,17 +90,6 @@ static void        job_process_trace_exec      (Job *job, ProcessType process);
 
 
 /**
- * job_id
- *
- * This counter is used to assign unique job ids to jobs and is incremented
- * each time we use it.  After a while (4 billion jobs) it'll wrap over, in
- * which case you should set job_id_wrapped and take care to check an id
- * isn't taken.
- **/
-unsigned int job_id = 0;
-int          job_id_wrapped = FALSE;
-
-/**
  * jobs:
  *
  * This hash table holds the list of known jobs indexed by their name.
@@ -359,69 +348,6 @@ error:
 
 
 /**
- * job_next_id:
- *
- * Returns the current value of the job_id counter, unless that has
- * been wrapped before, in which case it checks whether the value is
- * currently in use before returning it.  If the value is in use, it
- * increments the counter until it finds a value that isn't, or until it
- * has checked the entire value space.
- *
- * This is most efficient while less than 4 billion jobs have been
- * defined, at which point it becomes slightly less efficient.  If there
- * are currently 4 billion known jobs (!!) we lose the ability to generate
- * unique ids, and emit an error -- if we start seeing this in the field,
- * we can always move up to a larger type or something.
- *
- * Returns: next usable id.
- **/
-static inline unsigned int
-job_next_id (void)
-{
-	unsigned int id;
-
-	/* If we've wrapped the job_id counter, we can't just assume that
-	 * the current value isn't taken, we need to make sure that nothing
-	 * is using it first.
-	 */
-	if (job_id_wrapped) {
-		unsigned int start_id = job_id;
-
-		while (job_find_by_id (job_id)) {
-			job_id++;
-
-			/* Make sure we don't end up in an infinite loop if
-			 * we're currently handling 4 billion events.
-			 */
-			if (job_id == start_id) {
-				nih_error (_("Job id %u is not unique"),
-					   job_id);
-				break;
-			}
-		}
-	}
-
-	/* Use the current value of the counter, it's unique as we're ever
-	 * going to get; increment the counter afterwards so the next time
-	 * this runs, we have moved forwards.
-	 */
-	id = job_id++;
-
-	/* If incrementing the counter gave us zero, we consumed the entire
-	 * id space.  This means that in future we can't assume that the ids
-	 * are unique, next time we'll have to be more careful.
-	 */
-	if (! job_id) {
-		if (! job_id_wrapped)
-			nih_debug ("Wrapped job_id counter");
-
-		job_id_wrapped = TRUE;
-	}
-
-	return id;
-}
-
-/**
  * job_new:
  * @config: configuration for new job,
  * @name: name for new instance.
@@ -453,7 +379,6 @@ job_new (JobConfig *config,
 
 	nih_alloc_set_destructor (job, (NihDestructor)nih_list_destroy);
 
-	job->id = job_next_id ();
 	job->config = config;
 	job->name = name;
 
@@ -506,33 +431,36 @@ error:
 	return NULL;
 }
 
-
 /**
- * job_find_by_id:
- * @id: unique job id to find.
+ * job_name:
+ * @job: job to return name of.
  *
- * Finds the job with the unique id @id in the jobs hash table.
+ * Returns a string used in messages that contains the job name; this
+ * always begins with the name from the configuration, and then if set,
+ * has the name of the instance appended in brackets.
  *
- * Returns: job found or NULL if not known.
+ * Returns: internal copy of the string.
  **/
-Job *
-job_find_by_id (unsigned int id)
+static const char *
+job_name (Job *job)
 {
-	job_init ();
+	static char *name = NULL;
 
-	NIH_HASH_FOREACH (jobs, iter) {
-		JobConfig *config = (JobConfig *)iter;
+	nih_assert (job != NULL);
 
-		NIH_LIST_FOREACH (&config->instances, job_iter) {
-			Job *job = (Job *)job_iter;
+	if (name)
+		nih_free (name);
 
-			if (job->id == id)
-				return job;
-		}
+	if (job->name) {
+		NIH_MUST (name = nih_sprintf (NULL, "%s (%s)",
+					      job->config->name, job->name));
+	} else {
+		NIH_MUST (name = nih_strdup (NULL, job->config->name));
 	}
 
-	return NULL;
+	return name;
 }
+
 
 /**
  * job_find_by_pid:
@@ -652,9 +580,9 @@ job_change_goal (Job     *job,
 	if (job->goal == goal)
 		return;
 
-	nih_info (_("%s (#%u) goal changed from %s to %s"),
-		  job->config->name, job->id,
-		  job_goal_name (job->goal), job_goal_name (goal));
+	nih_info (_("%s goal changed from %s to %s"),
+		  job_name (job), job_goal_name (job->goal),
+		  job_goal_name (goal));
 
 	job->goal = goal;
 
@@ -711,9 +639,9 @@ job_change_state (Job      *job,
 
 		nih_assert (job->blocked == NULL);
 
-		nih_info (_("%s (#%u) state changed from %s to %s"),
-			  job->config->name, job->id,
-			  job_state_name (job->state), job_state_name (state));
+		nih_info (_("%s state changed from %s to %s"),
+			  job_name (job), job_state_name (job->state),
+			  job_state_name (state));
 
 		old_state = job->state;
 		job->state = state;
@@ -1325,8 +1253,9 @@ job_run_process (Job         *job,
 
 	NIH_MUST (environ_set (&env, NULL, &envc,
 			       "UPSTART_JOB=%s", job->config->name));
-	NIH_MUST (environ_set (&env, NULL, &envc,
-			       "UPSTART_JOB_ID=%u", job->id));
+	if (job->name)
+		NIH_MUST (environ_set (&env, NULL, &envc,
+				       "UPSTART_INSTANCE=%s", job->name));
 
 	/* If we're about to spawn the main job and we expect it to become
 	 * a daemon or fork before we can move out of spawned, we need to
@@ -1359,9 +1288,9 @@ job_run_process (Job         *job,
 			job->pid[process] = 0;
 
 			/* Return non-temporary error condition */
-			nih_warn (_("Failed to spawn %s (#%u) %s process: %s"),
-				  job->config->name, job->id,
-				  process_name (process), err->message);
+			nih_warn (_("Failed to spawn %s %s process: %s"),
+				  job_name (job), process_name (process),
+				  err->message);
 			nih_free (err);
 			return -1;
 		} else if (! error)
@@ -1375,9 +1304,8 @@ job_run_process (Job         *job,
 	nih_free (argv);
 	nih_free (env);
 
-	nih_info (_("%s (#%u) %s process (%d)"),
-		  job->config->name, job->id,
-		  process_name (process), job->pid[process]);
+	nih_info (_("%s %s process (%d)"),
+		  job_name (job), process_name (process), job->pid[process]);
 
 	job->trace_forks = 0;
 	job->trace_state = trace ? TRACE_NEW : TRACE_NONE;
@@ -1429,19 +1357,17 @@ job_kill_process (Job         *job,
 	nih_assert (job != NULL);
 	nih_assert (job->pid[process] > 0);
 
-	nih_info (_("Sending TERM signal to %s (#%u) %s process (%d)"),
-		  job->config->name, job->id,
-		  process_name (process), job->pid[process]);
+	nih_info (_("Sending TERM signal to %s %s process (%d)"),
+		  job_name (job), process_name (process), job->pid[process]);
 
 	if (process_kill (job->config, job->pid[process], FALSE) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send TERM signal to %s (#%u) %s process (%d): %s"),
-				  job->config->name, job->id,
-				  process_name (process), job->pid[process],
-				  err->message);
+			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
+				  job_name (job), process_name (process),
+				  job->pid[process], err->message);
 		nih_free (err);
 
 		return;
@@ -1474,19 +1400,17 @@ job_kill_timer (ProcessType  process,
 
 	job->kill_timer = NULL;
 
-	nih_info (_("Sending KILL signal to %s (#%u) %s process (%d)"),
-		  job->config->name, job->id,
-		  process_name (process), job->pid[process]);
+	nih_info (_("Sending KILL signal to %s %s process (%d)"),
+		  job_name (job), process_name (process), job->pid[process]);
 
 	if (process_kill (job->config, job->pid[process], TRUE) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send KILL signal to %s (#%u) %s process (%d): %s"),
-				  job->config->name, job->id,
-				  process_name (process), job->pid[process],
-				  err->message);
+			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
+				  job_name (job), process_name (process),
+				  job->pid[process], err->message);
 		nih_free (err);
 	}
 }
@@ -1532,15 +1456,13 @@ job_child_handler (void           *data,
 		 * normally (zero) or with a non-zero status.
 		 */
 		if (status) {
-			nih_warn (_("%s (#%u) %s process (%d) "
+			nih_warn (_("%s %s process (%d) "
 				    "terminated with status %d"),
-				  job->config->name, job->id,
-				  process_name (process), pid, status);
+				  job_name (job), process_name (process),
+				  pid, status);
 		} else {
-			nih_info (_("%s (#%u) %s process (%d) "
-				    "exited normally"),
-				  job->config->name, job->id,
-				  process_name (process), pid);
+			nih_info (_("%s %s process (%d) exited normally"),
+				  job_name (job), process_name (process), pid);
 		}
 
 		job_process_terminated (job, process, status);
@@ -1554,15 +1476,13 @@ job_child_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s (#%u) %s process (%d) "
-				    "killed by %s signal"),
-				  job->config->name, job->id,
-				  process_name (process), pid, sig);
+			nih_warn (_("%s %s process (%d) killed by %s signal"),
+				  job_name (job), process_name (process),
+				  pid, sig);
 		} else {
-			nih_warn (_("%s (#%u) %s process (%d) "
-				    "killed by signal %d"),
-				  job->config->name, job->id,
-				  process_name (process), pid, status);
+			nih_warn (_("%s %s process (%d) killed by signal %d"),
+				  job_name (job), process_name (process),
+				  pid, status);
 		}
 
 		status <<= 8;
@@ -1574,15 +1494,13 @@ job_child_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s (#%u) %s process (%d) "
-				    "stopped by %s signal"),
-				  job->config->name, job->id,
-				  process_name (process), pid, sig);
+			nih_warn (_("%s %s process (%d) stopped by %s signal"),
+				  job_name (job), process_name (process),
+				  pid, sig);
 		} else {
-			nih_warn (_("%s (#%u) %s process (%d) "
-				    "stopped by signal %d"),
-				  job->config->name, job->id,
-				  process_name (process), pid, status);
+			nih_warn (_("%s %s process (%d) stopped by signal %d"),
+				  job_name (job), process_name (process),
+				  pid, status);
 		}
 
 		if (status == SIGSTOP)
@@ -1688,14 +1606,14 @@ job_process_terminated (Job         *job,
 			 */
 			if (failed && job->config->respawn) {
 				if (job_catch_runaway (job)) {
-					nih_warn (_("%s (#%u) respawning too fast, stopped"),
-						  job->config->name, job->id);
+					nih_warn (_("%s respawning too fast, stopped"),
+						  job_name (job));
 
 					failed = FALSE;
 					job_failed (job, -1, 0);
 				} else {
-					nih_warn (_("%s (#%u) %s process ended, respawning"),
-						  job->config->name, job->id,
+					nih_warn (_("%s %s process ended, respawning"),
+						  job_name (job),
 						  process_name (process));
 					failed = FALSE;
 					break;
@@ -1909,10 +1827,9 @@ job_process_trace_new (Job         *job,
 	if (ptrace (PTRACE_SETOPTIONS, job->pid[process], NULL,
 		    PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC) < 0) {
 		nih_warn (_("Failed to set ptrace options for "
-			    "%s (#%u) %s process (%d): %s"),
-			  job->config->name, job->id,
-			  process_name (process), job->pid[process],
-			  strerror (errno));
+			    "%s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
 		return;
 	}
 
@@ -1922,10 +1839,9 @@ job_process_trace_new (Job         *job,
 	 * kernel-generated signal that was for our eyes not theirs.
 	 */
 	if (ptrace (PTRACE_CONT, job->pid[process], NULL, 0) < 0)
-		nih_warn (_("Failed to continue traced %s (#%u) %s process (%d): %s"),
-			  job->config->name, job->id,
-			  process_name (process), job->pid[process],
-			  strerror (errno));
+		nih_warn (_("Failed to continue traced %s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
 }
 
 /**
@@ -1964,10 +1880,9 @@ job_process_trace_new_child (Job         *job,
 	{
 		if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
 			nih_warn (_("Failed to detach traced "
-				    "%s (#%u) %s process (%d): %s"),
-				  job->config->name, job->id,
-				  process_name (process), job->pid[process],
-				  strerror (errno));
+				    "%s %s process (%d): %s"),
+				  job_name (job), process_name (process),
+				  job->pid[process], strerror (errno));
 
 		job->trace_state = TRACE_NONE;
 		job_change_state (job, job_next_state (job));
@@ -2005,10 +1920,9 @@ job_process_trace_signal (Job         *job,
 	/* Deliver the signal */
 	if (ptrace (PTRACE_CONT, job->pid[process], NULL, signum) < 0)
 		nih_warn (_("Failed to deliver signal to traced "
-			    "%s (#%u) %s process (%d): %s"),
-			  job->config->name, job->id,
-			  process_name (process), job->pid[process],
-			  strerror (errno));
+			    "%s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
 }
 
 /**
@@ -2041,26 +1955,24 @@ job_process_trace_fork (Job         *job,
 	/* Obtain the child process id from the ptrace event. */
 	if (ptrace (PTRACE_GETEVENTMSG, job->pid[process], NULL, &data) < 0) {
 		nih_warn (_("Failed to obtain child process id "
-			    "for %s (#%u) %s process (%d): %s"),
-			  job->config->name, job->id,
-			  process_name (process), job->pid[process],
-			  strerror (errno));
+			    "for %s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
 		return;
 	}
 
-	nih_info (_("%s (#%u) %s process (%d) became new process (%d)"),
-		  job->config->name, job->id,
-		  process_name (process), job->pid[process], (pid_t)data);
+	nih_info (_("%s %s process (%d) became new process (%d)"),
+		  job_name (job), process_name (process),
+		  job->pid[process], (pid_t)data);
 
 	/* We no longer care about this process, it's the child that we're
 	 * interested in from now on, so detach it and allow it to go about
 	 * its business unhindered.
 	 */
 	if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
-		nih_warn (_("Failed to detach traced %s (#%u) %s process (%d): %s"),
-			  job->config->name, job->id,
-			  process_name (process), job->pid[process],
-			  strerror (errno));
+		nih_warn (_("Failed to detach traced %s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
 
 	/* Update the process we're supervising which is about to get SIGSTOP
 	 * so set the trace options to capture it.
@@ -2094,16 +2006,14 @@ job_process_trace_exec (Job         *job,
 	    || (job->trace_state != TRACE_NORMAL))
 		return;
 
-	nih_info (_("%s (#%u) %s process (%d) executable changed"),
-		  job->config->name, job->id,
-		  process_name (process), job->pid[process]);
+	nih_info (_("%s %s process (%d) executable changed"),
+		  job_name (job), process_name (process), job->pid[process]);
 
 	if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
 		nih_warn (_("Failed to detach traced "
-			    "%s (#%u) %s process (%d): %s"),
-			  job->config->name, job->id,
-			  process_name (process), job->pid[process],
-			  strerror (errno));
+			    "%s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
 
 	job->trace_state = TRACE_NONE;
 	job_change_state (job, job_next_state (job));

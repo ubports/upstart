@@ -179,7 +179,6 @@ struct job_config {
 /**
  * Job:
  * @entry: list header,
- * @id: unique job id,
  * @config: pointer to JobConfig structure,
  * @name: unique instance name,
  * @stop_on: event operator expression that can stop this job.
@@ -209,7 +208,6 @@ struct job_config {
 typedef struct job {
 	NihList         entry;
 
-	unsigned int    id;
 	JobConfig      *config;
 	char           *name;
 
@@ -243,8 +241,6 @@ typedef struct job {
 
 NIH_BEGIN_EXTERN
 
-unsigned int  job_id;
-int           job_id_wrapped;
 NihHash      *jobs;
 unsigned int  job_instances;
 
@@ -268,7 +264,6 @@ char      **job_config_environment    (const void *parent, JobConfig *config,
 Job *       job_new                   (JobConfig *config, char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-Job *       job_find_by_id            (unsigned int id);
 Job *       job_find_by_pid           (pid_t pid, ProcessType *process);
 
 Job *       job_instance              (JobConfig *config, const char *name);

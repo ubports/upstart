@@ -1,5 +1,28 @@
 2008-04-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): And while we're at it, the instance name is
+	guaranteed unique for a given job name, which is also guaranteed
+	to be unique - so don't bother with job ids either, since they
+	also get reused in bad cases.
+	* init/job.c (job_next_id): Drop this function.
+	(job_new): Don't assign an id anymore.
+	(job_find_by_id): Drop this function.
+	(job_run_process): Set UPSTART_INSTANCE to the instance name if set.
+	(job_name): Function to create the string used in messages.
+	(job_change_goal, job_change_state, job_run_process)
+	(job_kill_process, job_kill_timer, job_child_handler)
+	(job_process_terminated, job_process_trace_new)
+	(job_process_trace_new_child, job_process_trace_signal)
+	(job_process_trace_fork, job_process_trace_exec): Use the instance
+	name in messages (if set) in place of the job id.
+	* init/tests/test_job.c (test_new): Drop checks on the id field.
+	(test_find_by_id): Drop test.
+	(test_run_process): Check that UPSTART_INSTANCE is set only for
+	named job instances, and contains the instance name.
+	(test_change_state, test_run_process, test_child_handler): Remove
+	id setting and update error message checks.
+	* TODO: Update.
+
 	* init/event.h (Event): We don't use the id field for anything;
 	and it can't be guaranteed to be unique since it can wrap over
 	and get reused.  Drop it.
