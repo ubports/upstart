@@ -19,7 +19,7 @@ AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-NIH_INIT
+NIH_INIT([dbus])
 
 # Checks for header files.
 

@@ -2,6 +2,9 @@
 
 initconfdir = $(sysconfdir)/init
 
+AM_CFLAGS = \
+	$(DBUS_CFLAGS)
+
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DCONFDIR="\"$(initconfdir)\"" \
@@ -29,10 +32,11 @@ init_SOURCES = \
 	parse_conf.c parse_conf.h \
 	conf.c conf.h
 
-init_LDFLAGS = -static
 init_LDADD = \
 	../nih/libnih.la \
-	$(LTLIBINTL)
+	../nih/libnih-dbus.la \
+	$(LTLIBINTL) \
+	$(DBUS_LIBS)
 
 
 EXTRA_DIST = init.supp
@@ -67,42 +71,54 @@ test_process_LDFLAGS = -static
 test_process_LDADD = \
 	enum.o environ.o process.o job.o event.o \
 	parse_job.o parse_conf.o conf.o \
-	../nih/libnih.la
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDFLAGS = -static
 test_job_LDADD = \
 	enum.o environ.o process.o job.o event.o \
 	parse_job.o parse_conf.o conf.o \
-	../nih/libnih.la
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDFLAGS = -static
 test_event_LDADD = \
 	enum.o environ.o process.o job.o event.o \
 	parse_job.o parse_conf.o conf.o \
-	../nih/libnih.la
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDFLAGS = -static
 test_parse_job_LDADD = \
 	enum.o environ.o process.o job.o event.o \
 	parse_job.o parse_conf.o conf.o \
-	../nih/libnih.la
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
 test_parse_conf_LDFLAGS = -static
 test_parse_conf_LDADD = \
 	enum.o environ.o process.o job.o event.o \
 	parse_job.o parse_conf.o conf.o \
-	../nih/libnih.la
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 test_conf_SOURCES = tests/test_conf.c
 test_conf_LDFLAGS = -static
 test_conf_LDADD = \
 	enum.o environ.o process.o job.o event.o \
 	parse_job.o parse_conf.o conf.o \
-	../nih/libnih.la
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 
 install-data-local:

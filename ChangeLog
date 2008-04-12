@@ -1,5 +1,14 @@
 2008-04-12  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (NIH_INIT): Require that libnih build D-Bus support,
+	failing configure if we can't get it.
+	* init/Makefile.am (AM_CFLAGS): Build with D-Bus CFLAGS,
+	(init_LDADD, test_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_parse_job_LDADD, test_parse_conf_LDADD, test_conf_LDADD): and
+	link with libnih-dbus.la and D-Bus LIBS.
+	(init_LDFLAGS): No need for -static now since libnih will only exist
+	statically anyway.
+
 	* init/main.c: Use a better name for kbdrequest
 	* init/event.h (KBDREQUEST_EVENT): Rename event to keyboard-request
 
