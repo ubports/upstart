@@ -57,18 +57,6 @@ static void event_finished (Event *event);
  **/
 int paused = FALSE;
 
-
-/**
- * event_id
- *
- * This counter is used to assign unique event ids and is incremented
- * each time we use it.  After a while (4 billion events) it'll wrap over,
- * in which case you should set event_id_wrapped and take care to check
- * an id isn't taken.
- **/
-unsigned int event_id = 0;
-int          event_id_wrapped = FALSE;
-
 /**
  * events:
  *
@@ -90,69 +78,6 @@ event_init (void)
 		NIH_MUST (events = nih_list_new (NULL));
 }
 
-
-/**
- * event_next_id:
- *
- * Returns the current value of the event_id counter, unless that has
- * been wrapped before, in which case it checks whether the value is
- * currently in use before returning it.  If the value is in use, it
- * increments the counter until it finds a value that isn't, or until it
- * has checked the entire value space.
- *
- * This is most efficient while less than 4 billion events have been
- * generated, at which point it becomes slightly less efficient.  If there
- * are currently 4 billion events being handled (!!) we lose the ability
- * to generate unique ids, and emit an error -- if we start seeing this in
- * the field, we can always to a larger type or something.
- *
- * Returns: next usable id.
- **/
-static inline unsigned int
-event_next_id (void)
-{
-	unsigned int id;
-
-	/* If we've wrapped the event_id counter, we can't just assume that
-	 * the current value isn't taken, we need to make sure that nothing
-	 * is using it first.
-	 */
-	if (event_id_wrapped) {
-		unsigned int start_id = event_id;
-
-		while (event_find_by_id (event_id)) {
-			event_id++;
-
-			/* Make sure we don't end up in an infinite loop if
-			 * we're currently handling 4 billion events.
-			 */
-			if (event_id == start_id) {
-				nih_error (_("Event id %u is not unique"),
-					   event_id);
-				break;
-			}
-		}
-	}
-
-	/* Use the current value of the counter, it's unique as we're ever
-	 * going to get; increment the counter afterwards so the next time
-	 * this runs, we have moved forwards.
-	 */
-	id = event_id++;
-
-	/* If incrementing the counter gave us zero, we consumed the entire
-	 * id space.  This means that in future we can't assume that the ids
-	 * are unique, next time we'll have to be more careful.
-	 */
-	if (! event_id) {
-		if (! event_id_wrapped)
-			nih_debug ("Wrapped event_id counter");
-
-		event_id_wrapped = TRUE;
-	}
-
-	return id;
-}
 
 /**
  * event_new:
@@ -198,7 +123,6 @@ event_new (const void  *parent,
 
 	nih_list_init (&event->entry);
 
-	event->id = event_next_id ();
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
 
@@ -220,32 +144,6 @@ event_new (const void  *parent,
 	nih_list_add (events, &event->entry);
 
 	return event;
-}
-
-/**
- * event_find_by_id:
- * @id: id to find.
- *
- * Finds the event with the given id in the list of events currently being
- * dealt with.
- *
- * Returns: Event found or NULL if not found.
- **/
-Event *
-event_find_by_id (unsigned int id)
-{
-	Event *event;
-
-	event_init ();
-
-	NIH_LIST_FOREACH (events, iter) {
-		event = (Event *)iter;
-
-		if (event->id == id)
-			return event;
-	}
-
-	return NULL;
 }
 
 

@@ -1,3 +1,15 @@
+2008-04-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.h (Event): We don't use the id field for anything;
+	and it can't be guaranteed to be unique since it can wrap over
+	and get reused.  Drop it.
+	* init/event.c (event_next_id): Drop this function.
+	(event_new): Don't assign an id anymore.
+	(event_find_by_id): Drop this function.
+	* init/tests/test_event.c (test_new): Drop checks on the id field
+	(test_find_by_id): Drop test.
+	(test_poll): Drop id setting which was needless anyway.
+
 2008-04-11  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_child_handler): Add tests to make

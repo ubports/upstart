@@ -38,9 +38,8 @@
 void
 test_new (void)
 {
-	Event         *event;
-	char         **env;
-	unsigned int   last_id = -1;
+	Event  *event;
+	char  **env;
 
 	/* Check that we can create a new event; the structure should
 	 * be allocated with nih_alloc(), placed in a list and all of the
@@ -63,9 +62,6 @@ test_new (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_LIST_NOT_EMPTY (&event->entry);
 
-		TEST_NE (event->id, last_id);
-		last_id = event->id;
-
 		TEST_EQ (event->progress, EVENT_PENDING);
 		TEST_EQ (event->failed, FALSE);
 
@@ -79,35 +75,6 @@ test_new (void)
 
 		nih_free (event);
 	}
-}
-
-void
-test_find_by_id (void)
-{
-	Event        *event, *ret;
-	unsigned int  id;
-
-	TEST_FUNCTION ("event_find_by_id");
-
-	/* Check that we can locate an event in the queue by its id, and
-	 * have it returned.
-	 */
-	TEST_FEATURE ("with id in pending queue");
-	event = event_new (NULL, "test", NULL);
-
-	ret = event_find_by_id (event->id);
-
-	TEST_EQ_P (ret, event);
-
-	id = event->id;
-	nih_free (event);
-
-
-	/* Check that we get NULL if the id isn't in either queue. */
-	TEST_FEATURE ("with id not in either queue");
-	ret = event_find_by_id (id);
-
-	TEST_EQ_P (ret, NULL);
 }
 
 
@@ -179,7 +146,6 @@ test_poll (void)
 	nih_hash_add (jobs, &config->entry);
 
 	event = event_new (NULL, "test", NULL);
-	event->id = 0xdeafbeef;
 
 	event_poll ();
 
@@ -222,7 +188,6 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with finished event");
 	event = event_new (NULL, "test", NULL);
-	event->id = 0xdeafbeef;
 	event->progress = EVENT_HANDLING;
 
 	config = job_config_new (NULL, "test");
@@ -1581,7 +1546,6 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
-	test_find_by_id ();
 	test_block ();
 	test_unblock ();
 	test_poll ();

@@ -45,7 +45,6 @@ typedef enum event_progress {
 /**
  * Event:
  * @entry: list header,
- * @id: unique id assigned to each event,
  * @name: string name of the event,
  * @env: NULL-terminated array of environment variables,
  * @progress: progress of event,
@@ -65,7 +64,6 @@ typedef enum event_progress {
  **/
 typedef struct event {
 	NihList          entry;
-	unsigned int     id;
 
  	char            *name;
 	char           **env;
@@ -207,10 +205,8 @@ typedef struct event_operator {
 
 NIH_BEGIN_EXTERN
 
-int           paused;
-unsigned int  event_id;
-int           event_id_wrapped;
-NihList      *events;
+int      paused;
+NihList *events;
 
 
 void           event_init             (void);
@@ -218,8 +214,6 @@ void           event_init             (void);
 Event         *event_new              (const void *parent, const char *name,
 				       char **env)
 	__attribute__ ((malloc));
-
-Event         *event_find_by_id       (unsigned int id);
 
 void           event_block            (Event *event);
 void           event_unblock          (Event *event);
