@@ -88,14 +88,6 @@ static const char *argv0 = NULL;
  **/
 static int restart = FALSE;
 
-/**
- * rescue:
- *
- * This is set to TRUE if we're being re-exec'd by an existing init process
- * that has crashed.
- **/
-static int rescue = FALSE;
-
 
 /**
  * options:
@@ -104,7 +96,6 @@ static int rescue = FALSE;
  **/
 static NihOption options[] = {
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
-	{ 0, "rescue", NULL, NULL, NULL, &rescue, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -182,7 +173,7 @@ main (int   argc,
 	 * resetting it to sane defaults unless we're inheriting from another
 	 * init process which we know left it in a sane state.
 	 */
-	if (process_setup_console (CONSOLE_OUTPUT, ! (restart || rescue)) < 0)
+	if (process_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
 
 	/* Set the PATH environment variable */
@@ -202,7 +193,7 @@ main (int   argc,
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
 	 */
-	if (! (restart || rescue))
+	if (! restart)
 		nih_signal_reset ();
 
 #ifndef DEBUG							\
@@ -292,7 +283,7 @@ main (int   argc,
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! (restart || rescue)) {
+	if (! restart) {
 		event_new (NULL, STARTUP_EVENT, NULL);
 	} else {
 		sigset_t mask;
@@ -320,21 +311,18 @@ main (int   argc,
  *
  * Handle receiving the SEGV or ABRT signal, usually caused by one of
  * our own mistakes.  We deal with it by dumping core in a child process
- * and just carrying on in the parent.
+ * and then killing the parent.
  *
- * This may or may not work, but the only alternative would be sigjmp()ing
- * to somewhere "safe" leaving inconsistent state everywhere (like dangling
- * lists pointers) or exec'ing another process (which we couldn't transfer
- * our state to anyway).  This just hopes that the kernel resumes on the
- * next instruction.
+ * Sadly there's no real alternative to the ensuing kernel panic.  Our
+ * state is likely in tatters, so we can't sigjmp() anywhere "safe" or
+ * re-exec since the system will be suddenly lobotomised.  We definitely
+ * don't want to start a root shell or anything like that.  Best thing is
+ * to just stop the whole thing and hope that bug report comes quickly.
  **/
 static void
 crash_handler (int signum)
 {
-	NihError   *err;
-	const char *loglevel = NULL;
-	sigset_t    mask, oldmask;
-	pid_t       pid;
+	pid_t pid;
 
 	nih_assert (argv0 != NULL);
 
@@ -385,40 +373,8 @@ crash_handler (int signum)
 			    ? "segmentation fault" : "abort"));
 	}
 
-	/* There's no point carrying on from here; our state is almost
-	 * likely in tatters, so we'd just end up core-dumping again and
-	 * writing over the one that contains the real bug.  We can't
-	 * even re-exec properly, since we'd probably core dump while
-	 * trying to transfer the state.
-	 *
-	 * So we just do the only thing we can, block out all signals
-	 * and try and start again from scratch.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
-	/* Argument list */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		loglevel = NULL;
-	}
-	execl (argv0, argv0, "--rescue", loglevel, NULL);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_fatal (_("Failed to re-execute %s: %s"),
-		   "/sbin/init", err->message);
-	nih_free (err);
-
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-
-	/* Oh Bugger */
-	exit (1);
+	/* Goodbye, cruel world. */
+	exit (signum);
 }
 #endif
 

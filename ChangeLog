@@ -1,5 +1,10 @@
 2008-04-12  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Drop the attempt to rescue a crashed system by
+	carrying on with no state
+	(crash_handler): After the child has core dumped, the parent will
+	die and the kernel will panic.  That's the best we can do, I think.
+
 	* init/job.c (job_change_state): Don't generate the stalled event;
 	there's nothing useful you can do with it other than start a root
 	shell and that's just a security hole waiting to happen.
