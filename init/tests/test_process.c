@@ -64,20 +64,23 @@ child (enum child_tests  test,
        const char       *filename)
 {
 	FILE *out;
-	char  path[PATH_MAX];
+	char  tmpname[PATH_MAX], path[PATH_MAX];
 	int   i;
 
-	out = fopen (filename, "w");
+	strcpy (tmpname, filename);
+	strcat (tmpname, ".tmp");
+
+	out = fopen (tmpname, "w");
 
 	switch (test) {
 	case TEST_SIMPLE:
-		exit (0);
+		break;
 	case TEST_PIDS:
 		fprintf (out, "pid: %d\n", getpid ());
 		fprintf (out, "ppid: %d\n", getppid ());
 		fprintf (out, "pgrp: %d\n", getpgrp ());
 		fprintf (out, "sid: %d\n", getsid (0));
-		exit (0);
+		break;
 	case TEST_CONSOLE:
 		for (i = 0; i < 3; i++) {
 			struct stat buf;
@@ -87,16 +90,23 @@ child (enum child_tests  test,
 				 major (buf.st_rdev),
 				 minor (buf.st_rdev));
 		}
-		exit (0);
+		break;
 	case TEST_PWD:
 		getcwd (path, sizeof (path));
 		fprintf (out, "wd: %s\n", path);
-		exit (0);
+		break;
 	case TEST_ENVIRONMENT:
 		for (char **env = environ; *env; env++)
 			fprintf (out, "%s\n", *env);
-		exit (0);
+		break;
 	}
+
+	fsync (fileno (out));
+	fclose (out);
+
+	rename (tmpname, filename);
+
+	exit (0);
 }
 
 
@@ -104,10 +114,12 @@ void
 test_spawn (void)
 {
 	FILE          *output;
-	char           function[PATH_MAX], filename[PATH_MAX], buf[80];
+	char           function[PATH_MAX], filename[PATH_MAX];
+	char           buf[80], filebuf[80];
+	struct stat    statbuf;
 	char          *env[3], *args[4];
 	JobConfig     *config;
-	pid_t          pid;
+	pid_t          pid, ppid, pgrp;
 	siginfo_t      info;
 	NihError      *err;
 	ProcessError  *perr;
@@ -120,14 +132,78 @@ test_spawn (void)
 	args[2] = filename;
 	args[3] = NULL;
 
-	/* Check that we can spawn a simple job; we wait for the child
-	 * process and then read from the file written to check that the
-	 * process tree is what we expect it to look like.
+	/* Check that we can spawn a simple job, since this will not be a
+	 * session leader, we spin for the child process to complete and
+	 * then read from the file written to check that the process tree
+	 * is what we expect it to look like.
 	 */
 	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
 	config = job_config_new (NULL, "test");
+
+	pid = process_spawn (config, args, NULL, FALSE);
+	TEST_GT (pid, 0);
+
+	while (stat (filename, &statbuf) < 0)
+		;
+
+	output = fopen (filename, "r");
+
+	TEST_GT (pid, 0);
+	TEST_NE (pid, getpid ());
+
+	sprintf (buf, "pid: %d\n", pid);
+	TEST_FILE_EQ (output, buf);
+
+	/* Get the parent process id out, it may be 1 or an intermediate
+	 * depending on racy things
+	 */
+	if (! fgets (filebuf, sizeof (filebuf), output))
+		TEST_FAILED ("eof on file %p (output), expected pgrp line",
+			     output);
+
+	TEST_EQ_STRN (filebuf, "ppid: ");
+	sscanf (filebuf, "ppid: %d\n", &ppid);
+	TEST_NE (ppid, pid);
+	TEST_NE (ppid, getpid ());
+
+	/* Get the process group id out, it must only ever be an intermediate
+	 * and must match parent id unless that was 1.
+	 */
+	if (! fgets (filebuf, sizeof (filebuf), output))
+		TEST_FAILED ("eof on file %p (output), expected pgrp line",
+			     output);
+
+	TEST_EQ_STRN (filebuf, "pgrp: ");
+	sscanf (filebuf, "pgrp: %d\n", &pgrp);
+	TEST_NE (pgrp, pid);
+	TEST_NE (pgrp, getpid ());
+	if (ppid != 1)
+		TEST_EQ (pgrp, ppid);
+
+	/* Session id must match process group - compare normally */
+	sprintf (buf, "sid: %d\n", pgrp);
+	TEST_FILE_EQ (output, buf);
+
+	TEST_FILE_END (output);
+
+	fclose (output);
+	unlink (filename);
+
+	nih_free (config);
+
+
+	/* Check that we can spawn a job we expect to be the session
+	 * leader, again wait for the child process and read from the file
+	 * written to check the process tree is shwat we expect it to look
+	 * like.
+	 */
+	TEST_FEATURE ("with session leader");
+	sprintf (function, "%d", TEST_PIDS);
+
+	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 
 	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_GT (pid, 0);
@@ -165,6 +241,7 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_CONSOLE);
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->console = CONSOLE_NONE;
 
 	pid = process_spawn (config, args, NULL, FALSE);
@@ -191,6 +268,7 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_PWD);
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->chdir = "/tmp";
 
 	pid = process_spawn (config, args, NULL, FALSE);
@@ -220,6 +298,7 @@ test_spawn (void)
 	env[2] = NULL;
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 
 	pid = process_spawn (config, args, env, FALSE);
 	TEST_GT (pid, 0);
@@ -245,6 +324,7 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 
 	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_GT (pid, 0);
@@ -265,6 +345,7 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 
 	pid = process_spawn (config, args, NULL, TRUE);
 	TEST_GT (pid, 0);
@@ -294,6 +375,7 @@ test_spawn (void)
 	args[2] = NULL;
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 
 	pid = process_spawn (config, args, NULL, FALSE);
 	TEST_LT (pid, 0);
@@ -321,6 +403,7 @@ test_kill (void)
 
 	TEST_FUNCTION ("process_kill");
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 
 	/* Check that when we normally kill the process, the TERM signal
 	 * is sent to all processes in its process group.

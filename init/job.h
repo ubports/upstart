@@ -117,6 +117,7 @@ typedef struct job_process {
  * @respawn_interval: barrier for @respawn_limit,
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
+ * @leader: TRUE if job should be a session leader,
  * @console: how to arrange the job's stdin/out/err file descriptors,
  * @env: NULL-terminated array of default environment variables,
  * @umask: file mode creation mask,
@@ -163,6 +164,7 @@ struct job_config {
 	int            *normalexit;
 	size_t          normalexit_len;
 
+	int             leader;
 	ConsoleType     console;
 	char          **env;
 

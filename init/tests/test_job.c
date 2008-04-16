@@ -140,6 +140,7 @@ test_config_new (void)
 		TEST_EQ_P (config->normalexit, NULL);
 		TEST_EQ (config->normalexit_len, 0);
 
+		TEST_EQ (config->leader, FALSE);
 		TEST_EQ (config->console, CONSOLE_NONE);
 		TEST_EQ_P (config->env, NULL);
 
@@ -758,6 +759,7 @@ test_change_goal (void)
 	program_name = "test";
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = "echo";
 	config->process[PROCESS_PRE_START] = job_process_new (config);
@@ -973,6 +975,7 @@ test_change_state (void)
 	mkdir (dirname, 0700);
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = nih_sprintf (
 		config->process[PROCESS_MAIN], "touch %s/run", dirname);
@@ -3411,6 +3414,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = nih_sprintf (
 				config->process[PROCESS_MAIN],
@@ -3443,6 +3447,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = nih_sprintf (
 				config->process[PROCESS_MAIN],
@@ -3480,6 +3485,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->script = TRUE;
 			config->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -3518,6 +3524,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->script = TRUE;
 			config->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -3555,6 +3562,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = nih_sprintf (
 				config->process[PROCESS_MAIN],
@@ -3603,6 +3611,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = nih_sprintf (
 				config->process[PROCESS_MAIN],
@@ -3654,6 +3663,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_PRE_STOP] = job_process_new (config);
 			config->process[PROCESS_PRE_STOP]->command = nih_sprintf (
 				config->process[PROCESS_PRE_STOP],
@@ -3709,6 +3719,7 @@ test_run_process (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->script = TRUE;
 			config->process[PROCESS_MAIN]->command = nih_alloc (
@@ -3778,6 +3789,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
 
@@ -3814,6 +3826,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_PRE_START] = job_process_new (config);
 			config->process[PROCESS_PRE_START]->command = "true";
 
@@ -3851,6 +3864,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->expect = JOB_EXPECT_DAEMON;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
@@ -3898,6 +3912,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->expect = JOB_EXPECT_FORK;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = "true";
@@ -3947,6 +3962,7 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			config = job_config_new (NULL, "test");
+			config->leader = TRUE;
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = filename;
 
@@ -3986,6 +4002,7 @@ test_kill_process (void)
 
 	TEST_FUNCTION ("job_kill_process");
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->kill_timeout = 1000;
 
 	config->process[PROCESS_MAIN] = job_process_new (config);
@@ -4127,6 +4144,7 @@ test_child_handler (void)
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 	file = conf_file_new (source, "/tmp/test");
 	file->job = config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config);
 	config->process[PROCESS_MAIN]->command = "echo";
 
@@ -6732,6 +6750,7 @@ test_handle_event (void)
 	output = tmpfile ();
 
 	config1 = job_config_new (NULL, "foo");
+	config1->leader = TRUE;
 
 	assert (nih_str_array_add (&(config1->env), config1, NULL, "FOO=BAR"));
 	assert (nih_str_array_add (&(config1->env), config1, NULL, "BAR=BAZ"));
@@ -6751,6 +6770,7 @@ test_handle_event (void)
 
 
 	config2 = job_config_new (NULL, "bar");
+	config2->leader = TRUE;
 
 	config2->stop_on = event_operator_new (config2, EVENT_OR, NULL, NULL);
 
@@ -7948,6 +7968,7 @@ test_handle_event_finished (void)
 
 	TEST_FUNCTION ("job_handle_event_finished");
 	config1 = job_config_new (NULL, "foo");
+	config1->leader = TRUE;
 	config1->process[PROCESS_PRE_START] = job_process_new (config1);
 	config1->process[PROCESS_PRE_START]->command = "echo";
 	config1->process[PROCESS_POST_STOP] = job_process_new (config1);
@@ -7961,6 +7982,7 @@ test_handle_event_finished (void)
 	nih_hash_add (jobs, &config1->entry);
 
 	config2 = job_config_new (NULL, "bar");
+	config2->leader = TRUE;
 	config2->process[PROCESS_PRE_START] = job_process_new (config2);
 	config2->process[PROCESS_PRE_START]->command = "echo";
 	config2->process[PROCESS_POST_STOP] = job_process_new (config2);

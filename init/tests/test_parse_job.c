@@ -5216,6 +5216,136 @@ test_stanza_normal (void)
 }
 
 void
+test_stanza_session (void)
+{
+	JobConfig*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_session");
+
+	/* Check that session leader sets the job's to be a session leader.
+	 */
+	TEST_FEATURE ("with leader argument");
+	strcpy (buf, "session leader\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->console, CONSOLE_NONE);
+
+		nih_free (job);
+	}
+
+
+	/* Check that multiple stanzas are ok.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "session leader\n");
+	strcat (buf, "session leader\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->leader, TRUE);
+
+		nih_free (job);
+	}
+
+
+	/* Check that an unknown argument raises a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	strcpy (buf, "session wibble\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that additional arguments to the stanza results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with argument");
+	strcpy (buf, "session leader foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 15);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a missing argument raises a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "session\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
 test_stanza_console (void)
 {
 	JobConfig*job;
@@ -5390,6 +5520,24 @@ test_stanza_console (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a missing argument raises a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "console\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 7);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -6994,6 +7142,7 @@ main (int   argc,
 	test_stanza_instance ();
 	test_stanza_kill ();
 	test_stanza_normal ();
+	test_stanza_session ();
 	test_stanza_console ();
 	test_stanza_env ();
 	test_stanza_umask ();

@@ -136,6 +136,7 @@ test_poll (void)
 	 */
 	TEST_FEATURE ("with pending event");
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->task = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
@@ -191,6 +192,7 @@ test_poll (void)
 	event->progress = EVENT_HANDLING;
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
 
@@ -247,6 +249,7 @@ test_poll (void)
 	event->progress = EVENT_FINISHED;
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
 
@@ -285,6 +288,7 @@ test_poll (void)
 	event->progress = EVENT_FINISHED;
 
 	config = job_config_new (NULL, "test");
+	config->leader = TRUE;
 	config->process[PROCESS_MAIN] = job_process_new (config->process);
 	config->process[PROCESS_MAIN]->command = "echo";
 

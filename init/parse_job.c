@@ -162,6 +162,10 @@ static int stanza_normal      (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_session     (JobConfig *job, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 static int stanza_console     (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -217,6 +221,7 @@ static NihConfigStanza stanzas[] = {
 	{ "instance",    (NihConfigHandler)stanza_instance    },
 	{ "kill",        (NihConfigHandler)stanza_kill        },
 	{ "normal",      (NihConfigHandler)stanza_normal      },
+	{ "session",     (NihConfigHandler)stanza_session     },
 	{ "console",     (NihConfigHandler)stanza_console     },
 	{ "env",         (NihConfigHandler)stanza_env         },
 	{ "umask",       (NihConfigHandler)stanza_umask       },
@@ -1891,6 +1896,65 @@ stanza_normal (JobConfig       *job,
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
+}
+
+/**
+ * stanza_session:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a session stanza from @file, extracting a single argument that
+ * should be leader to specify that the job is a session leader.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_session (JobConfig       *job,
+		NihConfigStanza *stanza,
+		const char      *file,
+		size_t           len,
+		size_t          *pos,
+		size_t          *lineno)
+{
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
+	char   *arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
+	if (! arg)
+		goto finish;
+
+	if (! strcmp (arg, "leader")) {
+		job->leader = TRUE;
+	} else {
+		nih_free (arg);
+
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+
+	nih_free (arg);
+
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 finish:
 	*pos = a_pos;

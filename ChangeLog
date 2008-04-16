@@ -1,3 +1,28 @@
+2008-04-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job.h (JobConfig): Add leader member.
+	* init/job.c (job_config_new): Initialise leader to FALSE.
+	* init/tests/test_job.c (test_config_new): Make sure leader is FALSE.
+	(test_change_goal, test_change_state, test_run_process)
+	(test_kill_process, test_child_handler, test_handle_event)
+	(test_handle_event_finished): Jobs have to be leaders now to allow
+	waitpid() to work in test cases.
+	* init/parse_job.c (stanza_session): Parse "session leader" stanza
+	to set to TRUE.
+	* init/tests/test_parse_job.c (test_stanza_session): Test new
+	stanza parsing.
+	(test_stanza_console): Add missing "missing argument" test.
+	* init/process.c (process_error_read): Deal with new fork error.
+	(process_spawn): If we're not to be a session leader, fork again and
+	write the pid back on the open socket.
+	* init/process.h (ProcessErrorType): Introduce new fork error.
+	* init/tests/test_process.c (test_spawn): Test that we can't start
+	a non-session-leader and still have process details.
+	(test_spawn, test_kill): Other jobs have to be leaders now to
+	allow waitpid() to work.
+	* init/tests/test_event.c (test_poll): Jobs have to be leaders now
+	to allow waitpid() to work.
+
 2008-04-12  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac (NIH_INIT): Require that libnih build D-Bus support,

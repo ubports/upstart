@@ -217,6 +217,7 @@ job_config_new (const void *parent,
 	config->normalexit = NULL;
 	config->normalexit_len = 0;
 
+	config->leader = FALSE;
 	config->console = CONSOLE_NONE;
 	config->env = NULL;
 

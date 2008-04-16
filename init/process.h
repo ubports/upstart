@@ -36,6 +36,7 @@
  * can produce an error.
  **/
 typedef enum process_error_type {
+	PROCESS_ERROR_FORK,
 	PROCESS_ERROR_CONSOLE,
 	PROCESS_ERROR_RLIMIT,
 	PROCESS_ERROR_PRIORITY,
