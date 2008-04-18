@@ -1,5 +1,10 @@
 2008-04-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Drop the legacy configuration directory, the format
+	of jobs has changed sufficiently to not support it.
+	* init/Makefile.am (AM_CPPFLAGS): Remove LEGACY_CONFDIR definition.
+	(install-data-local): Don't create it, either.
+
 	* init/enum.c, init/enum.h, init/tests/test_enum.c: Remove these
 	source files, a hold-over from when we had them in a separate
 	library and passed around the integer values.

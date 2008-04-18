@@ -8,7 +8,6 @@ AM_CFLAGS = \
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DCONFDIR="\"$(initconfdir)\"" \
-	-DLEGACY_CONFDIR="\"$(sysconfdir)/event.d\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
 	-I$(top_srcdir)/intl
@@ -128,7 +127,6 @@ install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(initconfdir)
 	$(MKDIR_P) $(DESTDIR)$(initconfdir)/conf.d
 	$(MKDIR_P) $(DESTDIR)$(initconfdir)/jobs.d
-	$(MKDIR_P) $(DESTDIR)$(sysconfdir)/event.d
 
 clean-local:
 	rm -f *.gcno *.gcda
