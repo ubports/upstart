@@ -30,7 +30,8 @@ init_SOURCES = \
 	event.c event.h \
 	parse_job.c parse_job.h \
 	parse_conf.c parse_conf.h \
-	conf.c conf.h
+	conf.c conf.h \
+	control.c control.h
 
 init_LDADD = \
 	../nih/libnih.la \
@@ -50,7 +51,8 @@ TESTS = \
 	test_event \
 	test_parse_job \
 	test_parse_conf \
-	test_conf
+	test_conf \
+	test_control
 
 check_PROGRAMS = $(TESTS)
 
@@ -70,7 +72,7 @@ test_process_SOURCES = tests/test_process.c
 test_process_LDFLAGS = -static
 test_process_LDADD = \
 	enum.o environ.o process.o job.o event.o \
-	parse_job.o parse_conf.o conf.o \
+	parse_job.o parse_conf.o conf.o control.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -79,7 +81,7 @@ test_job_SOURCES = tests/test_job.c
 test_job_LDFLAGS = -static
 test_job_LDADD = \
 	enum.o environ.o process.o job.o event.o \
-	parse_job.o parse_conf.o conf.o \
+	parse_job.o parse_conf.o conf.o control.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -88,7 +90,7 @@ test_event_SOURCES = tests/test_event.c
 test_event_LDFLAGS = -static
 test_event_LDADD = \
 	enum.o environ.o process.o job.o event.o \
-	parse_job.o parse_conf.o conf.o \
+	parse_job.o parse_conf.o conf.o control.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -97,7 +99,7 @@ test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDFLAGS = -static
 test_parse_job_LDADD = \
 	enum.o environ.o process.o job.o event.o \
-	parse_job.o parse_conf.o conf.o \
+	parse_job.o parse_conf.o conf.o control.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -106,7 +108,7 @@ test_parse_conf_SOURCES = tests/test_parse_conf.c
 test_parse_conf_LDFLAGS = -static
 test_parse_conf_LDADD = \
 	enum.o environ.o process.o job.o event.o \
-	parse_job.o parse_conf.o conf.o \
+	parse_job.o parse_conf.o conf.o control.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -115,7 +117,16 @@ test_conf_SOURCES = tests/test_conf.c
 test_conf_LDFLAGS = -static
 test_conf_LDADD = \
 	enum.o environ.o process.o job.o event.o \
-	parse_job.o parse_conf.o conf.o \
+	parse_job.o parse_conf.o conf.o control.o \
+	../nih/libnih.la \
+	../nih/libnih-dbus.la \
+	$(DBUS_LIBS)
+
+test_control_SOURCES = tests/test_control.c
+test_control_LDFLAGS = -static
+test_control_LDADD = \
+	enum.o environ.o process.o job.o event.o \
+	parse_job.o parse_conf.o conf.o control.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)

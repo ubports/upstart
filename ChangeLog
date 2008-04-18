@@ -1,3 +1,23 @@
+2008-04-18  Scott James Remnant  <scott@netsplit.com>
+
+	* init/control.c (control_bus_open, control_bus_disconnected)
+	(control_bus_close): Functions to open a connection to the D-Bus
+	system bus, clean up if disconnected or disconnect ourselves
+	explicitly.
+	* init/control.h: Prototypes.
+	* init/tests/test_control.c (test_bus_open)
+	(test_bus_disconnected, test_bus_close): Test the functions using
+	a fake D-Bus system bus daemon.
+	* init/errors.h: Add error for "name taken".
+	* init/Makefile.am (init_SOURCES): Build and link control.c and
+	control.h
+	(TESTS): Build and run control test suite.
+	(test_control_SOURCES, test_control_LDFLAGS, test_control_LDADD):
+	Details for control test suite.
+	(test_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_parse_job_LDADD, test_parse_conf_LDADD, test_conf_LDADD):
+	Link control.o
+
 2008-04-16  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.h (JobConfig): Add leader member.

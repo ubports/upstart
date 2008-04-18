@@ -48,6 +48,9 @@ enum {
 	PARSE_EXPECTED_OPERATOR,
 	PARSE_EXPECTED_VARIABLE,
 	PARSE_MISMATCHED_PARENS,
+
+	/* Errors while handling control requests */
+	CONTROL_NAME_TAKEN,
 };
 
 /* Error strings for defined messages */
@@ -64,5 +67,6 @@ enum {
 #define PARSE_EXPECTED_OPERATOR_STR	N_("Expected operator")
 #define PARSE_EXPECTED_VARIABLE_STR	N_("Expected variable name before value")
 #define PARSE_MISMATCHED_PARENS_STR	N_("Mismatched parentheses")
+#define CONTROL_NAME_TAKEN_STR		N_("Name already taken")
 
 #endif /* INIT_ERRORS_H */
