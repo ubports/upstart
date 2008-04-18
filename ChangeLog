@@ -1,5 +1,8 @@
 2008-04-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Attempt to connect to the system bus on startup,
+	but don't expect it to work.
+
 	* init/control.c (control_bus_open, control_bus_disconnected)
 	(control_bus_close): Functions to open a connection to the D-Bus
 	system bus, clean up if disconnected or disconnect ourselves

@@ -55,6 +55,7 @@
 #include "job.h"
 #include "event.h"
 #include "conf.h"
+#include "control.h"
 #include "paths.h"
 
 
@@ -270,6 +271,21 @@ main (int   argc,
 #endif /* LEGACY_CONFDIR */
 
 	conf_reload ();
+
+	/* Open connection to the system bus; we normally expect this to
+	 * fail and will try again later - don't let ENOMEM stop us though.
+	 */
+	while (control_bus_open () < 0) {
+		NihError *err;
+		int       number;
+
+		err = nih_error_get ();
+		number = err->number;
+		nih_free (err);
+
+		if (number != ENOMEM)
+			break;
+	}
 
 #ifndef DEBUG
 	/* Now that the startup is complete, send all further logging output
