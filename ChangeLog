@@ -1,5 +1,20 @@
 2008-04-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobConfig): Another day, another obscure job config
+	detail.  This one is for adjusting how likely you are to be killed
+	by the OOM Killer.
+	* init/job.c (job_config_new): Set to zero by default.
+	* init/tests/test_job.c (test_config_new): And make sure it is zero.
+	* init/parse_job.c (stanza_oom): And it helps to have a function
+	to set that one.
+	* init/tests/test_parse_job.c (test_stanza_oom): Test it.
+	* init/errors.h: And we need an error if its out of bounds.
+	* init/conf.c (conf_reload_path): Which also needs to be caught.
+	* init/process.c (process_spawn): Of course, we have to do something
+	with the oom adjustment.
+	(process_error_read): message for failure error.
+	* init/process.h (processErrorType): And need an error if it fails
+
 	* init/main.c: Drop the legacy configuration directory, the format
 	of jobs has changed sufficiently to not support it.
 	* init/Makefile.am (AM_CPPFLAGS): Remove LEGACY_CONFDIR definition.

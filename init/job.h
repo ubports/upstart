@@ -217,6 +217,7 @@ typedef struct job_process {
  * @umask: file mode creation mask,
  * @nice: process priority,
  * @limits: resource limits indexed by resource,
+ * @oom_adj: OOM killer adjustment,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
  * @instances: instances of this job,
@@ -264,6 +265,7 @@ struct job_config {
 
 	mode_t          umask;
 	int             nice;
+	int             oom_adj;
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char           *chroot;
 	char           *chdir;

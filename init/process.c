@@ -36,6 +36,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,9 +117,11 @@ process_spawn (JobConfig    *config,
 	       char * const *env,
 	       int           trace)
 {
-	sigset_t child_set, orig_set;
-	pid_t    pid;
-	int      i, fds[2];
+	sigset_t  child_set, orig_set;
+	pid_t     pid;
+	int       i, fds[2];
+	char      filename[PATH_MAX];
+	FILE     *fd;
 
 	nih_assert (config != NULL);
 
@@ -244,6 +247,23 @@ process_spawn (JobConfig    *config,
 	if (setpriority (PRIO_PROCESS, 0, config->nice) < 0) {
 		nih_error_raise_system ();
 		process_error_abort (fds[1], PROCESS_ERROR_PRIORITY, 0);
+	}
+
+	/* Adjust the process OOM killer priority.
+	 */
+	snprintf (filename, sizeof (filename), "/proc/%d/oom_adj", getpid ());
+
+	fd = fopen (filename, "w");
+	if (! fd) {
+		nih_error_raise_system ();
+		process_error_abort (fds[1], PROCESS_ERROR_OOM_ADJ, 0);
+	}
+
+	fprintf (fd, "%d\n", config->oom_adj);
+
+	if (fclose (fd)) {
+		nih_error_raise_system ();
+		process_error_abort (fds[1], PROCESS_ERROR_OOM_ADJ, 0);
 	}
 
 	/* Change the root directory, confining path resolution within it;
@@ -445,6 +465,11 @@ process_error_read (int fd)
 	case PROCESS_ERROR_PRIORITY:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to set priority: %s"),
+				  strerror (err->errnum)));
+		break;
+	case PROCESS_ERROR_OOM_ADJ:
+		NIH_MUST (err->error.message = nih_sprintf (
+				  err, _("unable to set oom adjustment: %s"),
 				  strerror (err->errnum)));
 		break;
 	case PROCESS_ERROR_CHROOT:

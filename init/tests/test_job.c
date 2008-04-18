@@ -472,6 +472,7 @@ test_config_new (void)
 
 		TEST_EQ (config->umask, JOB_DEFAULT_UMASK);
 		TEST_EQ (config->nice, 0);
+		TEST_EQ (config->oom_adj, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)
 			TEST_EQ_P (config->limits[i], NULL);

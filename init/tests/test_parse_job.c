@@ -5903,7 +5903,7 @@ test_stanza_nice (void)
 	/* Check that a nice stanza with a negative timeout results
 	 * in it being stored in the job.
 	 */
-	TEST_FEATURE ("with positive argument");
+	TEST_FEATURE ("with negative argument");
 	strcpy (buf, "nice -10\n");
 
 	TEST_ALLOC_FAIL {
@@ -6076,6 +6076,262 @@ test_stanza_nice (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
+test_stanza_oom (void)
+{
+	JobConfig*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_oom");
+
+	/* Check that an oom stanza with an positive timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with positive argument");
+	strcpy (buf, "oom 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->oom_adj, 10);
+
+		nih_free (job);
+	}
+
+
+	/* Check that an oom stanza with a negative timeout results
+	 * in it being stored in the job.
+	 */
+	TEST_FEATURE ("with negative argument");
+	strcpy (buf, "oom -10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->oom_adj, -10);
+
+		nih_free (job);
+	}
+
+
+	/* Check that an oom stanza may have the special never argument
+	 * which stores -17 in the job.
+	 */
+	TEST_FEATURE ("with never argument");
+	strcpy (buf, "oom never\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->oom_adj, -17);
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple oom stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "oom -10\n");
+	strcat (buf, "oom 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_EQ (job->oom_adj, 10);
+
+		nih_free (job);
+	}
+
+
+	/* Check that an oom stanza without an argument results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "oom\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 3);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an oom stanza with an overly large argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with overly large argument");
+	strcpy (buf, "oom 20\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an oom stanza with an overly small argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with overly small argument");
+	strcpy (buf, "oom -21\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an oom stanza with a non-integer argument results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with non-integer argument");
+	strcpy (buf, "oom foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an oom stanza with a partially numeric argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with alphanumeric argument");
+	strcpy (buf, "oom 12foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an oom stanza with a priority but with an extra
+	 * argument afterwards results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "oom 10 foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 7);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -7147,6 +7403,7 @@ main (int   argc,
 	test_stanza_env ();
 	test_stanza_umask ();
 	test_stanza_nice ();
+	test_stanza_oom ();
 	test_stanza_limit ();
 	test_stanza_chroot ();
 	test_stanza_chdir ();

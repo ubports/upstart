@@ -401,6 +401,7 @@ job_config_new (const void *parent,
 
 	config->umask = JOB_DEFAULT_UMASK;
 	config->nice = 0;
+	config->oom_adj = 0;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		config->limits[i] = NULL;

@@ -182,6 +182,10 @@ static int stanza_nice        (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_oom         (JobConfig *job, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 static int stanza_limit       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -226,6 +230,7 @@ static NihConfigStanza stanzas[] = {
 	{ "env",         (NihConfigHandler)stanza_env         },
 	{ "umask",       (NihConfigHandler)stanza_umask       },
 	{ "nice",        (NihConfigHandler)stanza_nice        },
+	{ "oom",         (NihConfigHandler)stanza_oom         },
 	{ "limit",       (NihConfigHandler)stanza_limit       },
 	{ "chroot",      (NihConfigHandler)stanza_chroot      },
 	{ "chdir",       (NihConfigHandler)stanza_chdir       },
@@ -2179,6 +2184,70 @@ stanza_nice (JobConfig       *job,
 	nih_free (arg);
 
 	job->nice = (int)nice;
+
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
+}
+
+/**
+ * stanza_oom:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an oom stanza from @file, extracting a single argument containing
+ * a OOM killer adjustment (which may be "never" for the magic -17 value).
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_oom (JobConfig       *job,
+	    NihConfigStanza *stanza,
+	    const char      *file,
+	    size_t           len,
+	    size_t          *pos,
+	    size_t          *lineno)
+{
+	char   *arg, *endptr;
+	long    oom_adj;
+	size_t  a_pos, a_lineno;
+	int     ret = -1;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
+	if (! arg)
+		goto finish;
+
+	if (! strcmp (arg, "never")) {
+		job->oom_adj = -17;
+	} else {
+		oom_adj = strtol (arg, &endptr, 10);
+		if (*endptr || (oom_adj < -17) || (oom_adj > 15)) {
+			nih_free (arg);
+
+			nih_return_error (-1, PARSE_ILLEGAL_OOM,
+					  _(PARSE_ILLEGAL_OOM_STR));
+		}
+		nih_free (arg);
+
+		job->oom_adj = (int)oom_adj;
+	}
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 

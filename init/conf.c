@@ -720,6 +720,7 @@ conf_reload_path (ConfSource *source,
 		case PARSE_ILLEGAL_EXIT:
 		case PARSE_ILLEGAL_UMASK:
 		case PARSE_ILLEGAL_NICE:
+		case PARSE_ILLEGAL_OOM:
 		case PARSE_ILLEGAL_LIMIT:
 		case PARSE_EXPECTED_EVENT:
 		case PARSE_EXPECTED_OPERATOR:
