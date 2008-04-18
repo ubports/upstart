@@ -1,5 +1,12 @@
 2008-04-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/enum.c, init/enum.h, init/tests/test_enum.c: Remove these
+	source files, a hold-over from when we had them in a separate
+	library and passed around the integer values.
+	* init/job.c, init/job.h, init/tests/test_job.c: Restore in their
+	proper place.
+	* init/Makefile.am: Remove enum.* from build instructions.
+
 	* init/main.c: Attempt to connect to the system bus on startup,
 	but don't expect it to work.
 
