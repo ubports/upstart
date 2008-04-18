@@ -398,7 +398,7 @@ void
 test_kill (void)
 {
 	JobConfig *config;
-	pid_t      pid1, pid2;
+	pid_t      pid1, pid2, pid3;
 	int        ret, status;
 
 	TEST_FUNCTION ("process_kill");
@@ -454,12 +454,46 @@ test_kill (void)
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
 
-	ret = process_kill (config, pid1, TRUE);
 	waitpid (pid2, &status, 0);
 
 	TEST_EQ (ret, 0);
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+
+	/* Check that we can still send the signal to the process group
+	 * when the leader is no longer around.
+	 */
+	TEST_FEATURE ("with no group leader");
+	TEST_CHILD (pid1) {
+		pause ();
+	}
+	TEST_CHILD (pid2) {
+		pause ();
+	}
+	TEST_CHILD (pid3) {
+		pause ();
+	}
+
+	setpgid (pid1, pid1);
+	setpgid (pid2, pid1);
+	setpgid (pid3, pid1);
+
+	kill (pid1, SIGTERM);
+	waitpid (pid1, &status, 0);
+
+	ret = process_kill (config, pid2, FALSE);
+	waitpid (pid2, &status, 0);
+
+	TEST_EQ (ret, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGTERM);
+
+	waitpid (pid3, &status, 0);
+
+	TEST_EQ (ret, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGTERM);
 
 
 	nih_free (config);

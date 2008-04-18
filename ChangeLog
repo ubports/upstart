@@ -1,5 +1,11 @@
 2008-04-18  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c (process_kill): Make sure we do send the signal to
+	the process group; in practice this makes no difference, but it pays
+	to be explicit in such things.
+	* init/tests/test_process.c (test_kill): Add a test case for when
+	the session leader is no more.
+
 	* init/job.h (JobConfig): Another day, another obscure job config
 	detail.  This one is for adjusting how likely you are to be killed
 	by the OOM Killer.

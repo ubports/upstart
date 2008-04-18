@@ -519,14 +519,17 @@ process_kill (JobConfig *config,
 	      pid_t      pid,
 	      int        force)
 {
-	int signal;
+	int   signal;
+	pid_t pgid;
 
 	nih_assert (config != NULL);
 	nih_assert (pid > 0);
 
 	signal = (force ? SIGKILL : SIGTERM);
 
-	if (kill (-pid, signal) < 0)
+	pgid = getpgid (pid);
+
+	if (kill (pgid > 0 ? -pgid : pid, signal) < 0)
 		nih_return_system_error (-1);
 
 	return 0;
