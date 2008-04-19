@@ -1,3 +1,7 @@
+2008-03-19  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Remove init/enum.c and add init/control.c
+
 2008-03-07  Scott James Remnant  <scott@netsplit.com>
 
 	* ca.po, fr.po, sv.po: Remove, abandoning Rosetta for translations
