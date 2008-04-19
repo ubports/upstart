@@ -1399,6 +1399,80 @@ test_change_state (void)
 	}
 
 
+	/* Check that a named instance of a job can move from waiting to
+	 * starting, and that the instance name is included in the event
+	 * environment.
+	 */
+	TEST_FEATURE ("waiting to starting for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		env1 = job->start_env;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_POST_STOP;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_P (event->env[2], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
 	/* Check that a job with a start process can move from starting
 	 * to pre-start, and have the process run.
 	 */
@@ -1691,7 +1765,79 @@ test_change_state (void)
 	}
 
 
- 	/* Check that a job without a main process can move from pre-start
+	/* Check that a job with a named instance includes the instance
+	 * name in the started event.
+	 */
+	TEST_FEATURE ("pre-start to spawned for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_P (event->env[2], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
+	/* Check that a job without a main process can move from pre-start
 	 * straight to running skipping the interim steps, and has the
 	 * started event emitted.
 	 */
@@ -2389,6 +2535,72 @@ test_change_state (void)
 	}
 
 
+	/* Check that a job with a named instance and without a pre-stop
+	 * process includes the instance name in the stopping event.
+	 */
+	TEST_FEATURE ("running to pre-stop for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=ok");
+		TEST_EQ_STR (event->env[2], "INSTANCE=foo");
+		TEST_EQ_P (event->env[3], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
 	/* Check that a job with a pre-stop process ignores any failure and
 	 * moves from running to pre-stop, and then straight into the stopping
 	 * state, emitting that event.
@@ -2520,6 +2732,72 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		nih_free (job);
+	}
+
+
+	/* Check that a job with a named instance that fails includes the
+	 * instance name in the stopping event after the failed information.
+	 */
+	TEST_FEATURE ("running to stopping for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_P (event->env[5], NULL);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
@@ -3174,6 +3452,62 @@ test_change_state (void)
 		TEST_EQ_STR (event->env[2], "PROCESS=main");
 		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[4], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+
+	/* Check that a job with a named instance includes the instance
+	 * name in the stopped event.
+	 */
+	TEST_FEATURE ("post-stop to waiting for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_P (event->env[5], NULL);
 		nih_free (event);
 
 		TEST_LIST_EMPTY (events);

@@ -1276,6 +1276,11 @@ job_emit_event (Job *job)
 	}
 
 emit:
+	/* Add the instance name */
+	if (job->name)
+		NIH_MUST (environ_set (&env, NULL, &len,
+				       "INSTANCE=%s", job->name));
+
 	event = event_new (NULL, name, env);
 
 	return event;
