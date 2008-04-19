@@ -199,7 +199,7 @@ typedef struct job_process {
  * @version: version of the job; intended for humans,
  * @start_on: event operator expression that can start this job,
  * @stop_on: event operator expression that can stop this job.
- * @emits: array of additional events that this job can emit,
+ * @emits: NULL-terminated array of events that this job may emit,
  * @process: processes to be run,
  * @expect: what to expect before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
@@ -240,7 +240,7 @@ struct job_config {
 
 	EventOperator  *start_on;
 	EventOperator  *stop_on;
-	NihList         emits;
+	char          **emits;
 
 	JobProcess    **process;
 

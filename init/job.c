@@ -366,8 +366,7 @@ job_config_new (const void *parent,
 
 	config->start_on = NULL;
 	config->stop_on = NULL;
-
-	nih_list_init (&config->emits);
+	config->emits = NULL;
 
 	config->process = nih_alloc (config,
 				     sizeof (JobProcess *) * PROCESS_LAST);

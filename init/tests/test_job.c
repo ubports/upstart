@@ -439,8 +439,7 @@ test_config_new (void)
 
 		TEST_EQ_P (config->start_on, NULL);
 		TEST_EQ_P (config->stop_on, NULL);
-
-		TEST_LIST_EMPTY (&config->emits);
+		TEST_EQ_P (config->emits, NULL);
 
 		TEST_NE_P (config->process, NULL);
 		TEST_ALLOC_PARENT (config->process, config);

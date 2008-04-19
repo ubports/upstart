@@ -1425,10 +1425,8 @@ stanza_version (JobConfig       *job,
  *
  * Parse an emits stanza from @file.  This stanza expects one or more
  * arguments giving the names of additional events that can be emitted
- * by this job.
- *
- * Arguments are allocated as NihListEntry structures, with the argument
- * as the string, and stored in the emits list of the job.
+ * by this job.  These are stored in the emits array, which is increased
+ * in size to accomodate the new values.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1456,19 +1454,11 @@ stanza_emits (JobConfig       *job,
 		return -1;
 
 	for (arg = args; *arg; arg++) {
-		NihListEntry *emits;
-
-		emits = nih_list_entry_new (job);
-		if (! emits) {
+		if (! nih_str_array_addp (&job->emits, job, NULL, *arg)) {
 			nih_error_raise_system ();
 			nih_free (args);
 			return -1;
 		}
-
-		emits->str = *arg;
-		nih_alloc_reparent (emits->str, emits);
-
-		nih_list_add (&job->emits, &emits->entry);
 	}
 
 	nih_free (args);

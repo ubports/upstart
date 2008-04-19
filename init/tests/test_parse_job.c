@@ -3691,11 +3691,10 @@ test_stanza_version (void)
 void
 test_stanza_emits (void)
 {
-	JobConfig    *job;
-	NihListEntry *emits;
-	NihError     *err;
-	size_t        pos, lineno;
-	char          buf[1024];
+	JobConfig *job;
+	NihError  *err;
+	size_t     pos, lineno;
+	char       buf[1024];
 
 	TEST_FUNCTION ("stanza_emits");
 
@@ -3725,12 +3724,12 @@ test_stanza_emits (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
-		TEST_LIST_NOT_EMPTY (&job->emits);
 
-		emits = (NihListEntry *)job->emits.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "wibble");
-		TEST_ALLOC_PARENT (emits->str, emits);
+		TEST_ALLOC_PARENT (job->emits, job);
+		TEST_ALLOC_SIZE (job->emits, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (job->emits[0], job->emits);
+		TEST_EQ_STR (job->emits[0], "wibble");
+		TEST_EQ_P (job->emits[1], NULL);
 
 		nih_free (job);
 	}
@@ -3762,22 +3761,16 @@ test_stanza_emits (void)
 		TEST_EQ (lineno, 2);
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
-		TEST_LIST_NOT_EMPTY (&job->emits);
 
-		emits = (NihListEntry *)job->emits.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "wibble");
-		TEST_ALLOC_PARENT (emits->str, emits);
-
-		emits = (NihListEntry *)emits->entry.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "wobble");
-		TEST_ALLOC_PARENT (emits->str, emits);
-
-		emits = (NihListEntry *)emits->entry.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "waggle");
-		TEST_ALLOC_PARENT (emits->str, emits);
+		TEST_ALLOC_PARENT (job->emits, job);
+		TEST_ALLOC_SIZE (job->emits, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->emits[0], job->emits);
+		TEST_EQ_STR (job->emits[0], "wibble");
+		TEST_ALLOC_PARENT (job->emits[1], job->emits);
+		TEST_EQ_STR (job->emits[1], "wobble");
+		TEST_ALLOC_PARENT (job->emits[2], job->emits);
+		TEST_EQ_STR (job->emits[2], "waggle");
+		TEST_EQ_P (job->emits[3], NULL);
 
 		nih_free (job);
 	}
@@ -3811,27 +3804,18 @@ test_stanza_emits (void)
 		TEST_EQ (lineno, 4);
 
 		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
-		TEST_LIST_NOT_EMPTY (&job->emits);
 
-		emits = (NihListEntry *)job->emits.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "wibble");
-		TEST_ALLOC_PARENT (emits->str, emits);
-
-		emits = (NihListEntry *)emits->entry.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "wobble");
-		TEST_ALLOC_PARENT (emits->str, emits);
-
-		emits = (NihListEntry *)emits->entry.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "waggle");
-		TEST_ALLOC_PARENT (emits->str, emits);
-
-		emits = (NihListEntry *)emits->entry.next;
-		TEST_ALLOC_SIZE (emits, sizeof (NihListEntry));
-		TEST_EQ_STR (emits->str, "wuggle");
-		TEST_ALLOC_PARENT (emits->str, emits);
+		TEST_ALLOC_PARENT (job->emits, job);
+		TEST_ALLOC_SIZE (job->emits, sizeof (char *) * 5);
+		TEST_ALLOC_PARENT (job->emits[0], job->emits);
+		TEST_EQ_STR (job->emits[0], "wibble");
+		TEST_ALLOC_PARENT (job->emits[1], job->emits);
+		TEST_EQ_STR (job->emits[1], "wobble");
+		TEST_ALLOC_PARENT (job->emits[2], job->emits);
+		TEST_EQ_STR (job->emits[2], "waggle");
+		TEST_ALLOC_PARENT (job->emits[3], job->emits);
+		TEST_EQ_STR (job->emits[3], "wuggle");
+		TEST_EQ_P (job->emits[4], NULL);
 
 		nih_free (job);
 	}

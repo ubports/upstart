@@ -1,5 +1,13 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobConfig): NihList is rather overkill for emits,
+	which is static configuration; turn into a NULL-terminated array
+	which'll make it easier to turn into a D-Bus property later.
+	* init/job.c (job_config_new): Initialise to NULL now.
+	* init/tests/test_job.c (test_config_new): Make sure it's NULL.
+	* init/parse_job.c (stanza_emits): Store in an array instead.
+	* init/tests/test_parse_job.c (test_stanza_emits): Redo tests.
+
 	* init/job.c (job_emit_event): Append exported variables to the
 	job event without overwriting the builtins.
 	* init/tests/test_job.c (test_change_state): Check that exported
