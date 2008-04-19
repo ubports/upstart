@@ -2290,10 +2290,11 @@ stanza_oom (JobConfig       *job,
 			nih_return_error (-1, PARSE_ILLEGAL_OOM,
 					  _(PARSE_ILLEGAL_OOM_STR));
 		}
-		nih_free (arg);
 
 		job->oom_adj = (int)oom_adj;
 	}
+
+	nih_free (arg);
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 

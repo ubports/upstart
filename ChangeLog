@@ -1,5 +1,7 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (stanza_oom): Oops, forgot to free never arg.
+
 	* init/job.h (JobConfig): NihList is rather overkill for emits,
 	which is static configuration; turn into a NULL-terminated array
 	which'll make it easier to turn into a D-Bus property later.
