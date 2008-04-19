@@ -1,5 +1,10 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (stanza_export): Parse a new export stanza,
+	which takes one or more environment variable names.
+	* init/tests/test_parse_job.c (test_stanza_export): Test the new
+	stanza.
+
 	* init/job.h (JobConfig): Add new export member.
 	* init/job.c (job_config_new): Initialise to NULL.
 	* init/tests/test_job.c (test_config_new): Make sure it's NULL.

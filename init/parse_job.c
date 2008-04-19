@@ -174,6 +174,10 @@ static int stanza_env         (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_export      (JobConfig *job, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 static int stanza_umask       (JobConfig *job, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -228,6 +232,7 @@ static NihConfigStanza stanzas[] = {
 	{ "session",     (NihConfigHandler)stanza_session     },
 	{ "console",     (NihConfigHandler)stanza_console     },
 	{ "env",         (NihConfigHandler)stanza_env         },
+	{ "export",      (NihConfigHandler)stanza_export      },
 	{ "umask",       (NihConfigHandler)stanza_umask       },
 	{ "nice",        (NihConfigHandler)stanza_nice        },
 	{ "oom",         (NihConfigHandler)stanza_oom         },
@@ -2073,6 +2078,57 @@ stanza_env (JobConfig       *job,
 	}
 
 	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * stanza_export:
+ * @job: job being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse an export stanza from @file, extracting one or more arguments
+ * containing environment variable names.  These are stored in the export
+ * array, which is increased in size to accomodate the new values.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_export (JobConfig       *job,
+	       NihConfigStanza *stanza,
+	       const char      *file,
+	       size_t           len,
+	       size_t          *pos,
+	       size_t          *lineno)
+{
+	char **args, **arg;
+
+	nih_assert (job != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (! nih_config_has_token (file, len, pos, lineno))
+		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
+	args = nih_config_parse_args (NULL, file, len, pos, lineno);
+	if (! args)
+		return -1;
+
+	for (arg = args; *arg; arg++) {
+		if (! nih_str_array_addp (&job->export, job, NULL, *arg)) {
+			nih_error_raise_system ();
+			nih_free (args);
+			return -1;
+		}
+	}
+
+	nih_free (args);
+
+	return 0;
 }
 
 /**

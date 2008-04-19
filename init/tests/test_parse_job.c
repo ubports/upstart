@@ -5667,6 +5667,158 @@ test_stanza_env (void)
 }
 
 void
+test_stanza_export (void)
+{
+	JobConfig *job;
+	NihError  *err;
+	size_t     pos, lineno;
+	char       buf[1024];
+
+	TEST_FUNCTION ("stanza_export");
+
+	/* Check that an export stanza with a single argument results in
+	 * the argument being added to the export array.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "export FOO\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_ALLOC_PARENT (job->export, job);
+		TEST_ALLOC_SIZE (job->export, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (job->export[0], job->export);
+		TEST_EQ_STR (job->export[0], "FOO");
+		TEST_EQ_P (job->export[1], NULL);
+
+		nih_free (job);
+	}
+
+
+	/* Check that an export stanza with multiple arguments results in
+	 * all of the arguments being added to the export array.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	strcpy (buf, "export FOO BAR BAZ\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_ALLOC_PARENT (job->export, job);
+		TEST_ALLOC_SIZE (job->export, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->export[0], job->export);
+		TEST_EQ_STR (job->export[0], "FOO");
+		TEST_ALLOC_PARENT (job->export[1], job->export);
+		TEST_EQ_STR (job->export[1], "BAR");
+		TEST_ALLOC_PARENT (job->export[2], job->export);
+		TEST_EQ_STR (job->export[2], "BAZ");
+		TEST_EQ_P (job->export[3], NULL);
+
+		nih_free (job);
+	}
+
+
+	/* Check that repeated export stanzas are permitted, each appending
+	 * to the last.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "export FOO\n");
+	strcat (buf, "export BAR BAZ\n");
+	strcat (buf, "export QUUX\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 4);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobConfig));
+
+		TEST_ALLOC_PARENT (job->export, job);
+		TEST_ALLOC_SIZE (job->export, sizeof (char *) * 5);
+		TEST_ALLOC_PARENT (job->export[0], job->export);
+		TEST_EQ_STR (job->export[0], "FOO");
+		TEST_ALLOC_PARENT (job->export[1], job->export);
+		TEST_EQ_STR (job->export[1], "BAR");
+		TEST_ALLOC_PARENT (job->export[2], job->export);
+		TEST_EQ_STR (job->export[2], "BAZ");
+		TEST_ALLOC_PARENT (job->export[3], job->export);
+		TEST_EQ_STR (job->export[3], "QUUX");
+		TEST_EQ_P (job->export[4], NULL);
+
+		nih_free (job);
+	}
+
+
+	/* Check that an export stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "export\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
 test_stanza_umask (void)
 {
 	JobConfig*job;
@@ -7401,6 +7553,7 @@ main (int   argc,
 	test_stanza_session ();
 	test_stanza_console ();
 	test_stanza_env ();
+	test_stanza_export ();
 	test_stanza_umask ();
 	test_stanza_nice ();
 	test_stanza_oom ();
