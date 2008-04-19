@@ -469,6 +469,7 @@ test_config_new (void)
 		TEST_EQ (config->leader, FALSE);
 		TEST_EQ (config->console, CONSOLE_NONE);
 		TEST_EQ_P (config->env, NULL);
+		TEST_EQ_P (config->export, NULL);
 
 		TEST_EQ (config->umask, JOB_DEFAULT_UMASK);
 		TEST_EQ (config->nice, 0);

@@ -398,6 +398,7 @@ job_config_new (const void *parent,
 	config->leader = FALSE;
 	config->console = CONSOLE_NONE;
 	config->env = NULL;
+	config->export = NULL;
 
 	config->umask = JOB_DEFAULT_UMASK;
 	config->nice = 0;

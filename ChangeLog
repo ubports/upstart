@@ -1,5 +1,9 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobConfig): Add new export member.
+	* init/job.c (job_config_new): Initialise to NULL.
+	* init/tests/test_job.c (test_config_new): Make sure it's NULL.
+
 	* init/environ.c (environ_add, environ_set): Add a replace argument
 	which when FALSE does not replace existing entries in the environment
 	table.

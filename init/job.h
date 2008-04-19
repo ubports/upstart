@@ -214,6 +214,7 @@ typedef struct job_process {
  * @leader: TRUE if job should be a session leader,
  * @console: how to arrange the job's stdin/out/err file descriptors,
  * @env: NULL-terminated array of default environment variables,
+ * @export: NULL-terminated array of environment exported to events,
  * @umask: file mode creation mask,
  * @nice: process priority,
  * @limits: resource limits indexed by resource,
@@ -262,6 +263,7 @@ struct job_config {
 	int             leader;
 	ConsoleType     console;
 	char          **env;
+	char          **export;
 
 	mode_t          umask;
 	int             nice;
