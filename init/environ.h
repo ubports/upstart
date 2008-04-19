@@ -27,11 +27,11 @@
 NIH_BEGIN_EXTERN
 
 char **       environ_add    (char ***env, const void *parent, size_t *len,
-			      const char *str)
+			      int replace, const char *str)
 	__attribute__ ((warn_unused_result));
 
 char **       environ_set    (char ***env, const void *parent, size_t *len,
-			      const char *format, ...)
+			      int replace, const char *format, ...)
 	__attribute__ ((warn_unused_result));
 
 char * const *environ_lookup (char * const *env, const char *key, size_t len);

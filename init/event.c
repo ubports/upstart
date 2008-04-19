@@ -769,7 +769,8 @@ event_operator_collect (EventOperator   *root,
 			char **e;
 
 			for (e = oper->event->env; e && *e; e++)
-				NIH_MUST (environ_add (env, parent, len, *e));
+				NIH_MUST (environ_add (env, parent, len,
+						       TRUE, *e));
 		}
 
 		/* Append the name of the event to the string we're building */
@@ -798,7 +799,7 @@ event_operator_collect (EventOperator   *root,
 
 	/* Append the event list to the environment */
 	if (env && key) {
-		NIH_MUST (environ_add (env, parent, len, evlist));
+		NIH_MUST (environ_add (env, parent, len, TRUE, evlist));
 		nih_free (evlist);
 	}
 }

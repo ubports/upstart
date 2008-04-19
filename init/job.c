@@ -500,7 +500,7 @@ job_config_environment (const void *parent,
 	 * pick up the values from init's own environment.
 	 */
 	for (e = (char **)builtin; e && *e; e++)
-		if (! environ_add (&env, parent, len, *e))
+		if (! environ_add (&env, parent, len, TRUE, *e))
 			goto error;
 
 	/* Copy the set of environment variables from the job configuration,
@@ -508,7 +508,7 @@ job_config_environment (const void *parent,
 	 * override the builtins.
 	 */
 	for (e = config->env; e && *e; e++)
-		if (! environ_add (&env, parent, len, *e))
+		if (! environ_add (&env, parent, len, TRUE, *e))
 			goto error;
 
 	return env;
@@ -1224,61 +1224,61 @@ job_emit_event (Job *job)
 	NIH_MUST (env = nih_str_array_new (NULL));
 
 	/* Add the job name */
-	NIH_MUST (environ_set (&env, NULL, &len, "JOB=%s", job->config->name));
+	NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+			       "JOB=%s", job->config->name));
 
-	/* Don't include additional arguments unless this is a stop event. */
-	if (! stop)
-		goto emit;
-
-	/* Add only a simple "ok" argument if the job didn't fail. */
-	if (! job->failed) {
-		NIH_MUST (environ_add (&env, NULL, &len, "RESULT=ok"));
-		goto emit;
-	}
-
-	/* All failure events get a "failed" argument. */
-	NIH_MUST (environ_add (&env, NULL, &len, "RESULT=failed"));
-
-	/* Check for respawn failure, which has a special "respawn" argument
-	 * and no environment.
+	/* Stop events include a "failed" argument if a process failed,
+	 * otherwise stop events have an "ok" argument.
 	 */
-	if (job->failed_process == -1) {
-		NIH_MUST (environ_add (&env, NULL, &len, "PROCESS=respawn"));
-		goto emit;
-	}
+	if (stop && job->failed) {
+		NIH_MUST (environ_add (&env, NULL, &len, TRUE,
+				       "RESULT=failed"));
 
-	/* All other failure events get the process name as an argument. */
-	NIH_MUST (environ_set (&env, NULL, &len, "PROCESS=%s",
-			       process_name (job->failed_process)));
+		/* Include information about the process that failed, and
+		 * the signal/exit information.  If it was the spawn itself
+		 * that failed, we don't include signal/exit information and
+		 * if it was a respawn failure, we use the special "respawn"
+		 * argument instead of the process name,
+		 */
+		if ((job->failed_process != -1) && (job->exit_status != -1)) {
+			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+					       "PROCESS=%s",
+					       process_name (job->failed_process)));
 
-	/* Check for spawn failure, which receives no environment */
-	if (job->exit_status == -1)
-		goto emit;
+			/* If the job was terminated by a signal, that
+			 * will be stored in the higher byte and we
+			 * set EXIT_SIGNAL instead of EXIT_STATUS.
+			 */
+			if (job->exit_status & ~0xff) {
+				const char *sig;
 
-	/* If the job was terminated by a signal, that will be stored in the
-	 * higher byte and we set EXIT_SIGNAL instead of EXIT_STATUS.
-	 */
-	if (job->exit_status & ~0xff) {
-		const char *sig;
-
-		sig = nih_signal_to_name (job->exit_status >> 8);
-		if (sig) {
-			NIH_MUST (environ_set (&env, NULL, &len,
-					       "EXIT_SIGNAL=%s", sig));
+				sig = nih_signal_to_name (job->exit_status >> 8);
+				if (sig) {
+					NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+							       "EXIT_SIGNAL=%s", sig));
+				} else {
+					NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+							       "EXIT_SIGNAL=%d", job->exit_status >> 8));
+				}
+			} else {
+				NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+						       "EXIT_STATUS=%d", job->exit_status));
+			}
+		} else if (job->failed_process != -1) {
+			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+					       "PROCESS=%s",
+					       process_name (job->failed_process)));
 		} else {
-			NIH_MUST (environ_set (&env, NULL, &len,
-					       "EXIT_SIGNAL=%d",
-					       job->exit_status >> 8));
+			NIH_MUST (environ_add (&env, NULL, &len, TRUE,
+					       "PROCESS=respawn"));
 		}
-	} else {
-		NIH_MUST (environ_set (&env, NULL, &len,
-				       "EXIT_STATUS=%d", job->exit_status));
+	} else if (stop) {
+		NIH_MUST (environ_add (&env, NULL, &len, TRUE, "RESULT=ok"));
 	}
 
-emit:
 	/* Add the instance name */
 	if (job->name)
-		NIH_MUST (environ_set (&env, NULL, &len,
+		NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 				       "INSTANCE=%s", job->name));
 
 	event = event_new (NULL, name, env);
@@ -1414,12 +1414,12 @@ job_run_process (Job         *job,
 
 	if ((process == PROCESS_PRE_STOP) && job->stop_env)
 		for (e = job->stop_env; *e; e++)
-			NIH_MUST (environ_set (&env, NULL, &envc, *e));
+			NIH_MUST (environ_set (&env, NULL, &envc, TRUE, *e));
 
-	NIH_MUST (environ_set (&env, NULL, &envc,
+	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 			       "UPSTART_JOB=%s", job->config->name));
 	if (job->name)
-		NIH_MUST (environ_set (&env, NULL, &envc,
+		NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 				       "UPSTART_INSTANCE=%s", job->name));
 
 	/* If we're about to spawn the main job and we expect it to become

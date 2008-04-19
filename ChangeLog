@@ -1,5 +1,19 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_add, environ_set): Add a replace argument
+	which when FALSE does not replace existing entries in the environment
+	table.
+	* init/environ.h: Adjust prototypes.
+	* init/tests/test_environ.c (test_add): Add tests for non-replacement
+	mode, including corner cases.
+	(test_set): Replace should be TRUE in this test.
+	* init/event.c (event_operator_collect): Always replace existing
+	environment members.
+	* init/job.c (job_config_environment, job_run_process): Always replace
+	existing environment members.
+	(job_emit_event): Always replace existing environment members, and
+	rework this function to get rid of the confusing gotos.
+
 	* init/tests/test_job.c (test_change_state): Add tests to make sure
 	we include the INSTANCE variable in the event environment.
 

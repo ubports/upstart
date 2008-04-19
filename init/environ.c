@@ -50,6 +50,7 @@ static char *environ_expand_until (char **str, const void *parent,
  * @env: pointer to environment table,
  * @parent: parent of @env,
  * @len: length of @env,
+ * @replace: TRUE if existing entry should be replaced,
  * @str: string to add.
  *
  * Add the new environment variable @str to the table @env (which has @len
@@ -72,6 +73,7 @@ char **
 environ_add (char       ***env,
 	     const void   *parent,
 	     size_t       *len,
+	     int           replace,
 	     const char   *str)
 {
 	size_t   key, _len;
@@ -114,10 +116,11 @@ environ_add (char       ***env,
 	}
 
 	/* Check the environment table for an existing entry for the key,
-	 * if we find one we overwrite it instead of extending the table.
+	 * if we find one we either finish or overwrite it instead of
+	 * extending the table.
 	 */
 	old_str = (char **)environ_lookup (*env, str, key);
-	if (old_str) {
+	if (old_str && replace) {
 		nih_free (*old_str);
 
 		if (new_str) {
@@ -127,6 +130,11 @@ environ_add (char       ***env,
 				 (char *)(*env + *len) - (char *)old_str);
 			(*len)--;
 		}
+
+		return *env;
+	} else if (old_str) {
+		if (new_str)
+			nih_free (new_str);
 
 		return *env;
 	}
@@ -149,6 +157,7 @@ environ_add (char       ***env,
  * @env: pointer to environment table,
  * @parent: parent of @env,
  * @len: length of @env,
+ * @replace: TRUE if existing entry should be replaced,
  * @format: format string.
  *
  * Add the new environment variable named @key with the value specified by
@@ -172,6 +181,7 @@ char **
 environ_set (char       ***env,
 	     const void   *parent,
 	     size_t       *len,
+	     int           replace,
 	     const char   *format,
 	     ...)
 {
@@ -189,7 +199,7 @@ environ_set (char       ***env,
 	if (! str)
 		return NULL;
 
-	ret = environ_add (env, parent, len, str);
+	ret = environ_add (env, parent, len, replace, str);
 
 	nih_free (str);
 

@@ -51,7 +51,7 @@ test_add (void)
 			env = nih_str_array_new (NULL);
 		}
 
-		ret = environ_add (&env, NULL, &len, "FOO=BAR");
+		ret = environ_add (&env, NULL, &len, TRUE, "FOO=BAR");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -89,8 +89,8 @@ test_add (void)
 						   "BAR=BAZ"));
 		}
 
-		ret = environ_add (&env, NULL, &len,
-					       "FRODO=BAGGINS");
+		ret = environ_add (&env, NULL, &len, TRUE,
+				   "FRODO=BAGGINS");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -134,7 +134,8 @@ test_add (void)
 						   "BAR=BAZ"));
 		}
 
-		ret = environ_add (&env, NULL, &len, "FRODO");
+		ret = environ_add (&env, NULL, &len, TRUE,
+				   "FRODO");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -180,7 +181,8 @@ test_add (void)
 						   "BAR=BAZ"));
 		}
 
-		ret = environ_add (&env, NULL, &len, "FRODO");
+		ret = environ_add (&env, NULL, &len, TRUE,
+				   "FRODO");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -226,8 +228,8 @@ test_add (void)
 		old_env = env[1];
 		TEST_FREE_TAG (old_env);
 
-		ret = environ_add (&env, NULL, &len,
-					       "BAR=WIBBLE");
+		ret = environ_add (&env, NULL, &len, TRUE,
+				   "BAR=WIBBLE");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -285,7 +287,7 @@ test_add (void)
 		old_env = env[1];
 		TEST_FREE_TAG (old_env);
 
-		ret = environ_add (&env, NULL, &len, "BAR");
+		ret = environ_add (&env, NULL, &len, TRUE, "BAR");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -347,7 +349,7 @@ test_add (void)
 		old_env = env[1];
 		TEST_FREE_TAG (old_env);
 
-		ret = environ_add (&env, NULL, &len, "BAR");
+		ret = environ_add (&env, NULL, &len, TRUE, "BAR");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
@@ -378,6 +380,199 @@ test_add (void)
 	}
 
 	unsetenv ("BAR");
+
+
+	/* Check that we can add a variable to an environment table with
+	 * existing different entries and that it is appended to the array,
+	 * even if replace is FALSE.
+	 */
+	TEST_FEATURE ("with new variable but no replace");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+		}
+
+		ret = environ_add (&env, NULL, &len, FALSE,
+				   "FRODO=BAGGINS");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_ALLOC_PARENT (env[2], env);
+		TEST_ALLOC_SIZE (env[2], 14);
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that when a variable already exists in the environment
+	 * table, and we're not replacing, the original value is left
+	 * untouched.
+	 */
+	TEST_FEATURE ("with existing variable");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+		}
+
+		ret = environ_add (&env, NULL, &len, FALSE,
+				   "BAR=WIBBLE");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 3);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_P (env[3], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 3);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_P (env[3], NULL);
+
+		nih_free (env);
+	}
+
+
+	/* Check that when a variable from the environment already exists in
+	 * the environment table, and we're not replacing, the original value
+	 * is left untouched.
+	 */
+	TEST_FEATURE ("with existing variable from environment");
+	putenv ("BAR=WIBBLE");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BILBO=TOOK"));
+		}
+
+		ret = environ_add (&env, NULL, &len, FALSE, "BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 4);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_STR (env[3], "BILBO=TOOK");
+			TEST_EQ_P (env[4], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 4);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_STR (env[3], "BILBO=TOOK");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("BAR");
+
+
+	/* Check that when a variable from the environment is unset it
+	 * does not remove an existing variable in the environment table
+	 * if we're not replacing.
+	 */
+	TEST_FEATURE ("with existing variable unset in environment");
+	unsetenv ("BAR");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BAR=BAZ"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FRODO=BAGGINS"));
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "BILBO=TOOK"));
+		}
+
+		ret = environ_add (&env, NULL, &len, FALSE, "BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 4);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_STR (env[1], "BAR=BAZ");
+			TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+			TEST_EQ_STR (env[3], "BILBO=TOOK");
+			TEST_EQ_P (env[4], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+
+		TEST_EQ (len, 4);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_STR (env[2], "FRODO=BAGGINS");
+		TEST_EQ_STR (env[3], "BILBO=TOOK");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	unsetenv ("BAR");
 }
 
 
@@ -398,7 +593,7 @@ test_set (void)
 			env = nih_str_array_new (NULL);
 		}
 
-		ret = environ_set (&env, NULL, &len, "FOO=%d", 1234);
+		ret = environ_set (&env, NULL, &len, TRUE, "FOO=%d", 1234);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
