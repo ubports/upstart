@@ -1,5 +1,7 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c: Add missing limits.h include
+
 	* init/job.h (JobConfig): Merge instance and instance_name; if
 	instance is set, the job is multi-instance with the name derived
 	from that; if unset the job is singleton.  We will not support
