@@ -1,5 +1,10 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_emit_event): Append exported variables to the
+	job event without overwriting the builtins.
+	* init/tests/test_job.c (test_change_state): Check that exported
+	environment is added to the job events.
+
 	* init/parse_job.c (stanza_export): Parse a new export stanza,
 	which takes one or more environment variable names.
 	* init/tests/test_parse_job.c (test_stanza_export): Test the new

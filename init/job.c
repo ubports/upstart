@@ -1197,7 +1197,7 @@ job_emit_event (Job *job)
 	Event       *event;
 	const char  *name;
 	int          stop = FALSE;
-	char       **env = NULL;
+	char       **env = NULL, **e;
 	size_t       len;
 
 	nih_assert (job != NULL);
@@ -1281,6 +1281,15 @@ job_emit_event (Job *job)
 	if (job->name)
 		NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 				       "INSTANCE=%s", job->name));
+
+	/* Add any exported variables from the job environment */
+	for (e = job->config->export; e && *e; e++) {
+		char * const *str;
+
+		str = environ_lookup (job->env, *e, strlen (*e));
+		if (str)
+			NIH_MUST (environ_add (&env, NULL, &len, FALSE, *str));
+	}
 
 	event = event_new (NULL, name, env);
 

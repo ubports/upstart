@@ -1474,6 +1474,90 @@ test_change_state (void)
 	}
 
 
+	/* Check that any exported variable is added to the starting event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("waiting to starting with export");
+	assert (nih_str_array_add (&(config->export), config, NULL, "FOO"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "JOB"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "JOB=wibble"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		env1 = job->start_env;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_POST_STOP;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "FOO=BAR");
+		TEST_EQ_P (event->env[3], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	nih_free (config->export);
+	config->export = NULL;
+
+
 	/* Check that a job with a start process can move from starting
 	 * to pre-start, and have the process run.
 	 */
@@ -1836,6 +1920,94 @@ test_change_state (void)
 
 		nih_free (job);
 	}
+
+
+	/* Check that any exported variable is added to the started event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("pre-start to spawned with export");
+	assert (nih_str_array_add (&(config->export), config, NULL, "FOO"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "JOB"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_FREE (list);
+		TEST_EQ_P (job->blocking, NULL);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "FOO=BAR");
+		TEST_EQ_P (event->env[3], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	nih_free (config->export);
+	config->export = NULL;
 
 
 	/* Check that a job without a main process can move from pre-start
@@ -2602,6 +2774,88 @@ test_change_state (void)
 	}
 
 
+	/* Check that any exported variable is added to the stopping event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("running to pre-stop with export");
+	assert (nih_str_array_add (&(config->export), config, NULL, "FOO"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "JOB"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=ok");
+		TEST_EQ_STR (event->env[2], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[3], "FOO=BAR");
+		TEST_EQ_P (event->env[4], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	nih_free (config->export);
+	config->export = NULL;
+
+
 	/* Check that a job with a pre-stop process ignores any failure and
 	 * moves from running to pre-stop, and then straight into the stopping
 	 * state, emitting that event.
@@ -2809,6 +3063,89 @@ test_change_state (void)
 
 		nih_free (job);
 	}
+
+
+	/* Check that any exported variable is added to the stopping event
+	 * from the job environment after any failed information; it should
+	 * not be possible to overwrite built-in variables, and any unknown
+	 * variables should be ignored.
+	 */
+	TEST_FEATURE ("running to stopping with export");
+	assert (nih_str_array_add (&(config->export), config, NULL, "FOO"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "JOB"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocked, (Event *)events->next);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+		TEST_EQ_P (entry->data, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[5], "FOO=BAR");
+		TEST_EQ_P (event->env[6], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		nih_free (job);
+	}
+
+	nih_free (config->export);
+	config->export = NULL;
 
 
 	/* Check that a job killed by a signal can move from running to
@@ -3513,6 +3850,78 @@ test_change_state (void)
 
 		TEST_LIST_EMPTY (events);
 	}
+
+
+	/* Check that any exported variable is added to the stopped event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("post-stop to waiting with export");
+	assert (nih_str_array_add (&(config->export), config, NULL, "FOO"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "JOB"));
+	assert (nih_str_array_add (&(config->export), config, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (config, NULL);
+			job->name = "foo";
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[5], "FOO=BAR");
+		TEST_EQ_P (event->env[6], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+	nih_free (config->export);
+	config->export = NULL;
 
 
 	/* Check that a job can move from post-stop to starting.  This
