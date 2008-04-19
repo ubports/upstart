@@ -454,9 +454,7 @@ test_config_new (void)
 		TEST_EQ (config->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
 
 		TEST_EQ (config->task, FALSE);
-
-		TEST_EQ (config->instance, FALSE);
-		TEST_EQ_P (config->instance_name, NULL);
+		TEST_EQ_P (config->instance, NULL);
 
 		TEST_EQ (config->respawn, FALSE);
 		TEST_EQ (config->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
@@ -820,30 +818,30 @@ test_find_by_pid (void)
 	config1 = job_config_new (NULL, "foo");
 	config1->process[PROCESS_MAIN] = job_process_new (config1);
 	config1->process[PROCESS_POST_START] = job_process_new (config1);
-	config1->instance = TRUE;
+	config1->instance = "$FOO";
 	nih_hash_add (jobs, &config1->entry);
 
 	config2 = job_config_new (NULL, "bar");
 	config2->process[PROCESS_PRE_START] = job_process_new (config2);
 	config2->process[PROCESS_MAIN] = job_process_new (config2);
 	config2->process[PROCESS_PRE_STOP] = job_process_new (config2);
-	config2->instance = TRUE;
+	config2->instance = "$FOO";
 	nih_hash_add (jobs, &config2->entry);
 
 	config3 = job_config_new (NULL, "baz");
 	config3->process[PROCESS_POST_STOP] = job_process_new (config3);
 	nih_hash_add (jobs, &config3->entry);
 
-	job1 = job_new (config1, NULL);
+	job1 = job_new (config1, nih_strdup (NULL, "foo"));
 	job1->pid[PROCESS_MAIN] = 10;
 	job1->pid[PROCESS_POST_START] = 15;
 
-	job2 = job_new (config1, NULL);
+	job2 = job_new (config1, nih_strdup (NULL, "bar"));
 
-	job3 = job_new (config2, NULL);
+	job3 = job_new (config2, nih_strdup (NULL, "foo"));
 	job3->pid[PROCESS_PRE_START] = 20;
 
-	job4 = job_new (config2, NULL);
+	job4 = job_new (config2, nih_strdup (NULL, "bar"));
 	job4->pid[PROCESS_MAIN] = 25;
 	job4->pid[PROCESS_PRE_STOP] = 30;
 
@@ -952,10 +950,10 @@ test_instance (void)
 	config->process[PROCESS_MAIN]->command = "echo";
 
 
-	/* Check that NULL is returned for an inactive single instance job,
+	/* Check that NULL is returned for an inactive singleton job,
 	 * which should indicate a new instance should be created.
 	 */
-	TEST_FEATURE ("with inactive single-instance job");
+	TEST_FEATURE ("with inactive singleton job");
 	TEST_ALLOC_FAIL {
 		job = job_instance (config, NULL);
 
@@ -963,10 +961,10 @@ test_instance (void)
 	}
 
 
-	/* Check that the active instance of a single-instance job is
+	/* Check that the active instance of a singleton job is
 	 * returned.
 	 */
-	TEST_FEATURE ("with active single-instance job");
+	TEST_FEATURE ("with active singleton job");
 	job = job_new (config, NULL);
 
 	TEST_ALLOC_FAIL {
@@ -978,12 +976,11 @@ test_instance (void)
 	nih_free (job);
 
 
-	/* Check that NULL is returned for an inactive multi-instance job,
-	 * indicating that a new instance should be created (which is
-	 * always true in this case).
+	/* Check that NULL is returned for an inactive instance job,
+	 * indicating that a new instance should be created.
 	 */
-	TEST_FEATURE ("with inactive unlimited-instance job");
-	config->instance = TRUE;
+	TEST_FEATURE ("with inactive instance job");
+	config->instance = "$FOO";
 
 	TEST_ALLOC_FAIL {
 		job = job_instance (config, NULL);
@@ -991,52 +988,17 @@ test_instance (void)
 		TEST_EQ_P (job, NULL);
 	}
 
-	config->instance = FALSE;
+	config->instance = NULL;
 
 
-	/* Check that NULL is still returned for an active multi-instance job,
-	 * since we always want to create a new instance so none can match.
+	/* Check that NULL is still returned for an active instance
+	 * job where the name does not match, since a new one may be
+	 * created.
 	 */
-	TEST_FEATURE ("with active unlimited-instance job");
-	config->instance = TRUE;
-	job = job_new (config, NULL);
+	TEST_FEATURE ("with active instance job of different name");
+	config->instance = "$FOO";
 
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (config, NULL);
-
-		TEST_EQ_P (ptr, NULL);
-	}
-
-	config->instance = FALSE;
-	nih_free (job);
-
-
-	/* Check that NULL is returned for an inactive limited-instance job
-	 * indicating that a new instance may be created.
-	 */
-	TEST_FEATURE ("with inactive limited-instance job");
-	config->instance = TRUE;
-	config->instance_name = "$FOO";
-
-	TEST_ALLOC_FAIL {
-		job = job_instance (config, "foo");
-
-		TEST_EQ_P (job, NULL);
-	}
-
-	config->instance = FALSE;
-	config->instance_name = NULL;
-
-
-	/* Check that NULL is still returned for an active limited-instance
-	 * job where the name does not match, since a new one may be created.
-	 */
-	TEST_FEATURE ("with active limited-instance job of different name");
-	config->instance = TRUE;
-	config->instance_name = "$FOO";
-
-	job = job_new (config, NULL);
-	job->name = "bar";
+	job = job_new (config, nih_strdup (NULL, "bar"));
 
 	TEST_ALLOC_FAIL {
 		ptr = job_instance (config, "foo");
@@ -1044,21 +1006,18 @@ test_instance (void)
 		TEST_EQ_P (ptr, NULL);
 	}
 
-	config->instance = FALSE;
-	config->instance_name = NULL;
+	config->instance = NULL;
 
 	nih_free (job);
 
 
 	/* Check that the instance with the matching name is returned for
-	 * an active limited-instance job since a new one may not be created.
+	 * an active instance job since a new one may not be created.
 	 */
-	TEST_FEATURE ("with active limited-instance job");
-	config->instance = TRUE;
-	config->instance_name = "$FOO";
+	TEST_FEATURE ("with active instance job");
+	config->instance = "$FOO";
 
-	job = job_new (config, NULL);
-	job->name = "foo";
+	job = job_new (config, nih_strdup (NULL, "foo"));
 
 	TEST_ALLOC_FAIL {
 		ptr = job_instance (config, "foo");
@@ -1066,8 +1025,7 @@ test_instance (void)
 		TEST_EQ_P (ptr, job);
 	}
 
-	config->instance = FALSE;
-	config->instance_name = NULL;
+	config->instance = NULL;
 
 	nih_free (job);
 
@@ -1406,8 +1364,7 @@ test_change_state (void)
 	TEST_FEATURE ("waiting to starting for named instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			assert (nih_str_array_add (&(job->start_env), job,
 						   NULL, "FOO=BAR"));
@@ -1484,8 +1441,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			assert (nih_str_array_add (&(job->start_env), job,
 						   NULL, "FOO=BAR"));
@@ -1855,8 +1811,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-start to spawned for named instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1932,8 +1887,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			assert (nih_str_array_add (&(job->env), job,
 						   NULL, "FOO=BAR"));
@@ -2713,8 +2667,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to pre-stop for named instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2784,8 +2737,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			assert (nih_str_array_add (&(job->env), job,
 						   NULL, "FOO=BAR"));
@@ -3004,8 +2956,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping for named instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3076,8 +3027,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			assert (nih_str_array_add (&(job->env), job,
 						   NULL, "FOO=BAR"));
@@ -3801,8 +3751,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to waiting for named instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3862,8 +3811,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 
 			assert (nih_str_array_add (&(job->env), job,
 						   NULL, "FOO=BAR"));
@@ -4687,8 +4635,7 @@ test_run_process (void)
 				config->process[PROCESS_MAIN],
 				"%s %s", argv0, filename);
 
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -5036,8 +4983,7 @@ no_devfd:
 			config->process[PROCESS_MAIN] = job_process_new (config);
 			config->process[PROCESS_MAIN]->command = filename;
 
-			job = job_new (config, NULL);
-			job->name = "foo";
+			job = job_new (config, nih_strdup (NULL, "foo"));
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -8355,7 +8301,7 @@ test_handle_event (void)
 	 * the events, and is used to name the resulting job.
 	 */
 	TEST_FEATURE ("with instance name");
-	config1->instance_name = "$FRODO";
+	config1->instance = "$FRODO";
 
 	event1 = event_new (NULL, "wibble", NULL);
 	assert (nih_str_array_add (&(event1->env), event1,
@@ -8453,14 +8399,14 @@ test_handle_event (void)
 	nih_free (event1);
 	nih_free (event2);
 
-	config1->instance_name = NULL;
+	config1->instance = NULL;
 
 
 	/* Check that if an instance with that name already exists, it is
 	 * restarted itself instead of a new one being created.
 	 */
 	TEST_FEATURE ("with restart of existing instance");
-	config1->instance_name = "$FRODO";
+	config1->instance = "$FRODO";
 
 	event1 = event_new (NULL, "wibble", NULL);
 	assert (nih_str_array_add (&(event1->env), event1,
@@ -8479,8 +8425,7 @@ test_handle_event (void)
 		event2->blockers = 0;
 
 		TEST_ALLOC_SAFE {
-			job1 = job_new (config1, NULL);
-			job1->name = "brandybuck";
+			job1 = job_new (config1, nih_strdup (NULL, "brandybuck"));
 		}
 
 		job1->goal = JOB_STOP;
@@ -8545,14 +8490,14 @@ test_handle_event (void)
 	nih_free (event1);
 	nih_free (event2);
 
-	config1->instance_name = NULL;
+	config1->instance = NULL;
 
 
 	/* Check that errors with the instance name are caught and prevent
 	 * the job from being started.
 	 */
 	TEST_FEATURE ("with error in instance name");
-	config1->instance_name = "$TIPPLE";
+	config1->instance = "$TIPPLE";
 
 	event1 = event_new (NULL, "wibble", NULL);
 	assert (nih_str_array_add (&(event1->env), event1,
@@ -8601,7 +8546,7 @@ test_handle_event (void)
 	nih_free (event1);
 	nih_free (event2);
 
-	config1->instance_name = NULL;
+	config1->instance = NULL;
 
 
 	/* Check that a matching event is recorded against the operator that

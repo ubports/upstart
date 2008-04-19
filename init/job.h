@@ -204,8 +204,7 @@ typedef struct job_process {
  * @expect: what to expect before entering the next state after spawned,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @task: job does not reach its goal until stopped again,
- * @instance: job may have multiple instances,
- * @instance_name: pattern to identify instances,
+ * @instance: pattern to identify multiple instances of job,
  * @respawn: process should be restarted if it fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -249,9 +248,7 @@ struct job_config {
 	time_t          kill_timeout;
 
 	int             task;
-
-	int             instance;
-	char           *instance_name;
+	char           *instance;
 
 	int             respawn;
 	int             respawn_limit;

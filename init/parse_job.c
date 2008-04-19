@@ -1689,9 +1689,9 @@ stanza_task (JobConfig       *job,
  * @pos: offset within @file,
  * @lineno: line number.
  *
- * Parse an instance stanza from @file.  This has an optional argument
- * specifying the instance name pattern, which is NULL otherwise.  In either
- * case, it sets the instance flag in the job.
+ * Parse an instance stanza from @file, this has an argument specifying
+ * the instance name pattern which is stored in the job's instance member
+ * and expanded before use.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1708,19 +1708,12 @@ stanza_instance (JobConfig       *job,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	job->instance = TRUE;
+	if (job->instance)
+		nih_free (job->instance);
 
-	if (job->instance_name)
-		nih_free (job->instance_name);
-
-	if (nih_config_has_token (file, len, pos, lineno)) {
-		job->instance_name = nih_config_next_arg (job, file,
-							  len, pos, lineno);
-		if (! job->instance_name)
-			return -1;
-	} else {
-		job->instance_name = NULL;
-	}
+	job->instance = nih_config_next_arg (job, file, len, pos, lineno);
+	if (! job->instance)
+		return -1;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }

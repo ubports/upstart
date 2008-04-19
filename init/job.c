@@ -383,9 +383,7 @@ job_config_new (const void *parent,
 	config->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 
 	config->task = FALSE;
-
-	config->instance = FALSE;
-	config->instance_name = NULL;
+	config->instance = NULL;
 
 	config->respawn = FALSE;
 	config->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
@@ -542,6 +540,7 @@ job_new (JobConfig *config,
 	int  i;
 
 	nih_assert (config != NULL);
+	nih_assert ((! config->instance) || (name != NULL));
 
 	job = nih_new (config, Job);
 	if (! job)
@@ -681,14 +680,9 @@ job_find_by_pid (pid_t        pid,
  *
  * This function is used to find a particular instance of @config.
  *
- * For single-instance jobs, this will always be that instance if active
- * or NULL if not, so a new one will be created.
- *
- * For unlimited-instance jobs, this will always return NULL since a new
- * instance should always be created.
- *
- * For limited-instance jobs, @name must not be NULL and will be looked up
- * in the list of active instances.
+ * For singleton jobs, this will always be that instance if active or NULL
+ * if not, so a new one will be created.  For instance jobs, @name must
+ * not be NULL and will be looked up in the list of active instances.
  *
  * Returns: existing instance or NULL if a new one should be created.
  **/
@@ -705,12 +699,6 @@ job_instance (JobConfig  *config,
 	/* Not an instance job, always return the first instance */
 	if (! config->instance)
 		return (Job *)config->instances.next;
-
-	/* Unlimited instance job, always return NULL since they'll want to
-	 * spawn a new one.
-	 */
-	if (! config->instance_name)
-		return NULL;
 
 	nih_assert (name != NULL);
 
@@ -2299,9 +2287,9 @@ job_handle_event (Event *event)
 						"UPSTART_EVENTS", list);
 
 			/* Expand the instance name against the environment */
-			if (config->instance_name) {
+			if (config->instance) {
 				NIH_SHOULD (name = environ_expand (
-						    NULL, config->instance_name,
+						    NULL, config->instance,
 						    env));
 				if (! name) {
 					NihError *err;

@@ -1,5 +1,28 @@
 2008-04-19  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (JobConfig): Merge instance and instance_name; if
+	instance is set, the job is multi-instance with the name derived
+	from that; if unset the job is singleton.  We will not support
+	unlimited instances.
+	* init/job.c (job_config_new): Initialise instance to NULL.
+	(job_new): Assert that name is set for instance jobs.
+	(job_instance): Alter to only deal with singleton and instance
+	jobs, the unlimited instances case is gone.
+	(job_handle_event): Use instance instead of instance_name
+	* init/tests/test_job.c (test_config_new): Check instance is NULL
+	(test_find_by_pid): Adjust the way instance jobs are made, which
+	means we have to pass a name to job_config_new now.
+	(test_instance): Adjust tests to remove unlmited-instance tests
+	and pass name to job_config_new
+	(test_change_state, test_run_process): Pass instance name to
+	job_new as an allocated argument rather than waiting to set it
+	until afterwards.
+	(test_handle_event): Set instance instead of instance_name
+	* init/parse_job.c (stanza_instance): Make the argument mandatory.
+	* init/tests/test_parse_job.c (test_stanza_instance): Remove the
+	checks for without argument, and make sure that without argument
+	is an error.
+
 	* init/parse_job.c (stanza_oom): Oops, forgot to free never arg.
 
 	* init/job.h (JobConfig): NihList is rather overkill for emits,
