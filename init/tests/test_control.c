@@ -227,8 +227,11 @@ test_bus_open (void)
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_DBUS_ERROR);
-	TEST_EQ_STR (((NihDBusError *)err)->name,
-		     "org.freedesktop.DBus.Error.Disconnected");
+	/* Under valgrind we seem to get NoReply instead */
+	if (strcmp (((NihDBusError *)err)->name,
+		    "org.freedesktop.DBus.Error.NoReply"))
+		TEST_EQ_STR (((NihDBusError *)err)->name,
+			     "org.freedesktop.DBus.Error.Disconnected");
 	nih_free (err);
 
 	kill (pid, SIGTERM);
@@ -360,6 +363,8 @@ test_bus_disconnected (void)
 
 		dbus_server_disconnect (server);
 		dbus_server_unref (server);
+
+		dbus_shutdown ();
 
 		exit (0);
 	}
