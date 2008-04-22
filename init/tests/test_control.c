@@ -411,6 +411,8 @@ test_bus_close (void)
 	control_bus_close ();
 
 	TEST_EQ_P (control_bus, NULL);
+
+	dbus_shutdown ();
 }
 
 
