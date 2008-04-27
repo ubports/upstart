@@ -1,5 +1,8 @@
 2008-04-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_control.c (test_bus_open): Correct name of
+	error macro.
+
 	* init/job.c (job_emit_event): Make INSTANCE the second variable.
 	* init/tests/test_job.c (test_next_state): Update tests.
 
