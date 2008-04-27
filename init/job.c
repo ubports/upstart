@@ -1211,9 +1211,12 @@ job_emit_event (Job *job)
 	len = 0;
 	NIH_MUST (env = nih_str_array_new (NULL));
 
-	/* Add the job name */
+	/* Add the job and instance name */
 	NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 			       "JOB=%s", job->config->name));
+	if (job->name)
+		NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+				       "INSTANCE=%s", job->name));
 
 	/* Stop events include a "failed" argument if a process failed,
 	 * otherwise stop events have an "ok" argument.
@@ -1263,11 +1266,6 @@ job_emit_event (Job *job)
 	} else if (stop) {
 		NIH_MUST (environ_add (&env, NULL, &len, TRUE, "RESULT=ok"));
 	}
-
-	/* Add the instance name */
-	if (job->name)
-		NIH_MUST (environ_set (&env, NULL, &len, TRUE,
-				       "INSTANCE=%s", job->name));
 
 	/* Add any exported variables from the job environment */
 	for (e = job->config->export; e && *e; e++) {

@@ -2711,8 +2711,8 @@ test_change_state (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
 		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=ok");
-		TEST_EQ_STR (event->env[2], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
 		TEST_EQ_P (event->env[3], NULL);
 		nih_free (event);
 
@@ -2788,8 +2788,8 @@ test_change_state (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
 		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=ok");
-		TEST_EQ_STR (event->env[2], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
 		TEST_EQ_STR (event->env[3], "FOO=BAR");
 		TEST_EQ_P (event->env[4], NULL);
 		nih_free (event);
@@ -2998,10 +2998,10 @@ test_change_state (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
 		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=main");
-		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
-		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[5], NULL);
 		nih_free (event);
 
@@ -3076,10 +3076,10 @@ test_change_state (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopping");
 		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=main");
-		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
-		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
 		TEST_EQ_STR (event->env[5], "FOO=BAR");
 		TEST_EQ_P (event->env[6], NULL);
 		nih_free (event);
@@ -3789,10 +3789,10 @@ test_change_state (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
 		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=main");
-		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
-		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
 		TEST_EQ_P (event->env[5], NULL);
 		nih_free (event);
 
@@ -3856,10 +3856,10 @@ test_change_state (void)
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_EQ_STR (event->name, "stopped");
 		TEST_EQ_STR (event->env[0], "JOB=test");
-		TEST_EQ_STR (event->env[1], "RESULT=failed");
-		TEST_EQ_STR (event->env[2], "PROCESS=main");
-		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
-		TEST_EQ_STR (event->env[4], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
 		TEST_EQ_STR (event->env[5], "FOO=BAR");
 		TEST_EQ_P (event->env[6], NULL);
 		nih_free (event);
