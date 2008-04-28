@@ -47,16 +47,17 @@
 #define CONTROL_BUS_NAME "com.ubuntu.Upstart"
 
 /**
- * CONTROL_BUS_ROOT:
+ * CONTROL_ROOT:
  *
- * Well-known object name that we register on the system bus, and that we
+ * Well-known object name that we register for the manager object, and that we
  * use as the root path for all of our other objects.
  **/
-#define CONTROL_BUS_ROOT "/com/ubuntu/Upstart"
+#define CONTROL_ROOT "/com/ubuntu/Upstart"
 
 
 /* Prototypes for static functions */
 static void control_bus_disconnected (DBusConnection *conn);
+static int  control_register_all     (DBusConnection *conn);
 
 
 /**
@@ -66,6 +67,15 @@ static void control_bus_disconnected (DBusConnection *conn);
  * control_bus_open() and if lost will become NULL.
  **/
 DBusConnection *control_bus = NULL;
+
+/**
+ * control_manager:
+ *
+ * Interfaces exported by the control manager object.
+ **/
+const static NihDBusInterface *control_manager[] = {
+	NULL
+};
 
 
 /**
@@ -100,7 +110,14 @@ control_bus_open (void)
 	if (dbus_connection_get_unix_fd (conn, &fd))
 		nih_io_set_cloexec (fd);
 
-	/* FIXME register objects */
+	/* Register objects on the bus. */
+	if (control_register_all (conn) < 0) {
+		errno = ENOMEM;
+		nih_error_raise_system ();
+
+		dbus_connection_unref (conn);
+		return -1;
+	}
 
 	/* Request our well-known name.  We do this last so that once it
 	 * appears on the bus, clients can assume we're ready to talk to
@@ -164,4 +181,29 @@ control_bus_close (void)
 	dbus_connection_unref (control_bus);
 
 	control_bus = NULL;
+}
+
+
+/**
+ * control_register_all:
+ * @conn: connection to register objects for.
+ *
+ * Registers the manager object and objects for all jobs and instances on
+ * the given connection.
+ **/
+static int
+control_register_all (DBusConnection *conn)
+{
+
+	/* Register the manager object, this is the primary point of contact
+	 * for clients.  We only check for success, otherwise we're happy
+	 * to let this object be tied to the lifetime of the connection.
+	 */
+	if (! nih_dbus_object_new (NULL, conn, CONTROL_ROOT, control_manager,
+				   NULL))
+		return -1;
+
+	/* FIXME register objects for jobs and their instances */
+
+	return 0;
 }

@@ -121,6 +121,7 @@ test_bus_open (void)
 	NihError *err;
 	pid_t     pid;
 	int       ret, wait_fd, fd, status;
+	void     *data;
 
 	TEST_FUNCTION ("control_bus_open");
 	err = 0;
@@ -172,6 +173,11 @@ test_bus_open (void)
 
 	dbus_connection_get_unix_fd (control_bus, &fd);
 	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 "/com/ubuntu/Upstart",
+							 &data));
+	TEST_NE_P (data, NULL);
 
 	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);

@@ -1,3 +1,12 @@
+2008-04-28  Scott James Remnant  <scott@netsplit.com>
+
+	* init/control.c (control_bus_open): Call out to register objects
+	on the new bus connection.
+	(control_register_all): Start off by registering the connection
+	manager object, no methods/signals for now.
+	* init/tests/test_control.c (test_bus_open): Make sure the manager
+	object is registered.
+
 2008-04-27  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_control.c (test_bus_open): Correct name of
