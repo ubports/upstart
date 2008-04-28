@@ -63,3 +63,13 @@
    fun:nih_str_split
    fun:job_run_process
 }
+
+# valgrind hates this, I do not understand why; I cannot see any possible
+# leak with this code.
+{
+   control-path-append
+   Memcheck:Leak
+   fun:realloc
+   fun:nih_realloc
+   fun:control_path_append
+}

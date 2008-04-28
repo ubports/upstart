@@ -420,6 +420,241 @@ test_bus_close (void)
 }
 
 
+void
+test_job_config_path (void)
+{
+	char *path;
+
+	TEST_FUNCTION ("control_job_config_path");
+
+	/* Check that the path for an ordinary name can be returned as
+	 * we'd expect.
+	 */
+	TEST_FEATURE ("with ordinary name");
+	TEST_ALLOC_FAIL {
+		path = control_job_config_path (NULL, "foo");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path, "/com/ubuntu/Upstart/jobs/foo");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of a job name that requires escaping is
+	 * escaped using the _xx notation.
+	 */
+	TEST_FEATURE ("with name that requires escaping");
+	TEST_ALLOC_FAIL {
+		path = control_job_config_path (NULL, "foo/bar.baz");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path, "/com/ubuntu/Upstart/jobs/foo_2fbar_2ebaz");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of a job name that contains an underscore has
+	 * that escaped to ensure uniqueness with other escaped paths.
+	 */
+	TEST_FEATURE ("with underscore in name");
+	TEST_ALLOC_FAIL {
+		path = control_job_config_path (NULL, "foo_bar");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path, "/com/ubuntu/Upstart/jobs/foo_5fbar");
+
+		nih_free (path);
+	}
+}
+
+void
+test_job_path (void)
+{
+	char *path;
+
+	TEST_FUNCTION ("control_job_path");
+
+	/* Check that the path for ordinary names can be returned as we'd
+	 * expect.
+	 */
+	TEST_FEATURE ("with ordinary names");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo", "bar");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path, "/com/ubuntu/Upstart/jobs/foo/bar");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the job instance name may be NULL and will be
+	 * substituted for the name "active" (which is safe since these jobs
+	 * will never have more than one instance).
+	 */
+	TEST_FEATURE ("with instance-less job");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo", NULL);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path, "/com/ubuntu/Upstart/jobs/foo/active");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of a job config name that requires escaping is
+	 * escaped using the _xx notation.
+	 */
+	TEST_FEATURE ("with config name that requires escaping");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo/bar.baz", "frodo");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path,
+			     "/com/ubuntu/Upstart/jobs/foo_2fbar_2ebaz/frodo");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of a job instance name that requires escaping
+	 * is escaped using the _xx notation.
+	 */
+	TEST_FEATURE ("with instance name that requires escaping");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo", "frodo+baggins");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path,
+			     "/com/ubuntu/Upstart/jobs/foo/frodo_2bbaggins");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the paths of a job config and instance name that
+	 * require escaping are using the _xx notation.
+	 */
+	TEST_FEATURE ("with both names requiring escaping");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo/bar.baz", "frodo+baggins");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path,
+			     "/com/ubuntu/Upstart/jobs/foo_2fbar_2ebaz/"
+			     "frodo_2bbaggins");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of a job config name that contains an
+	 * underscore has that escaped to ensure uniqueness with other
+	 * escaped paths.
+	 */
+	TEST_FEATURE ("with underscore in config name");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo_bar", "frodo");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path, "/com/ubuntu/Upstart/jobs/foo_5fbar/frodo");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of a job instance name that contains an
+	 * underscore has that escaped to ensure uniqueness with other
+	 * escaped paths.
+	 */
+	TEST_FEATURE ("with underscore in instance name");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo", "frodo_baggins");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path,
+			     "/com/ubuntu/Upstart/jobs/foo/frodo_5fbaggins");
+
+		nih_free (path);
+	}
+
+
+	/* Check that the path of job config and instance names that contain
+	 * underscores have that escaped to ensure uniqueness with other
+	 * escaped paths.
+	 */
+	TEST_FEATURE ("with underscore in both names");
+	TEST_ALLOC_FAIL {
+		path = control_job_path (NULL, "foo_bar", "frodo_baggins");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+
+			continue;
+		}
+
+		TEST_EQ_STR (path,
+			     "/com/ubuntu/Upstart/jobs/foo_5fbar/"
+			     "frodo_5fbaggins");
+
+		nih_free (path);
+	}
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -427,6 +662,9 @@ main (int   argc,
 	test_bus_open ();
 	test_bus_disconnected ();
 	test_bus_close ();
+
+	test_job_config_path ();
+	test_job_path ();
 
 	return 0;
 }

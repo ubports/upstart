@@ -31,8 +31,14 @@ NIH_BEGIN_EXTERN
 DBusConnection *control_bus;
 
 
-int  control_bus_open (void);
-void control_bus_close (void);
+int   control_bus_open        (void);
+void  control_bus_close       (void);
+
+char *control_job_config_path (const void *parent, const char *config_name)
+	__attribute__ ((warn_unused_result, malloc));
+char *control_job_path        (const void *parent, const char *config_name,
+			       const char *job_name)
+	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 

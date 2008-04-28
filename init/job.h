@@ -194,6 +194,7 @@ typedef struct job_process {
  * JobConfig:
  * @entry: list header,
  * @name: string name of the job,
+ * @path: D-Bus path of job,
  * @description: description of the job; intended for humans,
  * @author: author of the job; intended for humans,
  * @version: version of the job; intended for humans,
@@ -233,6 +234,7 @@ struct job_config {
 	NihList         entry;
 
 	char           *name;
+	char           *path;
 	char           *description;
 	char           *author;
 	char           *version;
@@ -278,6 +280,7 @@ struct job_config {
  * @entry: list header,
  * @config: pointer to JobConfig structure,
  * @name: unique instance name,
+ * @path: D-Bus path of instance,
  * @stop_on: event operator expression that can stop this job.
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
@@ -307,6 +310,7 @@ typedef struct job {
 
 	JobConfig      *config;
 	char           *name;
+	char           *path;
 
 	EventOperator  *stop_on;
 
@@ -343,7 +347,7 @@ NihHash *jobs;
 
 void        job_init                  (void);
 
-const char * job_goal_name            (JobGoal goal)
+const char *job_goal_name            (JobGoal goal)
 	__attribute__ ((const));
 JobGoal     job_goal_from_name        (const char *goal);
 

@@ -1,5 +1,18 @@
 2008-04-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_job_config_path, control_job_path): Add
+	functions to generate D-Bus object paths for jobs and instances
+	(control_path_append): and a static function used by both to append
+	escaped path elements.
+	* init/control.h: Add prototypes.
+	* init/tests/test_control.c (test_job_config_path)
+	(test_job_path): Add test cases for the new functions.
+	* init/job.h (JobConfig, Job): Add path member to both structures.
+	* init/job.c (job_config_new, job_new): Initialise the path members.
+	* init/tests/test_job.c (test_config_new, test_new): Make sure
+	the path members are initialised to something sensible.
+	* init/init.supp: Valgrind whines, I do not know why.
+
 	* init/control.c (control_bus_open): Call out to register objects
 	on the new bus connection.
 	(control_register_all): Start off by registering the connection

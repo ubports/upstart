@@ -26,7 +26,12 @@
 
 #include <dbus/dbus.h>
 
+#include <stdio.h>
+#include <string.h>
+
 #include <nih/macros.h>
+#include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -54,10 +59,19 @@
  **/
 #define CONTROL_ROOT "/com/ubuntu/Upstart"
 
+/**
+ * CONTROL_JOB_ROOT:
+ *
+ * Root path for all job objects, under the manager.
+ **/
+#define CONTROL_JOB_ROOT CONTROL_ROOT "/jobs"
+
 
 /* Prototypes for static functions */
-static void control_bus_disconnected (DBusConnection *conn);
-static int  control_register_all     (DBusConnection *conn);
+static void  control_bus_disconnected (DBusConnection *conn);
+static int   control_register_all     (DBusConnection *conn);
+static char *control_path_append      (char **path, const void *parent,
+				       const char *name);
 
 
 /**
@@ -206,4 +220,142 @@ control_register_all (DBusConnection *conn)
 	/* FIXME register objects for jobs and their instances */
 
 	return 0;
+}
+
+
+/**
+ * control_job_config_path:
+ * @parent: parent of returned path,
+ * @config_name: name of job config.
+ *
+ * Generates a D-Bus object path name for a job config named @config_name,
+ * this will be rooted under the manager and any non-permissable characters
+ * in the name will be escaped.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.
+ *
+ * Returns: newly allocated string or NULL if insufficient memory.
+ **/
+char *
+control_job_config_path (const void *parent,
+			 const char *config_name)
+{
+	char *path;
+
+	nih_assert (config_name != NULL);
+
+	path = nih_strdup (parent, CONTROL_JOB_ROOT);
+	if (! path)
+		return NULL;
+
+	if (! control_path_append (&path, parent, config_name)) {
+		nih_free (path);
+		return NULL;
+	}
+
+	return path;
+}
+
+/**
+ * control_job_path:
+ * @parent: parent of returned path,
+ * @config_name: name of job config,
+ * @job_name: name of instance.
+ *
+ * Generates a D-Bus object path name for an instance of a job named
+ * @config_name named @job_name, this will be rooted under the path for
+ * the job itself and any non-permissable characters in the name will be
+ * escaped.
+ *
+ * If @job_name is NULL (which is the case for non-instance jobs), the
+ * string "active" will be substituted instead.
+ *
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.
+ *
+ * Returns: newly allocated string or NULL if insufficient memory.
+ **/
+char *
+control_job_path (const void *parent,
+		  const char *config_name,
+		  const char *job_name)
+{
+	char *path;
+
+	nih_assert (config_name != NULL);
+
+	path = control_job_config_path (parent, config_name);
+	if (! path)
+		return NULL;
+
+	if (! control_path_append (&path, parent,
+				   job_name ? job_name : "active")) {
+		nih_free (path);
+		return NULL;
+	}
+
+	return path;
+}
+
+/**
+ * control_path_append:
+ * @path: path to change,
+ * @parent: parent of @path,
+ * @name: element to add.
+ *
+ * Append @name to @path, escaping any non-permissable characters and
+ * preceeding with a forwards slash.  Modifies @path in place.
+ *
+ * Returns: new string pointer on success or NULL if insufficient memory.
+ **/
+static char *
+control_path_append (char       **path,
+		     const void  *parent,
+		     const char  *name)
+{
+	size_t      len, new_len;
+	char       *ret;
+	const char *s;
+
+	nih_assert (path != NULL);
+	nih_assert (*path != NULL);
+	nih_assert (name != NULL);
+
+	/* Calculate how much space we'll need first, makes the expansion
+	 * easier in a moment.
+	 */
+	len = strlen (*path);
+	new_len = len + 1;
+	for (s = name; *s; s++) {
+		new_len++;
+		if (   ((*s < 'a') || (*s > 'z'))
+		    && ((*s < 'A') || (*s > 'Z'))
+		    && ((*s < '0') || (*s > '9')))
+			new_len += 2;
+	}
+
+	/* Now we can just realloc to the desired size and fill it in. */
+	ret = nih_realloc (*path, parent, new_len + 1);
+	if (! ret)
+		return NULL;
+
+	/* Append the name, escaping as we go. */
+	*path = ret;
+	(*path)[len++] = '/';
+	for (s = name; *s; s++) {
+		if (   ((*s >= 'a') && (*s <= 'z'))
+		    || ((*s >= 'A') && (*s <= 'Z'))
+		    || ((*s >= '0') && (*s <= '9'))) {
+			(*path)[len++] = *s;
+		} else {
+			sprintf (*path + len, "_%02x", *s);
+			len += 3;
+		}
+	}
+	(*path)[len] = '\0';
+
+	return ret;
 }

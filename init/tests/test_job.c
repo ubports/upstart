@@ -433,6 +433,8 @@ test_config_new (void)
 
 		TEST_ALLOC_PARENT (config->name, config);
 		TEST_EQ_STR (config->name, "test");
+		TEST_ALLOC_PARENT (config->path, config);
+		TEST_EQ_STR (config->path, "/com/ubuntu/Upstart/jobs/test");
 		TEST_EQ_P (config->description, NULL);
 		TEST_EQ_P (config->author, NULL);
 		TEST_EQ_P (config->version, NULL);
@@ -727,6 +729,10 @@ test_new (void)
 		TEST_EQ_P (job->config, config);
 		TEST_EQ_P (job->name, NULL);
 
+		TEST_ALLOC_PARENT (job->path, job);
+		TEST_EQ_STR (job->path,
+			     "/com/ubuntu/Upstart/jobs/test/active");
+
 		oper = (EventOperator *)job->stop_on;
 		TEST_ALLOC_PARENT (oper, job);
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
@@ -794,6 +800,9 @@ test_new (void)
 
 		TEST_EQ_P (job->name, name);
 		TEST_ALLOC_PARENT (job->name, job);
+
+		TEST_ALLOC_PARENT (job->path, job);
+		TEST_EQ_STR (job->path, "/com/ubuntu/Upstart/jobs/test/fred");
 
 		event_operator_reset (job->stop_on);
 

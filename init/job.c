@@ -55,6 +55,7 @@
 #include "process.h"
 #include "job.h"
 #include "conf.h"
+#include "control.h"
 #include "paths.h"
 #include "errors.h"
 
@@ -355,10 +356,12 @@ job_config_new (const void *parent,
 	nih_alloc_set_destructor (config, (NihDestructor)nih_list_destroy);
 
 	config->name = nih_strdup (config, name);
-	if (! config->name) {
-		nih_free (config);
-		return NULL;
-	}
+	if (! config->name)
+		goto error;
+
+	config->path = control_job_config_path (config, name);
+	if (! config->path)
+		goto error;
 
 	config->description = NULL;
 	config->author = NULL;
@@ -370,10 +373,8 @@ job_config_new (const void *parent,
 
 	config->process = nih_alloc (config,
 				     sizeof (JobProcess *) * PROCESS_LAST);
-	if (! config->process) {
-		nih_free (config);
-		return NULL;
-	}
+	if (! config->process)
+		goto error;
 
 	for (i = 0; i < PROCESS_LAST; i++)
 		config->process[i] = NULL;
@@ -411,6 +412,10 @@ job_config_new (const void *parent,
 	config->deleted = FALSE;
 
 	return config;
+
+error:
+	nih_free (config);
+	return NULL;
 }
 
 /**
@@ -552,6 +557,10 @@ job_new (JobConfig *config,
 
 	job->config = config;
 	job->name = name;
+
+	job->path = control_job_path (job, config->name, name);
+	if (! job->path)
+		goto error;
 
 	job->stop_on = NULL;
 	if (config->stop_on) {
