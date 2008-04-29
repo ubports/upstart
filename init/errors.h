@@ -35,8 +35,8 @@ enum {
 	ENVIRON_EXPECTED_OPERATOR,
 	ENVIRON_MISMATCHED_BRACES,
 
-	/* Errors while handling processes */
-	PROCESS_ERROR,
+	/* Errors while handling job processes */
+	JOB_PROCESS_ERROR,
 
 	/* Errors while parsing configuration files */
 	PARSE_ILLEGAL_INTERVAL,

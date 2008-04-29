@@ -1,5 +1,22 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c, init/process.h, init/tests/test_process.c: Break
+	into two pieces, one part becomes job_process which requires both
+	job information and process information, the other becomes system
+	which requires no job information.
+	* init/errors.h: Update error name.
+	* init/Makefile.am (init_SOURCES): Build and link job process code
+	and header along with system code and header.
+	(TESTS): Build and run job process and system test suites.
+	(test_job_process_SOURCES, test_job_process_LDFLAGS)
+	(test_job_process_LDADD): Details for job process test suite.
+	(test_system_SOURCES, test_system_LDFLAGS, test_system_LDADD):
+	Details for system test suite.
+	(test_process_LDADD, test_job_class_LDADD, test_job_LDADD)
+	(test_event_LDADD, test_parse_job_LDADD, test_parse_conf_LDADD)
+	(test_conf_LDADD, test_control_LDADD): Link job process and system
+	code.
+
 	* init/parse_conf.c: Remove parse_job include.
 
 	* init/init.supp: Update leak check for class init; remove

@@ -1,6 +1,6 @@
 /* upstart
  *
- * process.c - job process handling
+ * job_process.c - job process handling
  *
  * Copyright © 2008 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
@@ -28,66 +28,61 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/ioctl.h>
 #include <sys/ptrace.h>
 #include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 
 #include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <termios.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/signal.h>
 #include <nih/io.h>
-#include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include "job.h"
-#include "process.h"
 #include "paths.h"
+#include "system.h"
+#include "job_process.h"
+#include "job_class.h"
 #include "errors.h"
 
 
 /**
- * ProcessWireError:
+ * JobProcessWireError:
  *
  * This structure is used to pass an error from the child process back to the
- * parent.  It contains the same basic particulars as a ProcessError but
+ * parent.  It contains the same basic particulars as a JobProcessError but
  * without the message.
  **/
-typedef struct process_wire_error {
-	ProcessErrorType type;
-	int              arg;
-	int              errnum;
-} ProcessWireError;
+typedef struct job_process_wire_error {
+	JobProcessErrorType type;
+	int                 arg;
+	int                 errnum;
+} JobProcessWireError;
 
 
 /* Prototypes for static functions */
-static void process_error_abort       (int fd, ProcessErrorType type, int arg)
+static void job_process_error_abort (int fd, JobProcessErrorType type, int arg)
 	__attribute__ ((noreturn));
-static int  process_error_read        (int fd)
+static int  job_process_error_read  (int fd)
 	__attribute__ ((warn_unused_result));
 
 
 /**
- * process_spawn:
- * @config: job configuration of process to be spawned,
+ * job_process_spawn:
+ * @class: job class of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
  * @trace: whether to trace this process.
  *
- * This function spawns a new process using the @config details to set up the
+ * This function spawns a new process using the @class details to set up the
  * environment for it; the process is always a session and process group
  * leader as we never want anything in our own group.
  *
@@ -108,15 +103,15 @@ static int  process_error_read        (int fd)
  * Spawning a process may fail for temporary reasons, usually due to a failure
  * of the fork() syscall or communication with the child; or more permanent
  * reasons such as a failure to setup the child environment.  These latter
- * are always represented by a PROCESS_ERROR error.
+ * are always represented by a JOB_PROCESS_ERROR error.
  *
  * Returns: process id of new process on success, -1 on raised error
  **/
 pid_t
-process_spawn (JobConfig    *config,
-	       char * const  argv[],
-	       char * const *env,
-	       int           trace)
+job_process_spawn (JobClass     *class,
+		   char * const  argv[],
+		   char * const *env,
+		   int           trace)
 {
 	sigset_t  child_set, orig_set;
 	pid_t     pid;
@@ -124,7 +119,7 @@ process_spawn (JobConfig    *config,
 	char      filename[PATH_MAX];
 	FILE     *fd;
 
-	nih_assert (config != NULL);
+	nih_assert (class != NULL);
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
@@ -150,7 +145,7 @@ process_spawn (JobConfig    *config,
 		/* If the job is not a session leader, it will fork twice,
 		 * so we need to read the new child pid.
 		 */
-		if (! config->leader) {
+		if (! class->leader) {
 			ssize_t len;
 
 			len = read (fds[0], &pid, sizeof (pid));
@@ -158,7 +153,7 @@ process_spawn (JobConfig    *config,
 		}
 
 		/* Read error from the pipe, return if one is raised */
-		if (process_error_read (fds[0]) < 0) {
+		if (job_process_error_read (fds[0]) < 0) {
 			close (fds[0]);
 			return -1;
 		}
@@ -177,8 +172,9 @@ process_spawn (JobConfig    *config,
 
 	/* We're now in the child process.
 	 *
-	 * The reset of this function sets the child up and ends by executing
-	 * the new binary.  Failures are handled by terminating the child.
+	 * The rest of this function sets the child up and ends by executing
+	 * the new binary.  Failures are handled by terminating the child
+	 * and writing an error back to the parent.
 	 */
 
 	/* Close the reading end of the pipe with our parent and mark the
@@ -194,7 +190,7 @@ process_spawn (JobConfig    *config,
 	 * fork again and write back our new pid.
 	 */
 	setsid ();
-	if (! config->leader) {
+	if (! class->leader) {
 		pid = fork ();
 		if (pid > 0) {
 			exit (0);
@@ -205,7 +201,8 @@ process_spawn (JobConfig    *config,
 			 * the error.
 			 */
 			write (fds[1], &pid, sizeof (pid));
-			process_error_abort (fds[1], PROCESS_ERROR_FORK, 0);
+			job_process_error_abort (fds[1],
+						 JOB_PROCESS_ERROR_FORK, 0);
 		}
 
 		/* Write the new child pid to the parent */
@@ -218,20 +215,21 @@ process_spawn (JobConfig    *config,
 	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
 	 * later.
 	 */
-	if (process_setup_console (config->console, FALSE) < 0)
-		process_error_abort (fds[1], PROCESS_ERROR_CONSOLE, 0);
+	if (system_setup_console (class->console, FALSE) < 0)
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
 
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job configuration such that they inherit from
 	 * ourselves (and we inherit from kernel defaults).
 	 */
 	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (! config->limits[i])
+		if (! class->limits[i])
 			continue;
 
-		if (setrlimit (i, config->limits[i]) < 0) {
+		if (setrlimit (i, class->limits[i]) < 0) {
 			nih_error_raise_system ();
-			process_error_abort (fds[1], PROCESS_ERROR_RLIMIT, i);
+			job_process_error_abort (fds[1],
+						 JOB_PROCESS_ERROR_RLIMIT, i);
 		}
 	}
 
@@ -241,13 +239,14 @@ process_spawn (JobConfig    *config,
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
 	 */
-	umask (config->umask);
+	umask (class->umask);
 
 	/* Adjust the process priority ("nice level").
 	 */
-	if (setpriority (PRIO_PROCESS, 0, config->nice) < 0) {
+	if (setpriority (PRIO_PROCESS, 0, class->nice) < 0) {
 		nih_error_raise_system ();
-		process_error_abort (fds[1], PROCESS_ERROR_PRIORITY, 0);
+		job_process_error_abort (fds[1],
+					 JOB_PROCESS_ERROR_PRIORITY, 0);
 	}
 
 	/* Adjust the process OOM killer priority.
@@ -257,24 +256,25 @@ process_spawn (JobConfig    *config,
 	fd = fopen (filename, "w");
 	if (! fd) {
 		nih_error_raise_system ();
-		process_error_abort (fds[1], PROCESS_ERROR_OOM_ADJ, 0);
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
 	}
 
-	fprintf (fd, "%d\n", config->oom_adj);
+	fprintf (fd, "%d\n", class->oom_adj);
 
 	if (fclose (fd)) {
 		nih_error_raise_system ();
-		process_error_abort (fds[1], PROCESS_ERROR_OOM_ADJ, 0);
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
 	}
 
 	/* Change the root directory, confining path resolution within it;
 	 * we do this before the working directory call so that is always
 	 * relative to the new root.
 	 */
-	if (config->chroot) {
-		if (chroot (config->chroot) < 0) {
+	if (class->chroot) {
+		if (chroot (class->chroot) < 0) {
 			nih_error_raise_system ();
-			process_error_abort (fds[1], PROCESS_ERROR_CHROOT, 0);
+			job_process_error_abort (fds[1],
+						 JOB_PROCESS_ERROR_CHROOT, 0);
 		}
 	}
 
@@ -282,9 +282,9 @@ process_spawn (JobConfig    *config,
 	 * configured in the job, or to the root directory of the filesystem
 	 * (or at least relative to the chroot).
 	 */
-	if (chdir (config->chdir ? config->chdir : "/") < 0) {
+	if (chdir (class->chdir ? class->chdir : "/") < 0) {
 		nih_error_raise_system ();
-		process_error_abort (fds[1], PROCESS_ERROR_CHDIR, 0);
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
 	}
 
 
@@ -299,21 +299,22 @@ process_spawn (JobConfig    *config,
 	if (trace) {
 		if (ptrace (PTRACE_TRACEME, 0, NULL, 0) < 0) {
 			nih_error_raise_system();
-			process_error_abort (fds[1], PROCESS_ERROR_PTRACE, 0);
+			job_process_error_abort (fds[1],
+						 JOB_PROCESS_ERROR_PTRACE, 0);
 		}
 	}
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0) {
 		nih_error_raise_system ();
-		process_error_abort (fds[1], PROCESS_ERROR_EXEC, 0);
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_EXEC, 0);
 	}
 
 	nih_assert_not_reached ();
 }
 
 /**
- * process_error_abort:
+ * job_process_error_abort:
  * @fd: writing end of pipe,
  * @type: step that failed,
  * @arg: argument to @type.
@@ -325,12 +326,12 @@ process_spawn (JobConfig    *config,
  * This function calls the abort() system call, so never returns.
  **/
 static void
-process_error_abort (int              fd,
-		     ProcessErrorType type,
-		     int              arg)
+job_process_error_abort (int                 fd,
+			 JobProcessErrorType type,
+			 int                 arg)
 {
-	NihError         *err;
-	ProcessWireError  wire_err;
+	NihError            *err;
+	JobProcessWireError  wire_err;
 
 	/* Get the currently raised system error */
 	err = nih_error_get ();
@@ -349,30 +350,30 @@ process_error_abort (int              fd,
 }
 
 /**
- * process_error_read:
+ * job_process_error_read:
  * @fd: reading end of pipe.
  *
  * Read from the reading end of the pipe specified by @fd, if we receive
  * data then the child raised a process error which we reconstruct and raise
  * again; otherwise no problem was found and no action is taken.
  *
- * The reconstructed error will be of PROCESS_ERROR type, the human-readable
- * message is generated according to the type of process error and argument
- * passed along with it.
+ * The reconstructed error will be of JOB_PROCESS_ERROR type, the human-
+ * readable message is generated according to the type of process error
+ * and argument passed along with it.
  *
  * Returns: zero if no error was found, or negative value on raised error.
  **/
 static int
-process_error_read (int fd)
+job_process_error_read (int fd)
 {
-	ProcessWireError  wire_err;
-	ssize_t           len;
-	ProcessError     *err;
-	const char       *res;
+	JobProcessWireError  wire_err;
+	ssize_t              len;
+	JobProcessError     *err;
+	const char          *res;
 
 	/* Read the error from the pipe; a zero read indicates that the
 	 * exec succeeded so we return success, otherwise if we don't receive
-	 * a ProcessWireError structure, we return a temporary error so we
+	 * a JobProcessWireError structure, we return a temporary error so we
 	 * try again.
 	 */
 	len = read (fd, &wire_err, sizeof (wire_err));
@@ -385,30 +386,30 @@ process_error_read (int fd)
 		nih_return_system_error (-1);
 	}
 
-	/* Construct a ProcessError to be raised containing information
+	/* Construct a JobProcessError to be raised containing information
 	 * from the wire, augmented with human-readable information we
 	 * generate here.
 	 */
-	NIH_MUST (err = nih_new (NULL, ProcessError));
+	NIH_MUST (err = nih_new (NULL, JobProcessError));
 
 	err->type = wire_err.type;
 	err->arg = wire_err.arg;
 	err->errnum = wire_err.errnum;
 
-	err->error.number = PROCESS_ERROR;
+	err->error.number = JOB_PROCESS_ERROR;
 
 	switch (err->type) {
-	case PROCESS_ERROR_FORK:
+	case JOB_PROCESS_ERROR_FORK:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to fork: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_CONSOLE:
+	case JOB_PROCESS_ERROR_CONSOLE:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to open console: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_RLIMIT:
+	case JOB_PROCESS_ERROR_RLIMIT:
 		switch (err->arg) {
 		case RLIMIT_CPU:
 			res = "cpu";
@@ -463,32 +464,32 @@ process_error_read (int fd)
 				  err, _("unable to set \"%s\" resource limit: %s"),
 				  res, strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_PRIORITY:
+	case JOB_PROCESS_ERROR_PRIORITY:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to set priority: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_OOM_ADJ:
+	case JOB_PROCESS_ERROR_OOM_ADJ:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to set oom adjustment: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_CHROOT:
+	case JOB_PROCESS_ERROR_CHROOT:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to change root directory: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_CHDIR:
+	case JOB_PROCESS_ERROR_CHDIR:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to change working directory: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_PTRACE:
+	case JOB_PROCESS_ERROR_PTRACE:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to set trace: %s"),
 				  strerror (err->errnum)));
 		break;
-	case PROCESS_ERROR_EXEC:
+	case JOB_PROCESS_ERROR_EXEC:
 		NIH_MUST (err->error.message = nih_sprintf (
 				  err, _("unable to execute: %s"),
 				  strerror (err->errnum)));
@@ -499,126 +500,4 @@ process_error_read (int fd)
 
 	nih_error_raise_again (&err->error);
 	return -1;
-}
-
-
-/**
- * process_kill:
- * @config: job configuration of process to be killed,
- * @pid: process id of process,
- * @force: force the death.
- *
- * This function only sends the process a TERM signal (KILL if @force is
- * TRUE), it is up to the caller to ensure that the state change is saved
- * into the job and the process is watched; one may also wish to send
- * further signals later.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-process_kill (JobConfig *config,
-	      pid_t      pid,
-	      int        force)
-{
-	int   signal;
-	pid_t pgid;
-
-	nih_assert (config != NULL);
-	nih_assert (pid > 0);
-
-	signal = (force ? SIGKILL : SIGTERM);
-
-	pgid = getpgid (pid);
-
-	if (kill (pgid > 0 ? -pgid : pid, signal) < 0)
-		nih_return_system_error (-1);
-
-	return 0;
-}
-
-
-/**
- * process_setup_console:
- * @type: console type,
- * @reset: reset console to sane defaults.
- *
- * Set up the standard input, output and error file descriptors for the
- * current process based on the console @type given.  If @reset is TRUE then
- * the console device will be reset to sane defaults.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-process_setup_console (ConsoleType type,
-		       int         reset)
-{
-	int fd = -1, i;
-
-	/* Close the standard file descriptors since we're about to re-open
-	 * them; it may be that some of these aren't already open, we get
-	 * called in some very strange ways.
-	 */
-	for (i = 0; i < 3; i++)
-		close (i);
-
-	/* Open the new first file descriptor, which should always become
-	 * file zero.
-	 */
-	switch (type) {
-	case CONSOLE_OUTPUT:
-	case CONSOLE_OWNER:
-		/* Ordinary console input and output */
-		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
-		if (fd < 0)
-			nih_return_system_error (-1);
-
-		if (type == CONSOLE_OWNER)
-			ioctl (fd, TIOCSCTTY, 1);
-		break;
-	case CONSOLE_NONE:
-		/* No console really means /dev/null */
-		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
-		if (fd < 0)
-			nih_return_system_error (-1);
-		break;
-	}
-
-	/* Reset to sane defaults, cribbed from sysvinit, initng, etc. */
-	if (reset) {
-		struct termios tty;
-
-		tcgetattr (0, &tty);
-
-		tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB
-				| PARENB | PARODD);
-		tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
-
-		/* Set up usual keys */
-		tty.c_cc[VINTR]  = 3;   /* ^C */
-		tty.c_cc[VQUIT]  = 28;  /* ^\ */
-		tty.c_cc[VERASE] = 127;
-		tty.c_cc[VKILL]  = 24;  /* ^X */
-		tty.c_cc[VEOF]   = 4;   /* ^D */
-		tty.c_cc[VTIME]  = 0;
-		tty.c_cc[VMIN]   = 1;
-		tty.c_cc[VSTART] = 17;  /* ^Q */
-		tty.c_cc[VSTOP]  = 19;  /* ^S */
-		tty.c_cc[VSUSP]  = 26;  /* ^Z */
-
-		/* Pre and post processing */
-		tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
-		tty.c_oflag = (OPOST | ONLCR);
-		tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL
-			       | ECHOPRT | ECHOKE);
-
-		/* Set the terminal line and flush it */
-		tcsetattr (0, TCSANOW, &tty);
-		tcflush (0, TCIOFLUSH);
-	}
-
-	/* Copy to standard output and standard error */
-	while (dup (fd) < 2)
-		;
-
-	return 0;
 }

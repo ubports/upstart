@@ -18,37 +18,35 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef INIT_PROCESS_H
-#define INIT_PROCESS_H
-
-#include <sys/types.h>
+#ifndef INIT_JOB_PROCESS_H
+#define INIT_JOB_PROCESS_H
 
 #include <nih/macros.h>
 #include <nih/error.h>
 
-#include "job.h"
+#include "job_class.h"
 
 
 /**
- * ProcessErrorType:
+ * JobProcessErrorType:
  *
  * These constants represent the different steps of process spawning that
  * can produce an error.
  **/
-typedef enum process_error_type {
-	PROCESS_ERROR_FORK,
-	PROCESS_ERROR_CONSOLE,
-	PROCESS_ERROR_RLIMIT,
-	PROCESS_ERROR_PRIORITY,
-	PROCESS_ERROR_OOM_ADJ,
-	PROCESS_ERROR_CHROOT,
-	PROCESS_ERROR_CHDIR,
-	PROCESS_ERROR_PTRACE,
-	PROCESS_ERROR_EXEC
-} ProcessErrorType;
+typedef enum job_process_error_type {
+	JOB_PROCESS_ERROR_FORK,
+	JOB_PROCESS_ERROR_CONSOLE,
+	JOB_PROCESS_ERROR_RLIMIT,
+	JOB_PROCESS_ERROR_PRIORITY,
+	JOB_PROCESS_ERROR_OOM_ADJ,
+	JOB_PROCESS_ERROR_CHROOT,
+	JOB_PROCESS_ERROR_CHDIR,
+	JOB_PROCESS_ERROR_PTRACE,
+	JOB_PROCESS_ERROR_EXEC
+} JobProcessErrorType;
 
 /**
- * ProcessError:
+ * JobProcessError:
  * @error: ordinary NihError,
  * @type: specific error,
  * @arg: relevant argument to @type,
@@ -63,29 +61,23 @@ typedef enum process_error_type {
  * information relevant to @type (such as the resource limit that could not
  * be set) and @errnum is the actual system error number.
  *
- * If you receive a PROCESS_ERROR, the returned NihError structure is actually
- * this structure and can be cast to get the additional fields.
+ * If you receive a JOB_PROCESS_ERROR, the returned NihError structure is
+ * actually this structure and can be cast to get the additional fields.
  **/
-typedef struct process_error {
-	NihError         error;
-	ProcessErrorType type;
-	int              arg;
-	int              errnum;
-} ProcessError;
+typedef struct job_process_error {
+	NihError            error;
+	JobProcessErrorType type;
+	int                 arg;
+	int                 errnum;
+} JobProcessError;
 
 
 NIH_BEGIN_EXTERN
 
-pid_t  process_spawn           (JobConfig *config, char * const argv[],
-				char * const *env, int trace)
-	__attribute__ ((warn_unused_result));
-
-int    process_kill            (JobConfig *config, pid_t pid, int force)
-	__attribute__ ((warn_unused_result));
-
-int    process_setup_console   (ConsoleType type, int reset)
+pid_t  job_process_spawn (JobClass *class, char * const argv[],
+			  char * const *env, int trace)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 
-#endif /* INIT_PROCESS_H */
+#endif /* INIT_JOB_PROCESS_H */

@@ -1,6 +1,6 @@
 /* upstart
  *
- * test_process.c - test suite for init/process.c
+ * test_job_process.c - test suite for init/job_process.c
  *
  * Copyright © 2008 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
@@ -37,13 +37,13 @@
 #include <nih/list.h>
 #include <nih/error.h>
 
+#include "job_process.h"
 #include "job.h"
 #include "event.h"
-#include "process.h"
 #include "errors.h"
 
 
-/* Sadly we can't test everything that process_spawn() does simply because
+/* Sadly we can't test everything that job_process_spawn() does simply because
  * a lot of it can only be done by root, or in the case of the console stuff,
  * kills whatever had /dev/console (usually X).
  *
@@ -113,18 +113,18 @@ child (enum child_tests  test,
 void
 test_spawn (void)
 {
-	FILE          *output;
-	char           function[PATH_MAX], filename[PATH_MAX];
-	char           buf[80], filebuf[80];
-	struct stat    statbuf;
-	char          *env[3], *args[4];
-	JobConfig     *config;
-	pid_t          pid, ppid, pgrp;
-	siginfo_t      info;
-	NihError      *err;
-	ProcessError  *perr;
+	FILE             *output;
+	char              function[PATH_MAX], filename[PATH_MAX];
+	char              buf[80], filebuf[80];
+	struct stat       statbuf;
+	char             *env[3], *args[4];
+	JobClass         *class;
+	pid_t             pid, ppid, pgrp;
+	siginfo_t         info;
+	NihError         *err;
+	JobProcessError  *perr;
 
-	TEST_FUNCTION ("process_spawn");
+	TEST_FUNCTION ("job_process_spawn");
 	TEST_FILENAME (filename);
 
 	args[0] = argv0;
@@ -140,9 +140,9 @@ test_spawn (void)
 	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
-	config = job_config_new (NULL, "test");
+	class = job_class_new (NULL, "test");
 
-	pid = process_spawn (config, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	while (stat (filename, &statbuf) < 0)
@@ -191,7 +191,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that we can spawn a job we expect to be the session
@@ -202,10 +202,10 @@ test_spawn (void)
 	TEST_FEATURE ("with session leader");
 	sprintf (function, "%d", TEST_PIDS);
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
 
-	pid = process_spawn (config, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -231,7 +231,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that a job spawned with no console has the file descriptors
@@ -240,11 +240,11 @@ test_spawn (void)
 	TEST_FEATURE ("with no console");
 	sprintf (function, "%d", TEST_CONSOLE);
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
-	config->console = CONSOLE_NONE;
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
+	class->console = CONSOLE_NONE;
 
-	pid = process_spawn (config, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -258,7 +258,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that a job with an alternate working directory is run from
@@ -267,11 +267,11 @@ test_spawn (void)
 	TEST_FEATURE ("with working directory");
 	sprintf (function, "%d", TEST_PWD);
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
-	config->chdir = "/tmp";
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
+	class->chdir = "/tmp";
 
-	pid = process_spawn (config, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -283,7 +283,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that a job is run with only the environment variables
@@ -291,16 +291,16 @@ test_spawn (void)
 	 */
 	TEST_FEATURE ("with environment");
 	sprintf (function, "%d", TEST_ENVIRONMENT);
-	putenv ("BAR=baz");
+	setenv ("BAR", "baz", TRUE);
 
 	env[0] = "PATH=/bin";
 	env[1] = "FOO=bar";
 	env[2] = NULL;
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
 
-	pid = process_spawn (config, args, env, FALSE);
+	pid = job_process_spawn (class, args, env, FALSE);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -313,7 +313,7 @@ test_spawn (void)
 	fclose (output);
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that when we spawn an ordinary job, it isn't usually ptraced
@@ -323,10 +323,10 @@ test_spawn (void)
 	TEST_FEATURE ("with non-daemon job");
 	sprintf (function, "%d", TEST_SIMPLE);
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
 
-	pid = process_spawn (config, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -335,7 +335,7 @@ test_spawn (void)
 
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that when we spawn a daemon job, we can request that the
@@ -344,10 +344,10 @@ test_spawn (void)
 	TEST_FEATURE ("with daemon job");
 	sprintf (function, "%d", TEST_SIMPLE);
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
 
-	pid = process_spawn (config, args, NULL, TRUE);
+	pid = job_process_spawn (class, args, NULL, TRUE);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -362,7 +362,7 @@ test_spawn (void)
 
 	unlink (filename);
 
-	nih_free (config);
+	nih_free (class);
 
 
 	/* Check that attempting to spawn a binary that doesn't exist returns
@@ -374,129 +374,23 @@ test_spawn (void)
 	args[1] = filename;
 	args[2] = NULL;
 
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
+	class = job_class_new (NULL, "test");
+	class->leader = TRUE;
 
-	pid = process_spawn (config, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_LT (pid, 0);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, PROCESS_ERROR);
-	TEST_ALLOC_SIZE (err, sizeof (ProcessError));
+	TEST_EQ (err->number, JOB_PROCESS_ERROR);
+	TEST_ALLOC_SIZE (err, sizeof (JobProcessError));
 
-	perr = (ProcessError *)err;
-	TEST_EQ (perr->type, PROCESS_ERROR_EXEC);
+	perr = (JobProcessError *)err;
+	TEST_EQ (perr->type, JOB_PROCESS_ERROR_EXEC);
 	TEST_EQ (perr->arg, 0);
 	TEST_EQ (perr->errnum, ENOENT);
 	nih_free (perr);
 
-	nih_free (config);
-}
-
-
-void
-test_kill (void)
-{
-	JobConfig *config;
-	pid_t      pid1, pid2, pid3;
-	int        ret, status;
-
-	TEST_FUNCTION ("process_kill");
-	config = job_config_new (NULL, "test");
-	config->leader = TRUE;
-
-	/* Check that when we normally kill the process, the TERM signal
-	 * is sent to all processes in its process group.
-	 */
-	TEST_FEATURE ("with TERM signal");
-	TEST_CHILD (pid1) {
-		pause ();
-	}
-	TEST_CHILD (pid2) {
-		pause ();
-	}
-
-	setpgid (pid1, pid1);
-	setpgid (pid2, pid1);
-
-	ret = process_kill (config, pid1, FALSE);
-	waitpid (pid1, &status, 0);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-	waitpid (pid2, &status, 0);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-
-	/* Check that when we force the kill, the KILL signal is sent
-	 * instead.
-	 */
-	TEST_FEATURE ("with KILL signal");
-	TEST_CHILD (pid1) {
-		pause ();
-	}
-	TEST_CHILD (pid2) {
-		pause ();
-	}
-
-	setpgid (pid1, pid1);
-	setpgid (pid2, pid1);
-
-	ret = process_kill (config, pid1, TRUE);
-	waitpid (pid1, &status, 0);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGKILL);
-
-	waitpid (pid2, &status, 0);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGKILL);
-
-
-	/* Check that we can still send the signal to the process group
-	 * when the leader is no longer around.
-	 */
-	TEST_FEATURE ("with no group leader");
-	TEST_CHILD (pid1) {
-		pause ();
-	}
-	TEST_CHILD (pid2) {
-		pause ();
-	}
-	TEST_CHILD (pid3) {
-		pause ();
-	}
-
-	setpgid (pid1, pid1);
-	setpgid (pid2, pid1);
-	setpgid (pid3, pid1);
-
-	kill (pid1, SIGTERM);
-	waitpid (pid1, &status, 0);
-
-	ret = process_kill (config, pid2, FALSE);
-	waitpid (pid2, &status, 0);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-	waitpid (pid3, &status, 0);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (WIFSIGNALED (status));
-	TEST_EQ (WTERMSIG (status), SIGTERM);
-
-
-	nih_free (config);
+	nih_free (class);
 }
 
 
@@ -528,7 +422,6 @@ main (int   argc,
 
 	/* Otherwise run the tests as normal */
 	test_spawn ();
-	test_kill ();
 
 	return 0;
 }
