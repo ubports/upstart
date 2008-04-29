@@ -1,3 +1,12 @@
+2008-04-30  Scott James Remnant  <scott@netsplit.com>
+
+	* init/control.c (control_job_config_path, control_job_path)
+	(control_path_append): Drop these functions (replaced by the more
+	generic nih_dbus_path() function)
+	* init/control.h: Make CONTROL_ROOT public, and drop other prototypes.
+	* init/tests/test_control.c (test_job_config_path)
+	(test_job_path): Drop tests.
+
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.c, init/event.h, init/tests/test_event.c: Strip out the

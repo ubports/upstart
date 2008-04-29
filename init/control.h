@@ -26,6 +26,23 @@
 #include <nih/dbus.h>
 
 
+/**
+ * CONTROL_BUS_NAME:
+ *
+ * Well-known name that we register on the system bus so that clients may
+ * contact us.
+ **/
+#define CONTROL_BUS_NAME "com.ubuntu.Upstart"
+
+/**
+ * CONTROL_ROOT:
+ *
+ * Well-known object name that we register for the manager object, and that
+ * we use as the root path for all of our other objects.
+ **/
+#define CONTROL_ROOT "/com/ubuntu/Upstart"
+
+
 NIH_BEGIN_EXTERN
 
 DBusConnection *control_bus;
@@ -33,12 +50,6 @@ DBusConnection *control_bus;
 
 int   control_bus_open        (void);
 void  control_bus_close       (void);
-
-char *control_job_config_path (const void *parent, const char *config_name)
-	__attribute__ ((warn_unused_result, malloc));
-char *control_job_path        (const void *parent, const char *config_name,
-			       const char *job_name)
-	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 
