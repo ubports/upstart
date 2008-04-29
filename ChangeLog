@@ -1,3 +1,26 @@
+2008-04-29  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_class.h (JobClass): Factor out old JobConfig object into
+	a new JobClass object with the same properties, but in its own source
+	file.
+	(ExpectType): Rename old JobExpect to this to match other enums.
+	(ConsoleType): Move along with the object that uses it.
+	* init/job_class.c (job_class_init, job_class_new)
+	(job_class_environment): Bring along methods that only operate on
+	a JobClass, cleaning them up in the process.
+	(job_class_consider, job_class_reconsider): Replace job_config_replace
+	with these two functions that may be used for a new job class and
+	when discarding or finishing with an old one respectively.
+	* init/tests/test_job_class.c: Tests for the functions.
+	* init/Makefile.am (init_SOURCES): Build and link job class source
+	and header.
+	(TESTS): Build and run job class test suite.
+	(test_job_class_SOURCES, test_job_class_LDFLAGS)
+	(test_job_class_LDADD): Details for job class test suite.
+	(test_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_parse_job_LDADD, test_parse_conf_LDADD, test_conf_LDADD)
+	(test_control_LDADD): Link job class code to other tests too.
+
 2008-04-28  Scott James Remnant  <scott@netsplit.com>
 
 	* init/control.c (control_job_config_path, control_job_path): Add
