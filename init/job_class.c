@@ -36,10 +36,9 @@
 
 #include "environ.h"
 #include "process.h"
+#include "job_class.h"
 #include "conf.h"
 #include "control.h"
-
-#include "job_class.h"
 
 
 /**

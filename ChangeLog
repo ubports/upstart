@@ -1,5 +1,8 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c, init/main.c: Correct includes and some function
+	names.
+
 	* init/process.c, init/process.h, init/tests/test_process.c: Land
 	original Process code (used by job class and similar).
 

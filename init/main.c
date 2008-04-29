@@ -51,12 +51,12 @@
 #include <nih/error.h>
 #include <nih/logging.h>
 
-#include "process.h"
+#include "paths.h"
+#include "system.h"
 #include "job.h"
 #include "event.h"
 #include "conf.h"
 #include "control.h"
-#include "paths.h"
 
 
 /* Prototypes for static functions */
@@ -174,7 +174,7 @@ main (int   argc,
 	 * resetting it to sane defaults unless we're inheriting from another
 	 * init process which we know left it in a sane state.
 	 */
-	if (process_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
+	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
 
 	/* Set the PATH environment variable */
