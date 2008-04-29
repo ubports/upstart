@@ -1,5 +1,8 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/process.c, init/process.h, init/tests/test_process.c: Land
+	original Process code (used by job class and similar).
+
 	* init/process.c, init/process.h, init/tests/test_process.c: Break
 	into two pieces, one part becomes job_process which requires both
 	job information and process information, the other becomes system
