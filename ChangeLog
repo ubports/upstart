@@ -1,5 +1,19 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/events.h, init/event_operator.c, init/event_operator.h,
+	init/tests/test_event_operator.c: Separate out the event operator
+	code and the list of events into separate source files.
+	* init/Makefile.am (init_SOURCES): Build and link event operator code
+	and use the lists of events.
+	(TESTS): Build and run the event operator test suite.
+	(test_event_operator_SOURCES, test_event_operator_LDFLAGS)
+	(test_event_operator_LDADD): Details for the event operator test
+	suite.
+	(test_process_LDADD, test_job_class_LDADD)
+	(test_job_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_parse_job_LDADD, test_parse_conf_LDADD, test_conf_LDADD)
+	(test_control_LDADD): Link the event operator code.
+
 	* init/job_class.c, init/main.c: Correct includes and some function
 	names.
 
