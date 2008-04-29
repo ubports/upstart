@@ -1,5 +1,7 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_conf.c: Remove parse_job include.
+
 	* init/init.supp: Update leak check for class init; remove
 	valgrind workaround since it's gone away with the change of that
 	function.
