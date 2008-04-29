@@ -631,7 +631,6 @@ conf_reload_path (ConfSource *source,
 {
 	ConfFile   *file;
 	const char *buf, *name;
-	JobConfig  *old_job;
 	size_t      len, pos, lineno;
 	NihError   *err = NULL;
 
@@ -686,18 +685,10 @@ conf_reload_path (ConfSource *source,
 		nih_debug ("Loading %s from %s", name, path);
 		file->job = parse_job (NULL, name, buf, len, &pos, &lineno);
 		if (file->job) {
-			/* If there's an existing job with that name, attempt
-			 * to replace it; otherwise add the new job directly
-			 * to the hash table.
-			 */
-			old_job = (JobConfig *)nih_hash_lookup (jobs, name);
-			if (old_job) {
-				job_config_replace (old_job);
-			} else {
-				nih_hash_add (jobs, &file->job->entry);
-			}
-		} else
+			job_class_consider (file->job);
+		} else {
 			err = nih_error_get ();
+		}
 
 		break;
 	default:
@@ -771,8 +762,6 @@ conf_reload_path (ConfSource *source,
 int
 conf_file_destroy (ConfFile *file)
 {
-	JobConfig *config;
-
 	nih_assert (file != NULL);
 
 	nih_list_destroy (&file->entry);
@@ -794,10 +783,7 @@ conf_file_destroy (ConfFile *file)
 		 * if it is, try and replace it.  If it wasn't the current
 		 * job, or isn't after replacement, we can free it now.
 		 */
-		config = (JobConfig *)nih_hash_lookup (jobs, file->job->name);
-		if (config == file->job)
-			config = job_config_replace (file->job);
-		if (config != file->job)
+		if (job_class_reconsider (file->job))
 			nih_free (file->job);
 
 		break;
@@ -806,4 +792,41 @@ conf_file_destroy (ConfFile *file)
 	}
 
 	return 0;
+}
+
+
+/**
+ * conf_select_job:
+ * @name: name of job class to locate.
+ *
+ * Select the best available class of a job named @name from the registered
+ * configuration sources.
+ *
+ * Returns: Best available job class or NULL if none available.
+ **/
+JobClass *
+conf_select_job (const char *name)
+{
+	nih_assert (name != NULL);
+
+	conf_init ();
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (source->type != CONF_JOB_DIR)
+			continue;
+
+		NIH_HASH_FOREACH (source->files, file_iter) {
+			ConfFile *file = (ConfFile *)file_iter;
+
+			if (! file->job)
+				continue;
+
+			if (! strcmp (file->job->name, name))
+				return file->job;
+		}
+	}
+
+	return NULL;
 }

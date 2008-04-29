@@ -1,5 +1,19 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.h (ConfFile): Change type of job member, but leave name.
+	Add prototype for new function.
+	* init/conf.c (conf_reload_path): Somewhat simplify the case of
+	having parsed a job, we only need to call job_class_consider() now
+	to have it dealt with.
+	(conf_file_destroy): Likewise after removing the ConfFile from the
+	source (so it won't get considered) and marking the job class as
+	deleted, we only need to call job_class_reconsider() and check the
+	return value to see whether we've been replaced.
+	(conf_select_job): In return we provide the function to decide which
+	of the available job sources is the best one.
+	* init/tests/test_conf.c: Update types in tests.
+	(test_select_job): Test the new function.
+
 	* init/parse_job.h: Update to include job_class.h and update prototype
 	to return JobClass, we'll keep the name though since we'll never
 	parse jobs and otherwise things get annoying.

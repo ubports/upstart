@@ -27,7 +27,7 @@
 #include <nih/list.h>
 #include <nih/watch.h>
 
-#include "job.h"
+#include "job_class.h"
 
 
 /**
@@ -98,8 +98,8 @@ typedef struct conf_file {
 	int         flag;
 
 	union {
-		void      *data;
-		JobConfig *job;
+		void     *data;
+		JobClass *job;
 	};
 } ConfFile;
 
@@ -107,6 +107,7 @@ typedef struct conf_file {
 NIH_BEGIN_EXTERN
 
 NihList *conf_sources;
+
 
 void        conf_init          (void);
 
@@ -121,6 +122,8 @@ int         conf_source_reload (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
 int         conf_file_destroy  (ConfFile *item);
+
+JobClass *  conf_select_job    (const char *name);
 
 NIH_END_EXTERN
 

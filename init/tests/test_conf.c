@@ -48,8 +48,9 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include "conf.h"
+#include "job_class.h"
 #include "job.h"
+#include "conf.h"
 
 
 void
@@ -128,7 +129,7 @@ test_source_reload_job_dir (void)
 {
 	ConfSource *source;
 	ConfFile   *file, *old_file;
-	JobConfig  *job, *old_job;
+	JobClass   *job, *old_job;
 	Job        *instance;
 	FILE       *f;
 	int         ret, fd[4096], i = 0, nfds;
@@ -209,7 +210,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -229,7 +230,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -249,7 +250,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job , NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -299,7 +300,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -349,7 +350,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -404,7 +405,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -444,7 +445,7 @@ test_source_reload_job_dir (void)
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (job, NULL);
 
 
@@ -471,7 +472,7 @@ test_source_reload_job_dir (void)
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
 	instance = job_new (job, NULL);
@@ -502,7 +503,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (job, old_job);
 	TEST_NE_P (job, file->job);
 
@@ -560,7 +561,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_NE_P (job, file->job);
 
 	TEST_TRUE (file->job->respawn);
@@ -608,7 +609,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
 	TEST_TRUE (job->deleted);
@@ -643,7 +644,7 @@ test_source_reload_job_dir (void)
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_NE_P (job, NULL);
 
 	instance = job_new (job, NULL);
@@ -669,7 +670,7 @@ test_source_reload_job_dir (void)
 
 	TEST_NOT_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (job, old_job);
 	TEST_TRUE (job->deleted);
 
@@ -696,7 +697,7 @@ test_source_reload_job_dir (void)
 	fprintf (f, "respawn\n");
 	fclose (f);
 
-	old_job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	old_job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 
 	TEST_FREE_TAG (old_job);
 
@@ -713,7 +714,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (job, NULL);
 
 	strcpy (filename, dirname);
@@ -745,7 +746,7 @@ test_source_reload_job_dir (void)
 	old_file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_FREE_TAG (old_file);
 
-	old_job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	old_job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_FREE_TAG (old_job);
 
 	f = fopen (filename, "w");
@@ -771,7 +772,7 @@ test_source_reload_job_dir (void)
 
 	TEST_FREE (old_job);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (job, NULL);
 
 	strcpy (filename, dirname);
@@ -818,7 +819,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -838,7 +839,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -902,7 +903,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -922,7 +923,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1000,13 +1001,13 @@ test_source_reload_job_dir (void)
 
 	TEST_HASH_EMPTY (source->files);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ (job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ (job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ (job, NULL);
 
 	nih_free (source);
@@ -1076,7 +1077,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -1096,7 +1097,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1116,7 +1117,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1182,7 +1183,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (file->job, job);
 
 	TEST_TRUE (job->respawn);
@@ -1203,7 +1204,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1219,7 +1220,7 @@ no_inotify:
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ_P (job, NULL);
 
 
@@ -1232,7 +1233,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1281,7 +1282,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1301,7 +1302,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1359,7 +1360,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1379,7 +1380,7 @@ no_inotify:
 	TEST_EQ (file->flag, source->flag);
 	TEST_NE_P (file->job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/bar");
 	TEST_EQ_P (file->job, job);
 
 	TEST_FALSE (job->respawn);
@@ -1456,13 +1457,13 @@ no_inotify:
 
 	TEST_HASH_EMPTY (source->files);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ (job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "bar");
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
 	TEST_EQ (job, NULL);
 
-	job = (JobConfig *)nih_hash_lookup (jobs, "frodo/foo");
+	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
 	TEST_EQ (job, NULL);
 
 	nih_free (source);
@@ -3140,7 +3141,7 @@ test_file_destroy (void)
 {
 	ConfSource *source;
 	ConfFile   *file;
-	JobConfig  *job, *other, *ptr;
+	JobClass   *job, *other, *ptr;
 	Job        *instance;
 
 	TEST_FUNCTION ("conf_file_destroy");
@@ -3152,10 +3153,10 @@ test_file_destroy (void)
 	 */
 	TEST_FEATURE ("with not-current job");
 	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_config_new (NULL, "foo");
+	job = file->job = job_class_new (NULL, "foo");
 
-	other = job_config_new (NULL, "foo");
-	nih_hash_add (jobs, &other->entry);
+	other = job_class_new (NULL, "foo");
+	nih_hash_add (job_classes, &other->entry);
 
 	TEST_FREE_TAG (job);
 
@@ -3163,7 +3164,7 @@ test_file_destroy (void)
 
 	TEST_FREE (job);
 
-	ptr = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	ptr = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (ptr, other);
 
 	nih_free (other);
@@ -3174,9 +3175,9 @@ test_file_destroy (void)
 	 */
 	TEST_FEATURE ("with stopped job");
 	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_config_new (NULL, "foo");
+	job = file->job = job_class_new (NULL, "foo");
 
-	nih_hash_add (jobs, &job->entry);
+	nih_hash_add (job_classes, &job->entry);
 
 	TEST_FREE_TAG (job);
 
@@ -3184,7 +3185,7 @@ test_file_destroy (void)
 
 	TEST_FREE (job);
 
-	ptr = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	ptr = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (ptr, NULL);
 
 
@@ -3194,9 +3195,9 @@ test_file_destroy (void)
 	 */
 	TEST_FEATURE ("with running job");
 	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_config_new (NULL, "foo");
+	job = file->job = job_class_new (NULL, "foo");
 
-	nih_hash_add (jobs, &job->entry);
+	nih_hash_add (job_classes, &job->entry);
 
 	TEST_FREE_TAG (job);
 
@@ -3212,12 +3213,80 @@ test_file_destroy (void)
 	TEST_EQ (instance->goal, JOB_START);
 	TEST_EQ (instance->state, JOB_RUNNING);
 
-	ptr = (JobConfig *)nih_hash_lookup (jobs, "foo");
+	ptr = (JobClass *)nih_hash_lookup (job_classes, "foo");
 	TEST_EQ_P (ptr, job);
 
 	nih_free (job);
 
 	nih_free (source);
+}
+
+
+void
+test_select_job (void)
+{
+	ConfSource *source1, *source2, *source3;
+	ConfFile   *file1, *file2, *file3, *file4, *file5;
+	JobClass   *class1, *class2, *class3, *class4, *ptr;
+
+	TEST_FUNCTION ("conf_select_job");
+	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
+
+	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
+
+	file1 = conf_file_new (source2, "/tmp/bar/frodo");
+	class1 = file1->job = job_class_new (NULL, "frodo");
+
+	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
+
+	file3 = conf_file_new (source2, "/tmp/bar/drogo");
+	class2 = file3->job = job_class_new (NULL, "drogo");
+
+	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
+
+	file4 = conf_file_new (source3, "/tmp/baz/frodo");
+	class3 = file4->job = job_class_new (NULL, "frodo");
+
+	file5 = conf_file_new (source2, "/tmp/bar/bilbo");
+	class4 = file5->job = job_class_new (NULL, "bilbo");
+
+
+	/* Check that a job with only one file is returned.
+	 */
+	TEST_FEATURE ("with one file");
+	ptr = conf_select_job ("drogo");
+
+	TEST_EQ_P (ptr, class2);
+
+
+	/* Check that the first job of multiple available files is
+	 * returned.
+	 */
+	TEST_FEATURE ("with multiple files");
+	ptr = conf_select_job ("frodo");
+
+	TEST_EQ_P (ptr, class1);
+
+
+	/* Check that files with no attached job are ignored.
+	 */
+	TEST_FEATURE ("with file but no attached job");
+	ptr = conf_select_job ("bilbo");
+
+	TEST_EQ_P (ptr, class4);
+
+
+	/* Check that when there is no match, NULL is returned.
+	 */
+	TEST_FEATURE ("with no match");
+	ptr = conf_select_job ("meep");
+
+	TEST_EQ_P (ptr, NULL);
+
+
+	nih_free (source3);
+	nih_free (source2);
+	nih_free (source1);
 }
 
 
@@ -3232,6 +3301,7 @@ main (int   argc,
 	test_source_reload_file ();
 	test_source_reload ();
 	test_file_destroy ();
+	test_select_job ();
 
 	return 0;
 }
