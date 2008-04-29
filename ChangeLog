@@ -1,5 +1,8 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c, init/event.h, init/tests/test_event.c: Strip out the
+	event operator code and events list.
+
 	* init/job_class.c, init/job_class.h: We only need the event operator
 	code here now.
 
