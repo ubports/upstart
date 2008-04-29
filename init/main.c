@@ -52,6 +52,7 @@
 #include <nih/logging.h>
 
 #include "paths.h"
+#include "events.h"
 #include "system.h"
 #include "job.h"
 #include "event.h"

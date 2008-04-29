@@ -1,5 +1,7 @@
 2008-04-30  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Include events.h to get the ones we need.
+
 	* init/control.c (control_job_config_path, control_job_path)
 	(control_path_append): Drop these functions (replaced by the more
 	generic nih_dbus_path() function)
