@@ -1,5 +1,9 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: Update leak check for class init; remove
+	valgrind workaround since it's gone away with the change of that
+	function.
+
 	* init/conf.h (ConfFile): Change type of job member, but leave name.
 	Add prototype for new function.
 	* init/conf.c (conf_reload_path): Somewhat simplify the case of
