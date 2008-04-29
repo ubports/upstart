@@ -1,5 +1,8 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c, init/job_class.h: We only need the event operator
+	code here now.
+
 	* init/events.h, init/event_operator.c, init/event_operator.h,
 	init/tests/test_event_operator.c: Separate out the event operator
 	code and the list of events into separate source files.

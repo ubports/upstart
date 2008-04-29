@@ -37,6 +37,7 @@
 #include "environ.h"
 #include "process.h"
 #include "job_class.h"
+#include "event_operator.h"
 #include "conf.h"
 #include "control.h"
 

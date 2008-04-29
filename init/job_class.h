@@ -31,7 +31,7 @@
 #include <nih/hash.h>
 
 #include "process.h"
-#include "event.h"
+#include "event_operator.h"
 
 
 /**
