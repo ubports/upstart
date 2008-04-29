@@ -23,14 +23,14 @@
 
 #include <nih/macros.h>
 
-#include "job.h"
+#include "job_class.h"
 
 
 NIH_BEGIN_EXTERN
 
-JobConfig *parse_job (const void *parent, const char *name,
-		      const char *file, size_t len,
-		      size_t *pos, size_t *lineno)
+JobClass *parse_job (const void *parent, const char *name,
+		     const char *file, size_t len,
+		     size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN

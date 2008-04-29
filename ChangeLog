@@ -1,5 +1,11 @@
 2008-04-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.h: Update to include job_class.h and update prototype
+	to return JobClass, we'll keep the name though since we'll never
+	parse jobs and otherwise things get annoying.
+	* init/parse_job.c: Update to work on job classes.
+	* init/tests/test_parse_job.c: Update to match.
+
 	* init/job_class.h (JobClass): Factor out old JobConfig object into
 	a new JobClass object with the same properties, but in its own source
 	file.
