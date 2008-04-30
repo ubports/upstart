@@ -49,9 +49,21 @@
 
 #include "paths.h"
 #include "system.h"
+#include "environ.h"
+#include "process.h"
 #include "job_process.h"
 #include "job_class.h"
+#include "job.h"
 #include "errors.h"
+
+
+/**
+ * SHELL_CHARS:
+ *
+ * This is the list of characters that, if encountered in a process, cause
+ * it to always be run with a shell.
+ **/
+#define SHELL_CHARS "~`!$^&*()=|\\{}[];\"'<>?"
 
 
 /**
@@ -69,10 +81,242 @@ typedef struct job_process_wire_error {
 
 
 /* Prototypes for static functions */
-static void job_process_error_abort (int fd, JobProcessErrorType type, int arg)
+static void job_process_error_abort     (int fd, JobProcessErrorType type,
+					 int arg)
 	__attribute__ ((noreturn));
-static int  job_process_error_read  (int fd)
+static int  job_process_error_read      (int fd)
 	__attribute__ ((warn_unused_result));
+
+static void job_process_kill_timer      (ProcessType process, NihTimer *timer);
+static void job_process_terminated      (Job *job, ProcessType process,
+					 int status);
+static int  job_process_catch_runaway   (Job *job);
+static void job_process_stopped         (Job *job, ProcessType process);
+static void job_process_trace_new       (Job *job, ProcessType process);
+static void job_process_trace_new_child (Job *job, ProcessType process);
+static void job_process_trace_signal    (Job *job, ProcessType process,
+					 int signum);
+static void job_process_trace_fork      (Job *job, ProcessType process);
+static void job_process_trace_exec      (Job *job, ProcessType process);
+
+
+/**
+ * job_process_run:
+ * @job: job context for process to be run in,
+ * @process: job process to run.
+ *
+ * This function looks up @process in the job's process table and uses
+ * the information there to spawn a new process for the @job, storing the
+ * pid in that table entry.
+ *
+ * The process is normally executed using the system shell, unless the
+ * script member of @process is FALSE and there are no typical shell
+ * characters within the command member, in which case it is executed
+ * directly using exec after splitting on whitespace.
+ *
+ * When exectued with the shell, if the command (which may be an entire
+ * script) is reasonably small (less than 1KB) it is passed to the
+ * shell using the POSIX-specified -c option.  Otherwise the shell is told
+ * to read commands from one of the special /dev/fd/NN devices and NihIo
+ * used to feed the script into that device.  A pointer to the NihIo object
+ * is not kept or stored because it will automatically clean itself up should
+ * the script go away as the other end of the pipe will be closed.
+ *
+ * In either case the shell is run with the -e option so that commands will
+ * fail if their exit status is not checked.
+ *
+ * This function will block until the job_process_spawn() call succeeds or
+ * a non-temporary error occurs (such as file not found).  It is up to the
+ * called to decide whether non-temporary errors are a reason to change the
+ * job state or not.
+ *
+ * Returns: zero on success, negative value on non-temporary error.
+ **/
+int
+job_process_run (Job         *job,
+		 ProcessType  process)
+{
+	Process  *proc;
+	char    **argv, **env, **e, *script = NULL;
+	size_t    argc, envc;
+	int       error = FALSE, fds[2], trace = FALSE;
+
+	nih_assert (job != NULL);
+
+	proc = job->class->process[process];
+	nih_assert (proc != NULL);
+	nih_assert (proc->command != NULL);
+
+	/* We run the process using a shell if it says it wants to be run
+	 * as such, or if it contains any shell-like characters; since that's
+	 * the best way to deal with things like variables.
+	 */
+	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
+		struct stat statbuf;
+
+		argc = 0;
+		NIH_MUST (argv = nih_str_array_new (NULL));
+
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
+		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
+
+		/* If the process wasn't originally marked to be run through
+		 * a shell, prepend exec to the script so that the shell
+		 * gets out of the way after parsing.
+		 */
+		if (proc->script) {
+			NIH_MUST (script = nih_strdup (NULL, proc->command));
+		} else {
+			NIH_MUST (script = nih_sprintf (NULL, "exec %s",
+							proc->command));
+		}
+
+		/* If the script is very large, we consider piping it using
+		 * /dev/fd/NNN; we can only do that if /dev/fd exists,
+		 * of course.
+		 */
+		if ((strlen (script) > 1024)
+		    && (stat (DEV_FD, &statbuf) == 0)
+		    && (S_ISDIR (statbuf.st_mode)))
+		{
+			char *cmd;
+
+			/* Close the writing end when the child is exec'd */
+			NIH_MUST (pipe (fds) == 0);
+			nih_io_set_cloexec (fds[1]);
+
+			/* FIXME actually always want it to be /dev/fd/3 and
+			 * dup2() in the child to make it that way ... no way
+			 * of passing that yet
+			 */
+			NIH_MUST (cmd = nih_sprintf (argv, "%s/%d",
+						     DEV_FD, fds[0]));
+			NIH_MUST (nih_str_array_addp (&argv, NULL,
+						      &argc, cmd));
+		} else {
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, "-c"));
+			NIH_MUST (nih_str_array_addp (&argv, NULL,
+						      &argc, script));
+
+			/* Next argument is argv[0]; just pass the shell */
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, SHELL));
+
+			script = NULL;
+		}
+	} else {
+		/* Split the command on whitespace to produce a list of
+		 * arguments that we can exec directly.
+		 */
+		NIH_MUST (argv = nih_str_split (NULL, proc->command,
+						" \t\r\n", TRUE));
+	}
+
+	/* We provide the standard job environment to all of its processes,
+	 * except for pre-stop which also has the stop event environment,
+	 * adding special variables that indicate which job it was -- mostly
+	 * so that initctl can have clever behaviour when called within them.
+	 */
+	envc = 0;
+	if (job->env) {
+		NIH_MUST (env = nih_str_array_copy (NULL, &envc, job->env));
+	} else {
+		NIH_MUST (env = nih_str_array_new (NULL));
+	}
+
+	if ((process == PROCESS_PRE_STOP) && job->stop_env)
+		for (e = job->stop_env; *e; e++)
+			NIH_MUST (environ_set (&env, NULL, &envc, TRUE, *e));
+
+	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
+			       "UPSTART_JOB=%s", job->class->name));
+	if (job->name)
+		NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
+				       "UPSTART_INSTANCE=%s", job->name));
+
+	/* If we're about to spawn the main job and we expect it to become
+	 * a daemon or fork before we can move out of spawned, we need to
+	 * set a trace on it.
+	 */
+	if ((process == PROCESS_MAIN)
+	    && ((job->class->expect == EXPECT_DAEMON)
+		|| (job->class->expect == EXPECT_FORK)))
+		trace = TRUE;
+
+	/* Spawn the process, repeat until fork() works */
+	while ((job->pid[process] = job_process_spawn (job->class, argv,
+						       env, trace)) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number == JOB_PROCESS_ERROR) {
+			/* Non-temporary error condition, we're not going
+			 * to be able to spawn this process.  Clean up after
+			 * ourselves before returning.
+			 */
+			nih_free (argv);
+			nih_free (env);
+			if (script) {
+				close (fds[0]);
+				close (fds[1]);
+				nih_free (script);
+			}
+
+			job->pid[process] = 0;
+
+			/* Return non-temporary error condition */
+			nih_warn (_("Failed to spawn %s %s process: %s"),
+				  job_name (job), process_name (process),
+				  err->message);
+			nih_free (err);
+			return -1;
+		} else if (! error)
+			nih_warn ("%s: %s", _("Temporary process spawn error"),
+				  err->message);
+		nih_free (err);
+
+		error = TRUE;
+	}
+
+	nih_free (argv);
+	nih_free (env);
+
+	nih_info (_("%s %s process (%d)"),
+		  job_name (job), process_name (process), job->pid[process]);
+
+	job->trace_forks = 0;
+	job->trace_state = trace ? TRACE_NEW : TRACE_NONE;
+
+	/* Feed the script to the child process */
+	if (script) {
+		NihIo *io;
+
+		/* Clean up and close the reading end (we don't need it) */
+		close (fds[0]);
+
+		/* Put the entire script into an NihIo send buffer and
+		 * then mark it for closure so that the shell gets EOF
+		 * and the structure gets cleaned up automatically.
+		 */
+		while (! (io = nih_io_reopen (job, fds[1], NIH_IO_STREAM,
+					      NULL, NULL, NULL, NULL))) {
+			NihError *err;
+
+			err = nih_error_get ();
+			if (err->number != ENOMEM)
+				nih_assert_not_reached ();
+			nih_free (err);
+		}
+
+		NIH_ZERO (nih_io_write (io, script, strlen (script)));
+		nih_io_shutdown (io);
+
+		nih_free (script);
+	}
+
+	return 0;
+}
 
 
 /**
@@ -89,7 +333,7 @@ static int  job_process_error_read  (int fd)
  * The process to be executed is given in the @argv array which is passed
  * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
- * PATH environment in @config will be searched.
+ * PATH environment in @class will be searched.
  *
  * If @trace is TRUE, the process will be traced with ptrace and this will
  * cause the process to be stopped when the exec() call is made.  You must
@@ -219,7 +463,7 @@ job_process_spawn (JobClass     *class,
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
 
 	/* Set resource limits for the process, skipping over any that
-	 * aren't set in the job configuration such that they inherit from
+	 * aren't set in the job class such that they inherit from
 	 * ourselves (and we inherit from kernel defaults).
 	 */
 	for (i = 0; i < RLIMIT_NLIMITS; i++) {
@@ -500,4 +744,726 @@ job_process_error_read (int fd)
 
 	nih_error_raise_again (&err->error);
 	return -1;
+}
+
+
+/**
+ * job_process_kill:
+ * @job: job to kill process of,
+ * @process: process to be killed.
+ *
+ * This function forces a @job to leave its current state by sending
+ * @process the TERM signal, and maybe later the KILL signal.  The actual
+ * state changes are performed by job_child_reaper when the process
+ * has actually terminated.
+ **/
+void
+job_process_kill (Job         *job,
+		  ProcessType  process)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->pid[process] > 0);
+
+	nih_info (_("Sending TERM signal to %s %s process (%d)"),
+		  job_name (job), process_name (process), job->pid[process]);
+
+	if (system_kill (job->pid[process], FALSE) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number != ESRCH)
+			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
+				  job_name (job), process_name (process),
+				  job->pid[process], err->message);
+		nih_free (err);
+
+		return;
+	}
+
+	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
+			  job, job->class->kill_timeout,
+			  (NihTimerCb)job_process_kill_timer, (void *)process));
+}
+
+/**
+ * job_process_kill_timer:
+ * @process: process to be killed,
+ * @timer: timer that caused us to be called.
+ *
+ * This callback is called if the process failed to terminate within
+ * a particular time of being sent the TERM signal.  The process is killed
+ * more forcibly by sending the KILL signal.
+ **/
+static void
+job_process_kill_timer (ProcessType  process,
+			NihTimer    *timer)
+{
+	Job *job;
+
+	nih_assert (timer != NULL);
+	job = nih_alloc_parent (timer);
+
+	nih_assert (job->pid[process] > 0);
+
+	job->kill_timer = NULL;
+
+	nih_info (_("Sending KILL signal to %s %s process (%d)"),
+		  job_name (job), process_name (process), job->pid[process]);
+
+	if (system_kill (job->pid[process], TRUE) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number != ESRCH)
+			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
+				  job_name (job), process_name (process),
+				  job->pid[process], err->message);
+		nih_free (err);
+	}
+}
+
+
+/**
+ * job_process_handler:
+ * @data: unused,
+ * @pid: process that changed,
+ * @event: event that occurred on the child,
+ * @status: exit status, signal raised or ptrace event.
+ *
+ * This callback should be registered with nih_child_add_watch() so that
+ * when processes associated with jobs die, stop, receive signals or other
+ * ptrace events, the appropriate action is taken.
+ *
+ * Normally this is registered so it is called for all processes, and is
+ * safe to do as it only acts if the process is linked to a job.
+ **/
+void
+job_process_handler (void           *data,
+		     pid_t           pid,
+		     NihChildEvents  event,
+		     int             status)
+{
+	Job         *job;
+	ProcessType  process;
+	const char  *sig;
+
+	nih_assert (pid > 0);
+
+	/* Find the job that an event ocurred for, and identify which of the
+	 * job's process it was.  If we don't know about it, then we simply
+	 * ignore the event.
+	 */
+	job = job_process_find (pid, &process);
+	if (! job)
+		return;
+
+	switch (event) {
+	case NIH_CHILD_EXITED:
+		/* Child exited; check status to see whether it exited
+		 * normally (zero) or with a non-zero status.
+		 */
+		if (status) {
+			nih_warn (_("%s %s process (%d) "
+				    "terminated with status %d"),
+				  job_name (job), process_name (process),
+				  pid, status);
+		} else {
+			nih_info (_("%s %s process (%d) exited normally"),
+				  job_name (job), process_name (process), pid);
+		}
+
+		job_process_terminated (job, process, status);
+		break;
+	case NIH_CHILD_KILLED:
+	case NIH_CHILD_DUMPED:
+		/* Child was killed by a signal, and maybe dumped core.  We
+		 * store the signal value in the higher byte of status (it's
+		 * safe to do that) to distinguish it from a normal exit
+		 * status.
+		 */
+		sig = nih_signal_to_name (status);
+		if (sig) {
+			nih_warn (_("%s %s process (%d) killed by %s signal"),
+				  job_name (job), process_name (process),
+				  pid, sig);
+		} else {
+			nih_warn (_("%s %s process (%d) killed by signal %d"),
+				  job_name (job), process_name (process),
+				  pid, status);
+		}
+
+		status <<= 8;
+		job_process_terminated (job, process, status);
+		break;
+	case NIH_CHILD_STOPPED:
+		/* Child was stopped by a signal, make sure it was SIGSTOP
+		 * and not a tty-related signal.
+		 */
+		sig = nih_signal_to_name (status);
+		if (sig) {
+			nih_warn (_("%s %s process (%d) stopped by %s signal"),
+				  job_name (job), process_name (process),
+				  pid, sig);
+		} else {
+			nih_warn (_("%s %s process (%d) stopped by signal %d"),
+				  job_name (job), process_name (process),
+				  pid, status);
+		}
+
+		if (status == SIGSTOP)
+			job_process_stopped (job, process);
+
+		break;
+	case NIH_CHILD_TRAPPED:
+		/* Child received a signal while we were tracing it.  This
+		 * can be a signal raised inside the kernel as a side-effect
+		 * of the trace because the child called fork() or exec();
+		 * we only know that from our own state tracking.
+		 */
+		if ((job->trace_state == TRACE_NEW)
+		    && (status == SIGTRAP)) {
+			job_process_trace_new (job, process);
+		} else if ((job->trace_state == TRACE_NEW_CHILD)
+			   && (status == SIGSTOP)) {
+			job_process_trace_new_child (job, process);
+		} else {
+			job_process_trace_signal (job, process, status);
+		}
+		break;
+	case NIH_CHILD_PTRACE:
+		/* Child called an important syscall that can modify the
+		 * state of the process trace we hold.
+		 */
+		switch (status) {
+		case PTRACE_EVENT_FORK:
+			job_process_trace_fork (job, process);
+			break;
+		case PTRACE_EVENT_EXEC:
+			job_process_trace_exec (job, process);
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+}
+
+
+/**
+ * job_process_terminated:
+ * @job: job that changed,
+ * @process: specific process,
+ * @status: exit status or signal in higher byte.
+ *
+ * This function is called whenever a @process attached to @job terminates,
+ * @status should contain the exit status in the lower byte or signal in
+ * the higher byte.
+ *
+ * The job structure is updated and the next appropriate state for the job
+ * is chosen, which may involve changing the goal to stop first.
+ **/
+static void
+job_process_terminated (Job         *job,
+			ProcessType  process,
+			int          status)
+{
+	int failed = FALSE, stop = FALSE, state = TRUE;
+
+	nih_assert (job != NULL);
+
+	switch (process) {
+	case PROCESS_MAIN:
+		nih_assert ((job->state == JOB_RUNNING)
+			    || (job->state == JOB_SPAWNED)
+			    || (job->state == JOB_KILLED)
+			    || (job->state == JOB_STOPPING)
+			    || (job->state == JOB_POST_START)
+			    || (job->state == JOB_PRE_STOP));
+
+		/* We don't assume that because the primary process was
+		 * killed or exited with a non-zero status, it failed.
+		 * Instead we check the normalexit list to see whether
+		 * the exit signal or status is in that list, and only
+		 * if not, do we consider it failed.
+		 *
+		 * For services that can be respawned, a zero exit status is
+		 * also a failure unless listed.
+		 *
+		 * If the job is already to be stopped, we never consider
+		 * it to be failed since we probably caused the termination.
+		 */
+		if ((job->goal != JOB_STOP)
+		    && (status || (job->class->respawn
+				   && (! job->class->task))))
+		{
+			failed = TRUE;
+			for (size_t i = 0; i < job->class->normalexit_len; i++) {
+				if (job->class->normalexit[i] == status) {
+					failed = FALSE;
+					break;
+				}
+			}
+
+			/* We might be able to respawn the failed job;
+			 * that's a simple matter of doing nothing.  Check
+			 * the job isn't running away first though.
+			 */
+			if (failed && job->class->respawn) {
+				if (job_process_catch_runaway (job)) {
+					nih_warn (_("%s respawning too fast, stopped"),
+						  job_name (job));
+
+					failed = FALSE;
+					job_failed (job, -1, 0);
+				} else {
+					nih_warn (_("%s %s process ended, respawning"),
+						  job_name (job),
+						  process_name (process));
+					failed = FALSE;
+					break;
+				}
+			}
+		}
+
+		/* We don't change the state if we're in post-start and there's
+		 * a post-start process running, or if we're in pre-stop and
+		 * there's a pre-stop process running; we wait for those to
+		 * finish instead.
+		 */
+		if ((job->state == JOB_POST_START)
+		    && job->class->process[PROCESS_POST_START]
+		    && (job->pid[PROCESS_POST_START] > 0)) {
+			state = FALSE;
+		} else if ((job->state == JOB_PRE_STOP)
+		    && job->class->process[PROCESS_PRE_STOP]
+		    && (job->pid[PROCESS_PRE_STOP] > 0)) {
+			state = FALSE;
+		}
+
+		/* Otherwise whether it's failed or not, we should
+		 * stop the job now.
+		 */
+		stop = TRUE;
+		break;
+	case PROCESS_PRE_START:
+		nih_assert (job->state == JOB_PRE_START);
+
+		/* If the pre-start script is killed or exits with a status
+		 * other than zero, it's always considered a failure since
+		 * we don't know what state the job might be in.
+		 */
+		if (status) {
+			failed = TRUE;
+			stop = TRUE;
+		}
+		break;
+	case PROCESS_POST_START:
+		nih_assert (job->state == JOB_POST_START);
+
+		/* We always want to change the state when the post-start
+		 * script terminates; if the main process is running, we'll
+		 * stay in that state, otherwise we'll skip through.
+		 *
+		 * Failure is ignored since there's not much we can do
+		 * about it at this point.
+		 */
+		break;
+	case PROCESS_PRE_STOP:
+		nih_assert (job->state == JOB_PRE_STOP);
+
+		/* We always want to change the state when the pre-stop
+		 * script terminates, we either want to go back into running
+		 * or head towards killing the main process.
+		 *
+		 * Failure is ignored since there's not much we can do
+		 * about it at this point.
+		 */
+		break;
+	case PROCESS_POST_STOP:
+		nih_assert (job->state == JOB_POST_STOP);
+
+		/* If the post-stop script is killed or exits with a status
+		 * other than zero, it's always considered a failure since
+		 * we don't know what state the job might be in.
+		 */
+		if (status) {
+			failed = TRUE;
+			stop = TRUE;
+		}
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+
+	/* Cancel any timer trying to kill the job, since it's just
+	 * died.  We could do this inside the main process block above, but
+	 * leaving it here for now means we can use the timer for any
+	 * additional process later.
+	 */
+	if (job->kill_timer) {
+		nih_free (job->kill_timer);
+		job->kill_timer = NULL;
+	}
+
+	/* Clear the process pid field */
+	job->pid[process] = 0;
+
+
+	/* Mark the job as failed */
+	if (failed)
+		job_failed (job, process, status);
+
+	/* Change the goal to stop; normally this doesn't have any
+	 * side-effects, except when we're in the RUNNING state when it'll
+	 * change the state as well.  We obviously don't want to change the
+	 * state twice.
+	 */
+	if (stop) {
+		if (job->state == JOB_RUNNING)
+			state = FALSE;
+
+		job_change_goal (job, JOB_STOP);
+	}
+
+	if (state)
+		job_change_state (job, job_next_state (job));
+}
+
+/**
+ * job_process_catch_runaway
+ * @job: job being started.
+ *
+ * This function is called when changing the state of a job to starting,
+ * before emitting the event.  It ensures that a job doesn't end up in
+ * a restart loop by limiting the number of restarts in a particular
+ * time limit.
+ *
+ * Returns: TRUE if the job is respawning too fast, FALSE if not.
+ */
+static int
+job_process_catch_runaway (Job *job)
+{
+	nih_assert (job != NULL);
+
+	if (job->class->respawn_limit && job->class->respawn_interval) {
+		time_t interval;
+
+		/* Time since last respawn ... this goes very large if we
+		 * haven't done one, which is fine
+		 */
+		interval = time (NULL) - job->respawn_time;
+		if (interval < job->class->respawn_interval) {
+			job->respawn_count++;
+			if (job->respawn_count > job->class->respawn_limit)
+				return TRUE;
+		} else {
+			job->respawn_time = time (NULL);
+			job->respawn_count = 1;
+		}
+	}
+
+	return FALSE;
+}
+
+
+/**
+ * job_process_stopped:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a @process attached to @job is stopped
+ * by the SIGSTOP signal (and not by a tty-related signal).
+ *
+ * Some jobs use this signal to signify that they have completed starting
+ * up and are now running; thus we move them out of the spawned state.
+ **/
+static void
+job_process_stopped (Job         *job,
+		     ProcessType  process)
+{
+	nih_assert (job != NULL);
+
+	/* Any process can stop on a signal, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+		return;
+
+	/* Send SIGCONT back and change the state to the next one, if this
+	 * job behaves that way.
+	 */
+	if (job->class->expect == EXPECT_STOP) {
+		kill (job->pid[process], SIGCONT);
+		job_change_state (job, job_next_state (job));
+	}
+}
+
+
+/**
+ * job_process_trace_new:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called when the traced @process attached to @job calls
+ * its first exec(), still within the Upstart code before passing control
+ * to the new executable.
+ *
+ * It sets the options for the trace so that forks and execs are reported.
+ **/
+static void
+job_process_trace_new (Job         *job,
+		       ProcessType  process)
+{
+	nih_assert (job != NULL);
+	nih_assert ((job->trace_state == TRACE_NEW)
+		    || (job->trace_state == TRACE_NEW_CHILD));
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+		return;
+
+	/* Set options so that we are notified when the process forks, and
+	 * get a different kind of notification when it execs to a plain
+	 * SIGTRAP.
+	 */
+	if (ptrace (PTRACE_SETOPTIONS, job->pid[process], NULL,
+		    PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC) < 0) {
+		nih_warn (_("Failed to set ptrace options for "
+			    "%s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
+		return;
+	}
+
+	job->trace_state = TRACE_NORMAL;
+
+	/* Allow the process to continue without delivering the
+	 * kernel-generated signal that was for our eyes not theirs.
+	 */
+	if (ptrace (PTRACE_CONT, job->pid[process], NULL, 0) < 0)
+		nih_warn (_("Failed to continue traced %s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
+}
+
+/**
+ * job_process_trace_new_child:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job stops
+ * after the fork() so that we can set the options before continuing it.
+ *
+ * Check to see whether we've reached the number of forks we expected, if
+ * so detach the process and move towards the running state; otherwise we
+ * set our important ptrace options, update the trace state so that
+ * further SIGSTOP or SIGTRAP signals are treated as just that and allow
+ * the process to continue.
+ **/
+static void
+job_process_trace_new_child (Job         *job,
+			     ProcessType  process)
+{
+	nih_assert (job != NULL);
+	nih_assert (job->trace_state == TRACE_NEW_CHILD);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+		return;
+
+	/* We need to fork at least twice unless we're expecting a
+	 * single fork when we only need to fork once; once that limit
+	 * has been reached, end the trace.
+	 */
+	job->trace_forks++;
+	if ((job->trace_forks > 1) || (job->class->expect == EXPECT_FORK))
+	{
+		if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
+			nih_warn (_("Failed to detach traced "
+				    "%s %s process (%d): %s"),
+				  job_name (job), process_name (process),
+				  job->pid[process], strerror (errno));
+
+		job->trace_state = TRACE_NONE;
+		job_change_state (job, job_next_state (job));
+		return;
+	}
+
+	job_process_trace_new (job, process);
+}
+
+/**
+ * job_process_trace_signal:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job has
+ * a signal sent to it.
+ *
+ * We don't care about these, they're a side effect of ptrace that we can't
+ * turn off, so we just deliver them untampered with.
+ **/
+static void
+job_process_trace_signal (Job         *job,
+			  ProcessType  process,
+			  int          signum)
+{
+	nih_assert (job != NULL);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	    || (job->trace_state != TRACE_NORMAL))
+		return;
+
+	/* Deliver the signal */
+	if (ptrace (PTRACE_CONT, job->pid[process], NULL, signum) < 0)
+		nih_warn (_("Failed to deliver signal to traced "
+			    "%s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
+}
+
+/**
+ * job_process_trace_fork:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job calls
+ * the fork() system call.
+ *
+ * We obtain the new child process id from the message and update the
+ * structure so that we follow that instead, detaching from the process that
+ * called fork.
+ **/
+static void
+job_process_trace_fork (Job         *job,
+			ProcessType  process)
+{
+	unsigned long data;
+
+	nih_assert (job != NULL);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	    || (job->trace_state != TRACE_NORMAL))
+		return;
+
+	/* Obtain the child process id from the ptrace event. */
+	if (ptrace (PTRACE_GETEVENTMSG, job->pid[process], NULL, &data) < 0) {
+		nih_warn (_("Failed to obtain child process id "
+			    "for %s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
+		return;
+	}
+
+	nih_info (_("%s %s process (%d) became new process (%d)"),
+		  job_name (job), process_name (process),
+		  job->pid[process], (pid_t)data);
+
+	/* We no longer care about this process, it's the child that we're
+	 * interested in from now on, so detach it and allow it to go about
+	 * its business unhindered.
+	 */
+	if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
+		nih_warn (_("Failed to detach traced %s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
+
+	/* Update the process we're supervising which is about to get SIGSTOP
+	 * so set the trace options to capture it.
+	 */
+	job->pid[process] = (pid_t)data;
+	job->trace_state = TRACE_NEW_CHILD;
+}
+
+/**
+ * job_process_trace_exec:
+ * @job: job that changed,
+ * @process: specific process.
+ *
+ * This function is called whenever a traced @process attached to @job calls
+ * the exec() system call after we've set options on it to distinguish them
+ * from ordinary SIGTRAPs.
+ *
+ * We assume that if the job calls exec that it's finished forking so we can
+ * drop the trace entirely; we have no interest in tracing the new child.
+ **/
+static void
+job_process_trace_exec (Job         *job,
+			ProcessType  process)
+{
+	nih_assert (job != NULL);
+
+	/* Any process can get us to trace them, but we only care about the
+	 * main process when the state is still spawned and we're tracing it.
+	 */
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	    || (job->trace_state != TRACE_NORMAL))
+		return;
+
+	nih_info (_("%s %s process (%d) executable changed"),
+		  job_name (job), process_name (process), job->pid[process]);
+
+	if (ptrace (PTRACE_DETACH, job->pid[process], NULL, 0) < 0)
+		nih_warn (_("Failed to detach traced "
+			    "%s %s process (%d): %s"),
+			  job_name (job), process_name (process),
+			  job->pid[process], strerror (errno));
+
+	job->trace_state = TRACE_NONE;
+	job_change_state (job, job_next_state (job));
+}
+
+
+/**
+ * job_process_find:
+ * @pid: process id to find,
+ * @process: pointer to place process which is running @pid.
+ *
+ * Finds the job with a process of the given @pid in the jobs hash table.
+ * If @process is not NULL, the @process variable is set to point at the
+ * process entry in the table which has @pid.
+ *
+ * Returns: job found or NULL if not known.
+ **/
+Job *
+job_process_find (pid_t        pid,
+		  ProcessType *process)
+{
+	nih_assert (pid > 0);
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_LIST_FOREACH (&class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+			int  i;
+
+			for (i = 0; i < PROCESS_LAST; i++) {
+				if (job->pid[i] == pid) {
+					if (process)
+						*process = i;
+
+					return job;
+				}
+			}
+		}
+	}
+
+	return NULL;
 }

@@ -1,5 +1,10 @@
 2008-04-30  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c, init/job_process.h: Land the code from job.c
+	and defs from job.h that deal specifically with a job's processes,
+	rename the functions to job_process_*() in the process.
+	* init/tests/test_job_process.c: And land the test cases as well.
+
 	* init/job.c: Strip of everything not related to creation and finding
 	of instances and the core state machine; process stuff will move to
 	job_process.c and event handling to event.c, class (nee config) stuff

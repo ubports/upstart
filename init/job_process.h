@@ -21,10 +21,15 @@
 #ifndef INIT_JOB_PROCESS_H
 #define INIT_JOB_PROCESS_H
 
+#include <sys/types.h>
+
 #include <nih/macros.h>
+#include <nih/child.h>
 #include <nih/error.h>
 
+#include "process.h"
 #include "job_class.h"
+#include "job.h"
 
 
 /**
@@ -74,9 +79,18 @@ typedef struct job_process_error {
 
 NIH_BEGIN_EXTERN
 
-pid_t  job_process_spawn (JobClass *class, char * const argv[],
-			  char * const *env, int trace)
+int    job_process_run     (Job *job, ProcessType process);
+
+pid_t  job_process_spawn   (JobClass *class, char * const argv[],
+			    char * const *env, int trace)
 	__attribute__ ((warn_unused_result));
+
+void   job_process_kill    (Job *job, ProcessType process);
+
+void   job_process_handler (void *ptr, pid_t pid,
+			    NihChildEvents event, int status);
+
+Job   *job_process_find    (pid_t pid, ProcessType *process);
 
 NIH_END_EXTERN
 
