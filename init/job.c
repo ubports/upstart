@@ -310,7 +310,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_STARTING);
 
 			if (job->class->process[PROCESS_PRE_START]) {
-				if (job_run_process (job, PROCESS_PRE_START) < 0) {
+				if (job_process_run (job, PROCESS_PRE_START) < 0) {
 					job_failed (job, PROCESS_PRE_START, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
@@ -325,7 +325,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_PRE_START);
 
 			if (job->class->process[PROCESS_MAIN]) {
-				if (job_run_process (job, PROCESS_MAIN) < 0) {
+				if (job_process_run (job, PROCESS_MAIN) < 0) {
 					job_failed (job, PROCESS_MAIN, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
@@ -341,7 +341,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->class->process[PROCESS_POST_START]) {
-				if (job_run_process (job, PROCESS_POST_START) < 0)
+				if (job_process_run (job, PROCESS_POST_START) < 0)
 					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
@@ -378,7 +378,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_RUNNING);
 
 			if (job->class->process[PROCESS_PRE_STOP]) {
-				if (job_run_process (job, PROCESS_PRE_STOP) < 0)
+				if (job_process_run (job, PROCESS_PRE_STOP) < 0)
 					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
@@ -400,7 +400,7 @@ job_change_state (Job      *job,
 
 			if (job->class->process[PROCESS_MAIN]
 			    && (job->pid[PROCESS_MAIN] > 0)) {
-				job_kill_process (job, PROCESS_MAIN);
+				job_process_kill (job, PROCESS_MAIN);
 			} else {
 				state = job_next_state (job);
 			}
@@ -410,7 +410,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->class->process[PROCESS_POST_STOP]) {
-				if (job_run_process (job, PROCESS_POST_STOP) < 0) {
+				if (job_process_run (job, PROCESS_POST_STOP) < 0) {
 					job_failed (job, PROCESS_POST_STOP, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);

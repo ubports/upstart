@@ -1,5 +1,9 @@
 2008-04-30  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state): Change calls to job_process_run
+	and job_process_kill.
+	* init/main.c: Change to job_process_handler
+
 	* init/job_process.c, init/job_process.h: Land the code from job.c
 	and defs from job.h that deal specifically with a job's processes,
 	rename the functions to job_process_*() in the process.

@@ -54,7 +54,7 @@
 #include "paths.h"
 #include "events.h"
 #include "system.h"
-#include "job.h"
+#include "job_process.h"
 #include "event.h"
 #include "conf.h"
 #include "control.h"
@@ -256,7 +256,7 @@ main (int   argc,
 
 	/* Watch children for events */
 	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
-				       job_child_handler, NULL));
+				       job_process_handler, NULL));
 
 	/* Process the event queue each time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
