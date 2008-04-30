@@ -1,5 +1,18 @@
 2008-04-30  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c: Strip of everything not related to creation and finding
+	of instances and the core state machine; process stuff will move to
+	job_process.c and event handling to event.c, class (nee config) stuff
+	is already moved to job_class.c
+	(job_new): Don't reparent the name, it doesn't help anything, just
+	take a copy.
+	(job_name, job_failed, job_unblock, job_emit_event): Make extern since
+	we need to use these outside or just want to test them.
+	* init/job.h: Clean out also.
+	* init/tests/test_job.c: Also clean out.
+	(test_name, test_failed, test_unblock, test_emit_event): Add test cases
+	for newly extern functions.
+
 	* init/main.c: Include events.h to get the ones we need.
 
 	* init/control.c (control_job_config_path, control_job_path)
