@@ -1,10 +1,4 @@
-High Priority:
-
- * When we start or stop a job by a command, a reference to the command should
-   be stored in the Job instead of blocking with the same rules.  It may be
-   useful to not just have failed=TRUE/FALSE for job_unblock() but a more
-   detailed reason about why the job is being unblocked, so the command could
-   exit saying "ok", "failed", "stopped by event", etc.
+Before 0.5.0:
 
  * Restore IPC using D-BUS.
 
@@ -12,37 +6,40 @@ High Priority:
    we also need to support re-exec via initctl as well.  Should we get
    rid of the signals, or at least change the TERM one?
 
- * Restore serialisation of state between upstart processes.  Having made
-   the structures in memory more sane, this should be easier again, as
-   long as we send things in this order:
+ * event_pending_handle_jobs is very large, complicated and most of it is
+   entirely in the wrong place.  The two blocks of code to deal with stop
+   and start events are very similar, and will be basically identical for
+   the start and stop command cases.  Reduce to common functions that this
+   can call.
 
-    * Event queue
-    * Job hash (referencing cause and blocked events by id, also need to
-      ensure we handle instance jobs proeprly)
-   
-   I want to use the IPC protocol for this, since it's somewhat stable
-   now.  Handing off will still use the "fork a child, exec in the parent"
-   model, except for the following.
+ * When we start or stop a job by a command, a reference to the command should
+   be stored in the Job's blocking list instead of an Event, but with the
+   same rules.  List entry may need to be a struct with a enum and union.
 
-    * Leave the control socket open, clear the cloexec flag, and pass its
-      file descriptor number to the new init process.
-    * In the child, close the control socket we had open and open an
-      ordinary socket; blocking-write the information to that and then die.
+ * It may be useful to not just have failed=TRUE/FALSE for job_unblock() but a
+   more detailed reason about why the job is being unblocked, so the command
+   could exit saying "ok", "failed", "stopped by event", etc.
+
+ * I'm still not convinced that just clearing blocking is the right approach,
+   and still think we need some kind of next_blocking list of things that
+   will still be blocked next time around.  Restores some of the older
+   behaviour in that "start" will block until stopped, and fail with the
+   fact it was stopped.
+
+ * Restore serialisation of state between upstart processes, I guess we'll
+   use a D-Bus API to do this.  Most sense would be a peer-to-peer D-Bus
+   connection so don't need the bus (think initramfs), but we also need
+   to pass over the bus connection so we don't drop that.
+
+    - Pass the Event queue first since Jobs refer to it
+    - Register each ConfSource, ConfFile, JobClass and Job, setting
+      the status of each
+    - Join up the Event queue and Job structures
+
+    - What about commends blocked on event emissions or jobs?
 
 
-Medium Priority:
-
- * Need to add dependencies to jobs, which are files that must exist before
-   the job can be started (because Debian/Ubuntu like to litter config files
-   like jobs)
-
- * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
-   which state do we keep it in while it's waiting?
-
- * job_handle_event has become someone large, with two blocks of code that
-   look very similar.  In addition, these blocks of code will be very similar
-   to those for manually starting a job; find some way to reduce these to
-   a common function?
+0.5.x series:
 
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
@@ -59,16 +56,32 @@ Medium Priority:
    - init needs to grow "utmp XXX", which maintains INIT_PROCESS and
      DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
 
+ * Need to add dependencies to jobs, which are files that must exist before
+   the job can be started (because Debian/Ubuntu like to litter config files
+   like jobs)
 
-Low Priority:
+ * Resources, "uses cpu 1.0" -- where cpu has a defined max (default 1.0);
+   which state do we keep it in while it's waiting?
+
+
+Later:
+
+
+Anytime:
+
+ * Should the class instances list actually be a hash table?  If so, we
+   could make that a union with a pointer so for non-instance classes it's
+   a simple pointer.
 
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
 
  * Likewise iterating through all the Jobs to find a pid is messy; we
-   should have a lookup table for these too.
+   should have a lookup table for these too.  Ideally we'd have a JobProcess
+   structure combining type, pid and a link to the job -- then all the
+   job_process_* functions would just accept those
 
- * process_setup_console is due for an overhaul as well; especially if
+ * system_setup_console is due for an overhaul as well; especially if
    we want to be able to pass file descriptors in.  Am somewhat tempted
    to add a magic CONSOLE_DEFAULT option which tries fd, logging, null,
    etc.  and use CONSOLE_LOGGED to mean "die if logd isn't around".
