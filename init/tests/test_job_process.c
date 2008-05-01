@@ -345,7 +345,7 @@ test_run (void)
 				class->process[PROCESS_MAIN],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
 
-			job = job_new (class, nih_strdup (NULL, "foo"));
+			job = job_new (class, "foo");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -693,7 +693,7 @@ no_devfd:
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = filename;
 
-			job = job_new (class, nih_strdup (NULL, "foo"));
+			job = job_new (class, "foo");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -3768,16 +3768,16 @@ test_find (void)
 	class3->process[PROCESS_POST_STOP] = process_new (class3);
 	nih_hash_add (job_classes, &class3->entry);
 
-	job1 = job_new (class1, nih_strdup (NULL, "foo"));
+	job1 = job_new (class1, "foo");
 	job1->pid[PROCESS_MAIN] = 10;
 	job1->pid[PROCESS_POST_START] = 15;
 
-	job2 = job_new (class1, nih_strdup (NULL, "bar"));
+	job2 = job_new (class1, "bar");
 
-	job3 = job_new (class2, nih_strdup (NULL, "foo"));
+	job3 = job_new (class2, "foo");
 	job3->pid[PROCESS_PRE_START] = 20;
 
-	job4 = job_new (class2, nih_strdup (NULL, "bar"));
+	job4 = job_new (class2, "bar");
 	job4->pid[PROCESS_MAIN] = 25;
 	job4->pid[PROCESS_PRE_STOP] = 30;
 

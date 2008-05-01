@@ -1,5 +1,9 @@
 2008-05-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job_process.c: Fix a few cases where we were
+	still dup'ing the name argument to job_new().
+	* init/tests/test_parse_job.c: Include missing signal.h
+
 	* init/event.c (event_pending_handle_jobs)
 	(event_finished_handle_jobs): Land the old job event handling
 	functions here as static functions, right now they're immense but

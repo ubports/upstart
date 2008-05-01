@@ -22,6 +22,7 @@
 
 #include <nih/test.h>
 
+#include <signal.h>
 #include <string.h>
 
 #include <nih/macros.h>
