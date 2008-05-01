@@ -1,5 +1,8 @@
 2008-05-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: Suppress a few test case artefacts caused by
+	valgrind hating reachable memory at exec() time.
+
 	* init/tests/test_job_process.c: Fix a few cases where we were
 	still dup'ing the name argument to job_new().
 	* init/tests/test_parse_job.c: Include missing signal.h

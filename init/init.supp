@@ -53,7 +53,7 @@
 # job_run_process will leak its args member to children, knowing full
 # well they will either exec() or exit()
 {
-   job-run-process-args
+   job-process-run-args
    Memcheck:Leak
    fun:realloc
    fun:_test_allocator
@@ -61,5 +61,54 @@
    fun:nih_str_array_addp
    fun:nih_str_array_addn
    fun:nih_str_split
-   fun:job_run_process
+   fun:job_process_run
+}
+
+
+# when testing stop events, the stopping event will be emitted and
+# immediately processed since we're inside event_poll() - and then the
+# post-stop process will be run inside the finished handler for it, making
+# the child appear to leak it
+{
+  job-emit-event-in-event-poll
+  Memcheck:Leak
+  fun:realloc
+  fun:_test_allocator
+  fun:nih_realloc
+  fun:nih_str_array_addp
+  fun:environ_add
+  fun:job_emit_event
+  fun:job_change_state
+  fun:job_change_goal
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+
+# valgrind seems to lose track of this one, it's definitely freed and
+# just gets leaked when in a child
+{
+  event-environ-in-event-poll
+  Memcheck:Leak
+  fun:realloc
+  fun:nih_realloc
+  fun:nih_str_array_addp
+  fun:nih_str_array_add
+  fun:test_pending_handle_jobs
+}
+
+# collected environment will appear to be leaked from the child's POV when
+# we run it inside event poll
+{
+  event-operator-collect-in-event-poll
+  Memcheck:Leak
+  fun:realloc
+  fun:_test_allocator
+  fun:nih_realloc
+  fun:nih_str_array_addp
+  fun:environ_add
+  fun:event_operator_collect
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
 }
