@@ -19,15 +19,21 @@ nih/watch.c
 
 nih/errors.h
 
+nih/dbus.c
+
 init/conf.c
 init/control.c
 init/environ.c
 init/event.c
+init/event_operator.c
 init/job.c
+init/job_class.c
+init/job_process.c
 init/main.c
 init/parse_conf.c
 init/parse_job.c
 init/process.c
+init/system.c
 
 util/initctl.c
 
