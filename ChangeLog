@@ -1,3 +1,16 @@
+2008-05-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_pending_handle_jobs)
+	(event_finished_handle_jobs): Land the old job event handling
+	functions here as static functions, right now they're immense but
+	we'll actually move much of the code back out again as we go.
+	* init/tests/test_event.c (test_pending_handle_jobs)
+	(test_finished_handle_jobs): Also land the test cases in renamed
+	and somewhat restructued functions, since we now have to do the
+	testing through event_poll().
+	(test_poll, test_pending, test_finished): It never hurts to improve
+	test cases while you're in there.
+
 2008-04-30  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job.c (job_change_state): Change calls to job_process_run

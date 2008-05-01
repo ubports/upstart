@@ -30,6 +30,7 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/io.h>
+#include <nih/main.h>
 
 #include "job.h"
 #include "event.h"
@@ -116,119 +117,24 @@ test_unblock (void)
 	nih_free (event);
 }
 
+
 void
 test_poll (void)
 {
-	Event         *event;
-	EventOperator *oper;
-	JobClass      *class;
-	Job           *job;
-	int            status;
+	Event *event;
 
 	TEST_FUNCTION ("event_poll");
-	job_class_init ();
 	event_init ();
 
 
-	/* Check that a pending event in the queue is handled, with any
-	 * jobs started or stopped as a result.  The event should remain
-	 * in the handling state while the job is blocking it.
+	/* Check that a pending event which does not get blocked goes
+	 * straight though and gets freed.
 	 */
-	TEST_FEATURE ("with pending event");
-	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
-	class->task = TRUE;
-	class->process[PROCESS_MAIN] = process_new (class->process);
-	class->process[PROCESS_MAIN]->command = "echo";
-
-	class->start_on = event_operator_new (class, EVENT_MATCH,
-					      "test", NULL);
-
-	nih_hash_add (job_classes, &class->entry);
-
-	event = event_new (NULL, "test", NULL);
-
-	event_poll ();
-
-	TEST_EQ (event->progress, EVENT_HANDLING);
-	TEST_EQ (event->blockers, 1);
-
-	TEST_LIST_NOT_EMPTY (&class->instances);
-
-	job = (Job *)class->instances.next;
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->pid[PROCESS_MAIN], 0);
-
-	waitpid (job->pid[PROCESS_MAIN], NULL, 0);
-
-	nih_free (class);
-	nih_free (event);
-
-
-	/* Check that having a handling event in the queue which has blockers
-	 * doesn't cause any problem.
-	 */
-	TEST_FEATURE ("with blocked handling event");
+	TEST_FEATURE ("with unblocked pending event");
 	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test", NULL);
-		event->progress = EVENT_HANDLING;
-		event->blockers = 1;
-
-		event_poll ();
-
-		TEST_LIST_NOT_EMPTY (&event->entry);
-		nih_free (event);
-	}
-
-
-	/* Check that we finish unblocked handling events, leaving the list
-	 * empty.  Blocked jobs should be released and the event should be
-	 * freed.
-	 */
-	TEST_FEATURE ("with finished event");
-	event = event_new (NULL, "test", NULL);
-	event->progress = EVENT_HANDLING;
-
-	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
-	class->process[PROCESS_MAIN] = process_new (class->process);
-	class->process[PROCESS_MAIN]->command = "echo";
-
-	nih_hash_add (job_classes, &class->entry);
-
-	job = job_new (class, NULL);
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->blocked = event;
-
-	TEST_FREE_TAG (event);
-
-	event_poll ();
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->pid[PROCESS_MAIN], 0);
-
-	waitpid (job->pid[PROCESS_MAIN], &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 0);
-
-	TEST_EQ_P (job->blocked, NULL);
-
-	TEST_FREE (event);
-
-	nih_free (class);
-
-
-	/* Check that a pending event which doesn't cause any jobs to be
-	 * changed goes straight into the done state, thus getting
-	 * destroyed.
-	 */
-	TEST_FEATURE ("with no-op pending event");
-	TEST_ALLOC_FAIL {
-		event = event_new (NULL, "test", NULL);
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+		}
 
 		TEST_FREE_TAG (event);
 
@@ -238,81 +144,1842 @@ test_poll (void)
 	}
 
 
+	/* Check that a handling event which is not blocked goes
+	 * straight though and gets freed.
+	 */
+	TEST_FEATURE ("with unblocked handling event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+			event->progress = EVENT_HANDLING;
+		}
+
+		TEST_FREE_TAG (event);
+
+		event_poll ();
+
+		TEST_FREE (event);
+	}
+
+
+	/* Check that a handling event which is blocked stays in the queue
+	 * in the handling state, but does not prevent the loop from exiting.
+	 */
+	TEST_FEATURE ("with blocked handling event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+			event->progress = EVENT_HANDLING;
+			event->blockers = 1;
+		}
+
+		TEST_FREE_TAG (event);
+
+		event_poll ();
+
+		TEST_NOT_FREE (event);
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		nih_free (event);
+	}
+
+
+	/* Check that a finished event is freed.
+	 */
+	TEST_FEATURE ("with finished event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+			event->progress = EVENT_FINISHED;
+		}
+
+		TEST_FREE_TAG (event);
+
+		event_poll ();
+
+		TEST_FREE (event);
+	}
+}
+
+
+void
+test_pending (void)
+{
+	JobClass *class;
+	Job      *job;
+	Event    *event;
+
+	/* Check that a pending event in the queue results in jobs being
+	 * started and/or stopped and gets moved into the handling state.
+	 */
+	TEST_FUNCTION ("event_pending");
+	event_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+
+			class = job_class_new (NULL, "test");
+			class->leader = TRUE;
+			class->task = TRUE;
+			class->process[PROCESS_MAIN] = process_new (class->process);
+			class->process[PROCESS_MAIN]->command = "echo";
+
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "test", NULL);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (event->progress, EVENT_HANDLING);
+		TEST_EQ (event->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+
+		job = (Job *)class->instances.next;
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+
+		nih_free (class);
+		nih_free (event);
+	}
+}
+
+void
+test_pending_handle_jobs (void)
+{
+	FILE           *output;
+	JobClass       *class;
+	Job            *job, *ptr;
+	Event          *event, *event1, *event2, *event3, *event4;
+	EventOperator  *oper;
+	NihList        *list;
+	NihListEntry   *entry;
+	char          **env1, **env2;
+
+	TEST_FUNCTION ("event_pending_handle_jobs");
+	program_name = "test";
+	output = tmpfile ();
+
+
+	/* Check that an event that does not match the start operator of
+	 * a job does not get blocked and passes straight through the
+	 * loop.
+	 */
+	TEST_FEATURE ("with non-matching event for start");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "biscuit", NULL);
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_FREE (event1);
+
+		TEST_LIST_EMPTY (&class->instances);
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		nih_free (class);
+	}
+
+
+	/* Check that an event that only partially matches an operator
+	 * marks the individual node as true, but does not result in the
+	 * job being changed yet.  The event should now be blocked on the
+	 * job.
+	 */
+	TEST_FEATURE ("with partial matching event to start");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->start_on = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_EMPTY (&class->instances);
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)class->start_on->node.left;
+		TEST_EQ (oper->value, TRUE);
+		TEST_EQ_P (oper->event, event1);
+
+		oper = (EventOperator *)class->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+
+	/* Check that multiple events can complete an operator match and
+	 * result in the job being started and the start operator in the
+	 * class reset.  The environment from the class, plus the job-unique
+	 * variables should be in the instances's environment, since they
+	 * would have been copied out of start_env on starting.
+	 */
+	TEST_FEATURE ("with matching events to start");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			event2 = event_new (NULL, "wobble", NULL);
+
+			TEST_FREE_TAG (event1);
+			TEST_FREE_TAG (event2);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "BAR=BAZ"));
+
+			class->start_on = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+		TEST_NOT_FREE (event2);
+
+		TEST_EQ (event1->blockers, 1);
+		TEST_EQ (event2->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		job = (Job *)class->instances.next;
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_NE_P (job->env, NULL);
+		TEST_ALLOC_PARENT (job->env, job);
+		TEST_ALLOC_SIZE (job->env, sizeof (char *) * 6);
+		TEST_ALLOC_PARENT (job->env[0], job->env);
+		TEST_EQ_STRN (job->env[0], "PATH=");
+		TEST_ALLOC_PARENT (job->env[1], job->env);
+		TEST_EQ_STRN (job->env[1], "TERM=");
+		TEST_ALLOC_PARENT (job->env[2], job->env);
+		TEST_EQ_STR (job->env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (job->env[3], job->env);
+		TEST_EQ_STR (job->env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (job->env[4], job->env);
+		TEST_EQ_STR (job->env[4], "UPSTART_EVENTS=wibble wobble");
+		TEST_EQ_P (job->env[5], NULL);
+
+		TEST_EQ_P (job->start_env, NULL);
+
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)class->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)class->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event2);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+		nih_free (event2);
+	}
+
+
+	/* Check that the environment variables from the event are also copied
+	 * into the job's environment.
+	 */
+	TEST_FEATURE ("with environment in start event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FRODO=baggins"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BILBO=took"));
+
+			TEST_FREE_TAG (event1);
+
+			event2 = event_new (NULL, "wobble", NULL);
+			assert (nih_str_array_add (&(event2->env), event2,
+						   NULL, "FRODO=brandybuck"));
+			assert (nih_str_array_add (&(event2->env), event2,
+						   NULL, "TEA=MILK"));
+
+			TEST_FREE_TAG (event2);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "BAR=BAZ"));
+
+			class->start_on = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+		TEST_NOT_FREE (event2);
+
+		TEST_EQ (event1->blockers, 1);
+		TEST_EQ (event2->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		job = (Job *)class->instances.next;
+
+		TEST_EQ_P (job->name, NULL);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_NE_P (job->env, NULL);
+		TEST_ALLOC_PARENT (job->env, job);
+		TEST_ALLOC_SIZE (job->env, sizeof (char *) * 9);
+		TEST_ALLOC_PARENT (job->env[0], job->env);
+		TEST_EQ_STRN (job->env[0], "PATH=");
+		TEST_ALLOC_PARENT (job->env[1], job->env);
+		TEST_EQ_STRN (job->env[1], "TERM=");
+		TEST_ALLOC_PARENT (job->env[2], job->env);
+		TEST_EQ_STR (job->env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (job->env[3], job->env);
+		TEST_EQ_STR (job->env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (job->env[4], job->env);
+		TEST_EQ_STR (job->env[4], "FRODO=brandybuck");
+		TEST_ALLOC_PARENT (job->env[5], job->env);
+		TEST_EQ_STR (job->env[5], "BILBO=took");
+		TEST_ALLOC_PARENT (job->env[6], job->env);
+		TEST_EQ_STR (job->env[6], "TEA=MILK");
+		TEST_ALLOC_PARENT (job->env[7], job->env);
+		TEST_EQ_STR (job->env[7], "UPSTART_EVENTS=wibble wobble");
+		TEST_EQ_P (job->env[8], NULL);
+
+		TEST_EQ_P (job->start_env, NULL);
+
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)class->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)class->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event2);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+		nih_free (event2);
+	}
+
+
+	/* Check that the event can restart an instance that is stopping,
+	 * storing the environment in the start_env member since it should
+	 * not overwrite the previous environment until it actually restarts.
+	 */
+	TEST_FEATURE ("with restart of stopping job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FRODO=baggins"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BILBO=took"));
+
+			TEST_FREE_TAG (event1);
+
+			event2 = event_new (NULL, "wobble", NULL);
+			assert (nih_str_array_add (&(event2->env), event2,
+						   NULL, "FRODO=brandybuck"));
+			assert (nih_str_array_add (&(event2->env), event2,
+						   NULL, "TEA=MILK"));
+
+			TEST_FREE_TAG (event2);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "BAR=BAZ"));
+
+			class->start_on = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			nih_hash_add (job_classes, &class->entry);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_STOP;
+			job->state = JOB_STOPPING;
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=wibble"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAR=wobble"));
+
+			env1 = job->env;
+			TEST_FREE_TAG (env1);
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=tea"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAR=coffee"));
+
+			env2 = job->start_env;
+			TEST_FREE_TAG (env2);
+
+			job->blocking = nih_list_new (job);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event3 = entry->data;
+			event_block (event3);
+
+			TEST_FREE_TAG (event3);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event4 = entry->data;
+			event_block (event4);
+
+			TEST_FREE_TAG (event4);
+
+			list = job->blocking;
+			TEST_FREE_TAG (list);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+		TEST_NOT_FREE (event2);
+		TEST_FREE (event3);
+		TEST_FREE (event4);
+
+		TEST_EQ (event1->blockers, 1);
+		TEST_EQ (event2->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		ptr = (Job *)class->instances.next;
+
+		TEST_EQ_P (ptr, job);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job->env, env1);
+
+		TEST_FREE (env2);
+
+		TEST_NE_P (job->start_env, NULL);
+		TEST_ALLOC_PARENT (job->start_env, job);
+		TEST_ALLOC_SIZE (job->start_env, sizeof (char *) * 9);
+		TEST_ALLOC_PARENT (job->start_env[0], job->start_env);
+		TEST_EQ_STRN (job->start_env[0], "PATH=");
+		TEST_ALLOC_PARENT (job->start_env[1], job->start_env);
+		TEST_EQ_STRN (job->start_env[1], "TERM=");
+		TEST_ALLOC_PARENT (job->start_env[2], job->start_env);
+		TEST_EQ_STR (job->start_env[2], "FOO=BAR");
+		TEST_ALLOC_PARENT (job->start_env[3], job->start_env);
+		TEST_EQ_STR (job->start_env[3], "BAR=BAZ");
+		TEST_ALLOC_PARENT (job->start_env[4], job->start_env);
+		TEST_EQ_STR (job->start_env[4], "FRODO=brandybuck");
+		TEST_ALLOC_PARENT (job->start_env[5], job->start_env);
+		TEST_EQ_STR (job->start_env[5], "BILBO=took");
+		TEST_ALLOC_PARENT (job->start_env[6], job->start_env);
+		TEST_EQ_STR (job->start_env[6], "TEA=MILK");
+		TEST_ALLOC_PARENT (job->start_env[7], job->start_env);
+		TEST_EQ_STR (job->start_env[7], "UPSTART_EVENTS=wibble wobble");
+		TEST_EQ_P (job->start_env[8], NULL);
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)class->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)class->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		TEST_FREE (list);
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event2);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+		nih_free (event2);
+	}
+
+
+	/* Check that a job that is already running is not affected by the
+	 * start events happening again.
+	 */
+	TEST_FEATURE ("with already running job");
+	event1 = event_new (NULL, "wibble", NULL);
+	event2 = event_new (NULL, "wobble", NULL);
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FRODO=baggins"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BILBO=took"));
+
+			TEST_FREE_TAG (event1);
+
+			event2 = event_new (NULL, "wobble", NULL);
+			assert (nih_str_array_add (&(event2->env), event2,
+						   NULL, "FRODO=brandybuck"));
+			assert (nih_str_array_add (&(event2->env), event2,
+						   NULL, "TEA=MILK"));
+
+			TEST_FREE_TAG (event2);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(class->env), class,
+						   NULL, "BAR=BAZ"));
+
+			class->start_on = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			nih_hash_add (job_classes, &class->entry);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=wibble"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAR=wobble"));
+
+			env1 = job->env;
+			TEST_FREE_TAG (env1);
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=tea"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAR=coffee"));
+
+			env2 = job->start_env;
+			TEST_FREE_TAG (env2);
+
+			job->blocking = nih_list_new (job);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event3 = entry->data;
+			event_block (event3);
+
+			TEST_FREE_TAG (event3);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event4 = entry->data;
+			event_block (event4);
+
+			TEST_FREE_TAG (event4);
+
+			list = job->blocking;
+			TEST_FREE_TAG (list);
+		}
+
+		event_poll ();
+
+		TEST_FREE (event1);
+		TEST_FREE (event2);
+		TEST_NOT_FREE (event3);
+		TEST_NOT_FREE (event4);
+
+		event_poll ();
+
+		TEST_EQ (event3->blockers, 1);
+		TEST_EQ (event4->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		ptr = (Job *)class->instances.next;
+
+		TEST_EQ_P (ptr, job);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job->env, env1);
+
+		TEST_NOT_FREE (env2);
+		TEST_EQ_P (job->start_env, env2);
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+
+		oper = (EventOperator *)class->start_on->node.left;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = (EventOperator *)class->start_on->node.right;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		TEST_NOT_FREE (list);
+		TEST_EQ_P (job->blocking, list);
+
+		nih_free (class);
+		nih_free (event3);
+		nih_free (event4);
+	}
+
+
+	/* Check that the class's instance name undergoes expansion against
+	 * the events, and is used to name the resulting job.
+	 */
+	TEST_FEATURE ("with instance name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FRODO=baggins"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BILBO=took"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->instance = "$FRODO";
+			class->task = TRUE;
+
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		job = (Job *)class->instances.next;
+
+		TEST_ALLOC_PARENT (job->name, job);
+		TEST_EQ_STR (job->name, "baggins");
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+
+		TEST_NE_P (job->env, NULL);
+		TEST_ALLOC_PARENT (job->env, job);
+		TEST_ALLOC_SIZE (job->env, sizeof (char *) * 6);
+		TEST_ALLOC_PARENT (job->env[0], job->env);
+		TEST_EQ_STRN (job->env[0], "PATH=");
+		TEST_ALLOC_PARENT (job->env[1], job->env);
+		TEST_EQ_STRN (job->env[1], "TERM=");
+		TEST_ALLOC_PARENT (job->env[2], job->env);
+		TEST_EQ_STR (job->env[2], "FRODO=baggins");
+		TEST_ALLOC_PARENT (job->env[3], job->env);
+		TEST_EQ_STR (job->env[3], "BILBO=took");
+		TEST_ALLOC_PARENT (job->env[4], job->env);
+		TEST_EQ_STR (job->env[4], "UPSTART_EVENTS=wibble");
+		TEST_EQ_P (job->env[5], NULL);
+
+		TEST_EQ_P (job->start_env, NULL);
+
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+
+	/* Check that if an instance with that name already exists, it is
+	 * restarted itself instead of a new one being created.
+	 */
+	TEST_FEATURE ("with restart of existing instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FRODO=brandybuck"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BILBO=took"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->instance = "$FRODO";
+			class->task = TRUE;
+
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			nih_hash_add (job_classes, &class->entry);
+
+			job = job_new (class, "brandybuck");
+			job->goal = JOB_STOP;
+			job->state = JOB_STOPPING;
+
+			job->blocking = nih_list_new (job);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event3 = entry->data;
+			event_block (event3);
+
+			TEST_FREE_TAG (event3);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event4 = entry->data;
+			event_block (event4);
+
+			TEST_FREE_TAG (event4);
+
+			list = job->blocking;
+			TEST_FREE_TAG (list);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		ptr = (Job *)class->instances.next;
+
+		TEST_EQ_P (ptr, job);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		TEST_FREE (list);
+		TEST_FREE (event3);
+		TEST_FREE (event4);
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+
+	/* Check that errors with the instance name are caught and prevent
+	 * the job from being started.
+	 */
+	TEST_FEATURE ("with error in instance name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FRODO=baggins"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BILBO=took"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->instance = "$TIPPLE";
+			class->task = TRUE;
+
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		TEST_DIVERT_STDERR (output) {
+			event_poll ();
+		}
+		rewind (output);
+
+		TEST_FREE (event1);
+
+		TEST_LIST_EMPTY (&class->instances);
+
+		oper = class->start_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		TEST_FILE_EQ (output, ("test: Failed to obtain test instance: "
+				       "Unknown parameter: TIPPLE\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (class);
+	}
+
+
+	/* Check that an event that does not match the stop operator of
+	 * a job does not get blocked and passes straight through the
+	 * loop.
+	 */
+	TEST_FEATURE ("with non-matching event for stop");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "biscuit", NULL);
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			class->stop_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_FREE (event1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+
+		job = (Job *)class->instances.next;
+
+		oper = job->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		oper = class->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		nih_free (class);
+	}
+
+
+	/* Check that a matching event is recorded against the operator that
+	 * matches it, but only affects the job if it completes the
+	 * expression.  The name of the event should be added to the stop_env
+	 * member of the job, used for pre-stop later.
+	 */
+	TEST_FEATURE ("with matching event to stop");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			class->stop_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_EQ_P ((Job *)class->instances.next, job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
+
+		TEST_NE_P (job->stop_env, NULL);
+		TEST_ALLOC_PARENT (job->stop_env, job);
+		TEST_ALLOC_SIZE (job->stop_env, sizeof (char *) * 2);
+		TEST_ALLOC_PARENT (job->stop_env[0], job->stop_env);
+		TEST_EQ_STR (job->stop_env[0], "UPSTART_STOP_EVENTS=wibble");
+		TEST_EQ_P (job->stop_env[1], NULL);
+
+
+		oper = job->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+
+	/* Check that the environment variables from the event are also copied
+	 * into the job's stop_env member.
+	 */
+	TEST_FEATURE ("with environment in stop event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FOO=foo"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BAR=bar"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			class->stop_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_EQ_P ((Job *)class->instances.next, job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
+
+		TEST_NE_P (job->stop_env, NULL);
+		TEST_ALLOC_PARENT (job->stop_env, job);
+		TEST_ALLOC_SIZE (job->stop_env, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->stop_env[0], job->stop_env);
+		TEST_EQ_STR (job->stop_env[0], "FOO=foo");
+		TEST_ALLOC_PARENT (job->stop_env[1], job->stop_env);
+		TEST_EQ_STR (job->stop_env[1], "BAR=bar");
+		TEST_ALLOC_PARENT (job->stop_env[2], job->stop_env);
+		TEST_EQ_STR (job->stop_env[2], "UPSTART_STOP_EVENTS=wibble");
+		TEST_EQ_P (job->stop_env[3], NULL);
+
+
+		oper = job->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+
+	/* Check that the event can resume stopping a job that's stopping
+	 * but previously was marked for restarting.
+	 */
+	TEST_FEATURE ("with stop of restarting job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FOO=foo"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BAR=bar"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			class->stop_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "FOO=biscuit"));
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "BAR=beer"));
+
+			env1 = job->stop_env;
+			TEST_FREE_TAG (env1);
+
+			job->blocking = nih_list_new (job);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event3 = entry->data;
+			event_block (event3);
+
+			TEST_FREE_TAG (event3);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event4 = entry->data;
+			event_block (event4);
+
+			TEST_FREE_TAG (event4);
+
+			list = job->blocking;
+			TEST_FREE_TAG (list);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_EQ_P ((Job *)class->instances.next, job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
+
+		TEST_FREE (env1);
+
+		TEST_NE_P (job->stop_env, NULL);
+		TEST_ALLOC_PARENT (job->stop_env, job);
+		TEST_ALLOC_SIZE (job->stop_env, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->stop_env[0], job->stop_env);
+		TEST_EQ_STR (job->stop_env[0], "FOO=foo");
+		TEST_ALLOC_PARENT (job->stop_env[1], job->stop_env);
+		TEST_EQ_STR (job->stop_env[1], "BAR=bar");
+		TEST_ALLOC_PARENT (job->stop_env[2], job->stop_env);
+		TEST_EQ_STR (job->stop_env[2], "UPSTART_STOP_EVENTS=wibble");
+		TEST_EQ_P (job->stop_env[3], NULL);
+
+
+		oper = job->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_FREE (list);
+		TEST_FREE (event3);
+		TEST_FREE (event4);
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+
+	/* Check that a job that is already stopping is not affected by the
+	 * stop events happening again.
+	 */
+	TEST_FEATURE ("with already stopping job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "FOO=foo"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "BAR=bar"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			class->stop_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			job = job_new (class, NULL);
+			job->goal = JOB_STOP;
+			job->state = JOB_STOPPING;
+
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "FOO=biscuit"));
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "BAR=beer"));
+
+			env1 = job->stop_env;
+			TEST_FREE_TAG (env1);
+
+			job->blocking = nih_list_new (job);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flibble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event3 = entry->data;
+			event_block (event3);
+
+			TEST_FREE_TAG (event3);
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = event_new (NULL, "flobble", NULL);
+			nih_list_add (job->blocking, &entry->entry);
+			event4 = entry->data;
+			event_block (event4);
+
+			TEST_FREE_TAG (event4);
+
+			list = job->blocking;
+			TEST_FREE_TAG (list);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_FREE (event1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_EQ_P ((Job *)class->instances.next, job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job->stop_env, env1);
+
+		oper = job->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+		TEST_NOT_FREE (list);
+		TEST_NOT_FREE (event3);
+		TEST_NOT_FREE (event4);
+
+		TEST_EQ_P (job->blocking, list);
+
+		nih_free (class);
+		nih_free (event3);
+		nih_free (event4);
+	}
+
+
+	/* Check that the operator for the stop event can match against
+	 * environment variables expanded from the job's env member.
+	 */
+	TEST_FEATURE ("with environment expansion in stop event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event1 = event_new (NULL, "wibble", NULL);
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "SNITCH=GOLD"));
+			assert (nih_str_array_add (&(event1->env), event1,
+						   NULL, "SEAKER=WIZARD"));
+
+			TEST_FREE_TAG (event1);
+
+			class = job_class_new (NULL, "test");
+			class->task = TRUE;
+
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			class->stop_on = event_operator_new (
+				class, EVENT_MATCH, "wibble", NULL);
+
+			assert (nih_str_array_add (&(class->stop_on->env), class->stop_on,
+						   NULL, "SNITCH=$COLOUR"));
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "COLOUR=GOLD"));
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_NOT_FREE (event1);
+
+		TEST_EQ (event1->blockers, 1);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_EQ_P ((Job *)class->instances.next, job);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
+
+		TEST_NE_P (job->stop_env, NULL);
+		TEST_ALLOC_PARENT (job->stop_env, job);
+		TEST_ALLOC_SIZE (job->stop_env, sizeof (char *) * 4);
+		TEST_ALLOC_PARENT (job->stop_env[0], job->stop_env);
+		TEST_EQ_STR (job->stop_env[0], "SNITCH=GOLD");
+		TEST_ALLOC_PARENT (job->stop_env[1], job->stop_env);
+		TEST_EQ_STR (job->stop_env[1], "SEAKER=WIZARD");
+		TEST_ALLOC_PARENT (job->stop_env[2], job->stop_env);
+		TEST_EQ_STR (job->stop_env[2], "UPSTART_STOP_EVENTS=wibble");
+		TEST_EQ_P (job->stop_env[3], NULL);
+
+
+		oper = job->stop_on;
+		TEST_EQ (oper->value, FALSE);
+		TEST_EQ_P (oper->event, NULL);
+
+
+		TEST_NE_P (job->blocking, NULL);
+		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
+		TEST_ALLOC_PARENT (job->blocking, job);
+
+		TEST_LIST_NOT_EMPTY (job->blocking);
+
+		entry = (NihListEntry *)job->blocking->next;
+		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+		TEST_ALLOC_PARENT (entry, job->blocking);
+		event = (Event *)entry->data;
+		TEST_EQ_P (event, event1);
+		event_unblock (event);
+		nih_free (entry);
+
+		TEST_LIST_EMPTY (job->blocking);
+
+		nih_free (class);
+		nih_free (event1);
+	}
+
+	fclose (output);
+}
+
+
+void
+test_finished (void)
+{
+	JobClass      *class;
+	Job           *job;
+	Event         *event;
+	EventOperator *oper;
+
+	TEST_FUNCTION ("event_finished");
+
+	/* Check that when a non-failed event is finished, a failed event
+	 * is not generated.
+	 */
+	TEST_FEATURE ("with non-failed event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+			event->progress = EVENT_FINISHED;
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "test");
+			class->leader = TRUE;
+			class->process[PROCESS_MAIN] = process_new (class->process);
+			class->process[PROCESS_MAIN]->command = "echo";
+
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "test/failed", NULL);
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_FREE (event);
+
+		TEST_LIST_EMPTY (&class->instances);
+
+		nih_free (class);
+	}
+
+
 	/* Check that a failed event causes another event to be emitted
 	 * that has "/failed" appended on the end.  We can obtain the
 	 * failed event by hooking a job on it, and using the
 	 * cause.
 	 */
 	TEST_FEATURE ("with failed event");
-	event = event_new (NULL, "test", NULL);
-	event->failed = TRUE;
-	event->progress = EVENT_FINISHED;
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test", NULL);
+			event->failed = TRUE;
+			event->progress = EVENT_FINISHED;
 
-	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
-	class->process[PROCESS_MAIN] = process_new (class->process);
-	class->process[PROCESS_MAIN]->command = "echo";
+			TEST_FREE_TAG (event);
 
-	nih_hash_add (job_classes, &class->entry);
+			class = job_class_new (NULL, "test");
+			class->leader = TRUE;
+			class->process[PROCESS_MAIN] = process_new (class->process);
+			class->process[PROCESS_MAIN]->command = "echo";
 
-	class->start_on = event_operator_new (class, EVENT_MATCH,
-					      "test/failed", NULL);
+			class->start_on = event_operator_new (
+				class, EVENT_MATCH, "test/failed", NULL);
 
-	TEST_FREE_TAG (event);
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_FREE (event);
+
+		TEST_LIST_NOT_EMPTY (&class->instances);
+
+		job = (Job *)class->instances.next;
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+
+		nih_free (class);
+	}
 
 	event_poll ();
-
-	TEST_FREE (event);
-
-	TEST_LIST_NOT_EMPTY (&class->instances);
-
-	job = (Job *)class->instances.next;
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-	TEST_GT (job->pid[PROCESS_MAIN], 0);
-
-	waitpid (job->pid[PROCESS_MAIN], NULL, 0);
-
-	event_poll ();
-
-	nih_free (class);
 
 
 	/* Check that failed events do not, themselves, emit new failed
 	 * events (otherwise we could be there all night :p)
 	 */
 	TEST_FEATURE ("with failed failed event");
-	event = event_new (NULL, "test/failed", NULL);
-	event->failed = TRUE;
-	event->progress = EVENT_FINISHED;
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "test/failed", NULL);
+			event->failed = TRUE;
+			event->progress = EVENT_FINISHED;
 
-	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
-	class->process[PROCESS_MAIN] = process_new (class->process);
-	class->process[PROCESS_MAIN]->command = "echo";
+			TEST_FREE_TAG (event);
 
-	nih_hash_add (job_classes, &class->entry);
+			class = job_class_new (NULL, "test");
+			class->leader = TRUE;
+			class->process[PROCESS_MAIN] = process_new (class->process);
+			class->process[PROCESS_MAIN]->command = "echo";
 
-	class->start_on = event_operator_new (class, EVENT_OR, NULL, NULL);
+			class->start_on = event_operator_new (
+				class, EVENT_OR, NULL, NULL);
 
-	oper = event_operator_new (class, EVENT_MATCH,
-				   "test/failed", NULL);
-	nih_tree_add (&class->start_on->node, &oper->node, NIH_TREE_LEFT);
+			oper = event_operator_new (class, EVENT_MATCH,
+						   "test/failed", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_LEFT);
 
-	oper = event_operator_new (class, EVENT_MATCH,
-				   "test/failed/failed", NULL);
-	nih_tree_add (&class->start_on->node, &oper->node, NIH_TREE_RIGHT);
+			oper = event_operator_new (class, EVENT_MATCH,
+						   "test/failed/failed", NULL);
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
 
-	TEST_FREE_TAG (event);
+			nih_hash_add (job_classes, &class->entry);
+		}
 
-	event_poll ();
+		event_poll ();
 
-	TEST_FREE (event);
+		TEST_FREE (event);
 
-	TEST_LIST_EMPTY (&class->instances);
+		TEST_LIST_EMPTY (&class->instances);
 
-	nih_free (class);
+		nih_free (class);
+	}
+}
+
+void
+test_finished_handle_jobs (void)
+{
+	JobClass *class;
+	Job      *job;
+	Event    *event, *blocked;
+
+	TEST_FUNCTION ("event_finished_handle_jobs");
+
+
+	/* Check that a finishing event has no effect on a stopping job
+	 * that is no longer blocked (shouldn't ever happen really, but
+	 * pays to check).
+	 */
+	TEST_FEATURE ("with non-blocked stopping job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "biscuit", NULL);
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "foo");
+
+			job = job_new (class, NULL);
+			job->goal = JOB_STOP;
+			job->state = JOB_STOPPING;
+			job->blocked = NULL;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_FREE (event);
+
+		nih_free (class);
+	}
+
+
+	/* Check that a finishing event has no effect on a starting job
+	 * that is no longer blocked (shouldn't ever happen really, but
+	 * pays to check).
+	 */
+	TEST_FEATURE ("with non-blocked starting job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "biscuit", NULL);
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "foo");
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_STARTING;
+			job->blocked = NULL;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ_P (job->blocked, NULL);
+
+		TEST_FREE (event);
+
+		nih_free (class);
+	}
+
+
+	/* Check that the wrong event does not unblock a stopping job.
+	 */
+	TEST_FEATURE ("with stopping job but wrong event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "biscuit", NULL);
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "foo");
+
+			job = job_new (class, NULL);
+			job->goal = JOB_STOP;
+			job->state = JOB_STOPPING;
+
+			job->blocked = event_new (job, "wibble", NULL);
+			event_block (job->blocked);
+			blocked = job->blocked;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ_P (job->blocked, blocked);
+
+		TEST_FREE (event);
+
+		nih_free (class);
+	}
+
+
+	/* Check that the wrong event does not unblock a starting job.
+	 */
+	TEST_FEATURE ("with starting job but wrong event");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "biscuit", NULL);
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "foo");
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_STARTING;
+
+			job->blocked = event_new (job, "wibble", NULL);
+			event_block (job->blocked);
+			blocked = job->blocked;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ_P (job->blocked, blocked);
+
+		TEST_EQ (blocked->blockers, 1);
+
+		TEST_FREE (event);
+
+		nih_free (class);
+	}
+
+
+	/* Check that a matching event unblocks a stopping job and moves
+	 * it into the next state.
+	 */
+	TEST_FEATURE ("with stopping job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "wibble", NULL);
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "foo");
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			job = job_new (class, NULL);
+			job->goal = JOB_STOP;
+			job->state = JOB_STOPPING;
+			job->pid[PROCESS_POST_STOP] = 0;
+
+			job->blocked = event;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_POST_STOP);
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		TEST_EQ_P (job->blocked, NULL);
+
+		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
+
+		TEST_FREE (event);
+
+		nih_free (class);
+	}
+
+
+	/* Check that a matching event unblocks a starting job and moves
+	 * it into the next state.
+	 */
+	TEST_FEATURE ("with starting job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			event = event_new (NULL, "wibble", NULL);
+
+			TEST_FREE_TAG (event);
+
+			class = job_class_new (NULL, "foo");
+			class->process[PROCESS_PRE_START] = process_new (class);
+			class->process[PROCESS_PRE_START]->command = "echo";
+
+			job = job_new (class, NULL);
+			job->goal = JOB_START;
+			job->state = JOB_STARTING;
+			job->pid[PROCESS_PRE_START] = 0;
+
+			job->blocked = event;
+
+			nih_hash_add (job_classes, &class->entry);
+		}
+
+		event_poll ();
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_PRE_START);
+		TEST_GT (job->pid[PROCESS_PRE_START], 0);
+		TEST_EQ_P (job->blocked, NULL);
+
+		waitpid (job->pid[PROCESS_PRE_START], NULL, 0);
+
+		TEST_FREE (event);
+
+		nih_free (class);
+	}
 }
 
 
@@ -324,6 +1991,11 @@ main (int   argc,
 	test_block ();
 	test_unblock ();
 	test_poll ();
+
+	test_pending ();
+	test_pending_handle_jobs ();
+	test_finished ();
+	test_finished_handle_jobs ();
 
 	return 0;
 }

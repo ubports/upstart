@@ -34,14 +34,17 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+#include "environ.h"
 #include "event.h"
 #include "job.h"
 #include "errors.h"
 
 
 /* Prototypes for static functions */
-static void event_pending  (Event *event);
-static void event_finished (Event *event);
+static void event_pending              (Event *event);
+static void event_pending_handle_jobs  (Event *event);
+static void event_finished             (Event *event);
+static void event_finished_handle_jobs (Event *event);
 
 
 /**
@@ -242,6 +245,7 @@ event_poll (void)
 	} while (poll_again);
 }
 
+
 /**
  * event_pending:
  * @event: pending event.
@@ -262,8 +266,172 @@ event_pending (Event *event)
 	nih_info (_("Handling %s event"), event->name);
 	event->progress = EVENT_HANDLING;
 
-	job_handle_event (event);
+	event_pending_handle_jobs (event);
 }
+
+/**
+ * event_pending_handle_jobs:
+ * @event: event to be handled.
+ *
+ * This function is called whenever an event reaches the handling state.
+ * It iterates the list of jobs and stops or starts any necessary.
+ **/
+static void
+event_pending_handle_jobs (Event *event)
+{
+	nih_assert (event != NULL);
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		/* We stop first so that if an event is listed both as a
+		 * stop and start event, it causes an active running process
+		 * to be killed, the stop script then the start script to be
+		 * run.  In any other state, it has no special effect.
+		 *
+		 * (The other way around would be just strange, it'd cause
+		 * a process's start and stop scripts to be run without the
+		 * actual process).
+		 */
+		NIH_LIST_FOREACH_SAFE (&class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (job->stop_on
+			    && event_operator_handle (job->stop_on, event,
+						      job->env)
+			    && job->stop_on->value) {
+				char    **env = NULL;
+				size_t    len = 0;
+				NihList  *list;
+
+				/* Collect environment that stopped the job
+				 * for the pre-stop script; it can make a
+				 * more informed decision whether the stop is
+				 * valid.  We don't add class environment
+				 * since this is appended to the existing job
+				 * environment.
+				 */
+				NIH_MUST (list = nih_list_new (NULL));
+				event_operator_collect (job->stop_on,
+							&env, NULL, &len,
+							"UPSTART_STOP_EVENTS",
+							list);
+
+				if (job->goal != JOB_STOP) {
+					if (job->stop_env)
+						nih_free (job->stop_env);
+
+					nih_alloc_reparent (env, job);
+					job->stop_env = env;
+
+					job_unblock (job, FALSE);
+
+					nih_alloc_reparent (list, job);
+					job->blocking = list;
+
+					job_change_goal (job, JOB_STOP);
+				} else {
+					NIH_LIST_FOREACH (list, iter) {
+						NihListEntry *entry = (NihListEntry *)iter;
+						Event        *event = (Event *)entry->data;
+
+						nih_assert (event != NULL);
+
+						event_unblock (event);
+					}
+
+					nih_free (list);
+					nih_free (env);
+				}
+
+				event_operator_reset (job->stop_on);
+			}
+
+		}
+
+		/* Now we match the start events for the class to see
+		 * whether we need a new instance.
+		 */
+		if (class->start_on
+		    && event_operator_handle (class->start_on, event, NULL)
+		    && class->start_on->value) {
+			char    **env, *name = NULL;
+			size_t    len;
+			NihList  *list;
+			Job      *job;
+
+			/* Construct the environment for the new instance
+			 * from the cclass and the start events and collect
+			 * the list of events we have to block.
+			 */
+			NIH_MUST (list = nih_list_new (NULL));
+			NIH_MUST (env = job_class_environment (
+					  NULL, class, &len));
+			event_operator_collect (class->start_on,
+						&env, NULL, &len,
+						"UPSTART_EVENTS", list);
+
+			/* Expand the instance name against the environment */
+			if (class->instance) {
+				NIH_SHOULD (name = environ_expand (
+						    NULL, class->instance,
+						    env));
+				if (! name) {
+					NihError *err;
+
+					err = nih_error_get ();
+					nih_warn (_("Failed to obtain %s instance: %s"),
+						  class->name, err->message);
+					nih_free (err);
+
+					goto error;
+				}
+			}
+
+			/* Locate the current instance or create a new one */
+			job = job_instance (class, name);
+			if (! job)
+				NIH_MUST (job = job_new (class, name));
+
+			if (name)
+				nih_free (name);
+
+			/* Start the job with the environment we want */
+			if (job->goal != JOB_START) {
+				if (job->start_env)
+					nih_free (job->start_env);
+
+				nih_alloc_reparent (env, job);
+				job->start_env = env;
+
+				job_unblock (job, FALSE);
+
+				nih_alloc_reparent (list, job);
+				job->blocking = list;
+
+				job_change_goal (job, JOB_START);
+			} else {
+			error:
+				NIH_LIST_FOREACH (list, iter) {
+					NihListEntry *entry = (NihListEntry *)iter;
+					Event        *event = (Event *)entry->data;
+
+					nih_assert (event != NULL);
+
+					event_unblock (event);
+				}
+
+				nih_free (list);
+				nih_free (env);
+			}
+
+			event_operator_reset (class->start_on);
+		}
+	}
+}
+
 
 /**
  * event_finished:
@@ -282,7 +450,7 @@ event_finished (Event *event)
 
 	nih_debug ("Finished %s event", event->name);
 
-	job_handle_event_finished (event);
+	event_finished_handle_jobs (event);
 
 	if (event->failed) {
 		char *name;
@@ -303,4 +471,35 @@ event_finished (Event *event)
 	}
 
 	nih_free (event);
+}
+
+/**
+ * event_finished_handle_jobs:
+ * @event: event that has finished.
+ *
+ * This function is called whenever an event finishes.  It iterates the
+ * list of jobs checking for any blocked by that event, unblocking them
+ * and sending them to the next state.
+ **/
+static void
+event_finished_handle_jobs (Event *event)
+{
+	nih_assert (event != NULL);
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_LIST_FOREACH_SAFE (&class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (job->blocked != event)
+				continue;
+
+			job->blocked = NULL;
+
+			job_change_state (job, job_next_state (job));
+		}
+	}
 }
