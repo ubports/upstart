@@ -121,7 +121,7 @@ test_unblock (void)
 void
 test_poll (void)
 {
-	Event *event;
+	Event *event = NULL;
 
 	TEST_FUNCTION ("event_poll");
 	event_init ();
@@ -205,9 +205,9 @@ test_poll (void)
 void
 test_pending (void)
 {
-	JobClass *class;
+	JobClass *class = NULL;
 	Job      *job;
-	Event    *event;
+	Event    *event = NULL;
 
 	/* Check that a pending event in the queue results in jobs being
 	 * started and/or stopped and gets moved into the handling state.
@@ -256,13 +256,14 @@ void
 test_pending_handle_jobs (void)
 {
 	FILE           *output;
-	JobClass       *class;
-	Job            *job, *ptr;
-	Event          *event, *event1, *event2, *event3, *event4;
+	JobClass       *class = NULL;
+	Job            *job = NULL, *ptr;
+	Event          *event = NULL, *event1 = NULL, *event2 = NULL;
+	Event          *event3 = NULL, *event4 = NULL;
 	EventOperator  *oper;
-	NihList        *list;
-	NihListEntry   *entry;
-	char          **env1, **env2;
+	NihList        *list = NULL;
+	NihListEntry   *entry = NULL;
+	char          **env1 = NULL, **env2 = NULL;
 
 	TEST_FUNCTION ("event_pending_handle_jobs");
 	program_name = "test";
@@ -1631,9 +1632,9 @@ test_pending_handle_jobs (void)
 void
 test_finished (void)
 {
-	JobClass      *class;
+	JobClass      *class = NULL;
 	Job           *job;
-	Event         *event;
+	Event         *event = NULL;
 	EventOperator *oper;
 
 	TEST_FUNCTION ("event_finished");
@@ -1761,9 +1762,9 @@ test_finished (void)
 void
 test_finished_handle_jobs (void)
 {
-	JobClass *class;
-	Job      *job;
-	Event    *event, *blocked;
+	JobClass *class = NULL;
+	Job      *job = NULL;
+	Event    *event = NULL, *blocked = NULL;
 
 	TEST_FUNCTION ("event_finished_handle_jobs");
 

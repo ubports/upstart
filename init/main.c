@@ -185,7 +185,9 @@ main (int   argc,
 	 * strange place, or worse, some directory in the initramfs that's
 	 * going to go away soon.
 	 */
-	chdir ("/");
+	if (chdir ("/"))
+		nih_warn ("%s: %s", _("Unable to set root directory"),
+			  strerror (errno));
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
 #endif /* DEBUG */
@@ -362,7 +364,8 @@ crash_handler (int signum)
 		setrlimit (RLIMIT_CORE, &limit);
 
 		/* Dump in the root directory */
-		chdir ("/");
+		nih_warn ("%s: %s", _("Unable to set root directory"),
+			  strerror (errno));
 
 		/* Raise the signal again */
 		raise (signum);

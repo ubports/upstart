@@ -925,7 +925,7 @@ test_operator_collect (void)
 {
 	EventOperator  *root, *oper1, *oper2, *oper3, *oper4, *oper5, *oper6;
 	Event          *event1, *event2, *event3;
-	NihList        *list;
+	NihList        *list = NULL;
 	NihListEntry   *entry;
 	char          **env;
 	size_t          len;

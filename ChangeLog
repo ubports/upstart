@@ -1,3 +1,19 @@
+2008-05-06  Scott James Remnant  <scott@netsplit.com>
+
+	* init/main.c (main): Warn if we can't set the root directory.
+	* init/job_process.c (job_process_spawn)
+	(job_process_error_abort): loop on the return of write()
+	* init/tests/test_job_process.c (child, main): assert getcwd() works
+	(test_handler): initialise list and entry for gcc's blind spot.
+	(test_run): initialise ret for gcc's blind spot
+	* init/tests/test_job.c (test_name): jump through hoops for gcc
+	(test_change_state): list and entry.
+	* init/tests/test_event.c (test_finished_handle_jobs, test_finished)
+	(test_pending_handle_jobs, test_poll, test_pending): initialise to
+	NULL and buy gcc glasses
+	* init/tests/test_event_operator.c (test_operator_collect): another
+	NULL to make gcc happy.
+
 2008-05-01  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update.

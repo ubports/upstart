@@ -444,14 +444,16 @@ job_process_spawn (JobClass     *class,
 			/* Write -1 as the pid to the parent followed by
 			 * the error.
 			 */
-			write (fds[1], &pid, sizeof (pid));
+			while (write (fds[1], &pid, sizeof (pid)) < 0)
+				;
 			job_process_error_abort (fds[1],
 						 JOB_PROCESS_ERROR_FORK, 0);
 		}
 
 		/* Write the new child pid to the parent */
 		pid = getpid ();
-		write (fds[1], &pid, sizeof (pid));
+		while (write (fds[1], &pid, sizeof (pid)) < 0)
+			;
 	}
 
 	/* Set the standard file descriptors to an output of our chosing;
@@ -588,7 +590,8 @@ job_process_error_abort (int                 fd,
 	/* Write structure to the pipe; in theory this should never fail, but
 	 * if it does, we abort anyway.
 	 */
-	write (fd, &wire_err, sizeof (wire_err));
+	while (write (fd, &wire_err, sizeof (wire_err)) < 0)
+		;
 
 	abort ();
 }

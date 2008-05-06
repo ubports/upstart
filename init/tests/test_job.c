@@ -465,8 +465,8 @@ test_change_state (void)
 	ConfFile      *file = NULL;
 	JobClass      *class, *replacement = NULL, *ptr;
 	Job           *job = NULL;
-	NihList       *list;
-	NihListEntry  *entry;
+	NihList       *list = NULL;
+	NihListEntry  *entry = NULL;
 	Event         *cause, *event;
 	struct stat    statbuf;
 	char           dirname[PATH_MAX], filename[PATH_MAX];
@@ -4774,7 +4774,8 @@ test_name (void)
 {
 	JobClass   *class;
 	Job        *job;
-	const char *name;
+	const char *ret;
+	char       *name;
 
 	TEST_FUNCTION ("job_name");
 
@@ -4784,9 +4785,9 @@ test_name (void)
 	job = job_new (class, NULL);
 
 	TEST_ALLOC_FAIL {
-		name = job_name (job);
+		ret = job_name (job);
 
-		TEST_EQ_STR (name, "test");
+		TEST_EQ_STR (ret, "test");
 	}
 
 	nih_free (class);
@@ -4799,9 +4800,9 @@ test_name (void)
 	job = job_new (class, "foo");
 
 	TEST_ALLOC_FAIL {
-		name = job_name (job);
+		ret = job_name (job);
 
-		TEST_EQ_STR (name, "test (foo)");
+		TEST_EQ_STR (ret, "test (foo)");
 	}
 
 	nih_free (class);
@@ -4814,13 +4815,14 @@ test_name (void)
 	class = job_class_new (NULL, "test");
 	job = job_new (class, NULL);
 
-	name = job_name (job);
+	ret = job_name (job);
+	name = (char *)ret;
 
-	TEST_FREE_TAG ((char *)name);
+	TEST_FREE_TAG (name);
 
 	job_name (job);
 
-	TEST_FREE ((char *)name);
+	TEST_FREE (name);
 
 	nih_free (class);
 }

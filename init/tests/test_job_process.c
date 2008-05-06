@@ -99,7 +99,7 @@ child (enum child_tests  test,
 		}
 		break;
 	case TEST_PWD:
-		getcwd (path, sizeof (path));
+		assert (getcwd (path, sizeof (path)));
 		fprintf (out, "wd: %s\n", path);
 		break;
 	case TEST_ENVIRONMENT:
@@ -125,7 +125,7 @@ test_run (void)
 	FILE        *output;
 	struct stat  statbuf;
 	char         filename[PATH_MAX], buf[80];
-	int          ret, status, first;
+	int          ret = -1, status, first;
 	siginfo_t    info;
 
 	TEST_FUNCTION ("job_process_run");
@@ -1139,8 +1139,8 @@ test_handler (void)
 	ConfFile     *file;
 	JobClass    *class;
 	Job          *job = NULL;
-	NihList      *list;
-	NihListEntry *entry;
+	NihList      *list = NULL;
+	NihListEntry *entry = NULL;
 	Event        *event;
 	FILE         *output;
 	int           exitcodes[2] = { 100, SIGINT << 8 }, status;
@@ -3885,7 +3885,7 @@ main (int   argc,
 	if (argv0[0] != '/') {
 		char path[PATH_MAX];
 
-		getcwd (path, sizeof (path));
+		assert (getcwd (path, sizeof (path)));
 		strcat (path, "/");
 		strcat (path, argv0);
 
