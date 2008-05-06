@@ -431,7 +431,7 @@ environ_expand_until (char        **str,
 		enum { OP_VALUE, OP_DEFAULT, OP_ALTERNATE } op = OP_VALUE;
 		size_t      start, end;
 		size_t      name_start, name_end;
-		size_t      arg_start, arg_end;
+		size_t      arg_start = 0, arg_end = 0;
 		int         ignore_empty = FALSE;
 		const char *value;
 		size_t      value_len, offset;

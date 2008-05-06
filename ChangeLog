@@ -1,5 +1,9 @@
 2008-05-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_expand_until): Odd gcc optimiser warning,
+	it reckons arg_start and end may be used uninitialised, but I don't
+	see how they can be.
+
 	* init/main.c (main): Warn if we can't set the root directory.
 	* init/job_process.c (job_process_spawn)
 	(job_process_error_abort): loop on the return of write()
