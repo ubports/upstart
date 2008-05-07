@@ -1,3 +1,8 @@
+2008-05-07  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_run): Use NIH_ZERO instead of
+	NIH_MUST and == 0
+
 2008-05-06  Scott James Remnant  <scott@netsplit.com>
 
 	* init/environ.c (environ_expand_until): Odd gcc optimiser warning,

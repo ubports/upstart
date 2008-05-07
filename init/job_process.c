@@ -182,7 +182,7 @@ job_process_run (Job         *job,
 			char *cmd;
 
 			/* Close the writing end when the child is exec'd */
-			NIH_MUST (pipe (fds) == 0);
+			NIH_ZERO (pipe (fds));
 			nih_io_set_cloexec (fds[1]);
 
 			/* FIXME actually always want it to be /dev/fd/3 and
