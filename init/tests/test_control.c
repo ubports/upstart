@@ -23,17 +23,23 @@
 #include <nih/test.h>
 
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 
 #include <dbus/dbus.h>
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/list.h>
 #include <nih/signal.h>
+#include <nih/timer.h>
+#include <nih/io.h>
 #include <nih/main.h>
 #include <nih/error.h>
 #include <nih/errors.h>
@@ -42,6 +48,181 @@
 
 #include "control.h"
 #include "errors.h"
+
+
+void
+test_server_open (void)
+{
+	NihError           *err;
+	struct sockaddr_un  addr;
+	socklen_t           addrlen;
+	int                 ret, fd;
+
+	TEST_FUNCTION ("control_server_open");
+	program_name = "test";
+	control_init ();
+	nih_io_init ();
+
+	/* Check that control_server_open() creates a new listening D-Bus
+	 * server and sets the control_server global.
+	 */
+	TEST_FEATURE ("with expected success");
+	assert (NIH_LIST_EMPTY (nih_io_watches));
+
+	ret = control_server_open ();
+
+	TEST_EQ (ret, 0);
+	TEST_NE_P (control_server, NULL);
+
+	/* D-Bus provides no method to obtain the fd of the server, so
+	 * we have to steal it.
+	 */
+	assert (! NIH_LIST_EMPTY (nih_io_watches));
+	fd = ((NihIoWatch *)nih_io_watches->next)->fd;
+
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_server_get_is_connected (control_server));
+
+	control_server_close ();
+
+	dbus_shutdown ();
+
+
+	/* Check that if something else is already listening on that address,
+	 * control_server_open returns NULL and a D-Bus error code.
+	 */
+	TEST_FEATURE ("with already listening");
+	fd = socket (PF_UNIX, SOCK_STREAM, 0);
+	assert (fd >= 0);
+
+	addr.sun_family = AF_UNIX;
+	addr.sun_path[0] = '\0';
+	strncpy (addr.sun_path + 1, "/com/ubuntu/upstart",
+		 sizeof (addr.sun_path) - 1);
+
+	addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
+	addrlen += strlen ("/com/ubuntu/upstart");
+
+	assert0 (bind (fd, &addr, addrlen));
+
+	assert0 (listen (fd, SOMAXCONN));
+
+	ret = control_server_open ();
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (control_server, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (((NihDBusError *)err)->name, DBUS_ERROR_ADDRESS_IN_USE);
+	nih_free (err);
+
+	dbus_shutdown ();
+
+	close (fd);
+}
+
+void
+test_server_connect (void)
+{
+	NihListEntry   *entry;
+	DBusConnection *conn;
+	pid_t           pid;
+	int             fd, wait_fd, status;
+	void           *data;
+
+	TEST_FUNCTION ("control_server_connect");
+	program_name = "test";
+	control_init ();
+	nih_io_init ();
+
+	/* Check that a new connection to our server is accepted and stored
+	 * in the connections list, with the manager object registered on
+	 * it.
+	 */
+	assert0 (control_server_open ());
+	assert (NIH_LIST_EMPTY (control_conns));
+
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		DBusConnection *conn;
+
+		control_server_close ();
+
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart",
+					 NULL);
+		assert (conn != NULL);
+
+		TEST_CHILD_RELEASE (wait_fd);
+
+		nih_main_loop ();
+
+		dbus_connection_unref (conn);
+
+		dbus_shutdown ();
+
+		exit (0);
+	}
+
+	assert (nih_timer_add_timeout (NULL, 1,
+				       (NihTimerCb)nih_main_term_signal, NULL));
+
+	nih_main_loop ();
+
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_NE_P (entry->data, NULL);
+
+	conn = entry->data;
+
+	dbus_connection_get_unix_fd (conn, &fd);
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 "/com/ubuntu/Upstart",
+							 &data));
+	TEST_NE_P (data, NULL);
+
+	kill (pid, SIGTERM);
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	control_server_close ();
+
+	dbus_connection_close (conn);
+	dbus_connection_unref (conn);
+
+	nih_free (entry);
+
+	dbus_shutdown ();
+
+}
+
+void
+test_server_close (void)
+{
+	/* Check that control_server_close sets control_server back to
+	 * NULL, as well as disconnected and unreferencing the server.
+	 */
+	TEST_FUNCTION ("control_server_close");
+	control_init ();
+
+	assert0 (control_server_open ());
+	assert (control_server != NULL);
+
+	control_server_close ();
+
+	TEST_EQ_P (control_server, NULL);
+
+	dbus_shutdown ();
+}
 
 
 static int drop_connection = FALSE;
@@ -118,18 +299,23 @@ my_connect_handler (DBusServer     *server,
 void
 test_bus_open (void)
 {
-	NihError *err;
-	pid_t     pid;
-	int       ret, wait_fd, fd, status;
-	void     *data;
+	FILE         *output;
+	NihError     *err;
+	NihListEntry *entry;
+	pid_t         pid;
+	int           ret, wait_fd, fd, status;
+	void         *data;
 
 	TEST_FUNCTION ("control_bus_open");
+	program_name = "test";
+	control_init ();
+	output = tmpfile ();
 	err = 0;
 
 	/* Check that control_bus_open() opens a connection to the system bus,
 	 * we test this by faking the registration part of the system bus and
 	 * making sure everything works.  The control_bus global should be
-	 * set to non-NULL.
+	 * set to non-NULL and also stored in the connections list.
 	 */
 	TEST_FEATURE ("with system bus");
 	drop_connection = FALSE;
@@ -171,6 +357,12 @@ test_bus_open (void)
 	TEST_EQ (ret, 0);
 	TEST_NE_P (control_bus, NULL);
 
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_EQ_P (entry->data, control_bus);
+
 	dbus_connection_get_unix_fd (control_bus, &fd);
 	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
 
@@ -184,7 +376,10 @@ test_bus_open (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	control_bus_close ();
+	TEST_DIVERT_STDERR (output) {
+		control_bus_close ();
+	}
+	rewind (output);
 
 	dbus_shutdown ();
 
@@ -230,6 +425,8 @@ test_bus_open (void)
 
 	TEST_LT (ret, 0);
 	TEST_EQ_P (control_bus, NULL);
+
+	TEST_LIST_EMPTY (control_conns);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_DBUS_ERROR);
@@ -292,6 +489,8 @@ test_bus_open (void)
 	TEST_LT (ret, 0);
 	TEST_EQ_P (control_bus, NULL);
 
+	TEST_LIST_EMPTY (control_conns);
+
 	err = nih_error_get ();
 	TEST_EQ (err->number, CONTROL_NAME_TAKEN);
 	nih_free (err);
@@ -318,6 +517,8 @@ test_bus_open (void)
 	TEST_LT (ret, 0);
 	TEST_EQ_P (control_bus, NULL);
 
+	TEST_LIST_EMPTY (control_conns);
+
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_DBUS_ERROR);
 	TEST_EQ_STR (((NihDBusError *)err)->name, DBUS_ERROR_NO_SERVER);
@@ -329,18 +530,64 @@ test_bus_open (void)
 }
 
 void
-test_bus_disconnected (void)
+test_bus_close (void)
 {
-	FILE  *output;
-	pid_t  pid;
-	int    wait_fd, status;
+	FILE         *output;
+	NihListEntry *entry;
 
-	/* Check that if the bus is disconnected, control_bus is set back
-	 * to NULL automatically.
+	/* Check that control_bus_close sets control_bus back to NULL
+	 * and is removed from the list of active connections.
 	 */
-	TEST_FUNCTION ("control_bus_disconnected");
+	TEST_FUNCTION ("control_bus_close");
+	control_init ();
+	output = tmpfile ();
+
+	assert (NIH_LIST_EMPTY (control_conns));
+
+	assert0 (control_bus_open ());
+	assert (control_bus != NULL);
+
+	assert (! NIH_LIST_EMPTY (control_conns));
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_FREE_TAG (entry);
+
+	TEST_DIVERT_STDERR (output) {
+		control_bus_close ();
+	}
+	rewind (output);
+
+	TEST_EQ_P (control_bus, NULL);
+
+	TEST_FREE (entry);
+
+	TEST_LIST_EMPTY (control_conns);
+
+	TEST_FILE_EQ (output, "test: Disconnected from system bus\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+	fclose (output);
+
+	dbus_shutdown ();
+}
+
+
+void
+test_disconnected (void)
+{
+	FILE         *output;
+	NihListEntry *entry;
+	pid_t         pid;
+	int           wait_fd, status;
+
+	/* Check that if the bus connection is disconnected, control_bus is
+	 * set back to NULL automatically.
+	 */
+	TEST_FUNCTION ("control_disconnected");
 	program_name = "test";
 	output = tmpfile ();
+	control_init ();
 
 	drop_connection = FALSE;
 	refuse_registration = FALSE;
@@ -376,8 +623,15 @@ test_bus_disconnected (void)
 	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
 		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
+	assert (NIH_LIST_EMPTY (control_conns));
+
 	assert0 (control_bus_open ());
 	assert (control_bus != NULL);
+
+	assert (! NIH_LIST_EMPTY (control_conns));
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_FREE_TAG (entry);
 
 	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
@@ -393,6 +647,10 @@ test_bus_disconnected (void)
 
 	TEST_EQ_P (control_bus, NULL);
 
+	TEST_FREE (entry);
+
+	TEST_LIST_EMPTY (control_conns);
+
 	TEST_FILE_EQ (output, "test: Disconnected from system bus\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
@@ -404,29 +662,20 @@ test_bus_disconnected (void)
 	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
 }
 
-void
-test_bus_close (void)
-{
-	/* Check that control_bus_close sets control_bus back to NULL. */
-	TEST_FUNCTION ("control_bus_close");
-	assert0 (control_bus_open ());
-	assert (control_bus != NULL);
-
-	control_bus_close ();
-
-	TEST_EQ_P (control_bus, NULL);
-
-	dbus_shutdown ();
-}
 
 
 int
 main (int   argc,
       char *argv[])
 {
+	test_server_open ();
+	test_server_connect ();
+	test_server_close ();
+
 	test_bus_open ();
-	test_bus_disconnected ();
 	test_bus_close ();
+
+	test_disconnected ();
 
 	return 0;
 }

@@ -1,5 +1,31 @@
 2008-05-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_server_open, control_server_close)
+	(control_server_connect): Create and manage a listening d-bus server
+	that is used for private direct connections to Upstart for when the
+	d-bus daemon is not available.  Each new connection has the same
+	objects as the d-bus system bus, they only differ in their method.
+	(control_conns, control_init): Cache the open connections, including
+	the bus daemon and any private connections; we'll iterate this list
+	when sending signals.
+	(control_bus_open): Store connection in the list, don't worry about
+	setting close-on-exec, we check that by test case and rely on d-bus
+	to do it.
+	(control_bus_disconnected): Rename to control_disconnected
+	(control_disconnected): Work for system bus and private connections,
+	remove from the connections list.
+	* init/control.h: Add prototypes, remove global definition of bus
+	name to just being private again.
+	* init/tests/test_control.c (test_server_open, test_server_close)
+	(test_server_connect): Test the new functions.
+	(test_bus_open): add check for list entry
+	(test_bus_disconnected): rename to test_disconnected
+	* init/main.c: Open the listening server, warning if we're unable
+	to do so (but we won't treat it as a hard error since there's the
+	d-bus daemon as the default anyway).
+	* init/init.supp: suppress the fact that the control connections
+	list stays around.
+
 	* init/job_process.c (job_process_run): Use NIH_ZERO instead of
 	NIH_MUST and == 0
 

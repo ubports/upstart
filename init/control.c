@@ -32,6 +32,7 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/list.h>
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
@@ -43,10 +44,34 @@
 #include "errors.h"
 
 
-/* Prototypes for static functions */
-static void  control_bus_disconnected (DBusConnection *conn);
-static int   control_register_all     (DBusConnection *conn);
+/**
+ * CONTORL_SERVER_ADDRESS:
+ *
+ * D-Bus address of our internal server used for private connections.
+ **/
+#define CONTROL_SERVER_ADDRESS "unix:abstract=/com/ubuntu/upstart"
 
+/**
+ * CONTROL_BUS_NAME:
+ *
+ * Well-known name that we register on the system bus so that clients may
+ * contact us.
+ **/
+#define CONTROL_BUS_NAME "com.ubuntu.Upstart"
+
+
+/* Prototypes for static functions */
+static int   control_server_connect (DBusServer *server, DBusConnection *conn);
+static void  control_disconnected   (DBusConnection *conn);
+static int   control_register_all   (DBusConnection *conn);
+
+
+/**
+ * control_server:
+ *
+ * D-Bus server listening for new direct connections.
+ **/
+DBusServer *control_server = NULL;
 
 /**
  * control_bus:
@@ -55,6 +80,15 @@ static int   control_register_all     (DBusConnection *conn);
  * control_bus_open() and if lost will become NULL.
  **/
 DBusConnection *control_bus = NULL;
+
+/**
+ * control_conns:
+ *
+ * Open control connections, including the connection to the D-Bus system
+ * bus and any private client connections.
+ **/
+NihList *control_conns = NULL;
+
 
 /**
  * control_manager:
@@ -67,11 +101,105 @@ const static NihDBusInterface *control_manager[] = {
 
 
 /**
+ * control_init:
+ *
+ * Initialise the control connections list.
+ **/
+void
+control_init (void)
+{
+	if (! control_conns)
+		NIH_MUST (control_conns = nih_list_new (NULL));
+}
+
+
+/**
+ * control_server_open:
+ *
+ * Open a listening D-Bus server and store it in the control_server global.
+ * New connections are permitted from the root user, and handled
+ * automatically in the main loop.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_server_open (void)
+{
+	DBusServer *server;
+
+	nih_assert (control_server == NULL);
+
+	control_init ();
+
+	server = nih_dbus_server (CONTROL_SERVER_ADDRESS,
+				  control_server_connect,
+				  control_disconnected);
+	if (! server)
+		return -1;
+
+	control_server = server;
+
+	return 0;
+}
+
+/**
+ * control_server_connect:
+ *
+ * Called when a new client connects to our server and is used to register
+ * objects on the new connection.
+ *
+ * Returns: always TRUE.
+ **/
+static int
+control_server_connect (DBusServer     *server,
+			DBusConnection *conn)
+{
+	NihListEntry *entry;
+
+	nih_assert (server != NULL);
+	nih_assert (server == control_server);
+	nih_assert (conn != NULL);
+
+	nih_info (_("Connection from private client"));
+
+	/* Register objects on the connection. */
+	NIH_ZERO (control_register_all (conn));
+
+	/* Add the connection to the list */
+	NIH_MUST (entry = nih_list_entry_new (NULL));
+
+	entry->data = conn;
+
+	nih_list_add (control_conns, &entry->entry);
+
+	return TRUE;
+}
+
+/**
+ * control_server_close:
+ *
+ * Close the connection to the D-Bus system bus.  Since the connection is
+ * shared inside libdbus, this really only drops our reference to it so
+ * it's possible to have method and signal handlers called even after calling
+ * this (normally to dispatch what's in the queue).
+ **/
+void
+control_server_close (void)
+{
+	nih_assert (control_server != NULL);
+
+	dbus_server_disconnect (control_server);
+	dbus_server_unref (control_server);
+
+	control_server = NULL;
+}
+
+
+/**
  * control_bus_open:
  *
  * Open a connection to the D-Bus system bus and store it in the control_bus
- * global.  The connection is handled automatically in the main loop and
- * will be closed should we exec() a different process.
+ * global.  The connection is handled automatically in the main loop.
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -80,23 +208,19 @@ control_bus_open (void)
 {
 	DBusConnection *conn;
 	DBusError       error;
-	int             fd, ret;
+	NihListEntry   *entry;
+	int             ret;
 
 	nih_assert (control_bus == NULL);
+
+	control_init ();
 
 	/* Connect to the D-Bus System Bus and hook everything up into
 	 * our own main loop automatically.
 	 */
-	conn = nih_dbus_bus (DBUS_BUS_SYSTEM, control_bus_disconnected);
+	conn = nih_dbus_bus (DBUS_BUS_SYSTEM, control_disconnected);
 	if (! conn)
 		return -1;
-
-	/* In theory all D-Bus file descriptors are set to be closed on exec
-	 * anyway, but there's no harm in making damned sure since that's
-	 * not actually documented anywhere that I can tell.
-	 */
-	if (dbus_connection_get_unix_fd (conn, &fd))
-		nih_io_set_cloexec (fd);
 
 	/* Register objects on the bus. */
 	if (control_register_all (conn) < 0) {
@@ -130,27 +254,18 @@ control_bus_open (void)
 		return -1;
 	}
 
+
+	/* Add the connection to the list */
+	NIH_MUST (entry = nih_list_entry_new (NULL));
+
+	entry->data = conn;
+
+	nih_list_add (control_conns, &entry->entry);
+
+
 	control_bus = conn;
 
 	return 0;
-}
-
-/**
- * control_bus_disconnected:
- *
- * This function is called when the connection to the D-Bus system bus is
- * dropped and our reference is about to be lost.  We simply clear the
- * control_bus global.
- **/
-static void
-control_bus_disconnected (DBusConnection *conn)
-{
-	nih_assert (conn != NULL);
-
-	if (control_bus)
-		nih_warn (_("Disconnected from system bus"));
-
-	control_bus = NULL;
 }
 
 /**
@@ -168,7 +283,36 @@ control_bus_close (void)
 
 	dbus_connection_unref (control_bus);
 
-	control_bus = NULL;
+	control_disconnected (control_bus);
+}
+
+
+/**
+ * control_disconnected:
+ *
+ * This function is called when the connection to the D-Bus system bus,
+ * or a client connection to our D-Bus server, is dropped and our reference
+ * is about to be list.  We clear the connection from our current list
+ * and drop the control_bus global if relevant.
+ **/
+static void
+control_disconnected (DBusConnection *conn)
+{
+	nih_assert (conn != NULL);
+
+	if (conn == control_bus) {
+		nih_warn (_("Disconnected from system bus"));
+
+		control_bus = NULL;
+	}
+
+	/* Remove from the connections list */
+	NIH_LIST_FOREACH_SAFE (control_conns, iter) {
+		NihListEntry *entry = (NihListEntry *)iter;
+
+		if (entry->data == conn)
+			nih_free (entry);
+	}
 }
 
 

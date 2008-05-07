@@ -272,6 +272,20 @@ main (int   argc,
 
 	conf_reload ();
 
+	/* Create a listening server for private connections. */
+	while (control_server_open () < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		if (err->number != ENOMEM) {
+			nih_warn ("%s: %s", _("Unable to listen for private connections"),
+				  err->message);
+			nih_free (err);
+			break;
+		}
+		nih_free (err);
+	}
+
 	/* Open connection to the system bus; we normally expect this to
 	 * fail and will try again later - don't let ENOMEM stop us though.
 	 */

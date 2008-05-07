@@ -50,6 +50,17 @@
    fun:conf_init
 }
 
+{
+   control-init
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:nih_alloc_using
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:control_init
+}
+
 # job_run_process will leak its args member to children, knowing full
 # well they will either exec() or exit()
 {

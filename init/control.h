@@ -27,14 +27,6 @@
 
 
 /**
- * CONTROL_BUS_NAME:
- *
- * Well-known name that we register on the system bus so that clients may
- * contact us.
- **/
-#define CONTROL_BUS_NAME "com.ubuntu.Upstart"
-
-/**
  * CONTROL_ROOT:
  *
  * Well-known object name that we register for the manager object, and that
@@ -45,11 +37,20 @@
 
 NIH_BEGIN_EXTERN
 
+DBusServer     *control_server;
 DBusConnection *control_bus;
 
+NihList        *control_conns;
 
-int   control_bus_open        (void);
-void  control_bus_close       (void);
+void control_init         (void);
+
+int  control_server_open  (void)
+	__attribute__ ((warn_unused_result));
+void control_server_close (void);
+
+int  control_bus_open     (void)
+	__attribute__ ((warn_unused_result));
+void control_bus_close    (void);
 
 NIH_END_EXTERN
 
