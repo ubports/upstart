@@ -53,7 +53,7 @@ esac
 
 
 AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
-		  nih/Makefile init/Makefile doc/Makefile ])
+		  nih/Makefile init/Makefile dbus/Makefile doc/Makefile ])
 # util/Makefile compat/sysv/Makefile logd/Makefile
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

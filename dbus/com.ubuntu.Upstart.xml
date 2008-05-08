@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<node name="/com/ubuntu/Upstart">
+  <interface name="com.ubuntu.Upstart">
+  </interface>
+</node>

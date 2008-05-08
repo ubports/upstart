@@ -1,5 +1,16 @@
 2008-05-08  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml: Initially empty description for
+	manager object interface(s).
+	* dbus/com.ubuntu.Upstart.Job.xml: Initially empty description
+	for job class object interface(s).
+	* dbus/com.ubuntu.Upstart.Instance.xml: Initially empty
+	description for job instance object interface(s).
+	* dbus/Makefile.am: Distribute the three interface files,
+	they're used as sources elsewhere.
+	* configure.ac (AC_CONFIG_FILES): Generate dbus/Makefile
+	* Makefile.am (SUBDIRS): Descend into the dbus sub-directory.
+
 	* init/job_class.c (job_class_consider, job_class_reconsider):
 	Separate out the actual meat of the functions, since it's largely
 	duplicated between the two.  This makes the difference between
