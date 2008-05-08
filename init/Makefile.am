@@ -55,20 +55,17 @@ BUILT_SOURCES = \
 com.ubuntu.Upstart.c com.ubuntu.Upstart.h: \
 		../dbus/com.ubuntu.Upstart.xml
 	$(top_builddir)/nih/nih-dbus-tool \
-		--mode=object --prefix=control --data-type="void *" \
-		--output=$@ $<
+		--mode=object --prefix=control --output=$@ $<
 
 com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h: \
 		../dbus/com.ubuntu.Upstart.Job.xml
 	$(top_builddir)/nih/nih-dbus-tool \
-		--mode=object --prefix=job_class --data-type="JobClass *" \
-		--output=$@ $<
+		--mode=object --prefix=job_class --output=$@ $<
 
 com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h: \
 		../dbus/com.ubuntu.Upstart.Instance.xml
 	$(top_builddir)/nih/nih-dbus-tool \
-		--mode=object --prefix=job --data-type="Job *" \
-		--output=$@ $<
+		--mode=object --prefix=job --output=$@ $<
 
 CLEANFILES = $(BUILT_SOURCES)
 

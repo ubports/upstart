@@ -1,5 +1,10 @@
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (com.ubuntu.Upstart.c com.ubuntu.Upstart.h)
+	(com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h)
+	(com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h):
+	Drop setting of data-type, turns out it doesn't work anyway.
+
 	* dbus/Upstart.conf: Add configuration file.
 	* dbus/Makefile.am (dbussystemdir, dist_dbussystem_DATA): Install
 	the configuration file into the right place.
