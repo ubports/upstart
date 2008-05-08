@@ -44,6 +44,8 @@
 #include "conf.h"
 #include "control.h"
 
+#include "com.ubuntu.Upstart.Job.h"
+
 
 /**
  * JOB_DEFAULT_KILL_TIMEOUT:
@@ -108,6 +110,7 @@ NihHash *job_classes = NULL;
  * Interfaces exported by job class objects.
  **/
 const static NihDBusInterface *job_class_interfaces[] = {
+	&com_ubuntu_Upstart_Job,
 	NULL
 };
 

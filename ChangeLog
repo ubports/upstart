@@ -1,5 +1,12 @@
 2008-05-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (manager_interfaces): Export the general
+	com.ubuntu.Upstart interface
+	* init/job_class.c (job_class_interfaces): Export the
+	com.ubuntu.Upstart.Job interface
+	* init/job.c (job_interfaces): Export the
+	com.ubuntu.Upstart.Instance interface
+
 	* init/Makefile.am (BUILT_SOURCES)
 	(com.ubuntu.Upstart.c com.ubuntu.Upstart.h)
 	(com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h)

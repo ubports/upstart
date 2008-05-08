@@ -48,6 +48,8 @@
 #include "event_operator.h"
 #include "control.h"
 
+#include "com.ubuntu.Upstart.Instance.h"
+
 
 /**
  * job_interfaces:
@@ -55,6 +57,7 @@
  * Interfaces exported by job objects.
  **/
 const static NihDBusInterface *job_interfaces[] = {
+	&com_ubuntu_Upstart_Instance,
 	NULL
 };
 

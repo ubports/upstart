@@ -44,6 +44,8 @@
 #include "control.h"
 #include "errors.h"
 
+#include "com.ubuntu.Upstart.h"
+
 
 /**
  * CONTORL_SERVER_ADDRESS:
@@ -97,6 +99,7 @@ NihList *control_conns = NULL;
  * Interfaces exported by the control manager object.
  **/
 const static NihDBusInterface *manager_interfaces[] = {
+	&com_ubuntu_Upstart,
 	NULL
 };
 
