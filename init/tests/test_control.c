@@ -898,6 +898,87 @@ test_disconnected (void)
 }
 
 
+void
+test_get_job_by_name (void)
+{
+	NihDBusMessage *message;
+	JobClass       *class;
+	const char     *path;
+	NihError       *error;
+	NihDBusError   *dbus_error;
+	int             ret;
+
+	TEST_FUNCTION ("control_get_job_by_name");
+	nih_error_init ();
+
+	class = job_class_new (NULL, "test");
+	nih_hash_add (job_classes, &class->entry);
+
+
+	/* Check that when given a known job name, the path to that job
+	 * is returned as a duplicate child of the message structure.
+	 */
+	TEST_FEATURE ("with known job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_job_by_name (NULL, message, "test", &path);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (path, message);
+		TEST_EQ_STR (path, class->path);
+
+		nih_free (message);
+	}
+
+
+	/* Check that when given an unknown job name, an unknown job
+	 * D-Bus error is raised and an error returned.
+	 */
+	TEST_FEATURE ("with unknown job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_job_by_name (NULL, message, "foo", &path);
+
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_error = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_error->name,
+			     "com.ubuntu.Upstart.Error.UnknownJob");
+
+		nih_free (error);
+
+		nih_free (message);
+	}
+
+
+	nih_free (class);
+}
+
 
 int
 main (int   argc,
@@ -911,6 +992,8 @@ main (int   argc,
 	test_bus_close ();
 
 	test_disconnected ();
+
+	test_get_job_by_name ();
 
 	return 0;
 }

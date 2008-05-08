@@ -344,3 +344,49 @@ control_register_all (DBusConnection *conn)
 		job_class_register (class, conn);
 	}
 }
+
+
+/**
+ * control_get_job_by_name:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @name: name of job to get,
+ * @job: pointer for object path reply.
+ *
+ * Implements the GetJobByName method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to obtain the path to a D-Bus object for the job named @name,
+ * which will be stored in @job.  If no job class with that name exists,
+ * the com.ubuntu.Upstart.Error.UnknownJob D-Bus error will be raised.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_job_by_name (void            *data,
+			 NihDBusMessage  *message,
+			 const char      *name,
+			 const char     **job)
+{
+	JobClass *class;
+
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
+	nih_assert (job != NULL);
+
+	job_class_init ();
+
+	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	if (! class) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.UnknownJob",
+			_("Unknown job: %s"), name);
+		return -1;
+	}
+
+	*job = nih_strdup (message, class->path);
+	if (! *job)
+		nih_return_system_error (-1);
+
+	return 0;
+}

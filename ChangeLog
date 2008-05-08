@@ -1,3 +1,11 @@
+2008-05-09  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/com.ubuntu.Upstart.xml (GetJobByName): Add method
+	* init/control.c (control_get_job_by_name): Implementation.
+	* init/control.h: Prototype.
+	* init/tests/test_control.c (test_get_job_by_name): Test the
+	method using a fake message.
+
 2008-05-08  Scott James Remnant  <scott@netsplit.com>
 
 	* dbus/com.ubuntu.Upstart.xml, dbus/com.ubuntu.Upstart.Job.xml,
