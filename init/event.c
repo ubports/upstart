@@ -398,6 +398,8 @@ event_pending_handle_jobs (Event *event)
 			if (name)
 				nih_free (name);
 
+			nih_debug ("New instance %s", job_name (job));
+
 			/* Start the job with the environment we want */
 			if (job->goal != JOB_START) {
 				if (job->start_env)

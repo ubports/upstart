@@ -464,7 +464,7 @@ test_change_state (void)
 	ConfSource    *source = NULL;
 	ConfFile      *file = NULL;
 	JobClass      *class, *replacement = NULL, *ptr;
-	Job           *job = NULL;
+	Job           *job = NULL, *instance = NULL;
 	NihList       *list = NULL;
 	NihListEntry  *entry = NULL;
 	Event         *cause, *event;
@@ -3329,6 +3329,89 @@ test_change_state (void)
 		nih_free (replacement);
 		nih_free (source);
 	}
+
+
+	/* Check that a job with a remaining running instance is not deleted,
+	 * and is not replaced even if there is another waiting - only the
+	 * instance should be deleted.
+	 */
+	TEST_FEATURE ("post-stop to waiting for still active job");
+	class->deleted = TRUE;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+			file = conf_file_new (source, "/tmp/test");
+			file->job = job_class_new (NULL, "test");
+			replacement = file->job;
+
+			job = job_new (class, NULL);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+
+			instance = job_new (class, NULL);
+			instance->goal = JOB_START;
+			instance->state = JOB_RUNNING;
+		}
+
+		nih_hash_add (job_classes, &class->entry);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (class);
+		TEST_FREE_TAG (job);
+		TEST_FREE_TAG (instance);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_NOT_FREE (class);
+		TEST_FREE (job);
+		TEST_NOT_FREE (instance);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "RESULT=failed");
+		TEST_EQ_STR (event->env[2], "PROCESS=main");
+		TEST_EQ_STR (event->env[3], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[4], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		ptr = (JobClass *)nih_hash_lookup (job_classes, "test");
+		TEST_EQ_P (ptr, class);
+
+		file->job = NULL;
+		nih_free (replacement);
+		nih_free (source);
+
+		nih_free (instance);
+	}
+
+	class->deleted = FALSE;
 
 
 	/* Check that a job with a deleted source can move from post-stop

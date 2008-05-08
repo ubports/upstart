@@ -261,6 +261,7 @@ job_change_state (Job      *job,
 
 	while (job->state != state) {
 		JobState old_state;
+		int      unused;
 
 		nih_assert (job->blocked == NULL);
 
@@ -435,15 +436,19 @@ job_change_state (Job      *job,
 			 * and there is one.
 			 */
 			nih_list_remove (&job->entry);
-			job_class_reconsider (job->class);
+			unused = job_class_reconsider (job->class);
 
 			/* If the class is due to be deleted, free it
 			 * taking the job with it; otherwise free the
 			 * job.
 			 */
-			if (job->class->deleted) {
+			if (job->class->deleted && unused) {
+				nih_debug ("Destroyed unused job %s",
+					   job->class->name);
 				nih_free (job->class);
 			} else {
+				nih_debug ("Destroyed inactive instance %s",
+					   job_name (job));
 				nih_free (job);
 			}
 

@@ -1,3 +1,17 @@
+2008-05-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_job.c (test_change_state): Check for a bug where
+	a job with multiple instances will be freed when one instance is
+	deleted rather than the last instance.
+	* init/job.c (job_change_state): Add debugging messages when we
+	destroy a job that's no longer the current one or an instance
+	that's no longer active; also ensure that we never destroy a job
+	that's the current one.
+	* init/event.c (event_pending_handle_jobs): Add a debugging message
+	when we create a new instance of a job.
+	* init/conf.c (conf_file_destroy): Add a debugging message when
+	we destroy a job that's no longer the current one.
+
 2008-05-07  Scott James Remnant  <scott@netsplit.com>
 
 	* init/control.c (control_server_open, control_server_close)

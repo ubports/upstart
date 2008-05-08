@@ -783,8 +783,10 @@ conf_file_destroy (ConfFile *file)
 		 * if it is, try and replace it.  If it wasn't the current
 		 * job, or isn't after replacement, we can free it now.
 		 */
-		if (job_class_reconsider (file->job))
+		if (job_class_reconsider (file->job)) {
+			nih_debug ("Destroyed unused job %s", file->job->name);
 			nih_free (file->job);
+		}
 
 		break;
 	default:
