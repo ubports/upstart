@@ -40,6 +40,7 @@
 
 #include <nih/dbus.h>
 
+#include "job_class.h"
 #include "control.h"
 #include "errors.h"
 
@@ -63,7 +64,7 @@
 /* Prototypes for static functions */
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
-static int   control_register_all   (DBusConnection *conn);
+static void  control_register_all   (DBusConnection *conn);
 
 
 /**
@@ -91,11 +92,11 @@ NihList *control_conns = NULL;
 
 
 /**
- * control_manager:
+ * manager_interfaces:
  *
  * Interfaces exported by the control manager object.
  **/
-const static NihDBusInterface *control_manager[] = {
+const static NihDBusInterface *manager_interfaces[] = {
 	NULL
 };
 
@@ -163,7 +164,7 @@ control_server_connect (DBusServer     *server,
 	nih_info (_("Connection from private client"));
 
 	/* Register objects on the connection. */
-	NIH_ZERO (control_register_all (conn));
+	control_register_all (conn);
 
 	/* Add the connection to the list */
 	NIH_MUST (entry = nih_list_entry_new (NULL));
@@ -223,13 +224,7 @@ control_bus_open (void)
 		return -1;
 
 	/* Register objects on the bus. */
-	if (control_register_all (conn) < 0) {
-		errno = ENOMEM;
-		nih_error_raise_system ();
-
-		dbus_connection_unref (conn);
-		return -1;
-	}
+	control_register_all (conn);
 
 	/* Request our well-known name.  We do this last so that once it
 	 * appears on the bus, clients can assume we're ready to talk to
@@ -323,19 +318,26 @@ control_disconnected (DBusConnection *conn)
  * Registers the manager object and objects for all jobs and instances on
  * the given connection.
  **/
-static int
+static void
 control_register_all (DBusConnection *conn)
 {
+	nih_assert (conn != NULL);
+
+	job_class_init ();
 
 	/* Register the manager object, this is the primary point of contact
 	 * for clients.  We only check for success, otherwise we're happy
 	 * to let this object be tied to the lifetime of the connection.
 	 */
-	if (! nih_dbus_object_new (NULL, conn, CONTROL_ROOT, control_manager,
-				   NULL))
-		return -1;
+	NIH_MUST (nih_dbus_object_new (NULL, conn, CONTROL_ROOT,
+				       manager_interfaces, NULL));
 
-	/* FIXME register objects for jobs and their instances */
+	/* Register objects for each currently registered job and its
+	 * instances.
+	 */
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
 
-	return 0;
+		job_class_register (class, conn);
+	}
 }

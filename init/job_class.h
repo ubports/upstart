@@ -30,6 +30,8 @@
 #include <nih/list.h>
 #include <nih/hash.h>
 
+#include <nih/dbus.h>
+
 #include "process.h"
 #include "event_operator.h"
 
@@ -161,6 +163,9 @@ JobClass  * job_class_new         (const void *parent, const char *name)
 
 int         job_class_consider    (JobClass *class);
 int         job_class_reconsider  (JobClass *class);
+
+void        job_class_register    (JobClass *class, DBusConnection *conn);
+void        job_class_unregister  (JobClass *class, DBusConnection *conn);
 
 char      **job_class_environment (const void *parent, JobClass *class,
 				   size_t *len)

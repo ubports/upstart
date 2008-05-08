@@ -46,6 +46,8 @@
 
 #include <nih/dbus.h>
 
+#include "job_class.h"
+#include "job.h"
 #include "control.h"
 #include "errors.h"
 
@@ -127,22 +129,97 @@ void
 test_server_connect (void)
 {
 	NihListEntry   *entry;
+	NihDBusObject  *object;
 	DBusConnection *conn;
+	JobClass       *class1, *class2;
+	Job            *job1, *job2;
 	pid_t           pid;
 	int             fd, wait_fd, status;
-	void           *data;
 
 	TEST_FUNCTION ("control_server_connect");
 	program_name = "test";
 	control_init ();
 	nih_io_init ();
 
+	assert0 (control_server_open ());
+	assert (NIH_LIST_EMPTY (control_conns));
+
+
 	/* Check that a new connection to our server is accepted and stored
 	 * in the connections list, with the manager object registered on
 	 * it.
 	 */
-	assert0 (control_server_open ());
-	assert (NIH_LIST_EMPTY (control_conns));
+	TEST_FEATURE ("with no jobs");
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		DBusConnection *conn;
+
+		control_server_close ();
+
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart",
+					 NULL);
+		assert (conn != NULL);
+
+		TEST_CHILD_RELEASE (wait_fd);
+
+		nih_main_loop ();
+
+		dbus_connection_unref (conn);
+
+		dbus_shutdown ();
+
+		exit (0);
+	}
+
+	assert (nih_timer_add_timeout (NULL, 1,
+				       (NihTimerCb)nih_main_term_signal, NULL));
+
+	nih_main_loop ();
+
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_NE_P (entry->data, NULL);
+
+	conn = entry->data;
+
+	dbus_connection_get_unix_fd (conn, &fd);
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 "/com/ubuntu/Upstart",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_P (object->data, NULL);
+
+	kill (pid, SIGTERM);
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	dbus_connection_close (conn);
+	dbus_connection_unref (conn);
+
+	nih_free (entry);
+
+
+	/* Check that when there are existing jobs and instances, the
+	 * new connection has them automatically registered.
+	 */
+	TEST_FEATURE ("with existing jobs");
+	class1 = job_class_new (NULL, "foo");
+	nih_hash_add (job_classes, &class1->entry);
+
+	class2 = job_class_new (NULL, "bar");
+	job1 = job_new (class2, "test1");
+	job2 = job_new (class2, "test2");
+	nih_hash_add (job_classes, &class2->entry);
 
 	TEST_CHILD_WAIT (pid, wait_fd) {
 		DBusConnection *conn;
@@ -186,23 +263,61 @@ test_server_connect (void)
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
 							 "/com/ubuntu/Upstart",
-							 &data));
-	TEST_NE_P (data, NULL);
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_P (object->data, NULL);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 "/com/ubuntu/Upstart/jobs/foo",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/foo");
+	TEST_EQ_P (object->data, class1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 "/com/ubuntu/Upstart/jobs/bar",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar");
+	TEST_EQ_P (object->data, class2);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 "/com/ubuntu/Upstart/jobs/bar/test1",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test1");
+	TEST_EQ_P (object->data, job1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 "/com/ubuntu/Upstart/jobs/bar/test2",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test2");
+	TEST_EQ_P (object->data, job2);
 
 	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	control_server_close ();
-
 	dbus_connection_close (conn);
 	dbus_connection_unref (conn);
 
 	nih_free (entry);
 
-	dbus_shutdown ();
+	nih_free (class1);
+	nih_free (class2);
 
+
+	control_server_close ();
+
+	dbus_shutdown ();
 }
 
 void
@@ -299,12 +414,14 @@ my_connect_handler (DBusServer     *server,
 void
 test_bus_open (void)
 {
-	FILE         *output;
-	NihError     *err;
-	NihListEntry *entry;
-	pid_t         pid;
-	int           ret, wait_fd, fd, status;
-	void         *data;
+	FILE          *output;
+	JobClass      *class1, *class2;
+	Job           *job1, *job2;
+	NihError      *err;
+	NihListEntry  *entry;
+	NihDBusObject *object;
+	pid_t          pid;
+	int            ret, wait_fd, fd, status;
 
 	TEST_FUNCTION ("control_bus_open");
 	program_name = "test";
@@ -368,8 +485,11 @@ test_bus_open (void)
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
 							 "/com/ubuntu/Upstart",
-							 &data));
-	TEST_NE_P (data, NULL);
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_P (object->data, NULL);
 
 	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
@@ -384,6 +504,121 @@ test_bus_open (void)
 	dbus_shutdown ();
 
 	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
+
+
+	/* Check that existing jobs and instances are registered on the
+	 * new bus connection.
+	 */
+	TEST_FEATURE ("with existing jobs");
+	drop_connection = FALSE;
+	refuse_registration = FALSE;
+	server_conn = NULL;
+
+	class1 = job_class_new (NULL, "foo");
+	nih_hash_add (job_classes, &class1->entry);
+
+	class2 = job_class_new (NULL, "bar");
+	job1 = job_new (class2, "test1");
+	job2 = job_new (class2, "test2");
+	nih_hash_add (job_classes, &class2->entry);
+
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		DBusServer *server;
+
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		server = nih_dbus_server ("unix:abstract=/com/ubuntu/upstart/test",
+					  my_connect_handler, NULL);
+
+		TEST_CHILD_RELEASE (wait_fd);
+
+		nih_main_loop ();
+
+		assert (server_conn != NULL);
+
+		dbus_connection_close (server_conn);
+		dbus_connection_unref (server_conn);
+
+		dbus_server_disconnect (server);
+		dbus_server_unref (server);
+
+		dbus_shutdown ();
+
+		exit (0);
+	}
+
+	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
+
+	ret = control_bus_open ();
+
+	TEST_EQ (ret, 0);
+	TEST_NE_P (control_bus, NULL);
+
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_EQ_P (entry->data, control_bus);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 "/com/ubuntu/Upstart",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_P (object->data, NULL);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 "/com/ubuntu/Upstart/jobs/foo",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/foo");
+	TEST_EQ_P (object->data, class1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 "/com/ubuntu/Upstart/jobs/bar",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar");
+	TEST_EQ_P (object->data, class2);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 "/com/ubuntu/Upstart/jobs/bar/test1",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test1");
+	TEST_EQ_P (object->data, job1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 "/com/ubuntu/Upstart/jobs/bar/test2",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test2");
+	TEST_EQ_P (object->data, job2);
+
+	kill (pid, SIGTERM);
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_DIVERT_STDERR (output) {
+		control_bus_close ();
+	}
+	rewind (output);
+
+	dbus_shutdown ();
+
+	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
+
+	nih_free (class1);
+	nih_free (class2);
 
 
 	/* Check that if the system bus drops the connection during

@@ -44,9 +44,12 @@
 #include <nih/io.h>
 #include <nih/main.h>
 
+#include <nih/dbus.h>
+
 #include "event.h"
 #include "job.h"
 #include "conf.h"
+#include "control.h"
 
 
 void
@@ -135,13 +138,25 @@ test_new (void)
 void
 test_consider (void)
 {
-	ConfSource *source1, *source2, *source3;
-	ConfFile   *file1, *file2, *file3;
-	JobClass   *class1, *class2, *class3, *class4, *ptr;
-	Job        *job;
-	int         ret;
+	DBusConnection *conn;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+	ConfSource     *source1, *source2, *source3;
+	ConfFile       *file1, *file2, *file3;
+	JobClass       *class1, *class2, *class3, *class4, *ptr;
+	Job            *job;
+	int             ret;
 
 	TEST_FUNCTION ("job_class_consider");
+	control_init ();
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
 
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
@@ -168,7 +183,16 @@ test_consider (void)
 	TEST_TRUE (ret);
 	TEST_EQ_P (ptr, class1);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class1->path);
+	TEST_EQ_P (object->data, class1);
+
 	nih_list_remove (&class1->entry);
+	job_class_unregister (class1, conn);
 
 
 	/* Check that when there is no registered class and we consider a
@@ -183,7 +207,16 @@ test_consider (void)
 	TEST_FALSE (ret);
 	TEST_EQ_P (ptr, class1);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class1->path);
+	TEST_EQ_P (object->data, class1);
+
 	nih_list_remove (&class1->entry);
+	job_class_unregister (class1, conn);
 
 
 	/* Check that when there is a registered class that cannot be
@@ -191,11 +224,16 @@ test_consider (void)
 	 * if our class is better.
 	 */
 	TEST_FEATURE ("with registered class that cannot be replaced");
+	nih_list_remove (&entry->entry);
+
 	job = job_new (class3, NULL);
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
+	nih_list_add (control_conns, &entry->entry);
+
 	nih_hash_add (job_classes, &class3->entry);
+	job_class_register (class3, conn);
 
 	ret = job_class_consider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -203,8 +241,16 @@ test_consider (void)
 	TEST_FALSE (ret);
 	TEST_EQ_P (ptr, class3);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class3->path,
+							 (void **)&object));
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class3->path);
+	TEST_EQ_P (object->data, class3);
+
 	nih_free (job);
 	nih_list_remove (&class3->entry);
+	job_class_unregister (class3, conn);
 
 
 	/* Check that when there is a registered class that can be
@@ -213,6 +259,7 @@ test_consider (void)
 	 */
 	TEST_FEATURE ("with replacable registered class and best class");
 	nih_hash_add (job_classes, &class3->entry);
+	job_class_register (class3, conn);
 
 	ret = job_class_consider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -220,9 +267,18 @@ test_consider (void)
 	TEST_TRUE (ret);
 	TEST_EQ_P (ptr, class1);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class1->path);
+	TEST_EQ_P (object->data, class1);
+
 	TEST_LIST_EMPTY (&class3->entry);
 
 	nih_list_remove (&class1->entry);
+	job_class_unregister (class1, conn);
 
 
 	/* Check that when there is a registered class that can be
@@ -232,6 +288,7 @@ test_consider (void)
 	TEST_FEATURE ("with replacable registered class and not best class");
 	class4 = job_class_new (NULL, "frodo");
 	nih_hash_add (job_classes, &class4->entry);
+	job_class_register (class4, conn);
 
 	ret = job_class_consider (class3);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -239,9 +296,18 @@ test_consider (void)
 	TEST_FALSE (ret);
 	TEST_EQ_P (ptr, class1);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class1->path);
+	TEST_EQ_P (object->data, class1);
+
 	TEST_LIST_EMPTY (&class4->entry);
 
 	nih_list_remove (&class1->entry);
+	job_class_unregister (class1, conn);
 
 	nih_free (class4);
 
@@ -249,18 +315,37 @@ test_consider (void)
 	nih_free (source3);
 	nih_free (source2);
 	nih_free (source1);
+
+
+	nih_free (entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_shutdown ();
 }
 
 void
 test_reconsider (void)
 {
-	ConfSource *source1, *source2, *source3;
-	ConfFile   *file1, *file2, *file3;
-	JobClass   *class1, *class2, *class3, *class4, *ptr;
-	Job        *job;
-	int         ret;
+	DBusConnection *conn;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+	ConfSource     *source1, *source2, *source3;
+	ConfFile       *file1, *file2, *file3;
+	JobClass       *class1, *class2, *class3, *class4, *ptr;
+	Job            *job;
+	int             ret;
 
 	TEST_FUNCTION ("job_class_reconsider");
+	control_init ();
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
 
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
@@ -282,6 +367,7 @@ test_reconsider (void)
 	 */
 	TEST_FEATURE ("with registered best class");
 	nih_hash_add (job_classes, &class1->entry);
+	job_class_register (class1, conn);
 
 	ret = job_class_reconsider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -289,7 +375,16 @@ test_reconsider (void)
 	TEST_FALSE (ret);
 	TEST_EQ_P (ptr, class1);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class1->path);
+	TEST_EQ_P (object->data, class1);
+
 	nih_list_remove (&class1->entry);
+	job_class_unregister (class1, conn);
 
 
 	/* Check that when we reconsider the registered class and it is
@@ -297,6 +392,7 @@ test_reconsider (void)
 	 */
 	TEST_FEATURE ("with registered not best class");
 	nih_hash_add (job_classes, &class3->entry);
+	job_class_register (class3, conn);
 
 	ret = job_class_reconsider (class3);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -304,18 +400,32 @@ test_reconsider (void)
 	TEST_TRUE (ret);
 	TEST_EQ_P (ptr, class1);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class1->path);
+	TEST_EQ_P (object->data, class1);
+
 	nih_list_remove (&class1->entry);
+	job_class_unregister (class1, conn);
 
 
 	/* Check that when we reconsider a class that cannot be replaced,
 	 * it is not, even if there is a better.
 	 */
 	TEST_FEATURE ("with registered not best class that can't be replaced");
+	nih_list_remove (&entry->entry);
+
 	job = job_new (class3, NULL);
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
+	nih_list_add (control_conns, &entry->entry);
+
 	nih_hash_add (job_classes, &class3->entry);
+	job_class_register (class3, conn);
 
 	ret = job_class_reconsider (class3);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -323,8 +433,17 @@ test_reconsider (void)
 	TEST_FALSE (ret);
 	TEST_EQ_P (ptr, class3);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class3->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class3->path);
+	TEST_EQ_P (object->data, class3);
+
 	nih_free (job);
 	nih_list_remove (&class3->entry);
+	job_class_unregister (class3, conn);
 
 
 	/* Check that if the class we reconsidered is not the registered
@@ -332,6 +451,7 @@ test_reconsider (void)
 	 */
 	TEST_FEATURE ("with unregistered class");
 	nih_hash_add (job_classes, &class3->entry);
+	job_class_register (class3, conn);
 
 	ret = job_class_reconsider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -339,7 +459,16 @@ test_reconsider (void)
 	TEST_TRUE (ret);
 	TEST_EQ_P (ptr, class3);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class3->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class3->path);
+	TEST_EQ_P (object->data, class3);
+
 	nih_list_remove (&class3->entry);
+	job_class_unregister (class3, conn);
 
 
 	/* Check that if there is no registered class, an election is
@@ -352,6 +481,11 @@ test_reconsider (void)
 	TEST_TRUE (ret);
 	TEST_EQ_P (ptr, NULL);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class1->path,
+							 (void **)&object));
+	TEST_EQ_P (object, NULL);
+
 
 	/* Check that when there are no more classes left to consider,
 	 * the registered class is simply removed.
@@ -363,6 +497,7 @@ test_reconsider (void)
 
 	class4 = job_class_new (NULL, "frodo");
 	nih_hash_add (job_classes, &class4->entry);
+	job_class_register (class4, conn);
 
 	ret = job_class_reconsider (class4);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -370,7 +505,113 @@ test_reconsider (void)
 	TEST_TRUE (ret);
 	TEST_EQ_P (ptr, NULL);
 
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class4->path,
+							 (void **)&object));
+	TEST_EQ_P (object, NULL);
+
 	nih_free (class4);
+
+
+	nih_free (entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_shutdown ();
+}
+
+
+void
+test_register (void)
+{
+	JobClass       *class;
+	DBusConnection *conn;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+
+	/* Check that we can register an existing job class on the bus
+	 * using its path, create the job first to ensure that it's not
+	 * registered and don't place it in the hash table to ensure that
+	 * it doesn't _get_ registered.
+	 */
+	TEST_FUNCTION ("job_class_register");
+	class = job_class_new (NULL, "test");
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+
+	assert (dbus_connection_get_object_path_data (conn, class->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+	job_class_register (class, conn);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class->path);
+	TEST_EQ_P (object->data, class);
+
+	nih_free (entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_shutdown ();
+
+	nih_free (class);
+}
+
+void
+test_unregister (void)
+{
+	JobClass       *class;
+	DBusConnection *conn;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+
+	/* Check that we can unregister an object for a job class from
+	 * the bus, don't worry about its instances, we can never
+	 * unregister while it has them.
+	 */
+	TEST_FUNCTION ("job_class_unregister");
+	class = job_class_new (NULL, "test");
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+
+	assert (dbus_connection_get_object_path_data (conn, class->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+	job_class_register (class, conn);
+
+	assert (dbus_connection_get_object_path_data (conn, class->path,
+						      (void **)&object));
+	assert (object != NULL);
+	assert (object->data == class);
+
+	job_class_unregister (class, conn);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class->path,
+							 (void **)&object));
+	TEST_EQ_P (object, NULL);
+
+	nih_free (entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_shutdown ();
+
+	nih_free (class);
 }
 
 
@@ -497,6 +738,8 @@ main (int   argc,
 	test_new ();
 	test_consider ();
 	test_reconsider ();
+	test_register ();
+	test_unregister ();
 	test_environment ();
 
 	return 0;

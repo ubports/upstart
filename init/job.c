@@ -36,6 +36,8 @@
 #include <nih/signal.h>
 #include <nih/logging.h>
 
+#include <nih/dbus.h>
+
 #include "events.h"
 #include "environ.h"
 #include "process.h"
@@ -47,7 +49,14 @@
 #include "control.h"
 
 
-/* Prototypes for static functions */
+/**
+ * job_interfaces:
+ *
+ * Interfaces exported by job objects.
+ **/
+const static NihDBusInterface *job_interfaces[] = {
+	NULL
+};
 
 
 /**
@@ -73,6 +82,8 @@ job_new (JobClass   *class,
 
 	nih_assert (class != NULL);
 	nih_assert ((! class->instance) || (name != NULL));
+
+	control_init ();
 
 	job = nih_new (class, Job);
 	if (! job)
@@ -134,12 +145,41 @@ job_new (JobClass   *class,
 
 	nih_list_add (&class->instances, &job->entry);
 
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		job_register (job, conn);
+	}
+
 	return job;
 
 error:
 	nih_free (job);
 	return NULL;
 }
+
+/**
+ * job_register:
+ * @job: job to register,
+ * @conn: connection to register for.
+ *
+ * Register the @job instance with the D-Bus connection @conn, using
+ * the path set when the job was created.
+ **/
+void
+job_register (Job            *job,
+	      DBusConnection *conn)
+{
+	nih_assert (job != NULL);
+	nih_assert (conn != NULL);
+
+	NIH_MUST (nih_dbus_object_new (job, conn, job->path,
+				       job_interfaces, job));
+
+	nih_debug ("Registered instance %s", job->path);
+}
+
 
 /**
  * job_instance:

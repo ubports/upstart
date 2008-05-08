@@ -38,23 +38,30 @@
 #include <nih/hash.h>
 #include <nih/main.h>
 
+#include <nih/dbus.h>
+
 #include "process.h"
 #include "job_class.h"
 #include "job.h"
 #include "event.h"
 #include "event_operator.h"
 #include "conf.h"
+#include "control.h"
 
 
 void
 test_new (void)
 {
-	JobClass      *class;
-	Job           *job;
-	EventOperator *oper;
-	int            i;
+	JobClass       *class;
+	Job            *job;
+	EventOperator  *oper;
+	DBusConnection *conn;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+	int             i;
 
 	TEST_FUNCTION ("job_new");
+	control_init ();
 
 	/* Check that we can create a new job structure; the structure
 	 * should be allocated with nih_alloc, placed in the instances
@@ -153,10 +160,102 @@ test_new (void)
 	}
 
 
+	/* Check that when a D-Bus connection is open, the new instance
+	 * is registered on that connection as an object.
+	 */
+	TEST_FEATURE ("with D-Bus connection");
+	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+	job = job_new (class, "fred");
+
+	TEST_ALLOC_PARENT (job, class);
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->entry);
+
+	TEST_ALLOC_PARENT (job->name, job);
+	TEST_EQ_STR (job->name, "fred");
+
+	TEST_ALLOC_PARENT (job->path, job);
+	TEST_EQ_STR (job->path, "/com/ubuntu/Upstart/jobs/test/fred");
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 job->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, job->path);
+	TEST_EQ_P (object->data, job);
+
+	event_operator_reset (job->stop_on);
+
+	nih_free (job);
+
+	nih_free (entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_shutdown ();
+
+
 	event_operator_reset (class->stop_on);
 
 	nih_free (class);
 }
+
+void
+test_register (void)
+{
+	JobClass       *class;
+	Job            *job;
+	DBusConnection *conn;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+
+	/* Check that we can register an existing job instance on the bus
+	 * using its path, create the job first to ensure that it's not
+	 * registered and don't place it in the hash table to ensure that
+	 * it doesn't _get_ registered.
+	 */
+	TEST_FUNCTION ("job_register");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "fred");
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+
+	assert (dbus_connection_get_object_path_data (conn, job->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+	job_register (job, conn);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 job->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, job->path);
+	TEST_EQ_P (object->data, job);
+
+	nih_free (entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_shutdown ();
+
+	nih_free (class);
+}
+
 
 void
 test_instance (void)
@@ -5142,6 +5241,7 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
+	test_register ();
 	test_instance ();
 	test_change_goal ();
 	test_change_state ();

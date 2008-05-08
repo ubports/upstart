@@ -1,5 +1,39 @@
 2008-05-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_consider, job_class_reconsider):
+	Separate out the actual meat of the functions, since it's largely
+	duplicated between the two.  This makes the difference between
+	the two functions clearer, consider always stages an election
+	no matter which is registered, reconsider only stages an election
+	if the current class is registered.
+	(job_class_select, job_class_remove): Functions containing the
+	common code, which now also handle registering and unregistering
+	the class with D-Bus.  Here is the right place, not in new, since
+	we only export the current best class of a given name.
+	(job_class_register, job_class_unregister): Function to register
+	a job and its instances, and to unregister a job (we assert that
+	there must be no instances for us to do this).
+	* init/job_class.h: Add prototypes.
+	* init/tests/test_job_class.c (test_consider, test_reconsider):
+	Check that D-Bus registration and unregistration happens as
+	expected.
+	(test_register, test_unregister): test on their own.
+	* init/job.c (job_new): Register instances with D-Bus, since
+	instances can only ever exist for active classes, all instances
+	are always registered on the bus.
+	(job_register): Function to register an instance on the bus.
+	* init/job.h: Add prototype.
+	* init/tests/test_job.c (test_new): Test creating a job with an
+	active d-bus connection, which should have it registered.
+	(test_register): Test registration on its own.
+	* init/control.c (control_register_all): Make this always succeed,
+	and register existing jobs on the new connection.
+	(control_server_connect, control_bus_open): registration is
+	always successful.
+	* init/tests/test_control.c (test_server_connect, test_bus_open):
+	Test with existing jobs when we get a connection or create the
+	bus connection, ensure that the jobs and instances are registered.
+
 	* init/tests/test_job.c (test_change_state): Check for a bug where
 	a job with multiple instances will be freed when one instance is
 	deleted rather than the last instance.

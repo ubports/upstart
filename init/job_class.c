@@ -34,9 +34,12 @@
 #include <nih/hash.h>
 #include <nih/logging.h>
 
+#include <nih/dbus.h>
+
 #include "environ.h"
 #include "process.h"
 #include "job_class.h"
+#include "job.h"
 #include "event_operator.h"
 #include "conf.h"
 #include "control.h"
@@ -84,6 +87,11 @@
 	"TERM"
 
 
+/* Prototypes for static functions */
+static JobClass *job_class_select (const char *name);
+static int       job_class_remove (JobClass *class);
+
+
 /**
  * job_classes:
  *
@@ -92,6 +100,16 @@
  * are not permitted.
  **/
 NihHash *job_classes = NULL;
+
+
+/**
+ * job_class_interfaces:
+ *
+ * Interfaces exported by job class objects.
+ **/
+const static NihDBusInterface *job_class_interfaces[] = {
+	NULL
+};
 
 
 /**
@@ -226,15 +244,12 @@ job_class_consider (JobClass *class)
 	job_class_init ();
 
 	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
-	if (registered) {
-		if (! NIH_LIST_EMPTY (&registered->instances))
+	if (registered)
+		if (! job_class_remove (registered))
 			return FALSE;
 
-		nih_list_remove (&registered->entry);
-	}
-
-	registered = conf_select_job (class->name);
-	nih_hash_add (job_classes, &registered->entry);
+	registered = job_class_select (class->name);
+	nih_assert (registered != NULL);
 
 	return (registered == class ? TRUE : FALSE);
 }
@@ -263,19 +278,132 @@ job_class_reconsider (JobClass *class)
 
 	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
 	if (registered == class) {
-		if (! NIH_LIST_EMPTY (&class->instances))
+		if (! job_class_remove (class))
 			return FALSE;
 
-		nih_list_remove (&class->entry);
-
-		registered = conf_select_job (class->name);
-		if (registered)
-			nih_hash_add (job_classes, &registered->entry);
+		registered = job_class_select (class->name);
 
 		return (registered == class ? FALSE : TRUE);
 	}
 
 	return TRUE;
+}
+
+/**
+ * job_class_select:
+ * @name: name of class to select.
+ *
+ * Selects the best available job class named @name, adds it to the hash
+ * table and registers it with all current D-Bus connections.
+ *
+ * Returns: class selected, which may be NULL if none was available.
+ **/
+static JobClass *
+job_class_select (const char *name)
+{
+	JobClass *class;
+
+	nih_assert (name != NULL);
+
+	control_init ();
+
+	class = conf_select_job (name);
+	if (! class)
+		return NULL;
+
+	nih_hash_add (job_classes, &class->entry);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		job_class_register (class, conn);
+	}
+
+	return class;
+}
+
+/**
+ * job_class_register:
+ * @class: class to register,
+ * @conn: connection to register for.
+ *
+ * Register the job @class with the D-Bus connection @conn, using the
+ * path set when the class was created.  Since multiple classes with the
+ * same name may exist, this should only ever be called with the current
+ * class of that name, and job_class_unregister() should be used before
+ * registering a new one with the same name.
+ **/
+void
+job_class_register (JobClass       *class,
+		    DBusConnection *conn)
+{
+	nih_assert (class != NULL);
+	nih_assert (conn != NULL);
+
+	NIH_MUST (nih_dbus_object_new (class, conn, class->path,
+				       job_class_interfaces, class));
+
+	nih_debug ("Registered job %s", class->path);
+
+	NIH_LIST_FOREACH (&class->instances, iter) {
+		Job *job = (Job *)iter;
+
+		job_register (job, conn);
+	}
+}
+
+/**
+ * job_class_remove:
+ * @class: class to remove.
+ *
+ * Removes @class from the hash table and unregisters it from all current
+ * D-Bus connections.
+ *
+ * Returns: TRUE if class could be unregistered, FALSE if there are
+ * active instances that prevent unregistration.
+ **/
+static int
+job_class_remove (JobClass *class)
+{
+	nih_assert (class != NULL);
+
+	control_init ();
+
+	if (! NIH_LIST_EMPTY (&class->instances))
+		return FALSE;
+
+	nih_list_remove (&class->entry);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		job_class_unregister (class, conn);
+	}
+
+	return TRUE;
+}
+
+/**
+ * job_class_unregister:
+ * @class: class to unregistered,
+ * @conn: connection to unregister from.
+ *
+ * Unregister the job @class from the D-Bus connection @conn, which must
+ * have already been registered with job_class_register().
+ **/
+void
+job_class_unregister (JobClass       *class,
+		      DBusConnection *conn)
+{
+	nih_assert (class != NULL);
+	nih_assert (conn != NULL);
+	nih_assert (NIH_LIST_EMPTY (&class->instances));
+
+	NIH_MUST (dbus_connection_unregister_object_path (conn, class->path));
+
+	nih_debug ("Unregistered job %s", class->path);
 }
 
 

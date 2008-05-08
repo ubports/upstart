@@ -29,6 +29,8 @@
 #include <nih/list.h>
 #include <nih/timer.h>
 
+#include <nih/dbus.h>
+
 #include "job_class.h"
 #include "event_operator.h"
 
@@ -149,6 +151,8 @@ NIH_BEGIN_EXTERN
 
 Job *       job_new             (JobClass *class, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
+void        job_register        (Job *job, DBusConnection *conn);
+
 Job *       job_instance        (JobClass *class, const char *name);
 
 void        job_change_goal     (Job *job, JobGoal goal);
@@ -161,6 +165,7 @@ void        job_unblock         (Job *job, int failed);
 
 Event      *job_emit_event      (Job *job)
 	__attribute__ ((malloc));
+
 
 const char *job_name            (Job *job);
 
