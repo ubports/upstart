@@ -1,5 +1,8 @@
 2008-05-08  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml, dbus/com.ubuntu.Upstart.Job.xml,
+	* dbus/com.ubuntu.Upstart.Instance.xml: Add DTDs.
+
 	* init/control.c (manager_interfaces): Export the general
 	com.ubuntu.Upstart interface
 	* init/job_class.c (job_class_interfaces): Export the
