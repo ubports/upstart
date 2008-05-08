@@ -35,6 +35,9 @@ init_SOURCES = \
 	parse_conf.c parse_conf.h \
 	conf.c conf.h \
 	control.c control.h \
+	com.ubuntu.Upstart.c com.ubuntu.Upstart.h \
+	com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h \
+	com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h \
 	errors.h
 
 init_LDADD = \
@@ -42,6 +45,32 @@ init_LDADD = \
 	../nih/libnih-dbus.la \
 	$(LTLIBINTL) \
 	$(DBUS_LIBS)
+
+
+BUILT_SOURCES = \
+	com.ubuntu.Upstart.c com.ubuntu.Upstart.h \
+	com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h \
+	com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h
+
+com.ubuntu.Upstart.c com.ubuntu.Upstart.h: \
+		../dbus/com.ubuntu.Upstart.xml
+	$(top_builddir)/nih/nih-dbus-tool \
+		--mode=object --prefix=control --data-type="void *" \
+		--output=$@ $<
+
+com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h: \
+		../dbus/com.ubuntu.Upstart.Job.xml
+	$(top_builddir)/nih/nih-dbus-tool \
+		--mode=object --prefix=job_class --data-type="JobClass *" \
+		--output=$@ $<
+
+com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h: \
+		../dbus/com.ubuntu.Upstart.Instance.xml
+	$(top_builddir)/nih/nih-dbus-tool \
+		--mode=object --prefix=job --data-type="Job *" \
+		--output=$@ $<
+
+CLEANFILES = $(BUILT_SOURCES)
 
 
 EXTRA_DIST = init.supp

@@ -50,6 +50,9 @@ po/*.gmo
 nih
 upstart/libupstart.la
 upstart/test_*
+init/com.ubuntu.Upstart.[ch]
+init/com.ubuntu.Upstart.Job.[ch]
+init/com.ubuntu.Upstart.Instance.[ch]
 init/init
 init/test_*
 util/initctl

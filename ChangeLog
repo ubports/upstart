@@ -1,5 +1,14 @@
 2008-05-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (BUILT_SOURCES)
+	(com.ubuntu.Upstart.c com.ubuntu.Upstart.h)
+	(com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h)
+	(com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h):
+	Generate C code and header files from the XML files which produce
+	object bindings.
+	(init_SOURCES): Link the built sources.
+	(CLEANFILES): Clean them up afterwards
+
 	* dbus/com.ubuntu.Upstart.xml: Initially empty description for
 	manager object interface(s).
 	* dbus/com.ubuntu.Upstart.Job.xml: Initially empty description
