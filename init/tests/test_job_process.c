@@ -148,7 +148,7 @@ test_run (void)
 				class->process[PROCESS_MAIN],
 				"touch %s", filename);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -181,7 +181,7 @@ test_run (void)
 				class->process[PROCESS_MAIN],
 				"echo $$ > %s", filename);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -220,7 +220,7 @@ test_run (void)
 				class->process[PROCESS_MAIN],
 				"exec > %s\necho $0\necho $@", filename);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -260,7 +260,7 @@ test_run (void)
 				"exec > %s\ntest -d %s\necho oops",
 				filename, filename);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -296,7 +296,7 @@ test_run (void)
 				class->process[PROCESS_MAIN],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -397,7 +397,7 @@ test_run (void)
 				class->process[PROCESS_PRE_STOP],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_PRE_STOP;
 
@@ -459,7 +459,7 @@ test_run (void)
 				strcat (class->process[PROCESS_MAIN]->command,
 					"# this just bulks it out a bit");
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 		}
@@ -522,7 +522,7 @@ no_devfd:
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -559,7 +559,7 @@ no_devfd:
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "true";
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_PRE_START;
 
@@ -598,7 +598,7 @@ no_devfd:
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -646,7 +646,7 @@ no_devfd:
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
@@ -1030,7 +1030,7 @@ test_kill (void)
 	TEST_FEATURE ("with easily killed process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_STOP;
@@ -1075,7 +1075,7 @@ test_kill (void)
 		int wait_fd = 0;
 
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_STOP;
@@ -1175,7 +1175,7 @@ test_handler (void)
 	TEST_FEATURE ("with unknown pid");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1230,7 +1230,7 @@ test_handler (void)
 	TEST_FEATURE ("with running process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1288,7 +1288,7 @@ test_handler (void)
 		NihTimer *timer = NULL;
 
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1343,7 +1343,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1407,7 +1407,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1474,7 +1474,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1545,7 +1545,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1623,7 +1623,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1698,7 +1698,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1770,7 +1770,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1840,7 +1840,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1911,7 +1911,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1971,7 +1971,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2035,7 +2035,7 @@ test_handler (void)
 	TEST_FEATURE ("with killed running process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2090,7 +2090,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2159,7 +2159,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2224,7 +2224,7 @@ test_handler (void)
 	TEST_FEATURE ("with running task and zero exit");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2281,7 +2281,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2330,7 +2330,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2387,7 +2387,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2446,7 +2446,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2515,7 +2515,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2577,7 +2577,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2641,7 +2641,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2725,7 +2725,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2814,7 +2814,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2885,7 +2885,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2946,7 +2946,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3012,7 +3012,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3087,7 +3087,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3160,7 +3160,7 @@ test_handler (void)
 	TEST_FEATURE ("with stopped main process for non-wait job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3231,7 +3231,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3305,7 +3305,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3374,7 +3374,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_state = TRACE_NORMAL;
 		}
 
@@ -3422,7 +3422,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_state = TRACE_NEW;
 		}
 
@@ -3470,7 +3470,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_state = TRACE_NEW_CHILD;
 		}
 
@@ -3517,7 +3517,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_forks = 1;
 			job->trace_state = TRACE_NEW_CHILD;
 		}
@@ -3567,7 +3567,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_forks = 0;
 			job->trace_state = TRACE_NEW_CHILD;
 		}
@@ -3618,7 +3618,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_state = TRACE_NORMAL;
 		}
 
@@ -3685,7 +3685,7 @@ test_handler (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->trace_forks = 1;
 			job->trace_state = TRACE_NORMAL;
 		}
@@ -3783,7 +3783,7 @@ test_find (void)
 	job4->pid[PROCESS_MAIN] = 25;
 	job4->pid[PROCESS_PRE_STOP] = 30;
 
-	job5 = job_new (class3, NULL);
+	job5 = job_new (class3, "");
 	job5->pid[PROCESS_POST_STOP] = 35;
 
 

@@ -286,7 +286,7 @@ test_instance (void)
 	 * returned.
 	 */
 	TEST_FEATURE ("with active singleton job");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	TEST_ALLOC_FAIL {
 		ptr = job_instance (class, "");
@@ -309,7 +309,7 @@ test_instance (void)
 		TEST_EQ_P (job, NULL);
 	}
 
-	class->instance = NULL;
+	class->instance = "";
 
 
 	/* Check that NULL is still returned for an active instance
@@ -327,7 +327,7 @@ test_instance (void)
 		TEST_EQ_P (ptr, NULL);
 	}
 
-	class->instance = NULL;
+	class->instance = "";
 
 	nih_free (job);
 
@@ -346,7 +346,7 @@ test_instance (void)
 		TEST_EQ_P (ptr, job);
 	}
 
-	class->instance = NULL;
+	class->instance = "";
 
 	nih_free (job);
 
@@ -383,7 +383,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with waiting job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_STOP;
@@ -408,7 +408,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with stopping job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_STOP;
@@ -434,7 +434,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with running job and start");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_START;
@@ -460,7 +460,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with running job and stop");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_START;
@@ -486,7 +486,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with running job and no process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_START;
@@ -510,7 +510,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with starting job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_START;
@@ -534,7 +534,7 @@ test_change_goal (void)
 	TEST_FEATURE ("with waiting job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 		}
 
 		job->goal = JOB_STOP;
@@ -613,7 +613,7 @@ test_change_state (void)
 	TEST_FEATURE ("waiting to starting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			assert (nih_str_array_add (&(job->start_env), job,
 						   NULL, "FOO=BAR"));
@@ -841,7 +841,7 @@ test_change_state (void)
 	TEST_FEATURE ("starting to pre-start");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -911,7 +911,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -988,7 +988,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1065,7 +1065,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-start to spawned");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1298,7 +1298,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1364,7 +1364,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1443,7 +1443,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1515,7 +1515,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1587,7 +1587,7 @@ test_change_state (void)
 	TEST_FEATURE ("spawned to post-start without process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1653,7 +1653,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1727,7 +1727,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-start to running for service");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1791,7 +1791,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1862,7 +1862,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -1934,7 +1934,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to pre-stop without process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2148,7 +2148,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2225,7 +2225,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2439,7 +2439,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping for killed process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2506,7 +2506,7 @@ test_change_state (void)
 	TEST_FEATURE ("running to stopping for unknown signal");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2572,7 +2572,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-stop to running");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			assert (nih_str_array_add (&(job->stop_env), job,
 						   NULL, "FOO=BAR"));
@@ -2637,7 +2637,7 @@ test_change_state (void)
 	TEST_FEATURE ("pre-stop to stopping");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2701,7 +2701,7 @@ test_change_state (void)
 	TEST_FEATURE ("stopping to killed");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2771,7 +2771,7 @@ test_change_state (void)
 	TEST_FEATURE ("stopping to killed without process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2838,7 +2838,7 @@ test_change_state (void)
 	TEST_FEATURE ("killed to post-stop");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2909,7 +2909,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -2971,7 +2971,7 @@ test_change_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3036,7 +3036,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to waiting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3220,7 +3220,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to starting");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			assert (nih_str_array_add (&(job->env), job,
 						   NULL, "FOO=TEA"));
@@ -3314,7 +3314,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to starting without new environment");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			assert (nih_str_array_add (&(job->env), job,
 						   NULL, "FOO=TEA"));
@@ -3395,7 +3395,7 @@ test_change_state (void)
 			file->job = job_class_new (NULL, "test");
 			replacement = file->job;
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3467,7 +3467,7 @@ test_change_state (void)
 			file->job = job_class_new (NULL, "test");
 			replacement = file->job;
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 
 			job->blocking = nih_list_new (job);
 			list = job->blocking;
@@ -3477,7 +3477,7 @@ test_change_state (void)
 			event_block (cause);
 			nih_list_add (job->blocking, &entry->entry);
 
-			instance = job_new (class, NULL);
+			instance = job_new (class, "");
 			instance->goal = JOB_START;
 			instance->state = JOB_RUNNING;
 		}
@@ -3548,7 +3548,7 @@ test_change_state (void)
 	replacement = file->job;
 
 	class->deleted = TRUE;
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	nih_hash_add (job_classes, &class->entry);
 
@@ -3624,7 +3624,7 @@ test_next_state (void)
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	/* Check that the next state if we're starting a waiting job is
 	 * starting.
@@ -3855,7 +3855,7 @@ test_failed (void)
 	 */
 	TEST_FEATURE ("with no current failure");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	job->blocking = nih_list_new (job);
 	list = job->blocking;
@@ -3896,7 +3896,7 @@ test_failed (void)
 	 */
 	TEST_FEATURE ("with previous failure");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->failed = TRUE;
 	job->failed_process = PROCESS_PRE_START;
 	job->exit_status = 1;
@@ -3953,7 +3953,7 @@ test_unblock (void)
 	 */
 	TEST_FEATURE ("with blocked events");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	job->blocking = nih_list_new (job);
 	list = job->blocking;
@@ -3989,7 +3989,7 @@ test_unblock (void)
 	 */
 	TEST_FEATURE ("with blocked events and failure");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	job->blocking = nih_list_new (job);
 	list = job->blocking;
@@ -4025,7 +4025,7 @@ test_unblock (void)
 	 */
 	TEST_FEATURE ("without blocked events");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	job_unblock (job, TRUE);
 
@@ -4053,7 +4053,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with singleton in starting state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 
@@ -4110,7 +4110,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with singleton in running state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
@@ -4168,7 +4168,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with non-failed singleton in stopping state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 
@@ -4229,7 +4229,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with failed singleton in stopping state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
@@ -4301,7 +4301,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with killed singleton in stopping state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
@@ -4373,7 +4373,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with unknown killed singleton in stopping state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
@@ -4444,7 +4444,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with unstarted singleton in stopping state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
@@ -4513,7 +4513,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with failed respawn singleton in stopping state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
@@ -4582,7 +4582,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with non-failed singleton in stopped state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 
@@ -4643,7 +4643,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with failed singleton in waiting state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
@@ -4715,7 +4715,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with killed singleton in waiting state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
@@ -4787,7 +4787,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with unknown killed singleton in waiting state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
@@ -4858,7 +4858,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with unstarted singleton in waiting state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
@@ -4927,7 +4927,7 @@ test_emit_event (void)
 	TEST_FEATURE ("with failed respawn singleton in waiting state");
 	class = job_class_new (NULL, "test");
 
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
@@ -5003,7 +5003,7 @@ test_name (void)
 	/* Check that the name of a non-instance job is returned. */
 	TEST_FEATURE ("with non-instance job");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	TEST_ALLOC_FAIL {
 		ret = job_name (job);
@@ -5034,7 +5034,7 @@ test_name (void)
 	 */
 	TEST_FEATURE ("with multiple calls");
 	class = job_class_new (NULL, "test");
-	job = job_new (class, NULL);
+	job = job_new (class, "");
 
 	ret = job_name (job);
 	name = (char *)ret;

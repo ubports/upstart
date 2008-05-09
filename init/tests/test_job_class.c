@@ -82,7 +82,9 @@ test_new (void)
 		TEST_ALLOC_PARENT (class->path, class);
 		TEST_EQ_STR (class->path, "/com/ubuntu/Upstart/jobs/test");
 
-		TEST_EQ_P (class->instance, NULL);
+		TEST_ALLOC_PARENT (class->instance, class);
+		TEST_EQ_STR (class->instance, "");
+
 		TEST_LIST_EMPTY (&class->instances);
 
 		TEST_EQ_P (class->description, NULL);
@@ -226,7 +228,7 @@ test_consider (void)
 	TEST_FEATURE ("with registered class that cannot be replaced");
 	nih_list_remove (&entry->entry);
 
-	job = job_new (class3, NULL);
+	job = job_new (class3, "");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 
@@ -418,7 +420,7 @@ test_reconsider (void)
 	TEST_FEATURE ("with registered not best class that can't be replaced");
 	nih_list_remove (&entry->entry);
 
-	job = job_new (class3, NULL);
+	job = job_new (class3, "");
 	job->goal = JOB_START;
 	job->state = JOB_RUNNING;
 

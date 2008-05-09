@@ -1,5 +1,18 @@
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_new): initialise instance to the
+	empty string.
+	* init/tests/test_job_class.c: Update job_new() calls.
+	(test_new): Check instance against the empty string.
+	* init/job.c (job_new): name may no longer be NULL.
+	* init/tests/test_job.c: Update job_new() calls.
+	(test_instance): Reset back to "" when done.
+	* init/event.c (event_pending_handle_jobs): Always expand the
+	name, since the class->instance is always non-NULL.
+	* init/tests/test_event.c: Update job_new calls.
+	* init/tests/test_conf.c: Update job_new calls.
+	* init/tests/test_job_process.c: Update job_new calls.
+
 	* init/job.c (job_new): Singleton jobs have a fixed name of "",
 	rather than a NULL name, and a D-Bus name of "_".
 	(job_instance): Which rather simplifies this function (in fact,

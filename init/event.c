@@ -374,24 +374,22 @@ event_pending_handle_jobs (Event *event)
 						"UPSTART_EVENTS", list);
 
 			/* Expand the instance name against the environment */
-			if (class->instance) {
-				NIH_SHOULD (name = environ_expand (
-						    NULL, class->instance,
-						    env));
-				if (! name) {
-					NihError *err;
+			NIH_SHOULD (name = environ_expand (NULL,
+							   class->instance,
+							   env));
+			if (! name) {
+				NihError *err;
 
-					err = nih_error_get ();
-					nih_warn (_("Failed to obtain %s instance: %s"),
-						  class->name, err->message);
-					nih_free (err);
+				err = nih_error_get ();
+				nih_warn (_("Failed to obtain %s instance: %s"),
+					  class->name, err->message);
+				nih_free (err);
 
-					goto error;
-				}
+				goto error;
 			}
 
 			/* Locate the current instance or create a new one */
-			job = job_instance (class, name ? name : "");
+			job = job_instance (class, name);
 			if (! job)
 				NIH_MUST (job = job_new (class, name));
 

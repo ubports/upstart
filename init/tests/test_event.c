@@ -646,7 +646,7 @@ test_pending_handle_jobs (void)
 
 			nih_hash_add (job_classes, &class->entry);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 
@@ -821,7 +821,7 @@ test_pending_handle_jobs (void)
 
 			nih_hash_add (job_classes, &class->entry);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
 
@@ -1148,7 +1148,7 @@ test_pending_handle_jobs (void)
 			class->stop_on = event_operator_new (
 				class, EVENT_MATCH, "wibble", NULL);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
 
@@ -1196,7 +1196,7 @@ test_pending_handle_jobs (void)
 			class->stop_on = event_operator_new (
 				class, EVENT_MATCH, "wibble", NULL);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
 
@@ -1274,7 +1274,7 @@ test_pending_handle_jobs (void)
 			class->stop_on = event_operator_new (
 				class, EVENT_MATCH, "wibble", NULL);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
 
@@ -1356,7 +1356,7 @@ test_pending_handle_jobs (void)
 			class->stop_on = event_operator_new (
 				class, EVENT_MATCH, "wibble", NULL);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
 
@@ -1473,7 +1473,7 @@ test_pending_handle_jobs (void)
 			class->stop_on = event_operator_new (
 				class, EVENT_MATCH, "wibble", NULL);
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 
@@ -1564,7 +1564,7 @@ test_pending_handle_jobs (void)
 			assert (nih_str_array_add (&(class->stop_on->env), class->stop_on,
 						   NULL, "SNITCH=$COLOUR"));
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
 
@@ -1783,7 +1783,7 @@ test_finished_handle_jobs (void)
 
 			class = job_class_new (NULL, "foo");
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 			job->blocked = NULL;
@@ -1816,7 +1816,7 @@ test_finished_handle_jobs (void)
 
 			class = job_class_new (NULL, "foo");
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
 			job->blocked = NULL;
@@ -1847,7 +1847,7 @@ test_finished_handle_jobs (void)
 
 			class = job_class_new (NULL, "foo");
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 
@@ -1881,7 +1881,7 @@ test_finished_handle_jobs (void)
 
 			class = job_class_new (NULL, "foo");
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
 
@@ -1920,7 +1920,7 @@ test_finished_handle_jobs (void)
 			class->process[PROCESS_POST_STOP] = process_new (class);
 			class->process[PROCESS_POST_STOP]->command = "echo";
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 			job->pid[PROCESS_POST_STOP] = 0;
@@ -1959,7 +1959,7 @@ test_finished_handle_jobs (void)
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "echo";
 
-			job = job_new (class, NULL);
+			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
 			job->pid[PROCESS_PRE_START] = 0;

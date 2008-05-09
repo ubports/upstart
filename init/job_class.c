@@ -171,7 +171,10 @@ job_class_new (const void *parent,
 	if (! class->path)
 		goto error;
 
-	class->instance = NULL;
+	class->instance = nih_strdup (class, "");
+	if (! class->instance)
+		goto error;
+
 	nih_list_init (&class->instances);
 
 	class->description = NULL;
