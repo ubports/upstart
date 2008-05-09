@@ -231,9 +231,8 @@ job_process_run (Job         *job,
 
 	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 			       "UPSTART_JOB=%s", job->class->name));
-	if (job->name)
-		NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
-				       "UPSTART_INSTANCE=%s", job->name));
+	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
+			       "UPSTART_INSTANCE=%s", job->name));
 
 	/* If we're about to spawn the main job and we expect it to become
 	 * a daemon or fork before we can move out of spawned, we need to

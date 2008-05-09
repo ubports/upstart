@@ -530,7 +530,8 @@ test_pending_handle_jobs (void)
 		TEST_LIST_NOT_EMPTY (&class->instances);
 		job = (Job *)class->instances.next;
 
-		TEST_EQ_P (job->name, NULL);
+		TEST_ALLOC_PARENT (job->name, job);
+		TEST_EQ_STR (job->name, "");
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);

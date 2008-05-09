@@ -1,5 +1,23 @@
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_new): Singleton jobs have a fixed name of "",
+	rather than a NULL name, and a D-Bus name of "_".
+	(job_instance): Which rather simplifies this function (in fact,
+	it makes this function look like a common one).
+	(job_emit_event): Always set INSTANCE variable.
+	(job_name): Still distinguish in output, to avoid ugly "()" but
+	check character rather than NULL.
+	* init/tests/test_job.c (test_new): Check name is set to ""
+	and path to ".../_"
+	(test_change_state, test_emit_event): Update test cases to assume
+	an empty INSTANCE variable
+	(test_instance): Update to pass "" instead of NULL.
+	* init/job_process.c (job_process_run): Always set UPSTART_INSTANCE
+	* init/tests/test_job_process.c (test_run): Always assume an
+	UPSTART_INSTANCE variable, it may just be empty.
+	* init/tests/test_event.c (test_pending_handle_jobs): Expect
+	the name to be set to the empty string.
+
 	* init/Makefile.am (com.ubuntu.Upstart.c com.ubuntu.Upstart.h)
 	(com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h)
 	(com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h):

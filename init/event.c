@@ -391,7 +391,7 @@ event_pending_handle_jobs (Event *event)
 			}
 
 			/* Locate the current instance or create a new one */
-			job = job_instance (class, name);
+			job = job_instance (class, name ? name : "");
 			if (! job)
 				NIH_MUST (job = job_new (class, name));
 

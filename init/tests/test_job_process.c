@@ -324,6 +324,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -425,6 +426,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
