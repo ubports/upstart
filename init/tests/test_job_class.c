@@ -43,6 +43,8 @@
 #include <nih/tree.h>
 #include <nih/io.h>
 #include <nih/main.h>
+#include <nih/error.h>
+#include <nih/errors.h>
 
 #include <nih/dbus.h>
 
@@ -735,6 +737,133 @@ test_environment (void)
 }
 
 
+void
+test_get_instance_by_name (void)
+{
+	NihDBusMessage *message;
+	JobClass       *class;
+	Job            *job;
+	const char     *path;
+	NihError       *error;
+	NihDBusError   *dbus_error;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_instance_by_name");
+	nih_error_init ();
+
+	class = job_class_new (NULL, "test");
+
+
+	/* Check that when given a known instance name, the path to that
+	 * instance is returned as a duplicate child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with known job");
+	job = job_new (class, "foo");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = job_class_get_instance_by_name (class, message,
+						      "foo", &path);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (path, message);
+		TEST_EQ_STR (path, job->path);
+
+		nih_free (message);
+	}
+
+	nih_free (job);
+
+
+	/* Check that when given the name of the singleton instance, the
+	 * path to that instance is returned as a duplicate child of the
+	 * message structure.
+	 */
+	TEST_FEATURE ("with singleton job");
+	job = job_new (class, "");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = job_class_get_instance_by_name (class, message,
+						      "", &path);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (path, message);
+		TEST_EQ_STR (path, job->path);
+
+		nih_free (message);
+	}
+
+	nih_free (job);
+
+
+	/* Check that when given an unknown instance name, an unknown
+	 * instance D-Bus error is raised and an error returned.
+	 */
+	TEST_FEATURE ("with unknown instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = job_class_get_instance_by_name (class, message,
+						      "foo", &path);
+
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_error = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_error->name,
+			     "com.ubuntu.Upstart.Error.UnknownInstance");
+
+		nih_free (error);
+
+		nih_free (message);
+	}
+
+
+	nih_free (class);
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -745,6 +874,8 @@ main (int   argc,
 	test_register ();
 	test_unregister ();
 	test_environment ();
+
+	test_get_instance_by_name ();
 
 	return 0;
 }

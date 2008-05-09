@@ -1,5 +1,11 @@
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Job.xml (GetInstanceByName): Add method
+	* init/job_class.c (job_class_get_instance_by_name): Implementation.
+	* init/job_class.h: Add prototype.
+	* init/tests/test_job_class.c (test_get_instance_by_name): Tests
+	for new method.
+
 	* init/job_class.h (JobClass): Make instances a hash table.
 	* init/job_class.c (job_class_new): Initialise instances as a hash
 	table now.

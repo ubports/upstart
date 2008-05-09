@@ -156,20 +156,30 @@ NIH_BEGIN_EXTERN
 NihHash *job_classes;
 
 
-void        job_class_init        (void);
+void        job_class_init                 (void);
 
-JobClass  * job_class_new         (const void *parent, const char *name)
+JobClass  * job_class_new                  (const void *parent,
+					    const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 
-int         job_class_consider    (JobClass *class);
-int         job_class_reconsider  (JobClass *class);
+int         job_class_consider             (JobClass *class);
+int         job_class_reconsider           (JobClass *class);
 
-void        job_class_register    (JobClass *class, DBusConnection *conn);
-void        job_class_unregister  (JobClass *class, DBusConnection *conn);
+void        job_class_register             (JobClass *class,
+					    DBusConnection *conn);
+void        job_class_unregister           (JobClass *class,
+					    DBusConnection *conn);
 
-char      **job_class_environment (const void *parent, JobClass *class,
-				   size_t *len)
+char      **job_class_environment          (const void *parent,
+					    JobClass *class, size_t *len)
 	__attribute__ ((warn_unused_result, malloc));
+
+
+int         job_class_get_instance_by_name (JobClass *class,
+					    NihDBusMessage *message,
+					    const char *name,
+					    const char **instance)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

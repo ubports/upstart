@@ -475,3 +475,49 @@ error:
 	nih_free (env);
 	return NULL;
 }
+
+
+/**
+ * job_class_get_instance_by_name:
+ * @class: class to obtain instance from,
+ * @message: D-Bus connection and message received,
+ * @name: name of instance to get,
+ * @instance: pointer for object path reply.
+ *
+ * Implements the GetInstanceByName method of the com.ubuntu.Upstart.Job
+ * interface.
+ *
+ * Called to obtain the path to a D-Bus object for the instance named
+ * @name of this job which will be stored in @job.  If no instance with
+ * that name exists, the com.ubuntu.Upstart.Error.UnknownInstance D-Bus
+ * error will be raised.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_instance_by_name (JobClass        *class,
+				NihDBusMessage  *message,
+				const char      *name,
+				const char     **instance)
+{
+	Job *job;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
+	nih_assert (instance != NULL);
+
+	job = (Job *)nih_hash_lookup (class->instances, name);
+	if (! job) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.UnknownInstance",
+			_("Unknown instance: %s"), name);
+		return -1;
+	}
+
+	*instance = nih_strdup (message, job->path);
+	if (! *instance)
+		nih_return_system_error (-1);
+
+	return 0;
+}
