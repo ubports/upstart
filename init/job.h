@@ -89,8 +89,8 @@ typedef enum trace_state {
 /**
  * Job:
  * @entry: list header,
- * @class: pointer to job class,
  * @name: unique instance name,
+ * @class: pointer to job class,
  * @path: D-Bus path of instance,
  * @goal: whether the job is to be stopped or started,
  * @state: actual state of the job,
@@ -117,8 +117,8 @@ typedef enum trace_state {
 typedef struct job {
 	NihList         entry;
 
-	JobClass       *class;
 	char           *name;
+	JobClass       *class;
 	char           *path;
 
 	JobGoal         goal;
@@ -152,8 +152,6 @@ NIH_BEGIN_EXTERN
 Job *       job_new             (JobClass *class, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
 void        job_register        (Job *job, DBusConnection *conn);
-
-Job *       job_instance        (JobClass *class, const char *name);
 
 void        job_change_goal     (Job *job, JobGoal goal);
 

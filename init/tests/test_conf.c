@@ -514,8 +514,8 @@ test_source_reload_job_dir (void)
 	TEST_FALSE (file->job->deleted);
 
 	TEST_TRUE (job->deleted);
-	TEST_LIST_NOT_EMPTY (&job->instances);
-	instance = (Job *)job->instances.next;
+	TEST_HASH_NOT_EMPTY (job->instances);
+	instance = (Job *)nih_hash_lookup (job->instances, "");
 
 	TEST_EQ (instance->goal, JOB_START);
 	TEST_EQ (instance->state, JOB_RUNNING);
@@ -571,8 +571,8 @@ test_source_reload_job_dir (void)
 	TEST_FALSE (file->job->deleted);
 
 	TEST_TRUE (job->deleted);
-	TEST_LIST_NOT_EMPTY (&job->instances);
-	instance = (Job *)job->instances.next;
+	TEST_HASH_NOT_EMPTY (job->instances);
+	instance = (Job *)nih_hash_lookup (job->instances, "");
 
 	TEST_EQ (instance->goal, JOB_START);
 	TEST_EQ (instance->state, JOB_RUNNING);
@@ -613,8 +613,8 @@ test_source_reload_job_dir (void)
 	TEST_NE_P (job, NULL);
 
 	TEST_TRUE (job->deleted);
-	TEST_LIST_NOT_EMPTY (&job->instances);
-	instance = (Job *)job->instances.next;
+	TEST_HASH_NOT_EMPTY (job->instances);
+	instance = (Job *)nih_hash_lookup (job->instances, "");
 
 	TEST_EQ (instance->goal, JOB_START);
 	TEST_EQ (instance->state, JOB_RUNNING);
@@ -674,8 +674,8 @@ test_source_reload_job_dir (void)
 	TEST_EQ_P (job, old_job);
 	TEST_TRUE (job->deleted);
 
-	TEST_LIST_NOT_EMPTY (&job->instances);
-	instance = (Job *)job->instances.next;
+	TEST_HASH_NOT_EMPTY (job->instances);
+	instance = (Job *)nih_hash_lookup (job->instances, "");
 
 	TEST_EQ (instance->goal, JOB_START);
 	TEST_EQ (instance->state, JOB_RUNNING);

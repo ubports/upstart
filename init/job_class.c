@@ -175,7 +175,9 @@ job_class_new (const void *parent,
 	if (! class->instance)
 		goto error;
 
-	nih_list_init (&class->instances);
+	class->instances = nih_hash_string_new (class, 0);
+	if (! class->instances)
+		goto error;
 
 	class->description = NULL;
 	class->author = NULL;
@@ -352,7 +354,7 @@ job_class_register (JobClass       *class,
 
 	nih_debug ("Registered job %s", class->path);
 
-	NIH_LIST_FOREACH (&class->instances, iter) {
+	NIH_HASH_FOREACH (class->instances, iter) {
 		Job *job = (Job *)iter;
 
 		job_register (job, conn);
@@ -376,7 +378,8 @@ job_class_remove (JobClass *class)
 
 	control_init ();
 
-	if (! NIH_LIST_EMPTY (&class->instances))
+	/* Return if we have any active instances */
+	NIH_HASH_FOREACH (class->instances, iter)
 		return FALSE;
 
 	nih_list_remove (&class->entry);
@@ -405,7 +408,8 @@ job_class_unregister (JobClass       *class,
 {
 	nih_assert (class != NULL);
 	nih_assert (conn != NULL);
-	nih_assert (NIH_LIST_EMPTY (&class->instances));
+	NIH_HASH_FOREACH (class->instances, iter)
+		nih_assert_not_reached ();
 
 	NIH_MUST (dbus_connection_unregister_object_path (conn, class->path));
 

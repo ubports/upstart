@@ -237,9 +237,9 @@ test_pending (void)
 		TEST_EQ (event->progress, EVENT_HANDLING);
 		TEST_EQ (event->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_HASH_NOT_EMPTY (class->instances);
 
-		job = (Job *)class->instances.next;
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -294,7 +294,7 @@ test_pending_handle_jobs (void)
 
 		TEST_FREE (event1);
 
-		TEST_LIST_EMPTY (&class->instances);
+		TEST_HASH_EMPTY (class->instances);
 
 		oper = class->start_on;
 		TEST_EQ (oper->value, FALSE);
@@ -341,7 +341,7 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_EMPTY (&class->instances);
+		TEST_HASH_EMPTY (class->instances);
 
 		oper = class->start_on;
 		TEST_EQ (oper->value, FALSE);
@@ -407,8 +407,9 @@ test_pending_handle_jobs (void)
 		TEST_EQ (event1->blockers, 1);
 		TEST_EQ (event2->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		job = (Job *)class->instances.next;
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -527,8 +528,9 @@ test_pending_handle_jobs (void)
 		TEST_EQ (event1->blockers, 1);
 		TEST_EQ (event2->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		job = (Job *)class->instances.next;
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_ALLOC_PARENT (job->name, job);
 		TEST_EQ_STR (job->name, "");
@@ -698,8 +700,9 @@ test_pending_handle_jobs (void)
 		TEST_EQ (event1->blockers, 1);
 		TEST_EQ (event2->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		ptr = (Job *)class->instances.next;
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		ptr = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ_P (ptr, job);
 
@@ -875,8 +878,9 @@ test_pending_handle_jobs (void)
 		TEST_EQ (event3->blockers, 1);
 		TEST_EQ (event4->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		ptr = (Job *)class->instances.next;
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		ptr = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ_P (ptr, job);
 
@@ -939,8 +943,9 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		job = (Job *)class->instances.next;
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "baggins");
 
 		TEST_ALLOC_PARENT (job->name, job);
 		TEST_EQ_STR (job->name, "baggins");
@@ -1046,8 +1051,9 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		ptr = (Job *)class->instances.next;
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		ptr = (Job *)nih_hash_lookup (class->instances, "brandybuck");
 
 		TEST_EQ_P (ptr, job);
 
@@ -1113,7 +1119,7 @@ test_pending_handle_jobs (void)
 
 		TEST_FREE (event1);
 
-		TEST_LIST_EMPTY (&class->instances);
+		TEST_HASH_EMPTY (class->instances);
 
 		oper = class->start_on;
 		TEST_EQ (oper->value, FALSE);
@@ -1159,9 +1165,9 @@ test_pending_handle_jobs (void)
 
 		TEST_FREE (event1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_HASH_NOT_EMPTY (class->instances);
 
-		job = (Job *)class->instances.next;
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		oper = job->stop_on;
 		TEST_EQ (oper->value, FALSE);
@@ -1209,8 +1215,9 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		TEST_EQ_P ((Job *)class->instances.next, job);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
@@ -1287,8 +1294,9 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		TEST_EQ_P ((Job *)class->instances.next, job);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
@@ -1398,8 +1406,9 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		TEST_EQ_P ((Job *)class->instances.next, job);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
@@ -1513,8 +1522,9 @@ test_pending_handle_jobs (void)
 
 		TEST_FREE (event1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		TEST_EQ_P ((Job *)class->instances.next, job);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -1580,8 +1590,9 @@ test_pending_handle_jobs (void)
 
 		TEST_EQ (event1->blockers, 1);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
-		TEST_EQ_P ((Job *)class->instances.next, job);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
@@ -1666,7 +1677,7 @@ test_finished (void)
 
 		TEST_FREE (event);
 
-		TEST_LIST_EMPTY (&class->instances);
+		TEST_HASH_EMPTY (class->instances);
 
 		nih_free (class);
 	}
@@ -1701,9 +1712,9 @@ test_finished (void)
 
 		TEST_FREE (event);
 
-		TEST_LIST_NOT_EMPTY (&class->instances);
+		TEST_HASH_NOT_EMPTY (class->instances);
 
-		job = (Job *)class->instances.next;
+		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1754,7 +1765,7 @@ test_finished (void)
 
 		TEST_FREE (event);
 
-		TEST_LIST_EMPTY (&class->instances);
+		TEST_HASH_EMPTY (class->instances);
 
 		nih_free (class);
 	}

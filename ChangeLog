@@ -1,5 +1,27 @@
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.h (JobClass): Make instances a hash table.
+	* init/job_class.c (job_class_new): Initialise instances as a hash
+	table now.
+	(job_class_register): Iterate instances as hash table.
+	(job_class_remove): Slightly odd construct needed to return FALSE
+	if there's anything in the hash table.
+	(job_class_unregister): Likewise to assert on no instances.
+	* init/tests/test_job_class.c (test_new): Check that instances is
+	now a hash table.
+	* init/job.h (Job): Make name the first member.
+	* init/job.c (job_new): Add to instances as hash table.
+	(job_instance): Drop entirely, replaced by a hash lookup.
+	* init/tests/test_job.c (test_instance): Drop.
+	* init/job_process.c (job_process_find): Iterate instances as a
+	hash table.
+	* init/event.c (event_pending_handle_jobs)
+	(event_finished_handle_jobs): Iterate instances as hash table.
+	(event_pending_handle_jobs): Replace job_instance call with an
+	ordinary hash lookup.
+	* init/tests/test_event.c: Update to use hash table.
+	* init/tests/test_conf.c: Update instances stealing for hash table
+
 	* init/job_class.c (job_class_new): initialise instance to the
 	empty string.
 	* init/tests/test_job_class.c: Update job_new() calls.

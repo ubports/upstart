@@ -1452,7 +1452,7 @@ job_process_find (pid_t        pid,
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		NIH_LIST_FOREACH (&class->instances, job_iter) {
+		NIH_HASH_FOREACH (class->instances, job_iter) {
 			Job *job = (Job *)job_iter;
 			int  i;
 

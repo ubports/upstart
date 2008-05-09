@@ -85,7 +85,9 @@ test_new (void)
 		TEST_ALLOC_PARENT (class->instance, class);
 		TEST_EQ_STR (class->instance, "");
 
-		TEST_LIST_EMPTY (&class->instances);
+		TEST_ALLOC_PARENT (class->instances, class);
+		TEST_ALLOC_SIZE (class->instances, sizeof (NihHash));
+		TEST_HASH_EMPTY (class->instances);
 
 		TEST_EQ_P (class->description, NULL);
 		TEST_EQ_P (class->author, NULL);

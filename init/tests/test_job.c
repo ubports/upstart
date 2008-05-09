@@ -259,103 +259,6 @@ test_register (void)
 
 
 void
-test_instance (void)
-{
-	JobClass *class;
-	Job      *job, *ptr;
-
-	TEST_FUNCTION ("job_instance");
-
-	class = job_class_new (NULL, "test");
-	class->process[PROCESS_MAIN] = process_new (class);
-	class->process[PROCESS_MAIN]->command = "echo";
-
-
-	/* Check that NULL is returned for an inactive singleton job,
-	 * which should indicate a new instance should be created.
-	 */
-	TEST_FEATURE ("with inactive singleton job");
-	TEST_ALLOC_FAIL {
-		job = job_instance (class, "");
-
-		TEST_EQ_P (job, NULL);
-	}
-
-
-	/* Check that the active instance of a singleton job is
-	 * returned.
-	 */
-	TEST_FEATURE ("with active singleton job");
-	job = job_new (class, "");
-
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (class, "");
-
-		TEST_EQ_P (ptr, job);
-	}
-
-	nih_free (job);
-
-
-	/* Check that NULL is returned for an inactive instance job,
-	 * indicating that a new instance should be created.
-	 */
-	TEST_FEATURE ("with inactive instance job");
-	class->instance = "$FOO";
-
-	TEST_ALLOC_FAIL {
-		job = job_instance (class, "");
-
-		TEST_EQ_P (job, NULL);
-	}
-
-	class->instance = "";
-
-
-	/* Check that NULL is still returned for an active instance
-	 * job where the name does not match, since a new one may be
-	 * created.
-	 */
-	TEST_FEATURE ("with active instance job of different name");
-	class->instance = "$FOO";
-
-	job = job_new (class, "bar");
-
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (class, "foo");
-
-		TEST_EQ_P (ptr, NULL);
-	}
-
-	class->instance = "";
-
-	nih_free (job);
-
-
-	/* Check that the instance with the matching name is returned for
-	 * an active instance job since a new one may not be created.
-	 */
-	TEST_FEATURE ("with active instance job");
-	class->instance = "$FOO";
-
-	job = job_new (class, "foo");
-
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (class, "foo");
-
-		TEST_EQ_P (ptr, job);
-	}
-
-	class->instance = "";
-
-	nih_free (job);
-
-
-	nih_free (class);
-}
-
-
-void
 test_change_goal (void)
 {
 	JobClass *class;
@@ -5281,7 +5184,6 @@ main (int   argc,
 {
 	test_new ();
 	test_register ();
-	test_instance ();
 	test_change_goal ();
 	test_change_state ();
 	test_next_state ();

@@ -71,7 +71,7 @@ typedef enum console_type {
  * @name: unique name,
  * @path: path of D-Bus object,
  * @instance: pattern to uniquely identify multiple instances,
- * @instances: active instances,
+ * @instances: hash table of active instances,
  * @description: description; intended for humans,
  * @author: author; intended for humans,
  * @version: version; intended for humans,
@@ -111,7 +111,7 @@ typedef struct job_class {
 	char           *path;
 
 	char           *instance;
-	NihList         instances;
+	NihHash        *instances;
 
 	char           *description;
 	char           *author;

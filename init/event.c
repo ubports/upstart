@@ -31,6 +31,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
@@ -295,7 +296,7 @@ event_pending_handle_jobs (Event *event)
 		 * a process's start and stop scripts to be run without the
 		 * actual process).
 		 */
-		NIH_LIST_FOREACH_SAFE (&class->instances, job_iter) {
+		NIH_HASH_FOREACH_SAFE (class->instances, job_iter) {
 			Job *job = (Job *)job_iter;
 
 			if (job->stop_on
@@ -389,7 +390,7 @@ event_pending_handle_jobs (Event *event)
 			}
 
 			/* Locate the current instance or create a new one */
-			job = job_instance (class, name);
+			job = (Job *)nih_hash_lookup (class->instances, name);
 			if (! job)
 				NIH_MUST (job = job_new (class, name));
 
@@ -491,7 +492,7 @@ event_finished_handle_jobs (Event *event)
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		NIH_LIST_FOREACH_SAFE (&class->instances, job_iter) {
+		NIH_HASH_FOREACH_SAFE (class->instances, job_iter) {
 			Job *job = (Job *)job_iter;
 
 			if (job->blocked != event)

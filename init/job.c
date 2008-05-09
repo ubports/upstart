@@ -33,6 +33,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/signal.h>
 #include <nih/logging.h>
 
@@ -96,11 +97,11 @@ job_new (JobClass   *class,
 
 	nih_alloc_set_destructor (job, (NihDestructor)nih_list_destroy);
 
-	job->class = class;
-
 	job->name = nih_strdup (job, name);
 	if (! job->name)
 		goto error;
+
+	job->class = class;
 
 	job->path = nih_dbus_path (job, CONTROL_ROOT, "jobs",
 				   class->name, job->name, NULL);
@@ -143,7 +144,7 @@ job_new (JobClass   *class,
 	job->trace_forks = 0;
 	job->trace_state = TRACE_NONE;
 
-	nih_list_add (&class->instances, &job->entry);
+	nih_hash_add (class->instances, &job->entry);
 
 	NIH_LIST_FOREACH (control_conns, iter) {
 		NihListEntry   *entry = (NihListEntry *)iter;
@@ -178,37 +179,6 @@ job_register (Job            *job,
 				       job_interfaces, job));
 
 	nih_debug ("Registered instance %s", job->path);
-}
-
-
-/**
- * job_instance:
- * @class: job class,
- * @name: name of instance to find.
- *
- * This function is used to find a particular instance of @class.
- *
- * For singleton jobs, this will always be that instance if active or NULL
- * if not, so a new one will be created.  For instance jobs, @name must
- * not be NULL and will be looked up in the list of active instances.
- *
- * Returns: existing instance or NULL if a new one should be created.
- **/
-Job *
-job_instance (JobClass   *class,
-	      const char *name)
-{
-	nih_assert (class != NULL);
-	nih_assert (name != NULL);
-
-	NIH_LIST_FOREACH (&class->instances, iter) {
-		Job *job = (Job *)iter;
-
-		if (! strcmp (job->name, name))
-			return job;
-	}
-
-	return NULL;
 }
 
 
