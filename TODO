@@ -69,10 +69,6 @@ Later:
 
 Anytime:
 
- * Should the class instances list actually be a hash table?  If so, we
-   could make that a union with a pointer so for non-instance classes it's
-   a simple pointer.
-
  * Iterating through every Job's start and stop events is messy; we should
    have some kind of match lookup table to make it easier.
 
