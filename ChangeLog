@@ -1,5 +1,7 @@
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Instance.xml: format to match others
+
 	* dbus/com.ubuntu.Upstart.Job.xml (GetInstanceByName): Add method
 	* init/job_class.c (job_class_get_instance_by_name): Implementation.
 	* init/job_class.h: Add prototype.
