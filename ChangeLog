@@ -1,3 +1,11 @@
+2008-05-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_class.c (job_class_consider, job_class_reconsider): Find
+	the best class first and compare against the current class before
+	acting, this avoids the re-register jump every time a job stops.
+	(job_class_select): Rename to job_class_add() since this is takes
+	a class and is the direct opposite to job_class_remove().
+
 2008-05-15  Scott James Remnant  <scott@netsplit.com>
 
 	* init/event.c (event_new): We can't rely on the event poll function

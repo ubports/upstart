@@ -90,8 +90,8 @@
 
 
 /* Prototypes for static functions */
-static JobClass *job_class_select (const char *name);
-static int       job_class_remove (JobClass *class);
+static void job_class_add    (JobClass *class);
+static int  job_class_remove (JobClass *class);
 
 
 /**
@@ -245,21 +245,25 @@ error:
 int
 job_class_consider (JobClass *class)
 {
-	JobClass *registered;
+	JobClass *registered, *best;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
+	best = conf_select_job (class->name);
+	nih_assert (best != NULL);
+
 	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
-	if (registered)
-		if (! job_class_remove (registered))
-			return FALSE;
+	if (registered != best) {
+		if (registered)
+			if (! job_class_remove (registered))
+				return FALSE;
 
-	registered = job_class_select (class->name);
-	nih_assert (registered != NULL);
+		job_class_add (best);
+	}
 
-	return (registered == class ? TRUE : FALSE);
+	return (class == best ? TRUE : FALSE);
 }
 
 /**
@@ -278,46 +282,45 @@ job_class_consider (JobClass *class)
 int
 job_class_reconsider (JobClass *class)
 {
-	JobClass *registered;
+	JobClass *registered, *best;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
+	best = conf_select_job (class->name);
+
 	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
 	if (registered == class) {
-		if (! job_class_remove (class))
+		if (class != best) {
+			if (! job_class_remove (class))
+				return FALSE;
+
+			job_class_add (best);
+
+			return TRUE;
+		} else {
 			return FALSE;
-
-		registered = job_class_select (class->name);
-
-		return (registered == class ? FALSE : TRUE);
+		}
 	}
 
 	return TRUE;
 }
 
 /**
- * job_class_select:
- * @name: name of class to select.
+ * job_class_add:
+ * @class: new class to select.
  *
- * Selects the best available job class named @name, adds it to the hash
- * table and registers it with all current D-Bus connections.
- *
- * Returns: class selected, which may be NULL if none was available.
+ * Adds @class to the hash table and registers it with all current D-Bus
+ * connections.  @class may be NULL.
  **/
-static JobClass *
-job_class_select (const char *name)
+static void
+job_class_add (JobClass *class)
 {
-	JobClass *class;
-
-	nih_assert (name != NULL);
-
 	control_init ();
 
-	class = conf_select_job (name);
 	if (! class)
-		return NULL;
+		return;
 
 	nih_hash_add (job_classes, &class->entry);
 
@@ -326,38 +329,6 @@ job_class_select (const char *name)
 		DBusConnection *conn = (DBusConnection *)entry->data;
 
 		job_class_register (class, conn);
-	}
-
-	return class;
-}
-
-/**
- * job_class_register:
- * @class: class to register,
- * @conn: connection to register for.
- *
- * Register the job @class with the D-Bus connection @conn, using the
- * path set when the class was created.  Since multiple classes with the
- * same name may exist, this should only ever be called with the current
- * class of that name, and job_class_unregister() should be used before
- * registering a new one with the same name.
- **/
-void
-job_class_register (JobClass       *class,
-		    DBusConnection *conn)
-{
-	nih_assert (class != NULL);
-	nih_assert (conn != NULL);
-
-	NIH_MUST (nih_dbus_object_new (class, conn, class->path,
-				       job_class_interfaces, class));
-
-	nih_debug ("Registered job %s", class->path);
-
-	NIH_HASH_FOREACH (class->instances, iter) {
-		Job *job = (Job *)iter;
-
-		job_register (job, conn);
 	}
 }
 
@@ -392,6 +363,36 @@ job_class_remove (JobClass *class)
 	}
 
 	return TRUE;
+}
+
+/**
+ * job_class_register:
+ * @class: class to register,
+ * @conn: connection to register for.
+ *
+ * Register the job @class with the D-Bus connection @conn, using the
+ * path set when the class was created.  Since multiple classes with the
+ * same name may exist, this should only ever be called with the current
+ * class of that name, and job_class_unregister() should be used before
+ * registering a new one with the same name.
+ **/
+void
+job_class_register (JobClass       *class,
+		    DBusConnection *conn)
+{
+	nih_assert (class != NULL);
+	nih_assert (conn != NULL);
+
+	NIH_MUST (nih_dbus_object_new (class, conn, class->path,
+				       job_class_interfaces, class));
+
+	nih_debug ("Registered job %s", class->path);
+
+	NIH_HASH_FOREACH (class->instances, iter) {
+		Job *job = (Job *)iter;
+
+		job_register (job, conn);
+	}
 }
 
 /**
