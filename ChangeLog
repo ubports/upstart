@@ -1,3 +1,10 @@
+2008-05-15  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_new): We can't rely on the event poll function
+	being the last in the main loop, it's often the first, so after
+	adding an event to the queue ensure the loop is iterated at least
+	once so that the event poll occurs for it.
+
 2008-05-09  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO (Anytime): Update.
