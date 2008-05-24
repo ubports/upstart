@@ -1,3 +1,8 @@
+2008-05-24  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Changed branch location again, of both upstart and
+	libnih.
+
 2008-05-16  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_class.c (job_class_consider, job_class_reconsider): Find
