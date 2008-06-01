@@ -3,7 +3,8 @@
   "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
   "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 
-<node name="/com/ubuntu/Upstart">
+<node name="/com/ubuntu/Upstart"
+      xmlns:nih="http://www.netsplit.com/nih/dbus">
   <interface name="com.ubuntu.Upstart">
     <method name="GetJobByName">
       <arg name="name" type="s" direction="in" />

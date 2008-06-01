@@ -1,5 +1,9 @@
 2008-06-01  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml, dbus/com.ubuntu.Upstart.Job.xml,
+	* dbus/com.ubuntu.Upstart.Instance.xml: Add libnih XML NS to the
+	files so that we can tag methods as sync or async later.
+
 	* init/control.c (control_get_job_by_name): Remove const from
 	return parameter.
 	* init/control.h: Update prototype.
