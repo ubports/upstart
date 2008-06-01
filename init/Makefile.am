@@ -107,6 +107,8 @@ test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -117,6 +119,8 @@ test_job_class_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -127,6 +131,8 @@ test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -137,6 +143,8 @@ test_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -147,6 +155,8 @@ test_event_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -157,6 +167,8 @@ test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -167,6 +179,8 @@ test_parse_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -177,6 +191,8 @@ test_parse_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -187,6 +203,8 @@ test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)
@@ -197,6 +215,8 @@ test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
 	../nih/libnih-dbus.la \
 	$(DBUS_LIBS)

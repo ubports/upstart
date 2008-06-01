@@ -1,3 +1,12 @@
+2008-06-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am (test_process_LDADD, test_job_class_LDADD)
+	(test_job_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_event_operator_LDADD, test_parse_job_LDADD)
+	(test_parse_conf_LDADD, test_conf_LDADD, test_control_LDADD): Link
+	the auto-generated D-Bus code in, otherwise the tests won't be
+	complete.
+
 2008-05-24  Scott James Remnant  <scott@netsplit.com>
 
 	* HACKING: Changed branch location again, of both upstart and
