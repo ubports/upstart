@@ -1035,6 +1035,8 @@ test_get_all_jobs (void)
 		TEST_EQ_P (paths[3], NULL);
 
 		for (i = 0; i < 3; i++) {
+			TEST_ALLOC_PARENT (paths[i], paths);
+
 			if (! strcmp (paths[i], class1->path))
 				found1 = TRUE;
 			if (! strcmp (paths[i], class2->path))

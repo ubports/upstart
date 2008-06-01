@@ -522,3 +522,50 @@ job_class_get_instance_by_name (JobClass        *class,
 
 	return 0;
 }
+
+/**
+ * job_class_get_all_instances:
+ * @class: class to obtain instance from,
+ * @message: D-Bus connection and message received,
+ * @instances: pointer for array of object paths reply.
+ *
+ * Implements the GetAllInstances method of the com.ubuntu.Upstart.Job
+ * interface.
+ *
+ * Called to obtain the paths of all instances for the given @class, which
+ * will be stored in @instances.  If no instances exist, @instances will
+ * point to an empty array.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_all_instances (JobClass         *class,
+			     NihDBusMessage   *message,
+			     char           ***instances)
+{
+	char   **list;
+	size_t   len;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (instances != NULL);
+
+	len = 0;
+	list = nih_str_array_new (message);
+	if (! list)
+		nih_return_system_error (-1);
+
+	NIH_HASH_FOREACH (class->instances, iter) {
+		Job *job = (Job *)iter;
+
+		if (! nih_str_array_add (&list, message, &len, job->path)) {
+			nih_error_raise_system ();
+			nih_free (list);
+			return -1;
+		}
+	}
+
+	*instances = list;
+
+	return 0;
+}

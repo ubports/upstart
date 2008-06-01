@@ -863,6 +863,117 @@ test_get_instance_by_name (void)
 	nih_free (class);
 }
 
+void
+test_get_all_instances (void)
+{
+	NihDBusMessage  *message;
+	JobClass        *class;
+	Job             *job1, *job2, *job3;
+	NihError        *error;
+	char           **paths;
+	int              ret;
+
+	TEST_FUNCTION ("job_class_get_all_instances");
+	nih_error_init ();
+	job_class_init ();
+
+	class = job_class_new (NULL, "test");
+
+
+	/* Check that paths for each of the active instances are returned
+	 * in an array allocated as a child of the message structure.
+	 */
+	TEST_FEATURE ("with active instances");
+	job1 = job_new (class, "frodo");
+	job2 = job_new (class, "bilbo");
+	job3 = job_new (class, "sauron");
+
+	TEST_ALLOC_FAIL {
+		int found1 = FALSE, found2 = FALSE, found3 = FALSE, i;
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = job_class_get_all_instances (class, message, &paths);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (paths, message);
+		TEST_ALLOC_SIZE (paths, sizeof (char *) * 4);
+		TEST_EQ_P (paths[3], NULL);
+
+		for (i = 0; i < 3; i++) {
+			TEST_ALLOC_PARENT (paths[i], paths);
+
+			if (! strcmp (paths[i], job1->path))
+				found1 = TRUE;
+			if (! strcmp (paths[i], job2->path))
+				found2 = TRUE;
+			if (! strcmp (paths[i], job3->path))
+				found3 = TRUE;
+		}
+
+		TEST_TRUE (found1);
+		TEST_TRUE (found2);
+		TEST_TRUE (found3);
+
+		nih_free (message);
+	}
+
+	nih_free (job3);
+	nih_free (job2);
+	nih_free (job1);
+
+
+	/* Check that when no instances exist for the given class, an empty
+	 * array is returned instead of an error.
+	 */
+	TEST_FEATURE ("with no instances");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = job_class_get_all_instances (class, message, &paths);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (paths, message);
+		TEST_ALLOC_SIZE (paths, sizeof (char *) * 1);
+		TEST_EQ_P (paths[0], NULL);
+
+		nih_free (message);
+	}
+
+
+	nih_free (class);
+}
+
 
 int
 main (int   argc,
@@ -876,6 +987,7 @@ main (int   argc,
 	test_environment ();
 
 	test_get_instance_by_name ();
+	test_get_all_instances ();
 
 	return 0;
 }

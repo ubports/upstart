@@ -395,7 +395,7 @@ control_get_job_by_name (void            *data,
  * control_get_all_jobs:
  * @data: not used,
  * @message: D-Bus connection and message received,
- * @job: pointer for array of object paths reply.
+ * @jobs: pointer for array of object paths reply.
  *
  * Implements the GetAllJobs method of the com.ubuntu.Upstart
  * interface.

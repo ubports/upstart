@@ -1,5 +1,15 @@
 2008-06-01  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Job.xml (GetAllInstances): And also add
+	a similar method to return the object path of all instances of a
+	particular job.
+	* init/job_class.c (job_class_get_all_instances): Implement the
+	method, pretty much the same as the other.
+	* init/job_class.h: Add prototype.
+	* init/control.c: Fix comment.
+	* init/tests/test_control.c (test_get_all_jobs): Ensure that the
+	individual paths are children of the array.
+
 	* dbus/com.ubuntu.Upstart.xml (GetAllJobs): Add method to return
 	the object path of all known jobs.
 	* init/control.c (control_get_all_jobs): Implement the method,

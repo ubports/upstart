@@ -180,6 +180,10 @@ int         job_class_get_instance_by_name (JobClass *class,
 					    const char *name,
 					    char **instance)
 	__attribute__ ((warn_unused_result));
+int         job_class_get_all_instances    (JobClass *class,
+					    NihDBusMessage *message,
+					    char ***instances)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

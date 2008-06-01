@@ -6,9 +6,14 @@
 <node name="/com/ubuntu/Upstart/jobs/*"
       xmlns:nih="http://www.netsplit.com/nih/dbus">
   <interface name="com.ubuntu.Upstart.Job">
+    <!-- Get object paths for instances, while you can figure these out too,
+         it's still better form to use these -->
     <method name="GetInstanceByName">
       <arg name="name" type="s" direction="in" />
       <arg name="instance" type="o" direction="out" />
+    </method>
+    <method name="GetAllInstances">
+      <arg name="instances" type="ao" direction="out" />
     </method>
   </interface>
 </node>
