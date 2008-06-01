@@ -366,7 +366,7 @@ int
 control_get_job_by_name (void            *data,
 			 NihDBusMessage  *message,
 			 const char      *name,
-			 const char     **job)
+			 char           **job)
 {
 	JobClass *class;
 

@@ -903,7 +903,7 @@ test_get_job_by_name (void)
 {
 	NihDBusMessage *message;
 	JobClass       *class;
-	const char     *path;
+	char           *path;
 	NihError       *error;
 	NihDBusError   *dbus_error;
 	int             ret;

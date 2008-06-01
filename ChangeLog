@@ -1,5 +1,11 @@
 2008-06-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_get_job_by_name): Remove const from
+	return parameter.
+	* init/control.h: Update prototype.
+	* init/tests/test_control.c (test_get_job_by_name): Remove const
+	from path type.
+
 	* init/job_class.c (job_class_get_instance_by_name): Remove wrong
 	const from parameter now that we've fixed the bindings generator.
 	* init/job_class.h: Update prototype to match.

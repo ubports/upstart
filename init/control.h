@@ -54,7 +54,7 @@ int  control_bus_open        (void)
 void control_bus_close       (void);
 
 int  control_get_job_by_name (void *data, NihDBusMessage *message,
-			      const char *name, const char **job)
+			      const char *name, char **job)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
