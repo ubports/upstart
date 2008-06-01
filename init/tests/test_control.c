@@ -910,6 +910,7 @@ test_get_job_by_name (void)
 
 	TEST_FUNCTION ("control_get_job_by_name");
 	nih_error_init ();
+	job_class_init ();
 
 	class = job_class_new (NULL, "test");
 	nih_hash_add (job_classes, &class->entry);
@@ -979,6 +980,114 @@ test_get_job_by_name (void)
 	nih_free (class);
 }
 
+void
+test_get_all_jobs (void)
+{
+	NihDBusMessage  *message;
+	JobClass        *class1, *class2, *class3;
+	NihError        *error;
+	char           **paths;
+	int              ret;
+
+	TEST_FUNCTION ("control_get_all_jobs");
+	nih_error_init ();
+	job_class_init ();
+
+
+	/* Check that paths for each of the registered jobs are returned
+	 * in an array allocated as a child of the message structure.
+	 */
+	TEST_FEATURE ("with registered jobs");
+	class1 = job_class_new (NULL, "frodo");
+	nih_hash_add (job_classes, &class1->entry);
+
+	class2 = job_class_new (NULL, "bilbo");
+	nih_hash_add (job_classes, &class2->entry);
+
+	class3 = job_class_new (NULL, "sauron");
+	nih_hash_add (job_classes, &class3->entry);
+
+	TEST_ALLOC_FAIL {
+		int found1 = FALSE, found2 = FALSE, found3 = FALSE, i;
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_all_jobs (NULL, message, &paths);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (paths, message);
+		TEST_ALLOC_SIZE (paths, sizeof (char *) * 4);
+		TEST_EQ_P (paths[3], NULL);
+
+		for (i = 0; i < 3; i++) {
+			if (! strcmp (paths[i], class1->path))
+				found1 = TRUE;
+			if (! strcmp (paths[i], class2->path))
+				found2 = TRUE;
+			if (! strcmp (paths[i], class3->path))
+				found3 = TRUE;
+		}
+
+		TEST_TRUE (found1);
+		TEST_TRUE (found2);
+		TEST_TRUE (found3);
+
+		nih_free (message);
+	}
+
+	nih_free (class3);
+	nih_free (class2);
+	nih_free (class1);
+
+
+	/* Check that when no jobs are registered, an empty array is
+	 * returned instead of an error.
+	 */
+	TEST_FEATURE ("with no registered jobs");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_all_jobs (NULL, message, &paths);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (paths, message);
+		TEST_ALLOC_SIZE (paths, sizeof (char *) * 1);
+		TEST_EQ_P (paths[0], NULL);
+
+		nih_free (message);
+	}
+}
+
 
 int
 main (int   argc,
@@ -994,6 +1103,7 @@ main (int   argc,
 	test_disconnected ();
 
 	test_get_job_by_name ();
+	test_get_all_jobs ();
 
 	return 0;
 }

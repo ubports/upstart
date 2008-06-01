@@ -390,3 +390,51 @@ control_get_job_by_name (void            *data,
 
 	return 0;
 }
+
+/**
+ * control_get_all_jobs:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job: pointer for array of object paths reply.
+ *
+ * Implements the GetAllJobs method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to obtain the paths of all known jobs, which will be stored in
+ * @jobs.  If no jobs are registered, @jobs will point to an empty array.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_all_jobs (void             *data,
+		      NihDBusMessage   *message,
+		      char           ***jobs)
+{
+	char   **list;
+	size_t   len;
+
+	nih_assert (message != NULL);
+	nih_assert (jobs != NULL);
+
+	job_class_init ();
+
+	len = 0;
+	list = nih_str_array_new (message);
+	if (! list)
+		nih_return_system_error (-1);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		if (! nih_str_array_add (&list, message, &len,
+					 class->path)) {
+			nih_error_raise_system ();
+			nih_free (list);
+			return -1;
+		}
+	}
+
+	*jobs = list;
+
+	return 0;
+}
