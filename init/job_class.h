@@ -178,7 +178,7 @@ char      **job_class_environment          (const void *parent,
 int         job_class_get_instance_by_name (JobClass *class,
 					    NihDBusMessage *message,
 					    const char *name,
-					    const char **instance)
+					    char **instance)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

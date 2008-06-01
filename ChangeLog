@@ -1,5 +1,11 @@
 2008-06-01  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_get_instance_by_name): Remove wrong
+	const from parameter now that we've fixed the bindings generator.
+	* init/job_class.h: Update prototype to match.
+	* init/tests/test_job_class.c (test_get_instance_by_name): Change
+	type of path to match.
+
 	* HACKING (Dependencies): clarify that autoreconf and configure need
 	to be run for libnih first.
 

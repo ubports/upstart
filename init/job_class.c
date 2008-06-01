@@ -499,7 +499,7 @@ int
 job_class_get_instance_by_name (JobClass        *class,
 				NihDBusMessage  *message,
 				const char      *name,
-				const char     **instance)
+				char           **instance)
 {
 	Job *job;
 

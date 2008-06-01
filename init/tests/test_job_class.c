@@ -743,7 +743,7 @@ test_get_instance_by_name (void)
 	NihDBusMessage *message;
 	JobClass       *class;
 	Job            *job;
-	const char     *path;
+	char           *path;
 	NihError       *error;
 	NihDBusError   *dbus_error;
 	int             ret;
