@@ -26,12 +26,14 @@ released in a stand-alone fashion and must instead be shipped with the
 source.
 
 If you checked upstart out from Bazaar you will also need to check
-libnih out from the following URL:
+libnih out from the following URL, usually into parent directory of
+the Upstart source:
 
 	http://bazaar.launchpad.net/~scott/libnih/trunk
 
-and from the upstart working directory run the nihify script found in
-the libnih working directory, usually just:
+and run ‘autoreconf -i’ and ‘configure’ within that tree before,
+from the upstart working directory, running the ‘nihify’ script to
+symlink the necessary files across, usually just:
 
 	../libnih/nihify
 

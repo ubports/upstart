@@ -1,5 +1,8 @@
 2008-06-01  Scott James Remnant  <scott@netsplit.com>
 
+	* HACKING (Dependencies): clarify that autoreconf and configure need
+	to be run for libnih first.
+
 	* init/Makefile.am (test_process_LDADD, test_job_class_LDADD)
 	(test_job_process_LDADD, test_job_LDADD, test_event_LDADD)
 	(test_event_operator_LDADD, test_parse_job_LDADD)
