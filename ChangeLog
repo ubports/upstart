@@ -1,5 +1,8 @@
 2008-06-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_new, test_register): Also use a private
+	dbus server to avoid session bus problems.
+
 	* init/tests/test_job_class.c (test_consider, test_reconsider)
 	(test_register, test_unregister): Use a private dbus server instead
 	of connecting to the session bus, which might not be there.

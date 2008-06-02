@@ -55,6 +55,7 @@ test_new (void)
 	JobClass       *class;
 	Job            *job;
 	EventOperator  *oper;
+	pid_t           dbus_pid;
 	DBusConnection *conn;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
@@ -165,6 +166,8 @@ test_new (void)
 	 * is registered on that connection as an object.
 	 */
 	TEST_FEATURE ("with D-Bus connection");
+	TEST_DBUS (dbus_pid);
+
 	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
 	control_init ();
@@ -201,6 +204,8 @@ test_new (void)
 
 	dbus_connection_unref (conn);
 
+	TEST_DBUS_END (dbus_pid);
+
 	dbus_shutdown ();
 
 
@@ -214,6 +219,7 @@ test_register (void)
 {
 	JobClass       *class;
 	Job            *job;
+	pid_t           dbus_pid;
 	DBusConnection *conn;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
@@ -227,6 +233,8 @@ test_register (void)
 	class = job_class_new (NULL, "test");
 
 	job = job_new (class, "fred");
+
+	TEST_DBUS (dbus_pid);
 
 	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
@@ -251,6 +259,8 @@ test_register (void)
 	nih_free (entry);
 
 	dbus_connection_unref (conn);
+
+	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
 
