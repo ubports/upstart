@@ -769,6 +769,7 @@ test_bus_close (void)
 {
 	FILE         *output;
 	NihListEntry *entry;
+	pid_t         dbus_pid;
 
 	/* Check that control_bus_close sets control_bus back to NULL
 	 * and is removed from the list of active connections.
@@ -776,6 +777,8 @@ test_bus_close (void)
 	TEST_FUNCTION ("control_bus_close");
 	control_init ();
 	output = tmpfile ();
+
+	TEST_DBUS (dbus_pid);
 
 	assert (NIH_LIST_EMPTY (control_conns));
 
@@ -803,6 +806,8 @@ test_bus_close (void)
 	TEST_FILE_RESET (output);
 
 	fclose (output);
+
+	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
 }
