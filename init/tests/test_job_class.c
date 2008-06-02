@@ -144,6 +144,7 @@ test_new (void)
 void
 test_consider (void)
 {
+	pid_t           dbus_pid;
 	DBusConnection *conn;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
@@ -155,6 +156,8 @@ test_consider (void)
 
 	TEST_FUNCTION ("job_class_consider");
 	control_init ();
+
+	TEST_DBUS (dbus_pid);
 
 	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
@@ -327,12 +330,15 @@ test_consider (void)
 
 	dbus_connection_unref (conn);
 
+	TEST_DBUS_END (dbus_pid);
+
 	dbus_shutdown ();
 }
 
 void
 test_reconsider (void)
 {
+	pid_t           dbus_pid;
 	DBusConnection *conn;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
@@ -344,6 +350,8 @@ test_reconsider (void)
 
 	TEST_FUNCTION ("job_class_reconsider");
 	control_init ();
+
+	TEST_DBUS (dbus_pid);
 
 	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
@@ -523,6 +531,8 @@ test_reconsider (void)
 
 	dbus_connection_unref (conn);
 
+	TEST_DBUS_END (dbus_pid);
+
 	dbus_shutdown ();
 }
 
@@ -531,6 +541,7 @@ void
 test_register (void)
 {
 	JobClass       *class;
+	pid_t           dbus_pid;
 	DBusConnection *conn;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
@@ -542,6 +553,8 @@ test_register (void)
 	 */
 	TEST_FUNCTION ("job_class_register");
 	class = job_class_new (NULL, "test");
+
+	TEST_DBUS (dbus_pid);
 
 	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
@@ -567,6 +580,8 @@ test_register (void)
 
 	dbus_connection_unref (conn);
 
+	TEST_DBUS_END (dbus_pid);
+
 	dbus_shutdown ();
 
 	nih_free (class);
@@ -576,6 +591,7 @@ void
 test_unregister (void)
 {
 	JobClass       *class;
+	pid_t           dbus_pid;
 	DBusConnection *conn;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
@@ -586,6 +602,8 @@ test_unregister (void)
 	 */
 	TEST_FUNCTION ("job_class_unregister");
 	class = job_class_new (NULL, "test");
+
+	TEST_DBUS (dbus_pid);
 
 	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
@@ -614,6 +632,8 @@ test_unregister (void)
 	nih_free (entry);
 
 	dbus_connection_unref (conn);
+
+	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
 
