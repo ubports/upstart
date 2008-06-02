@@ -818,8 +818,7 @@ test_disconnected (void)
 {
 	FILE         *output;
 	NihListEntry *entry;
-	pid_t         pid;
-	int           wait_fd, status;
+	pid_t         dbus_pid;
 
 	/* Check that if the bus connection is disconnected, control_bus is
 	 * set back to NULL automatically.
@@ -833,37 +832,9 @@ test_disconnected (void)
 	refuse_registration = FALSE;
 	server_conn = NULL;
 
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		DBusServer *server;
-
-		nih_signal_set_handler (SIGTERM, nih_signal_handler);
-		assert (nih_signal_add_handler (NULL, SIGTERM,
-						nih_main_term_signal, NULL));
-
-		server = nih_dbus_server ("unix:abstract=/com/ubuntu/upstart/test",
-					  my_connect_handler, NULL);
-
-		TEST_CHILD_RELEASE (wait_fd);
-
-		nih_main_loop ();
-
-		assert (server_conn != NULL);
-
-		dbus_connection_close (server_conn);
-		dbus_connection_unref (server_conn);
-
-		dbus_server_disconnect (server);
-		dbus_server_unref (server);
-
-		dbus_shutdown ();
-
-		exit (0);
-	}
-
-	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
-		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
-
 	assert (NIH_LIST_EMPTY (control_conns));
+
+	TEST_DBUS (dbus_pid);
 
 	assert0 (control_bus_open ());
 	assert (control_bus != NULL);
@@ -873,10 +844,7 @@ test_disconnected (void)
 
 	TEST_FREE_TAG (entry);
 
-	kill (pid, SIGTERM);
-	waitpid (pid, &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_EQ (WEXITSTATUS (status), 0);
+	TEST_DBUS_END (dbus_pid);
 
 	TEST_DIVERT_STDERR (output) {
 		while (control_bus &&
@@ -898,8 +866,6 @@ test_disconnected (void)
 	fclose (output);
 
 	dbus_shutdown ();
-
-	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
 }
 
 

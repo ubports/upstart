@@ -1,5 +1,8 @@
 2008-06-02  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_control.c (test_disconnected): Simplify using a
+	private dbus server rather than faking one.
+
 	* init/tests/test_control.c (test_bus_close): Don't rely on being
 	able to connect to the various buses, instead use a special private
 	one.
