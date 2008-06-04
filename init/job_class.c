@@ -44,6 +44,7 @@
 #include "conf.h"
 #include "control.h"
 
+#include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
 
@@ -328,7 +329,7 @@ job_class_add (JobClass *class)
 		NihListEntry   *entry = (NihListEntry *)iter;
 		DBusConnection *conn = (DBusConnection *)entry->data;
 
-		job_class_register (class, conn);
+		job_class_register (class, conn, TRUE);
 	}
 }
 
@@ -368,7 +369,8 @@ job_class_remove (JobClass *class)
 /**
  * job_class_register:
  * @class: class to register,
- * @conn: connection to register for.
+ * @conn: connection to register for
+ * @signal: emit the JobAdded signal.
  *
  * Register the job @class with the D-Bus connection @conn, using the
  * path set when the class was created.  Since multiple classes with the
@@ -378,7 +380,8 @@ job_class_remove (JobClass *class)
  **/
 void
 job_class_register (JobClass       *class,
-		    DBusConnection *conn)
+		    DBusConnection *conn,
+		    int             signal)
 {
 	nih_assert (class != NULL);
 	nih_assert (conn != NULL);
@@ -388,10 +391,13 @@ job_class_register (JobClass       *class,
 
 	nih_debug ("Registered job %s", class->path);
 
+	if (signal)
+		NIH_ZERO (control_job_added (conn, CONTROL_ROOT, class->path));
+
 	NIH_HASH_FOREACH (class->instances, iter) {
 		Job *job = (Job *)iter;
 
-		job_register (job, conn);
+		job_register (job, conn, signal);
 	}
 }
 
@@ -415,6 +421,8 @@ job_class_unregister (JobClass       *class,
 	NIH_MUST (dbus_connection_unregister_object_path (conn, class->path));
 
 	nih_debug ("Unregistered job %s", class->path);
+
+	NIH_ZERO (control_job_removed (conn, CONTROL_ROOT, class->path));
 }
 
 

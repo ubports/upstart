@@ -15,5 +15,13 @@
     <method name="GetAllJobs">
       <arg name="jobs" type="ao" direction="out" />
     </method>
+
+    <!-- Signals for changes to the job list -->
+    <signal name="JobAdded">
+      <arg name="job" type="o" />
+    </signal>
+    <signal name="JobRemoved">
+      <arg name="job" type="o" />
+    </signal>
   </interface>
 </node>

@@ -145,25 +145,40 @@ void
 test_consider (void)
 {
 	pid_t           dbus_pid;
-	DBusConnection *conn;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
 	ConfSource     *source1, *source2, *source3;
 	ConfFile       *file1, *file2, *file3;
 	JobClass       *class1, *class2, *class3, *class4, *ptr;
 	Job            *job;
+	char           *path;
 	int             ret;
 
 	TEST_FUNCTION ("job_class_consider");
-	control_init ();
+	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
 
-	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
 
-	entry = nih_list_entry_new (NULL);
-	entry->data = conn;
-	nih_list_add (control_conns, &entry->entry);
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
 
 
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
@@ -180,6 +195,13 @@ test_consider (void)
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
 	class3 = file3->job = job_class_new (NULL, "frodo");
+
+
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
 
 
 	/* Check that when there is no registered class and we consider the
@@ -200,8 +222,24 @@ test_consider (void)
 	TEST_EQ_STR (object->path, class1->path);
 	TEST_EQ_P (object->data, class1);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobAdded"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class1->path);
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class1->entry);
-	job_class_unregister (class1, conn);
+	dbus_connection_unregister_object_path (conn, class1->path);
 
 
 	/* Check that when there is no registered class and we consider a
@@ -224,8 +262,24 @@ test_consider (void)
 	TEST_EQ_STR (object->path, class1->path);
 	TEST_EQ_P (object->data, class1);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobAdded"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class1->path);
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class1->entry);
-	job_class_unregister (class1, conn);
+	dbus_connection_unregister_object_path (conn, class1->path);
 
 
 	/* Check that when there is a registered class that cannot be
@@ -242,7 +296,7 @@ test_consider (void)
 	nih_list_add (control_conns, &entry->entry);
 
 	nih_hash_add (job_classes, &class3->entry);
-	job_class_register (class3, conn);
+	job_class_register (class3, conn, FALSE);
 
 	ret = job_class_consider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -257,9 +311,27 @@ test_consider (void)
 	TEST_EQ_STR (object->path, class3->path);
 	TEST_EQ_P (object->data, class3);
 
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
 	nih_free (job);
 	nih_list_remove (&class3->entry);
-	job_class_unregister (class3, conn);
+	dbus_connection_unregister_object_path (conn, class3->path);
 
 
 	/* Check that when there is a registered class that can be
@@ -268,7 +340,7 @@ test_consider (void)
 	 */
 	TEST_FEATURE ("with replacable registered class and best class");
 	nih_hash_add (job_classes, &class3->entry);
-	job_class_register (class3, conn);
+	job_class_register (class3, conn, FALSE);
 
 	ret = job_class_consider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -286,8 +358,38 @@ test_consider (void)
 
 	TEST_LIST_EMPTY (&class3->entry);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobRemoved"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class3->path);
+
+	dbus_message_unref (message);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobAdded"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class1->path);
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class1->entry);
-	job_class_unregister (class1, conn);
+	dbus_connection_unregister_object_path (conn, class1->path);
 
 
 	/* Check that when there is a registered class that can be
@@ -297,7 +399,7 @@ test_consider (void)
 	TEST_FEATURE ("with replacable registered class and not best class");
 	class4 = job_class_new (NULL, "frodo");
 	nih_hash_add (job_classes, &class4->entry);
-	job_class_register (class4, conn);
+	job_class_register (class4, conn, FALSE);
 
 	ret = job_class_consider (class3);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -315,8 +417,38 @@ test_consider (void)
 
 	TEST_LIST_EMPTY (&class4->entry);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobRemoved"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class4->path);
+
+	dbus_message_unref (message);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobAdded"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class1->path);
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class1->entry);
-	job_class_unregister (class1, conn);
+	dbus_connection_unregister_object_path (conn, class1->path);
 
 	nih_free (class4);
 
@@ -330,6 +462,8 @@ test_consider (void)
 
 	dbus_connection_unref (conn);
 
+	dbus_connection_unref (client_conn);
+
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
@@ -339,25 +473,40 @@ void
 test_reconsider (void)
 {
 	pid_t           dbus_pid;
-	DBusConnection *conn;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
 	ConfSource     *source1, *source2, *source3;
 	ConfFile       *file1, *file2, *file3;
 	JobClass       *class1, *class2, *class3, *class4, *ptr;
 	Job            *job;
+	char           *path;
 	int             ret;
 
 	TEST_FUNCTION ("job_class_reconsider");
-	control_init ();
+	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
 
-	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
 
-	entry = nih_list_entry_new (NULL);
-	entry->data = conn;
-	nih_list_add (control_conns, &entry->entry);
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
 
 
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
@@ -376,12 +525,19 @@ test_reconsider (void)
 	class3 = file3->job = job_class_new (NULL, "frodo");
 
 
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+
 	/* Check that when we reconsider the registered class and it is
 	 * still the best class, it remains the registered class.
 	 */
 	TEST_FEATURE ("with registered best class");
 	nih_hash_add (job_classes, &class1->entry);
-	job_class_register (class1, conn);
+	job_class_register (class1, conn, FALSE);
 
 	ret = job_class_reconsider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -397,8 +553,26 @@ test_reconsider (void)
 	TEST_EQ_STR (object->path, class1->path);
 	TEST_EQ_P (object->data, class1);
 
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class1->entry);
-	job_class_unregister (class1, conn);
+	dbus_connection_unregister_object_path (conn, class1->path);
 
 
 	/* Check that when we reconsider the registered class and it is
@@ -406,7 +580,7 @@ test_reconsider (void)
 	 */
 	TEST_FEATURE ("with registered not best class");
 	nih_hash_add (job_classes, &class3->entry);
-	job_class_register (class3, conn);
+	job_class_register (class3, conn, FALSE);
 
 	ret = job_class_reconsider (class3);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -422,8 +596,38 @@ test_reconsider (void)
 	TEST_EQ_STR (object->path, class1->path);
 	TEST_EQ_P (object->data, class1);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobRemoved"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class3->path);
+
+	dbus_message_unref (message);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobAdded"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class1->path);
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class1->entry);
-	job_class_unregister (class1, conn);
+	dbus_connection_unregister_object_path (conn, class1->path);
 
 
 	/* Check that when we reconsider a class that cannot be replaced,
@@ -439,7 +643,7 @@ test_reconsider (void)
 	nih_list_add (control_conns, &entry->entry);
 
 	nih_hash_add (job_classes, &class3->entry);
-	job_class_register (class3, conn);
+	job_class_register (class3, conn, FALSE);
 
 	ret = job_class_reconsider (class3);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -455,9 +659,27 @@ test_reconsider (void)
 	TEST_EQ_STR (object->path, class3->path);
 	TEST_EQ_P (object->data, class3);
 
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
 	nih_free (job);
 	nih_list_remove (&class3->entry);
-	job_class_unregister (class3, conn);
+	dbus_connection_unregister_object_path (conn, class3->path);
 
 
 	/* Check that if the class we reconsidered is not the registered
@@ -465,7 +687,7 @@ test_reconsider (void)
 	 */
 	TEST_FEATURE ("with unregistered class");
 	nih_hash_add (job_classes, &class3->entry);
-	job_class_register (class3, conn);
+	job_class_register (class3, conn, FALSE);
 
 	ret = job_class_reconsider (class1);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -481,8 +703,26 @@ test_reconsider (void)
 	TEST_EQ_STR (object->path, class3->path);
 	TEST_EQ_P (object->data, class3);
 
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
 	nih_list_remove (&class3->entry);
-	job_class_unregister (class3, conn);
+	dbus_connection_unregister_object_path (conn, class3->path);
 
 
 	/* Check that if there is no registered class, an election is
@@ -500,6 +740,24 @@ test_reconsider (void)
 							 (void **)&object));
 	TEST_EQ_P (object, NULL);
 
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
 
 	/* Check that when there are no more classes left to consider,
 	 * the registered class is simply removed.
@@ -511,7 +769,7 @@ test_reconsider (void)
 
 	class4 = job_class_new (NULL, "frodo");
 	nih_hash_add (job_classes, &class4->entry);
-	job_class_register (class4, conn);
+	job_class_register (class4, conn, FALSE);
 
 	ret = job_class_reconsider (class4);
 	ptr = (JobClass *)nih_hash_lookup (job_classes, "frodo");
@@ -524,12 +782,30 @@ test_reconsider (void)
 							 (void **)&object));
 	TEST_EQ_P (object, NULL);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobRemoved"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class4->path);
+
+	dbus_message_unref (message);
+
 	nih_free (class4);
 
 
 	nih_free (entry);
 
 	dbus_connection_unref (conn);
+
+	dbus_connection_unref (client_conn);
 
 	TEST_DBUS_END (dbus_pid);
 
@@ -540,33 +816,50 @@ test_reconsider (void)
 void
 test_register (void)
 {
-	JobClass       *class;
 	pid_t           dbus_pid;
-	DBusConnection *conn;
-	NihListEntry   *entry;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
+	JobClass       *class;
 	NihDBusObject  *object;
+	char           *path;
 
-	/* Check that we can register an existing job class on the bus
-	 * using its path, create the job first to ensure that it's not
-	 * registered and don't place it in the hash table to ensure that
-	 * it doesn't _get_ registered.
-	 */
 	TEST_FUNCTION ("job_class_register");
-	class = job_class_new (NULL, "test");
+	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
 
-	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
+
+
+	/* Check that we can register an existing job class on the bus
+	 * using its path and that the JobAdded signal is emitted to
+	 * announce it.
+	 */
+	TEST_FEATURE ("with signal emission");
+	class = job_class_new (NULL, "test");
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
 	assert (object == NULL);
 
-	entry = nih_list_entry_new (NULL);
-	entry->data = conn;
-	nih_list_add (control_conns, &entry->entry);
-
-	job_class_register (class, conn);
+	job_class_register (class, conn, TRUE);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
 							 class->path,
@@ -576,46 +869,122 @@ test_register (void)
 	TEST_EQ_STR (object->path, class->path);
 	TEST_EQ_P (object->data, class);
 
-	nih_free (entry);
+	dbus_connection_flush (conn);
 
-	dbus_connection_unref (conn);
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
 
-	TEST_DBUS_END (dbus_pid);
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobAdded"));
 
-	dbus_shutdown ();
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class->path);
+
+	dbus_message_unref (message);
 
 	nih_free (class);
-}
 
-void
-test_unregister (void)
-{
-	JobClass       *class;
-	pid_t           dbus_pid;
-	DBusConnection *conn;
-	NihListEntry   *entry;
-	NihDBusObject  *object;
 
-	/* Check that we can unregister an object for a job class from
-	 * the bus, don't worry about its instances, we can never
-	 * unregister while it has them.
+	/* Check that we can register the job without emitting the signal
+	 * by emitting a signal immediately afterwards.
 	 */
-	TEST_FUNCTION ("job_class_unregister");
+	TEST_FEATURE ("without signal emission");
 	class = job_class_new (NULL, "test");
-
-	TEST_DBUS (dbus_pid);
-
-	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
 	assert (object == NULL);
 
-	entry = nih_list_entry_new (NULL);
-	entry->data = conn;
-	nih_list_add (control_conns, &entry->entry);
+	job_class_register (class, conn, FALSE);
 
-	job_class_register (class, conn);
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 class->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, class->path);
+	TEST_EQ_P (object->data, class);
+
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
+	nih_free (class);
+
+
+	dbus_connection_unref (conn);
+
+	dbus_connection_unref (client_conn);
+
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+}
+
+void
+test_unregister (void)
+{
+	pid_t           dbus_pid;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
+	JobClass       *class;
+	NihDBusObject  *object;
+	char           *path;
+
+	/* Check that we can unregister an object for a job class from
+	 * the bus and that the JobRemoved signal is emitted as a result.
+	 * Don't worry about its instances, we can never unregister while
+	 * it has them.
+	 */
+	TEST_FUNCTION ("job_class_unregister");
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
+
+
+	class = job_class_new (NULL, "test");
+
+	assert (dbus_connection_get_object_path_data (conn, class->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	job_class_register (class, conn, FALSE);
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -629,15 +998,32 @@ test_unregister (void)
 							 (void **)&object));
 	TEST_EQ_P (object, NULL);
 
-	nih_free (entry);
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
+					   "JobRemoved"));
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, class->path);
+
+	dbus_message_unref (message);
+
+	nih_free (class);
+
 
 	dbus_connection_unref (conn);
+
+	dbus_connection_unref (client_conn);
 
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
-
-	nih_free (class);
 }
 
 
@@ -798,6 +1184,8 @@ test_get_instance_by_name (void)
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
 
+			nih_free (message);
+
 			continue;
 		}
 
@@ -835,6 +1223,8 @@ test_get_instance_by_name (void)
 			error = nih_error_get ();
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
+
+			nih_free (message);
 
 			continue;
 		}
@@ -926,6 +1316,8 @@ test_get_all_instances (void)
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
 
+			nih_free (message);
+
 			continue;
 		}
 
@@ -977,6 +1369,8 @@ test_get_all_instances (void)
 			error = nih_error_get ();
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
+
+			nih_free (message);
 
 			continue;
 		}

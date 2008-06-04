@@ -56,9 +56,12 @@ test_new (void)
 	Job            *job;
 	EventOperator  *oper;
 	pid_t           dbus_pid;
-	DBusConnection *conn;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
 	NihListEntry   *entry;
 	NihDBusObject  *object;
+	char           *path;
 	int             i;
 
 	TEST_FUNCTION ("job_new");
@@ -163,18 +166,39 @@ test_new (void)
 
 
 	/* Check that when a D-Bus connection is open, the new instance
-	 * is registered on that connection as an object.
+	 * is registered on that connection as an object and the InstanceAdded
+	 * signal is emitted.
 	 */
 	TEST_FEATURE ("with D-Bus connection");
+	dbus_error_init (&dbus_error);
+
 	TEST_DBUS (dbus_pid);
 
-	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
+
 
 	control_init ();
 
 	entry = nih_list_entry_new (NULL);
 	entry->data = conn;
 	nih_list_add (control_conns, &entry->entry);
+
 
 	job = job_new (class, "fred");
 
@@ -196,13 +220,34 @@ test_new (void)
 	TEST_EQ_STR (object->path, job->path);
 	TEST_EQ_P (object->data, job);
 
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Job",
+					   "InstanceAdded"));
+
+	TEST_EQ_STR (dbus_message_get_path (message), class->path);
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, job->path);
+
+	dbus_message_unref (message);
+
 	event_operator_reset (job->stop_on);
 
 	nih_free (job);
 
+
 	nih_free (entry);
 
 	dbus_connection_unref (conn);
+
+	dbus_connection_unref (client_conn);
 
 	TEST_DBUS_END (dbus_pid);
 
@@ -217,36 +262,51 @@ test_new (void)
 void
 test_register (void)
 {
+	pid_t           dbus_pid;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
 	JobClass       *class;
 	Job            *job;
-	pid_t           dbus_pid;
-	DBusConnection *conn;
-	NihListEntry   *entry;
 	NihDBusObject  *object;
+	char           *path;
 
-	/* Check that we can register an existing job instance on the bus
-	 * using its path, create the job first to ensure that it's not
-	 * registered and don't place it in the hash table to ensure that
-	 * it doesn't _get_ registered.
-	 */
 	TEST_FUNCTION ("job_register");
-	class = job_class_new (NULL, "test");
-
-	job = job_new (class, "fred");
+	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
 
-	assert (conn = nih_dbus_bus (DBUS_BUS_SESSION, NULL));
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
+
+
+	/* Check that we can register an existing job instance on the bus
+	 * using its path, and have a InstanceAdded signal emitted.
+	 */
+	TEST_FEATURE ("with signal emission");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "fred");
 
 	assert (dbus_connection_get_object_path_data (conn, job->path,
 						      (void **)&object));
 	assert (object == NULL);
 
-	entry = nih_list_entry_new (NULL);
-	entry->data = conn;
-	nih_list_add (control_conns, &entry->entry);
-
-	job_register (job, conn);
+	job_register (job, conn, TRUE);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
 							 job->path,
@@ -256,15 +316,76 @@ test_register (void)
 	TEST_EQ_STR (object->path, job->path);
 	TEST_EQ_P (object->data, job);
 
-	nih_free (entry);
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Job",
+					   "InstanceAdded"));
+
+	TEST_EQ_STR (dbus_message_get_path (message), class->path);
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, job->path);
+
+	dbus_message_unref (message);
+
+	nih_free (class);
+
+
+	/* Check that we can suppress signal emission, but that the instance
+	 * is still registered.
+	 */
+	TEST_FEATURE ("without signal emission");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "fred");
+
+	assert (dbus_connection_get_object_path_data (conn, job->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	job_register (job, conn, FALSE);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 job->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, job->path);
+	TEST_EQ_P (object->data, job);
+
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
+	nih_free (class);
+
 
 	dbus_connection_unref (conn);
+
+	dbus_connection_unref (client_conn);
 
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
-
-	nih_free (class);
 }
 
 
@@ -473,20 +594,24 @@ test_change_goal (void)
 void
 test_change_state (void)
 {
-	FILE          *output;
-	ConfSource    *source = NULL;
-	ConfFile      *file = NULL;
-	JobClass      *class, *replacement = NULL, *ptr;
-	Job           *job = NULL, *instance = NULL;
-	NihList       *list = NULL;
-	NihListEntry  *entry = NULL;
-	Event         *cause, *event;
-	struct stat    statbuf;
-	char           dirname[PATH_MAX], filename[PATH_MAX];
-	char         **env1, **env2, **env3;
-	Process       *tmp, *fail;
-	pid_t          pid;
-	int            status;
+	FILE            *output;
+	ConfSource      *source = NULL;
+	ConfFile        *file = NULL;
+	JobClass        *class, *replacement = NULL, *ptr;
+	Job             *job = NULL, *instance = NULL;
+	NihList         *list = NULL;
+	NihListEntry    *entry = NULL, *dbus_entry;
+	Event           *cause, *event;
+	struct stat      statbuf;
+	char             dirname[PATH_MAX], filename[PATH_MAX];
+	char           **env1, **env2, **env3;
+	Process         *tmp, *fail;
+	pid_t            pid, dbus_pid;
+	DBusError        dbus_error;
+	DBusConnection  *conn, *client_conn;
+	DBusMessage     *message;
+	char            *path, *job_path;
+	int              status;
 
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
@@ -3122,6 +3247,123 @@ test_change_state (void)
 
 	nih_free (class->export);
 	class->export = NULL;
+
+
+	/* Check that when a job is deleted, the InstanceRemoved signal
+	 * is also emitted on any D-Bus connections.
+	 */
+	TEST_FEATURE ("post-stop to waiting with d-bus connection");
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+
+	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
+	assert (client_conn != NULL);
+	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
+
+	while (! (message = dbus_connection_pop_message (client_conn)))
+		dbus_connection_read_write (client_conn, -1);
+
+	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+
+	dbus_message_unref (message);
+
+	control_init ();
+
+	dbus_entry = nih_list_entry_new (NULL);
+	dbus_entry->data = conn;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+			job_path = nih_strdup (NULL, job->path);
+
+			job->blocking = nih_list_new (job);
+			list = job->blocking;
+
+			entry = nih_list_entry_new (job->blocking);
+			entry->data = cause;
+			event_block (cause);
+			nih_list_add (job->blocking, &entry->entry);
+
+			nih_list_add (control_conns, &dbus_entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocked = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (list);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (list);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		dbus_connection_flush (conn);
+
+		while (! (message = dbus_connection_pop_message (client_conn)))
+			dbus_connection_read_write (client_conn, -1);
+
+		TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Job",
+						   "InstanceRemoved"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), class->path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_OBJECT_PATH, &path,
+						  DBUS_TYPE_INVALID));
+
+		TEST_EQ_STR (path, job_path);
+
+		dbus_message_unref (message);
+
+		nih_free (job_path);
+
+		nih_list_remove (&dbus_entry->entry);
+	}
+
+	nih_free (dbus_entry);
+
+	dbus_connection_unref (conn);
+
+	dbus_connection_unref (client_conn);
+
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 
 
 	/* Check that a job can move from post-stop to starting.  This

@@ -15,5 +15,13 @@
     <method name="GetAllInstances">
       <arg name="instances" type="ao" direction="out" />
     </method>
+
+    <!-- Signals for changes to the instance list for a job -->
+    <signal name="InstanceAdded">
+      <arg name="instance" type="o" />
+    </signal>
+    <signal name="InstanceRemoved">
+      <arg name="instance" type="o" />
+    </signal>
   </interface>
 </node>

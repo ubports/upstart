@@ -341,7 +341,7 @@ control_register_all (DBusConnection *conn)
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		job_class_register (class, conn);
+		job_class_register (class, conn, FALSE);
 	}
 }
 

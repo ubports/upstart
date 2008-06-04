@@ -429,6 +429,7 @@ test_bus_open (void)
 	output = tmpfile ();
 	err = 0;
 
+
 	/* Check that control_bus_open() opens a connection to the system bus,
 	 * we test this by faking the registration part of the system bus and
 	 * making sure everything works.  The control_bus global should be
@@ -507,7 +508,9 @@ test_bus_open (void)
 
 
 	/* Check that existing jobs and instances are registered on the
-	 * new bus connection.
+	 * new bus connection.  This inherently checks that this does not
+	 * cause signals to be emitted because our fake server expects the
+	 * first message to be a request name method.
 	 */
 	TEST_FEATURE ("with existing jobs");
 	drop_connection = FALSE;

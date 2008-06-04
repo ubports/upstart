@@ -151,7 +151,7 @@ NIH_BEGIN_EXTERN
 
 Job *       job_new             (JobClass *class, const char *name)
 	__attribute__ ((warn_unused_result, malloc));
-void        job_register        (Job *job, DBusConnection *conn);
+void        job_register        (Job *job, DBusConnection *conn, int signal);
 
 void        job_change_goal     (Job *job, JobGoal goal);
 

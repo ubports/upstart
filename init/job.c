@@ -49,6 +49,7 @@
 #include "event_operator.h"
 #include "control.h"
 
+#include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
 
@@ -150,7 +151,7 @@ job_new (JobClass   *class,
 		NihListEntry   *entry = (NihListEntry *)iter;
 		DBusConnection *conn = (DBusConnection *)entry->data;
 
-		job_register (job, conn);
+		job_register (job, conn, TRUE);
 	}
 
 	return job;
@@ -163,14 +164,16 @@ error:
 /**
  * job_register:
  * @job: job to register,
- * @conn: connection to register for.
+ * @conn: connection to register for,
+ * @signal: emit the InstanceAdded signal.
  *
  * Register the @job instance with the D-Bus connection @conn, using
  * the path set when the job was created.
  **/
 void
 job_register (Job            *job,
-	      DBusConnection *conn)
+	      DBusConnection *conn,
+	      int             signal)
 {
 	nih_assert (job != NULL);
 	nih_assert (conn != NULL);
@@ -179,6 +182,10 @@ job_register (Job            *job,
 				       job_interfaces, job));
 
 	nih_debug ("Registered instance %s", job->path);
+
+	if (signal)
+		NIH_ZERO (job_class_instance_added (conn, job->class->path,
+						    job->path));
 }
 
 
@@ -447,6 +454,17 @@ job_change_state (Job      *job,
 			} else {
 				nih_debug ("Destroyed inactive instance %s",
 					   job_name (job));
+
+				NIH_LIST_FOREACH (control_conns, iter) {
+					NihListEntry   *entry = (NihListEntry *)iter;
+					DBusConnection *conn = (DBusConnection *)entry->data;
+
+					NIH_ZERO (job_class_instance_removed (
+							  conn,
+							  job->class->path,
+							  job->path));
+				}
+
 				nih_free (job);
 			}
 

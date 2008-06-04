@@ -1,3 +1,47 @@
+2008-06-05  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/com.ubuntu.Upstart.xml (JobAdded, JobRemoved): Add signals
+	for when new jobs are added to the known list and when existing jobs
+	are removed, this allows GUIs to always show an up-to-date list.
+	* dbus/com.ubuntu.Upstart.Job.xml (InstanceAdded, InstanceRemoved):
+	Also add matching signals for when instances are added to the list
+	for a job and when they're removed again.
+	* init/job_class.c (job_class_register): Emit the JobAdded signal
+	for this job when registering if the new signal argument is TRUE;
+	pass on the signal argument to job_register()
+	(job_class_add): Emit signals when registering jobs with existing
+	connections.
+	(job_class_unregister): Emit signals when unregistering a job.
+	* init/job.c (job_register): Likewise, emit the InstanceAdded signal
+	for the job class if the new signal argument is TRUE.
+	(job_new): Emit signals when registering instances with existing
+	connections.
+	(job_change_state): Emit the instance removed signal when destroying
+	an inactive instance.
+	* init/job_class.h, init/job.h: Add signal argument to prototypes
+	* init/control.c (control_register_all): When registering job classes
+	on a new connection, do not emit a signal since they will already
+	exist at the point when the name appears on the bus or the connection
+	is complete.
+	* init/tests/test_control.c (test_bus_open): Add comment that we
+	are testing for signal non-emission already with the fake server,
+	since it was this test that actually made me realise we had to
+	not emit them :p
+	* init/tests/test_job_class.c (test_register): Test that the signal
+	is emitted when signal is TRUE and not emitted when signal is FALSE
+	(test_unregister): Test that the JobRemoved signal is emitted
+	(test_get_instance_by_name, test_get_all_instances): Free message
+	if allocation failed.
+	(test_consider, test_reconsider): Test that the JobAdded and
+	JobRemoved signals are emitted (or not) when appropriate.
+	* init/tests/test_job.c (test_register): Make sure that the
+	InstanceAdded signal is emitted when TRUE is passed, and not when
+	FALSE is passed.
+	(test_new): Make sure the InstanceAdded signal is emitted when the
+	job is registered on the bus.
+	(test_change_state): Make sure the InstanceRemoved signal is sent
+	when deleting an instance.
+
 2008-06-02  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_new, test_register): Also use a private
