@@ -47,6 +47,7 @@
 #include "job_process.h"
 #include "event.h"
 #include "event_operator.h"
+#include "blocked.h"
 #include "control.h"
 
 #include "com.ubuntu.Upstart.Job.h"
@@ -131,7 +132,7 @@ job_new (JobClass   *class,
 		job->pid[i] = 0;
 
 	job->blocked = NULL;
-	job->blocking = NULL;
+	nih_list_init (&job->blocking);
 
 	job->kill_timer = NULL;
 
@@ -630,21 +631,17 @@ job_unblock (Job *job,
 {
 	nih_assert (job != NULL);
 
-	if (job->blocking) {
-		NIH_LIST_FOREACH (job->blocking, iter) {
-			NihListEntry *entry = (NihListEntry *)iter;
-			Event        *event = (Event *)entry->data;
+	NIH_LIST_FOREACH_SAFE (&job->blocking, iter) {
+		Blocked *blocked = (Blocked *)iter;
 
-			nih_assert (event != NULL);
+		nih_assert (blocked->type == BLOCKED_EVENT);
 
-			if (failed)
-				event->failed = TRUE;
+		if (failed)
+			blocked->event->failed = TRUE;
 
-			event_unblock (event);
-		}
+		event_unblock (blocked->event);
 
-		nih_free (job->blocking);
-		job->blocking = NULL;
+		nih_free (blocked);
 	}
 }
 

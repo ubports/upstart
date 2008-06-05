@@ -1,5 +1,15 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Make blocking a statically defined list.
+	* init/job.c (job_new): Initialise rather than setting to NULL.
+	(job_unblock): Assume that blocking members are Blocked structures
+	and that the list itself is always iterable.
+	* init/tests/test_job.c (test_new): Check the list is empty, rather
+	than NULL.
+	(test_change_state, test_failed, test_unblock): Change tests cases
+	to expect blocking to always be present, and create members as Blocked
+	structures.
+
 	* init/blocked.c (blocked_new): Set destructor (forgotten)
 
 	* init/init.supp: Add setenv, which has crept in

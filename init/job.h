@@ -131,7 +131,7 @@ typedef struct job {
 
 	pid_t          *pid;
 	Event          *blocked;
-	NihList        *blocking;
+	NihList         blocking;
 
 	NihTimer       *kill_timer;
 
