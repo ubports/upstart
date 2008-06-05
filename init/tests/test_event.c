@@ -68,6 +68,7 @@ test_new (void)
 		TEST_EQ (event->failed, FALSE);
 
 		TEST_EQ (event->blockers, 0);
+		TEST_LIST_EMPTY (&event->blocking);
 
 		TEST_EQ_STR (event->name, "test");
 		TEST_ALLOC_PARENT (event->name, event);

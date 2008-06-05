@@ -1,5 +1,10 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.h (event): Add blocking member.
+	* init/event.c (event_new): Initialising blocking list.
+	* init/tests/test_event.c (test_new): Make sure it's initialised
+	to an empty list.
+
 	* init/tests/test_job_process.c (test_handler): Update tests to use
 	Blocked.
 

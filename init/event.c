@@ -119,6 +119,7 @@ event_new (const void  *parent,
 	event->failed = FALSE;
 
 	event->blockers = 0;
+	nih_list_init (&event->blocking);
 
 	nih_alloc_set_destructor (event, (NihDestructor)nih_list_destroy);
 

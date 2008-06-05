@@ -45,7 +45,8 @@ typedef enum event_progress {
  * @env: NULL-terminated array of environment variables,
  * @progress: progress of event,
  * @failed: whether this event has failed,
- * @blockers: number of blockers for finishing.
+ * @blockers: number of blockers for finishing,
+ * @blocking: messages and jobs we're blocking.
  *
  * Events are one of the core concepts of upstart; they occur whenever
  * something, somewhere changes state.  They are idenitied by a unique
@@ -68,6 +69,7 @@ typedef struct event {
 	int              failed;
 
 	unsigned int     blockers;
+	NihList          blocking;
 } Event;
 
 
