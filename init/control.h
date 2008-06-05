@@ -43,21 +43,24 @@ DBusConnection *control_bus;
 NihList        *control_conns;
 
 
-void control_init            (void);
+void control_init                 (void);
 
-int  control_server_open     (void)
+int  control_server_open          (void)
 	__attribute__ ((warn_unused_result));
-void control_server_close    (void);
+void control_server_close         (void);
 
-int  control_bus_open        (void)
+int  control_bus_open             (void)
 	__attribute__ ((warn_unused_result));
-void control_bus_close       (void);
+void control_bus_close            (void);
 
-int  control_get_job_by_name (void *data, NihDBusMessage *message,
-			      const char *name, char **job)
+int  control_reload_configuration (void *data, NihDBusMessage *message)
 	__attribute__ ((warn_unused_result));
-int  control_get_all_jobs    (void *data, NihDBusMessage *message,
-			      char ***jobs)
+
+int  control_get_job_by_name      (void *data, NihDBusMessage *message,
+				   const char *name, char **job)
+	__attribute__ ((warn_unused_result));
+int  control_get_all_jobs         (void *data, NihDBusMessage *message,
+				   char ***jobs)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

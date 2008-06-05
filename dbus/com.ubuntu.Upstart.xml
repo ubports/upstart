@@ -6,6 +6,10 @@
 <node name="/com/ubuntu/Upstart"
       xmlns:nih="http://www.netsplit.com/nih/dbus">
   <interface name="com.ubuntu.Upstart">
+    <!-- Reload all configuration sources -->
+    <method name="ReloadConfiguration">
+    </method>
+
     <!-- Get object paths for jobs, while you can figure them out, it's
          better form to use these -->
     <method name="GetJobByName">

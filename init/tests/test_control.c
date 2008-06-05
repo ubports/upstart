@@ -48,6 +48,7 @@
 
 #include "job_class.h"
 #include "job.h"
+#include "conf.h"
 #include "control.h"
 #include "errors.h"
 
@@ -873,6 +874,73 @@ test_disconnected (void)
 
 
 void
+test_reload_configuration (void)
+{
+	FILE           *f;
+	ConfSource     *source1, *source2, *source3;
+	char            dirname[PATH_MAX], filename[PATH_MAX];
+	NihDBusMessage *message;
+	int             ret;
+
+	/* Check that we can ask the daemon to reload its configuration;
+	 * there's no need to simulate this deeply, we just set up a config
+	 * and then reload it and see whether it turned up.
+	 */
+	TEST_FUNCTION ("control_reload_configuration");
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo");
+	source1 = conf_source_new (NULL, filename, CONF_FILE);
+
+	f = fopen (filename, "w");
+	fprintf (f, "#empty\n");
+	fclose (f);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+	mkdir (filename, 0755);
+
+	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar/bar");
+
+	f = fopen (filename, "w");
+	fprintf (f, "script\n");
+	fprintf (f, "  echo\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/baz");
+	source3 = conf_source_new (NULL, filename, CONF_DIR);
+
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = NULL;
+	message->message = NULL;
+
+	ret = control_reload_configuration (NULL, message);
+
+	TEST_EQ (ret, 0);
+
+	nih_free (message);
+
+	TEST_HASH_NOT_EMPTY (source1->files);
+
+	TEST_HASH_NOT_EMPTY (source2->files);
+
+	TEST_HASH_EMPTY (source3->files);
+
+	nih_free (source1);
+	nih_free (source2);
+	nih_free (source3);
+}
+
+
+void
 test_get_job_by_name (void)
 {
 	NihDBusMessage *message;
@@ -909,6 +977,8 @@ test_get_job_by_name (void)
 			error = nih_error_get ();
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
+
+			nih_free (message);
 
 			continue;
 		}
@@ -999,6 +1069,8 @@ test_get_all_jobs (void)
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
 
+			nih_free (message);
+
 			continue;
 		}
 
@@ -1051,6 +1123,8 @@ test_get_all_jobs (void)
 			TEST_EQ (error->number, ENOMEM);
 			nih_free (error);
 
+			nih_free (message);
+
 			continue;
 		}
 
@@ -1077,6 +1151,8 @@ main (int   argc,
 	test_bus_close ();
 
 	test_disconnected ();
+
+	test_reload_configuration ();
 
 	test_get_job_by_name ();
 	test_get_all_jobs ();

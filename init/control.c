@@ -41,6 +41,7 @@
 #include <nih/dbus.h>
 
 #include "job_class.h"
+#include "conf.h"
 #include "control.h"
 #include "errors.h"
 
@@ -345,6 +346,31 @@ control_register_all (DBusConnection *conn)
 	}
 }
 
+
+/**
+ * control_reload_configuration:
+ * @data: not used,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the ReloadConfiguration of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request that Upstart reloads its configuration from disk,
+ * useful when inotify is not available or the user is generally paranoid.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_reload_configuration (void           *data,
+			      NihDBusMessage *message)
+{
+	nih_assert (message != NULL);
+
+	nih_info (_("Reloading configuration"));
+	conf_reload ();
+
+	return 0;
+}
 
 /**
  * control_get_job_by_name:

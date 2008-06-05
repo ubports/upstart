@@ -1,5 +1,15 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml (ReloadConfiguration): Add method
+	that's effectively the same as the HUP signal.
+	* init/control.c (control_reload_configuration): Unsurprisingly,
+	the implementation is identical.
+	* init/control.h: Add prototype.
+	* init/tests/test_control.c (test_reload_configuration): Make sure
+	the method works as expected.
+	(test_get_job_by_name, test_get_all_jobs): Add missing free calls for
+	message in cases of out of memory.
+
 	* dbus/com.ubuntu.Upstart.xml (JobAdded, JobRemoved): Add signals
 	for when new jobs are added to the known list and when existing jobs
 	are removed, this allows GUIs to always show an up-to-date list.
