@@ -1,5 +1,19 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/blocked.h: Header containing enum, struct and prototype.
+	* init/blocked.c (blocked_new): Function to allocate the structure
+	with the right details.
+	* init/tests/test_blocked.c (test_new): Tests for the new function.
+	* init/Makefile.am (init_SOURCES): Compile using blocked.c and header
+	(TESTS): Build blocked test suite
+	(test_process_LDADD, test_job_class_LDADD)
+	(test_job_process_LDADD, test_job_LDADD, test_event_LDADD)
+	(test_event_operator_LDADD, test_parse_job_LDADD)
+	(test_parse_conf_LDADD, test_conf_LDADD, test_control_LDADD):
+	Link blocked.o to most test suites.
+	(test_blocked_SOURCES, test_blocked_LDFLAGS, test_blocked_LDADD):
+	Details for test suite.
+
 	* init/main.c: Also remove SIGTERM handling, we don't re-exec
 	properly and this is a dangerous signal to use anyway.
 	(term_handler): Drop function.
