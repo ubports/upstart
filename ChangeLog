@@ -1,5 +1,7 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/blocked.c (blocked_new): Set destructor (forgotten)
+
 	* init/init.supp: Add setenv, which has crept in
 
 	* init/blocked.h: Header containing enum, struct and prototype.

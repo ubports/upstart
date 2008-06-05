@@ -67,6 +67,7 @@ blocked_new (const void  *parent,
 		return NULL;
 
 	nih_list_init (&blocked->entry);
+	nih_alloc_set_destructor (blocked, (NihDestructor)nih_list_destroy);
 
 	blocked->type = type;
 	switch (blocked->type) {
