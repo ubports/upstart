@@ -76,28 +76,30 @@ typedef struct event_operator {
 
 NIH_BEGIN_EXTERN
 
-EventOperator *event_operator_new     (const void *parent,
-				       EventOperatorType type,
-				       const char *name, char **env)
+EventOperator *event_operator_new         (const void *parent,
+					   EventOperatorType type,
+					   const char *name, char **env)
 	__attribute__ ((warn_unused_result, malloc));
-EventOperator *event_operator_copy    (const void *parent,
-				       const EventOperator *old_oper)
+EventOperator *event_operator_copy        (const void *parent,
+					   const EventOperator *old_oper)
 	__attribute__ ((warn_unused_result, malloc));
 
-int            event_operator_destroy (EventOperator *oper);
+int            event_operator_destroy     (EventOperator *oper);
 
-void           event_operator_update  (EventOperator *oper);
-int            event_operator_match   (EventOperator *oper, Event *event,
-				       char * const *env);
+void           event_operator_update      (EventOperator *oper);
+int            event_operator_match       (EventOperator *oper, Event *event,
+					   char * const *env);
 
-int            event_operator_handle  (EventOperator *root, Event *event,
-				       char * const *env);
+int            event_operator_handle      (EventOperator *root, Event *event,
+					   char * const *env);
 
-void           event_operator_collect (EventOperator *root, char ***env,
-				       const void *parent, size_t *len,
-				       const char *key, NihList *list);
+void           event_operator_environment (EventOperator *root, char ***env,
+					   const void *parent, size_t *len,
+					   const char *key);
+void           event_operator_events      (EventOperator *root,
+					   const void *parent, NihList *list);
 
-void           event_operator_reset   (EventOperator *root);
+void           event_operator_reset       (EventOperator *root);
 
 NIH_END_EXTERN
 

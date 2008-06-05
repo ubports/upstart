@@ -1,5 +1,15 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event_operator.c (event_operator_collect): Break in two.
+	(event_operator_environment): Collect the environment from the event,
+	appending the list of event names if necessary.
+	(event_operator_events): Block events and pass them to the
+	given list.
+	* init/event_operator.h: Update prototypes.
+	* init/tests/test_event_operator.c (test_operator_collect): Also
+	split into two new functions
+	(test_operator_environment, test_operator_events): Adjust
+
 	* init/event_operator.c (event_operator_collect): Placed Blocked
 	structures in the list, rather than ordinary entries; I strongly
 	suspect that while it's nice to iterate the operator tree only once,

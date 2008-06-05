@@ -922,16 +922,14 @@ test_operator_handle (void)
 
 
 void
-test_operator_collect (void)
+test_operator_environment (void)
 {
 	EventOperator  *root, *oper1, *oper2, *oper3, *oper4, *oper5, *oper6;
 	Event          *event1, *event2, *event3;
-	NihList        *list = NULL;
-	Blocked        *blocked;
 	char          **env;
 	size_t          len;
 
-	TEST_FUNCTION ("event_operator_collect");
+	TEST_FUNCTION ("event_operator_environment");
 	root = event_operator_new (NULL, EVENT_OR, NULL, NULL);
 	oper1 = event_operator_new (root, EVENT_AND, NULL, NULL);
 	oper2 = event_operator_new (root, EVENT_AND, NULL, NULL);
@@ -979,29 +977,16 @@ test_operator_collect (void)
 				     NULL, "BILBO=WIBBLE"));
 
 
-	/* Check that if we iterate without giving any pointers, nothing
-	 * happens (a good test of the logic, but utterly pointless).
-	 */
-	TEST_FEATURE ("with no arguments");
-	TEST_ALLOC_FAIL {
-		event_operator_collect (root, NULL, NULL, NULL, NULL, NULL);
-
-		TEST_EQ (oper3->event->blockers, 1);
-		TEST_EQ (oper4->event->blockers, 1);
-		TEST_EQ (oper6->event->blockers, 1);
-	}
-
-
-	/* Check that if we give an environment table, the environment from
-	 * each of the events is appended to it; except for the event that
-	 * was matched but not in the true tree.
+	/* Check that the environment from each of the events is appended
+	 * to the passed array; except for the event that was matched but not
+	 * in the true tree.
 	 */
 	TEST_FEATURE ("with environment table");
 	TEST_ALLOC_FAIL {
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (root, &env, NULL, &len, NULL, NULL);
+		event_operator_environment (root, &env, NULL, &len, NULL);
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
@@ -1017,10 +1002,6 @@ test_operator_collect (void)
 		TEST_EQ_STR (env[3], "COFFEE=NO");
 		TEST_EQ_P (env[4], NULL);
 
-		TEST_EQ (oper3->event->blockers, 1);
-		TEST_EQ (oper4->event->blockers, 1);
-		TEST_EQ (oper6->event->blockers, 1);
-
 		nih_free (env);
 	}
 
@@ -1033,108 +1014,8 @@ test_operator_collect (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (root, &env, NULL, &len,
-					"UPSTART_EVENTS", NULL);
-
-		TEST_NE_P (env, NULL);
-		TEST_ALLOC_SIZE (env, sizeof (char *) * 6);
-		TEST_EQ (len, 5);
-
-		TEST_ALLOC_PARENT (env[0], env);
-		TEST_EQ_STR (env[0], "FOO=APPLE");
-		TEST_ALLOC_PARENT (env[1], env);
-		TEST_EQ_STR (env[1], "TEA=YES");
-		TEST_ALLOC_PARENT (env[2], env);
-		TEST_EQ_STR (env[2], "BAR=ORANGE");
-		TEST_ALLOC_PARENT (env[3], env);
-		TEST_EQ_STR (env[3], "COFFEE=NO");
-		TEST_ALLOC_PARENT (env[4], env);
-		TEST_EQ_STR (env[4], "UPSTART_EVENTS=foo bar");
-		TEST_EQ_P (env[5], NULL);
-
-		TEST_EQ (oper3->event->blockers, 1);
-		TEST_EQ (oper4->event->blockers, 1);
-		TEST_EQ (oper6->event->blockers, 1);
-
-		nih_free (env);
-	}
-
-
-	/* Check that if we get a list to append to, the events are appended
-	 * in tree order and each event is referenced and blocked; the
-	 * event that was matched, but not in the operator tree, should
-	 * not be added.
-	 */
-	TEST_FEATURE ("with list to append to");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			list = nih_list_new (NULL);
-		}
-
-		event_operator_collect (root, NULL, NULL, NULL, NULL, list);
-
-		TEST_LIST_NOT_EMPTY (list);
-
-		blocked = (Blocked *)list->next;
-		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_EQ (blocked->type, BLOCKED_EVENT);
-		TEST_EQ_P (blocked->event, oper3->event);
-		TEST_EQ (blocked->event->blockers, 2);
-		event_unblock (blocked->event);
-		nih_free (blocked);
-
-		blocked = (Blocked *)list->next;
-		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_EQ (blocked->type, BLOCKED_EVENT);
-		TEST_EQ_P (blocked->event, oper4->event);
-		TEST_EQ (blocked->event->blockers, 2);
-		event_unblock (blocked->event);
-		nih_free (blocked);
-
-		TEST_LIST_EMPTY (list);
-
-		TEST_EQ (oper6->event->blockers, 1);
-
-		nih_free (list);
-	}
-
-
-	/* Check that if we give all the arguments, all of the side-effects
-	 * are combined.
-	 */
-	TEST_FEATURE ("with all arguments");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			list = nih_list_new (NULL);
-		}
-
-		env = NULL;
-		len = 0;
-
-		event_operator_collect (root, &env, NULL, &len,
-					"UPSTART_EVENTS", list);
-
-		TEST_LIST_NOT_EMPTY (list);
-
-		blocked = (Blocked *)list->next;
-		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_EQ (blocked->type, BLOCKED_EVENT);
-		TEST_EQ_P (blocked->event, oper3->event);
-		TEST_EQ (blocked->event->blockers, 2);
-		event_unblock (blocked->event);
-		nih_free (blocked);
-
-		blocked = (Blocked *)list->next;
-		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_EQ (blocked->type, BLOCKED_EVENT);
-		TEST_EQ_P (blocked->event, oper4->event);
-		TEST_EQ (blocked->event->blockers, 2);
-		event_unblock (blocked->event);
-		nih_free (blocked);
-
-		TEST_LIST_EMPTY (list);
-
-		TEST_EQ (oper6->event->blockers, 1);
+		event_operator_environment (root, &env, NULL, &len,
+					    "UPSTART_EVENTS");
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 6);
@@ -1153,30 +1034,19 @@ test_operator_collect (void)
 		TEST_EQ_P (env[5], NULL);
 
 		nih_free (env);
-		nih_free (list);
 	}
 
 
-	/* Check that if no events are matched, the list remains empty and
-	 * the environment table only has an empty events list.
+	/* Check that if no events are matched the environment table only
+	 * has an empty events list.
 	 */
-	TEST_FEATURE ("with all arguments but no matches");
+	TEST_FEATURE ("with no matches");
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			list = nih_list_new (NULL);
-		}
-
 		env = NULL;
 		len = 0;
 
-		event_operator_collect (oper5, &env, NULL, &len,
-					"UPSTART_EVENTS", list);
-
-		TEST_LIST_EMPTY (list);
-
-		TEST_EQ (oper3->event->blockers, 1);
-		TEST_EQ (oper4->event->blockers, 1);
-		TEST_EQ (oper6->event->blockers, 1);
+		event_operator_environment (oper5, &env, NULL, &len,
+					    "UPSTART_EVENTS");
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 2);
@@ -1187,6 +1057,110 @@ test_operator_collect (void)
 		TEST_EQ_P (env[1], NULL);
 
 		nih_free (env);
+	}
+
+
+	nih_free (root);
+	nih_free (event1);
+	nih_free (event2);
+	nih_free (event3);
+}
+
+void
+test_operator_events (void)
+{
+	EventOperator  *root, *oper1, *oper2, *oper3, *oper4, *oper5, *oper6;
+	Event          *event1, *event2, *event3;
+	NihList        *list = NULL;
+	Blocked        *blocked;
+
+	TEST_FUNCTION ("event_operator_events");
+	root = event_operator_new (NULL, EVENT_OR, NULL, NULL);
+	oper1 = event_operator_new (root, EVENT_AND, NULL, NULL);
+	oper2 = event_operator_new (root, EVENT_AND, NULL, NULL);
+	oper3 = event_operator_new (root, EVENT_MATCH, "foo", NULL);
+	oper4 = event_operator_new (root, EVENT_MATCH, "bar", NULL);
+	oper5 = event_operator_new (root, EVENT_MATCH, "frodo", NULL);
+	oper6 = event_operator_new (root, EVENT_MATCH, "bilbo", NULL);
+
+	nih_tree_add (&root->node, &oper1->node, NIH_TREE_LEFT);
+	nih_tree_add (&root->node, &oper2->node, NIH_TREE_RIGHT);
+	nih_tree_add (&oper1->node, &oper3->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper1->node, &oper4->node, NIH_TREE_RIGHT);
+	nih_tree_add (&oper2->node, &oper5->node, NIH_TREE_LEFT);
+	nih_tree_add (&oper2->node, &oper6->node, NIH_TREE_RIGHT);
+
+	root->value = TRUE;
+
+	oper1->value = TRUE;
+
+	oper3->value = TRUE;
+	oper3->event = event1 = event_new (NULL, "foo", NULL);
+	event_block (oper3->event);
+
+	oper4->value = TRUE;
+	oper4->event = event2 = event_new (NULL, "bar", NULL);
+	event_block (oper4->event);
+
+	oper6->value = TRUE;
+	oper6->event = event3 = event_new (NULL, "bilbo", NULL);
+	event_block (oper6->event);
+
+
+	/* Check that the events are appended in tree order to the list
+	 * and each event is referenced and blocked; the event that was
+	 * matched, but not in the operator tree, should not be added.
+	 */
+	TEST_FEATURE ("with matches in tree");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			list = nih_list_new (NULL);
+		}
+
+		event_operator_events (root, NULL, list);
+
+		TEST_LIST_NOT_EMPTY (list);
+
+		blocked = (Blocked *)list->next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, oper3->event);
+		TEST_EQ (blocked->event->blockers, 2);
+		event_unblock (blocked->event);
+		nih_free (blocked);
+
+		blocked = (Blocked *)list->next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, oper4->event);
+		TEST_EQ (blocked->event->blockers, 2);
+		event_unblock (blocked->event);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (list);
+
+		TEST_EQ (oper6->event->blockers, 1);
+
+		nih_free (list);
+	}
+
+
+	/* Check that if no events are matched, the list remains empty.
+	 */
+	TEST_FEATURE ("with no matches");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			list = nih_list_new (NULL);
+		}
+
+		event_operator_events (oper5, NULL, list);
+
+		TEST_LIST_EMPTY (list);
+
+		TEST_EQ (oper3->event->blockers, 1);
+		TEST_EQ (oper4->event->blockers, 1);
+		TEST_EQ (oper6->event->blockers, 1);
+
 		nih_free (list);
 	}
 
@@ -1270,7 +1244,8 @@ main (int   argc,
 	test_operator_update ();
 	test_operator_match ();
 	test_operator_handle ();
-	test_operator_collect ();
+	test_operator_environment ();
+	test_operator_events ();
 	test_operator_reset ();
 
 	return 0;
