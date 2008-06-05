@@ -553,7 +553,7 @@ event_operator_events (EventOperator *root,
 
 		nih_assert (oper->event != NULL);
 
-		NIH_MUST (blocked = blocked_new (NULL, BLOCKED_EVENT,
+		NIH_MUST (blocked = blocked_new (parent, BLOCKED_EVENT,
 						 oper->event));
 		nih_list_add (list, &blocked->entry);
 

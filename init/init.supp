@@ -111,14 +111,14 @@
 # collected environment will appear to be leaked from the child's POV when
 # we run it inside event poll
 {
-  event-operator-collect-in-event-poll
+  event-operator-environment-in-event-poll
   Memcheck:Leak
   fun:realloc
   fun:_test_allocator
   fun:nih_realloc
   fun:nih_str_array_addp
   fun:environ_add
-  fun:event_operator_collect
+  fun:event_operator_environment
   fun:event_pending_handle_jobs
   fun:event_pending
   fun:event_poll

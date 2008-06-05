@@ -34,6 +34,7 @@
 
 #include "job.h"
 #include "event.h"
+#include "blocked.h"
 
 
 void
@@ -258,11 +259,10 @@ test_pending_handle_jobs (void)
 	FILE           *output;
 	JobClass       *class = NULL;
 	Job            *job = NULL, *ptr;
-	Event          *event = NULL, *event1 = NULL, *event2 = NULL;
+	Event          *event1 = NULL, *event2 = NULL;
 	Event          *event3 = NULL, *event4 = NULL;
 	EventOperator  *oper;
-	NihList        *list = NULL;
-	NihListEntry   *entry = NULL;
+	Blocked        *blocked = NULL, *blocked1 = NULL, *blocked2 = NULL;
 	char          **env1 = NULL, **env2 = NULL;
 
 	TEST_FUNCTION ("event_pending_handle_jobs");
@@ -445,27 +445,23 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event2);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event2);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -574,27 +570,23 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event2);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event2);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -668,26 +660,21 @@ test_pending_handle_jobs (void)
 			env2 = job->start_env;
 			TEST_FREE_TAG (env2);
 
-			job->blocking = nih_list_new (job);
+			event3 = event_new (NULL, "flibble", NULL);
+			blocked1 = blocked_new (job, BLOCKED_EVENT, event3);
+			event_block (blocked1->event);
+			nih_list_add (&job->blocking, &blocked1->entry);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flibble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event3 = entry->data;
-			event_block (event3);
-
+			TEST_FREE_TAG (blocked1);
 			TEST_FREE_TAG (event3);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flobble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event4 = entry->data;
-			event_block (event4);
+			event4 = event_new (NULL, "flobble", NULL);
+			blocked2 = blocked_new (job, BLOCKED_EVENT, event4);
+			event_block (blocked2->event);
+			nih_list_add (&job->blocking, &blocked2->entry);
 
+			TEST_FREE_TAG (blocked2);
 			TEST_FREE_TAG (event4);
-
-			list = job->blocking;
-			TEST_FREE_TAG (list);
 		}
 
 		event_poll ();
@@ -746,29 +733,26 @@ test_pending_handle_jobs (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
-		TEST_FREE (list);
+		TEST_FREE (blocked1);
+		TEST_FREE (blocked2);
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event2);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event2);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -844,26 +828,21 @@ test_pending_handle_jobs (void)
 			env2 = job->start_env;
 			TEST_FREE_TAG (env2);
 
-			job->blocking = nih_list_new (job);
+			event3 = event_new (NULL, "flibble", NULL);
+			blocked1 = blocked_new (job, BLOCKED_EVENT, event3);
+			event_block (blocked1->event);
+			nih_list_add (&job->blocking, &blocked1->entry);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flibble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event3 = entry->data;
-			event_block (event3);
-
+			TEST_FREE_TAG (blocked1);
 			TEST_FREE_TAG (event3);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flobble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event4 = entry->data;
-			event_block (event4);
+			event4 = event_new (NULL, "flobble", NULL);
+			blocked2 = blocked_new (job, BLOCKED_EVENT, event4);
+			event_block (blocked2->event);
+			nih_list_add (&job->blocking, &blocked2->entry);
 
+			TEST_FREE_TAG (blocked2);
 			TEST_FREE_TAG (event4);
-
-			list = job->blocking;
-			TEST_FREE_TAG (list);
 		}
 
 		event_poll ();
@@ -904,8 +883,12 @@ test_pending_handle_jobs (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
-		TEST_NOT_FREE (list);
-		TEST_EQ_P (job->blocking, list);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked1);
+		TEST_NOT_FREE (blocked2);
+		nih_free (blocked1);
+		nih_free (blocked2);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event3);
@@ -976,20 +959,16 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -1023,26 +1002,21 @@ test_pending_handle_jobs (void)
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 
-			job->blocking = nih_list_new (job);
+			event3 = event_new (NULL, "flibble", NULL);
+			blocked1 = blocked_new (job, BLOCKED_EVENT, event3);
+			event_block (blocked1->event);
+			nih_list_add (&job->blocking, &blocked1->entry);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flibble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event3 = entry->data;
-			event_block (event3);
-
+			TEST_FREE_TAG (blocked1);
 			TEST_FREE_TAG (event3);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flobble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event4 = entry->data;
-			event_block (event4);
+			event4 = event_new (NULL, "flobble", NULL);
+			blocked2 = blocked_new (job, BLOCKED_EVENT, event4);
+			event_block (blocked2->event);
+			nih_list_add (&job->blocking, &blocked2->entry);
 
+			TEST_FREE_TAG (blocked2);
 			TEST_FREE_TAG (event4);
-
-			list = job->blocking;
-			TEST_FREE_TAG (list);
 		}
 
 		event_poll ();
@@ -1064,24 +1038,21 @@ test_pending_handle_jobs (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
-		TEST_FREE (list);
 		TEST_FREE (event3);
 		TEST_FREE (event4);
+		TEST_FREE (blocked1);
+		TEST_FREE (blocked2);
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -1238,20 +1209,16 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -1321,20 +1288,16 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -1376,26 +1339,21 @@ test_pending_handle_jobs (void)
 			env1 = job->stop_env;
 			TEST_FREE_TAG (env1);
 
-			job->blocking = nih_list_new (job);
+			event3 = event_new (NULL, "flibble", NULL);
+			blocked1 = blocked_new (job, BLOCKED_EVENT, event3);
+			event_block (blocked1->event);
+			nih_list_add (&job->blocking, &blocked1->entry);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flibble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event3 = entry->data;
-			event_block (event3);
-
+			TEST_FREE_TAG (blocked1);
 			TEST_FREE_TAG (event3);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flobble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event4 = entry->data;
-			event_block (event4);
+			event4 = event_new (NULL, "flobble", NULL);
+			blocked2 = blocked_new (job, BLOCKED_EVENT, event4);
+			event_block (blocked2->event);
+			nih_list_add (&job->blocking, &blocked2->entry);
 
+			TEST_FREE_TAG (blocked2);
 			TEST_FREE_TAG (event4);
-
-			list = job->blocking;
-			TEST_FREE_TAG (list);
 
 			nih_hash_add (job_classes, &class->entry);
 		}
@@ -1435,24 +1393,21 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_FREE (list);
 		TEST_FREE (event3);
 		TEST_FREE (event4);
+		TEST_FREE (blocked1);
+		TEST_FREE (blocked2);
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);
@@ -1494,26 +1449,21 @@ test_pending_handle_jobs (void)
 			env1 = job->stop_env;
 			TEST_FREE_TAG (env1);
 
-			job->blocking = nih_list_new (job);
+			event3 = event_new (NULL, "flibble", NULL);
+			blocked1 = blocked_new (job, BLOCKED_EVENT, event3);
+			event_block (blocked1->event);
+			nih_list_add (&job->blocking, &blocked1->entry);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flibble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event3 = entry->data;
-			event_block (event3);
-
+			TEST_FREE_TAG (blocked1);
 			TEST_FREE_TAG (event3);
 
-			entry = nih_list_entry_new (job->blocking);
-			entry->data = event_new (NULL, "flobble", NULL);
-			nih_list_add (job->blocking, &entry->entry);
-			event4 = entry->data;
-			event_block (event4);
+			event4 = event_new (NULL, "flobble", NULL);
+			blocked2 = blocked_new (job, BLOCKED_EVENT, event4);
+			event_block (blocked2->event);
+			nih_list_add (&job->blocking, &blocked2->entry);
 
+			TEST_FREE_TAG (blocked2);
 			TEST_FREE_TAG (event4);
-
-			list = job->blocking;
-			TEST_FREE_TAG (list);
 
 			nih_hash_add (job_classes, &class->entry);
 		}
@@ -1536,11 +1486,15 @@ test_pending_handle_jobs (void)
 		TEST_EQ (oper->value, FALSE);
 		TEST_EQ_P (oper->event, NULL);
 
-		TEST_NOT_FREE (list);
 		TEST_NOT_FREE (event3);
 		TEST_NOT_FREE (event4);
 
-		TEST_EQ_P (job->blocking, list);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked1);
+		TEST_NOT_FREE (blocked2);
+		nih_free (blocked1);
+		nih_free (blocked2);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event3);
@@ -1617,21 +1571,16 @@ test_pending_handle_jobs (void)
 		TEST_EQ_P (oper->event, NULL);
 
 
-		TEST_NE_P (job->blocking, NULL);
-		TEST_ALLOC_SIZE (job->blocking, sizeof (NihList));
-		TEST_ALLOC_PARENT (job->blocking, job);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
 
-		TEST_LIST_NOT_EMPTY (job->blocking);
+		blocked = (Blocked *)job->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job);
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, event1);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)job->blocking->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, job->blocking);
-		event = (Event *)entry->data;
-		TEST_EQ_P (event, event1);
-		event_unblock (event);
-		nih_free (entry);
-
-		TEST_LIST_EMPTY (job->blocking);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		nih_free (class);
 		nih_free (event1);

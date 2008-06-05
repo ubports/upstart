@@ -296,48 +296,32 @@ event_pending_handle_jobs (Event *event)
 			    && event_operator_handle (job->stop_on, event,
 						      job->env)
 			    && job->stop_on->value) {
-				char    **env = NULL;
-				size_t    len = 0;
-				NihList  *list;
-
-				/* Collect environment that stopped the job
-				 * for the pre-stop script; it can make a
-				 * more informed decision whether the stop is
-				 * valid.  We don't add class environment
-				 * since this is appended to the existing job
-				 * environment.
-				 */
-				NIH_MUST (list = nih_list_new (NULL));
-				event_operator_collect (job->stop_on,
-							&env, NULL, &len,
-							"UPSTART_STOP_EVENTS",
-							list);
-
 				if (job->goal != JOB_STOP) {
+					size_t len = 0;
+
 					if (job->stop_env)
 						nih_free (job->stop_env);
+					job->stop_env = NULL;
 
-					nih_alloc_reparent (env, job);
-					job->stop_env = env;
+					/* Collect environment that stopped
+					 * the job for the pre-stop script;
+					 * it can make a more informed
+					 * decision whether the stop is valid.
+					 * We don't add class environment
+					 * since this is appended to the
+					 * existing job environment.
+					 */
+					event_operator_environment (
+						job->stop_on, &job->stop_env,
+						job, &len, "UPSTART_STOP_EVENTS");
 
 					job_unblock (job, FALSE);
 
-					nih_alloc_reparent (list, job);
-					job->blocking = list;
+					event_operator_events (
+						job->stop_on,
+						job, &job->blocking);
 
 					job_change_goal (job, JOB_STOP);
-				} else {
-					NIH_LIST_FOREACH (list, iter) {
-						NihListEntry *entry = (NihListEntry *)iter;
-						Event        *event = (Event *)entry->data;
-
-						nih_assert (event != NULL);
-
-						event_unblock (event);
-					}
-
-					nih_free (list);
-					nih_free (env);
 				}
 
 				event_operator_reset (job->stop_on);
@@ -353,19 +337,16 @@ event_pending_handle_jobs (Event *event)
 		    && class->start_on->value) {
 			char    **env, *name = NULL;
 			size_t    len;
-			NihList  *list;
 			Job      *job;
 
 			/* Construct the environment for the new instance
-			 * from the cclass and the start events and collect
-			 * the list of events we have to block.
+			 * from the class and the start events.
 			 */
-			NIH_MUST (list = nih_list_new (NULL));
 			NIH_MUST (env = job_class_environment (
 					  NULL, class, &len));
-			event_operator_collect (class->start_on,
-						&env, NULL, &len,
-						"UPSTART_EVENTS", list);
+			event_operator_environment (class->start_on,
+						    &env, NULL, &len,
+						    "UPSTART_EVENTS");
 
 			/* Expand the instance name against the environment */
 			NIH_SHOULD (name = environ_expand (NULL,
@@ -402,22 +383,12 @@ event_pending_handle_jobs (Event *event)
 
 				job_unblock (job, FALSE);
 
-				nih_alloc_reparent (list, job);
-				job->blocking = list;
+				event_operator_events (job->class->start_on,
+						       job, &job->blocking);
 
 				job_change_goal (job, JOB_START);
 			} else {
 			error:
-				NIH_LIST_FOREACH (list, iter) {
-					NihListEntry *entry = (NihListEntry *)iter;
-					Event        *event = (Event *)entry->data;
-
-					nih_assert (event != NULL);
-
-					event_unblock (event);
-				}
-
-				nih_free (list);
 				nih_free (env);
 			}
 
