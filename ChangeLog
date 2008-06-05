@@ -1,5 +1,8 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job_process.c (test_handler): Update tests to use
+	Blocked.
+
 	* init/event.c (event_pending_handle_jobs): Collect environment
 	and events independantly, which means we don't have to worry about
 	the list contents or freeing them up in case of error.
