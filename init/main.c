@@ -63,14 +63,11 @@
 /* Prototypes for static functions */
 #ifndef DEBUG
 static void crash_handler   (int signum);
-#endif /* DEBUG */
-static void term_handler    (void *data, NihSignal *signal);
-#ifndef DEBUG
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
-#endif /* DEBUG */
 static void hup_handler     (void *data, NihSignal *signal);
+#endif /* DEBUG */
 
 
 /**
@@ -234,18 +231,11 @@ main (int   argc,
 	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
 	nih_signal_set_handler (SIGPWR, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
-#endif /* DEBUG */
 
 	/* SIGHUP instructs us to re-load our configuration */
 	nih_signal_set_handler (SIGHUP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
-
-	/* SIGTERM instructs us to re-exec ourselves; this should be the
-	 * last in the list to ensure that all other signals are handled
-	 * before a SIGTERM.
-	 */
-	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
+#endif /* DEBUG */
 
 
 	/* Watch children for events */
@@ -399,60 +389,7 @@ crash_handler (int signum)
 	/* Goodbye, cruel world. */
 	exit (signum);
 }
-#endif
 
-/**
- * term_handler:
- * @data: unused,
- * @signal: signal caught.
- *
- * This is called when we receive the TERM signal, which instructs us
- * to reexec ourselves.
- **/
-static void
-term_handler (void      *data,
-	      NihSignal *signal)
-{
-	NihError   *err;
-	const char *loglevel;
-	sigset_t    mask, oldmask;
-
-	nih_assert (argv0 != NULL);
-	nih_assert (signal != NULL);
-
-	nih_warn (_("Re-executing %s"), argv0);
-
-	/* Block signals while we work.  We're the last signal handler
-	 * installed so this should mean that they're all handled now.
-	 *
-	 * The child must make sure that it unblocks these again when
-	 * it's ready.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
-	/* Argument list */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		loglevel = NULL;
-	}
-	execl (argv0, argv0, "--restart", loglevel, NULL);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
-	nih_free (err);
-
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-}
-
-
-#ifndef DEBUG
 /**
  * cad_handler:
  * @data: unused,
@@ -500,7 +437,6 @@ pwr_handler (void      *data,
 {
 	event_new (NULL, PWRSTATUS_EVENT, NULL);
 }
-#endif
 
 /**
  * hup_handler:
@@ -517,3 +453,4 @@ hup_handler (void      *data,
 	nih_info (_("Reloading configuration"));
 	conf_reload ();
 }
+#endif /* DEBUG */

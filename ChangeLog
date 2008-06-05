@@ -1,5 +1,9 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Also remove SIGTERM handling, we don't re-exec
+	properly and this is a dangerous signal to use anyway.
+	(term_handler): Drop function.
+
 	* init/main.c: Remove handling for stop/cont; there's no reason
 	a user should be able to pause the event queue.
 	(stop_handler): Drop function.
