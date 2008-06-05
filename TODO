@@ -1,20 +1,13 @@
 Before 0.5.0:
 
- * Restore IPC using D-BUS.
-
- * Configuration reloading needs to happen with an initctl command;
-   we also need to support re-exec via initctl as well.  Should we get
-   rid of the signals, or at least change the TERM one?
+ * Asynchronous Emit method which is blocked by the event, and the reply
+   generated when the event is finished.
 
  * event_pending_handle_jobs is very large, complicated and most of it is
    entirely in the wrong place.  The two blocks of code to deal with stop
    and start events are very similar, and will be basically identical for
    the start and stop command cases.  Reduce to common functions that this
    can call.
-
- * When we start or stop a job by a command, a reference to the command should
-   be stored in the Job's blocking list instead of an Event, but with the
-   same rules.  List entry may need to be a struct with a enum and union.
 
  * It may be useful to not just have failed=TRUE/FALSE for job_unblock() but a
    more detailed reason about why the job is being unblocked, so the command
@@ -25,18 +18,6 @@ Before 0.5.0:
    will still be blocked next time around.  Restores some of the older
    behaviour in that "start" will block until stopped, and fail with the
    fact it was stopped.
-
- * Restore serialisation of state between upstart processes, I guess we'll
-   use a D-Bus API to do this.  Most sense would be a peer-to-peer D-Bus
-   connection so don't need the bus (think initramfs), but we also need
-   to pass over the bus connection so we don't drop that.
-
-    - Pass the Event queue first since Jobs refer to it
-    - Register each ConfSource, ConfFile, JobClass and Job, setting
-      the status of each
-    - Join up the Event queue and Job structures
-
-    - What about commends blocked on event emissions or jobs?
 
 
 0.5.x series:
@@ -65,6 +46,18 @@ Before 0.5.0:
 
 
 Later:
+
+ * Restore serialisation of state between upstart processes, I guess we'll
+   use a D-Bus API to do this.  Most sense would be a peer-to-peer D-Bus
+   connection so don't need the bus (think initramfs), but we also need
+   to pass over the bus connection so we don't drop that.
+
+    - Pass the Event queue first since Jobs refer to it
+    - Register each ConfSource, ConfFile, JobClass and Job, setting
+      the status of each
+    - Join up the Event queue and Job structures
+
+    - What about commends blocked on event emissions or jobs?
 
 
 Anytime:

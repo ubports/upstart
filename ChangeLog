@@ -1,5 +1,7 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/job.c (job_unblock): Rename to job_finished, since this
 	does not behave like event_unblock but more like event_finished
 	(job_change_state, job_failed): Change name in call.
