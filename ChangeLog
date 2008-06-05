@@ -1,5 +1,7 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: Add setenv, which has crept in
+
 	* init/blocked.h: Header containing enum, struct and prototype.
 	* init/blocked.c (blocked_new): Function to allocate the structure
 	with the right details.
