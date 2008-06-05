@@ -71,7 +71,6 @@ static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
 #endif /* DEBUG */
 static void hup_handler     (void *data, NihSignal *signal);
-static void stop_handler    (void *data, NihSignal *signal);
 
 
 /**
@@ -214,13 +213,6 @@ main (int   argc,
 	 */
 	nih_signal_set_handler (SIGCHLD, nih_signal_handler);
 	nih_signal_set_handler (SIGALRM, nih_signal_handler);
-
-	/* Allow SIGTSTP and SIGCONT to pause and unpause event processing */
-	nih_signal_set_handler (SIGTSTP, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL));
-
-	nih_signal_set_handler (SIGCONT, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL));
 
 #ifndef DEBUG
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
@@ -524,28 +516,4 @@ hup_handler (void      *data,
 {
 	nih_info (_("Reloading configuration"));
 	conf_reload ();
-}
-
-/**
- * stop_handler:
- * @data: unused,
- * @signal: signal caught.
- *
- * This is called when we receive the STOP, TSTP or CONT signals; we
- * adjust the paused variable appropriately so that the event queue and
- * job stalled detection is not run.
- **/
-static void
-stop_handler (void      *data,
-	      NihSignal *signal)
-{
-	nih_assert (signal != NULL);
-
-	if (signal->signum == SIGCONT) {
-		nih_info (_("Event queue resumed"));
-		paused = FALSE;
-	} else {
-		nih_info (_("Event queue paused"));
-		paused = TRUE;
-	}
 }

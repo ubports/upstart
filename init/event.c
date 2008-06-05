@@ -50,13 +50,6 @@ static void event_finished_handle_jobs (Event *event);
 
 
 /**
- * paused:
- *
- * Do not process the event queue while this is TRUE.
- **/
-int paused = FALSE;
-
-/**
  * events:
  *
  * This list holds the list of events in the process of pending, being
@@ -205,9 +198,6 @@ void
 event_poll (void)
 {
 	int poll_again;
-
-	if (paused)
-		return;
 
 	event_init ();
 

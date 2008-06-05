@@ -1,5 +1,10 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Remove handling for stop/cont; there's no reason
+	a user should be able to pause the event queue.
+	(stop_handler): Drop function.
+	* init/event.c (event_poll): Remove paused handling.
+
 	* init/control.c: Fix doc string.
 
 	* dbus/com.ubuntu.Upstart.xml (ReloadConfiguration): Add method
