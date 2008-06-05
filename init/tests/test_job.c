@@ -4170,14 +4170,14 @@ test_failed (void)
 }
 
 void
-test_unblock (void)
+test_finished (void)
 {
 	JobClass  *class;
 	Job       *job;
 	Blocked   *blocked1, *blocked2;
 	Event     *event1, *event2;
 
-	TEST_FUNCTION ("job_unblock");
+	TEST_FUNCTION ("job_finished");
 
 	/* Check that when the job has a list of blocked events, each event
 	 * is unblocked and the list itself is then freed.
@@ -4200,7 +4200,7 @@ test_unblock (void)
 
 	TEST_FREE_TAG (blocked2);
 
-	job_unblock (job, FALSE);
+	job_finished (job, FALSE);
 
 	TEST_LIST_EMPTY (&job->blocking);
 	TEST_FREE (blocked1);
@@ -4236,7 +4236,7 @@ test_unblock (void)
 
 	TEST_FREE_TAG (blocked2);
 
-	job_unblock (job, TRUE);
+	job_finished (job, TRUE);
 
 	TEST_LIST_EMPTY (&job->blocking);
 	TEST_FREE (blocked1);
@@ -4258,7 +4258,7 @@ test_unblock (void)
 	class = job_class_new (NULL, "test");
 	job = job_new (class, "");
 
-	job_unblock (job, TRUE);
+	job_finished (job, TRUE);
 
 	TEST_LIST_EMPTY (&job->blocking);
 
@@ -5699,7 +5699,7 @@ main (int   argc,
 	test_change_state ();
 	test_next_state ();
 	test_failed ();
-	test_unblock ();
+	test_finished ();
 	test_emit_event ();
 
 	test_name ();

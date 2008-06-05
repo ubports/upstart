@@ -159,7 +159,7 @@ void        job_change_state    (Job *job, JobState state);
 JobState    job_next_state      (Job *job);
 
 void        job_failed          (Job *job, ProcessType process, int status);
-void        job_unblock         (Job *job, int failed);
+void        job_finished        (Job *job, int failed);
 
 Event      *job_emit_event      (Job *job)
 	__attribute__ ((malloc));

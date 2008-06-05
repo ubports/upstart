@@ -316,7 +316,7 @@ event_pending_handle_jobs (Event *event)
 						job->stop_on, &job->stop_env,
 						job, &len, "UPSTART_STOP_EVENTS");
 
-					job_unblock (job, FALSE);
+					job_finished (job, FALSE);
 
 					event_operator_events (
 						job->stop_on,
@@ -382,7 +382,7 @@ event_pending_handle_jobs (Event *event)
 				nih_alloc_reparent (env, job);
 				job->start_env = env;
 
-				job_unblock (job, FALSE);
+				job_finished (job, FALSE);
 
 				event_operator_events (job->class->start_on,
 						       job, &job->blocking);

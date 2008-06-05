@@ -368,7 +368,7 @@ job_change_state (Job      *job,
 				}
 
 				/* Cancel the stop attempt */
-				job_unblock (job, FALSE);
+				job_finished (job, FALSE);
 			} else {
 				job_emit_event (job);
 
@@ -376,7 +376,7 @@ job_change_state (Job      *job,
 				 * running.
 				 */
 				if (! job->class->task)
-					job_unblock (job, FALSE);
+					job_finished (job, FALSE);
 			}
 
 			break;
@@ -434,7 +434,7 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
-			job_unblock (job, FALSE);
+			job_finished (job, FALSE);
 
 			/* Remove the job from the list of instances and
 			 * then allow a better class to replace us
@@ -610,11 +610,11 @@ job_failed (Job         *job,
 	job->failed_process = process;
 	job->exit_status = status;
 
-	job_unblock (job, TRUE);
+	job_finished (job, TRUE);
 }
 
 /**
- * job_unblock:
+ * job_finished:
  * @job: job that is blocking,
  * @failed: mark events as failed.
  *
@@ -626,8 +626,8 @@ job_failed (Job         *job,
  * failed.
  **/
 void
-job_unblock (Job *job,
-	     int  failed)
+job_finished (Job *job,
+	      int  failed)
 {
 	nih_assert (job != NULL);
 
