@@ -131,7 +131,7 @@ job_new (JobClass   *class,
 	for (i = 0; i < PROCESS_LAST; i++)
 		job->pid[i] = 0;
 
-	job->blocked = NULL;
+	job->blocker = NULL;
 	nih_list_init (&job->blocking);
 
 	job->kill_timer = NULL;
@@ -269,7 +269,7 @@ job_change_state (Job      *job,
 		JobState old_state;
 		int      unused;
 
-		nih_assert (job->blocked == NULL);
+		nih_assert (job->blocker == NULL);
 
 		nih_info (_("%s state changed from %s to %s"), job_name (job),
 			  job_state_name (job->state), job_state_name (state));
@@ -309,7 +309,7 @@ job_change_state (Job      *job,
 			job->failed_process = -1;
 			job->exit_status = 0;
 
-			job->blocked = job_emit_event (job);
+			job->blocker = job_emit_event (job);
 
 			break;
 		case JOB_PRE_START:
@@ -399,7 +399,7 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_RUNNING)
 				    || (old_state == JOB_PRE_STOP));
 
-			job->blocked = job_emit_event (job);
+			job->blocker = job_emit_event (job);
 
 			break;
 		case JOB_KILLED:

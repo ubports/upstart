@@ -1,5 +1,12 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Rename blocked to blocker to match event, since
+	it has the same use as event->blockers except it's a toggle
+	* init/job.c (job_new, job_change_state): Rename where used
+	* init/event.c (event_finished): Rename here also since its reset
+	* init/tests/test_job.c, init/tests/test_job_process.c,
+	* init/tests/test_event.c: Rename in test cases too.
+
 	* init/job.c (job_emit_event): Add a Blocked record to the event's
 	blocking list for the starting and stopping events.
 	* init/tests/test_job.c (test_emit_event): Add tests for the record

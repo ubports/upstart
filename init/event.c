@@ -421,7 +421,7 @@ event_finished (Event *event)
 
 		nih_assert (blocked->type == BLOCKED_JOB);
 
-		blocked->job->blocked = NULL;
+		blocked->job->blocker = NULL;
 		job_change_state (blocked->job, job_next_state (blocked->job));
 
 		nih_free  (blocked);

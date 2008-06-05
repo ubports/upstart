@@ -1188,7 +1188,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1209,7 +1209,7 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -1239,7 +1239,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1260,18 +1260,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -1304,7 +1304,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1356,7 +1356,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1375,7 +1375,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
@@ -1415,7 +1415,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1437,18 +1437,18 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
@@ -1489,7 +1489,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1511,18 +1511,18 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_PRE_START);
@@ -1567,7 +1567,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1594,18 +1594,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -1652,7 +1652,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1679,18 +1679,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -1737,7 +1737,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1761,18 +1761,18 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, -1);
@@ -1813,7 +1813,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1837,18 +1837,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -1890,7 +1890,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1917,18 +1917,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -1968,7 +1968,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -1989,18 +1989,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2035,7 +2035,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2057,18 +2057,18 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -2106,7 +2106,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2157,7 +2157,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2181,18 +2181,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2233,7 +2233,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2257,18 +2257,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2305,7 +2305,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2326,18 +2326,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2369,7 +2369,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2414,7 +2414,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2467,7 +2467,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = TRUE;
 
 		job->failed = TRUE;
@@ -2523,7 +2523,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2543,7 +2543,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
@@ -2587,7 +2587,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2608,18 +2608,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2657,7 +2657,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2674,7 +2674,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -2717,7 +2717,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2734,7 +2734,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -2759,18 +2759,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2808,7 +2808,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2828,7 +2828,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, TRUE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
@@ -2855,18 +2855,18 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
@@ -2904,7 +2904,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -2929,18 +2929,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2981,7 +2981,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3002,18 +3002,18 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 		event_unblock (event);
 
-		TEST_NE_P (job->blocked, NULL);
+		TEST_NE_P (job->blocker, NULL);
 
-		TEST_LIST_NOT_EMPTY (&job->blocked->blocking);
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
 
-		blocked = (Blocked *)job->blocked->blocking.next;
+		blocked = (Blocked *)job->blocker->blocking.next;
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
-		TEST_ALLOC_PARENT (blocked, job->blocked);
+		TEST_ALLOC_PARENT (blocked, job->blocker);
 		TEST_EQ (blocked->type, BLOCKED_JOB);
 		TEST_EQ_P (blocked->job, job);
 		nih_free (blocked);
 
-		TEST_LIST_EMPTY (&job->blocked->blocking);
+		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -3050,7 +3050,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3067,7 +3067,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -3117,7 +3117,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3144,7 +3144,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -3188,7 +3188,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3215,7 +3215,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -3256,7 +3256,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3282,7 +3282,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -3323,7 +3323,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3349,7 +3349,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_NOT_EMPTY (&job->blocking);
 		TEST_NOT_FREE (blocked);
@@ -3393,7 +3393,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->blocked = NULL;
+		job->blocker = NULL;
 		event->failed = FALSE;
 
 		job->failed = FALSE;
@@ -3417,7 +3417,7 @@ test_handler (void)
 		TEST_EQ (event->blockers, 0);
 		TEST_EQ (event->failed, FALSE);
 
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_EMPTY (&job->blocking);
 		TEST_FREE (blocked);

@@ -1738,7 +1738,7 @@ test_finished (void)
 			job = job_new (class, "");
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
-			job->blocked = NULL;
+			job->blocker = NULL;
 
 			nih_hash_add (job_classes, &class->entry);
 		}
@@ -1747,7 +1747,7 @@ test_finished (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_EMPTY (&event->blocking);
 		TEST_FREE (event);
@@ -1772,7 +1772,7 @@ test_finished (void)
 			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
-			job->blocked = NULL;
+			job->blocker = NULL;
 
 			nih_hash_add (job_classes, &class->entry);
 		}
@@ -1781,7 +1781,7 @@ test_finished (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_LIST_EMPTY (&event->blocking);
 		TEST_FREE (event);
@@ -1810,7 +1810,7 @@ test_finished (void)
 			nih_list_add (&bevent->blocking, &blocked->entry);
 			event_block (bevent);
 
-			job->blocked = bevent;
+			job->blocker = bevent;
 
 			TEST_FREE_TAG (blocked);
 
@@ -1821,7 +1821,7 @@ test_finished (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ_P (job->blocked, bevent);
+		TEST_EQ_P (job->blocker, bevent);
 
 		TEST_NOT_FREE (blocked);
 		TEST_EQ (bevent->blockers, 1);
@@ -1852,7 +1852,7 @@ test_finished (void)
 			nih_list_add (&bevent->blocking, &blocked->entry);
 			event_block (bevent);
 
-			job->blocked = bevent;
+			job->blocker = bevent;
 
 			TEST_FREE_TAG (blocked);
 
@@ -1863,7 +1863,7 @@ test_finished (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ_P (job->blocked, bevent);
+		TEST_EQ_P (job->blocker, bevent);
 
 		TEST_NOT_FREE (blocked);
 		TEST_EQ (bevent->blockers, 1);
@@ -1893,7 +1893,7 @@ test_finished (void)
 			job->state = JOB_STOPPING;
 			job->pid[PROCESS_POST_STOP] = 0;
 
-			job->blocked = event;
+			job->blocker = event;
 
 			blocked = blocked_new (event, BLOCKED_JOB, job);
 			nih_list_add (&event->blocking, &blocked->entry);
@@ -1908,7 +1908,7 @@ test_finished (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
 		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
 
@@ -1938,7 +1938,7 @@ test_finished (void)
 			job->state = JOB_STARTING;
 			job->pid[PROCESS_PRE_START] = 0;
 
-			job->blocked = event;
+			job->blocker = event;
 
 			blocked = blocked_new (event, BLOCKED_JOB, job);
 			nih_list_add (&event->blocking, &blocked->entry);
@@ -1953,7 +1953,7 @@ test_finished (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_PRE_START);
 		TEST_GT (job->pid[PROCESS_PRE_START], 0);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ_P (job->blocker, NULL);
 
 		waitpid (job->pid[PROCESS_PRE_START], NULL, 0);
 

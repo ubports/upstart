@@ -99,7 +99,7 @@ typedef enum trace_state {
  * @stop_env: environment to add for the next pre-stop script,
  * @stop_on: event operator expression that can stop this job.
  * @pid: current process ids,
- * @blocked: emitted event we're waiting to finish,
+ * @blocker: emitted event we're waiting to finish,
  * @blocking: list of events we're blocking from finishing,
  * @kill_timer: timer to kill process,
  * @failed: whether the last process ran failed,
@@ -130,7 +130,7 @@ typedef struct job {
 	EventOperator  *stop_on;
 
 	pid_t          *pid;
-	Event          *blocked;
+	Event          *blocker;
 	NihList         blocking;
 
 	NihTimer       *kill_timer;
