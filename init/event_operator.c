@@ -41,6 +41,7 @@
 #include "environ.h"
 #include "event.h"
 #include "event_operator.h"
+#include "blocked.h"
 #include "errors.h"
 
 
@@ -447,7 +448,7 @@ event_operator_filter (void          *data,
  * Collects events from the portion of the EventOperator tree rooted at @oper
  * that are TRUE, ignoring the rest.
  *
- * If @list is not NULL, an NihListEntry structure will be appended for each
+ * If @list is not NULL, a Blocked structure will be appended for each
  * event with the data pointer pointing at the Event itself, the event will
  * be both referenced and blocked (if blocked in the operator) by this;
  * the created structure will have @list as a parent.
@@ -518,14 +519,13 @@ event_operator_collect (EventOperator   *root,
 
 		/* Append to list, referencing and blocking if necessary */
 		if (list) {
-			NihListEntry *entry;
+			Blocked *blocked;
 
-			NIH_MUST (entry = nih_list_entry_new (list));
-			entry->data = oper->event;
+			NIH_MUST (blocked = blocked_new (
+					  NULL, BLOCKED_EVENT, oper->event));
+			nih_list_add (list, &blocked->entry);
 
-			nih_list_add (list, &entry->entry);
-
-			event_block (oper->event);
+			event_block (blocked->event);
 		}
 	}
 

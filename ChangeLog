@@ -1,5 +1,12 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event_operator.c (event_operator_collect): Placed Blocked
+	structures in the list, rather than ordinary entries; I strongly
+	suspect that while it's nice to iterate the operator tree only once,
+	this needs to be three functions really.
+	* init/tests/test_event_operator.c (test_operator_collect): Update
+	test suite.
+
 	* init/job.h (Job): Make blocking a statically defined list.
 	* init/job.c (job_new): Initialise rather than setting to NULL.
 	(job_unblock): Assume that blocking members are Blocked structures

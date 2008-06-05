@@ -28,6 +28,7 @@
 #include <nih/tree.h>
 
 #include "event_operator.h"
+#include "blocked.h"
 
 
 void
@@ -926,7 +927,7 @@ test_operator_collect (void)
 	EventOperator  *root, *oper1, *oper2, *oper3, *oper4, *oper5, *oper6;
 	Event          *event1, *event2, *event3;
 	NihList        *list = NULL;
-	NihListEntry   *entry;
+	Blocked        *blocked;
 	char          **env;
 	size_t          len;
 
@@ -1074,21 +1075,21 @@ test_operator_collect (void)
 
 		TEST_LIST_NOT_EMPTY (list);
 
-		entry = (NihListEntry *)list->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, list);
-		TEST_EQ_P (entry->data, oper3->event);
-		TEST_EQ (oper3->event->blockers, 2);
-		event_unblock (oper3->event);
-		nih_free (entry);
+		blocked = (Blocked *)list->next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, oper3->event);
+		TEST_EQ (blocked->event->blockers, 2);
+		event_unblock (blocked->event);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)list->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, list);
-		TEST_EQ_P (entry->data, oper4->event);
-		TEST_EQ (oper4->event->blockers, 2);
-		event_unblock (oper4->event);
-		nih_free (entry);
+		blocked = (Blocked *)list->next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, oper4->event);
+		TEST_EQ (blocked->event->blockers, 2);
+		event_unblock (blocked->event);
+		nih_free (blocked);
 
 		TEST_LIST_EMPTY (list);
 
@@ -1115,21 +1116,21 @@ test_operator_collect (void)
 
 		TEST_LIST_NOT_EMPTY (list);
 
-		entry = (NihListEntry *)list->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, list);
-		TEST_EQ_P (entry->data, oper3->event);
-		TEST_EQ (oper3->event->blockers, 2);
-		event_unblock (oper3->event);
-		nih_free (entry);
+		blocked = (Blocked *)list->next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, oper3->event);
+		TEST_EQ (blocked->event->blockers, 2);
+		event_unblock (blocked->event);
+		nih_free (blocked);
 
-		entry = (NihListEntry *)list->next;
-		TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
-		TEST_ALLOC_PARENT (entry, list);
-		TEST_EQ_P (entry->data, oper4->event);
-		TEST_EQ (oper4->event->blockers, 2);
-		event_unblock (oper4->event);
-		nih_free (entry);
+		blocked = (Blocked *)list->next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_EQ (blocked->type, BLOCKED_EVENT);
+		TEST_EQ_P (blocked->event, oper4->event);
+		TEST_EQ (blocked->event->blockers, 2);
+		event_unblock (blocked->event);
+		nih_free (blocked);
 
 		TEST_LIST_EMPTY (list);
 
