@@ -1,5 +1,12 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_finished): Clear jobs referenced in the
+	blocking list, rather than iterating the entire jobs hash.
+	(event_finished_handle_jobs): Drop this function.
+	* init/tests/test_event.c (test_finished, test_finished_handle_jobs):
+	Merge tests again and test using both the blocking list and job's
+	blocked member.
+
 	* init/event.h (event): Add blocking member.
 	* init/event.c (event_new): Initialising blocking list.
 	* init/tests/test_event.c (test_new): Make sure it's initialised

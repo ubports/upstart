@@ -1596,7 +1596,8 @@ test_finished (void)
 {
 	JobClass      *class = NULL;
 	Job           *job;
-	Event         *event = NULL;
+	Event         *event = NULL, *bevent = NULL;
+	Blocked       *blocked = NULL;
 	EventOperator *oper;
 
 	TEST_FUNCTION ("event_finished");
@@ -1719,16 +1720,6 @@ test_finished (void)
 
 		nih_free (class);
 	}
-}
-
-void
-test_finished_handle_jobs (void)
-{
-	JobClass *class = NULL;
-	Job      *job = NULL;
-	Event    *event = NULL, *blocked = NULL;
-
-	TEST_FUNCTION ("event_finished_handle_jobs");
 
 
 	/* Check that a finishing event has no effect on a stopping job
@@ -1758,6 +1749,7 @@ test_finished_handle_jobs (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ_P (job->blocked, NULL);
 
+		TEST_LIST_EMPTY (&event->blocking);
 		TEST_FREE (event);
 
 		nih_free (class);
@@ -1791,6 +1783,7 @@ test_finished_handle_jobs (void)
 		TEST_EQ (job->state, JOB_STARTING);
 		TEST_EQ_P (job->blocked, NULL);
 
+		TEST_LIST_EMPTY (&event->blocking);
 		TEST_FREE (event);
 
 		nih_free (class);
@@ -1812,9 +1805,14 @@ test_finished_handle_jobs (void)
 			job->goal = JOB_STOP;
 			job->state = JOB_STOPPING;
 
-			job->blocked = event_new (job, "wibble", NULL);
-			event_block (job->blocked);
-			blocked = job->blocked;
+			bevent = event_new (job, "wibble", NULL);
+			blocked = blocked_new (bevent, BLOCKED_JOB, job);
+			nih_list_add (&bevent->blocking, &blocked->entry);
+			event_block (bevent);
+
+			job->blocked = bevent;
+
+			TEST_FREE_TAG (blocked);
 
 			nih_hash_add (job_classes, &class->entry);
 		}
@@ -1823,7 +1821,10 @@ test_finished_handle_jobs (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ_P (job->blocked, blocked);
+		TEST_EQ_P (job->blocked, bevent);
+
+		TEST_NOT_FREE (blocked);
+		TEST_EQ (bevent->blockers, 1);
 
 		TEST_FREE (event);
 
@@ -1846,9 +1847,14 @@ test_finished_handle_jobs (void)
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
 
-			job->blocked = event_new (job, "wibble", NULL);
-			event_block (job->blocked);
-			blocked = job->blocked;
+			bevent = event_new (job, "wibble", NULL);
+			blocked = blocked_new (bevent, BLOCKED_JOB, job);
+			nih_list_add (&bevent->blocking, &blocked->entry);
+			event_block (bevent);
+
+			job->blocked = bevent;
+
+			TEST_FREE_TAG (blocked);
 
 			nih_hash_add (job_classes, &class->entry);
 		}
@@ -1857,9 +1863,10 @@ test_finished_handle_jobs (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
-		TEST_EQ_P (job->blocked, blocked);
+		TEST_EQ_P (job->blocked, bevent);
 
-		TEST_EQ (blocked->blockers, 1);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ (bevent->blockers, 1);
 
 		TEST_FREE (event);
 
@@ -1888,6 +1895,11 @@ test_finished_handle_jobs (void)
 
 			job->blocked = event;
 
+			blocked = blocked_new (event, BLOCKED_JOB, job);
+			nih_list_add (&event->blocking, &blocked->entry);
+
+			TEST_FREE_TAG (blocked);
+
 			nih_hash_add (job_classes, &class->entry);
 		}
 
@@ -1901,6 +1913,7 @@ test_finished_handle_jobs (void)
 		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
 
 		TEST_FREE (event);
+		TEST_FREE (blocked);
 
 		nih_free (class);
 	}
@@ -1927,6 +1940,11 @@ test_finished_handle_jobs (void)
 
 			job->blocked = event;
 
+			blocked = blocked_new (event, BLOCKED_JOB, job);
+			nih_list_add (&event->blocking, &blocked->entry);
+
+			TEST_FREE_TAG (blocked);
+
 			nih_hash_add (job_classes, &class->entry);
 		}
 
@@ -1940,6 +1958,7 @@ test_finished_handle_jobs (void)
 		waitpid (job->pid[PROCESS_PRE_START], NULL, 0);
 
 		TEST_FREE (event);
+		TEST_FREE (blocked);
 
 		nih_free (class);
 	}
@@ -1958,7 +1977,6 @@ main (int   argc,
 	test_pending ();
 	test_pending_handle_jobs ();
 	test_finished ();
-	test_finished_handle_jobs ();
 
 	return 0;
 }

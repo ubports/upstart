@@ -39,6 +39,7 @@
 #include "environ.h"
 #include "event.h"
 #include "job.h"
+#include "blocked.h"
 #include "errors.h"
 
 
@@ -46,7 +47,6 @@
 static void event_pending              (Event *event);
 static void event_pending_handle_jobs  (Event *event);
 static void event_finished             (Event *event);
-static void event_finished_handle_jobs (Event *event);
 
 
 /**
@@ -416,7 +416,16 @@ event_finished (Event *event)
 
 	nih_debug ("Finished %s event", event->name);
 
-	event_finished_handle_jobs (event);
+	NIH_LIST_FOREACH_SAFE (&event->blocking, iter) {
+		Blocked *blocked = (Blocked *)iter;
+
+		nih_assert (blocked->type == BLOCKED_JOB);
+
+		blocked->job->blocked = NULL;
+		job_change_state (blocked->job, job_next_state (blocked->job));
+
+		nih_free  (blocked);
+	}
 
 	if (event->failed) {
 		char *name;
@@ -437,35 +446,4 @@ event_finished (Event *event)
 	}
 
 	nih_free (event);
-}
-
-/**
- * event_finished_handle_jobs:
- * @event: event that has finished.
- *
- * This function is called whenever an event finishes.  It iterates the
- * list of jobs checking for any blocked by that event, unblocking them
- * and sending them to the next state.
- **/
-static void
-event_finished_handle_jobs (Event *event)
-{
-	nih_assert (event != NULL);
-
-	job_class_init ();
-
-	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
-		JobClass *class = (JobClass *)iter;
-
-		NIH_HASH_FOREACH_SAFE (class->instances, job_iter) {
-			Job *job = (Job *)job_iter;
-
-			if (job->blocked != event)
-				continue;
-
-			job->blocked = NULL;
-
-			job_change_state (job, job_next_state (job));
-		}
-	}
 }
