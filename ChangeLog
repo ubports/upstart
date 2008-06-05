@@ -1,5 +1,7 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c: Fix doc string.
+
 	* dbus/com.ubuntu.Upstart.xml (ReloadConfiguration): Add method
 	that's effectively the same as the HUP signal.
 	* init/control.c (control_reload_configuration): Unsurprisingly,

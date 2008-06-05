@@ -352,7 +352,7 @@ control_register_all (DBusConnection *conn)
  * @data: not used,
  * @message: D-Bus connection and message received.
  *
- * Implements the ReloadConfiguration of the com.ubuntu.Upstart
+ * Implements the ReloadConfiguration method of the com.ubuntu.Upstart
  * interface.
  *
  * Called to request that Upstart reloads its configuration from disk,
@@ -371,6 +371,7 @@ control_reload_configuration (void           *data,
 
 	return 0;
 }
+
 
 /**
  * control_get_job_by_name:
