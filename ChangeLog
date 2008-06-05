@@ -1,5 +1,14 @@
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_emit_event): Add a Blocked record to the event's
+	blocking list for the starting and stopping events.
+	* init/tests/test_job.c (test_emit_event): Add tests for the record
+	being added to the list with the right details.
+	(test_change_goal): Make sure that a Blocked record is added
+	(test_change_state): Make sure that Blocked records are added
+	* init/tests/test_job_process.c (test_handler): Also make sure
+	that Blocked records are added.
+
 	* init/event.c (event_finished): Clear jobs referenced in the
 	blocking list, rather than iterating the entire jobs hash.
 	(event_finished_handle_jobs): Drop this function.

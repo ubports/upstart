@@ -654,6 +654,9 @@ job_unblock (Job *job,
  * emitted.  Constructs the event with the right arguments and environment
  * and adds it to the pending queue.
  *
+ * The starting and stopping events will record the job as blocking on
+ * the event, and will change the job's state when they finish.
+ *
  * The stopping and stopped events have an extra argument that is "ok" if
  * the job terminated successfully, or "failed" if it terminated with an
  * error.  If failed, a further argument indicates which process it was
@@ -667,7 +670,7 @@ job_emit_event (Job *job)
 {
 	Event       *event;
 	const char  *name;
-	int          stop = FALSE;
+	int          block = FALSE, stop = FALSE;
 	char       **env = NULL, **e;
 	size_t       len;
 
@@ -676,12 +679,14 @@ job_emit_event (Job *job)
 	switch (job->state) {
 	case JOB_STARTING:
 		name = JOB_STARTING_EVENT;
+		block = TRUE;
 		break;
 	case JOB_RUNNING:
 		name = JOB_STARTED_EVENT;
 		break;
 	case JOB_STOPPING:
 		name = JOB_STOPPING_EVENT;
+		block = TRUE;
 		stop = TRUE;
 		break;
 	case JOB_WAITING:
@@ -760,6 +765,13 @@ job_emit_event (Job *job)
 	}
 
 	event = event_new (NULL, name, env);
+
+	if (block) {
+		Blocked *blocked;
+
+		NIH_MUST (blocked = blocked_new (event, BLOCKED_JOB, job));
+		nih_list_add (&event->blocking, &blocked->entry);
+	}
 
 	return event;
 }
