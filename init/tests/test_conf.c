@@ -3132,6 +3132,20 @@ test_source_reload (void)
 	nih_free (source2);
 	nih_free (source3);
 
+	strcpy (filename, dirname);
+	strcat (filename, "/foo");
+	unlink (filename);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar/bar");
+	unlink (filename);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+	rmdir (filename);
+
+	rmdir (dirname);
+
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 }
 

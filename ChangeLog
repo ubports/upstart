@@ -1,5 +1,10 @@
 2008-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_conf.c (test_source_reload): Clean up the temporary
+	directory.
+	* init/tests/test_control.c (test_reload_configuration): That goes
+	for this one too.
+
 	* init/tests/test_control.c (my_connect_handler): Use TEST_DBUS_MESSAGE
 	instead of a pop/read/write loop.
 	(test_emit_event): Renamed TEST_DBUS_CONN to TEST_DBUS_OPEN.

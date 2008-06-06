@@ -934,6 +934,21 @@ test_reload_configuration (void)
 	nih_free (source1);
 	nih_free (source2);
 	nih_free (source3);
+
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo");
+	unlink (filename);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar/bar");
+	unlink (filename);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+	rmdir (filename);
+
+	rmdir (dirname);
 }
 
 
