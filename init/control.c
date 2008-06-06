@@ -405,6 +405,14 @@ control_get_job_by_name (void            *data,
 
 	job_class_init ();
 
+	/* Verify that the name is valid */
+	if (! strlen (name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Name may not be empty string"));
+		return -1;
+	}
+
+	/* Lookup the job and copy its path into the reply */
 	class = (JobClass *)nih_hash_lookup (job_classes, name);
 	if (! class) {
 		nih_dbus_error_raise_printf (

@@ -1022,6 +1022,33 @@ test_get_job_by_name (void)
 	}
 
 
+	/* Check that when given an illegal job name, an invalid args
+	 * D-Bus error is raised and an error returned.
+	 */
+	TEST_FEATURE ("with illegal job name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_job_by_name (NULL, message, "", &path);
+
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_error = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+
+		nih_free (error);
+
+		nih_free (message);
+	}
+
 	nih_free (class);
 }
 

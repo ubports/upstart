@@ -1,5 +1,10 @@
 2008-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_get_job_by_name): Sanity check the name
+	of a job in the same way; we don't need to sanity check the instance
+	name because "" is valid (and the default for singletons).
+	* init/tests/test_control.c (test_get_job_by_name): Test.
+
 	* dbus/com.ubuntu.Upstart.xml (EmitEvent): Add an asynchronous
 	method to emit an event, providing the name and accompanying
 	environment.  No return value, it either works or you get an
