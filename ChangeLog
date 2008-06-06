@@ -1,5 +1,20 @@
 2008-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml (EmitEvent): Add an asynchronous
+	method to emit an event, providing the name and accompanying
+	environment.  No return value, it either works or you get an
+	error.
+	* init/control.c (control_emit_event): Implement top half of the
+	method, blocking the message in the event.
+	* init/control.h: Add prototype.
+	* init/event.c (event_finished): Implement the bottom half which
+	sends the reply or error, these are actually tested along with
+	the top for sanity reasons.
+	* init/tests/test_control.c (test_emit_event): Test the various
+	ways the method may be used and abused; the async nature means
+	we actually need a real D-Bus server to do this.
+	* TODO: Update.
+
 	* init/event.c (event_new): There's no reason this shouldn't be
 	allowed to return insufficient memory, so do so.
 	(event_finished): Wrap call.

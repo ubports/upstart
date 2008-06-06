@@ -27,5 +27,11 @@
     <signal name="JobRemoved">
       <arg name="job" type="o" />
     </signal>
+
+    <!-- Event emission -->
+    <method name="EmitEvent" nih:object="async">
+      <arg name="name" type="s" direction="in" />
+      <arg name="env" type="as" direction="in" />
+    </method>
   </interface>
 </node>

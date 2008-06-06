@@ -1,8 +1,5 @@
 Before 0.5.0:
 
- * Asynchronous Emit method which is blocked by the event, and the reply
-   generated when the event is finished.
-
  * event_pending_handle_jobs is very large, complicated and most of it is
    entirely in the wrong place.  The two blocks of code to deal with stop
    and start events are very similar, and will be basically identical for

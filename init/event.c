@@ -42,6 +42,8 @@
 #include "blocked.h"
 #include "errors.h"
 
+#include "com.ubuntu.Upstart.h"
+
 
 /* Prototypes for static functions */
 static void event_pending              (Event *event);
@@ -426,10 +428,34 @@ event_finished (Event *event)
 	NIH_LIST_FOREACH_SAFE (&event->blocking, iter) {
 		Blocked *blocked = (Blocked *)iter;
 
-		nih_assert (blocked->type == BLOCKED_JOB);
+		switch (blocked->type) {
+		case BLOCKED_JOB:
+			/* Event was blocking a job, let it enter the
+			 * next state.
+			 */
+			blocked->job->blocker = NULL;
+			job_change_state (blocked->job,
+					  job_next_state (blocked->job));
 
-		blocked->job->blocker = NULL;
-		job_change_state (blocked->job, job_next_state (blocked->job));
+			break;
+		case BLOCKED_MESSAGE:
+			/* Event was blocking an emit method call, send
+			 * the reply, or an error if the event failed.
+			 */
+			if (event->failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.EventFailed",
+						  "%s", _("Event failed")));
+			} else {
+				NIH_ZERO (control_emit_event_reply (
+						  blocked->message));
+			}
+
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
 
 		nih_free  (blocked);
 	}

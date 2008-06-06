@@ -37,6 +37,7 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>
+#include <nih/string.h>
 #include <nih/signal.h>
 #include <nih/timer.h>
 #include <nih/io.h>
@@ -1138,6 +1139,379 @@ test_get_all_jobs (void)
 	}
 }
 
+void
+test_emit_event (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	char           **env;
+	int              ret;
+	Event           *event;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+	TEST_FUNCTION ("control_emit_event");
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_CONN (conn);
+	TEST_DBUS_CONN (client_conn);
+
+
+	/* Check that we can emit an event with an empty environment list
+	 * which will be added to the event queue while the message is
+	 * blocked.  When the event is finished, the reply will be sent
+	 * and the message structure freed.
+	 */
+	TEST_FEATURE ("with empty environment list");
+	TEST_ALLOC_FAIL {
+		method = dbus_message_new_method_call (
+			dbus_bus_get_unique_name (conn),
+			"/com/ubuntu/Upstart",
+			"com.ubuntu.Upstart",
+			"EmitEvent");
+
+		dbus_connection_send (client_conn, method, &serial);
+		dbus_connection_flush (client_conn);
+		dbus_message_unref (method);
+
+		TEST_DBUS_MESSAGE (conn, method);
+		assert (dbus_message_get_serial (method) == serial);
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = conn;
+			message->message = method;
+
+			TEST_FREE_TAG (message);
+
+			env = nih_str_array_new (NULL);
+		}
+
+		ret = control_emit_event (NULL, message, "test", env);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			dbus_message_unref (method);
+
+			TEST_ALLOC_PARENT (env, NULL);
+			nih_free (env);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "test");
+		TEST_EQ_P (event->env[0], NULL);
+
+		TEST_NOT_FREE (message);
+
+
+		event_poll ();
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_FREE (message);
+		dbus_message_unref (method);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, reply);
+
+		TEST_EQ (dbus_message_get_type (reply),
+			 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+		dbus_message_unref (reply);
+	}
+
+
+	/* Check that if we supply an environment list, it's placed straight
+	 * into the event.
+	 */
+	TEST_FEATURE ("with environment list");
+	TEST_ALLOC_FAIL {
+		method = dbus_message_new_method_call (
+			dbus_bus_get_unique_name (conn),
+			"/com/ubuntu/Upstart",
+			"com.ubuntu.Upstart",
+			"EmitEvent");
+
+		dbus_connection_send (client_conn, method, &serial);
+		dbus_connection_flush (client_conn);
+		dbus_message_unref (method);
+
+		TEST_DBUS_MESSAGE (conn, method);
+		assert (dbus_message_get_serial (method) == serial);
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = conn;
+			message->message = method;
+
+			TEST_FREE_TAG (message);
+
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, NULL,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, NULL, NULL,
+						   "BAR=BAZ"));
+		}
+
+		ret = control_emit_event (NULL, message, "test", env);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			dbus_message_unref (method);
+
+			TEST_ALLOC_PARENT (env, NULL);
+			nih_free (env);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "test");
+		TEST_EQ_STR (event->env[0], "FOO=BAR");
+		TEST_EQ_STR (event->env[1], "BAR=BAZ");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_NOT_FREE (message);
+
+
+		event_poll ();
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_FREE (message);
+		dbus_message_unref (method);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, reply);
+
+		TEST_EQ (dbus_message_get_type (reply),
+			 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+		dbus_message_unref (reply);
+	}
+
+
+	/* Check that if the event is marked as failed, an ordinary reply
+	 * is not sent when its finished, but an error instead.
+	 */
+	TEST_FEATURE ("with failed event");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		"/com/ubuntu/Upstart",
+		"com.ubuntu.Upstart",
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	env = nih_str_array_new (NULL);
+
+	ret = control_emit_event (NULL, message, "test", env);
+
+	TEST_EQ (ret, 0);
+
+	TEST_LIST_NOT_EMPTY (events);
+
+	event = (Event *)events->next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "test");
+	TEST_EQ_P (event->env[0], NULL);
+
+	TEST_NOT_FREE (message);
+
+
+	event->failed = TRUE;
+	event_poll ();
+
+	TEST_LIST_EMPTY (events);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_TRUE (dbus_message_is_error (reply,
+					  "com.ubuntu.Upstart.Error.EventFailed"));
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	/* Check that if the event name is empty, an error is returned
+	 * immediately.
+	 */
+	TEST_FEATURE ("with empty name");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		"/com/ubuntu/Upstart",
+		"com.ubuntu.Upstart",
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	env = nih_str_array_new (NULL);
+
+	ret = control_emit_event (NULL, message, "", env);
+
+	TEST_LT (ret, 0);
+
+	dbus_error = (NihDBusError *)nih_error_get ();
+	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
+	TEST_EQ (dbus_error->error.number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+	nih_free (dbus_error);
+
+	nih_free (message);
+	dbus_message_unref (method);
+
+	TEST_ALLOC_PARENT (env, NULL);
+	nih_free (env);
+
+
+	/* Check that if an entry in the environment list is missing an
+	 * equals, an error is returned immediately.
+	 */
+	TEST_FEATURE ("with missing equals in environment list");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		"/com/ubuntu/Upstart",
+		"com.ubuntu.Upstart",
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	env = nih_str_array_new (NULL);
+	assert (nih_str_array_add (&env, NULL, NULL, "FOO_BAR"));
+
+	ret = control_emit_event (NULL, message, "test", env);
+
+	TEST_LT (ret, 0);
+
+	dbus_error = (NihDBusError *)nih_error_get ();
+	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
+	TEST_EQ (dbus_error->error.number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+	nih_free (dbus_error);
+
+	nih_free (message);
+	dbus_message_unref (method);
+
+	TEST_ALLOC_PARENT (env, NULL);
+	nih_free (env);
+
+
+	/* Check that if an entry in the environment list has an invalid name,
+	 * an error is returned immediately.
+	 */
+	TEST_FEATURE ("with invalid name in environment list");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		"/com/ubuntu/Upstart",
+		"com.ubuntu.Upstart",
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	env = nih_str_array_new (NULL);
+	assert (nih_str_array_add (&env, NULL, NULL, "FOO BAR=BAZ"));
+
+	ret = control_emit_event (NULL, message, "test", env);
+
+	TEST_LT (ret, 0);
+
+	dbus_error = (NihDBusError *)nih_error_get ();
+	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
+	TEST_EQ (dbus_error->error.number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+	nih_free (dbus_error);
+
+	nih_free (message);
+	dbus_message_unref (method);
+
+	TEST_ALLOC_PARENT (env, NULL);
+	nih_free (env);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+}
+
 
 int
 main (int   argc,
@@ -1156,6 +1530,8 @@ main (int   argc,
 
 	test_get_job_by_name ();
 	test_get_all_jobs ();
+
+	test_emit_event ();
 
 	return 0;
 }

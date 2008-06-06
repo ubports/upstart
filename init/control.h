@@ -63,6 +63,10 @@ int  control_get_all_jobs         (void *data, NihDBusMessage *message,
 				   char ***jobs)
 	__attribute__ ((warn_unused_result));
 
+int  control_emit_event           (void *data, NihDBusMessage *message,
+				   const char *name, char * const *env)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_CONTROL_H */

@@ -40,7 +40,9 @@
 
 #include <nih/dbus.h>
 
+#include "environ.h"
 #include "job_class.h"
+#include "blocked.h"
 #include "conf.h"
 #include "control.h"
 #include "errors.h"
@@ -462,6 +464,76 @@ control_get_all_jobs (void             *data,
 	}
 
 	*jobs = list;
+
+	return 0;
+}
+
+
+/**
+ * control_emit_event:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @name: name of event to emit,
+ * @env: environment of environment.
+ *
+ * Implements the top half of the EmitEvent method of the com.ubuntu.Upstart
+ * interface, the bottom half may be found in event_finished().
+ *
+ * Called to emit an event with a given @name and @env, which will be
+ * added to the event queue and processed asynchronously.  If @name or
+ * @env are not valid, the org.freedesktop.DBus.Error.InvalidArgs D-Bus
+ * error will be returned immediately.  If the event fails, the
+ * com.ubuntu.Upstart.Error.EventFailed D-Bus error will be returned when
+ * the event finishes.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_emit_event (void            *data,
+		    NihDBusMessage  *message,
+		    const char      *name,
+		    char * const    *env)
+{
+	Event        *event;
+	Blocked      *blocked;
+	char * const *e;
+
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
+	nih_assert (env != NULL);
+
+	/* Verify that the name is valid */
+	if (! strlen (name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Name may not be empty string"));
+		return -1;
+	}
+
+	/* Verify that the environment is valid */
+	for (e = env; e && *e; e++) {
+		char *ev;
+
+		if (! ((ev = strchr (*e, '='))
+		       && environ_valid (*e, ev - *e))) {
+			nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+						     _("Env must be KEY=VALUE pairs"));
+			return -1;
+		}
+	}
+
+	/* Make the event and block the message on it */
+	blocked = blocked_new (NULL, BLOCKED_MESSAGE, message);
+	if (! blocked)
+		nih_return_system_error (-1);
+
+	event = event_new (NULL, name, (char **)env);
+	if (! event) {
+		nih_free (blocked);
+		nih_return_no_memory_error (-1);
+	}
+
+	nih_alloc_reparent (blocked, event);
+	nih_list_add (&event->blocking, &blocked->entry);
 
 	return 0;
 }
