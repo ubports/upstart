@@ -438,7 +438,7 @@ event_finished (Event *event)
 					  job_next_state (blocked->job));
 
 			break;
-		case BLOCKED_MESSAGE:
+		case BLOCKED_EMIT_METHOD:
 			/* Event was blocking an emit method call, send
 			 * the reply, or an error if the event failed.
 			 */

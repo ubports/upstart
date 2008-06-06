@@ -99,13 +99,13 @@ test_new (void)
 	 * with the details filled in correctly.  The returned structure should
 	 * not be in a list.
 	 */
-	TEST_FEATURE ("with D-Bus message");
+	TEST_FEATURE ("with D-Bus EmitEvent method");
 	message = nih_new (NULL, NihDBusMessage);
 	message->conn = NULL;
 	message->message = NULL;
 
 	TEST_ALLOC_FAIL {
-		blocked = blocked_new (NULL, BLOCKED_MESSAGE, message);
+		blocked = blocked_new (NULL, BLOCKED_EMIT_METHOD, message);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
@@ -114,7 +114,7 @@ test_new (void)
 
 		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
 		TEST_LIST_EMPTY (&blocked->entry);
-		TEST_EQ (blocked->type, BLOCKED_MESSAGE);
+		TEST_EQ (blocked->type, BLOCKED_EMIT_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
 		nih_free (blocked);

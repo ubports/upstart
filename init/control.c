@@ -530,7 +530,7 @@ control_emit_event (void            *data,
 	}
 
 	/* Make the event and block the message on it */
-	blocked = blocked_new (NULL, BLOCKED_MESSAGE, message);
+	blocked = blocked_new (NULL, BLOCKED_EMIT_METHOD, message);
 	if (! blocked)
 		nih_return_system_error (-1);
 

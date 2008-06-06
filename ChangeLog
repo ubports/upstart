@@ -1,5 +1,13 @@
 2008-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/blocked.h (blocked_type): Having a single message type won't
+	work for the job cases, so expand to have many.
+	* init/blocked.c (blocked_new): We'll just have to list them all here.
+	* init/control.c (control_emit_event): Happily we create them
+	individually anyway.
+	* init/event.c (event_finished): And since we have to handle them
+	individually, it'll actually protect us replying to the wrong one.
+
 	* init/tests/test_conf.c (test_source_reload): Clean up the temporary
 	directory.
 	* init/tests/test_control.c (test_reload_configuration): That goes

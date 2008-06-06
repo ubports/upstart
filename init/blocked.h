@@ -39,7 +39,7 @@
 typedef enum blocked_type {
 	BLOCKED_JOB,
 	BLOCKED_EVENT,
-	BLOCKED_MESSAGE
+	BLOCKED_EMIT_METHOD
 } BlockedType;
 
 
@@ -49,7 +49,7 @@ typedef enum blocked_type {
  * @type: type of object blocked,
  * @job: job pointer if @type is BLOCKED_JOB,
  * @event: event pointer if @type is BLOCKED_EVENT,
- * @message: D-Bus message pointer if @type is BLOCKED_MESSAGE,
+ * @message: D-Bus message pointer if @type is BLOCKED_*_METHOD,
  * @data: generic pointer to blocked object.
  *
  * This structure is used to reference an object that is blocked on

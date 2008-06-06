@@ -77,7 +77,7 @@ blocked_new (const void  *parent,
 	case BLOCKED_EVENT:
 		blocked->event = (Event *)data;
 		break;
-	case BLOCKED_MESSAGE:
+	case BLOCKED_EMIT_METHOD:
 		blocked->message = (NihDBusMessage *)data;
 		break;
 	default:
