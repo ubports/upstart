@@ -1,3 +1,13 @@
+2008-06-06  Scott James Remnant  <scott@netsplit.com>
+
+	* init/event.c (event_new): There's no reason this shouldn't be
+	allowed to return insufficient memory, so do so.
+	(event_finished): Wrap call.
+	* init/tests/test_event.c (test_new): Add alloc failed test.
+	* init/job.c (job_emit_event): Must create the event.
+	* init/main.c (main, cad_handler, kbd_handler, pwr_handler): Wrap
+	with NIH_MUST
+
 2008-06-05  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update.

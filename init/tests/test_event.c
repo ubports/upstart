@@ -49,6 +49,7 @@ test_new (void)
 	 */
 	TEST_FUNCTION ("event_new");
 	event_init ();
+	nih_main_loop_init ();
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -60,6 +61,15 @@ test_new (void)
 		}
 
 		event = event_new (NULL, "test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (event, NULL);
+
+			TEST_ALLOC_PARENT (env, NULL);
+
+			nih_free (env);
+			continue;
+		}
 
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_LIST_NOT_EMPTY (&event->entry);

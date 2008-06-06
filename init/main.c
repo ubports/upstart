@@ -296,7 +296,7 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		event_new (NULL, STARTUP_EVENT, NULL);
+		NIH_MUST (event_new (NULL, STARTUP_EVENT, NULL));
 	} else {
 		sigset_t mask;
 
@@ -403,7 +403,7 @@ static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_new (NULL, CTRLALTDEL_EVENT, NULL);
+	NIH_MUST (event_new (NULL, CTRLALTDEL_EVENT, NULL));
 }
 
 /**
@@ -419,7 +419,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_new (NULL, KBDREQUEST_EVENT, NULL);
+	NIH_MUST (event_new (NULL, KBDREQUEST_EVENT, NULL));
 }
 
 /**
@@ -435,7 +435,7 @@ static void
 pwr_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_new (NULL, PWRSTATUS_EVENT, NULL);
+	NIH_MUST (event_new (NULL, PWRSTATUS_EVENT, NULL));
 }
 
 /**

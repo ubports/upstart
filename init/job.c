@@ -764,7 +764,7 @@ job_emit_event (Job *job)
 			NIH_MUST (environ_add (&env, NULL, &len, FALSE, *str));
 	}
 
-	event = event_new (NULL, name, env);
+	NIH_MUST (event = event_new (NULL, name, env));
 
 	if (block) {
 		Blocked *blocked;

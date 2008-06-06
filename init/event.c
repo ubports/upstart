@@ -97,7 +97,8 @@ event_init (void)
  * block which will be used as the parent for this block.  When @parent
  * is freed, the returned block will be freed too.
  *
- * Returns: new Event structure pending in the queue.
+ * Returns: new Event structure pending in the queue or NULL if insufficent
+ * memory.
  **/
 Event *
 event_new (const void  *parent,
@@ -111,7 +112,9 @@ event_new (const void  *parent,
 
 	event_init ();
 
-	NIH_MUST (event = nih_new (parent, Event));
+	event = nih_new (parent, Event);
+	if (! event)
+		return NULL;
 
 	nih_list_init (&event->entry);
 
@@ -125,7 +128,11 @@ event_new (const void  *parent,
 
 
 	/* Fill in the event details */
-	NIH_MUST (event->name = nih_strdup (event, name));
+	event->name = nih_strdup (event, name);
+	if (! event->name) {
+		nih_free (event);
+		return NULL;
+	}
 
 	event->env = env;
 	if (event->env)
@@ -436,7 +443,7 @@ event_finished (Event *event)
 
 			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
 						      event->name));
-			new_event = event_new (NULL, name, NULL);
+			NIH_MUST (new_event = event_new (NULL, name, NULL));
 			nih_free (name);
 
 			if (event->env)
