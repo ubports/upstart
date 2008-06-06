@@ -161,24 +161,11 @@ test_consider (void)
 	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
-
-	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
-	assert (client_conn != NULL);
-	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
 	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
 	assert (! dbus_error_is_set (&dbus_error));
-
-
-	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
-
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
-	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
-					"NameAcquired"));
-
-	dbus_message_unref (message);
 
 
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
@@ -224,9 +211,7 @@ test_consider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobAdded"));
 
@@ -264,9 +249,7 @@ test_consider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobAdded"));
 
@@ -321,9 +304,7 @@ test_consider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
 					   "TestPassed"));
 
@@ -360,9 +341,7 @@ test_consider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobRemoved"));
 
@@ -374,9 +353,7 @@ test_consider (void)
 
 	dbus_message_unref (message);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobAdded"));
 
@@ -419,9 +396,7 @@ test_consider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobRemoved"));
 
@@ -433,9 +408,7 @@ test_consider (void)
 
 	dbus_message_unref (message);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobAdded"));
 
@@ -460,10 +433,8 @@ test_consider (void)
 
 	nih_free (entry);
 
-	dbus_connection_unref (conn);
-
-	dbus_connection_unref (client_conn);
-
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
@@ -489,24 +460,11 @@ test_reconsider (void)
 	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
-
-	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
-	assert (client_conn != NULL);
-	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
 	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
 	assert (! dbus_error_is_set (&dbus_error));
-
-
-	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
-
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
-	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
-					"NameAcquired"));
-
-	dbus_message_unref (message);
 
 
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);
@@ -563,9 +521,7 @@ test_reconsider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
 					   "TestPassed"));
 
@@ -598,9 +554,7 @@ test_reconsider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobRemoved"));
 
@@ -612,9 +566,7 @@ test_reconsider (void)
 
 	dbus_message_unref (message);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobAdded"));
 
@@ -669,9 +621,7 @@ test_reconsider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
 					   "TestPassed"));
 
@@ -713,9 +663,7 @@ test_reconsider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
 					   "TestPassed"));
 
@@ -750,9 +698,7 @@ test_reconsider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
 					   "TestPassed"));
 
@@ -784,9 +730,7 @@ test_reconsider (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobRemoved"));
 
@@ -803,10 +747,8 @@ test_reconsider (void)
 
 	nih_free (entry);
 
-	dbus_connection_unref (conn);
-
-	dbus_connection_unref (client_conn);
-
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
@@ -828,24 +770,11 @@ test_register (void)
 	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
-
-	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
-	assert (client_conn != NULL);
-	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
 	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
 	assert (! dbus_error_is_set (&dbus_error));
-
-
-	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
-
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
-	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
-					"NameAcquired"));
-
-	dbus_message_unref (message);
 
 
 	/* Check that we can register an existing job class on the bus
@@ -871,9 +800,7 @@ test_register (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobAdded"));
 
@@ -918,9 +845,7 @@ test_register (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
 					   "TestPassed"));
 
@@ -929,10 +854,8 @@ test_register (void)
 	nih_free (class);
 
 
-	dbus_connection_unref (conn);
-
-	dbus_connection_unref (client_conn);
-
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();
@@ -958,24 +881,11 @@ test_unregister (void)
 	dbus_error_init (&dbus_error);
 
 	TEST_DBUS (dbus_pid);
-
-	client_conn = dbus_bus_get (DBUS_BUS_SYSTEM, NULL);
-	assert (client_conn != NULL);
-	dbus_connection_set_exit_on_disconnect (client_conn, FALSE);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
 	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
 	assert (! dbus_error_is_set (&dbus_error));
-
-
-	assert (conn = nih_dbus_bus (DBUS_BUS_SYSTEM, NULL));
-
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
-	assert (dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
-					"NameAcquired"));
-
-	dbus_message_unref (message);
 
 
 	class = job_class_new (NULL, "test");
@@ -1000,9 +910,7 @@ test_unregister (void)
 
 	dbus_connection_flush (conn);
 
-	while (! (message = dbus_connection_pop_message (client_conn)))
-		dbus_connection_read_write (client_conn, -1);
-
+	TEST_DBUS_MESSAGE (client_conn, message);
 	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart",
 					   "JobRemoved"));
 
@@ -1017,10 +925,8 @@ test_unregister (void)
 	nih_free (class);
 
 
-	dbus_connection_unref (conn);
-
-	dbus_connection_unref (client_conn);
-
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
 
 	dbus_shutdown ();

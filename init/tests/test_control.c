@@ -359,9 +359,7 @@ my_connect_handler (DBusServer     *server,
 	dbus_connection_ref (conn);
 
 	/* Expect Hello from the client, return a fake unique name */
-	while (! (message = dbus_connection_pop_message (conn)))
-		dbus_connection_read_write (conn, -1);
-
+	TEST_DBUS_MESSAGE (conn, message);
 	assert (dbus_message_is_method_call (message, DBUS_INTERFACE_DBUS,
 					     "Hello"));
 
@@ -387,9 +385,7 @@ my_connect_handler (DBusServer     *server,
 		   : DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER);
 
 	/* Expect RequestName from the client, return a fake unique name */
-	while (! (message = dbus_connection_pop_message (conn)))
-		dbus_connection_read_write (conn, -1);
-
+	TEST_DBUS_MESSAGE (conn, message);
 	assert (dbus_message_is_method_call (message, DBUS_INTERFACE_DBUS,
 					     "RequestName"));
 
@@ -1186,8 +1182,8 @@ test_emit_event (void)
 	event_init ();
 
 	TEST_DBUS (dbus_pid);
-	TEST_DBUS_CONN (conn);
-	TEST_DBUS_CONN (client_conn);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
 
 	/* Check that we can emit an event with an empty environment list

@@ -1,5 +1,15 @@
 2008-06-06  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_control.c (my_connect_handler): Use TEST_DBUS_MESSAGE
+	instead of a pop/read/write loop.
+	(test_emit_event): Renamed TEST_DBUS_CONN to TEST_DBUS_OPEN.
+	* init/tests/test_job.c (test_new, test_register)
+	(test_change_state): Use TEST_DBUS_OPEN and TEST_DBUS_CLOSE to setup
+	and tear down D-Bus connections and TEST_DBUS_MESSAGE instead of
+	a loop.
+	* init/tests/test_job_class.c (test_consider, test_reconsider)
+	(test_register, test_unregister): Likewise.
+
 	* init/control.c (control_get_job_by_name): Sanity check the name
 	of a job in the same way; we don't need to sanity check the instance
 	name because "" is valid (and the default for singletons).
