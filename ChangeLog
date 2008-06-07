@@ -1,5 +1,8 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c: Note that we can call this in a loop with OOM,
+	since the resulting table will always be the same.
+
 	* init/event_operator.c (event_operator_environment): Use
 	environ_append(), and while we're at it, there's no reason this should
 	use NIH_MUST.

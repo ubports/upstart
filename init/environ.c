@@ -171,7 +171,9 @@ environ_add (char       ***env,
  * simply to check for success.
  *
  * Note that if this fails, some of the entries may have been appended
- * to the array already; you may need to discard it entirely.
+ * to the array already.  It's perfectly safe to call it again, since
+ * existing entries will either be replaced with the same value or
+ * retained (with the same value they're supposed to have).
  *
  * Returns: new array pointer or NULL if insufficient memory.
  **/
