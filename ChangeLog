@@ -1,5 +1,7 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_environment): Use environ_append()
+
 	* init/environ.c (environ_append): There are multiple cases where we
 	append one environment table onto another, so we should have a
 	function to do that.

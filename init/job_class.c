@@ -451,9 +451,8 @@ job_class_environment (const void *parent,
 		       JobClass   *class,
 		       size_t     *len)
 {
-	const char  *builtin[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
-	char       **e;
-	char       **env;
+	char * const   builtin[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
+	char         **env;
 
 	nih_assert (class != NULL);
 
@@ -466,17 +465,15 @@ job_class_environment (const void *parent,
 	/* Copy the builtin set of environment variables, usually these just
 	 * pick up the values from init's own environment.
 	 */
-	for (e = (char **)builtin; e && *e; e++)
-		if (! environ_add (&env, parent, len, TRUE, *e))
-			goto error;
+	if (! environ_append (&env, parent, len, TRUE, builtin))
+		goto error;
 
 	/* Copy the set of environment variables from the job configuration,
 	 * these often have values but also often don't and we want them to
 	 * override the builtins.
 	 */
-	for (e = class->env; e && *e; e++)
-		if (! environ_add (&env, parent, len, TRUE, *e))
-			goto error;
+	if (! environ_append (&env, parent, len, TRUE, class->env))
+		goto error;
 
 	return env;
 
