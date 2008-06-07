@@ -180,7 +180,7 @@ test_run (void)
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
-				"echo $$ > %s", filename);
+				"echo $$ > %s\n", filename);
 
 			job = job_new (class, "");
 			job->goal = JOB_START;
@@ -219,7 +219,7 @@ test_run (void)
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
-				"exec > %s\necho $0\necho $@", filename);
+				"echo $0 $@ > %s\n", filename);
 
 			job = job_new (class, "");
 			job->goal = JOB_START;
@@ -237,7 +237,6 @@ test_run (void)
 
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "/bin/sh\n");
-		TEST_FILE_EQ (output, "\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -258,7 +257,7 @@ test_run (void)
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
-				"exec > %s\ntest -d %s\necho oops",
+				"test -d %s > %s\n",
 				filename, filename);
 
 			job = job_new (class, "");
@@ -456,9 +455,6 @@ test_run (void)
 				class->process[PROCESS_MAIN], 4096);
 			sprintf (class->process[PROCESS_MAIN]->command,
 				 "exec > %s\necho $0\necho $@\n", filename);
-			while (strlen (class->process[PROCESS_MAIN]->command) < 4000)
-				strcat (class->process[PROCESS_MAIN]->command,
-					"# this just bulks it out a bit");
 
 			job = job_new (class, "");
 			job->goal = JOB_START;

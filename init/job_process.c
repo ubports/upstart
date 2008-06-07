@@ -152,7 +152,8 @@ job_process_run (Job         *job,
 	 * the best way to deal with things like variables.
 	 */
 	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
-		struct stat statbuf;
+		struct stat  statbuf;
+		char        *nl, *p;
 
 		argc = 0;
 		NIH_MUST (argv = nih_str_array_new (NULL));
@@ -171,14 +172,32 @@ job_process_run (Job         *job,
 							proc->command));
 		}
 
-		/* If the script is very large, we consider piping it using
-		 * /dev/fd/NNN; we can only do that if /dev/fd exists,
-		 * of course.
+		/* We can pass scripts over the command-line instead of
+		 * piping using /dev/fd/NNN.  Do it for single line scripts
+		 * and when /dev/fd doesn't exist.
 		 */
-		if ((strlen (script) > 1024)
-		    && (stat (DEV_FD, &statbuf) == 0)
-		    && (S_ISDIR (statbuf.st_mode)))
-		{
+		p = nl = strchr (script, '\n');
+		while (p && (*p == '\n'))
+			p++;
+
+		if ((! p) || (! *p)
+		    || (stat (DEV_FD, &statbuf) < 0)
+		    || (! S_ISDIR (statbuf.st_mode))) {
+			/* Strip off the newline(s) */
+			if (nl)
+				*nl = '\0';
+
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, "-c"));
+			NIH_MUST (nih_str_array_addp (&argv, NULL,
+						      &argc, script));
+
+			/* Next argument is argv[0]; just pass the shell */
+			NIH_MUST (nih_str_array_add (&argv, NULL,
+						     &argc, SHELL));
+
+			script = NULL;
+		} else {
 			char *cmd;
 
 			/* Close the writing end when the child is exec'd */
@@ -193,17 +212,6 @@ job_process_run (Job         *job,
 						     DEV_FD, fds[0]));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
-		} else {
-			NIH_MUST (nih_str_array_add (&argv, NULL,
-						     &argc, "-c"));
-			NIH_MUST (nih_str_array_addp (&argv, NULL,
-						      &argc, script));
-
-			/* Next argument is argv[0]; just pass the shell */
-			NIH_MUST (nih_str_array_add (&argv, NULL,
-						     &argc, SHELL));
-
-			script = NULL;
 		}
 	} else {
 		/* Split the command on whitespace to produce a list of
