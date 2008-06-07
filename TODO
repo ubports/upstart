@@ -6,9 +6,14 @@ Before 0.5.0:
    the start and stop command cases.  Reduce to common functions that this
    can call.
 
- * It may be useful to not just have failed=TRUE/FALSE for job_unblock() but a
+ * It may be useful to not just have failed=TRUE/FALSE for job_finished() but a
    more detailed reason about why the job is being unblocked, so the command
    could exit saying "ok", "failed", "stopped by event", etc.
+
+ * It would also be nice, in the case of a job having failed, to be able
+   to include the event-like information in the error.  This should be
+   possible, it just needs a marshalling function?  (Maybe we should be able
+   to generate those)
 
  * I'm still not convinced that just clearing blocking is the right approach,
    and still think we need some kind of next_blocking list of things that
