@@ -151,6 +151,48 @@ environ_add (char       ***env,
 	return *env;
 }
 
+/**
+ * environ_append:
+ * @env: pointer to environment table,
+ * @parent: parent of @env,
+ * @len: length of @env,
+ * @replace: TRUE if existing entries should be replaced,
+ * @new_env: environment table to append to @env.
+ *
+ * Appends the entries in the environment table @new_env to the existing
+ * table @env (which has @len elements, excluding the final NULL element),
+ * either replacing an existing entry entry or appended to the end.
+ *
+ * Both the array and the new strings within it are allocated using
+ * nih_alloc(), @parent must be that of @env.
+ *
+ * @len will be updated to contain the new array length and @env will
+ * be updated to point to the new array pointer; use the return value
+ * simply to check for success.
+ *
+ * Note that if this fails, some of the entries may have been appended
+ * to the array already; you may need to discard it entirely.
+ *
+ * Returns: new array pointer or NULL if insufficient memory.
+ **/
+char **
+environ_append (char       ***env,
+		const void   *parent,
+		size_t       *len,
+		int           replace,
+		char * const *new_env)
+{
+	char * const *e;
+
+	nih_assert (env != NULL);
+
+	for (e = new_env; e && *e; e++)
+		if (! environ_add (env, parent, len, replace, *e))
+			return NULL;
+
+	return *env;
+}
+
 
 /**
  * environ_set:

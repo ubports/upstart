@@ -575,6 +575,133 @@ test_add (void)
 	unsetenv ("BAR");
 }
 
+void
+test_append (void)
+{
+	char   **env = NULL, **new_env, **ret;
+	size_t   len = 0;
+
+	TEST_FUNCTION ("environ_append");
+
+	/* Check that we can append all new entries onto the end of an
+	 * existing environment table, without modifying the entries passed.
+	 */
+	TEST_FEATURE ("with new entries");
+	new_env = nih_str_array_new (NULL);
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "MILK=white"));
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "TEA=green"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"));
+			assert (environ_add (&env, NULL, &len, TRUE, "BAR=BAZ"));
+		}
+
+		ret = environ_append (&env, NULL, &len, TRUE, new_env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			nih_free (env);
+			continue;
+		}
+
+		TEST_EQ_P (ret, env);
+		TEST_EQ (len, 4);
+
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_STR (env[2], "MILK=white");
+		TEST_EQ_STR (env[3], "TEA=green");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (new_env);
+
+
+	/* Check that if entries are being replaced, those values from the
+	 * new table replace the values in the old table.
+	 */
+	TEST_FEATURE ("with replacement entries");
+	new_env = nih_str_array_new (NULL);
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "MILK=white"));
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "TEA=green"));
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "FOO=apricot"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"));
+			assert (environ_add (&env, NULL, &len, TRUE, "BAR=BAZ"));
+		}
+
+		ret = environ_append (&env, NULL, &len, TRUE, new_env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			nih_free (env);
+			continue;
+		}
+
+		TEST_EQ_P (ret, env);
+		TEST_EQ (len, 4);
+
+		TEST_EQ_STR (env[0], "FOO=apricot");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_STR (env[2], "MILK=white");
+		TEST_EQ_STR (env[3], "TEA=green");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (new_env);
+
+
+	/* Check that if entries are being preserved, those values from the
+	 * new table are ignored.
+	 */
+	TEST_FEATURE ("with preserve existing entries");
+	new_env = nih_str_array_new (NULL);
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "MILK=white"));
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "TEA=green"));
+	assert (environ_add (&new_env, NULL, NULL, TRUE, "FOO=apricot"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"));
+			assert (environ_add (&env, NULL, &len, TRUE, "BAR=BAZ"));
+		}
+
+		ret = environ_append (&env, NULL, &len, FALSE, new_env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+			nih_free (env);
+			continue;
+		}
+
+		TEST_EQ_P (ret, env);
+		TEST_EQ (len, 4);
+
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_STR (env[1], "BAR=BAZ");
+		TEST_EQ_STR (env[2], "MILK=white");
+		TEST_EQ_STR (env[3], "TEA=green");
+		TEST_EQ_P (env[4], NULL);
+
+		nih_free (env);
+	}
+
+	nih_free (new_env);
+}
+
 
 void
 test_set (void)
@@ -1478,6 +1605,7 @@ main (int   argc,
       char *argv[])
 {
 	test_add ();
+	test_append ();
 	test_set ();
 	test_lookup ();
 	test_get ();

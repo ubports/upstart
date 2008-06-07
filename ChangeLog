@@ -1,5 +1,11 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_append): There are multiple cases where we
+	append one environment table onto another, so we should have a
+	function to do that.
+	* init/environ.h: Prototype for it.
+	* init/tests/test_environ.c (test_append): Test the new function.
+
 	* init/job_process.c (job_process_run): Invert the logic; we nearly
 	always want to pass the script with /dev/fd/NNN.  The only times we
 	don't are if it doesn't exist, or if we're dealing with a single-line
