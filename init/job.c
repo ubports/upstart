@@ -1102,9 +1102,10 @@ job_restart (Job            *job,
 		nih_return_system_error (-1);
 
 	job_finished (job, FALSE);
+	nih_list_add (&job->blocking, &blocked->entry);
+
 	job_change_goal (job, JOB_STOP);
 	job_change_goal (job, JOB_START);
-	nih_list_add (&job->blocking, &blocked->entry);
 
 	return 0;
 }

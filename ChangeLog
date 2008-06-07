@@ -1,5 +1,8 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_restart): Wrote the blocking bit slightly weirdly
+	without neededing to, so leave it as it should be.
+
 	* TODO: Update.
 
 	* dbus/com.ubuntu.Upstart.Instance.xml (Start, Stop, Restart): Add
