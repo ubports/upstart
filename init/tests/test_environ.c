@@ -981,6 +981,70 @@ test_valid (void)
 	TEST_TRUE (valid);
 }
 
+void
+test_all_valid (void)
+{
+	char **env;
+	int    valid;
+
+	TEST_FUNCTION ("environ_all_valid");
+
+	/* Check that a valid environment table returns TRUE. */
+	TEST_FEATURE ("with valid table");
+	env = nih_str_array_new (NULL);
+	assert (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&env, NULL, NULL, "BAR=BAZ"));
+
+	valid = environ_all_valid (env);
+
+	TEST_TRUE (valid);
+
+	nih_free (env);
+
+
+	/* Check that an empty environment table is valid. */
+	TEST_FEATURE ("with empty table");
+	env = nih_str_array_new (NULL);
+
+	valid = environ_all_valid (env);
+
+	TEST_TRUE (valid);
+
+	nih_free (env);
+
+
+	/* Check that an entry without an equals means the table is not
+	 * valid.
+	 */
+	TEST_FEATURE ("with missing equals");
+	env = nih_str_array_new (NULL);
+	assert (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&env, NULL, NULL, "BAR"));
+	assert (nih_str_array_add (&env, NULL, NULL, "WIBBLE=woo"));
+
+	valid = environ_all_valid (env);
+
+	TEST_FALSE (valid);
+
+	nih_free (env);
+
+
+	/* Check that an entry with an invalid key name means the table
+	 * is also not valid.
+	 */
+	TEST_FEATURE ("with invalid key");
+	env = nih_str_array_new (NULL);
+	assert (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+	assert (nih_str_array_add (&env, NULL, NULL, "BAR BEE=FOO"));
+	assert (nih_str_array_add (&env, NULL, NULL, "WIBBLE=woo"));
+
+	valid = environ_all_valid (env);
+
+	TEST_FALSE (valid);
+
+	nih_free (env);
+}
+
 
 void
 test_expand (void)
@@ -1611,6 +1675,7 @@ main (int   argc,
 	test_get ();
 	test_getn ();
 	test_valid ();
+	test_all_valid ();
 	test_expand ();
 
 	return 0;

@@ -372,6 +372,41 @@ environ_valid (const char *key,
 	return TRUE;
 }
 
+/**
+ * environ_all_valid:
+ * @env: NULL-terminated array of variables to check.
+ *
+ * Checks each of the environment variables in @env for validity; that is
+ * each must be of KEY=VALUE form, and KEY must be a valid name for a
+ * variable.
+ *
+ * This is intended for checking external data such as that in control
+ * messages; environment lists defined in job definitions are actually
+ * permitted to omit the VALUE to retrieve it from the environment.
+ *
+ * Returns: TRUE if all entries are valid, FALSE otherwise.
+ **/
+int
+environ_all_valid (char * const *env)
+{
+	char * const *e;
+
+	nih_assert (env != NULL);
+
+	for (e = env; *e; e++) {
+		char *value;
+
+		value = strchr (*e, '=');
+		if (! value)
+			return FALSE;
+
+		if (! environ_valid (*e, value - *e))
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
 
 /**
  * environ_expand:

@@ -1,5 +1,10 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_all_valid): Add a validation function for
+	external input.
+	* init/environ.h: Add prototype.
+	* init/tests/test_environ.c (test_all_valid): Test function.
+
 	* init/environ.c: Note that we can call this in a loop with OOM,
 	since the resulting table will always be the same.
 
