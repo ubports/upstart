@@ -439,8 +439,8 @@ event_operator_filter (void          *data,
 /**
  * event_operator_environment:
  * @root: operator tree to collect from,
- * @parent: parent of @env,
  * @env: NULL-terminated array of environment variables to add to,
+ * @parent: parent of @env,
  * @len: length of @env,
  * @key: key of variable to contain event names.
  *
@@ -454,25 +454,41 @@ event_operator_filter (void          *data,
  * @len will be updated to contain the new array length and @env will
  * be updated to point to the new array pointer.
  *
+ * Note that on failure, some of the entries may have been appended to
+ * @env already.  This is normally not a problem, since entries will be
+ * replaced in @env if this is repeated.
+ *
  * If @key is not NULL, a key of that name will be set in @env (which must
  * not be NULL) containing a space-separated list of event names.
+ *
+ * Returns: pointer to new array on success, NULL on insufficient memory.
  **/
-void
+char **
 event_operator_environment (EventOperator   *root,
 			    char          ***env,
 			    const void      *parent,
 			    size_t          *len,
 			    const char      *key)
 {
-	char *evlist;
+	char *evlist = NULL;
 
 	nih_assert (root != NULL);
 	nih_assert (env != NULL);
 	nih_assert (len != NULL);
 
 	/* Initialise the event list variable with the name given. */
-	if (key)
-		NIH_MUST (evlist = nih_sprintf (NULL, "%s=", key));
+	if (key) {
+		evlist = nih_sprintf (NULL, "%s=", key);
+		if (! evlist)
+			return NULL;
+	}
+
+	/* Always return an array, even if its zero length */
+	if (! *env) {
+		*env = nih_str_array_new (parent);
+		if (! *env)
+			goto error;
+	}
 
 	/* Iterate the operator tree, filtering out nodes with a non-TRUE
 	 * value and their children.  The rationale for this is that this
@@ -482,8 +498,7 @@ event_operator_environment (EventOperator   *root,
 	 */
 	NIH_TREE_FOREACH_FULL (&root->node, iter,
 			       (NihTreeFilter)event_operator_filter, NULL) {
-		EventOperator  *oper = (EventOperator *)iter;
-		char          **e;
+		EventOperator *oper = (EventOperator *)iter;
 
 		if (oper->type != EVENT_MATCH)
 			continue;
@@ -491,26 +506,38 @@ event_operator_environment (EventOperator   *root,
 		nih_assert (oper->event != NULL);
 
 		/* Add environment from the event */
-		for (e = oper->event->env; e && *e; e++)
-			NIH_MUST (environ_add (env, parent, len, TRUE, *e));
+		if (! environ_append (env, parent, len, TRUE, oper->event->env))
+			goto error;
 
 		/* Append the name of the event to the string we're building */
-		if (key) {
+		if (evlist) {
 			if (evlist[strlen (evlist) - 1] != '=') {
-				NIH_MUST (nih_strcat_sprintf (&evlist, NULL, " %s",
-							      oper->event->name));
+				if (! nih_strcat_sprintf (&evlist, NULL, " %s",
+							  oper->event->name))
+					goto error;
 			} else {
-				NIH_MUST (nih_strcat (&evlist, NULL,
-						      oper->event->name));
+				if (! nih_strcat (&evlist, NULL,
+						  oper->event->name))
+					goto error;
 			}
 		}
 	}
 
 	/* Append the event list to the environment */
-	if (key) {
-		NIH_MUST (environ_add (env, parent, len, TRUE, evlist));
+	if (evlist) {
+		if (! environ_add (env, parent, len, TRUE, evlist))
+			goto error;
+
 		nih_free (evlist);
 	}
+
+	return *env;
+
+error:
+	if (evlist)
+		nih_free (evlist);
+
+	return NULL;
 }
 
 /**

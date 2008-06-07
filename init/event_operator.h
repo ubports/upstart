@@ -93,7 +93,7 @@ int            event_operator_match       (EventOperator *oper, Event *event,
 int            event_operator_handle      (EventOperator *root, Event *event,
 					   char * const *env);
 
-void           event_operator_environment (EventOperator *root, char ***env,
+char **        event_operator_environment (EventOperator *root, char ***env,
 					   const void *parent, size_t *len,
 					   const char *key);
 void           event_operator_events      (EventOperator *root,

@@ -321,9 +321,9 @@ event_pending_handle_jobs (Event *event)
 					 * since this is appended to the
 					 * existing job environment.
 					 */
-					event_operator_environment (
+					NIH_MUST (event_operator_environment (
 						job->stop_on, &job->stop_env,
-						job, &len, "UPSTART_STOP_EVENTS");
+						job, &len, "UPSTART_STOP_EVENTS"));
 
 					job_finished (job, FALSE);
 
@@ -354,9 +354,9 @@ event_pending_handle_jobs (Event *event)
 			 */
 			NIH_MUST (env = job_class_environment (
 					  NULL, class, &len));
-			event_operator_environment (class->start_on,
-						    &env, NULL, &len,
-						    "UPSTART_EVENTS");
+			NIH_MUST (event_operator_environment (class->start_on,
+							      &env, NULL, &len,
+							      "UPSTART_EVENTS"));
 
 			/* Expand the instance name against the environment */
 			NIH_SHOULD (name = environ_expand (NULL,

@@ -926,7 +926,7 @@ test_operator_environment (void)
 {
 	EventOperator  *root, *oper1, *oper2, *oper3, *oper4, *oper5, *oper6;
 	Event          *event1, *event2, *event3;
-	char          **env;
+	char          **env, **ptr;
 	size_t          len;
 
 	TEST_FUNCTION ("event_operator_environment");
@@ -986,7 +986,15 @@ test_operator_environment (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_environment (root, &env, NULL, &len, NULL);
+		ptr = event_operator_environment (root, &env, NULL, &len, NULL);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ptr, NULL);
+
+			if (env)
+				nih_free (env);
+			continue;
+		}
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 5);
@@ -1014,8 +1022,16 @@ test_operator_environment (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_environment (root, &env, NULL, &len,
-					    "UPSTART_EVENTS");
+		ptr = event_operator_environment (root, &env, NULL, &len,
+						  "UPSTART_EVENTS");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ptr, NULL);
+
+			if (env)
+				nih_free (env);
+			continue;
+		}
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 6);
@@ -1045,8 +1061,15 @@ test_operator_environment (void)
 		env = NULL;
 		len = 0;
 
-		event_operator_environment (oper5, &env, NULL, &len,
-					    "UPSTART_EVENTS");
+		ptr = event_operator_environment (oper5, &env, NULL, &len,
+						  "UPSTART_EVENTS");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ptr, NULL);
+			if (env)
+				nih_free (env);
+			continue;
+		}
 
 		TEST_NE_P (env, NULL);
 		TEST_ALLOC_SIZE (env, sizeof (char *) * 2);

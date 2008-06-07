@@ -1,5 +1,14 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event_operator.c (event_operator_environment): Use
+	environ_append(), and while we're at it, there's no reason this should
+	use NIH_MUST.
+	* init/event_operator.h: Adjust prototype.
+	* init/tests/test_event_operator.c (test_operator_environment): Allow
+	for failure.
+	* init/event.c (event_pending_handle_jobs): Call with NIH_MUST,
+	which is actually safe.
+
 	* init/job_class.c (job_class_environment): Use environ_append()
 
 	* init/environ.c (environ_append): There are multiple cases where we
