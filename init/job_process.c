@@ -993,6 +993,13 @@ job_process_terminated (Job         *job,
 			    || (job->state == JOB_POST_START)
 			    || (job->state == JOB_PRE_STOP));
 
+		/* Dying when we killed it is perfectly normal and never
+		 * considered a failure.  We also don't want to tamper with
+		 * the goal since we might be restarting the job anyway.
+		 */
+		if (job->state == JOB_KILLED)
+			break;
+
 		/* We don't assume that because the primary process was
 		 * killed or exited with a non-zero status, it failed.
 		 * Instead we check the normalexit list to see whether
@@ -1001,13 +1008,8 @@ job_process_terminated (Job         *job,
 		 *
 		 * For services that can be respawned, a zero exit status is
 		 * also a failure unless listed.
-		 *
-		 * If the job is already to be stopped, we never consider
-		 * it to be failed since we probably caused the termination.
 		 */
-		if ((job->goal != JOB_STOP)
-		    && (status || (job->class->respawn
-				   && (! job->class->task))))
+		if (status || (job->class->respawn && (! job->class->task)))
 		{
 			failed = TRUE;
 			for (size_t i = 0; i < job->class->normalexit_len; i++) {

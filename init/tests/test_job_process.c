@@ -1328,6 +1328,79 @@ test_handler (void)
 	}
 
 
+	/* Check that if the process is restarting, and died when we killed
+	 * it, the goal remains as start and a state change is still
+	 * transitioned.  This should also not be considered a failure.
+	 */
+	TEST_FEATURE ("with restarting process");
+	TEST_ALLOC_FAIL {
+		NihTimer *timer = NULL;
+
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_KILLED;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_ALLOC_SAFE {
+			timer = (void *) nih_strdup (job, "test");
+		}
+
+		TEST_FREE_TAG (timer);
+		job->kill_timer = timer;
+
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+
+		TEST_FREE (timer);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+		event_unblock (event);
+
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
 	/* Check that we can handle the pre-start process of the job exiting,
 	 * and if it terminates with a good error code, end up in the running
 	 * state.

@@ -1,5 +1,12 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_terminated): Don't check the goal
+	to see whether the main process was allowed to terminate, check the
+	state.  A termination is only not a failure if we're on the KILLED
+	state (ie. we killed it), otherwise it can still be a failure even
+	if it was going to stop anyway.
+	* init/tests/test_job_process.c (test_handler): Add a test case.
+
 	* init/control.c (control_emit_event): Use environ_all_valid here(),
 	also reorder the blocking stuff to be less strange, it's ok to free
 	environment.
