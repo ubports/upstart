@@ -175,6 +175,12 @@ const char *job_state_name      (JobState state)
 	__attribute__ ((const));
 JobState    job_state_from_name (const char *state);
 
+int         job_start           (Job *job, NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
+int         job_stop            (Job *job, NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
+int         job_restart         (Job *job, NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

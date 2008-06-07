@@ -634,12 +634,50 @@ job_finished (Job *job,
 	NIH_LIST_FOREACH_SAFE (&job->blocking, iter) {
 		Blocked *blocked = (Blocked *)iter;
 
-		nih_assert (blocked->type == BLOCKED_EVENT);
+		switch (blocked->type) {
+		case BLOCKED_EVENT:
+			if (failed)
+				blocked->event->failed = TRUE;
 
-		if (failed)
-			blocked->event->failed = TRUE;
+			event_unblock (blocked->event);
 
-		event_unblock (blocked->event);
+			break;
+		case BLOCKED_INSTANCE_START_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.JobFailed",
+						  _("Job failed to start")));
+			} else {
+				NIH_ZERO (job_start_reply (blocked->message));
+			}
+
+			break;
+		case BLOCKED_INSTANCE_STOP_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.JobFailed",
+						  _("Job failed while stopping")));
+			} else {
+				NIH_ZERO (job_stop_reply (blocked->message));
+			}
+
+			break;
+		case BLOCKED_INSTANCE_RESTART_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.JobFailed",
+						  _("Job failed to restart")));
+			} else {
+				NIH_ZERO (job_restart_reply (blocked->message));
+			}
+
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
 
 		nih_free (blocked);
 	}
@@ -927,4 +965,146 @@ job_state_from_name (const char *state)
 	} else {
 		return -1;
 	}
+}
+
+
+/**
+ * job_start:
+ * @job: job to be started,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the top half of the Start method of the
+ * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
+ * job_finished().
+ *
+ * Called on a stopping instance @job to cause it to be restarted.  If the
+ * instance goal is already start, the com.ubuntu.Upstart.Error.AlreadyStarted
+ * D_Bus error will be returned immediately.  If the instance fails to
+ * start again, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
+ * be returned when the problem occurs.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_start (Job             *job,
+	   NihDBusMessage  *message)
+{
+	Blocked *blocked;
+
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+
+	if (job->goal == JOB_START) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.AlreadyStarted",
+			_("Job is already running: %s"),
+			job_name (job));
+
+		return -1;
+	}
+
+	blocked = blocked_new (job, BLOCKED_INSTANCE_START_METHOD, message);
+	if (! blocked)
+		nih_return_system_error (-1);
+
+	job_finished (job, FALSE);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	job_change_goal (job, JOB_START);
+
+	return 0;
+}
+
+/**
+ * job_stop:
+ * @job: job to be stopped,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the top half of the Stop method of the
+ * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
+ * job_finished().
+ *
+ * Called on a running instance @job to cause it to be stopped.  If the
+ * instance goal is already stop, the com.ubuntu.Upstart.Error.AlreadyStopped
+ * D_Bus error will be returned immediately.  If the instance fails while
+ * stopping, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
+ * be returned when the problem occurs.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_stop (Job            *job,
+	  NihDBusMessage *message)
+{
+	Blocked *blocked;
+
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+
+	if (job->goal == JOB_STOP) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			_("Job has already been stopped: %s"),
+			job_name (job));
+
+		return -1;
+	}
+
+	blocked = blocked_new (job, BLOCKED_INSTANCE_STOP_METHOD, message);
+	if (! blocked)
+		nih_return_system_error (-1);
+
+	job_finished (job, FALSE);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	job_change_goal (job, JOB_STOP);
+
+	return 0;
+}
+
+/**
+ * job_restart:
+ * @job: job to be restarted,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the top half of the Restart method of the
+ * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
+ * job_finished().
+ *
+ * Called on a running instance @job to cause it to be restarted.  If the
+ * instance goal is already stop, the com.ubuntu.Upstart.Error.AlreadyStopped
+ * D-Bus error will be returned immediately.  If the instance fails to
+ * restart, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
+ * be returned when the problem occurs.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_restart (Job            *job,
+	     NihDBusMessage *message)
+{
+	Blocked *blocked;
+
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+
+	if (job->goal == JOB_STOP) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			_("Job has already been stopped: %s"),
+			job_name (job));
+
+		return -1;
+	}
+
+	blocked = blocked_new (job, BLOCKED_INSTANCE_RESTART_METHOD, message);
+	if (! blocked)
+		nih_return_system_error (-1);
+
+	job_finished (job, FALSE);
+	job_change_goal (job, JOB_STOP);
+	job_change_goal (job, JOB_START);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	return 0;
 }

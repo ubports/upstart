@@ -6,5 +6,13 @@
 <node name="/com/ubuntu/Upstart/jobs/*/*"
       xmlns:nih="http://www.netsplit.com/nih/dbus">
   <interface name="com.ubuntu.Upstart.Instance">
+    <!-- Methods to directly control instances.  Unlike the equivalent methods
+         for a Job, these are not permitted to pass or set environment. -->
+    <method name="Start" nih:object="async">
+    </method>
+    <method name="Stop" nih:object="async">
+    </method>
+    <method name="Restart" nih:object="async">
+    </method>
   </interface>
 </node>

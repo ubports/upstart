@@ -1,3 +1,19 @@
+2008-06-07  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/com.ubuntu.Upstart.Instance.xml (Start, Stop, Restart): Add
+	simple instance control methods, these only change the goal of an
+	existing instance - thus cannot pass environment.
+	* init/job.c (job_start, job_stop, job_restart): Add methods, which
+	look spookily similar to each other, except for the subtle yet
+	important differences.
+	(job_finished): Implement bottom halves.
+	* init/job.h: Add prototypes.
+	* init/tests/test_job.c (test_start, test_stop, test_restart): Add
+	tests for the new methods.
+	* init/blocked.h (blocked_type): Add enums for methods.
+	* init/blocked.c (blocked_new): Handle methods here too
+	* init/tests/test_blocked.c (test_new): Add tests for them.
+
 2008-06-06  Scott James Remnant  <scott@netsplit.com>
 
 	* init/blocked.h (blocked_type): Having a single message type won't

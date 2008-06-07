@@ -121,6 +121,93 @@ test_new (void)
 	}
 
 	nih_free (message);
+
+
+	/* Check that we can create a new blocked record for a D-Bus message,
+	 * with the details filled in correctly.  The returned structure should
+	 * not be in a list.
+	 */
+	TEST_FEATURE ("with D-Bus Instance.Start method");
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = NULL;
+	message->message = NULL;
+
+	TEST_ALLOC_FAIL {
+		blocked = blocked_new (NULL, BLOCKED_INSTANCE_START_METHOD,
+				       message);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (blocked, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_LIST_EMPTY (&blocked->entry);
+		TEST_EQ (blocked->type, BLOCKED_INSTANCE_START_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		nih_free (blocked);
+	}
+
+	nih_free (message);
+
+
+	/* Check that we can create a new blocked record for a D-Bus message,
+	 * with the details filled in correctly.  The returned structure should
+	 * not be in a list.
+	 */
+	TEST_FEATURE ("with D-Bus Instance.Stop method");
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = NULL;
+	message->message = NULL;
+
+	TEST_ALLOC_FAIL {
+		blocked = blocked_new (NULL, BLOCKED_INSTANCE_STOP_METHOD,
+				       message);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (blocked, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_LIST_EMPTY (&blocked->entry);
+		TEST_EQ (blocked->type, BLOCKED_INSTANCE_STOP_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		nih_free (blocked);
+	}
+
+	nih_free (message);
+
+
+	/* Check that we can create a new blocked record for a D-Bus message,
+	 * with the details filled in correctly.  The returned structure should
+	 * not be in a list.
+	 */
+	TEST_FEATURE ("with D-Bus Instance.Restart method");
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = NULL;
+	message->message = NULL;
+
+	TEST_ALLOC_FAIL {
+		blocked = blocked_new (NULL, BLOCKED_INSTANCE_RESTART_METHOD,
+				       message);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (blocked, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_LIST_EMPTY (&blocked->entry);
+		TEST_EQ (blocked->type, BLOCKED_INSTANCE_RESTART_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		nih_free (blocked);
+	}
+
+	nih_free (message);
 }
 
 

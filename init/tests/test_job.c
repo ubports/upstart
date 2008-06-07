@@ -37,6 +37,8 @@
 #include <nih/list.h>
 #include <nih/hash.h>
 #include <nih/main.h>
+#include <nih/error.h>
+#include <nih/errors.h>
 
 #include <nih/dbus.h>
 
@@ -5636,6 +5638,468 @@ test_state_from_name (void)
 }
 
 
+void
+test_start (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+
+	TEST_FUNCTION ("job_start");
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+
+	/* Check that if we start a job instance that is stopping, the goal
+	 * is changed to start.  If we then hurry it through to running,
+	 * the reply will be sent to the sender.
+	 */
+	TEST_FEATURE ("with stopping job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		"com.ubuntu.Upstart.Instance",
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_start (job, message);
+
+	TEST_EQ (ret, 0);
+
+	TEST_NOT_FREE (message);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that if we attempt to start a job that's already started,
+	 * a D-Bus error is raised immediately.
+	 */
+	TEST_FEATURE ("with starting job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		"com.ubuntu.Upstart.Instance",
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_start (job, message);
+
+	TEST_LT (ret, 0);
+
+	TEST_NOT_FREE (message);
+	nih_free (message);
+	dbus_message_unref (method);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, "com.ubuntu.Upstart.Error.AlreadyStarted");
+
+	nih_free (dbus_error);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
+	event_poll ();
+}
+
+void
+test_stop (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+
+	TEST_FUNCTION ("job_stop");
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+
+	/* Check that if we stop a job instance that is running, the goal
+	 * is changed to stop.  If we then hurry it through to waiting,
+	 * the reply will be sent to the sender and the instance deleted.
+	 */
+	TEST_FEATURE ("with running job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	TEST_FREE_TAG (job);
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		"com.ubuntu.Upstart.Instance",
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_stop (job, message);
+
+	TEST_EQ (ret, 0);
+
+	TEST_NOT_FREE (message);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_FREE (job);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that if we attempt to stop a job that's already been stopped,
+	 * a D-Bus error is raised immediately.
+	 */
+	TEST_FEATURE ("with stopping job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		"com.ubuntu.Upstart.Instance",
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_stop (job, message);
+
+	TEST_LT (ret, 0);
+
+	TEST_NOT_FREE (message);
+	nih_free (message);
+	dbus_message_unref (method);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, "com.ubuntu.Upstart.Error.AlreadyStopped");
+
+	nih_free (dbus_error);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
+	event_poll ();
+}
+
+void
+test_restart (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+
+	TEST_FUNCTION ("job_restart");
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+
+	/* Check that if we restart a job instance that is running, the goal
+	 * remains at start but a state change is forced.  If we then hurry
+	 * it back through to running, the reply will be sent to the sender.
+	 */
+	TEST_FEATURE ("with running job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		"com.ubuntu.Upstart.Instance",
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_restart (job, message);
+
+	TEST_EQ (ret, 0);
+
+	TEST_NOT_FREE (message);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that if we attempt to restart a job that's already stopping,
+	 * a D-Bus error is raised immediately.
+	 */
+	TEST_FEATURE ("with stopping job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		"com.ubuntu.Upstart.Instance",
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_restart (job, message);
+
+	TEST_LT (ret, 0);
+
+	TEST_NOT_FREE (message);
+	nih_free (message);
+	dbus_message_unref (method);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, "com.ubuntu.Upstart.Error.AlreadyStopped");
+
+	nih_free (dbus_error);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
+	event_poll ();
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -5654,6 +6118,10 @@ main (int   argc,
 	test_goal_from_name ();
 	test_state_name ();
 	test_state_from_name ();
+
+	test_start ();
+	test_stop ();
+	test_restart ();
 
 	return 0;
 }
