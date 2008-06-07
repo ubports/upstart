@@ -1,5 +1,12 @@
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_emit_event): Use environ_all_valid here(),
+	also reorder the blocking stuff to be less strange, it's ok to free
+	environment.
+	* init/tests/test_control.c (test_emit_event): The event array should
+	be a child of message, which means it doesn't matter if the function
+	we call frees it.
+
 	* init/environ.c (environ_all_valid): Add a validation function for
 	external input.
 	* init/environ.h: Add prototype.

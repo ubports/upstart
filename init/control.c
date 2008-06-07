@@ -502,9 +502,8 @@ control_emit_event (void            *data,
 		    const char      *name,
 		    char * const    *env)
 {
-	Event        *event;
-	Blocked      *blocked;
-	char * const *e;
+	Event   *event;
+	Blocked *blocked;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
@@ -518,29 +517,24 @@ control_emit_event (void            *data,
 	}
 
 	/* Verify that the environment is valid */
-	for (e = env; e && *e; e++) {
-		char *ev;
-
-		if (! ((ev = strchr (*e, '='))
-		       && environ_valid (*e, ev - *e))) {
-			nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-						     _("Env must be KEY=VALUE pairs"));
-			return -1;
-		}
+	if (! environ_all_valid (env)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Env must be KEY=VALUE pairs"));
+		return -1;
 	}
 
 	/* Make the event and block the message on it */
-	blocked = blocked_new (NULL, BLOCKED_EMIT_METHOD, message);
-	if (! blocked)
+	event = event_new (NULL, name, (char **)env);
+	if (! event)
 		nih_return_system_error (-1);
 
-	event = event_new (NULL, name, (char **)env);
-	if (! event) {
-		nih_free (blocked);
-		nih_return_no_memory_error (-1);
+	blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
+	if (! blocked) {
+		nih_error_raise_system ();
+		nih_free (event);
+		return -1;
 	}
 
-	nih_alloc_reparent (blocked, event);
 	nih_list_add (&event->blocking, &blocked->entry);
 
 	return 0;

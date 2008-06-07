@@ -1228,7 +1228,7 @@ test_emit_event (void)
 
 			TEST_FREE_TAG (message);
 
-			env = nih_str_array_new (NULL);
+			env = nih_str_array_new (message);
 		}
 
 		ret = control_emit_event (NULL, message, "test", env);
@@ -1242,10 +1242,6 @@ test_emit_event (void)
 
 			nih_free (message);
 			dbus_message_unref (method);
-
-			TEST_ALLOC_PARENT (env, NULL);
-			nih_free (env);
-
 			continue;
 		}
 
@@ -1305,10 +1301,10 @@ test_emit_event (void)
 
 			TEST_FREE_TAG (message);
 
-			env = nih_str_array_new (NULL);
-			assert (nih_str_array_add (&env, NULL, NULL,
+			env = nih_str_array_new (message);
+			assert (nih_str_array_add (&env, message, NULL,
 						   "FOO=BAR"));
-			assert (nih_str_array_add (&env, NULL, NULL,
+			assert (nih_str_array_add (&env, message, NULL,
 						   "BAR=BAZ"));
 		}
 
@@ -1323,10 +1319,6 @@ test_emit_event (void)
 
 			nih_free (message);
 			dbus_message_unref (method);
-
-			TEST_ALLOC_PARENT (env, NULL);
-			nih_free (env);
-
 			continue;
 		}
 
@@ -1442,7 +1434,7 @@ test_emit_event (void)
 	message->conn = conn;
 	message->message = method;
 
-	env = nih_str_array_new (NULL);
+	env = nih_str_array_new (message);
 
 	ret = control_emit_event (NULL, message, "", env);
 
@@ -1456,9 +1448,6 @@ test_emit_event (void)
 
 	nih_free (message);
 	dbus_message_unref (method);
-
-	TEST_ALLOC_PARENT (env, NULL);
-	nih_free (env);
 
 
 	/* Check that if an entry in the environment list is missing an
@@ -1482,8 +1471,8 @@ test_emit_event (void)
 	message->conn = conn;
 	message->message = method;
 
-	env = nih_str_array_new (NULL);
-	assert (nih_str_array_add (&env, NULL, NULL, "FOO_BAR"));
+	env = nih_str_array_new (message);
+	assert (nih_str_array_add (&env, message, NULL, "FOO_BAR"));
 
 	ret = control_emit_event (NULL, message, "test", env);
 
@@ -1497,9 +1486,6 @@ test_emit_event (void)
 
 	nih_free (message);
 	dbus_message_unref (method);
-
-	TEST_ALLOC_PARENT (env, NULL);
-	nih_free (env);
 
 
 	/* Check that if an entry in the environment list has an invalid name,
@@ -1523,8 +1509,8 @@ test_emit_event (void)
 	message->conn = conn;
 	message->message = method;
 
-	env = nih_str_array_new (NULL);
-	assert (nih_str_array_add (&env, NULL, NULL, "FOO BAR=BAZ"));
+	env = nih_str_array_new (message);
+	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=BAZ"));
 
 	ret = control_emit_event (NULL, message, "test", env);
 
@@ -1538,9 +1524,6 @@ test_emit_event (void)
 
 	nih_free (message);
 	dbus_message_unref (method);
-
-	TEST_ALLOC_PARENT (env, NULL);
-	nih_free (env);
 
 
 	TEST_DBUS_CLOSE (conn);
