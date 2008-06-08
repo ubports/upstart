@@ -199,10 +199,22 @@ job_register (Job            *job,
  * performing any necessary state changes or actions (such as killing
  * the running process) to correctly enter the new goal.
  *
- * WARNING: On return from this function, @job may no longer be valid
- * since it will be freed once it becomes fully stopped; it may only be
- * called without unexpected side-effects if you are not in the WAITING
- * or RUNNING state and changing the goal to START or STOP respectively.
+ * If the job is not in a rest state (WAITING or RUNNING), this has no
+ * other effect than changing the goal; since the job is waiting on some
+ * other event.  The goal change will cause it to take action to head
+ * towards stopped.
+ *
+ * If the job is in the WAITING state and @goal is START, the job will
+ * begin to be started and will block in the STARTING state for an event
+ * to finish.
+ *
+ * If the job is in the RUNNING state and @goal is STOP, the job will
+ * begin to be stopped and will either block in the PRE-STOP state for
+ * the pre-stop script or the STOPPING state for an event to finish.
+ *
+ * Thus in all circumstances, @job is safe to use once this function
+ * returns.  Though further calls to job_change_state may change that as
+ * noted.
  **/
 void
 job_change_goal (Job     *job,

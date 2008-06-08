@@ -1,5 +1,9 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_goal): Adjust the documentation.  After
+	careful thought, there's no way this can return after freeing the
+	job, since it'll either block on an event, a process or do nothing.
+
 	* init/job.c (job_start, job_stop, job_restart): Clear the start
 	and stop environment, shouldn't necessarily make a difference, but
 	it pays to be consistent.
