@@ -1,5 +1,8 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload_path): Read file directly into memory,
+	not using mmap.
+
 	* compat/sysv/reboot.c, compat/sysv/runlevel.c, compat/sysv/shutdown.c,
 	* compat/sysv/telinit.c: Move into the util directory; we're going
 	to support limited SysV-a-like commands without full compatibility

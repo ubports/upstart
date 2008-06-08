@@ -630,7 +630,8 @@ conf_reload_path (ConfSource *source,
 		  const char *path)
 {
 	ConfFile   *file;
-	const char *buf, *name;
+	char       *buf;
+	const char *name;
 	size_t      len, pos, lineno;
 	NihError   *err = NULL;
 
@@ -645,11 +646,11 @@ conf_reload_path (ConfSource *source,
 	if (file)
 		nih_free (file);
 
-	/* Map the file into memory for parsing, if this fails we don't
+	/* Read the file into memory for parsing, if this fails we don't
 	 * bother creating a new ConfFile structure for it and bail out
 	 * now.
 	 */
-	buf = nih_file_map (path, O_RDONLY | O_NOCTTY, &len);
+	buf = nih_file_read (NULL, path, &len);
 	if (! buf)
 		return -1;
 
@@ -724,15 +725,8 @@ conf_reload_path (ConfSource *source,
 		}
 	}
 
-	/* Unmap the file again; in theory this shouldn't fail, but if
-	 * it does, return an error condition even though we've actually
-	 * loaded some of the new things.
-	 */
-	if (nih_file_unmap ((void *)buf, len) < 0) {
-		if (err)
-			nih_free (err);
-		return -1;
-	}
+	/* Free the file buffer */
+	nih_free (buf);
 
 	/* If we had any unknown error from parsing the file, raise it again
 	 * and return an error condition.
