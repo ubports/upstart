@@ -1,3 +1,19 @@
+2008-06-08  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/com.ubuntu.Upstart.Job.xml (Start, Stop, Restart): Add methods
+	to control jobs, all take an environment array and both Start and
+	Restart return an instance path so properties, etc. can be obtained
+	afterwards.
+	* init/job_class.c (job_class_start, job_class_stop)
+	(job_class_restart): Add the code for the top halves of the methods
+	* init/job_class.h: Add prototypes for the new methods.
+	* init/job.c (job_finished): And the bottom halves go here.
+	* init/tests/test_job_class.c (test_start, test_stop)
+	(test_restart): Add test cases for the methods.
+	* init/blocked.h (blocked_type): Add enums for the new methods.
+	* init/blocked.c (blocked_new): Handle the new methods here.
+	* init/tests/test_blocked.c (test_new): Add add tests for handling.
+
 2008-06-07  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_process.c (job_process_terminated): Don't check the goal

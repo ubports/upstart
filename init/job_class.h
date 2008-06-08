@@ -185,6 +185,19 @@ int         job_class_get_all_instances    (JobClass *class,
 					    char ***instances)
 	__attribute__ ((warn_unused_result));
 
+int         job_class_start                (JobClass *class,
+					    NihDBusMessage *message,
+					    char * const *env)
+	__attribute__ ((warn_unused_result));
+int         job_class_stop                 (JobClass *class,
+					    NihDBusMessage *message,
+					    char * const *env)
+	__attribute__ ((warn_unused_result));
+int         job_class_restart              (JobClass *class,
+					    NihDBusMessage *message,
+					    char * const *env)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */

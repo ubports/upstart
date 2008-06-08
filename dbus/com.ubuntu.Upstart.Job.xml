@@ -23,5 +23,19 @@
     <signal name="InstanceRemoved">
       <arg name="instance" type="o" />
     </signal>
+
+    <!-- Job control; the environment arguments are used for both instance
+         selection and for passing environment to the processes of the job. -->
+    <method name="Start" nih:object="async">
+      <arg name="env" type="as" direction="in" />
+      <arg name="instance" type="o" direction="out" />
+    </method>
+    <method name="Stop" nih:object="async">
+      <arg name="env" type="as" direction="in" />
+    </method>
+    <method name="Restart" nih:object="async">
+      <arg name="env" type="as" direction="in" />
+      <arg name="instance" type="o" direction="out" />
+    </method>
   </interface>
 </node>

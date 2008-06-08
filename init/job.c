@@ -642,6 +642,44 @@ job_finished (Job *job,
 			event_unblock (blocked->event);
 
 			break;
+		case BLOCKED_JOB_START_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.JobFailed",
+						  _("Job failed to start")));
+			} else {
+				NIH_ZERO (job_class_start_reply (
+						  blocked->message,
+						  job->path));
+			}
+
+			break;
+		case BLOCKED_JOB_STOP_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.JobFailed",
+						  _("Job failed while stopping")));
+			} else {
+				NIH_ZERO (job_class_stop_reply (
+						  blocked->message));
+			}
+
+			break;
+		case BLOCKED_JOB_RESTART_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  "com.ubuntu.Upstart.Error.JobFailed",
+						  _("Job failed to restart")));
+			} else {
+				NIH_ZERO (job_class_restart_reply (
+						  blocked->message,
+						  job->path));
+			}
+
+			break;
 		case BLOCKED_INSTANCE_START_METHOD:
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (

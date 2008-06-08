@@ -41,6 +41,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "event_operator.h"
+#include "blocked.h"
 #include "conf.h"
 #include "control.h"
 
@@ -571,6 +572,377 @@ job_class_get_all_instances (JobClass         *class,
 	}
 
 	*instances = list;
+
+	return 0;
+}
+
+
+/**
+ * job_class_start:
+ * @class: job class to be started,
+ * @message: D-Bus connection and message received,
+ * @env: NULL-terminated array of environment variables.
+ *
+ * Implements the top half of the Start method of the com.ubuntu.Upstart.Job
+ * interface, the bottom half may be found in job_finished().
+ *
+ * This is the primary method to start new instances of jobs.  The given
+ * @env will be used to locate an existing instance, or create a new one
+ * if necessary; in either case, the instance will be set to be started
+ * (or restarted if it is currently stopping) with @env as its new
+ * environment.
+ *
+ * If the instance goal is already start,
+ * the com.ubuntu.Upstart.Error.AlreadyStarted D-Bus error will be returned
+ * immediately.  If the instance fails to start, the
+ * com.ubuntu.Upstart.Error.JobFailed D-BUs error will be returned when the
+ * problem occurs.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_start (JobClass        *class,
+		 NihDBusMessage  *message,
+		 char * const    *env)
+{
+	Blocked  *blocked;
+	Job      *job;
+	char    **start_env, *name;
+	size_t    len;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (env != NULL);
+
+	/* Verify that the environment is valid */
+	if (! environ_all_valid (env)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Env must be KEY=VALUE pairs"));
+		return -1;
+	}
+
+	/* Construct the full environment for the instance based on the class
+	 * and that provided.
+	 */
+	start_env = job_class_environment (NULL, class, &len);
+	if (! start_env)
+		nih_return_system_error (-1);
+
+	if (! environ_append (&start_env, NULL, &len, TRUE, env)) {
+		nih_error_raise_system ();
+		nih_free (start_env);
+		return -1;
+	}
+
+	/* Use the environment to expand the instance name and look it up
+	 * in the job.
+	 */
+	name = environ_expand (NULL, class->instance, start_env);
+	if (! name) {
+		NihError *error;
+
+		error = nih_error_get ();
+		nih_dbus_error_raise_printf (
+			DBUS_ERROR_INVALID_ARGS,
+			"%s", error->message);
+		nih_free (error);
+
+		nih_free (start_env);
+		return -1;
+	}
+
+	job = (Job *)nih_hash_lookup (class->instances, name);
+
+	blocked = blocked_new (job, BLOCKED_JOB_START_METHOD, message);
+	if (! blocked) {
+		nih_error_raise_system ();
+		nih_free (name);
+		nih_free (start_env);
+		return -1;
+	}
+
+	/* If no instance exists with the expanded name, create a new
+	 * instance.
+	 */
+	if (! job) {
+		job = job_new (class, name);
+		if (! job) {
+			nih_error_raise_system ();
+			nih_free (blocked);
+			nih_free (name);
+			nih_free (start_env);
+			return -1;
+		}
+
+		nih_alloc_reparent (blocked, job);
+	}
+
+	nih_free (name);
+
+
+	if (job->goal == JOB_START) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.AlreadyStarted",
+			_("Job is already running: %s"),
+			job_name (job));
+
+		nih_free (blocked);
+		nih_free (start_env);
+		return -1;
+	}
+
+
+	if (job->start_env)
+		nih_free (job->start_env);
+
+	nih_alloc_reparent (start_env, job);
+	job->start_env = start_env;
+
+	job_finished (job, FALSE);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	job_change_goal (job, JOB_START);
+
+	return 0;
+}
+
+/**
+ * job_class_stop:
+ * @class: job class to be stopped,
+ * @message: D-Bus connection and message received,
+ * @env: NULL-terminated array of environment variables.
+ *
+ * Implements the top half of the Stop method of the com.ubuntu.Upstart.Job
+ * interface, the bottom half may be found in job_finished().
+ *
+ * This is the primary method to stop instances of jobs.  The given @env
+ * will be used to locate an existing instance which will be set to be
+ * stopped with @env as the environment passed to the pre-stop script.
+ *
+ * If no such instance is found, the com.ubuntu.Upstart.Error.UnknownInstance
+ * D-Bus error will be returned immediately.  If the instance goal is already
+ * stop, the com.ubuntu.Upstart.Error.AlreadyStopped D-Bus error will be
+ * returned immediately.  If the instance fails to stop, the
+ * com.ubuntu.Upstart.Error.JobFailed D-Bus error will be returned when the
+ * problem occurs.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_stop (JobClass       *class,
+		NihDBusMessage *message,
+		char * const   *env)
+{
+	Blocked  *blocked;
+	Job      *job;
+	char    **stop_env, *name;
+	size_t    len;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (env != NULL);
+
+	/* Verify that the environment is valid */
+	if (! environ_all_valid (env)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Env must be KEY=VALUE pairs"));
+		return -1;
+	}
+
+	/* Construct the full environment for the instance based on the class
+	 * and that provided; while we don't pass this to the instance itself,
+	 * we need this to look up the instance in the first place.
+	 */
+	stop_env = job_class_environment (NULL, class, &len);
+	if (! stop_env)
+		nih_return_system_error (-1);
+
+	if (! environ_append (&stop_env, NULL, &len, TRUE, env)) {
+		nih_error_raise_system ();
+		nih_free (stop_env);
+		return -1;
+	}
+
+	/* Use the environment to expand the instance name and look it up
+	 * in the job.
+	 */
+	name = environ_expand (NULL, class->instance, stop_env);
+	if (! name) {
+		NihError *error;
+
+		error = nih_error_get ();
+		nih_dbus_error_raise_printf (
+			DBUS_ERROR_INVALID_ARGS,
+			"%s", error->message);
+		nih_free (error);
+
+		nih_free (stop_env);
+		return -1;
+	}
+
+	job = (Job *)nih_hash_lookup (class->instances, name);
+
+	if (! job) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.UnknownInstance",
+			_("Unknown instance: %s"), name);
+		nih_free (name);
+		nih_free (stop_env);
+		return -1;
+	}
+
+	nih_free (name);
+	nih_free (stop_env);
+
+
+	if (job->goal == JOB_STOP) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			_("Job has already been stopped: %s"),
+			job_name (job));
+
+		return -1;
+	}
+
+	blocked = blocked_new (job, BLOCKED_JOB_STOP_METHOD, message);
+	if (! blocked)
+		nih_return_system_error (-1);
+
+	if (job->stop_env)
+		nih_free (job->stop_env);
+
+	nih_alloc_reparent ((char **)env, job);
+	job->stop_env = (char **)env;
+
+	job_finished (job, FALSE);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	job_change_goal (job, JOB_STOP);
+
+	return 0;
+}
+
+/**
+ * job_restart:
+ * @class: job class to be restarted,
+ * @message: D-Bus connection and message received,
+ * @env: NULL-terminated array of environment variables.
+ *
+ * Implements the top half of the Restart method of the com.ubuntu.Upstart.Job
+ * interface, the bottom half may be found in job_finished().
+ *
+ * This is the primary method to restart existing instances of jobs; while
+ * calling both "Stop" and "Start" may have the same effect, there is no
+ * guarantee of atomicity.
+ *
+ * The given @env will be used to locate the existing instance, which will
+ * be stopped and then restarted with @env as its new environment.
+ *
+ * If no such instance is found, the com.ubuntu.Upstart.Error.UnknownInstance
+ * D-Bus error will be returned immediately.  If the instance goal is already
+ * stop, the com.ubuntu.Upstart.Error.AlreadyStopped D-Bus error will be
+ * returned immediately.  If the instance fails to restart, the
+ * com.ubuntu.Upstart.Error.JobFailed D-Bus error will be returned when the
+ * problem occurs.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_restart (JobClass        *class,
+		   NihDBusMessage  *message,
+		   char * const    *env)
+{
+	Blocked  *blocked;
+	Job      *job;
+	char    **restart_env, *name;
+	size_t    len;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (env != NULL);
+
+	/* Verify that the environment is valid */
+	if (! environ_all_valid (env)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Env must be KEY=VALUE pairs"));
+		return -1;
+	}
+
+	/* Construct the full environment for the instance based on the class
+	 * and that provided.
+	 */
+	restart_env = job_class_environment (NULL, class, &len);
+	if (! restart_env)
+		nih_return_system_error (-1);
+
+	if (! environ_append (&restart_env, NULL, &len, TRUE, env)) {
+		nih_error_raise_system ();
+		nih_free (restart_env);
+		return -1;
+	}
+
+	/* Use the environment to expand the instance name and look it up
+	 * in the job.
+	 */
+	name = environ_expand (NULL, class->instance, restart_env);
+	if (! name) {
+		NihError *error;
+
+		error = nih_error_get ();
+		nih_dbus_error_raise_printf (
+			DBUS_ERROR_INVALID_ARGS,
+			"%s", error->message);
+		nih_free (error);
+
+		nih_free (restart_env);
+		return -1;
+	}
+
+	job = (Job *)nih_hash_lookup (class->instances, name);
+
+	if (! job) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.UnknownInstance",
+			_("Unknown instance: %s"), name);
+		nih_free (name);
+		nih_free (restart_env);
+		return -1;
+	}
+
+	nih_free (name);
+
+
+	if (job->goal == JOB_STOP) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			_("Job has already been stopped: %s"), job->name);
+
+		nih_free (restart_env);
+		return -1;
+	}
+
+	blocked = blocked_new (job, BLOCKED_JOB_RESTART_METHOD, message);
+	if (! blocked) {
+		nih_error_raise_system ();
+		nih_free (restart_env);
+		return -1;
+	}
+
+	if (job->start_env)
+		nih_free (job->start_env);
+
+	nih_alloc_reparent (restart_env, job);
+	job->start_env = restart_env;
+
+	if (job->stop_env)
+		nih_free (job->stop_env);
+	job->stop_env = NULL;
+
+	job_finished (job, FALSE);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	job_change_goal (job, JOB_STOP);
+	job_change_goal (job, JOB_START);
 
 	return 0;
 }
