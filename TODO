@@ -1,10 +1,28 @@
 Before 0.5.0:
 
- * event_pending_handle_jobs is very large, complicated and most of it is
-   entirely in the wrong place.  The two blocks of code to deal with stop
-   and start events are very similar, and will be basically identical for
-   the start and stop command cases.  Reduce to common functions that this
-   can call.
+ * Handling of utmp and wtmp needs to be somewhat better.
+   - common function to read/write to utmp and wtmp
+   - should be able to read current runlevel (as runlevel does right now)
+   - should be able to set current runlevel (as runlevel does right now)
+   - move runlevel setting code into telinit before it emits the event,
+     which should include RUNLEVEL and PREVLEVEL in the environment
+   - shutdown should write a shutdown entry
+   - reboot should check the current runlevel, and exec shutdown based on 
+     that, as well as -f
+   - reboot should write the wtmp shutdown record
+   - somehow on startup we should write the reboot record as early as we
+     can
+   - init needs to grow "utmp XXX", which maintains INIT_PROCESS and
+     DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
+
+
+0.5.x series:
+
+ * There's a lot of complicated code that's pretty much duplicated between
+   event_pending_handle_jobs(), job_class_start(), job_class_stop(),
+   job_class_restart() and to a lesser extent, job_start(), job_stop() and
+   job_restart().  We should make an effort to reduce this to common
+   functions, which may become easier as we rationalise the behaviour anyway.
 
  * It may be useful to not just have failed=TRUE/FALSE for job_finished() but a
    more detailed reason about why the job is being unblocked, so the command
@@ -20,24 +38,6 @@ Before 0.5.0:
    will still be blocked next time around.  Restores some of the older
    behaviour in that "start" will block until stopped, and fail with the
    fact it was stopped.
-
-
-0.5.x series:
-
- * Handling of utmp and wtmp needs to be somewhat better.
-   - common function to read/write to utmp and wtmp
-   - should be able to read current runlevel (as runlevel does right now)
-   - should be able to set current runlevel (as runlevel does right now)
-   - move runlevel setting code into telinit before it emits the event,
-     which should include RUNLEVEL and PREVLEVEL in the environment
-   - shutdown should write a shutdown entry
-   - reboot should check the current runlevel, and exec shutdown based on 
-     that, as well as -f
-   - reboot should write the wtmp shutdown record
-   - somehow on startup we should write the reboot record as early as we
-     can
-   - init needs to grow "utmp XXX", which maintains INIT_PROCESS and
-     DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
 
  * Need to add dependencies to jobs, which are files that must exist before
    the job can be started (because Debian/Ubuntu like to litter config files
@@ -75,7 +75,7 @@ Anytime:
  * system_setup_console is due for an overhaul as well; especially if
    we want to be able to pass file descriptors in.  Am somewhat tempted
    to add a magic CONSOLE_DEFAULT option which tries fd, logging, null,
-   etc.  and use CONSOLE_LOGGED to mean "die if logd isn't around".
+   etc.
 
  * We always want /dev/fd/NNN to be /dev/fd/3, we should have some way
    to instruct process_spawn to do that.
@@ -85,16 +85,6 @@ Anytime:
 
  * May need a way to force ignoring of the KILL signal, and assuming that
    a job that won't die really has.
-
- * Make the logd raise/wait/kill interlock compatible with the "wait for stop"
-   behaviour.
-
- * Replace logd with something else that's more standard in the system,
-   and just use a normal API to communicate with it.
-
- * logd is currently disabled because of the problem where it goes away,
-   and the scripts being run end up vanishing because they can't write
-   data.
 
  * Get the LANG environment variable somehow.
 

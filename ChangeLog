@@ -1,5 +1,7 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* TODO: Update.
+
 	* init/job.c (job_change_goal): Adjust the documentation.  After
 	careful thought, there's no way this can return after freeing the
 	job, since it'll either block on an event, a process or do nothing.
