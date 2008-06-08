@@ -1,5 +1,7 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* POTFILES.in: Remove the auto-generated ones again, grr @ distcheck
+
 	* POTFILES.in: Update.
 
 2008-05-01  Scott James Remnant  <scott@netsplit.com>
