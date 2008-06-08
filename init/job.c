@@ -1045,6 +1045,10 @@ job_start (Job             *job,
 	if (! blocked)
 		nih_return_system_error (-1);
 
+	if (job->start_env)
+		nih_free (job->start_env);
+	job->start_env = NULL;
+
 	job_finished (job, FALSE);
 	nih_list_add (&job->blocking, &blocked->entry);
 
@@ -1092,6 +1096,10 @@ job_stop (Job            *job,
 	if (! blocked)
 		nih_return_system_error (-1);
 
+	if (job->stop_env)
+		nih_free (job->stop_env);
+	job->stop_env = NULL;
+
 	job_finished (job, FALSE);
 	nih_list_add (&job->blocking, &blocked->entry);
 
@@ -1138,6 +1146,14 @@ job_restart (Job            *job,
 	blocked = blocked_new (job, BLOCKED_INSTANCE_RESTART_METHOD, message);
 	if (! blocked)
 		nih_return_system_error (-1);
+
+	if (job->start_env)
+		nih_free (job->start_env);
+	job->start_env = NULL;
+
+	if (job->stop_env)
+		nih_free (job->stop_env);
+	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
 	nih_list_add (&job->blocking, &blocked->entry);
