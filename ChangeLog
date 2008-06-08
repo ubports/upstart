@@ -1,5 +1,11 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (EXTRA_DIST): Ship the built sources, don't
+	clean them.
+	(maintainer-clean-local): Well, not unless maintainer-clean anyway
+
+	* init/job.c, init/job_class.c: Add missing errno.h include
+
 	* dbus/com.ubuntu.Upstart.Job.xml (GetInstance): Add method to get
 	an instance name in the same basic manner as start and stop would,
 	though this one's synchronous.

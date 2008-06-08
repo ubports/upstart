@@ -25,6 +25,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <errno.h>
 #include <string.h>
 
 #include <nih/macros.h>
