@@ -28,16 +28,6 @@ NIH_INIT([dbus])
 # Checks for library functions.
 
 # Other checks
-AC_ARG_ENABLE(compat,
-	AS_HELP_STRING([--enable-compat],
-		       [Enable compatibility tools]),
-[case "$enable_compat" in
-    yes|sysv) compat=sysv ;;
-    no)       compat=none ;;
-    *)        AC_MSG_ERROR([bad value $enable_compat for --enable-compat]) ;;
-esac], [compat_sysv=none])dnl
-AM_CONDITIONAL(COMPAT_SYSV, test "x$compat" = "xsysv")dnl
-
 AC_MSG_CHECKING([whether to include sbindir in PATH])
 eval upstart_sbindir=\"$sbindir\"
 case $upstart_sbindir in
@@ -54,6 +44,6 @@ esac
 
 AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
 		  nih/Makefile init/Makefile dbus/Makefile doc/Makefile ])
-# util/Makefile compat/sysv/Makefile logd/Makefile
+# util/Makefile
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

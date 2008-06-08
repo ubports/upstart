@@ -1,5 +1,17 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* compat/sysv/reboot.c, compat/sysv/runlevel.c, compat/sysv/shutdown.c,
+	* compat/sysv/telinit.c: Move into the util directory; we're going
+	to support limited SysV-a-like commands without full compatibility
+	which is what we always did, and I'm not going to worry about adding
+	others.
+	* compat/sysv/man/reboot.8, compat/sysv/runlevel.8,
+	* compat/sysv/man/shutdown.8, compat/sysv/telinit.8: Move as well.
+	* compat/sysv/Makefile.am, util/Makefile.am: Merge.
+	* configure.ac: Remove the (commented out) compat/sysv and logd
+	Remove the --enable-compat option.
+	* Makefile.am (SUBDIRS): Remove (commented out) compat/sysv and logd
+
 	* logd/Makefile.am, logd/main.c, logd/man/logd.8, logd/jobs.d/logd.in:
 	Consign logd to oblivion.  We haven't supported it for ages, it has
 	non-working issues, and there's got to be a better way to do this.
