@@ -1,5 +1,14 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Job.xml (GetInstance): Add method to get
+	an instance name in the same basic manner as start and stop would,
+	though this one's synchronous.
+	* init/job_class.c (job_class_get_instance): Implementing by copying
+	the relevant bit of Stop.
+	* init/job_class.h: Add prototype.
+	* init/tests/test_job_class.c (test_get_instance): Add tests.
+	* TODO: Continue to document the C&P madness.
+
 	* init/conf.c (conf_reload_path): Read file directly into memory,
 	not using mmap.
 

@@ -485,6 +485,100 @@ error:
 
 
 /**
+ * job_class_get_instance:
+ * @class: job class to be query,
+ * @message: D-Bus connection and message received,
+ * @env: NULL-terminated array of environment variables,
+ * @instance: pointer for instance name.
+ *
+ * Implements the GetInstance method of the com.ubuntu.Upstart.Job
+ * interface.
+ *
+ * Called to obtain the path of an instance based on @env, which is used
+ * to locate the instance in the same way that Start, Stop and Restart do.
+ *
+ * If no such instance is found, the com.ubuntu.Upstart.Error.UnknownInstance
+ * D-Bus error will be returned immediately.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_instance (JobClass        *class,
+			NihDBusMessage  *message,
+			char * const    *env,
+			char           **instance)
+{
+	Job      *job;
+	char    **instance_env, *name;
+	size_t    len;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (env != NULL);
+
+	/* Verify that the environment is valid */
+	if (! environ_all_valid (env)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Env must be KEY=VALUE pairs"));
+		return -1;
+	}
+
+	/* Construct the full environment for the instance based on the class
+	 * and that provided.
+	 */
+	instance_env = job_class_environment (NULL, class, &len);
+	if (! instance_env)
+		nih_return_system_error (-1);
+
+	if (! environ_append (&instance_env, NULL, &len, TRUE, env)) {
+		nih_error_raise_system ();
+		nih_free (instance_env);
+		return -1;
+	}
+
+	/* Use the environment to expand the instance name and look it up
+	 * in the job.
+	 */
+	name = environ_expand (NULL, class->instance, instance_env);
+	if (! name) {
+		NihError *error;
+
+		error = nih_error_get ();
+		if (error->number != ENOMEM) {
+			nih_dbus_error_raise_printf (
+				DBUS_ERROR_INVALID_ARGS,
+				"%s", error->message);
+			nih_free (error);
+		} else {
+			nih_error_raise_again (error);
+		}
+
+		nih_free (instance_env);
+		return -1;
+	}
+
+	job = (Job *)nih_hash_lookup (class->instances, name);
+
+	if (! job) {
+		nih_dbus_error_raise_printf (
+			"com.ubuntu.Upstart.Error.UnknownInstance",
+			_("Unknown instance: %s"), name);
+		nih_free (name);
+		nih_free (instance_env);
+		return -1;
+	}
+
+	nih_free (name);
+	nih_free (instance_env);
+
+	*instance = nih_strdup (message, job->path);
+	if (! *instance)
+		nih_return_system_error (-1);
+
+	return 0;
+}
+
+/**
  * job_class_get_instance_by_name:
  * @class: class to obtain instance from,
  * @message: D-Bus connection and message received,
@@ -642,10 +736,14 @@ job_class_start (JobClass        *class,
 		NihError *error;
 
 		error = nih_error_get ();
-		nih_dbus_error_raise_printf (
-			DBUS_ERROR_INVALID_ARGS,
-			"%s", error->message);
-		nih_free (error);
+		if (error->number != ENOMEM) {
+			nih_dbus_error_raise_printf (
+				DBUS_ERROR_INVALID_ARGS,
+				"%s", error->message);
+			nih_free (error);
+		} else {
+			nih_error_raise_again (error);
+		}
 
 		nih_free (start_env);
 		return -1;
@@ -771,10 +869,14 @@ job_class_stop (JobClass       *class,
 		NihError *error;
 
 		error = nih_error_get ();
-		nih_dbus_error_raise_printf (
-			DBUS_ERROR_INVALID_ARGS,
-			"%s", error->message);
-		nih_free (error);
+		if (error->number != ENOMEM) {
+			nih_dbus_error_raise_printf (
+				DBUS_ERROR_INVALID_ARGS,
+				"%s", error->message);
+			nih_free (error);
+		} else {
+			nih_error_raise_again (error);
+		}
 
 		nih_free (stop_env);
 		return -1;
@@ -889,10 +991,14 @@ job_class_restart (JobClass        *class,
 		NihError *error;
 
 		error = nih_error_get ();
-		nih_dbus_error_raise_printf (
-			DBUS_ERROR_INVALID_ARGS,
-			"%s", error->message);
-		nih_free (error);
+		if (error->number != ENOMEM) {
+			nih_dbus_error_raise_printf (
+				DBUS_ERROR_INVALID_ARGS,
+				"%s", error->message);
+			nih_free (error);
+		} else {
+			nih_error_raise_again (error);
+		}
 
 		nih_free (restart_env);
 		return -1;

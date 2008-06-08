@@ -8,6 +8,10 @@
   <interface name="com.ubuntu.Upstart.Job">
     <!-- Get object paths for instances, while you can figure these out too,
          it's still better form to use these -->
+    <method name="GetInstance">
+      <arg name="env" type="as" direction="in" />
+      <arg name="instance" type="o" direction="out" />
+    </method>
     <method name="GetInstanceByName">
       <arg name="name" type="s" direction="in" />
       <arg name="instance" type="o" direction="out" />

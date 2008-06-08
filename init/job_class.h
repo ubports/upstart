@@ -175,6 +175,11 @@ char      **job_class_environment          (const void *parent,
 	__attribute__ ((warn_unused_result, malloc));
 
 
+int         job_class_get_instance         (JobClass *class,
+					    NihDBusMessage *message,
+					    char * const *env,
+					    char **instance)
+	__attribute__ ((warn_unused_result));
 int         job_class_get_instance_by_name (JobClass *class,
 					    NihDBusMessage *message,
 					    const char *name,

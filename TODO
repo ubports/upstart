@@ -20,9 +20,10 @@ Before 0.5.0:
 
  * There's a lot of complicated code that's pretty much duplicated between
    event_pending_handle_jobs(), job_class_start(), job_class_stop(),
-   job_class_restart() and to a lesser extent, job_start(), job_stop() and
-   job_restart().  We should make an effort to reduce this to common
-   functions, which may become easier as we rationalise the behaviour anyway.
+   job_class_restart(), job_class_get_instance() and to a lesser extent,
+   job_start(), job_stop() and job_restart().  We should make an effort to
+   reduce this to common functions, which may become easier as we rationalise
+   the behaviour anyway.
 
  * It may be useful to not just have failed=TRUE/FALSE for job_finished() but a
    more detailed reason about why the job is being unblocked, so the command

@@ -1050,6 +1050,170 @@ test_environment (void)
 
 
 void
+test_get_instance (void)
+{
+	NihDBusMessage  *message;
+	char           **env;
+	JobClass        *class;
+	Job             *job;
+	char            *path;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+
+	TEST_FUNCTION ("job_class_get_instance");
+	nih_error_init ();
+
+
+	/* Check that we can obtain the path of an existing instance, and
+	 * that a copy is returned in the pointer given.
+	 */
+	TEST_FEATURE ("with running job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+
+			env = nih_str_array_new (message);
+		}
+
+		ret = job_class_get_instance (class, message, env, &path);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (path, message);
+		TEST_EQ_STR (path, job->path);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that if there's no such instance, a D-Bus error is raised.
+	 */
+	TEST_FEATURE ("with unknown job");
+	class = job_class_new (NULL, "test");
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = NULL;
+	message->message = NULL;
+
+	env = nih_str_array_new (message);
+
+	ret = job_class_get_instance (class, message, env, &path);
+
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name,
+		     "com.ubuntu.Upstart.Error.UnknownInstance");
+
+	nih_free (dbus_error);
+
+	nih_free (message);
+	nih_free (class);
+
+
+	/* Check that the environment parameter is used to locate instances.
+	 */
+	TEST_FEATURE ("with environment");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->instance = "$FOO";
+
+			job = job_new (class, "wibble");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+
+			env = nih_str_array_new (message);
+			assert (nih_str_array_add (&env, message, NULL,
+						   "FOO=wibble"));
+			assert (nih_str_array_add (&env, message, NULL,
+						   "BAR=wobble"));
+		}
+
+		ret = job_class_get_instance (class, message, env, &path);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (path, message);
+		TEST_EQ_STR (path, job->path);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that if the environment table is not valid, an error
+	 * is returned.
+	 */
+	TEST_FEATURE ("with invalid environment");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "wibble");
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->conn = NULL;
+	message->message = NULL;
+
+	env = nih_str_array_new (message);
+	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+
+	ret = job_class_get_instance (class, message, env, &path);
+
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+
+	nih_free (dbus_error);
+
+	nih_free (message);
+	nih_free (class);
+}
+
+void
 test_get_instance_by_name (void)
 {
 	NihDBusMessage *message;
@@ -2387,6 +2551,7 @@ main (int   argc,
 	test_unregister ();
 	test_environment ();
 
+	test_get_instance ();
 	test_get_instance_by_name ();
 	test_get_all_instances ();
 
