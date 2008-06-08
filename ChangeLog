@@ -1,5 +1,9 @@
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
+	* logd/Makefile.am, logd/main.c, logd/man/logd.8, logd/jobs.d/logd.in:
+	Consign logd to oblivion.  We haven't supported it for ages, it has
+	non-working issues, and there's got to be a better way to do this.
+
 	* TODO: Update.
 
 	* init/job.c (job_change_goal): Adjust the documentation.  After
