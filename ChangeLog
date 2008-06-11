@@ -1,3 +1,8 @@
+2008-06-11  Scott James Remnant  <scott@netsplit.com>
+
+	* Makefile.am (SUBDIRS): List po last so that update-po is run after
+	generating any sources.
+
 2008-06-08  Scott James Remnant  <scott@netsplit.com>
 
 	* init/Makefile.am (EXTRA_DIST): Ship the built sources, don't

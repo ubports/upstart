@@ -36,6 +36,10 @@ init/parse_job.c
 init/process.c
 init/system.c
 
+init/com.ubuntu.Upstart.c
+init/com.ubuntu.Upstart.Job.c
+init/com.ubuntu.Upstart.Instance.c
+
 util/initctl.c
 util/reboot.c
 util/runlevel.c

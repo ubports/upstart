@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = m4 po intl nih init dbus doc # util
+SUBDIRS = m4 intl nih init dbus doc po # util
 
 EXTRA_DIST = HACKING ChangeLog.nih
 
