@@ -36,9 +36,9 @@ init_SOURCES = \
 	parse_conf.c parse_conf.h \
 	conf.c conf.h \
 	control.c control.h \
-	com.ubuntu.Upstart.c com.ubuntu.Upstart.h \
-	com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h \
-	com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS) \
 	errors.h
 
 init_LDADD = \
@@ -48,30 +48,62 @@ init_LDADD = \
 	$(DBUS_LIBS)
 
 
-BUILT_SOURCES = \
-	com.ubuntu.Upstart.c com.ubuntu.Upstart.h \
-	com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h \
-	com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h
+com_ubuntu_Upstart_OUTPUTS = \
+	com.ubuntu.Upstart.c \
+	com.ubuntu.Upstart.h
 
-com.ubuntu.Upstart.c com.ubuntu.Upstart.h: \
-		../dbus/com.ubuntu.Upstart.xml
+com_ubuntu_Upstart_XML = \
+	../dbus/com.ubuntu.Upstart.xml
+
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
 	$(top_builddir)/nih/nih-dbus-tool \
 		--mode=object --prefix=control --output=$@ $<
 
-com.ubuntu.Upstart.Job.c com.ubuntu.Upstart.Job.h: \
-		../dbus/com.ubuntu.Upstart.Job.xml
+
+com_ubuntu_Upstart_Job_OUTPUTS = \
+	com.ubuntu.Upstart_Job.c \
+	com.ubuntu.Upstart_Job.h
+
+com_ubuntu_Upstart_Job_XML = \
+	../dbus/com.ubuntu.Upstart.Job.xml
+
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)
 	$(top_builddir)/nih/nih-dbus-tool \
 		--mode=object --prefix=job_class --output=$@ $<
 
-com.ubuntu.Upstart.Instance.c com.ubuntu.Upstart.Instance.h: \
-		../dbus/com.ubuntu.Upstart.Instance.xml
+
+com_ubuntu_Upstart_Instance_OUTPUTS = \
+	com.ubuntu.Upstart_Instance.c \
+	com.ubuntu.Upstart_Instance.h
+
+com_ubuntu_Upstart_Instance_XML = \
+	../dbus/com.ubuntu.Upstart.Instance.xml
+
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML)
 	$(top_builddir)/nih/nih-dbus-tool \
 		--mode=object --prefix=job --output=$@ $<
 
-CLEANFILES = $(BUILT_SOURCES)
+
+BUILT_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
+
+MAINTAINERCLEANFILES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
+
+EXTRA_DIST = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_XML) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_XML) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_XML)
 
 
-EXTRA_DIST = init.supp
+EXTRA_DIST += init.supp
 
 
 TESTS = \

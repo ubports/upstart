@@ -1,3 +1,9 @@
+2008-06-30  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am: Update along with libnih so that we leave the
+	D-Bus bindings in the dist tarball, meaning Python is no longer a
+	build-dependency.
+
 2008-06-11  Scott James Remnant  <scott@netsplit.com>
 
 	* Makefile.am (SUBDIRS): List dbus before init in case we need to
