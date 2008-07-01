@@ -55,31 +55,34 @@ com_ubuntu_Upstart_OUTPUTS = \
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
-$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) ../nih/nih_dbus_tool.py
+	$(MAKE) -C ../nih $(AM_MAKEFLAGS) nih-dbus-tool
 	$(top_builddir)/nih/nih-dbus-tool \
 		--mode=object --prefix=control --output=$@ $<
 
 
 com_ubuntu_Upstart_Job_OUTPUTS = \
-	com.ubuntu.Upstart_Job.c \
-	com.ubuntu.Upstart_Job.h
+	com.ubuntu.Upstart.Job.c \
+	com.ubuntu.Upstart.Job.h
 
 com_ubuntu_Upstart_Job_XML = \
 	../dbus/com.ubuntu.Upstart.Job.xml
 
-$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) ../nih/nih_dbus_tool.py
+	$(MAKE) -C ../nih $(AM_MAKEFLAGS) nih-dbus-tool
 	$(top_builddir)/nih/nih-dbus-tool \
 		--mode=object --prefix=job_class --output=$@ $<
 
 
 com_ubuntu_Upstart_Instance_OUTPUTS = \
-	com.ubuntu.Upstart_Instance.c \
-	com.ubuntu.Upstart_Instance.h
+	com.ubuntu.Upstart.Instance.c \
+	com.ubuntu.Upstart.Instance.h
 
 com_ubuntu_Upstart_Instance_XML = \
 	../dbus/com.ubuntu.Upstart.Instance.xml
 
-$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML)
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) ../nih/nih_dbus_tool.py
+	$(MAKE) -C ../nih $(AM_MAKEFLAGS) nih-dbus-tool
 	$(top_builddir)/nih/nih-dbus-tool \
 		--mode=object --prefix=job --output=$@ $<
 

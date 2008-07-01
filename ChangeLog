@@ -1,3 +1,10 @@
+2008-07-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Must be newer than the
+	source for the dbus tool, and ensure the dbus tool is built
+
 2008-06-30  Scott James Remnant  <scott@netsplit.com>
 
 	* init/Makefile.am: Update along with libnih so that we leave the
