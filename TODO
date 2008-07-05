@@ -1,5 +1,31 @@
 Before 0.5.0:
 
+ * runlevel
+   - argument may be passed to utmpname() to select alternate
+   - setutent, then getutent to iterate through, endutent when done
+   - find first RUN_LVL entry
+   - top 8 bits is previous, lower is current, no previous? use N
+ * telinit
+   - write runlevel record to utmp
+   - emit runlevel event with RUNLEVEL and PREVLEVEL variables
+   - maybe wait for it to finish?
+ * shutdown
+   - fancy wrapper around telinit with environment
+
+ * reboot
+   - get current runlevel from $RUNLEVEL
+   - if not set, get from utmp
+   - only actually reboot in 0 or 6, otherwise exec shutdown
+   - write shutdown record
+   - reboot() -- should this be done from init now?
+
+ * going into runlevel S from !S, need to stty console
+ * going into 6, 0 or 1, need to stty console
+ * reset console before S process
+
+ * reboot record at early point?
+
+
  * Handling of utmp and wtmp needs to be somewhat better.
    - common function to read/write to utmp and wtmp
    - should be able to read current runlevel (as runlevel does right now)
