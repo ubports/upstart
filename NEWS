@@ -1,3 +1,131 @@
+0.5.0  2008-07-29  "One of those deaf-mutes"
+
+	* The relationship between job definitions and their running
+          instances has been overhauled completely.  Jobs may have
+          zero or more instances, each one uniquely identified by
+          their instance name which is set by expanding the argument
+          to the "instance" stanza against the instance's environment.
+
+	  For example, a job with "instance $TTY" in its definition
+	  will have new instances created when started with TTY=tty1
+	  and TTY=tty2, but starting again with TTY=tty1 will fail if
+	  that instance is already running.
+
+	* The default job configuration remains to be a singleton,
+          however this is now accomplished simply by having the
+          default for the instance stanza set to a static string.
+
+	* Job events now include the instance name in a new $INSTANCE
+          variable, and will always have $UPSTART_INSTANCE set in the
+          environment of their processes.
+
+	* Jobs may export environment from themselves into the job
+          events using the new "export" stanza.
+
+	* Events no longer have both arguments and environment,
+          instead the order the environment is specified in is
+          remembered and is used when matching.
+
+	* The "start on" and "stop on" stanzas may now only be
+          specified once, multiple events should be joined with the
+          new "or" operator.  A new "and" operator exists as well, and
+          parentheses are permitted, allowing arbitrarily complicated
+          expression matches.
+
+	* All environment from the matched start events is placed in
+          the job, with the list of matched events placed in the
+          $UPSTART_EVENTS variable, replacing the previous singular
+          $UPSTART_EVENT variable.
+
+	* The matches for the "stop on" stanza may refer to variables
+          from the job environment, which comes from the "start on"
+          stanza.
+
+	  For example:
+	      start on started apache or started httpd
+	      stop on stopping $JOB
+
+	* Job environment from the start command or events is
+          available to all scripts, including "pre-stop" and "post-stop".
+
+	* Environment from the matched stop events is only available
+          to the "pre-stop" script, with the list of matched events
+          placed in the $UPSTART_STOP_EVENTS variable so that the list
+          of events that started the job is still available.
+
+	* Environment is no longer lost after a respawn.
+
+	* Environment from the kernel or initramfs may be included in
+          a job by use of the "env NAME" stanza without a value set.
+
+	* The "started" event is no longer emitted if the pre-stop
+          script restarts the job, since the "stopping" event was
+          never emitted.
+
+	* By default, jobs now have the most suitable settings for
+	  a daemon process that would match what they would have had
+	  by calling daemon(). In particular, this means that the
+	  previous "service" stanza is now the default and tasks need
+	  to specify a "task" stanza.  It also means that if the job
+	  really wishes to be a session leader (e.g. getty), it must
+	  specify the new "session leader" stanza.
+
+	* Processes that fork once may be supervised with the new
+          "expect fork" stanza, processes that fork twice (most
+          daemons) may be supervised with the new "expect daemon"
+          stanza and processes that do not fork may signal readiness
+          by SIGSTOP with the new "expect stop" stanza.
+
+	* The "pid file", "pid timeout" and "daemon" stanzas have been
+          removed in favour of the new functionality.
+
+	* "respawn" now works for tasks, this will repeat the task
+          until it finishes with a zero exit status or any other
+          specified by "normal exit".
+
+	* "respawn limit" now only affects automatic respawns, not
+          those done by command.
+
+	* If the main process fails to start due to exec() error, or
+          other process setup error, it will not be respawned.
+
+	* "respawn limit" may be "unlimited".
+
+	* The "stalled" event has been removed.
+
+	* "logd" was not maintained, and did not function correctly,
+          so has been removed from the source.  The "console logged"
+          stanza has also been removed.
+
+	* New "oom" stanza allows adjustment of the OOM killer
+          priority of the process and may be "never" to inhibit it.
+
+	* The configuration directory has now changed to
+          /etc/init/jobs.d
+
+	* Configuration is still reloaded with inotify, but may be
+          forced by sending init a HUP signal.
+
+	* Support for the STOP, CONT and TERM signals has been
+          removed.
+
+	* libupstart and the native IPC mechanism has been removed,
+          communication is now via D-Bus which is a new dependency.
+
+	* The dependency on D-Bus introduces build-dependencies on
+          pkg-config and Python.
+
+	* The minimal recommended kernel version is now 2.6.24
+
+	* The compat directory has been removed, the utilities are now
+          considered part of Upstart.
+
+	* initctl commands do not support --no-wait yet
+
+	* initctl status with no arguments now shows all jobs.
+
+	* initctl events no longer exists
+
 0.3.9  2007-10-11  "Highway to the Danger Zone"
 
 	* Fixed crasher caused by starting a job with a no-arguments event.

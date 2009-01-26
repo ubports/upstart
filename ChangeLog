@@ -1,3 +1,9 @@
+2009-01-26  Scott James Remnant  <scott@netsplit.com>
+
+	* README: Update features and requirements.
+	* NEWS: Copy in news from 0.5.0; that release doesn't appear in
+	this ChangeLog since it was made on a separate branch.
+
 2009-01-26  Casey Dahlin  <cdahlin@redhat.com>
 
 	* init/environ.c (environ_expand_until): Handle the implicit case

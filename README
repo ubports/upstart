@@ -7,19 +7,18 @@ distributions as a replacement for the venerable sysvinit package.
 
 Feature highlights:
 
- * tasks and Services are started and stopped by events;
+ * Tasks and Services are started and stopped by events;
 
- * events are generated as tasks and services are run and stopped;
+ * Events are generated as tasks and services are started and stopped;
 
- * events may also be generated at timed intervals, or when files are
-   changed (not yet implemented);
+ * Events may be received from any other process on the system;
 
- * events may be received from any other process on the system;
+ * Services may be respawned if they die unexpectedly;
 
- * services may be respawned if they die unexpectedly
+ * Supervision and respawning of daemons which separate from their
+   parent process;
 
- * bi-directional communication with init daemon to discover which
-   jobs are running, why jobs failed, etc.
+ * Communication with the init daemon over D-Bus.
 
 
 Dependencies
@@ -36,6 +35,17 @@ The recommended versions are:
 	* Linux 2.6.24 or later
 	* GCC 4.1 or later
 	* GNU C Library (glibc) 2.4 or later
+
+Communication with other processes utilises the D-Bus messaging
+system.  In order to query the availibility of the external library,
+the pkg-config tool is used; and in order to generate the D-Bus
+bindings necessary, the Python intrepreter will be used.
+
+The recommended versions are:
+
+	* D-Bus 1.2.1
+	* pkg-config 0.22
+	* Python 2.5
 
 These should all be available from the current release of any modern
 Linux distribution.
