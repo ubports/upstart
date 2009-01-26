@@ -724,6 +724,8 @@ environ_expand_until (char        **str,
 
 			*len -= offset;
 			*pos -= offset;
+		} else {
+			memmove (*str + start, value, value_len);
 		}
 	}
 

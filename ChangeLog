@@ -1,4 +1,7 @@
-2009-01-26  Scott James Remnant  <scott@netsplit.com>
+2009-01-26  Casey Dahlin  <cdahlin@redhat.com>
+
+	* init/environ.c (environ_expand_until): Handle the implicit case
+	of the gap in the string being the same size of the value.
 
 	* init/job_process.c (job_process_handler): Handle the case of a
 	child being continued by a signal, otherwise we'll assert.
