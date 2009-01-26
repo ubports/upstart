@@ -1,5 +1,7 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.5.1
+
 	* init/tests/test_event_operator.c (test_operator_handle): Add a
 	test for duplicate events when already matched.
 	* init/event_operator.c (event_operator_handle): Skip if already
