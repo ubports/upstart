@@ -1,5 +1,7 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: Adjust suppression for glibc 2.8
+
 	* init/tests/test_event.c (test_finished): Remove erroneous test
 	of free'd memory.
 
