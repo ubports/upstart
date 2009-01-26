@@ -10,13 +10,15 @@ AC_GNU_SOURCE
 
 AM_INIT_AUTOMAKE([1.10 gnu nostdinc check-news dist-bzip2])
 
+LT_PREREQ(2.2.4)
+LT_INIT
+
 AM_GNU_GETTEXT_VERSION([0.16.1])
 AM_GNU_GETTEXT()
 
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
-AC_PROG_LIBTOOL
 
 # Checks for libraries.
 NIH_INIT([dbus])

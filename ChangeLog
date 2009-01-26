@@ -1,5 +1,8 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Matching libnih, we now mandate libtool 2.2.x
+	* HACKING: Update dependency requirement to 2.2.4
+
 	* init/init.supp: Adjust suppression for glibc 2.8
 
 	* init/tests/test_event.c (test_finished): Remove erroneous test
