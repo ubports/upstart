@@ -398,7 +398,8 @@ event_operator_handle (EventOperator *root,
 			event_operator_update (oper);
 			break;
 		case EVENT_MATCH:
-			if (event_operator_match (oper, event, env)) {
+			if ((! oper->value)
+			    && event_operator_match (oper, event, env)) {
 				oper->value = TRUE;
 
 				oper->event = event;

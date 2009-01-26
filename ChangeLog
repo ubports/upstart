@@ -1,5 +1,10 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event_operator.c (test_operator_handle): Add a
+	test for duplicate events when already matched.
+	* init/event_operator.c (event_operator_handle): Skip if already
+	matched.
+
 	* README: Update features and requirements.
 	* NEWS: Copy in news from 0.5.0; that release doesn't appear in
 	this ChangeLog since it was made on a separate branch.

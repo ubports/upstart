@@ -859,6 +859,32 @@ test_operator_handle (void)
 	TEST_EQ (event->blockers, 1);
 
 
+	/* Check that a duplicate matching event in the tree is not
+	 * referenced or blocked since the tree already matched the first.
+	 */
+	TEST_FEATURE ("with duplicate matching event");
+	event = event_new (NULL, "foo", NULL);
+
+	TEST_FREE_TAG (oper3->event);
+
+	ret = event_operator_handle (oper1, event, NULL);
+
+	TEST_EQ (ret, FALSE);
+	TEST_EQ (oper1->value, FALSE);
+	TEST_EQ (oper2->value, FALSE);
+	TEST_EQ (oper3->value, TRUE);
+	TEST_NE_P (oper3->event, event);
+	TEST_NOT_FREE (oper3->event);
+	TEST_EQ (oper4->value, FALSE);
+	TEST_EQ_P (oper4->event, NULL);
+	TEST_EQ (oper5->value, FALSE);
+	TEST_EQ_P (oper5->event, NULL);
+
+	TEST_EQ (event->blockers, 0);
+
+	nih_free (event);
+
+
 	/* Check that matching an event in the tree results in the event
 	 * being referenced and blocked, and stored in the operator.
 	 * Since the event tips the balance, it should update the expression.
