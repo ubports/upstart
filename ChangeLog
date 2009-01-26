@@ -1,5 +1,7 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump copyright to 2009
+
 	* configure.ac: Matching libnih, we now mandate libtool 2.2.x
 	* HACKING: Update dependency requirement to 2.2.4
 
