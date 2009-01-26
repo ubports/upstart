@@ -180,11 +180,11 @@ job_process_run (Job         *job,
 		while (p && (*p == '\n'))
 			p++;
 
-		if ((! p) || (! *p)
+		if ((! nl) || (! *p)
 		    || (stat (DEV_FD, &statbuf) < 0)
 		    || (! S_ISDIR (statbuf.st_mode))) {
 			/* Strip off the newline(s) */
-			if (nl)
+			if (nl && (! *p))
 				*nl = '\0';
 
 			NIH_MUST (nih_str_array_add (&argv, NULL,
