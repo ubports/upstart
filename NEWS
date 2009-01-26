@@ -1,4 +1,4 @@
-0.5.0  2008-07-29  "One of those deaf-mutes"
+0.5.0  2008-08-12  "One of those deaf-mutes"
 
 	* The relationship between job definitions and their running
           instances has been overhauled completely.  Jobs may have
@@ -104,7 +104,7 @@
           /etc/init/jobs.d
 
 	* Configuration is still reloaded with inotify, but may be
-          forced by sending init a HUP signal.
+          forced by sending init a HUP signal or with "initctl reload".
 
 	* Support for the STOP, CONT and TERM signals has been
           removed.
@@ -119,6 +119,8 @@
 
 	* The compat directory has been removed, the utilities are now
           considered part of Upstart.
+
+	* initctl jobs has been dropped.
 
 	* initctl commands do not support --no-wait yet
 
