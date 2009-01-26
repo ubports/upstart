@@ -924,6 +924,20 @@ job_process_handler (void           *data,
 			job_process_stopped (job, process);
 
 		break;
+	case NIH_CHILD_CONTINUED:
+		/* Child was continued by a signal.
+		 */
+		sig = nih_signal_to_name (status);
+		if (sig) {
+			nih_warn (_("%s %s process (%d) continued by %s signal"),
+				  job_name (job), process_name (process),
+				  pid, sig);
+		} else {
+			nih_warn (_("%s %s process (%d) continued by signal %d"),
+				  job_name (job), process_name (process),
+				  pid, status);
+		}
+		break;
 	case NIH_CHILD_TRAPPED:
 		/* Child received a signal while we were tracing it.  This
 		 * can be a signal raised inside the kernel as a side-effect

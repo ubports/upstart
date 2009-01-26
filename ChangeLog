@@ -1,4 +1,7 @@
-2009-01-26  Casey Dahlin  <cdahlin@redhat.com>
+2009-01-26  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_handler): Handle the case of a
+	child being continued by a signal, otherwise we'll assert.
 
 	* init/job_process.c (job_process_run): Double-check that the
 	newline(s) we see are at the end of the script before stripping,
