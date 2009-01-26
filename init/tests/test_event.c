@@ -1759,7 +1759,6 @@ test_finished (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ_P (job->blocker, NULL);
 
-		TEST_LIST_EMPTY (&event->blocking);
 		TEST_FREE (event);
 
 		nih_free (class);
@@ -1793,7 +1792,6 @@ test_finished (void)
 		TEST_EQ (job->state, JOB_STARTING);
 		TEST_EQ_P (job->blocker, NULL);
 
-		TEST_LIST_EMPTY (&event->blocking);
 		TEST_FREE (event);
 
 		nih_free (class);

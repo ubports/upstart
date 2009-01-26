@@ -1,5 +1,8 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event.c (test_finished): Remove erroneous test
+	of free'd memory.
+
 	* configure.ac: Bump version to 0.5.1
 
 	* init/tests/test_event_operator.c (test_operator_handle): Add a
