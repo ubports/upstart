@@ -48,6 +48,7 @@ po/stamp-po
 po/upstart.pot
 po/*.gmo
 nih
+nih-dbus
 upstart/libupstart.la
 upstart/test_*
 init/com.ubuntu.Upstart.[ch]

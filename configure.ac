@@ -44,8 +44,10 @@ case $upstart_sbindir in
 esac
 
 
-AC_CONFIG_FILES([ Makefile m4/Makefile po/Makefile.in intl/Makefile
-		  nih/Makefile init/Makefile dbus/Makefile doc/Makefile ])
+AC_CONFIG_FILES([ Makefile m4/Makefile intl/Makefile
+		  nih/Makefile nih-dbus/Makefile
+		  init/Makefile dbus/Makefile
+		  doc/Makefile po/Makefile.in ])
 # util/Makefile
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

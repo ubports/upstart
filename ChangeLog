@@ -1,5 +1,8 @@
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (AC_CONFIG_FILES): Add nih-dbus sub-directory
+	* Makefile.am (SUBDIRS): Add nih-dbus sub-directory
+
 	* configure.ac: Bump copyright to 2009
 
 	* configure.ac: Matching libnih, we now mandate libtool 2.2.x
