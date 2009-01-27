@@ -1,3 +1,7 @@
+2009-01-27  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am: Update paths to libnih-dbus dependencies.
+
 2009-01-26  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac (AC_CONFIG_FILES): Add nih-dbus sub-directory

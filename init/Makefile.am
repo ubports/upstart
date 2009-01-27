@@ -43,7 +43,7 @@ init_SOURCES = \
 
 init_LDADD = \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(LTLIBINTL) \
 	$(DBUS_LIBS)
 
@@ -55,9 +55,9 @@ com_ubuntu_Upstart_OUTPUTS = \
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
-$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) ../nih/nih_dbus_tool.py
-	$(MAKE) -C ../nih $(AM_MAKEFLAGS) nih-dbus-tool
-	$(top_builddir)/nih/nih-dbus-tool \
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) ../nih-dbus/nih_dbus_tool.py
+	$(MAKE) -C ../nih-dbus $(AM_MAKEFLAGS) nih-dbus-tool
+	$(top_builddir)/nih-dbus/nih-dbus-tool \
 		--mode=object --prefix=control --output=$@ $<
 
 
@@ -68,9 +68,9 @@ com_ubuntu_Upstart_Job_OUTPUTS = \
 com_ubuntu_Upstart_Job_XML = \
 	../dbus/com.ubuntu.Upstart.Job.xml
 
-$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) ../nih/nih_dbus_tool.py
-	$(MAKE) -C ../nih $(AM_MAKEFLAGS) nih-dbus-tool
-	$(top_builddir)/nih/nih-dbus-tool \
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) ../nih-dbus/nih_dbus_tool.py
+	$(MAKE) -C ../nih-dbus $(AM_MAKEFLAGS) nih-dbus-tool
+	$(top_builddir)/nih-dbus/nih-dbus-tool \
 		--mode=object --prefix=job_class --output=$@ $<
 
 
@@ -81,9 +81,9 @@ com_ubuntu_Upstart_Instance_OUTPUTS = \
 com_ubuntu_Upstart_Instance_XML = \
 	../dbus/com.ubuntu.Upstart.Instance.xml
 
-$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) ../nih/nih_dbus_tool.py
-	$(MAKE) -C ../nih $(AM_MAKEFLAGS) nih-dbus-tool
-	$(top_builddir)/nih/nih-dbus-tool \
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) ../nih-dbus/nih_dbus_tool.py
+	$(MAKE) -C ../nih-dbus $(AM_MAKEFLAGS) nih-dbus-tool
+	$(top_builddir)/nih-dbus/nih-dbus-tool \
 		--mode=object --prefix=job --output=$@ $<
 
 
@@ -147,7 +147,7 @@ test_process_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_job_class_SOURCES = tests/test_job_class.c
@@ -159,7 +159,7 @@ test_job_class_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_job_process_SOURCES = tests/test_job_process.c
@@ -171,7 +171,7 @@ test_job_process_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_job_SOURCES = tests/test_job.c
@@ -183,7 +183,7 @@ test_job_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_event_SOURCES = tests/test_event.c
@@ -195,7 +195,7 @@ test_event_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_event_operator_SOURCES = tests/test_event_operator.c
@@ -207,7 +207,7 @@ test_event_operator_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_blocked_SOURCES = tests/test_blocked.c
@@ -219,7 +219,7 @@ test_blocked_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_parse_job_SOURCES = tests/test_parse_job.c
@@ -231,7 +231,7 @@ test_parse_job_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
@@ -243,7 +243,7 @@ test_parse_conf_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_conf_SOURCES = tests/test_conf.c
@@ -255,7 +255,7 @@ test_conf_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 test_control_SOURCES = tests/test_control.c
@@ -267,7 +267,7 @@ test_control_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	../nih/libnih.la \
-	../nih/libnih-dbus.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 
