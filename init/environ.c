@@ -48,7 +48,7 @@ static char *environ_expand_until (char **str, const void *parent,
 /**
  * environ_add:
  * @env: pointer to environment table,
- * @parent: parent of @env,
+ * @parent: parent object for new array,
  * @len: length of @env,
  * @replace: TRUE if existing entry should be replaced,
  * @str: string to add.
@@ -56,7 +56,7 @@ static char *environ_expand_until (char **str, const void *parent,
  * Add the new environment variable @str to the table @env (which has @len
  * elements, excluding the final NULL element), either replacing an existing
  * entry or appended to the end.  Both the array and the new string within it
- * are allocated using nih_alloc(), @parent must be that of @env.
+ * are allocated using nih_alloc().
  *
  * @str may be in KEY=VALUE format, in which case the given key will be
  * replaced with that value or appended to the table; or it may simply
@@ -66,6 +66,15 @@ static char *environ_expand_until (char **str, const void *parent,
  * @len will be updated to contain the new array length and @env will
  * be updated to point to the new array pointer; use the return value
  * simply to check for success.
+ *
+ * If the array pointed to by @env is NULL, the array will be allocated
+ * and @str the first element, and if @parent is not NULL, it should be a
+ * pointer to another object which will be used as a parent for the returned
+ * array.  When all parents of the returned array are freed, the returned
+ * array will also be freed.
+ *
+ * When the array pointed to by @env is not NULL, @parent is ignored;
+ * though it usual to pass a parent of @env for style reasons.
  *
  * Returns: new array pointer or NULL if insufficient memory.
  **/
@@ -148,7 +157,7 @@ environ_add (char       ***env,
 /**
  * environ_append:
  * @env: pointer to environment table,
- * @parent: parent of @env,
+ * @parent: parent object for new array,
  * @len: length of @env,
  * @replace: TRUE if existing entries should be replaced,
  * @new_env: environment table to append to @env.
@@ -158,11 +167,20 @@ environ_add (char       ***env,
  * either replacing an existing entry entry or appended to the end.
  *
  * Both the array and the new strings within it are allocated using
- * nih_alloc(), @parent must be that of @env.
+ * nih_alloc().
  *
  * @len will be updated to contain the new array length and @env will
  * be updated to point to the new array pointer; use the return value
  * simply to check for success.
+ *
+ * If the array pointed to by @env is NULL, the array will be allocated
+ * and @str the first element, and if @parent is not NULL, it should be a
+ * pointer to another object which will be used as a parent for the returned
+ * array.  When all parents of the returned array are freed, the returned
+ * array will also be freed.
+ *
+ * When the array pointed to by @env is not NULL, @parent is ignored;
+ * though it usual to pass a parent of @env for style reasons.
  *
  * Note that if this fails, some of the entries may have been appended
  * to the array already.  It's perfectly safe to call it again, since
@@ -193,7 +211,7 @@ environ_append (char       ***env,
 /**
  * environ_set:
  * @env: pointer to environment table,
- * @parent: parent of @env,
+ * @parent: parent object for new array,
  * @len: length of @env,
  * @replace: TRUE if existing entry should be replaced,
  * @format: format string.
@@ -202,7 +220,7 @@ environ_append (char       ***env,
  * the format string @format to the table @env (which has @len elements,
  * excluding the final NULL element), either replacing an existing entry or
  * appended to the end.  Both the array and the new string within it
- * are allocated using nih_alloc(), @parent must be that of @env.
+ * are allocated using nih_alloc().
  *
  * The resulting string may be in KEY=VALUE format, in which case the given
  * key will be replaced with that value or appended to the table; or it may
@@ -212,6 +230,15 @@ environ_append (char       ***env,
  * @len will be updated to contain the new array length and @env will
  * be updated to point to the new array pointer; use the return value
  * simply to check for success.
+ *
+ * If the array pointed to by @env is NULL, the array will be allocated
+ * and @str the first element, and if @parent is not NULL, it should be a
+ * pointer to another object which will be used as a parent for the returned
+ * array.  When all parents of the returned array are freed, the returned
+ * array will also be freed.
+ *
+ * When the array pointed to by @env is not NULL, @parent is ignored;
+ * though it usual to pass a parent of @env for style reasons.
  *
  * Returns: new array pointer or NULL if insufficient memory.
  **/
@@ -404,7 +431,7 @@ environ_all_valid (char * const *env)
 
 /**
  * environ_expand:
- * @parent: parent of new string,
+ * @parent: parent object for new string,
  * @string: string to expand,
  * @env: NULL-terminated list of environment variables to use.
  *
@@ -427,9 +454,10 @@ environ_all_valid (char * const *env)
  * Unknown references are raised as an error instead of being substituted
  * with null, for that behaviour you should explicity use ${KEY-}
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned string.  When all parents
+ * of the returned string are freed, the returned string will also be
+ * freed.
  *
  * Returns: newly allocated string or NULL on raised error.
  **/
@@ -461,7 +489,7 @@ environ_expand (const void   *parent,
 /**
  * environ_expand_until:
  * @str: string being expanded,
- * @parent: parent of @str,
+ * @parent: parent object for new string,
  * @len: length of @str,
  * @pos: current position within @str,
  * @env: NULL-terminated list of environment variables to use,
@@ -480,9 +508,8 @@ environ_expand (const void   *parent,
  *
  * @pos will be likewise updated to point to the character listed in @until.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
+ * @parent is ignored, though for style reasons it is usual to pass a
+ * parent of @str.
  *
  * Returns: reallocated string or NULL on raised error.
  **/
