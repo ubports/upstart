@@ -2,7 +2,7 @@
  *
  * test_parse_job.c - test suite for init/parse_job.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 #include <nih/list.h>
 #include <nih/error.h>
 #include <nih/logging.h>
+#include <nih/error.h>
 #include <nih/errors.h>
 
 #include "job_class.h"
@@ -48,6 +49,7 @@ test_parse_job (void)
 	char      buf[1024];
 
 	TEST_FUNCTION ("parse_job");
+	nih_error_init ();
 	job_class_init ();
 	conf_init ();
 

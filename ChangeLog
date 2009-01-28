@@ -1,5 +1,8 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_parse_job.c (test_parse_job): Initialise the
+	error context outside of TEST_ALLOC_FAIL
+
 	* init/init.supp: Update suppressions for new nih_alloc()
 
 	* init/job_process.c (job_process_run): Had the shell variable
