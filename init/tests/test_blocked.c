@@ -96,15 +96,18 @@ test_new (void)
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus EmitEvent method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_EMIT_METHOD, message);
 
 		if (test_alloc_failed) {
@@ -117,22 +120,27 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_EMIT_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus Instance.Start method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_INSTANCE_START_METHOD,
 				       message);
 
@@ -146,22 +154,27 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_INSTANCE_START_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus Instance.Stop method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_INSTANCE_STOP_METHOD,
 				       message);
 
@@ -175,22 +188,27 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_INSTANCE_STOP_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus Instance.Restart method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_INSTANCE_RESTART_METHOD,
 				       message);
 
@@ -204,22 +222,27 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_INSTANCE_RESTART_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus Job.Start method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_JOB_START_METHOD,
 				       message);
 
@@ -233,22 +256,27 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_JOB_START_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus Job.Stop method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_JOB_STOP_METHOD,
 				       message);
 
@@ -262,22 +290,27 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_JOB_STOP_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 
 
 	/* Check that we can create a new blocked record for a D-Bus message,
-	 * with the details filled in correctly.  The returned structure should
-	 * not be in a list.
+	 * with the details filled in correctly and the D-Bus message
+	 * referenced.  The returned structure should not be in a list.
 	 */
 	TEST_FEATURE ("with D-Bus Job.Restart method");
-	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
-	message->message = NULL;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->conn = NULL;
+			message->message = NULL;
+		}
+		TEST_FREE_TAG (message);
+
 		blocked = blocked_new (NULL, BLOCKED_JOB_RESTART_METHOD,
 				       message);
 
@@ -291,10 +324,12 @@ test_new (void)
 		TEST_EQ (blocked->type, BLOCKED_JOB_RESTART_METHOD);
 		TEST_EQ_P (blocked->message, message);
 
-		nih_free (blocked);
-	}
+		nih_discard (message);
+		TEST_NOT_FREE (message);
 
-	nih_free (message);
+		nih_free (blocked);
+		TEST_FREE (message);
+	}
 }
 
 

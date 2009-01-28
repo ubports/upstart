@@ -5700,6 +5700,7 @@ test_start (void)
 
 	TEST_EQ (ret, 0);
 
+	nih_discard (message);
 	TEST_NOT_FREE (message);
 
 	TEST_EQ (job->goal, JOB_START);
@@ -5768,7 +5769,8 @@ test_start (void)
 	TEST_LT (ret, 0);
 
 	TEST_NOT_FREE (message);
-	nih_free (message);
+	nih_discard (message);
+	TEST_FREE (message);
 	dbus_message_unref (method);
 
 	error = nih_error_get ();
@@ -5856,6 +5858,7 @@ test_stop (void)
 
 	TEST_EQ (ret, 0);
 
+	nih_discard (message);
 	TEST_NOT_FREE (message);
 
 	TEST_EQ (job->goal, JOB_STOP);
@@ -5918,7 +5921,8 @@ test_stop (void)
 	TEST_LT (ret, 0);
 
 	TEST_NOT_FREE (message);
-	nih_free (message);
+	nih_discard (message);
+	TEST_FREE (message);
 	dbus_message_unref (method);
 
 	error = nih_error_get ();
@@ -6004,6 +6008,7 @@ test_restart (void)
 
 	TEST_EQ (ret, 0);
 
+	nih_discard (message);
 	TEST_NOT_FREE (message);
 
 	TEST_EQ (job->goal, JOB_START);
@@ -6075,7 +6080,8 @@ test_restart (void)
 	TEST_LT (ret, 0);
 
 	TEST_NOT_FREE (message);
-	nih_free (message);
+	nih_discard (message);
+	TEST_FREE (message);
 	dbus_message_unref (method);
 
 	error = nih_error_get ();

@@ -85,6 +85,7 @@ blocked_new (const void  *parent,
 	case BLOCKED_INSTANCE_STOP_METHOD:
 	case BLOCKED_INSTANCE_RESTART_METHOD:
 		blocked->message = (NihDBusMessage *)data;
+		nih_ref (blocked->message, blocked);
 		break;
 	default:
 		nih_assert_not_reached ();

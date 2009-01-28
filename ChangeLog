@@ -1,5 +1,19 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/blocked.c (blocked_new): Take a reference to the message,
+	otherwise it will be freed; we free the Blocked structure when we're
+	done, so will automatically unref the message.
+	* init/tests/test_blocked.c (test_new): Add tests to make sure the
+	reference is taken.
+	* init/tests/test_job.c (test_start, test_stop, test_restart):
+	Make sure the message is referenced when an error is not returned
+	but not referenced when one is.
+	* init/tests/test_job_class.c (test_start, test_stop)
+	(test_restart): Make sure the message is referenced when an error
+	is not returned but not referenced when one is.
+	* init/tests/test_control.c (test_emit_event): Make sure that
+	the message is referenced.
+
 	* init/tests/test_blocked.c: Change nih/dbus.h include to
 	nih-dbus/dbus_message.h
 	* init/tests/test_control.c: Change nih/dbus.h include to error,

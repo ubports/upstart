@@ -1257,6 +1257,7 @@ test_emit_event (void)
 		TEST_EQ_STR (event->name, "test");
 		TEST_EQ_P (event->env[0], NULL);
 
+		nih_discard (message);
 		TEST_NOT_FREE (message);
 
 
@@ -1336,6 +1337,7 @@ test_emit_event (void)
 		TEST_EQ_STR (event->env[1], "BAR=BAZ");
 		TEST_EQ_P (event->env[2], NULL);
 
+		nih_discard (message);
 		TEST_NOT_FREE (message);
 
 
@@ -1394,6 +1396,7 @@ test_emit_event (void)
 	TEST_EQ_STR (event->name, "test");
 	TEST_EQ_P (event->env[0], NULL);
 
+	nih_discard (message);
 	TEST_NOT_FREE (message);
 
 
