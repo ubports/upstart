@@ -1,5 +1,9 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_add): Use nih_local for new_str, making
+	the code paths a little simpler and ensuring we pass something that
+	can be referenced to nih_str_array_addp()
+
 	* init/tests/test_event.c (test_new): Make sure that env is an
 	orphan with TEST_ALLOC_ORPHAN.
 	* init/tests/test_event_operator.c (test_operator_new): Make sure

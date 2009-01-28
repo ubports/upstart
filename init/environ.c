@@ -2,7 +2,7 @@
  *
  * environ.c - environment table utilities
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -76,8 +76,9 @@ environ_add (char       ***env,
 	     int           replace,
 	     const char   *str)
 {
-	size_t   key, _len;
-	char   **old_str, *new_str;
+	size_t           key, _len;
+	char           **old_str;
+	nih_local char  *new_str = NULL;
 
 	nih_assert (env != NULL);
 	nih_assert (str != NULL);
@@ -110,8 +111,6 @@ environ_add (char       ***env,
 			new_str = nih_sprintf (*env, "%s=%s", str, value);
 			if (! new_str)
 				return NULL;
-		} else {
-			new_str = NULL;
 		}
 	}
 
@@ -133,19 +132,14 @@ environ_add (char       ***env,
 
 		return *env;
 	} else if (old_str) {
-		if (new_str)
-			nih_free (new_str);
-
 		return *env;
 	}
 
 	/* No existing entry exists so extend the table instead.
 	 */
 	if (new_str) {
-		if (! nih_str_array_addp (env, parent, len, new_str)) {
-			nih_free (new_str);
+		if (! nih_str_array_addp (env, parent, len, new_str))
 			return NULL;
-		}
 	}
 
 	return *env;
