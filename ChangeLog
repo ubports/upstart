@@ -1,5 +1,9 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_emit_event): event_new() only references the
+	environment now, so use nih_local to make sure we clean it up
+	if that doesn't happen
+
 	* init/job.h (Job): Add kill_process member
 	* init/job.c (job_new): Initialise to -1
 	* init/job_process.c (job_process_kill): Store the process to be

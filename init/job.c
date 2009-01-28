@@ -761,11 +761,12 @@ job_finished (Job *job,
 Event *
 job_emit_event (Job *job)
 {
-	Event       *event;
-	const char  *name;
-	int          block = FALSE, stop = FALSE;
-	char       **env = NULL, **e;
-	size_t       len;
+	Event           *event;
+	const char      *name;
+	int              block = FALSE, stop = FALSE;
+	nih_local char **env = NULL;
+	char           **e;
+	size_t           len;
 
 	nih_assert (job != NULL);
 
