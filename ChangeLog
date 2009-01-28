@@ -1,5 +1,7 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c: Update documentation to match new nih_alloc()
+
 	* init/parse_job.c (parse_on_operator, parse_on_collect):
 	Use an nih_ref/nih_unref pair instead of nih_alloc_reparent; this
 	is not ideal, but then this code is rather messy and leaves a lot

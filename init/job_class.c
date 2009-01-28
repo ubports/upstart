@@ -136,7 +136,7 @@ job_class_init (void)
 
 /**
  * job_class_new:
- * @parent: parent of new job class,
+ * @parent: parent for new job class,
  * @name: name of new job class.
  *
  * Allocates and returns a new JobClass structure with the @name given.
@@ -144,9 +144,10 @@ job_class_init (void)
  * to the caller to ensure this is done using job_class_register() once
  * the class has been set up.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned job class.  When all parents
+ * of the returned job class are freed, the returned job class will also be
+ * freed.
  *
  * Returns: newly allocated JobClass structure or NULL if insufficient memory.
  **/
@@ -433,7 +434,7 @@ job_class_unregister (JobClass       *class,
 
 /**
  * job_class_environment:
- * @parent: parent for new table,
+ * @parent: parent object for new table,
  * @class: job class,
  * @len: pointer to variable to store table length.
  *
@@ -443,11 +444,12 @@ job_class_unregister (JobClass       *class,
  * This table is suitable for storing in @job's env member so that it is
  * used for all processes spawned by the job.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
- *
  * If @len is not NULL it will be updated to contain the new array length.
+ *
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned array.  When all parents
+ * of the returned array are freed, the returned array will also be
+ * freed.
  *
  * Returns: new environment table or NULL if insufficient memory.
  **/
