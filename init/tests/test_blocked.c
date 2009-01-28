@@ -112,6 +112,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
@@ -146,6 +150,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
@@ -180,6 +188,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
@@ -214,6 +226,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
@@ -248,6 +264,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
@@ -282,6 +302,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
@@ -316,6 +340,10 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (blocked, NULL);
+
+			TEST_NOT_FREE (message);
+			nih_discard (message);
+			TEST_FREE (message);
 			continue;
 		}
 
