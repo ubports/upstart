@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -57,9 +57,10 @@
  * with the given @name and @arguments using event_match().
  *
  * @env is optional, and may be NULL; if given it should be a NULL-terminated
- * array of environment variables in KEY=VALUE form.  The @env array itself
- * will be reparented to the event structure and should not be modified after
- * the call.
+ * array of environment variables in KEY=VALUE form.  @env will be referenced
+ * by the new event.  After calling this function, you should never use
+ * nih_free() to free @env and instead use nih_unref() or nih_discard() if
+ * you longer need to use it.
  *
  * If @parent is not NULL, it should be a pointer to another allocated
  * block which will be used as the parent for this block.  When @parent
@@ -98,7 +99,7 @@ event_operator_new (const void         *parent,
 
 		oper->env = env;
 		if (oper->env)
-			nih_alloc_reparent (oper->env, oper);
+			nih_ref (oper->env, oper);
 	} else {
 		oper->name = NULL;
 		oper->env = NULL;

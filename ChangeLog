@@ -1,5 +1,8 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event_operator.c (event_operator_new): Reference the
+	event instead of reparenting it.
+
 	* init/event.c: Update documentation to match new nih_alloc()
 	(event_finished): Use nih_local to tidy up a slight bit.
 
