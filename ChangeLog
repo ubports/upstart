@@ -1,5 +1,15 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_kill_timer): Oops, move the
+	assert that we have a process pid to after we know which process
+	we have.
+	* init/tests/test_job_process.c (test_run): Initialise the
+	error context and NihIo outside of TEST_ALLOC_FAIL
+	(test_kill): Initialise timers and the event system.
+	* init/init.supp: Reference from the jobs hash to the bins is
+	still reachable, obviously; as is the string inside job_name()
+	either way it is allocated
+
 	* init/tests/test_parse_job.c (test_parse_job): Initialise the
 	error context outside of TEST_ALLOC_FAIL
 

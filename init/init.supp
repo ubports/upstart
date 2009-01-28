@@ -23,6 +23,15 @@
    fun:nih_hash_new
    fun:job_class_init
 }
+{
+   job-class-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc_ref_new
+   fun:nih_alloc
+   fun:nih_hash_new
+   fun:job_class_init
+}
 
 {
    notify-init
@@ -65,6 +74,31 @@
    fun:job_process_run
 }
 
+# job_name uses a static string which it reuses each time
+{
+   job-name-string
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:_test_realloc
+   fun:_test_malloc
+   fun:nih_alloc
+   fun:nih_strndup
+   fun:nih_strdup
+   fun:job_name
+}
+{
+   job-name-string
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:_test_realloc
+   fun:_test_malloc
+   fun:nih_alloc
+   fun:nih_vsprintf
+   fun:nih_sprintf
+   fun:job_name
+}
 
 # when testing stop events, the stopping event will be emitted and
 # immediately processed since we're inside event_poll() - and then the

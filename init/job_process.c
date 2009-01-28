@@ -810,11 +810,11 @@ job_process_kill_timer (Job      *job,
 
 	nih_assert (job != NULL);
 	nih_assert (timer != NULL);
-	nih_assert (job->pid[process] > 0);
 	nih_assert (job->kill_timer == timer);
 	nih_assert (job->kill_process != -1);
 
 	process = job->kill_process;
+	nih_assert (job->pid[process] > 0);
 
 	job->kill_timer = NULL;
 	job->kill_process = -1;

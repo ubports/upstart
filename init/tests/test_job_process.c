@@ -131,6 +131,8 @@ test_run (void)
 
 	TEST_FUNCTION ("job_process_run");
 	job_class_init ();
+	nih_error_init ();
+	nih_io_init ();
 
 	TEST_FILENAME (filename);
 	program_name = "test";
@@ -1048,6 +1050,9 @@ test_kill (void)
 	int        status;
 
 	TEST_FUNCTION ("job_process_kill");
+	nih_timer_init ();
+	event_init ();
+
 	class = job_class_new (NULL, "test");
 	class->leader = TRUE;
 	class->kill_timeout = 1000;
