@@ -31,7 +31,9 @@
 #include <nih/list.h>
 #include <nih/io.h>
 #include <nih/main.h>
+#include <nih/error.h>
 
+#include "control.h"
 #include "job.h"
 #include "event.h"
 #include "blocked.h"
@@ -134,7 +136,8 @@ test_poll (void)
 	Event *event = NULL;
 
 	TEST_FUNCTION ("event_poll");
-	event_init ();
+	job_class_init ();
+	control_init ();
 
 
 	/* Check that a pending event which does not get blocked goes
@@ -223,8 +226,7 @@ test_pending (void)
 	 * started and/or stopped and gets moved into the handling state.
 	 */
 	TEST_FUNCTION ("event_pending");
-	event_init ();
-	job_class_init ();
+	nih_error_init ();
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {

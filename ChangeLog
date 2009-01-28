@@ -1,5 +1,8 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_pending_handle_jobs): Must reset the start_on
+	operator in case of error.
+
 	* init/job_process.c (job_process_kill_timer): Oops, move the
 	assert that we have a process pid to after we know which process
 	we have.

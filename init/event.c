@@ -373,6 +373,7 @@ event_pending_handle_jobs (Event *event)
 					  class->name, err->message);
 				nih_free (err);
 
+				event_operator_reset (class->start_on);
 				continue;
 			}
 
