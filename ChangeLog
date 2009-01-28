@@ -1,3 +1,8 @@
+2009-01-28  Scott James Remnant  <scott@netsplit.com>
+
+	* init/blocked.h: Change nih/dbus.h include to nih-dbus/dbus_message.h
+	* init/blocked.c: Change nih/dbus.h include to nih-dbus/dbus_message.h
+
 2009-01-27  Scott James Remnant  <scott@netsplit.com>
 
 	* init/Makefile.am: Update paths to libnih-dbus dependencies.
