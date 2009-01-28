@@ -1,5 +1,11 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_event.c (test_new): Make sure that env is an
+	orphan with TEST_ALLOC_ORPHAN.
+	* init/tests/test_event_operator.c (test_operator_new): Make sure
+	that env is an orphan with TEST_ALLOC_ORPHAN.
+	(test_operator_copy): Drop pointless NULL parent check.
+
 	* init/tests/test_control.c: Include limits.h
 
 	* init/blocked.c (blocked_new): Take a reference to the message,

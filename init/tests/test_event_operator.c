@@ -1,8 +1,8 @@
 /* upstart
  *
- * test_event.c - test suite for init/event.c
+ * test_event_operator.c - test suite for init/event_operator.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -85,7 +85,7 @@ test_operator_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (oper, NULL);
-			TEST_ALLOC_PARENT (env, NULL);
+			TEST_ALLOC_ORPHAN (env);
 			nih_free (env);
 			continue;
 		}
@@ -334,7 +334,6 @@ test_operator_copy (void)
 		}
 
 		TEST_ALLOC_SIZE (copy, sizeof (EventOperator));
-		TEST_ALLOC_PARENT (copy, NULL);
 		TEST_EQ_P (copy->node.parent, NULL);
 		TEST_NE_P (copy->node.left, NULL);
 		TEST_NE_P (copy->node.right, NULL);

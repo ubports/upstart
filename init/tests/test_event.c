@@ -2,7 +2,7 @@
  *
  * test_event.c - test suite for init/event.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -64,9 +64,7 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (event, NULL);
-
-			TEST_ALLOC_PARENT (env, NULL);
-
+			TEST_ALLOC_ORPHAN (env);
 			nih_free (env);
 			continue;
 		}
