@@ -1,5 +1,9 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_add): We can't allocate nih_local with
+	a context, it won't be freed; so don't, but then remember to
+	reference it when we do just use it.
+
 	* init/event.c (event_pending_handle_jobs): Must reset the start_on
 	operator in case of error.
 

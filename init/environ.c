@@ -109,7 +109,7 @@ environ_add (char       ***env,
 	 */
 	key = strcspn (str, "=");
 	if (str[key] == '=') {
-		new_str = nih_strdup (*env, str);
+		new_str = nih_strdup (NULL, str);
 		if (! new_str)
 			return NULL;
 	} else {
@@ -117,7 +117,7 @@ environ_add (char       ***env,
 
 		value = getenv (str);
 		if (value) {
-			new_str = nih_sprintf (*env, "%s=%s", str, value);
+			new_str = nih_sprintf (NULL, "%s=%s", str, value);
 			if (! new_str)
 				return NULL;
 		}
@@ -133,6 +133,7 @@ environ_add (char       ***env,
 
 		if (new_str) {
 			*old_str = new_str;
+			nih_ref (new_str, *env);
 		} else {
 			memmove (old_str, old_str + 1,
 				 (char *)(*env + *len) - (char *)old_str);
