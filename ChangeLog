@@ -1,5 +1,8 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job.c (test_new): Initialise a bunch of subsystems
+	outside of TEST_ALLOC_FAIL
+
 	* init/environ.c (environ_add): We can't allocate nih_local with
 	a context, it won't be freed; so don't, but then remember to
 	reference it when we do just use it.

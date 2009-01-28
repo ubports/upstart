@@ -36,6 +36,7 @@
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/timer.h>
 #include <nih/hash.h>
 #include <nih/main.h>
 #include <nih/error.h>
@@ -71,7 +72,12 @@ test_new (void)
 	int             i;
 
 	TEST_FUNCTION ("job_new");
+	nih_error_init ();
+	nih_timer_init ();
+	nih_main_loop_init ();
 	control_init ();
+	conf_init ();
+
 
 	/* Check that we can create a new job structure; the structure
 	 * should be allocated with nih_alloc, placed in the instances
@@ -6138,3 +6144,4 @@ main (int   argc,
 
 	return 0;
 }
+
