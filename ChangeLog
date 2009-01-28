@@ -1,5 +1,14 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_blocked.c: Change nih/dbus.h include to
+	nih-dbus/dbus_message.h
+	* init/tests/test_control.c: Change nih/dbus.h include to error,
+	connection and object; include D-Bus test macros.
+	* init/tests/test_job.c: Change nih/dbus.h include to error, message
+	and object; include D-Bus test macros
+	* init/tests/test_job_class.c: Change nih/dbus.h include to error,
+	message and object; include D-Bus test macros
+
 	* init/job_class.h: Change nih/dbus.h include to
 	nih-dbus/dbus_message.h and include the actual D-Bus header
 	* init/job_class.c: Change nih/dbus.h include to error, message,

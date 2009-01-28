@@ -2,7 +2,7 @@
  *
  * test_job.c - test suite for init/job.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,7 @@
  */
 
 #include <nih/test.h>
+#include <nih-dbus/test_dbus.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -40,7 +41,9 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
-#include <nih/dbus.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_message.h>
+#include <nih-dbus/dbus_object.h>
 
 #include "process.h"
 #include "job_class.h"

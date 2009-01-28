@@ -2,7 +2,7 @@
  *
  * test_blocked.c - test suite for init/blocked.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 
 #include <nih/test.h>
 
-#include <nih/dbus.h>
+#include <nih-dbus/dbus_message.h>
 
 #include "job_class.h"
 #include "job.h"
