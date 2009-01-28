@@ -104,6 +104,7 @@ typedef enum trace_state {
  * @blocker: emitted event we're waiting to finish,
  * @blocking: list of events we're blocking from finishing,
  * @kill_timer: timer to kill process,
+ * @kill_process: process @kill_timer will kill,
  * @failed: whether the last process ran failed,
  * @failed_process: the last process that failed,
  * @exit_status: exit status of the last failed process,
@@ -136,6 +137,7 @@ typedef struct job {
 	NihList         blocking;
 
 	NihTimer       *kill_timer;
+	ProcessType     kill_process;
 
 	int             failed;
 	ProcessType     failed_process;

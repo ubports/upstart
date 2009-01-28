@@ -2,7 +2,7 @@
  *
  * test_job_process.c - test suite for init/job_process.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1092,8 +1092,11 @@ test_kill (void)
 		TEST_GE (job->kill_timer->due, time (NULL) + 950);
 		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
 
+		TEST_EQ (job->kill_process, PROCESS_MAIN);
+
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
+		job->kill_process = -1;
 
 		nih_free (job);
 
@@ -1145,6 +1148,8 @@ test_kill (void)
 		TEST_GE (job->kill_timer->due, time (NULL) + 950);
 		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
 
+		TEST_EQ (job->kill_process, PROCESS_MAIN);
+
 		/* Run the kill timer */
 		timer = job->kill_timer;
 		timer->callback (timer->data, timer);
@@ -1159,6 +1164,7 @@ test_kill (void)
 		TEST_EQ (WTERMSIG (status), SIGKILL);
 
 		TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, -1);
 
 		nih_free (job);
 
@@ -1351,6 +1357,7 @@ test_handler (void)
 
 		TEST_FREE_TAG (timer);
 		job->kill_timer = timer;
+		job->kill_process = PROCESS_MAIN;
 
 		TEST_FREE_TAG (job);
 
@@ -1401,10 +1408,14 @@ test_handler (void)
 
 		TEST_FREE_TAG (timer);
 		job->kill_timer = timer;
+		job->kill_process = PROCESS_MAIN;
 
 		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 
 		TEST_FREE (timer);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, -1);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);

@@ -1,5 +1,23 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.h (Job): Add kill_process member
+	* init/job.c (job_new): Initialise to -1
+	* init/job_process.c (job_process_kill): Store the process to be
+	killed in the kill_process member for the timer, since we can't
+	pass two sets of data.  Assert that it's not set to anything, this
+	all needs fixing, obviously.
+	(job_process_kill_timer): Take the job as the data argument,
+	eliminating the need for nih_alloc_parent().  Sanity check the job
+	and reset kill_timer and kill_process when done.
+	(job_process_terminated): Clear the kill_process field too.
+	* init/tests/test_job.c (test_new): Check it's -1
+	(test_change_state): Check kill_process is set to PROCESS_MAIN
+	when active, or -1 when not.
+	* init/tests/test_job_process.c (test_kill): Make sure the
+	kill_process member is set and cleared.
+	(test_handler): Set the kill_process member for the timer and make
+	sure it's cleared when appropriate.
+
 	* init/job_class.c (job_class_start, job_class_stop)
 	(job_class_restart): Use nih_local to eliminate nih_alloc_reparent,
 	and to clean up some of the code too.

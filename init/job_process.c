@@ -87,7 +87,7 @@ static void job_process_error_abort     (int fd, JobProcessErrorType type,
 static int  job_process_error_read      (int fd)
 	__attribute__ ((warn_unused_result));
 
-static void job_process_kill_timer      (ProcessType process, NihTimer *timer);
+static void job_process_kill_timer      (Job *job, NihTimer *timer);
 static void job_process_terminated      (Job *job, ProcessType process,
 					 int status);
 static int  job_process_catch_runaway   (Job *job);
@@ -768,6 +768,8 @@ job_process_kill (Job         *job,
 {
 	nih_assert (job != NULL);
 	nih_assert (job->pid[process] > 0);
+	nih_assert (job->kill_timer == NULL);
+	nih_assert (job->kill_process = -1);
 
 	nih_info (_("Sending TERM signal to %s %s process (%d)"),
 		  job_name (job), process_name (process), job->pid[process]);
@@ -785,14 +787,15 @@ job_process_kill (Job         *job,
 		return;
 	}
 
+	job->kill_process = process;
 	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
 			  job, job->class->kill_timeout,
-			  (NihTimerCb)job_process_kill_timer, (void *)process));
+			  (NihTimerCb)job_process_kill_timer, job));
 }
 
 /**
  * job_process_kill_timer:
- * @process: process to be killed,
+ * @job: job to kill process of,
  * @timer: timer that caused us to be called.
  *
  * This callback is called if the process failed to terminate within
@@ -800,17 +803,21 @@ job_process_kill (Job         *job,
  * more forcibly by sending the KILL signal.
  **/
 static void
-job_process_kill_timer (ProcessType  process,
-			NihTimer    *timer)
+job_process_kill_timer (Job      *job,
+			NihTimer *timer)
 {
-	Job *job;
+	ProcessType process;
 
+	nih_assert (job != NULL);
 	nih_assert (timer != NULL);
-	job = nih_alloc_parent (timer);
-
 	nih_assert (job->pid[process] > 0);
+	nih_assert (job->kill_timer == timer);
+	nih_assert (job->kill_process != -1);
+
+	process = job->kill_process;
 
 	job->kill_timer = NULL;
+	job->kill_process = -1;
 
 	nih_info (_("Sending KILL signal to %s %s process (%d)"),
 		  job_name (job), process_name (process), job->pid[process]);
@@ -1128,6 +1135,7 @@ job_process_terminated (Job         *job,
 	if (job->kill_timer) {
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
+		job->kill_process = -1;
 	}
 
 	/* Clear the process pid field */

@@ -127,6 +127,7 @@ test_new (void)
 		TEST_LIST_EMPTY (&job->blocking);
 
 		TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, -1);
 
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, -1);
@@ -2860,9 +2861,11 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_NE_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, PROCESS_MAIN);
 
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
+		job->kill_process = -1;
 
 		nih_free (job);
 	}
@@ -2927,6 +2930,7 @@ test_change_state (void)
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, -1);
 
 		nih_free (job);
 	}

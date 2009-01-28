@@ -139,6 +139,7 @@ job_new (JobClass   *class,
 	nih_list_init (&job->blocking);
 
 	job->kill_timer = NULL;
+	job->kill_process = -1;
 
 	job->failed = FALSE;
 	job->failed_process = -1;
