@@ -1,5 +1,13 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (parse_job): Update documentation to match
+	new nih_alloc()
+	(parse_process, parse_on_operator, stanza_start, stanza_stop)
+	(stanza_expect, stanza_kill, stanza_respawn, stanza_normal)
+	(stanza_session, stanza_console, stanza_nice, stanza_umask)
+	(stanza_oom, stanza_limit): Use nih_local for all the temporary
+	arguments where we can.
+
 	* init/parse_job.c (parse_on_operand, stanza_env, stanza_export)
 	(stanza_emits): Make temporary string variables use nih_local,
 	this gives us a massive code clean-up and makes nih_str_array_addp

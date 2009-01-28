@@ -256,7 +256,7 @@ static NihConfigStanza stanzas[] = {
 
 /**
  * parse_job:
- * @parent: parent of new job,
+ * @parent: parent object for new job,
  * @name: name of new job,
  * @file: file or string to parse,
  * @len: length of @file,
@@ -266,6 +266,11 @@ static NihConfigStanza stanzas[] = {
  * This function is used to parse a job definition from @file, for a job
  * named @name.  A sequence of stanzas is expected, defining the parameters
  * of the job.
+ *
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned job.  When all parents
+ * of the returned job are freed, the returned job will also be
+ * freed.
  *
  * Returns: new JobClass structure on success, NULL on raised error.
  **/
@@ -417,9 +422,9 @@ parse_process (JobClass        *class,
 	       size_t          *pos,
 	       size_t          *lineno)
 {
-	char   *arg;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	nih_local char *arg = NULL;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -443,18 +448,12 @@ parse_process (JobClass        *class,
 		goto finish;
 
 	if (! strcmp (arg, "exec")) {
-		nih_free (arg);
-
 		ret = parse_exec (class->process[process], stanza,
 				  file, len, &a_pos, &a_lineno);
 	} else if (! strcmp (arg, "script")) {
-		nih_free (arg);
-
 		ret = parse_script (class->process[process], stanza,
 				    file, len, &a_pos, &a_lineno);
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
@@ -620,7 +619,7 @@ parse_on_operator (JobClass         *class,
 		   EventOperator   **root)
 {
 	size_t             a_pos, a_lineno;
-	char              *arg;
+	nih_local char    *arg = NULL;
 	EventOperatorType  type;
 	EventOperator     *oper;
 	NihListEntry      *item;
@@ -649,16 +648,10 @@ parse_on_operator (JobClass         *class,
 	 * back to the starting position and deal with it as an operand.
 	 */
 	if (! strcmp (arg, "and")) {
-		nih_free (arg);
-
 		type = EVENT_AND;
 	} else if (! strcmp (arg, "or")) {
-		nih_free (arg);
-
 		type = EVENT_OR;
 	} else {
-		nih_free (arg);
-
 		return parse_on_operand (class, stanza, file, len, pos, lineno,
 					 stack, root);
 	}
@@ -708,7 +701,7 @@ finish:
  * @lineno: line number,
  * @stack: input operator stack,
  * @root: output operator,
- * @paren: number of nested parenthese.
+ * @paren: number of nested parentheses.
  *
  * This function deals with an open or close parenthesis in the arguments
  * of the "on" stanza; it must only be called when the character at the
@@ -1233,9 +1226,9 @@ stanza_start (JobClass        *class,
 	      size_t          *pos,
 	      size_t          *lineno)
 {
-	char   *arg;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	nih_local char *arg = NULL;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1251,8 +1244,6 @@ stanza_start (JobClass        *class,
 		goto finish;
 
 	if (! strcmp (arg, "on")) {
-		nih_free (arg);
-
 		if (class->start_on)
 			nih_free (class->start_on);
 
@@ -1264,8 +1255,6 @@ stanza_start (JobClass        *class,
 		ret = 0;
 
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
@@ -1302,9 +1291,9 @@ stanza_stop (JobClass        *class,
 	     size_t          *pos,
 	     size_t          *lineno)
 {
-	char   *arg;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	nih_local char *arg = NULL;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1320,8 +1309,6 @@ stanza_stop (JobClass        *class,
 		goto finish;
 
 	if (! strcmp (arg, "on")) {
-		nih_free (arg);
-
 		if (class->stop_on)
 			nih_free (class->stop_on);
 
@@ -1333,8 +1320,6 @@ stanza_stop (JobClass        *class,
 		ret = 0;
 
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
@@ -1617,9 +1602,9 @@ stanza_expect (JobClass        *class,
 	       size_t          *pos,
 	       size_t          *lineno)
 {
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
-	char   *arg;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
+	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1642,13 +1627,9 @@ stanza_expect (JobClass        *class,
 	} else if (! strcmp (arg, "none")) {
 		class->expect = EXPECT_NONE;
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
-
-	nih_free (arg);
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
@@ -1715,9 +1696,9 @@ stanza_kill (JobClass        *class,
 	     size_t          *pos,
 	     size_t          *lineno)
 {
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
-	char   *arg;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
+	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1733,33 +1714,27 @@ stanza_kill (JobClass        *class,
 		goto finish;
 
 	if (! strcmp (arg, "timeout")) {
-		char *endptr;
-
-		nih_free (arg);
+		nih_local char *timearg = NULL;
+		char           *endptr;
 
 		/* Update error position to the timeout value */
 		*pos = a_pos;
 		if (lineno)
 			*lineno = a_lineno;
 
-		arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
-		if (! arg)
+		timearg = nih_config_next_arg (NULL, file, len,
+					       &a_pos, &a_lineno);
+		if (! timearg)
 			goto finish;
 
-		class->kill_timeout = strtol (arg, &endptr, 10);
-		if (*endptr || (class->kill_timeout < 0)) {
-			nih_free (arg);
-
+		class->kill_timeout = strtol (timearg, &endptr, 10);
+		if (*endptr || (class->kill_timeout < 0))
 			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
 					  _(PARSE_ILLEGAL_INTERVAL_STR));
-		}
-		nih_free (arg);
 
 		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
@@ -1796,9 +1771,9 @@ stanza_respawn (JobClass        *class,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	char   *arg;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	nih_local char *arg = NULL;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1823,9 +1798,8 @@ stanza_respawn (JobClass        *class,
 		goto finish;
 
 	if (! strcmp (arg, "limit")) {
-		char *endptr;
-
-		nih_free (arg);
+		nih_local char *limitarg = NULL;
+		char           *endptr;
 
 		/* Update error position to the limit value */
 		*pos = a_pos;
@@ -1833,19 +1807,18 @@ stanza_respawn (JobClass        *class,
 			*lineno = a_lineno;
 
 		/* Parse the limit value */
-		arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
-		if (! arg)
+		limitarg = nih_config_next_arg (NULL, file, len,
+						&a_pos, &a_lineno);
+		if (! limitarg)
 			goto finish;
 
-		if (strcmp (arg, "unlimited")) {
-			class->respawn_limit = strtol (arg, &endptr, 10);
-			if (*endptr || (class->respawn_limit < 0)) {
-				nih_free (arg);
+		if (strcmp (limitarg, "unlimited")) {
+			nih_local char *timearg = NULL;
 
+			class->respawn_limit = strtol (limitarg, &endptr, 10);
+			if (*endptr || (class->respawn_limit < 0))
 				nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
 						  _(PARSE_ILLEGAL_LIMIT_STR));
-			}
-			nih_free (arg);
 
 			/* Update error position to the timeout value */
 			*pos = a_pos;
@@ -1853,30 +1826,23 @@ stanza_respawn (JobClass        *class,
 				*lineno = a_lineno;
 
 			/* Parse the timeout value */
-			arg = nih_config_next_arg (NULL, file, len,
-						   &a_pos, &a_lineno);
-			if (! arg)
+			timearg = nih_config_next_arg (NULL, file, len,
+						       &a_pos, &a_lineno);
+			if (! timearg)
 				goto finish;
 
-			class->respawn_interval = strtol (arg, &endptr, 10);
-			if (*endptr || (class->respawn_interval < 0)) {
-				nih_free (arg);
-
+			class->respawn_interval = strtol (timearg, &endptr, 10);
+			if (*endptr || (class->respawn_interval < 0))
 				nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
 						  _(PARSE_ILLEGAL_INTERVAL_STR));
-			}
 		} else {
 			class->respawn_limit = 0;
 			class->respawn_interval = 0;
 		}
 
-		nih_free (arg);
-
 		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
@@ -1916,9 +1882,9 @@ stanza_normal (JobClass        *class,
 	       size_t          *pos,
 	       size_t          *lineno)
 {
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
-	char   *arg;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
+	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1934,36 +1900,31 @@ stanza_normal (JobClass        *class,
 		goto finish;
 
 	if (! strcmp (arg, "exit")) {
-		nih_free (arg);
-
 		do {
-			unsigned long  status;
-			char          *endptr;
-			int           *new_ne, signum;
+			unsigned long   status;
+			nih_local char *exitarg = NULL;
+			char           *endptr;
+			int            *new_ne, signum;
 
 			/* Update error position to the exit status */
 			*pos = a_pos;
 			if (lineno)
 				*lineno = a_lineno;
 
-			arg = nih_config_next_arg (NULL, file, len,
-						   &a_pos, &a_lineno);
-			if (! arg)
+			exitarg = nih_config_next_arg (NULL, file, len,
+						       &a_pos, &a_lineno);
+			if (! exitarg)
 				goto finish;
 
-			signum = nih_signal_from_name (arg);
+			signum = nih_signal_from_name (exitarg);
 			if (signum < 0) {
-				status = strtoul (arg, &endptr, 10);
-				if (*endptr || (status > INT_MAX)) {
-					nih_free (arg);
+				status = strtoul (exitarg, &endptr, 10);
+				if (*endptr || (status > INT_MAX))
 					nih_return_error (-1, PARSE_ILLEGAL_EXIT,
 							  _(PARSE_ILLEGAL_EXIT_STR));
-				}
 			} else {
 				status = signum << 8;
 			}
-
-			nih_free (arg);
 
 			new_ne = nih_realloc (class->normalexit, class,
 					      sizeof (int) * (class->normalexit_len + 1));
@@ -1976,8 +1937,6 @@ stanza_normal (JobClass        *class,
 
 		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
@@ -2013,9 +1972,9 @@ stanza_session (JobClass        *class,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
-	char   *arg;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
+	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -2032,13 +1991,9 @@ stanza_session (JobClass        *class,
 	if (! strcmp (arg, "leader")) {
 		class->leader = TRUE;
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
-
-	nih_free (arg);
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
@@ -2072,9 +2027,9 @@ stanza_console (JobClass        *class,
 		size_t          *pos,
 		size_t          *lineno)
 {
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
-	char   *arg;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
+	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -2095,13 +2050,9 @@ stanza_console (JobClass        *class,
 	} else if (! strcmp (arg, "owner")) {
 		class->console = CONSOLE_OWNER;
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
-
-	nih_free (arg);
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
@@ -2136,10 +2087,10 @@ stanza_umask (JobClass        *class,
 	      size_t          *pos,
 	      size_t          *lineno)
 {
-	char          *arg, *endptr;
-	unsigned long  mask;
-	size_t         a_pos, a_lineno;
-	int            ret = -1;
+	nih_local char *arg = NULL;
+	char           *endptr;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -2153,16 +2104,10 @@ stanza_umask (JobClass        *class,
 	if (! arg)
 		goto finish;
 
-	mask = strtoul (arg, &endptr, 8);
-	if (*endptr || (mask & ~0777)) {
-		nih_free (arg);
-
+	class->umask = (mode_t)strtoul (arg, &endptr, 8);
+	if (*endptr || (class->umask & ~0777))
 		nih_return_error (-1, PARSE_ILLEGAL_UMASK,
 				  _(PARSE_ILLEGAL_UMASK_STR));
-	}
-	nih_free (arg);
-
-	class->umask = (mode_t)mask;
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
@@ -2196,10 +2141,10 @@ stanza_nice (JobClass        *class,
 	     size_t          *pos,
 	     size_t          *lineno)
 {
-	char   *arg, *endptr;
-	long    nice;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	nih_local char *arg = NULL;
+	char           *endptr;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -2213,16 +2158,10 @@ stanza_nice (JobClass        *class,
 	if (! arg)
 		goto finish;
 
-	nice = strtol (arg, &endptr, 10);
-	if (*endptr || (nice < -20) || (nice > 19)) {
-		nih_free (arg);
-
+	class->nice = (int)strtol (arg, &endptr, 10);
+	if (*endptr || (class->nice < -20) || (class->nice > 19))
 		nih_return_error (-1, PARSE_ILLEGAL_NICE,
 				  _(PARSE_ILLEGAL_NICE_STR));
-	}
-	nih_free (arg);
-
-	class->nice = (int)nice;
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
@@ -2256,10 +2195,10 @@ stanza_oom (JobClass        *class,
 	    size_t          *pos,
 	    size_t          *lineno)
 {
-	char   *arg, *endptr;
-	long    oom_adj;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	nih_local char *arg = NULL;
+	char           *endptr;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -2276,18 +2215,11 @@ stanza_oom (JobClass        *class,
 	if (! strcmp (arg, "never")) {
 		class->oom_adj = -17;
 	} else {
-		oom_adj = strtol (arg, &endptr, 10);
-		if (*endptr || (oom_adj < -17) || (oom_adj > 15)) {
-			nih_free (arg);
-
+		class->oom_adj = (int)strtol (arg, &endptr, 10);
+		if (*endptr || (class->oom_adj < -17) || (class->oom_adj > 15))
 			nih_return_error (-1, PARSE_ILLEGAL_OOM,
 					  _(PARSE_ILLEGAL_OOM_STR));
-		}
-
-		class->oom_adj = (int)oom_adj;
 	}
-
-	nih_free (arg);
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
@@ -2321,10 +2253,11 @@ stanza_limit (JobClass        *class,
 	      size_t          *pos,
 	      size_t          *lineno)
 {
-	int     resource;
-	char   *arg, *endptr;
-	size_t  a_pos, a_lineno;
-	int     ret = -1;
+	int             resource;
+	nih_local char *arg = NULL, *softarg = NULL, *hardarg = NULL;
+	char           *endptr;
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -2367,13 +2300,9 @@ stanza_limit (JobClass        *class,
 	} else if (! strcmp (arg, "stack")) {
 		resource = RLIMIT_STACK;
 	} else {
-		nih_free (arg);
-
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
-
-	nih_free (arg);
 
 
 	if (! class->limits[resource]) {
@@ -2388,22 +2317,19 @@ stanza_limit (JobClass        *class,
 		*lineno = a_lineno;
 
 	/* Parse the soft limit value */
-	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
-	if (! arg)
+	softarg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
+	if (! softarg)
 		goto finish;
 
-	if (strcmp (arg, "unlimited")) {
-		class->limits[resource]->rlim_cur = strtoul (arg, &endptr, 10);
-		if (*endptr) {
-			nih_free (arg);
-
+	if (strcmp (softarg, "unlimited")) {
+		class->limits[resource]->rlim_cur = strtoul (softarg, &endptr,
+							     10);
+		if (*endptr)
 			nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
 					  _(PARSE_ILLEGAL_LIMIT_STR));
-		}
 	} else {
 		class->limits[resource]->rlim_cur = RLIM_INFINITY;
 	}
-	nih_free (arg);
 
 	/* Update error position to the hard limit value */
 	*pos = a_pos;
@@ -2411,22 +2337,19 @@ stanza_limit (JobClass        *class,
 		*lineno = a_lineno;
 
 	/* Parse the hard limit value */
-	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
-	if (! arg)
+	hardarg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
+	if (! hardarg)
 		goto finish;
 
-	if (strcmp (arg, "unlimited")) {
-		class->limits[resource]->rlim_max = strtoul (arg, &endptr, 10);
-		if (*endptr) {
-			nih_free (arg);
-
+	if (strcmp (hardarg, "unlimited")) {
+		class->limits[resource]->rlim_max = strtoul (hardarg, &endptr,
+							     10);
+		if (*endptr)
 			nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
 					  _(PARSE_ILLEGAL_LIMIT_STR));
-		}
 	} else {
 		class->limits[resource]->rlim_max = RLIM_INFINITY;
 	}
-	nih_free (arg);
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
