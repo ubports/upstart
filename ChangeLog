@@ -1,5 +1,10 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event_operator.c: Update documentation to match new nih_alloc()
+	(event_operator_match): Use nih_local on expanded value.
+	(event_operator_environment): Make evlist nih_local, it will be
+	referenced by the environment array on success
+
 	* init/event_operator.c (event_operator_new): Reference the
 	event instead of reparenting it.
 

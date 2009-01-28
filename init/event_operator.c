@@ -47,7 +47,7 @@
 
 /**
  * event_operator_new:
- * @parent: parent of new operator,
+ * @parent: parent object for new operator,
  * @type: type of operator,
  * @name: name of event to match,
  * @env: NULL-terminated array of environment variables to match.
@@ -62,9 +62,10 @@
  * nih_free() to free @env and instead use nih_unref() or nih_discard() if
  * you longer need to use it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned operator.  When all parents
+ * of the returned operator are freed, the returned operator will also be
+ * freed.
  *
  * Returns: newly allocated EventOperator structure, or NULL if
  * insufficient memory.
@@ -114,7 +115,7 @@ event_operator_new (const void         *parent,
 
 /**
  * event_operator_copy:
- * @parent: parent of new operator,
+ * @parent: parent object for new operator,
  * @old_oper: operator to copy.
  *
  * Allocates and returns a new EventOperator structure which is an identical
@@ -124,15 +125,16 @@ event_operator_new (const void         *parent,
  * newly returned operator; which will hold an additional block if
  * appropriate, on the event.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
- *
  * If @old_oper has children, these will be copied as well, and will be
  * given their parent as their nih_alloc() parent.
  *
- * Returns: newly allocated EventOperator structure,
- * or NULL if insufficient memory.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned operator.  When all parents
+ * of the returned operator are freed, the returned operator will also be
+ * freed.
+ *
+ * Returns: newly allocated EventOperator structure, or NULL if
+ * insufficient memory.
  **/
 EventOperator *
 event_operator_copy (const void          *parent,
@@ -292,8 +294,9 @@ event_operator_match (EventOperator *oper,
 	 */
 	for (oenv = oper->env, eenv = event->env; oenv && *oenv;
 	     oenv++, eenv++) {
-		char *oval, *expoval, *eval;
-		int   ret;
+		nih_local char *expoval = NULL;
+		char           *oval, *eval;
+		int             ret;
 
 		oval = strchr (*oenv, '=');
 		if (oval) {
@@ -340,7 +343,6 @@ event_operator_match (EventOperator *oper,
 		}
 
 		ret = fnmatch (expoval, eval, 0);
-		nih_free (expoval);
 
 		if (ret)
 			return FALSE;
@@ -442,7 +444,7 @@ event_operator_filter (void          *data,
  * event_operator_environment:
  * @root: operator tree to collect from,
  * @env: NULL-terminated array of environment variables to add to,
- * @parent: parent of @env,
+ * @parent: parent object for new array,
  * @len: length of @env,
  * @key: key of variable to contain event names.
  *
@@ -463,6 +465,14 @@ event_operator_filter (void          *data,
  * If @key is not NULL, a key of that name will be set in @env (which must
  * not be NULL) containing a space-separated list of event names.
  *
+ * If the array pointed to by @env is NULL, the array will be allocated and
+ * if @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned array.  When all parents of the
+ * returned array are freed, the returned array will also be freed.
+ *
+ * When the array pointed to by @env is not NULL, @parent is ignored;
+ * though it usual to pass a parent of @env for style reasons.
+ *
  * Returns: pointer to new array on success, NULL on insufficient memory.
  **/
 char **
@@ -472,7 +482,7 @@ event_operator_environment (EventOperator   *root,
 			    size_t          *len,
 			    const char      *key)
 {
-	char *evlist = NULL;
+	nih_local char *evlist = NULL;
 
 	nih_assert (root != NULL);
 	nih_assert (env != NULL);
@@ -489,7 +499,7 @@ event_operator_environment (EventOperator   *root,
 	if (! *env) {
 		*env = nih_str_array_new (parent);
 		if (! *env)
-			goto error;
+			return NULL;
 	}
 
 	/* Iterate the operator tree, filtering out nodes with a non-TRUE
@@ -509,43 +519,34 @@ event_operator_environment (EventOperator   *root,
 
 		/* Add environment from the event */
 		if (! environ_append (env, parent, len, TRUE, oper->event->env))
-			goto error;
+			return NULL;
 
 		/* Append the name of the event to the string we're building */
 		if (evlist) {
 			if (evlist[strlen (evlist) - 1] != '=') {
 				if (! nih_strcat_sprintf (&evlist, NULL, " %s",
 							  oper->event->name))
-					goto error;
+					return NULL;
 			} else {
 				if (! nih_strcat (&evlist, NULL,
 						  oper->event->name))
-					goto error;
+					return NULL;
 			}
 		}
 	}
 
 	/* Append the event list to the environment */
-	if (evlist) {
+	if (evlist)
 		if (! environ_add (env, parent, len, TRUE, evlist))
-			goto error;
-
-		nih_free (evlist);
-	}
+			return NULL;
 
 	return *env;
-
-error:
-	if (evlist)
-		nih_free (evlist);
-
-	return NULL;
 }
 
 /**
  * event_operator_events:
  * @root: operator tree to collect from,
- * @parent: parent of blocked structures,
+ * @parent: parent object for blocked structures,
  * @list: list to add events to.
  *
  * Collects events from the portion of the EventOperator tree rooted at @oper
@@ -554,9 +555,10 @@ error:
  * Each event is blocked and a Blocked structure will be appended to @list
  * for it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for the structures.  When @parent
- * is freed, the list entries will be freed too.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned structures.  When all parents
+ * of a returned structure are freed, the returned structure will also be
+ * freed.
  **/
 void
 event_operator_events (EventOperator *root,
