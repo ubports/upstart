@@ -1,5 +1,11 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (parse_on_operator, parse_on_collect):
+	Use an nih_ref/nih_unref pair instead of nih_alloc_reparent; this
+	is not ideal, but then this code is rather messy and leaves a lot
+	of allocated data attached to the object on the assumption that
+	it will be thrown away.
+
 	* init/event_operator.c: Update documentation to match new nih_alloc()
 	(event_operator_match): Use nih_local on expanded value.
 	(event_operator_environment): Make evlist nih_local, it will be

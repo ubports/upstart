@@ -88,7 +88,8 @@ static int            parse_on_operand  (JobClass *class,
 					 size_t *pos, size_t *lineno,
 					 NihList *stack, EventOperator **root)
 	__attribute__ ((warn_unused_result));
-static int            parse_on_collect  (NihList *stack, EventOperator **root)
+static int            parse_on_collect  (JobClass *class,
+					 NihList *stack, EventOperator **root)
 	__attribute__ ((warn_unused_result));
 
 static int stanza_instance    (JobClass *class, NihConfigStanza *stanza,
@@ -558,7 +559,7 @@ parse_on (JobClass        *class,
 	 * need collecting; if not, take the stack pointer out before
 	 * returning otherwise we'll try and access it.
 	 */
-	if (parse_on_collect (&stack, &root) < 0) {
+	if (parse_on_collect (class, &stack, &root) < 0) {
 		nih_list_remove (&stack);
 		return NULL;
 	}
@@ -659,7 +660,7 @@ parse_on_operator (JobClass         *class,
 	/* Before we push the new operator onto the stack, we need to collect
 	 * any existing operators and operands.
 	 */
-	if (parse_on_collect (stack, root) < 0)
+	if (parse_on_collect (class, stack, root) < 0)
 		return -1;
 
 	/* Create the new operator, placing the existing root node as its
@@ -669,7 +670,9 @@ parse_on_operator (JobClass         *class,
 	if (! oper)
 		nih_return_system_error (-1);
 
-	nih_alloc_reparent (*root, oper);
+	nih_ref (*root, oper);
+	nih_unref (*root, class);
+
 	nih_tree_add (&oper->node, &(*root)->node, NIH_TREE_LEFT);
 	*root = NULL;
 
@@ -772,7 +775,7 @@ parse_on_paren (JobClass         *class,
 		(*paren)--;
 
 		/* Collect up to the first open paren marker. */
-		if (parse_on_collect (stack, root) < 0)
+		if (parse_on_collect (class, stack, root) < 0)
 			return -1;
 
 		/* If we run out of stack, then we have mismatched parens. */
@@ -898,6 +901,7 @@ parse_on_operand (JobClass         *class,
 
 /**
  * parse_on_collect:
+ * @class: job class being parsed,
  * @stack: input operator stack,
  * @root: output operator.
  *
@@ -915,9 +919,11 @@ parse_on_operand (JobClass         *class,
  * Returns: zero on success, negative value on raised error.
  **/
 static int
-parse_on_collect (NihList          *stack,
-		  EventOperator   **root)
+parse_on_collect (JobClass       *class,
+		  NihList        *stack,
+		  EventOperator **root)
 {
+	nih_assert (class != NULL);
 	nih_assert (stack != NULL);
 	nih_assert (root != NULL);
 
@@ -937,7 +943,9 @@ parse_on_collect (NihList          *stack,
 		 * event matches.
 		 */
 		if ((oper->type != EVENT_MATCH) && (*root)) {
-			nih_alloc_reparent (*root, oper);
+			nih_ref (*root, oper);
+			nih_unref (*root, class);
+
 			nih_tree_add (&oper->node, &(*root)->node,
 				      NIH_TREE_RIGHT);
 		} else if (oper->type != EVENT_MATCH) {
