@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,8 @@
 #ifndef INIT_JOB_CLASS_H
 #define INIT_JOB_CLASS_H
 
+#include <dbus/dbus.h>
+
 #include <sys/types.h>
 #include <sys/resource.h>
 
@@ -30,7 +32,7 @@
 #include <nih/list.h>
 #include <nih/hash.h>
 
-#include <nih/dbus.h>
+#include <nih-dbus/dbus_message.h>
 
 #include "process.h"
 #include "event_operator.h"

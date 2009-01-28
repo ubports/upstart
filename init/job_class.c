@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,10 @@
 #include <nih/hash.h>
 #include <nih/logging.h>
 
-#include <nih/dbus.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_message.h>
+#include <nih-dbus/dbus_object.h>
+#include <nih-dbus/dbus_util.h>
 
 #include "environ.h"
 #include "process.h"
