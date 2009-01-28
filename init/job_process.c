@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -136,10 +136,13 @@ int
 job_process_run (Job         *job,
 		 ProcessType  process)
 {
-	Process  *proc;
-	char    **argv, **env, **e, *script = NULL;
-	size_t    argc, envc;
-	int       error = FALSE, fds[2], trace = FALSE;
+	Process         *proc;
+	nih_local char **argv = NULL;
+	nih_local char **env = NULL;
+	nih_local char  *script = NULL;
+	char           **e;
+	size_t           argc, envc;
+	int              error = FALSE, fds[2], trace = FALSE, shell = TRUE;
 
 	nih_assert (job != NULL);
 
@@ -196,9 +199,9 @@ job_process_run (Job         *job,
 			NIH_MUST (nih_str_array_add (&argv, NULL,
 						     &argc, SHELL));
 
-			script = NULL;
+			shell = FALSE;
 		} else {
-			char *cmd;
+			nih_local char *cmd = NULL;
 
 			/* Close the writing end when the child is exec'd */
 			NIH_ZERO (pipe (fds));
@@ -262,12 +265,9 @@ job_process_run (Job         *job,
 			 * to be able to spawn this process.  Clean up after
 			 * ourselves before returning.
 			 */
-			nih_free (argv);
-			nih_free (env);
-			if (script) {
+			if (shell) {
 				close (fds[0]);
 				close (fds[1]);
-				nih_free (script);
 			}
 
 			job->pid[process] = 0;
@@ -286,9 +286,6 @@ job_process_run (Job         *job,
 		error = TRUE;
 	}
 
-	nih_free (argv);
-	nih_free (env);
-
 	nih_info (_("%s %s process (%d)"),
 		  job_name (job), process_name (process), job->pid[process]);
 
@@ -296,7 +293,7 @@ job_process_run (Job         *job,
 	job->trace_state = trace ? TRACE_NEW : TRACE_NONE;
 
 	/* Feed the script to the child process */
-	if (script) {
+	if (shell) {
 		NihIo *io;
 
 		/* Clean up and close the reading end (we don't need it) */
@@ -318,8 +315,6 @@ job_process_run (Job         *job,
 
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
-
-		nih_free (script);
 	}
 
 	return 0;

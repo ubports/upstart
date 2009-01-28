@@ -1,5 +1,9 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_run): Make argv, env, script and
+	cmd all use nih_local, this cleans up the code a little and makes
+	nih_str_array_addp safe to take a reference.
+
 	* init/environ.c: Update documentation to match new nih_alloc()
 
 	* init/tests/test_job_process.c (test_run): Check that trailing
