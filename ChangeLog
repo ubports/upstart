@@ -1,5 +1,9 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_environ.c (test_expand): Add a test case for the
+	bug fixed in r1027, the implicit case of the gap in the environment
+	string being the same size as the value replacing it.
+
 	* init/environ.c (environ_add): Use nih_local for new_str, making
 	the code paths a little simpler and ensuring we pass something that
 	can be referenced to nih_str_array_addp()

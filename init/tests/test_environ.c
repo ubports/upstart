@@ -2,7 +2,7 @@
  *
  * test_environ.c - test suite for init/environ.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1050,7 +1050,7 @@ void
 test_expand (void)
 {
 	NihError *error;
-	char     *env[6], *str;
+	char     *env[7], *str;
 
 	TEST_FUNCTION ("environ_expand");
 	env[0] = "FOO=frodo";
@@ -1058,7 +1058,8 @@ test_expand (void)
 	env[2] = "BAZ=xx";
 	env[3] = "HOBBIT=FOO";
 	env[4] = "NULL=";
-	env[5] = NULL;
+	env[5] = "DOH=oops";
+	env[6] = NULL;
 
 	nih_error_push_context();
 	nih_error_pop_context ();
@@ -1126,6 +1127,30 @@ test_expand (void)
 		}
 
 		TEST_EQ_STR (str, "this is a xx test");
+
+		nih_free (str);
+	}
+
+
+	/* Check that we can expand a simple string containing a reference
+	 * from the environment that is exactly the same size as the
+	 * reference, with the reference replaced by the environment variable
+	 * value.
+	 */
+	TEST_FEATURE ("with simple expansion of same size value");
+	TEST_ALLOC_FAIL {
+		str = environ_expand (NULL, "this is a $DOH test", env);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (str, NULL);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+			continue;
+		}
+
+		TEST_EQ_STR (str, "this is a oops test");
 
 		nih_free (str);
 	}
