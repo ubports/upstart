@@ -142,7 +142,7 @@ job_process_run (Job         *job,
 	nih_local char  *script = NULL;
 	char           **e;
 	size_t           argc, envc;
-	int              error = FALSE, fds[2], trace = FALSE, shell = TRUE;
+	int              error = FALSE, fds[2], trace = FALSE, shell = FALSE;
 
 	nih_assert (job != NULL);
 
@@ -198,14 +198,14 @@ job_process_run (Job         *job,
 			/* Next argument is argv[0]; just pass the shell */
 			NIH_MUST (nih_str_array_add (&argv, NULL,
 						     &argc, SHELL));
-
-			shell = FALSE;
 		} else {
 			nih_local char *cmd = NULL;
 
 			/* Close the writing end when the child is exec'd */
 			NIH_ZERO (pipe (fds));
 			nih_io_set_cloexec (fds[1]);
+
+			shell = TRUE;
 
 			/* FIXME actually always want it to be /dev/fd/3 and
 			 * dup2() in the child to make it that way ... no way

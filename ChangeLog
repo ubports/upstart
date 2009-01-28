@@ -1,5 +1,8 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_run): Had the shell variable
+	setting round the wrong way, now it should be ok.
+
 	* init/tests/test_blocked.c (test_new): in the case of allocation
 	failure, the message should not be referenced; which we test by
 	trying to discard it and seeing whether that works.
