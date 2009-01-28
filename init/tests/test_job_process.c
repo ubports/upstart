@@ -245,6 +245,44 @@ test_run (void)
 	}
 
 
+	/* Check that we can run a small shell script that has many newlines
+	 * to be stripped from the end before passing it on the command-line.
+	 */
+	TEST_FEATURE ("with small script and trailing newlines");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->leader = TRUE;
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = TRUE;
+			class->process[PROCESS_MAIN]->command = nih_sprintf (
+				class->process[PROCESS_MAIN],
+				"echo $0 $@ > %s\n\n\n", filename);
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+		}
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "/bin/sh\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_free (class);
+	}
+
+
 	/* Check that shell scripts are run with the -e option set, so that
 	 * any failing command causes the entire script to fail.
 	 */
