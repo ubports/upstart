@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -83,9 +83,10 @@ event_init (void)
  * appends it to the queue of events.
  *
  * @env is optional, and may be NULL; if given it should be a NULL-terminated
- * array of environment variables in KEY=VALUE form.  The @env array itself
- * will be reparented to the event structure and should not be modified after
- * the call.
+ * array of environment variables in KEY=VALUE form.  @env will be referenced
+ * by the new event.  After calling this function, you should never use
+ * nih_free() to free @env and instead use nih_unref() or nih_discard() if
+ * you longer need to use it.
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
@@ -138,7 +139,7 @@ event_new (const void  *parent,
 
 	event->env = env;
 	if (event->env)
-		nih_alloc_reparent (event->env, event);
+		nih_ref (event->env, event);
 
 
 	/* Place it in the pending list */
@@ -345,9 +346,10 @@ event_pending_handle_jobs (Event *event)
 		if (class->start_on
 		    && event_operator_handle (class->start_on, event, NULL)
 		    && class->start_on->value) {
-			char    **env, *name = NULL;
-			size_t    len;
-			Job      *job;
+			nih_local char **env = NULL;
+			nih_local char  *name = NULL;
+			size_t           len;
+			Job             *job;
 
 			/* Construct the environment for the new instance
 			 * from the class and the start events.
@@ -370,16 +372,13 @@ event_pending_handle_jobs (Event *event)
 					  class->name, err->message);
 				nih_free (err);
 
-				goto error;
+				continue;
 			}
 
 			/* Locate the current instance or create a new one */
 			job = (Job *)nih_hash_lookup (class->instances, name);
 			if (! job)
 				NIH_MUST (job = job_new (class, name));
-
-			if (name)
-				nih_free (name);
 
 			nih_debug ("New instance %s", job_name (job));
 
@@ -388,8 +387,8 @@ event_pending_handle_jobs (Event *event)
 				if (job->start_env)
 					nih_free (job->start_env);
 
-				nih_alloc_reparent (env, job);
 				job->start_env = env;
+				nih_ref (job->start_env, job);
 
 				job_finished (job, FALSE);
 
@@ -397,9 +396,6 @@ event_pending_handle_jobs (Event *event)
 						       job, &job->blocking);
 
 				job_change_goal (job, JOB_START);
-			} else {
-			error:
-				nih_free (env);
 			}
 
 			event_operator_reset (class->start_on);

@@ -1,5 +1,10 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_new): Reference the event, don't reparent
+	(event_pending_handle_jobs): Use nih_local for environment array
+	and for the job name, damn I love this thing.  Reference the array
+	into the job to avoid freeing.
+
 	* init/parse_job.c (parse_job): Update documentation to match
 	new nih_alloc()
 	(parse_process, parse_on_operator, stanza_start, stanza_stop)
