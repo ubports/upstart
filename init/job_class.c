@@ -705,10 +705,11 @@ job_class_start (JobClass        *class,
 		 NihDBusMessage  *message,
 		 char * const    *env)
 {
-	Blocked  *blocked;
-	Job      *job;
-	char    **start_env, *name;
-	size_t    len;
+	nih_local Blocked  *blocked = NULL;
+	Job                *job;
+	nih_local char    **start_env = NULL;
+	nih_local char     *name = NULL;
+	size_t              len;
 
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
@@ -728,11 +729,8 @@ job_class_start (JobClass        *class,
 	if (! start_env)
 		nih_return_system_error (-1);
 
-	if (! environ_append (&start_env, NULL, &len, TRUE, env)) {
-		nih_error_raise_system ();
-		nih_free (start_env);
-		return -1;
-	}
+	if (! environ_append (&start_env, NULL, &len, TRUE, env))
+		nih_return_system_error (-1);
 
 	/* Use the environment to expand the instance name and look it up
 	 * in the job.
@@ -751,37 +749,25 @@ job_class_start (JobClass        *class,
 			nih_error_raise_again (error);
 		}
 
-		nih_free (start_env);
 		return -1;
 	}
 
 	job = (Job *)nih_hash_lookup (class->instances, name);
 
 	blocked = blocked_new (job, BLOCKED_JOB_START_METHOD, message);
-	if (! blocked) {
-		nih_error_raise_system ();
-		nih_free (name);
-		nih_free (start_env);
-		return -1;
-	}
+	if (! blocked)
+		nih_return_system_error (-1);
 
 	/* If no instance exists with the expanded name, create a new
 	 * instance.
 	 */
 	if (! job) {
 		job = job_new (class, name);
-		if (! job) {
-			nih_error_raise_system ();
-			nih_free (blocked);
-			nih_free (name);
-			nih_free (start_env);
-			return -1;
-		}
+		if (! job)
+			nih_return_system_error (-1);
 
-		nih_alloc_reparent (blocked, job);
+		nih_ref (blocked, job);
 	}
-
-	nih_free (name);
 
 
 	if (job->goal == JOB_START) {
@@ -789,9 +775,6 @@ job_class_start (JobClass        *class,
 			"com.ubuntu.Upstart.Error.AlreadyStarted",
 			_("Job is already running: %s"),
 			job_name (job));
-
-		nih_free (blocked);
-		nih_free (start_env);
 		return -1;
 	}
 
@@ -799,8 +782,8 @@ job_class_start (JobClass        *class,
 	if (job->start_env)
 		nih_free (job->start_env);
 
-	nih_alloc_reparent (start_env, job);
 	job->start_env = start_env;
+	nih_ref (job->start_env, job);
 
 	job_finished (job, FALSE);
 	nih_list_add (&job->blocking, &blocked->entry);
@@ -837,10 +820,11 @@ job_class_stop (JobClass       *class,
 		NihDBusMessage *message,
 		char * const   *env)
 {
-	Blocked  *blocked;
-	Job      *job;
-	char    **stop_env, *name;
-	size_t    len;
+	Blocked         *blocked = NULL;
+	Job             *job;
+	nih_local char **stop_env = NULL;
+	nih_local char  *name = NULL;
+	size_t           len;
 
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
@@ -861,11 +845,8 @@ job_class_stop (JobClass       *class,
 	if (! stop_env)
 		nih_return_system_error (-1);
 
-	if (! environ_append (&stop_env, NULL, &len, TRUE, env)) {
-		nih_error_raise_system ();
-		nih_free (stop_env);
-		return -1;
-	}
+	if (! environ_append (&stop_env, NULL, &len, TRUE, env))
+		nih_return_system_error (-1);
 
 	/* Use the environment to expand the instance name and look it up
 	 * in the job.
@@ -884,7 +865,6 @@ job_class_stop (JobClass       *class,
 			nih_error_raise_again (error);
 		}
 
-		nih_free (stop_env);
 		return -1;
 	}
 
@@ -894,13 +874,8 @@ job_class_stop (JobClass       *class,
 		nih_dbus_error_raise_printf (
 			"com.ubuntu.Upstart.Error.UnknownInstance",
 			_("Unknown instance: %s"), name);
-		nih_free (name);
-		nih_free (stop_env);
 		return -1;
 	}
-
-	nih_free (name);
-	nih_free (stop_env);
 
 
 	if (job->goal == JOB_STOP) {
@@ -919,8 +894,8 @@ job_class_stop (JobClass       *class,
 	if (job->stop_env)
 		nih_free (job->stop_env);
 
-	nih_alloc_reparent ((char **)env, job);
 	job->stop_env = (char **)env;
+	nih_ref (job->stop_env, job);
 
 	job_finished (job, FALSE);
 	nih_list_add (&job->blocking, &blocked->entry);
@@ -960,10 +935,11 @@ job_class_restart (JobClass        *class,
 		   NihDBusMessage  *message,
 		   char * const    *env)
 {
-	Blocked  *blocked;
-	Job      *job;
-	char    **restart_env, *name;
-	size_t    len;
+	Blocked         *blocked = NULL;
+	Job             *job;
+	nih_local char **restart_env = NULL;
+	nih_local char  *name = NULL;
+	size_t           len;
 
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
@@ -983,11 +959,8 @@ job_class_restart (JobClass        *class,
 	if (! restart_env)
 		nih_return_system_error (-1);
 
-	if (! environ_append (&restart_env, NULL, &len, TRUE, env)) {
-		nih_error_raise_system ();
-		nih_free (restart_env);
-		return -1;
-	}
+	if (! environ_append (&restart_env, NULL, &len, TRUE, env))
+		nih_return_system_error (-1);
 
 	/* Use the environment to expand the instance name and look it up
 	 * in the job.
@@ -1006,7 +979,6 @@ job_class_restart (JobClass        *class,
 			nih_error_raise_again (error);
 		}
 
-		nih_free (restart_env);
 		return -1;
 	}
 
@@ -1016,12 +988,8 @@ job_class_restart (JobClass        *class,
 		nih_dbus_error_raise_printf (
 			"com.ubuntu.Upstart.Error.UnknownInstance",
 			_("Unknown instance: %s"), name);
-		nih_free (name);
-		nih_free (restart_env);
 		return -1;
 	}
-
-	nih_free (name);
 
 
 	if (job->goal == JOB_STOP) {
@@ -1029,22 +997,18 @@ job_class_restart (JobClass        *class,
 			"com.ubuntu.Upstart.Error.AlreadyStopped",
 			_("Job has already been stopped: %s"), job->name);
 
-		nih_free (restart_env);
 		return -1;
 	}
 
 	blocked = blocked_new (job, BLOCKED_JOB_RESTART_METHOD, message);
-	if (! blocked) {
-		nih_error_raise_system ();
-		nih_free (restart_env);
-		return -1;
-	}
+	if (! blocked)
+		nih_return_system_error (-1);
 
 	if (job->start_env)
 		nih_free (job->start_env);
 
-	nih_alloc_reparent (restart_env, job);
 	job->start_env = restart_env;
+	nih_ref (job->start_env, job);
 
 	if (job->stop_env)
 		nih_free (job->stop_env);
