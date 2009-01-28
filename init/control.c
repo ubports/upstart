@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,7 +38,10 @@
 #include <nih/error.h>
 #include <nih/errors.h>
 
-#include <nih/dbus.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_connection.h>
+#include <nih-dbus/dbus_message.h>
+#include <nih-dbus/dbus_object.h>
 
 #include "environ.h"
 #include "job_class.h"
