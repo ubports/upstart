@@ -1,5 +1,10 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (parse_on_operand, stanza_env, stanza_export)
+	(stanza_emits): Make temporary string variables use nih_local,
+	this gives us a massive code clean-up and makes nih_str_array_addp
+	safe to take a reference.
+
 	* init/job_process.c (job_process_run): Make argv, env, script and
 	cmd all use nih_local, this cleans up the code a little and makes
 	nih_str_array_addp safe to take a reference.

@@ -2,7 +2,7 @@
  *
  * parse_job.c - job definition parsing
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -835,9 +835,9 @@ parse_on_operand (JobClass         *class,
 		  NihList          *stack,
 		  EventOperator   **root)
 {
-	EventOperator *oper;
-	NihListEntry  *item;
-	char          *arg;
+	EventOperator  *oper;
+	NihListEntry   *item;
+	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -867,13 +867,8 @@ parse_on_operand (JobClass         *class,
 		 * of the stack.
 		 */
 		oper = event_operator_new (class, EVENT_MATCH, arg, NULL);
-		if (! oper) {
-			nih_error_raise_system ();
-			nih_free (arg);
-			return -1;
-		}
-
-		nih_free (arg);
+		if (! oper)
+			nih_return_system_error (-1);
 
 		item = nih_list_entry_new (class);
 		if (! item)
@@ -888,11 +883,8 @@ parse_on_operand (JobClass         *class,
 		/* Argument is an environment variable for the event on
 		 * the top of the stack, so we append it there.
 		 */
-		if (! nih_str_array_addp (&oper->env, oper, NULL, arg)) {
-			nih_error_raise_system ();
-			nih_free (arg);
-			return -1;
-		}
+		if (! nih_str_array_addp (&oper->env, oper, NULL, arg))
+			nih_return_system_error (-1);
 
 		/* Sanity check the event's environment to ensure that no
 		 * positional arguments follow name-based ones.
@@ -1154,22 +1146,19 @@ stanza_env (JobClass        *class,
 	    size_t          *pos,
 	    size_t          *lineno)
 {
-	char *env;
+	nih_local char *env = NULL;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	env = nih_config_next_arg (class->env, file, len, pos, lineno);
+	env = nih_config_next_arg (NULL, file, len, pos, lineno);
 	if (! env)
 		return -1;
 
-	if (! nih_str_array_addp (&class->env, class, NULL, env)) {
-		nih_error_raise_system ();
-		nih_free (env);
-		return -1;
-	}
+	if (! nih_str_array_addp (&class->env, class, NULL, env))
+		nih_return_system_error (-1);
 
 	return nih_config_skip_comment (file, len, pos, lineno);
 }
@@ -1197,7 +1186,8 @@ stanza_export (JobClass        *class,
 	       size_t          *pos,
 	       size_t          *lineno)
 {
-	char **args, **arg;
+	nih_local char **args = NULL;
+	char           **arg;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1212,15 +1202,9 @@ stanza_export (JobClass        *class,
 	if (! args)
 		return -1;
 
-	for (arg = args; *arg; arg++) {
-		if (! nih_str_array_addp (&class->export, class, NULL, *arg)) {
-			nih_error_raise_system ();
-			nih_free (args);
-			return -1;
-		}
-	}
-
-	nih_free (args);
+	for (arg = args; *arg; arg++)
+		if (! nih_str_array_addp (&class->export, class, NULL, *arg))
+			nih_return_system_error (-1);
 
 	return 0;
 }
@@ -1387,7 +1371,8 @@ stanza_emits (JobClass        *class,
 	      size_t          *pos,
 	      size_t          *lineno)
 {
-	char **args, **arg;
+	nih_local char **args = NULL;
+	char           **arg;
 
 	nih_assert (class != NULL);
 	nih_assert (stanza != NULL);
@@ -1402,15 +1387,9 @@ stanza_emits (JobClass        *class,
 	if (! args)
 		return -1;
 
-	for (arg = args; *arg; arg++) {
-		if (! nih_str_array_addp (&class->emits, class, NULL, *arg)) {
-			nih_error_raise_system ();
-			nih_free (args);
-			return -1;
-		}
-	}
-
-	nih_free (args);
+	for (arg = args; *arg; arg++)
+		if (! nih_str_array_addp (&class->emits, class, NULL, *arg))
+			nih_return_system_error (-1);
 
 	return 0;
 }
