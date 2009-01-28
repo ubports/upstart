@@ -10,8 +10,6 @@
    event-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_list_new
    fun:event_init
@@ -21,8 +19,6 @@
    job-class-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_hash_new
    fun:job_class_init
@@ -32,8 +28,6 @@
    notify-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_list_new
    fun:notify_init
@@ -43,8 +37,6 @@
    conf-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_list_new
    fun:conf_init
@@ -54,8 +46,6 @@
    control-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_list_new
    fun:control_init
@@ -67,7 +57,7 @@
    job-process-run-args
    Memcheck:Leak
    fun:realloc
-   fun:_test_allocator
+   fun:_test_realloc
    fun:nih_realloc
    fun:nih_str_array_addp
    fun:nih_str_array_addn
@@ -84,7 +74,7 @@
   job-emit-event-in-event-poll
   Memcheck:Leak
   fun:realloc
-  fun:_test_allocator
+  fun:_test_realloc
   fun:nih_realloc
   fun:nih_str_array_addp
   fun:environ_add
@@ -114,7 +104,7 @@
   event-operator-environment-in-event-poll
   Memcheck:Leak
   fun:realloc
-  fun:_test_allocator
+  fun:_test_realloc
   fun:nih_realloc
   fun:nih_str_array_addp
   fun:environ_add
