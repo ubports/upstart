@@ -75,7 +75,7 @@ event_init (void)
 
 /**
  * event_new:
- * @parent: parent of new event,
+ * @parent: parent object for new event,
  * @name: name of event to emit,
  * @env: NULL-terminated array of environment variables for event.
  *
@@ -96,9 +96,10 @@ event_init (void)
  * event_block() otherwise it will be automatically freed next time
  * through the main loop.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned event.  When all parents
+ * of the returned event are freed, the returned event will also be
+ * freed.
  *
  * Returns: new Event structure pending in the queue or NULL if insufficent
  * memory.
@@ -461,12 +462,12 @@ event_finished (Event *event)
 
 		name = strrchr (event->name, '/');
 		if ((! name) || strcmp (name, "/failed")) {
-			Event *new_event;
+			nih_local char *failed = NULL;
+			Event          *new_event;
 
-			NIH_MUST (name = nih_sprintf (NULL, "%s/failed",
-						      event->name));
-			NIH_MUST (new_event = event_new (NULL, name, NULL));
-			nih_free (name);
+			NIH_MUST (failed = nih_sprintf (NULL, "%s/failed",
+							event->name));
+			NIH_MUST (new_event = event_new (NULL, failed, NULL));
 
 			if (event->env)
 				NIH_MUST (new_event->env = nih_str_array_copy (
