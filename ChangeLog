@@ -1,5 +1,8 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: More expressions for environment memory which
+	valgrind can't deal with
+
 	* init/conf.c (conf_source_reload): The ConfFile destructor has
 	side-effects that involve the iteration of the sources and their
 	files, so we can't simply call it while iterating because of the

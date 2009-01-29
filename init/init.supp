@@ -147,6 +147,41 @@
   fun:event_pending
   fun:event_poll
 }
+{
+  event-operator-environment-in-event-poll
+  Memcheck:Leak
+  fun:malloc
+  fun:realloc
+  fun:_test_realloc
+  fun:_test_malloc
+  fun:nih_alloc
+  fun:nih_strndup
+  fun:nih_strdup
+  fun:environ_add
+  fun:event_operator_environment
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+{
+  event-operator-environment-in-event-poll
+  Memcheck:Leak
+  fun:malloc
+  fun:realloc
+  fun:_test_realloc
+  fun:_test_malloc
+  fun:nih_alloc
+  fun:nih_strndup
+  fun:nih_strdup
+  fun:environ_add
+  fun:environ_append
+  fun:event_operator_environment
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+
+
 
 # Surely this should be a default suppression?
 {
