@@ -3233,6 +3233,8 @@ test_handler (void)
 			exit (0);
 		}
 
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = 1;
@@ -3304,6 +3306,8 @@ test_handler (void)
 			exit (0);
 		}
 
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
 		job->pid[PROCESS_MAIN] = pid;
@@ -3373,6 +3377,8 @@ test_handler (void)
 			exit (0);
 		}
 
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
@@ -3439,6 +3445,8 @@ test_handler (void)
 			raise (SIGTSTP);
 			exit (0);
 		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
 
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
@@ -3509,6 +3517,8 @@ test_handler (void)
 			raise (SIGSTOP);
 			exit (0);
 		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
 
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;

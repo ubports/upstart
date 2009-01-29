@@ -1,5 +1,10 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job_process.c (test_handler): We can't just
+	assume that our child is sitting at the signal otherwise we might
+	end up sending the CONT signal before it's even stopped.  Use
+	waitid() to wait for the child to stop first.
+
 	* init/init.supp: More expressions for environment memory which
 	valgrind can't deal with
 
