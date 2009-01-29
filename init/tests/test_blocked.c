@@ -38,7 +38,7 @@ test_new (void)
 	JobClass       *class;
 	Job            *job;
 	Event          *event;
-	NihDBusMessage *message;
+	NihDBusMessage *message = NULL;
 
 	TEST_FUNCTION ("blocked_new");
 

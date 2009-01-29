@@ -1,5 +1,15 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_blocked.c (test_new),
+	* init/tests/test_control.c (test_get_job_by_name)
+	(test_get_all_jobs, test_emit_event),
+	* init/tests/test_event.c (test_finished),
+	* init/tests/test_job.c (test_change_state),
+	* init/tests/test_job_class.c (test_get_instance)
+	(test_get_instance_by_name, test_get_all_instances): Continue the
+	battle with the gcc optimiser which declares variables first used
+	inside TEST_ALLOC_FAIL as used uninitialized.
+
 	* init/parse_job.c (parse_exec, parse_script, stanza_instance)
 	(stanza_description, stanza_author, stanza_version)
 	(stanza_start, stanza_stop, stanza_chroot, stanza_chdir):

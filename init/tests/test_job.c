@@ -614,7 +614,7 @@ test_change_state (void)
 	DBusError        dbus_error;
 	DBusConnection  *conn, *client_conn;
 	DBusMessage     *message;
-	char            *path, *job_path;
+	char            *path, *job_path = NULL;
 	int              status;
 
 	TEST_FUNCTION ("job_change_state");

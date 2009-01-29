@@ -1055,10 +1055,10 @@ test_environment (void)
 void
 test_get_instance (void)
 {
-	NihDBusMessage  *message;
+	NihDBusMessage  *message = NULL;
 	char           **env;
-	JobClass        *class;
-	Job             *job;
+	JobClass        *class = NULL;
+	Job             *job = NULL;
 	char            *path;
 	int              ret;
 	NihError        *error;
@@ -1219,7 +1219,7 @@ test_get_instance (void)
 void
 test_get_instance_by_name (void)
 {
-	NihDBusMessage *message;
+	NihDBusMessage *message = NULL;
 	JobClass       *class;
 	Job            *job;
 	char           *path;
@@ -1349,7 +1349,7 @@ test_get_instance_by_name (void)
 void
 test_get_all_instances (void)
 {
-	NihDBusMessage  *message;
+	NihDBusMessage  *message = NULL;
 	JobClass        *class;
 	Job             *job1, *job2, *job3;
 	NihError        *error;

@@ -959,7 +959,7 @@ test_reload_configuration (void)
 void
 test_get_job_by_name (void)
 {
-	NihDBusMessage *message;
+	NihDBusMessage *message = NULL;
 	JobClass       *class;
 	char           *path;
 	NihError       *error;
@@ -1070,7 +1070,7 @@ test_get_job_by_name (void)
 void
 test_get_all_jobs (void)
 {
-	NihDBusMessage  *message;
+	NihDBusMessage  *message = NULL;
 	JobClass        *class1, *class2, *class3;
 	NihError        *error;
 	char           **paths;
@@ -1187,7 +1187,7 @@ test_emit_event (void)
 	DBusConnection  *conn, *client_conn;
 	pid_t            dbus_pid;
 	DBusMessage     *method, *reply;
-	NihDBusMessage  *message;
+	NihDBusMessage  *message = NULL;
 	dbus_uint32_t    serial;
 	char           **env;
 	int              ret;

@@ -1605,7 +1605,7 @@ void
 test_finished (void)
 {
 	JobClass      *class = NULL;
-	Job           *job;
+	Job           *job = NULL;
 	Event         *event = NULL, *bevent = NULL;
 	Blocked       *blocked = NULL;
 	EventOperator *oper;
