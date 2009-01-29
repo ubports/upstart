@@ -309,7 +309,7 @@ job_change_state (Job      *job,
 			 */
 			if (job->start_env) {
 				if (job->env)
-					nih_free (job->env);
+					nih_unref (job->env, job);
 
 				job->env = job->start_env;
 				job->start_env = NULL;
@@ -317,7 +317,7 @@ job_change_state (Job      *job,
 
 			/* Throw away the stop environment */
 			if (job->stop_env) {
-				nih_free (job->stop_env);
+				nih_unref (job->stop_env, job);
 				job->stop_env = NULL;
 			}
 
@@ -380,7 +380,7 @@ job_change_state (Job      *job,
 			if (old_state == JOB_PRE_STOP) {
 				/* Throw away the stop environment */
 				if (job->stop_env) {
-					nih_free (job->stop_env);
+					nih_unref (job->stop_env, job);
 					job->stop_env = NULL;
 				}
 
@@ -889,7 +889,7 @@ job_name (Job *job)
 	nih_assert (job != NULL);
 
 	if (name)
-		nih_free (name);
+		nih_discard (name);
 
 	if (*job->name) {
 		NIH_MUST (name = nih_sprintf (NULL, "%s (%s)",
@@ -1064,7 +1064,7 @@ job_start (Job             *job,
 		nih_return_system_error (-1);
 
 	if (job->start_env)
-		nih_free (job->start_env);
+		nih_unref (job->start_env, job);
 	job->start_env = NULL;
 
 	job_finished (job, FALSE);
@@ -1115,7 +1115,7 @@ job_stop (Job            *job,
 		nih_return_system_error (-1);
 
 	if (job->stop_env)
-		nih_free (job->stop_env);
+		nih_unref (job->stop_env, job);
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
@@ -1166,11 +1166,11 @@ job_restart (Job            *job,
 		nih_return_system_error (-1);
 
 	if (job->start_env)
-		nih_free (job->start_env);
+		nih_unref (job->start_env, job);
 	job->start_env = NULL;
 
 	if (job->stop_env)
-		nih_free (job->stop_env);
+		nih_unref (job->stop_env, job);
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);

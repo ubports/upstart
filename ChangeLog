@@ -1,5 +1,9 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_change_state, job_start, job_stop, job_restart):
+	Unreference job environment instead of freeing
+	(job_name): Discard job name in case a reference was taken.
+
 	* init/event.c (event_pending_handle_jobs): Unreference the job
 	environment instead of freeing
 
