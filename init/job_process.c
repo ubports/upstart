@@ -1133,7 +1133,7 @@ job_process_terminated (Job         *job,
 	 * additional process later.
 	 */
 	if (job->kill_timer) {
-		nih_free (job->kill_timer);
+		nih_unref (job->kill_timer, job);
 		job->kill_timer = NULL;
 		job->kill_process = -1;
 	}

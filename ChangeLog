@@ -1,5 +1,8 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_terminated): Unreference the
+	kill timer instead of freeing
+
 	* init/job_class.c (job_class_get_instance): Use nih_local for
 	instance environment and name
 	(job_class_start, job_class_stop, job_class_restart):
