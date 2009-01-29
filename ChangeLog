@@ -1,5 +1,11 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (parse_exec, parse_script, stanza_instance)
+	(stanza_description, stanza_author, stanza_version)
+	(stanza_start, stanza_stop, stanza_chroot, stanza_chdir):
+	Unreference members when replacing them instead of freeing; not
+	strictly necessary but the style is the thing.
+
 	* init/job_process.c (job_process_terminated): Unreference the
 	kill timer instead of freeing
 

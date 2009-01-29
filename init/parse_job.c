@@ -339,7 +339,7 @@ parse_exec (Process         *process,
 				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
 
 	if (process->command)
-		nih_free (process->command);
+		nih_unref (process->command, process);
 
 	process->script = FALSE;
 	process->command = nih_config_parse_command (process, file, len,
@@ -386,7 +386,7 @@ parse_script (Process         *process,
 		return -1;
 
 	if (process->command)
-		nih_free (process->command);
+		nih_unref (process->command, process);
 
 	process->script = TRUE;
 	process->command = nih_config_parse_block (process, file, len,
@@ -998,7 +998,7 @@ stanza_instance (JobClass        *class,
 	nih_assert (pos != NULL);
 
 	if (class->instance)
-		nih_free (class->instance);
+		nih_unref (class->instance, class);
 
 	class->instance = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->instance)
@@ -1037,7 +1037,7 @@ stanza_description (JobClass        *class,
 	nih_assert (pos != NULL);
 
 	if (class->description)
-		nih_free (class->description);
+		nih_unref (class->description, class);
 
 	class->description = nih_config_next_arg (class, file,
 						  len, pos, lineno);
@@ -1076,7 +1076,7 @@ stanza_author (JobClass        *class,
 	nih_assert (pos != NULL);
 
 	if (class->author)
-		nih_free (class->author);
+		nih_unref (class->author, class);
 
 	class->author = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->author)
@@ -1114,7 +1114,7 @@ stanza_version (JobClass        *class,
 	nih_assert (pos != NULL);
 
 	if (class->version)
-		nih_free (class->version);
+		nih_unref (class->version, class);
 
 	class->version = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->version)
@@ -1253,7 +1253,7 @@ stanza_start (JobClass        *class,
 
 	if (! strcmp (arg, "on")) {
 		if (class->start_on)
-			nih_free (class->start_on);
+			nih_unref (class->start_on, class);
 
 		class->start_on = parse_on (class, stanza, file, len,
 					    &a_pos, &a_lineno);
@@ -1318,7 +1318,7 @@ stanza_stop (JobClass        *class,
 
 	if (! strcmp (arg, "on")) {
 		if (class->stop_on)
-			nih_free (class->stop_on);
+			nih_unref (class->stop_on, class);
 
 		class->stop_on = parse_on (class, stanza, file, len,
 					   &a_pos, &a_lineno);
@@ -2397,7 +2397,7 @@ stanza_chroot (JobClass        *class,
 	nih_assert (pos != NULL);
 
 	if (class->chroot)
-		nih_free (class->chroot);
+		nih_unref (class->chroot, class);
 
 	class->chroot = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->chroot)
@@ -2434,7 +2434,7 @@ stanza_chdir (JobClass        *class,
 	nih_assert (pos != NULL);
 
 	if (class->chdir)
-		nih_free (class->chdir);
+		nih_unref (class->chdir, class);
 
 	class->chdir = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->chdir)
