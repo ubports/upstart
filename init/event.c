@@ -312,7 +312,7 @@ event_pending_handle_jobs (Event *event)
 					size_t len = 0;
 
 					if (job->stop_env)
-						nih_free (job->stop_env);
+						nih_unref (job->stop_env, job);
 					job->stop_env = NULL;
 
 					/* Collect environment that stopped
@@ -387,7 +387,7 @@ event_pending_handle_jobs (Event *event)
 			/* Start the job with the environment we want */
 			if (job->goal != JOB_START) {
 				if (job->start_env)
-					nih_free (job->start_env);
+					nih_unref (job->start_env, job);
 
 				job->start_env = env;
 				nih_ref (job->start_env, job);
