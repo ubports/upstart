@@ -129,7 +129,7 @@ environ_add (char       ***env,
 	 */
 	old_str = (char **)environ_lookup (*env, str, key);
 	if (old_str && replace) {
-		nih_free (*old_str);
+		nih_unref (*old_str, *env);
 
 		if (new_str) {
 			*old_str = new_str;
@@ -251,9 +251,9 @@ environ_set (char       ***env,
 	     const char   *format,
 	     ...)
 {
-	char     *str;
-	va_list   args;
-	char    **ret;
+	nih_local char  *str = NULL;
+	va_list          args;
+	char           **ret;
 
 	nih_assert (env != NULL);
 	nih_assert (format != NULL);
@@ -266,8 +266,6 @@ environ_set (char       ***env,
 		return NULL;
 
 	ret = environ_add (env, parent, len, replace, str);
-
-	nih_free (str);
 
 	return ret;
 }
@@ -755,5 +753,6 @@ environ_expand_until (char        **str,
 
 error:
 	nih_free (*str);
+	*str = NULL;
 	return NULL;
 }

@@ -1,5 +1,11 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_add): should unreference the old environment
+	string in case anyone took a ref elsewhere
+	(environ_set): use nih_local for str
+	(environ_expand_until): Should set *str to NULL if we free it,
+	just in case.
+
 	* init/conf.c (conf_source_reload): File should be unreferenced,
 	not freed.
 	(conf_source_reload_file): Use nih_local for dpath
