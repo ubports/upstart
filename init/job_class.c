@@ -705,11 +705,11 @@ job_class_start (JobClass        *class,
 		 NihDBusMessage  *message,
 		 char * const    *env)
 {
-	nih_local Blocked  *blocked = NULL;
-	Job                *job;
-	nih_local char    **start_env = NULL;
-	nih_local char     *name = NULL;
-	size_t              len;
+	 Blocked        *blocked = NULL;
+	Job             *job;
+	nih_local char **start_env = NULL;
+	nih_local char  *name = NULL;
+	size_t           len;
 
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
@@ -754,10 +754,6 @@ job_class_start (JobClass        *class,
 
 	job = (Job *)nih_hash_lookup (class->instances, name);
 
-	blocked = blocked_new (job, BLOCKED_JOB_START_METHOD, message);
-	if (! blocked)
-		nih_return_system_error (-1);
-
 	/* If no instance exists with the expanded name, create a new
 	 * instance.
 	 */
@@ -765,10 +761,7 @@ job_class_start (JobClass        *class,
 		job = job_new (class, name);
 		if (! job)
 			nih_return_system_error (-1);
-
-		nih_ref (blocked, job);
 	}
-
 
 	if (job->goal == JOB_START) {
 		nih_dbus_error_raise_printf (
@@ -778,6 +771,8 @@ job_class_start (JobClass        *class,
 		return -1;
 	}
 
+	NIH_MUST (blocked = blocked_new (job, BLOCKED_JOB_START_METHOD,
+					 message));
 
 	if (job->start_env)
 		nih_free (job->start_env);
@@ -789,6 +784,8 @@ job_class_start (JobClass        *class,
 	nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_START);
+
+	nih_ref (blocked, job);
 
 	return 0;
 }
@@ -887,9 +884,8 @@ job_class_stop (JobClass       *class,
 		return -1;
 	}
 
-	blocked = blocked_new (job, BLOCKED_JOB_STOP_METHOD, message);
-	if (! blocked)
-		nih_return_system_error (-1);
+	NIH_MUST (blocked = blocked_new (job, BLOCKED_JOB_STOP_METHOD,
+					 message));
 
 	if (job->stop_env)
 		nih_free (job->stop_env);
@@ -1000,9 +996,8 @@ job_class_restart (JobClass        *class,
 		return -1;
 	}
 
-	blocked = blocked_new (job, BLOCKED_JOB_RESTART_METHOD, message);
-	if (! blocked)
-		nih_return_system_error (-1);
+	NIH_MUST (blocked = blocked_new (job, BLOCKED_JOB_RESTART_METHOD,
+					 message));
 
 	if (job->start_env)
 		nih_free (job->start_env);

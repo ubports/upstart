@@ -1,5 +1,13 @@
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_start): We can't create the blocked
+	until we know we're going to block, otherwise we could ref and unref
+	the message (freeing it).  Wait until the job is created, which
+	means we can't fail to create the blocked item (we'll already have
+	announced the new instance).
+	(job_class_stop, job_class_restart): For consistency, don't fail
+	if OOM when making blocked.
+
 	* init/tests/test_job.c (test_new): Initialise a bunch of subsystems
 	outside of TEST_ALLOC_FAIL
 
