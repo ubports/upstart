@@ -1,5 +1,11 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.5.2
+	* NEWS: Begin 0.5.2
+
+	* NEWS: Copy in news from 0.5.1; that release doesn't appear in
+	this ChangeLog since it was made on a separate branch.
+
 	* init/tests/test_blocked.c (test_new),
 	* init/tests/test_control.c (test_get_job_by_name)
 	(test_get_all_jobs, test_emit_event),

@@ -1,3 +1,34 @@
+0.5.2  XXXX-XX-XX
+
+0.5.1  2009-01-29  "Unexpected item in bagging area"
+
+	* Major rewrite of the memory allocator used by Upstart; the
+	  old allocator had several limitations and a few issues.
+	  I must stress that none of the issues were known to affect
+	  Upstart itself, however it pays to be prudent.
+
+	* An issue where an object in a linked list would be freed after
+	  the linked list was freed was fixed.  Upstart had some twisty
+	  code logic to work around it, which has now been dropped.
+
+	* An issue where a string could fail to be appended in an OOM
+	  situation was fixed; if Upstart is affected, this could cause
+	  D-Bus Introspection data to be corrupted.
+
+	* An issue where multiple socket watches being freed could lead
+	  to bad memory access has been fixed; Upstart 0.5.0 included a
+	  temporary fix for the D-Bus connection handling, this replaces
+	  that with a proper fix that also corrects the same problem for
+	  timers and other main loop watches that Upstart was not believed
+	  to be affected by.
+
+	* Compiler warnings when compiling the test suite with -O1 and
+	  above have been fixed where found.
+
+	* A race condition in the test cases for a process stopping with
+	  SIGSTOP has been fixed, this could sometimes cause this test
+	  to hang.
+
 0.5.0  2008-08-12  "One of those deaf-mutes"
 
 	* The relationship between job definitions and their running
