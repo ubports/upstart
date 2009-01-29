@@ -167,7 +167,7 @@ job_class_new (const void *parent,
 
 	nih_list_init (&class->entry);
 
-	nih_alloc_set_destructor (class, (NihDestructor)nih_list_destroy);
+	nih_alloc_set_destructor (class, nih_list_destroy);
 
 	class->name = nih_strdup (class, name);
 	if (! class->name)

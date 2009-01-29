@@ -108,7 +108,7 @@ event_operator_new (const void         *parent,
 
 	oper->event = NULL;
 
-	nih_alloc_set_destructor (oper, (NihDestructor)event_operator_destroy);
+	nih_alloc_set_destructor (oper, event_operator_destroy);
 
 	return oper;
 }

@@ -152,7 +152,7 @@ conf_source_new (const void     *parent,
 		return NULL;
 	}
 
-	nih_alloc_set_destructor (source, (NihDestructor)nih_list_destroy);
+	nih_alloc_set_destructor (source, nih_list_destroy);
 
 	nih_list_add (conf_sources, &source->entry);
 
@@ -197,7 +197,7 @@ conf_file_new (ConfSource *source,
 	file->flag = source->flag;
 	file->data = NULL;
 
-	nih_alloc_set_destructor (file, (NihDestructor)conf_file_destroy);
+	nih_alloc_set_destructor (file, conf_file_destroy);
 
 	nih_hash_add (source->files, &file->entry);
 

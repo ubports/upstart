@@ -101,7 +101,7 @@ job_new (JobClass   *class,
 
 	nih_list_init (&job->entry);
 
-	nih_alloc_set_destructor (job, (NihDestructor)nih_list_destroy);
+	nih_alloc_set_destructor (job, nih_list_destroy);
 
 	job->name = nih_strdup (job, name);
 	if (! job->name)

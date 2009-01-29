@@ -1,5 +1,13 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/blocked.c (blocked_new),
+	* init/conf.c (conf_source_new, conf_file_new),
+	* init/event.c (event_new),
+	* init/event_operator.c (event_operator_new),
+	* init/job.c (job_new),
+	* init/job_class.c (job_class_new): No need to cast function
+	argument to nih_alloc_set_destructor()
+
 	* init/tests/test_job_process.c (test_handler): We can't just
 	assume that our child is sitting at the signal otherwise we might
 	end up sending the CONT signal before it's even stopped.  Use
