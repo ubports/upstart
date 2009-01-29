@@ -303,7 +303,7 @@ conf_source_reload (ConfSource *source)
 		ConfFile *file = (ConfFile *)iter;
 
 		nih_info (_("Handling deletion of %s"), file->path);
-		nih_free (file);
+		nih_unref (file, source);
 	}
 
 	return ret;
@@ -331,7 +331,8 @@ conf_source_reload_file (ConfSource *source)
 	nih_assert (source->type == CONF_FILE);
 
 	if (! source->watch) {
-		char *dpath, *dname;
+		nih_local char *dpath = NULL;
+		char           *dname;
 
 		NIH_MUST (dpath = nih_strdup (NULL, source->path));
 		dname = dirname (dpath);
@@ -342,8 +343,6 @@ conf_source_reload_file (ConfSource *source)
 					       (NihModifyHandler)conf_create_modify_handler,
 					       (NihDeleteHandler)conf_delete_handler,
 					       source);
-
-		nih_free (dpath);
 
 		/* If successful mark the file descriptor close-on-exec,
 		 * otherwise stash the error for comparison with a later
@@ -566,14 +565,14 @@ conf_delete_handler (ConfSource *source,
 		if (! strcmp (watch->path, path)) {
 			nih_warn ("%s: %s", source->path,
 				  _("Configuration directory deleted"));
-			nih_free (source->watch);
+			nih_unref (source->watch, source);
 			source->watch = NULL;
 		}
 
 		return;
 	}
 
-	nih_free (file);
+	nih_unref (file, source);
 }
 
 /**
@@ -640,11 +639,11 @@ static int
 conf_reload_path (ConfSource *source,
 		  const char *path)
 {
-	ConfFile   *file;
-	char       *buf;
-	const char *name;
-	size_t      len, pos, lineno;
-	NihError   *err = NULL;
+	ConfFile       *file;
+	nih_local char *buf = NULL;
+	const char     *name;
+	size_t          len, pos, lineno;
+	NihError       *err = NULL;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
@@ -655,7 +654,7 @@ conf_reload_path (ConfSource *source,
 	 */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
 	if (file)
-		nih_free (file);
+		nih_unref (file, source);
 
 	/* Read the file into memory for parsing, if this fails we don't
 	 * bother creating a new ConfFile structure for it and bail out
@@ -735,9 +734,6 @@ conf_reload_path (ConfSource *source,
 			break;
 		}
 	}
-
-	/* Free the file buffer */
-	nih_free (buf);
 
 	/* If we had any unknown error from parsing the file, raise it again
 	 * and return an error condition.

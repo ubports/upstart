@@ -1,5 +1,13 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_source_reload): File should be unreferenced,
+	not freed.
+	(conf_source_reload_file): Use nih_local for dpath
+	(conf_delete_handler): Watch and file should be unreferenced,
+	not freed.
+	(conf_reload_path): File should be unreferenced, not freed;
+	use nih_local for file buffer
+
 	* init/blocked.c (blocked_new),
 	* init/conf.c (conf_source_new, conf_file_new),
 	* init/event.c (event_new),
