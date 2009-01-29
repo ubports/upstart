@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -260,7 +260,8 @@ conf_reload (void)
 int
 conf_source_reload (ConfSource *source)
 {
-	int ret;
+	NihList deleted;
+	int     ret;
 
 	nih_assert (source != NULL);
 
@@ -285,14 +286,24 @@ conf_source_reload (ConfSource *source)
 	/* Scan for files that have been deleted since the last time we
 	 * reloaded; these are simple to detect, as they will have the wrong
 	 * flag.
+	 *
+	 * We take them out of the files list and then we can delete the
+	 * attached jobs and free the file.  We can't just do this from
+	 * the one loop because to delete the jobs, we need to be able
+	 * to iterate the sources and files.
 	 */
+	nih_list_init (&deleted);
 	NIH_HASH_FOREACH_SAFE (source->files, iter) {
 		ConfFile *file = (ConfFile *)iter;
 
-		if (file->flag != source->flag) {
-			nih_info (_("Handling deletion of %s"), file->path);
-			nih_free (file);
-		}
+		if (file->flag != source->flag)
+			nih_list_add (&deleted, &file->entry);
+	}
+	NIH_LIST_FOREACH_SAFE (&deleted, iter) {
+		ConfFile *file = (ConfFile *)iter;
+
+		nih_info (_("Handling deletion of %s"), file->path);
+		nih_free (file);
 	}
 
 	return ret;

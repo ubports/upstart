@@ -2,7 +2,7 @@
  *
  * test_conf.c - test suite for init/conf.c
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1002,13 +1002,13 @@ test_source_reload_job_dir (void)
 	TEST_HASH_EMPTY (source->files);
 
 	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
-	TEST_EQ (job, NULL);
+	TEST_EQ_P (job, NULL);
 
 	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
-	TEST_EQ (job, NULL);
+	TEST_EQ_P (job, NULL);
 
 	job = (JobClass *)nih_hash_lookup (job_classes, "frodo/foo");
-	TEST_EQ (job, NULL);
+	TEST_EQ_P (job, NULL);
 
 	nih_free (source);
 

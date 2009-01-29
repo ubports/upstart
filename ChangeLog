@@ -1,3 +1,14 @@
+2009-01-29  Scott James Remnant  <scott@netsplit.com>
+
+	* init/conf.c (conf_source_reload): The ConfFile destructor has
+	side-effects that involve the iteration of the sources and their
+	files, so we can't simply call it while iterating because of the
+	cursor.  Move the sources into a deleted list first, and delete
+	them from there.
+	* init/conf.h: Fix prototype.
+	* init/tests/test_conf.c (test_source_reload_job_dir): Test pointers
+	with TEST_EQ_P not TEST_EQ
+
 2009-01-28  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_class.c (job_class_start): We can't create the blocked

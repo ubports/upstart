@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -121,7 +121,7 @@ void        conf_reload        (void);
 int         conf_source_reload (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
-int         conf_file_destroy  (ConfFile *item);
+int         conf_file_destroy  (ConfFile *file);
 
 JobClass *  conf_select_job    (const char *name);
 
