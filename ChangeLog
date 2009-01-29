@@ -1,5 +1,10 @@
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_get_instance): Use nih_local for
+	instance environment and name
+	(job_class_start, job_class_stop, job_class_restart):
+	Unreference job environment instead of freeing
+
 	* init/job.c (job_change_state, job_start, job_stop, job_restart):
 	Unreference job environment instead of freeing
 	(job_name): Discard job name in case a reference was taken.
