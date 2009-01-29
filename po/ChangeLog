@@ -1,3 +1,7 @@
+2009-01-29  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Update D-Bus paths
+
 2008-06-11  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Put the auto-generated files back in now we're
