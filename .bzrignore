@@ -49,6 +49,7 @@ po/upstart.pot
 po/*.gmo
 nih
 nih-dbus
+nih-dbus-tool
 upstart/libupstart.la
 upstart/test_*
 init/com.ubuntu.Upstart.[ch]
