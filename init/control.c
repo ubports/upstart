@@ -119,7 +119,7 @@ void
 control_init (void)
 {
 	if (! control_conns)
-		NIH_MUST (control_conns = nih_list_new (NULL));
+		control_conns = NIH_MUST (nih_list_new (NULL));
 }
 
 
@@ -176,7 +176,7 @@ control_server_connect (DBusServer     *server,
 	control_register_all (conn);
 
 	/* Add the connection to the list */
-	NIH_MUST (entry = nih_list_entry_new (NULL));
+	entry = NIH_MUST (nih_list_entry_new (NULL));
 
 	entry->data = conn;
 
@@ -260,7 +260,7 @@ control_bus_open (void)
 
 
 	/* Add the connection to the list */
-	NIH_MUST (entry = nih_list_entry_new (NULL));
+	entry = NIH_MUST (nih_list_entry_new (NULL));
 
 	entry->data = conn;
 

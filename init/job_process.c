@@ -159,7 +159,7 @@ job_process_run (Job         *job,
 		char        *nl, *p;
 
 		argc = 0;
-		NIH_MUST (argv = nih_str_array_new (NULL));
+		argv = NIH_MUST (nih_str_array_new (NULL));
 
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
 		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
@@ -169,9 +169,9 @@ job_process_run (Job         *job,
 		 * gets out of the way after parsing.
 		 */
 		if (proc->script) {
-			NIH_MUST (script = nih_strdup (NULL, proc->command));
+			script = NIH_MUST (nih_strdup (NULL, proc->command));
 		} else {
-			NIH_MUST (script = nih_sprintf (NULL, "exec %s",
+			script = NIH_MUST (nih_sprintf (NULL, "exec %s",
 							proc->command));
 		}
 
@@ -211,7 +211,7 @@ job_process_run (Job         *job,
 			 * dup2() in the child to make it that way ... no way
 			 * of passing that yet
 			 */
-			NIH_MUST (cmd = nih_sprintf (argv, "%s/%d",
+			cmd = NIH_MUST (nih_sprintf (argv, "%s/%d",
 						     DEV_FD, fds[0]));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
@@ -220,7 +220,7 @@ job_process_run (Job         *job,
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
 		 */
-		NIH_MUST (argv = nih_str_split (NULL, proc->command,
+		argv = NIH_MUST (nih_str_split (NULL, proc->command,
 						" \t\r\n", TRUE));
 	}
 
@@ -231,9 +231,9 @@ job_process_run (Job         *job,
 	 */
 	envc = 0;
 	if (job->env) {
-		NIH_MUST (env = nih_str_array_copy (NULL, &envc, job->env));
+		env = NIH_MUST (nih_str_array_copy (NULL, &envc, job->env));
 	} else {
-		NIH_MUST (env = nih_str_array_new (NULL));
+		env = NIH_MUST (nih_str_array_new (NULL));
 	}
 
 	if ((process == PROCESS_PRE_STOP) && job->stop_env)
@@ -639,7 +639,7 @@ job_process_error_read (int fd)
 	 * from the wire, augmented with human-readable information we
 	 * generate here.
 	 */
-	NIH_MUST (err = nih_new (NULL, JobProcessError));
+	err = NIH_MUST (nih_new (NULL, JobProcessError));
 
 	err->type = wire_err.type;
 	err->arg = wire_err.arg;
@@ -649,12 +649,12 @@ job_process_error_read (int fd)
 
 	switch (err->type) {
 	case JOB_PROCESS_ERROR_FORK:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to fork: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_CONSOLE:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to open console: %s"),
 				  strerror (err->errnum)));
 		break;
@@ -709,37 +709,37 @@ job_process_error_read (int fd)
 			nih_assert_not_reached ();
 		}
 
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to set \"%s\" resource limit: %s"),
 				  res, strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_PRIORITY:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to set priority: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_OOM_ADJ:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to set oom adjustment: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_CHROOT:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to change root directory: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_CHDIR:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to change working directory: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_PTRACE:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to set trace: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_EXEC:
-		NIH_MUST (err->error.message = nih_sprintf (
+		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to execute: %s"),
 				  strerror (err->errnum)));
 		break;
@@ -788,7 +788,7 @@ job_process_kill (Job         *job,
 	}
 
 	job->kill_process = process;
-	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
+	job->kill_timer = NIH_MUST (nih_timer_add_timeout (
 			  job, job->class->kill_timeout,
 			  (NihTimerCb)job_process_kill_timer, job));
 }

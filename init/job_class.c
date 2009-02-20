@@ -130,7 +130,7 @@ void
 job_class_init (void)
 {
 	if (! job_classes)
-		NIH_MUST (job_classes = nih_hash_string_new (NULL, 0));
+		job_classes = NIH_MUST (nih_hash_string_new (NULL, 0));
 }
 
 
@@ -763,7 +763,7 @@ job_class_start (JobClass        *class,
 		return -1;
 	}
 
-	NIH_MUST (blocked = blocked_new (job, BLOCKED_JOB_START_METHOD,
+	blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_START_METHOD,
 					 message));
 
 	if (job->start_env)
@@ -876,7 +876,7 @@ job_class_stop (JobClass       *class,
 		return -1;
 	}
 
-	NIH_MUST (blocked = blocked_new (job, BLOCKED_JOB_STOP_METHOD,
+	blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_STOP_METHOD,
 					 message));
 
 	if (job->stop_env)
@@ -988,7 +988,7 @@ job_class_restart (JobClass        *class,
 		return -1;
 	}
 
-	NIH_MUST (blocked = blocked_new (job, BLOCKED_JOB_RESTART_METHOD,
+	blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_RESTART_METHOD,
 					 message));
 
 	if (job->start_env)

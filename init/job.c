@@ -792,7 +792,7 @@ job_emit_event (Job *job)
 	}
 
 	len = 0;
-	NIH_MUST (env = nih_str_array_new (NULL));
+	env = NIH_MUST (nih_str_array_new (NULL));
 
 	/* Add the job and instance name */
 	NIH_MUST (environ_set (&env, NULL, &len, TRUE,
@@ -858,12 +858,12 @@ job_emit_event (Job *job)
 			NIH_MUST (environ_add (&env, NULL, &len, FALSE, *str));
 	}
 
-	NIH_MUST (event = event_new (NULL, name, env));
+	event = NIH_MUST (event_new (NULL, name, env));
 
 	if (block) {
 		Blocked *blocked;
 
-		NIH_MUST (blocked = blocked_new (event, BLOCKED_JOB, job));
+		blocked = NIH_MUST (blocked_new (event, BLOCKED_JOB, job));
 		nih_list_add (&event->blocking, &blocked->entry);
 	}
 
@@ -892,10 +892,10 @@ job_name (Job *job)
 		nih_discard (name);
 
 	if (*job->name) {
-		NIH_MUST (name = nih_sprintf (NULL, "%s (%s)",
+		name = NIH_MUST (nih_sprintf (NULL, "%s (%s)",
 					      job->class->name, job->name));
 	} else {
-		NIH_MUST (name = nih_strdup (NULL, job->class->name));
+		name = NIH_MUST (nih_strdup (NULL, job->class->name));
 	}
 
 	return name;

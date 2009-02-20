@@ -91,7 +91,7 @@ void
 conf_init (void)
 {
 	if (! conf_sources)
-		NIH_MUST (conf_sources = nih_list_new (NULL));
+		conf_sources = NIH_MUST (nih_list_new (NULL));
 }
 
 
@@ -334,7 +334,7 @@ conf_source_reload_file (ConfSource *source)
 		nih_local char *dpath = NULL;
 		char           *dname;
 
-		NIH_MUST (dpath = nih_strdup (NULL, source->path));
+		dpath = NIH_MUST (nih_strdup (NULL, source->path));
 		dname = dirname (dpath);
 
 		source->watch = nih_watch_new (source, dname, FALSE, FALSE,
@@ -665,7 +665,7 @@ conf_reload_path (ConfSource *source,
 		return -1;
 
 	/* Parse the file, storing the item in a new ConfFile structure. */
-	NIH_MUST (file = conf_file_new (source, path));
+	file = NIH_MUST (conf_file_new (source, path));
 
 	pos = 0;
 	lineno = 1;

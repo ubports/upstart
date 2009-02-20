@@ -69,7 +69,7 @@ void
 event_init (void)
 {
 	if (! events)
-		NIH_MUST (events = nih_list_new (NULL));
+		events = NIH_MUST (nih_list_new (NULL));
 }
 
 
@@ -355,7 +355,7 @@ event_pending_handle_jobs (Event *event)
 			/* Construct the environment for the new instance
 			 * from the class and the start events.
 			 */
-			NIH_MUST (env = job_class_environment (
+			env = NIH_MUST (job_class_environment (
 					  NULL, class, &len));
 			NIH_MUST (event_operator_environment (class->start_on,
 							      &env, NULL, &len,
@@ -380,7 +380,7 @@ event_pending_handle_jobs (Event *event)
 			/* Locate the current instance or create a new one */
 			job = (Job *)nih_hash_lookup (class->instances, name);
 			if (! job)
-				NIH_MUST (job = job_new (class, name));
+				job = NIH_MUST (job_new (class, name));
 
 			nih_debug ("New instance %s", job_name (job));
 
@@ -466,12 +466,12 @@ event_finished (Event *event)
 			nih_local char *failed = NULL;
 			Event          *new_event;
 
-			NIH_MUST (failed = nih_sprintf (NULL, "%s/failed",
+			failed = NIH_MUST (nih_sprintf (NULL, "%s/failed",
 							event->name));
-			NIH_MUST (new_event = event_new (NULL, failed, NULL));
+			new_event = NIH_MUST (event_new (NULL, failed, NULL));
 
 			if (event->env)
-				NIH_MUST (new_event->env = nih_str_array_copy (
+				new_event->env = NIH_MUST (nih_str_array_copy (
 						  new_event, NULL, event->env));
 		}
 	}
