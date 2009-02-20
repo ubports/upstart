@@ -1,3 +1,13 @@
+2009-02-20  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Update expected path
+	of nih-dbus-tool
+
+	* configure.ac: Create nih-dbus-tool Makefile
+	* Makefile.am (SUBDIRS): Build in nih-dbus-tool
+
 2009-01-29  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.5.2

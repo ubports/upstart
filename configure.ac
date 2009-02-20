@@ -45,7 +45,7 @@ esac
 
 
 AC_CONFIG_FILES([ Makefile m4/Makefile intl/Makefile
-		  nih/Makefile nih-dbus/Makefile
+		  nih/Makefile nih-dbus/Makefile nih-dbus-tool/Makefile
 		  init/Makefile dbus/Makefile
 		  doc/Makefile po/Makefile.in ])
 # util/Makefile
