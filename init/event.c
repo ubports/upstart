@@ -362,7 +362,7 @@ event_pending_handle_jobs (Event *event)
 							      "UPSTART_EVENTS"));
 
 			/* Expand the instance name against the environment */
-			NIH_SHOULD (name = environ_expand (NULL,
+			name = NIH_SHOULD (environ_expand (NULL,
 							   class->instance,
 							   env));
 			if (! name) {

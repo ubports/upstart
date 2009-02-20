@@ -1,5 +1,8 @@
 2009-02-20  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event.c (event_pending_handle_jobs): Set variable outside
+	of NIH_SHOULD macro.
+
 	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
 	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
 	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Update expected path
