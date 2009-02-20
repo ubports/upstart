@@ -993,11 +993,9 @@ handle_job_instance_end (void               *data,
 	nih_assert (current_instance != NULL);
 
 	if (current_list) {
-		JobInfo **new_list;
-
-		new_list = NIH_MUST (nih_realloc (current_list, NULL,
-						  ((current_list_sz + 1)
-						   * sizeof (JobInfo *))));
+		current_list = NIH_MUST (nih_realloc (current_list, NULL,
+						      ((current_list_sz + 1)
+						       * sizeof (JobInfo *))));
 		current_list = new_list;
 		current_list[current_list_sz++] = current_instance;
 	} else {
@@ -1103,17 +1101,14 @@ handle_job_process (void               *data,
 		    ProcessType         process,
 		    pid_t               process_pid)
 {
-	ProcInfo *new_list;
-
 	nih_assert (pid > 0);
 	nih_assert (type == UPSTART_JOB_PROCESS);
 	nih_assert (process_pid > 0);
 	nih_assert (current_job != NULL);
 
-	new_list = NIH_MUST (nih_realloc (current_job->procs, current_job,
-					  ((current_job->procs_sz + 1)
-					   * sizeof (ProcInfo))));
-	current_job->procs = new_list;
+	current_job->procs = NIH_MUST (nih_realloc (current_job->procs, current_job,
+						    ((current_job->procs_sz + 1)
+						     * sizeof (ProcInfo))));
 	current_job->procs[current_job->procs_sz].process = process;
 	current_job->procs[current_job->procs_sz].pid = process_pid;
 
@@ -1157,22 +1152,16 @@ handle_job_status_end (void               *data,
 	nih_assert (current_job != NULL);
 
 	if (current_instance) {
-		JobInfo **new_list;
-
-		new_list = NIH_MUST (nih_realloc (current_instance->jobs,
-						  current_instance,
-						  ((current_instance->jobs_sz + 1)
-						   * sizeof (JobInfo *))));
-		current_instance->jobs = new_list;
+		current_instance->jobs = NIH_MUST (nih_realloc (current_instance->jobs,
+								current_instance,
+								((current_instance->jobs_sz + 1)
+								 * sizeof (JobInfo *))));
 		current_instance->jobs[current_instance->jobs_sz++]
 			= current_job;
 	} else if (current_list) {
-		JobInfo **new_list;
-
-		new_list = NIH_MUST (nih_realloc (current_list, NULL,
-						  ((current_list_sz + 1)
-						   * sizeof (JobInfo *))));
-		current_list = new_list;
+		current_list = NIH_MUST (nih_realloc (current_list, NULL,
+						      ((current_list_sz + 1)
+						       * sizeof (JobInfo *))));
 		current_list[current_list_sz++] = current_job;
 	} else {
 		if (! ((event_caused || num_jobs) && no_wait))
@@ -1362,12 +1351,9 @@ handle_event (void               *data,
 	msg = output_name (id, name);
 
 	for (ptr = args; ptr && *ptr; ptr++) {
-		char *new_msg;
-
-		new_msg = NIH_MUST (nih_realloc (msg, NULL, (strlen (msg)
-							     + strlen (*ptr)
-							     + 2)));
-		msg = new_msg;
+		msg = NIH_MUST (nih_realloc (msg, NULL, (strlen (msg)
+							 + strlen (*ptr)
+							 + 2)));
 		strcat (msg, " ");
 		strcat (msg, *ptr);
 	}

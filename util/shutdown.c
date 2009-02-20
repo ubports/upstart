@@ -299,12 +299,9 @@ main (int   argc,
 	message = NIH_MUST (nih_strdup (NULL, ""));
 	messagelen = 0;
 	for (; args[arg]; arg++) {
-		char *new_message;
-
-		new_message = NIH_MUST (nih_realloc (
+		message = NIH_MUST (nih_realloc (
 				  message, NULL,
 				  messagelen + strlen(args[arg]) + 4));
-		message = new_message;
 
 		strcat (message, args[arg]);
 		strcat (message, " ");

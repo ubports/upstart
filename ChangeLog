@@ -1,5 +1,10 @@
 2009-02-20  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (handle_job_instance_end, handle_job_process)
+	(handle_job_status_end, handle_event),
+	* util/shutdown.c (main): No need for new_* temporary variable when
+	looping over nih_realloc with NIH_MUST.
+
 	* util/initctl.c (job_info_output, output_name, handle_job_list)
 	(handle_job_instance, handle_job_instance_end)
 	(handle_job_status, handle_job_process, handle_job_status_end)
