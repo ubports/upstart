@@ -1,5 +1,12 @@
 2009-02-20  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (job_info_output, output_name, handle_job_list)
+	(handle_job_instance, handle_job_instance_end)
+	(handle_job_status, handle_job_process, handle_job_status_end)
+	(handle_event, env_option),
+	* util/telinit.c (main),
+	* util/shutdown.c (main, shutdown_now, timer_callback, wall): 
+
 	* init/event.c (event_init, event_pending_handle_jobs, event_finished),
 	* init/event_operator.c (event_operator_events),
 	* init/job.c (job_emit_event, job_name),

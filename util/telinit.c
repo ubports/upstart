@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -102,14 +102,14 @@ main (int   argc,
 	case '4':
 	case '5':
 	case '6':
-		NIH_MUST (message = upstart_message_new (
+		message = NIH_MUST (upstart_message_new (
 				  NULL, UPSTART_INIT_DAEMON,
 				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
 		break;
 	case 'S':
 	case 's':
 		args[0][0] = 'S';
-		NIH_MUST (message = upstart_message_new (
+		message = NIH_MUST (upstart_message_new (
 				  NULL, UPSTART_INIT_DAEMON,
 				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
 		break;

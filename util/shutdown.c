@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -233,7 +233,7 @@ main (int   argc,
 		nih_main_suggest_help ();
 		exit (1);
 	} else if (! (cancel || when)) {
-		NIH_MUST (when = nih_strdup (NULL, args[0]));
+		when = NIH_MUST (nih_strdup (NULL, args[0]));
 		arg = 1;
 	} else {
 		arg = 0;
@@ -296,12 +296,12 @@ main (int   argc,
 	 * Really this should be just the next argument, but that's not
 	 * how this has been traditionally done *sigh*
 	 */
-	NIH_MUST (message = nih_strdup (NULL, ""));
+	message = NIH_MUST (nih_strdup (NULL, ""));
 	messagelen = 0;
 	for (; args[arg]; arg++) {
 		char *new_message;
 
-		NIH_MUST (new_message = nih_realloc (
+		new_message = NIH_MUST (nih_realloc (
 				  message, NULL,
 				  messagelen + strlen(args[arg]) + 4));
 		message = new_message;
@@ -348,7 +348,7 @@ main (int   argc,
 	}
 
 	/* Send an initial message */
-	NIH_MUST (msg = warning_message (message));
+	msg = NIH_MUST (warning_message (message));
 	wall (msg);
 	nih_free (msg);
 
@@ -479,21 +479,21 @@ shutdown_now (void)
 	}
 
 	/* Build the message to send */
-	NIH_MUST (args = nih_str_array_new (NULL));
+	args = NIH_MUST (nih_str_array_new (NULL));
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL, runlevel));
 
 	if (init_halt) {
 		char *e;
 
-		NIH_MUST (e = nih_sprintf (NULL, "INIT_HALT=%s", init_halt));
+		e = NIH_MUST (nih_sprintf (NULL, "INIT_HALT=%s", init_halt));
 
-		NIH_MUST (env = nih_str_array_new (NULL));
+		env = NIH_MUST (nih_str_array_new (NULL));
 		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, e));
 	} else {
 		env = NULL;
 	}
 
-	NIH_MUST (message = upstart_message_new (NULL, UPSTART_INIT_DAEMON,
+	message = NIH_MUST (upstart_message_new (NULL, UPSTART_INIT_DAEMON,
 						 UPSTART_EVENT_EMIT,
 						 "runlevel", args, env));
 
@@ -557,7 +557,7 @@ timer_callback (const char *message)
 	int   warn = FALSE;
 
 	delay--;
-	NIH_MUST (msg = warning_message (message));
+	msg = NIH_MUST (warning_message (message));
 
 
 	/* Write /etc/nologin with less than 5 minutes remaining */
@@ -688,7 +688,7 @@ wall (const char *message)
 	}
 	if (! user) {
 		if (getuid ()) {
-			NIH_MUST (user = nih_sprintf (NULL, "uid %d",
+			user = NIH_MUST (nih_sprintf (NULL, "uid %d",
 						      getuid ()));
 		} else {
 			user = "root";

@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2008 Canonical Ltd.
+ * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -545,17 +545,17 @@ job_info_output (const JobInfo *info,
 	 * that in the line; appending it to the name, or a whitespace prefix
 	 */
 	if (name) {
-		NIH_MUST (state = nih_sprintf (NULL, "%s (%s) %s", name,
+		state = NIH_MUST (nih_sprintf (NULL, "%s (%s) %s", name,
 					       job_goal_name (info->goal),
 					       job_state_name (info->state)));
 		nih_free (name);
 	} else if (show_ids) {
-		NIH_MUST (state = nih_sprintf (NULL, "    [#%u] (%s) %s",
+		state = NIH_MUST (nih_sprintf (NULL, "    [#%u] (%s) %s",
 					       info->id,
 					       job_goal_name (info->goal),
 					       job_state_name (info->state)));
 	} else {
-		NIH_MUST (state = nih_sprintf (NULL, "    (%s) %s",
+		state = NIH_MUST (nih_sprintf (NULL, "    (%s) %s",
 					       job_goal_name (info->goal),
 					       job_state_name (info->state)));
 	}
@@ -642,9 +642,9 @@ output_name (unsigned int  id,
 	nih_assert (name != NULL);
 
 	if (show_ids) {
-		NIH_MUST (str = nih_sprintf (NULL, "%s [#%u]", name, id));
+		str = NIH_MUST (nih_sprintf (NULL, "%s [#%u]", name, id));
 	} else {
-		NIH_MUST (str = nih_strdup (NULL, name));
+		str = NIH_MUST (nih_strdup (NULL, name));
 	}
 
 	return str;
@@ -842,7 +842,7 @@ handle_job_list (void               *data,
 
 	event_caused = FALSE;
 
-	NIH_MUST (current_list = nih_alloc (NULL, 0));
+	current_list = NIH_MUST (nih_alloc (NULL, 0));
 	current_list_sz = 0;
 
 	return 0;
@@ -941,7 +941,7 @@ handle_job_instance (void               *data,
 		if (! event_caused)
 			num_responses++;
 
-	NIH_MUST (current_instance = nih_new (current_list, JobInfo));
+	current_instance = NIH_MUST (nih_new (current_list, JobInfo));
 
 	nih_alloc_reparent (name, current_instance);
 
@@ -995,7 +995,7 @@ handle_job_instance_end (void               *data,
 	if (current_list) {
 		JobInfo **new_list;
 
-		NIH_MUST (new_list = nih_realloc (current_list, NULL,
+		new_list = NIH_MUST (nih_realloc (current_list, NULL,
 						  ((current_list_sz + 1)
 						   * sizeof (JobInfo *))));
 		current_list = new_list;
@@ -1055,7 +1055,7 @@ handle_job_status (void               *data,
 		if (! (event_caused || num_jobs))
 			num_responses++;
 
-	NIH_MUST (current_job = nih_new ((current_instance
+	current_job = NIH_MUST (nih_new ((current_instance
 					  ? (void *)current_instance
 					  : (current_list
 					     ? (void *)current_list
@@ -1110,7 +1110,7 @@ handle_job_process (void               *data,
 	nih_assert (process_pid > 0);
 	nih_assert (current_job != NULL);
 
-	NIH_MUST (new_list = nih_realloc (current_job->procs, current_job,
+	new_list = NIH_MUST (nih_realloc (current_job->procs, current_job,
 					  ((current_job->procs_sz + 1)
 					   * sizeof (ProcInfo))));
 	current_job->procs = new_list;
@@ -1159,7 +1159,7 @@ handle_job_status_end (void               *data,
 	if (current_instance) {
 		JobInfo **new_list;
 
-		NIH_MUST (new_list = nih_realloc (current_instance->jobs,
+		new_list = NIH_MUST (nih_realloc (current_instance->jobs,
 						  current_instance,
 						  ((current_instance->jobs_sz + 1)
 						   * sizeof (JobInfo *))));
@@ -1169,7 +1169,7 @@ handle_job_status_end (void               *data,
 	} else if (current_list) {
 		JobInfo **new_list;
 
-		NIH_MUST (new_list = nih_realloc (current_list, NULL,
+		new_list = NIH_MUST (nih_realloc (current_list, NULL,
 						  ((current_list_sz + 1)
 						   * sizeof (JobInfo *))));
 		current_list = new_list;
@@ -1364,7 +1364,7 @@ handle_event (void               *data,
 	for (ptr = args; ptr && *ptr; ptr++) {
 		char *new_msg;
 
-		NIH_MUST (new_msg = nih_realloc (msg, NULL, (strlen (msg)
+		new_msg = NIH_MUST (nih_realloc (msg, NULL, (strlen (msg)
 							     + strlen (*ptr)
 							     + 2)));
 		msg = new_msg;
@@ -1533,7 +1533,7 @@ env_option (NihOption  *option,
 
 		env = getenv (arg);
 		if (env) {
-			NIH_MUST (new_arg = nih_sprintf (NULL, "%s=%s",
+			new_arg = NIH_MUST (nih_sprintf (NULL, "%s=%s",
 							 arg, env));
 			NIH_MUST (nih_str_array_addp (value, NULL, NULL,
 						      new_arg));
