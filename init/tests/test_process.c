@@ -150,7 +150,7 @@ test_from_name (void)
 	TEST_FEATURE ("with invalid process");
 	process = process_from_name ("wibble");
 
-	TEST_EQ (process, -1);
+	TEST_EQ (process, (ProcessType)-1);
 }
 
 

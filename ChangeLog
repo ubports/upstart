@@ -1,5 +1,14 @@
 2009-03-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_process.c (test_from_name): Cast -1 to ProcessType
+	* init/tests/test_job_process.c (test_kill, test_handler): Cast -1
+	to ProcessType
+	* init/tests/test_job.c (test_new, test_change_state): Cast -1
+	to ProcessType
+	(test_goal_from_name): Cast -1 to JobGoal
+	(test_state_from_name): Cast -1 to JobState
+	* init/tests/test_control.c (test_bus_open): Add braces
+
 	* init/Makefile.am (tests): Add rule to build test cases
 	* util/Makefile.am (tests): Likewise
 

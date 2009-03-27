@@ -1169,7 +1169,7 @@ test_kill (void)
 		TEST_EQ (WTERMSIG (status), SIGKILL);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-		TEST_EQ (job->kill_process, -1);
+		TEST_EQ (job->kill_process, (ProcessType)-1);
 
 		nih_free (job);
 
@@ -1257,7 +1257,7 @@ test_handler (void)
 		TEST_EQ_P (job->blocker, NULL);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1319,7 +1319,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1420,7 +1420,7 @@ test_handler (void)
 		TEST_FREE (timer);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-		TEST_EQ (job->kill_process, -1);
+		TEST_EQ (job->kill_process, (ProcessType)-1);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
@@ -1448,7 +1448,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1504,7 +1504,7 @@ test_handler (void)
 		TEST_FREE (blocked);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1731,7 +1731,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -1816,7 +1816,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -1898,7 +1898,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test respawning too fast, "
@@ -1974,7 +1974,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -2054,7 +2054,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
@@ -2126,7 +2126,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2318,7 +2318,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -2394,7 +2394,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
@@ -2463,7 +2463,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2672,7 +2672,7 @@ test_handler (void)
 		TEST_FREE (blocked);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test post-start process (2) "
@@ -2745,7 +2745,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2805,7 +2805,7 @@ test_handler (void)
 		event_unblock (event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2864,7 +2864,7 @@ test_handler (void)
 		TEST_EQ_P (blocked->event, event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		job_process_handler (NULL, 2, NIH_CHILD_EXITED, 0);
@@ -2896,7 +2896,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3066,7 +3066,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: test pre-stop process (2) "
@@ -3139,7 +3139,7 @@ test_handler (void)
 		TEST_LIST_EMPTY (&job->blocker->blocking);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3198,7 +3198,7 @@ test_handler (void)
 		event_unblock (event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3277,7 +3277,7 @@ test_handler (void)
 		event_unblock (event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3350,7 +3350,7 @@ test_handler (void)
 		event_unblock (event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3419,7 +3419,7 @@ test_handler (void)
 		event_unblock (event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3488,7 +3488,7 @@ test_handler (void)
 		event_unblock (event);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3556,7 +3556,7 @@ test_handler (void)
 		TEST_FREE (blocked);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
