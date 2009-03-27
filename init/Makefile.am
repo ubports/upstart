@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DCONFDIR="\"$(initconfdir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
-	-I$(top_builddir) -I$(top_srcdir) -I$(srcdir) \
+	-I$(top_builddir) -I$(top_srcdir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
 
 

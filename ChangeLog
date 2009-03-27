@@ -1,3 +1,9 @@
+2009-03-27  Scott James Remnant  <scott@netsplit.com>
+
+	* init/Makefile.am (AM_CPPFLAGS): Use -iquote$(srcdir) instead of -I
+	since we only need it to pick those paths up.
+	* util/Makefile.am (AM_CPPFLAGS): Likewise.
+
 2009-02-20  Scott James Remnant  <scott@netsplit.com>
 
 	* util/initctl.c (handle_job_instance_end, handle_job_process)
