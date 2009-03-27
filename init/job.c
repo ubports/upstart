@@ -63,7 +63,7 @@
  *
  * Interfaces exported by job objects.
  **/
-const static NihDBusInterface *job_interfaces[] = {
+static const NihDBusInterface *job_interfaces[] = {
 	&com_ubuntu_Upstart_Instance,
 	NULL
 };
@@ -813,7 +813,8 @@ job_emit_event (Job *job)
 		 * if it was a respawn failure, we use the special "respawn"
 		 * argument instead of the process name,
 		 */
-		if ((job->failed_process != -1) && (job->exit_status != -1)) {
+		if ((job->failed_process != (ProcessType)-1)
+		    && (job->exit_status != -1)) {
 			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 					       "PROCESS=%s",
 					       process_name (job->failed_process)));
@@ -837,7 +838,7 @@ job_emit_event (Job *job)
 				NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 						       "EXIT_STATUS=%d", job->exit_status));
 			}
-		} else if (job->failed_process != -1) {
+		} else if (job->failed_process != (ProcessType)-1) {
 			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 					       "PROCESS=%s",
 					       process_name (job->failed_process)));

@@ -1,5 +1,12 @@
 2009-03-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_interfaces): Put static first
+	(job_emit_event): Cast -1 to ProcessType
+	(job_emit_event): Cast -1 to ProcessType
+	* init/job_class.c (job_class_interfaces): Put static first.
+	* init/job_process.c (job_process_kill_timer): Cast -1 to ProcessType
+	* init/control.c (manager_interfaces): Put static first
+
 	* init/Makefile.am (AM_CPPFLAGS): Use -iquote$(srcdir) instead of -I
 	since we only need it to pick those paths up.
 	* util/Makefile.am (AM_CPPFLAGS): Likewise.

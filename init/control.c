@@ -104,7 +104,7 @@ NihList *control_conns = NULL;
  *
  * Interfaces exported by the control manager object.
  **/
-const static NihDBusInterface *manager_interfaces[] = {
+static const NihDBusInterface *manager_interfaces[] = {
 	&com_ubuntu_Upstart,
 	NULL
 };
