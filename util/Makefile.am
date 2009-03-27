@@ -121,6 +121,8 @@ TESTS = \
 
 check_PROGRAMS = $(TESTS)
 
+tests: $(BUILT_SOURCES) $(check_PROGRAMS)
+
 test_initctl_SOURCES = tests/test_initctl.c initctl.c
 test_initctl_CFLAGS = -DTEST
 test_initctl_LDFLAGS = -static

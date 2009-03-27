@@ -1,5 +1,8 @@
 2009-03-27  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am (tests): Add rule to build test cases
+	* util/Makefile.am (tests): Likewise
+
 	* init/job.c (job_interfaces): Put static first
 	(job_emit_event): Cast -1 to ProcessType
 	(job_emit_event): Cast -1 to ProcessType

@@ -126,6 +126,8 @@ TESTS = \
 
 check_PROGRAMS = $(TESTS)
 
+tests: $(BUILT_SOURCES) $(check_PROGRAMS)
+
 test_system_SOURCES = tests/test_system.c
 test_system_LDFLAGS = -static
 test_system_LDADD = \
