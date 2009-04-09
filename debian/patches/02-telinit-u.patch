@@ -1,0 +1,14 @@
+Index: upstart/compat/sysv/telinit.c
+===================================================================
+--- upstart.orig/compat/sysv/telinit.c	2007-10-11 21:27:35.000000000 +0200
++++ upstart/compat/sysv/telinit.c	2009-03-12 04:10:09.000000000 +0100
+@@ -113,6 +113,9 @@
+ 				  NULL, UPSTART_INIT_DAEMON,
+ 				  UPSTART_EVENT_EMIT, "runlevel", args, NULL));
+ 		break;
++	case 'u':
++		kill (UPSTART_INIT_DAEMON, SIGTERM);
++		exit (0);
+ 	default:
+ 		/* Ignore other arguments */
+ 		exit (0);

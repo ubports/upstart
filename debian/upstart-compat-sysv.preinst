@@ -1,4 +1,7 @@
-#!/bin/sh -e
+#!/bin/sh
+
+set -e
+
 # This script can be called in the following ways:
 #
 # Before the package is installed:
@@ -43,10 +46,7 @@ prep_rm_obsolete_jobs()
 
 
 case "$1" in
-    install)
-    	;;
-
-    upgrade)
+    install|upgrade)
 	# Upgrade from previous versions
 	if dpkg --compare-versions "$2" lt "0.3.5-1"; then
 	    prep_rm_obsolete_jobs

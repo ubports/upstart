@@ -1,3 +1,32 @@
+upstart (0.3.9-2) unstable; urgency=low
+
+  * debian/control
+    - Bump Standards-Version to 3.8.1. No further changes.
+    - Update Vcs-* fields. Package is now managed with Git on git.debian.org.
+    - Bump Build-Depends on debhelper to (>= 7).
+  * debian/compat
+    - Bump debhelper compat level to 7.
+  * debian/rules
+    - Use dh_prep instead of dh_clean -k.
+    - Depend on $(QUILT_STAMPFN) instead of patch; patch is a phony target and
+      thus always out of date.
+    - Move $(QUILT_STAMPFN) dependency to config.status to avoid potential
+      issues with parallel make.
+  * debian/upstart-compat-sysv.preinst
+    - Remove obsolete conffiles also on (re)install.
+  * debian/patches/01-limits.patch
+    - Include limits.h to fix build failures with current glibc.
+      Patch taken from Ubuntu.
+  * debian/patches/02-telinit-u.patch
+    - Implement "telinit u" by sending Upstart SIGTERM.
+      Patch taken from Ubuntu.
+  * debian/patches/03-static-convenience-libs.patch
+    - Build libnih and libupstart as static convenience libraries.
+      Patch taken from Ubuntu.
+  * Use set -e instead of #!/bin/sh -e for all maintainer scripts.
+
+ -- Michael Biebl <biebl@debian.org>  Thu, 09 Apr 2009 02:33:04 +0200
+
 upstart (0.3.9-1) experimental; urgency=low
 
   * New upstream release.

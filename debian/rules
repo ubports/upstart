@@ -31,7 +31,7 @@ endif
 
 
 # Run the package configure script
-config.status: configure
+config.status: $(QUILT_STAMPFN) configure
 	./configure $(confflags) CFLAGS="$(CFLAGS)" \
 		--prefix=/usr \
 		--exec-prefix=/ \
@@ -44,7 +44,7 @@ config.status: configure
 
 # Build the package
 build: build-stamp
-build-stamp: patch config.status
+build-stamp: config.status
 	dh_testdir
 
 	$(MAKE)
@@ -54,7 +54,7 @@ build-stamp: patch config.status
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
+	dh_prep
 	dh_installdirs
 
 	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install

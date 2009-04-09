@@ -121,8 +121,8 @@ How do I change which runlevels gettys are run in?
 
 In /etc/event.d there is a file named ttyN for each getty that will be
 started, where N is numbered 1 to 6.  Edit these files, there are a
-series of lines of either "start on runlevel-N" or
-"stop on runlevel-N".
+series of lines of either "start on runlevel N" or
+"stop on runlevel N".
 
 Change "stop" to "start" or "start" to "stop" to match your taste.
 
@@ -163,8 +163,8 @@ you have the upstart-logd package installed.
 How can I log the boot messages?
 --------------------------------
 
-The default is to print the boot messages on stdout. If you want to 
-log the boot messages to /var/log/boot make sure to install the 
+The default is to print the boot messages on stdout. If you want to
+log the boot messages to /var/log/boot make sure to install the
 upstart-logd package and change "console output" to "console logged"
 for the relevant jobs in /etc/event.d.
 At the moment, the usage of upstart-logd is discouraged as it can have
@@ -174,9 +174,9 @@ negative side effects.
 Cryptsetup is not working anymore, why?
 ---------------------------------------
 
-If you have setup encrypted partitions which require input during 
-startup you should either make sure that /etc/event.d/rcS has a 
-"console output" line or alternatively add the following lines 
+If you have setup encrypted partitions which require input during
+startup you should either make sure that /etc/event.d/rcS has a
+"console output" line or alternatively add the following lines
 to /lib/cryptsetup/cryptdisks.functions:
 
     # Always output to console
@@ -199,7 +199,7 @@ works.
 If you are using an initramfs generator other than initramfs-tools you
 should use this option very carefully. There are for example known
 problems with yaird, which doesn't correctly pass the --debug option to
-init and as a consequence leads to a kernel panic. For more details 
+init and as a consequence leads to a kernel panic. For more details
 please see bug #416927.
 
 
@@ -266,5 +266,5 @@ Yes, "initctl events" will display them as they are emitted.
 Can I emit an event by hand?
 ----------------------------
 
-Yes, "initctl trigger EVENT" will emit the named event and cause any
+Yes, "initctl emit EVENT" will emit the named event and cause any
 jobs waiting for it to be started or stopped as appropriate.

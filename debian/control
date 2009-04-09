@@ -3,10 +3,10 @@ Section: admin
 Priority: extra
 Maintainer: Michael Biebl <biebl@debian.org>
 Uploaders: martin f. krafft <madduck@debian.org>
-Standards-Version: 3.7.2.1
-Build-Depends: debhelper (>= 5.0), quilt
-XS-Vcs-Svn: svn://svn.debian.org/svn/collab-maint/deb-maint/upstart/trunk
-XS-Vcs-Browser: http://svn.debian.org/wsvn/collab-maint/deb-maint/upstart/trunk
+Standards-Version: 3.8.1
+Build-Depends: debhelper (>= 7), quilt
+Vcs-Git: git://git.debian.org/git/collab-maint/upstart.git
+Vcs-Browser: http://git.debian.org/?p=collab-maint/upstart.git;a=summary
 Homepage: http://upstart.ubuntu.com/
 
 Package: upstart
