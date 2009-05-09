@@ -549,13 +549,10 @@ job_class_get_instance (JobClass        *class,
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
-			nih_local char *message = NULL;
-
-			message = NIH_MUST (nih_strdup (NULL, error->message));
-			nih_free (error);
-
+			error = nih_error_steal ();
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      message);
+					      error->message);
+			nih_free (error);
 		}
 
 		return -1;
@@ -734,13 +731,10 @@ job_class_start (JobClass        *class,
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
-			nih_local char *message = NULL;
-
-			message = NIH_MUST (nih_strdup (NULL, error->message));
-			nih_free (error);
-
+			error = nih_error_steal ();
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      message);
+					      error->message);
+			nih_free (error);
 		}
 
 		return -1;
@@ -848,13 +842,10 @@ job_class_stop (JobClass       *class,
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
-			nih_local char *message = NULL;
-
-			message = NIH_MUST (nih_strdup (NULL, error->message));
-			nih_free (error);
-
+			error = nih_error_steal ();
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      message);
+					      error->message);
+			nih_free (error);
 		}
 
 		return -1;
@@ -962,13 +953,10 @@ job_class_restart (JobClass        *class,
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
-			nih_local char *message = NULL;
-
-			message = NIH_MUST (nih_strdup (NULL, error->message));
-			nih_free (error);
-
+			error = nih_error_steal ();
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      message);
+					      error->message);
+			nih_free (error);
 		}
 
 		return -1;

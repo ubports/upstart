@@ -1,5 +1,9 @@
 2009-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_get_instance, job_class_start)
+	(job_class_stop, job_class_restart): Clean up the code by using
+	nih_error_steal()
+
 	* init/conf.c (conf_source_reload_file, conf_source_reload_dir): 
 	Steal the error that we stash instead of getting it, otherwise we'll
 	fail if another one occurs.
