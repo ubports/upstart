@@ -1,5 +1,9 @@
 2009-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_source_reload_file, conf_source_reload_dir): 
+	Steal the error that we stash instead of getting it, otherwise we'll
+	fail if another one occurs.
+
 	* init/conf.c (conf_reload_path): Simply return, no need to re-raise
 	the error.
 	* init/job_class.c (job_class_get_instance, job_class_start)

@@ -351,7 +351,7 @@ conf_source_reload_file (ConfSource *source)
 		if (source->watch) {
 			nih_io_set_cloexec (source->watch->fd);
 		} else {
-			err = nih_error_get ();
+			err = nih_error_steal ();
 		}
 	}
 
@@ -424,7 +424,7 @@ conf_source_reload_dir (ConfSource *source)
 			nih_io_set_cloexec (source->watch->fd);
 			return 0;
 		} else {
-			err = nih_error_get ();
+			err = nih_error_steal ();
 		}
 	}
 
