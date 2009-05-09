@@ -57,7 +57,7 @@ com_ubuntu_Upstart_XML = \
 
 $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) ../nih-dbus-tool/nih_dbus_tool.py
 	$(MAKE) -C ../nih-dbus-tool $(AM_MAKEFLAGS) nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
+	python $(top_builddir)/nih-dbus-tool/nih_dbus_tool.py \
 		--mode=object --prefix=control --output=$@ $<
 
 
@@ -70,7 +70,7 @@ com_ubuntu_Upstart_Job_XML = \
 
 $(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) ../nih-dbus-tool/nih_dbus_tool.py
 	$(MAKE) -C ../nih-dbus-tool $(AM_MAKEFLAGS) nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
+	python $(top_builddir)/nih-dbus-tool/nih_dbus_tool.py \
 		--mode=object --prefix=job_class --output=$@ $<
 
 
@@ -83,7 +83,7 @@ com_ubuntu_Upstart_Instance_XML = \
 
 $(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) ../nih-dbus-tool/nih_dbus_tool.py
 	$(MAKE) -C ../nih-dbus-tool $(AM_MAKEFLAGS) nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
+	python $(top_builddir)/nih-dbus-tool/nih_dbus_tool.py \
 		--mode=object --prefix=job --output=$@ $<
 
 
