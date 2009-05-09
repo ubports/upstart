@@ -738,10 +738,8 @@ conf_reload_path (ConfSource *source,
 	/* If we had any unknown error from parsing the file, raise it again
 	 * and return an error condition.
 	 */
-	if (err) {
-		nih_error_raise_again (err);
+	if (err)
 		return -1;
-	}
 
 	return 0;
 }

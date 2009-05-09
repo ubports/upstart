@@ -747,7 +747,7 @@ job_process_error_read (int fd)
 		nih_assert_not_reached ();
 	}
 
-	nih_error_raise_again (&err->error);
+	nih_error_raise_error (&err->error);
 	return -1;
 }
 

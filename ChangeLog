@@ -1,5 +1,14 @@
 2009-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_reload_path): Simply return, no need to re-raise
+	the error.
+	* init/job_class.c (job_class_get_instance, job_class_start)
+	(job_class_stop, job_class_restart): If not ENOMEM, we need to
+	re-raise the error as a D-Bus one, that means we now have to free
+	the old error first (saving the msssage)
+	* init/job_process.c (job_process_error_read): Replace call to
+	nih_error_raise_again() with nih_error_raise_error()
+
 	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
 	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
 	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Use the Python variant
