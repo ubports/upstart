@@ -191,3 +191,10 @@
   obj:/lib/libc-*.so
   fun:setenv
 }
+{
+  glibc-setenv
+  Memcheck:Leak
+  fun:realloc
+  obj:/lib/tls/i686/cmov/libc-*.so
+  fun:setenv
+}

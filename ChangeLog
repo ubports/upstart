@@ -1,5 +1,7 @@
 2009-05-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/init.supp: setenv on tls/i686/cmov
+
 	* init/job_class.c (job_class_get_instance, job_class_start)
 	(job_class_stop, job_class_restart): Clean up the code by using
 	nih_error_steal()
