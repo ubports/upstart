@@ -50,6 +50,7 @@
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_object.h>
+#include <nih-dbus/errors.h>
 
 #include "job_class.h"
 #include "job.h"
