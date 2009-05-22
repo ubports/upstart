@@ -1,3 +1,7 @@
+2009-05-22  Scott James Remnant  <scott@netsplit.com>
+
+	* COPYING: Change licence from GPL-2+ to GPL-3 only.
+
 2009-05-17  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c,
