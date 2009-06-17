@@ -1,5 +1,8 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac (AC_CONFIG_FILES): dbus goes before init just in case
+	we ever do anything to them later
+
 	* init/job_class.c (job_class_register, job_class_unregister): Update
 	name of signal functions that we call.
 	(job_class_interfaces): No need to declare this separately
