@@ -497,19 +497,22 @@ job_process_spawn (JobClass     *class,
 
 	/* Adjust the process OOM killer priority.
 	 */
-	snprintf (filename, sizeof (filename), "/proc/%d/oom_adj", getpid ());
+	if (class->oom_adj) {
+		snprintf (filename, sizeof (filename),
+			  "/proc/%d/oom_adj", getpid ());
 
-	fd = fopen (filename, "w");
-	if (! fd) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
-	}
+		fd = fopen (filename, "w");
+		if (! fd) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
+		} else {
+			fprintf (fd, "%d\n", class->oom_adj);
 
-	fprintf (fd, "%d\n", class->oom_adj);
-
-	if (fclose (fd)) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
+			if (fclose (fd)) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
+			}
+		}
 	}
 
 	/* Change the root directory, confining path resolution within it;

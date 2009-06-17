@@ -1,3 +1,9 @@
+2009-06-17  Jeff Oliver  <Jeffrey.Oliver@panasonic.aero>
+
+	* init/job_process.c (job_process_spawn): Only attempt to set
+	the OOM adjustment if set in the class, avoiding issue where /proc
+	is not mounted for the first job.
+	
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job_process.c (test_handler): Add test cases for a
