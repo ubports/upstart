@@ -3000,6 +3000,114 @@ test_handler (void)
 	class->process[PROCESS_POST_START] = NULL;
 
 
+	/* Check that we can handle the running process of a respawn job
+	 * exiting before the post-start process finishes.  This should
+	 * mark the job to be respawned when the post-start script finishes
+	 * instead of making any state change.
+	 */
+	TEST_FEATURE ("with respawn of running while post-start process");
+	class->respawn = TRUE;
+	class->respawn_limit = 5;
+	class->respawn_interval = 10;
+
+	class->process[PROCESS_POST_START] = process_new (class);
+	class->process[PROCESS_POST_START]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid[PROCESS_MAIN] = 1;
+		job->pid[PROCESS_POST_START] = 2;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_RESPAWN);
+		TEST_EQ (job->state, JOB_POST_START);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_POST_START], 2);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		job_process_handler (NULL, 2, NIH_CHILD_EXITED, 0);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_POST_START], 0);
+
+		TEST_EQ (job->respawn_count, 1);
+		TEST_LE (job->respawn_time, time (NULL));
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+		event_unblock (event);
+
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test main process ended, "
+				       "respawning\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	nih_free (class->process[PROCESS_POST_START]);
+	class->process[PROCESS_POST_START] = NULL;
+
+	class->respawn = FALSE;
+
+
 	/* Check that we can handle the pre-stop task of the job exiting, the
 	 * exit status should be ignored and the job transitioned into
 	 * the stopping state.  The pid of the job shouldn't be cleared,
@@ -3204,6 +3312,114 @@ test_handler (void)
 
 	nih_free (class->process[PROCESS_PRE_STOP]);
 	class->process[PROCESS_PRE_STOP] = NULL;
+
+
+	/* Check that we can handle the running process of a respawn job
+	 * exiting before the pre-stop process finishes.  This should
+	 * mark the job to be respawned when the pre-stop script finishes
+	 * instead of making any state change.
+	 */
+	TEST_FEATURE ("with respawn of running while pre-stop process");
+	class->respawn = TRUE;
+	class->respawn_limit = 5;
+	class->respawn_interval = 10;
+
+	class->process[PROCESS_PRE_STOP] = process_new (class);
+	class->process[PROCESS_PRE_STOP]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_STOP;
+		job->pid[PROCESS_MAIN] = 1;
+		job->pid[PROCESS_PRE_STOP] = 2;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_RESPAWN);
+		TEST_EQ (job->state, JOB_PRE_STOP);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_PRE_STOP], 2);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		job_process_handler (NULL, 2, NIH_CHILD_EXITED, 0);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_PRE_STOP], 0);
+
+		TEST_EQ (job->respawn_count, 1);
+		TEST_LE (job->respawn_time, time (NULL));
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+		event_unblock (event);
+
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: test main process ended, "
+				       "respawning\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	nih_free (class->process[PROCESS_PRE_STOP]);
+	class->process[PROCESS_PRE_STOP] = NULL;
+
+	class->respawn = FALSE;
 
 
 #if HAVE_VALGRIND_VALGRIND_H

@@ -241,6 +241,10 @@ job_change_goal (Job     *job,
 			job_change_state (job, job_next_state (job));
 
 		break;
+	case JOB_RESPAWN:
+		break;
+	default:
+		nih_assert_not_reached ();
 	}
 }
 
@@ -508,6 +512,8 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		case JOB_START:
 			return JOB_STARTING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_STARTING:
 		switch (job->goal) {
@@ -515,6 +521,8 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_PRE_START;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_PRE_START:
 		switch (job->goal) {
@@ -522,6 +530,8 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_SPAWNED;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_SPAWNED:
 		switch (job->goal) {
@@ -529,6 +539,8 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_POST_START;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_POST_START:
 		switch (job->goal) {
@@ -536,6 +548,11 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_RUNNING;
+		case JOB_RESPAWN:
+			job_change_goal (job, JOB_START);
+			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_RUNNING:
 		switch (job->goal) {
@@ -548,6 +565,8 @@ job_next_state (Job *job)
 			}
 		case JOB_START:
 			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_PRE_STOP:
 		switch (job->goal) {
@@ -555,6 +574,11 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_RUNNING;
+		case JOB_RESPAWN:
+			job_change_goal (job, JOB_START);
+			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_STOPPING:
 		switch (job->goal) {
@@ -562,6 +586,8 @@ job_next_state (Job *job)
 			return JOB_KILLED;
 		case JOB_START:
 			return JOB_KILLED;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_KILLED:
 		switch (job->goal) {
@@ -569,6 +595,8 @@ job_next_state (Job *job)
 			return JOB_POST_STOP;
 		case JOB_START:
 			return JOB_POST_STOP;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_POST_STOP:
 		switch (job->goal) {
@@ -576,6 +604,8 @@ job_next_state (Job *job)
 			return JOB_WAITING;
 		case JOB_START:
 			return JOB_STARTING;
+		default:
+			nih_assert_not_reached ();
 		}
 	default:
 		nih_assert_not_reached ();
@@ -907,6 +937,8 @@ job_goal_name (JobGoal goal)
 		return N_("stop");
 	case JOB_START:
 		return N_("start");
+	case JOB_RESPAWN:
+		return N_("respawn");
 	default:
 		return NULL;
 	}
@@ -929,6 +961,8 @@ job_goal_from_name (const char *goal)
 		return JOB_STOP;
 	} else if (! strcmp (goal, "start")) {
 		return JOB_START;
+	} else if (! strcmp (goal, "respawn")) {
+		return JOB_RESPAWN;
 	} else {
 		return -1;
 	}

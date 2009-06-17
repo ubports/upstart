@@ -44,7 +44,8 @@
  **/
 typedef enum job_goal {
 	JOB_STOP,
-	JOB_START
+	JOB_START,
+	JOB_RESPAWN
 } JobGoal;
 
 /**

@@ -1007,6 +1007,21 @@ job_process_terminated (Job         *job,
 			    || (job->state == JOB_POST_START)
 			    || (job->state == JOB_PRE_STOP));
 
+		/* We don't change the state if we're in post-start and there's
+		 * a post-start process running, or if we're in pre-stop and
+		 * there's a pre-stop process running; we wait for those to
+		 * finish instead.
+		 */
+		if ((job->state == JOB_POST_START)
+		    && job->class->process[PROCESS_POST_START]
+		    && (job->pid[PROCESS_POST_START] > 0)) {
+			state = FALSE;
+		} else if ((job->state == JOB_PRE_STOP)
+		    && job->class->process[PROCESS_PRE_STOP]
+		    && (job->pid[PROCESS_PRE_STOP] > 0)) {
+			state = FALSE;
+		}
+
 		/* Dying when we killed it is perfectly normal and never
 		 * considered a failure.  We also don't want to tamper with
 		 * the goal since we might be restarting the job anyway.
@@ -1049,24 +1064,18 @@ job_process_terminated (Job         *job,
 						  job_name (job),
 						  process_name (process));
 					failed = FALSE;
+
+					/* If we're not going to change the
+					 * state because there's a post-start
+					 * or pre-stop script running, we need
+					 * to remember to do it when that
+					 * finishes.
+					 */
+					if (! state)
+						job_change_goal (job, JOB_RESPAWN);
 					break;
 				}
 			}
-		}
-
-		/* We don't change the state if we're in post-start and there's
-		 * a post-start process running, or if we're in pre-stop and
-		 * there's a pre-stop process running; we wait for those to
-		 * finish instead.
-		 */
-		if ((job->state == JOB_POST_START)
-		    && job->class->process[PROCESS_POST_START]
-		    && (job->pid[PROCESS_POST_START] > 0)) {
-			state = FALSE;
-		} else if ((job->state == JOB_PRE_STOP)
-		    && job->class->process[PROCESS_PRE_STOP]
-		    && (job->pid[PROCESS_PRE_STOP] > 0)) {
-			state = FALSE;
 		}
 
 		/* Otherwise whether it's failed or not, we should

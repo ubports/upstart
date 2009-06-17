@@ -1,5 +1,21 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job_process.c (test_handler): Add test cases for a
+	respawning job failing while it's post-start or pre-stop processes
+	are still running while making sure that it still respawns afterwards.
+	* init/job_process.c (job_process_terminated): To fix it, check for
+	a running post-start or pre-stop process before checking for a the
+	respawn.  That's not enough because then we won't respawn when the
+	existing process finishes, so use the goal as a hint.
+	* init/job.c (job_next_state): Use that hint goal here, remembering
+	to set the goal back to JOB_START afterwards.
+	(job_change_goal): Nothing to do in the respawn case
+	(job_goal_name, job_goal_from_name): Add the new values
+	* init/job.h (job_goal): Add the respawn goal
+	* init/tests/test_job.c (test_next_state): Add tests for the respawn
+	goal
+	(test_goal_name, test_goal_from_name): Tests for the new values
+
 	* configure.ac (AC_CONFIG_FILES): dbus goes before init just in case
 	we ever do anything to them later
 

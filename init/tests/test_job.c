@@ -3910,6 +3910,17 @@ test_next_state (void)
 	TEST_EQ (job_next_state (job), JOB_RUNNING);
 
 
+	/* Check that the next state if we're respawning after a post-start
+	 * job is stopping with the goal changed.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of respawn");
+	job->goal = JOB_RESPAWN;
+	job->state = JOB_POST_START;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+	TEST_EQ (job->goal, JOB_START);
+
+
 	/* Check that the next state if we're stopping a running job is
 	 * pre-stop.  This is the "normal" stop process, as called from the
 	 * goal change event.
@@ -3964,6 +3975,17 @@ test_next_state (void)
 	job->state = JOB_PRE_STOP;
 
 	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're respawning after a pre-stop
+	 * job is stopping with the goal changed.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of respawn");
+	job->goal = JOB_RESPAWN;
+	job->state = JOB_PRE_STOP;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+	TEST_EQ (job->goal, JOB_START);
 
 
 	/* Check that the next state if we're starting a stopping job is
@@ -5445,6 +5467,13 @@ test_goal_name (void)
 	TEST_EQ_STR (name, "start");
 
 
+	/* Check that the JOB_RESPAWN goal returns the right string. */
+	TEST_FEATURE ("with respawn goal");
+	name = job_goal_name (JOB_RESPAWN);
+
+	TEST_EQ_STR (name, "respawn");
+
+
 	/* Check that an invalid goal returns NULL. */
 	TEST_FEATURE ("with invalid goal");
 	name = job_goal_name (1234);
@@ -5471,6 +5500,13 @@ test_goal_from_name (void)
 	goal = job_goal_from_name ("start");
 
 	TEST_EQ (goal, JOB_START);
+
+
+	/* Check that the JOB_RESPAWN goal is returned for the right string. */
+	TEST_FEATURE ("with respawn goal");
+	goal = job_goal_from_name ("respawn");
+
+	TEST_EQ (goal, JOB_RESPAWN);
 
 
 	/* Check that -1 is returned for an invalid string. */
