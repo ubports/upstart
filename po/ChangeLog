@@ -1,3 +1,7 @@
+2009-06-17  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Update from libnih, don't include generated output
+
 2009-02-20  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Update path to nih-dbus-tool
