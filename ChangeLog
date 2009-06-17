@@ -1,5 +1,7 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/Upstart.conf: Allow root to obtain properties
+
 	* dbus/com.ubuntu.Upstart.Instance.xml: Add name, goal and state
 	properties to the instance
 	* init/job.c (job_get_name, job_get_goal, job_get_state): Add methods
