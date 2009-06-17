@@ -3,9 +3,10 @@
   "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
   "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 
-<node name="/com/ubuntu/Upstart/jobs/*"
-      xmlns:nih="http://www.netsplit.com/nih/dbus">
+<node>
   <interface name="com.ubuntu.Upstart.Job">
+    <annotation name="com.netsplit.Nih.Symbol" value="" />
+
     <!-- Get object paths for instances, while you can figure these out too,
          it's still better form to use these -->
     <method name="GetInstance">
@@ -30,14 +31,17 @@
 
     <!-- Job control; the environment arguments are used for both instance
          selection and for passing environment to the processes of the job. -->
-    <method name="Start" nih:object="async">
+    <method name="Start">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="env" type="as" direction="in" />
       <arg name="instance" type="o" direction="out" />
     </method>
-    <method name="Stop" nih:object="async">
+    <method name="Stop">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="env" type="as" direction="in" />
     </method>
-    <method name="Restart" nih:object="async">
+    <method name="Restart">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="env" type="as" direction="in" />
       <arg name="instance" type="o" direction="out" />
     </method>

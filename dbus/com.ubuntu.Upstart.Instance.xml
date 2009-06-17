@@ -3,16 +3,20 @@
   "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
   "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 
-<node name="/com/ubuntu/Upstart/jobs/*/*"
-      xmlns:nih="http://www.netsplit.com/nih/dbus">
+<node>
   <interface name="com.ubuntu.Upstart.Instance">
+    <annotation name="com.netsplit.Nih.Symbol" value="" />
+
     <!-- Methods to directly control instances.  Unlike the equivalent methods
          for a Job, these are not permitted to pass or set environment. -->
-    <method name="Start" nih:object="async">
+    <method name="Start">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
     </method>
-    <method name="Stop" nih:object="async">
+    <method name="Stop">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
     </method>
-    <method name="Restart" nih:object="async">
+    <method name="Restart">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
     </method>
   </interface>
 </node>

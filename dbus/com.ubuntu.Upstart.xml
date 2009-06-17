@@ -3,9 +3,10 @@
   "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
   "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 
-<node name="/com/ubuntu/Upstart"
-      xmlns:nih="http://www.netsplit.com/nih/dbus">
+<node name="/com/ubuntu/Upstart">
   <interface name="com.ubuntu.Upstart">
+    <annotation name="com.netsplit.Nih.Symbol" value="" />
+
     <!-- Reload all configuration sources -->
     <method name="ReloadConfiguration">
     </method>
@@ -29,7 +30,8 @@
     </signal>
 
     <!-- Event emission -->
-    <method name="EmitEvent" nih:object="async">
+    <method name="EmitEvent">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="name" type="s" direction="in" />
       <arg name="env" type="as" direction="in" />
     </method>

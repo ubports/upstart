@@ -1,3 +1,20 @@
+2009-06-17  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/com.ubuntu.Upstart.xml,
+	* dbus/com.ubuntu.Upstart.Job.xml,
+	* dbus/com.ubuntu.Upstart.Instance.xml: Use annotation to mark the
+	methods as async, rather than a namespaced attribute.  Omit the
+	interface symbol.
+	* init/Makefile.am (AM_CPPFLAGS): Add builddir to the quoted includes
+	(init_SOURCES): Don't distribute the auto-generated outputs
+	($(com_ubuntu_Upstart_OUTPUTS))
+	($(com_ubuntu_Upstart_Job_OUTPUTS))
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Generate using the new
+	binary tool.
+	(BUILT_SOURCES): Remind myself why these are BUILT_SOURCES
+	(MAINTAINERCLEANFILES): Change to ordinary CLEANFILES
+	(EXTRA_DIST): outputs aren't distributed
+
 2009-05-22  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_conf.c: Remove nih/inotify.h include

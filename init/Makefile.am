@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DCONFDIR="\"$(initconfdir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
-	-I$(top_builddir) -I$(top_srcdir) -iquote$(srcdir) \
+	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
 
 
@@ -36,10 +36,11 @@ init_SOURCES = \
 	parse_conf.c parse_conf.h \
 	conf.c conf.h \
 	control.c control.h \
+	errors.h
+nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
-	$(com_ubuntu_Upstart_Instance_OUTPUTS) \
-	errors.h
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 init_LDADD = \
 	../nih/libnih.la \
@@ -55,9 +56,8 @@ com_ubuntu_Upstart_OUTPUTS = \
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
-$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) ../nih-dbus-tool/nih_dbus_tool.py
-	$(MAKE) -C ../nih-dbus-tool $(AM_MAKEFLAGS) nih-dbus-tool
-	python $(top_builddir)/nih-dbus-tool/nih_dbus_tool.py \
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
+	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
 		--mode=object --prefix=control --output=$@ $<
 
 
@@ -68,9 +68,8 @@ com_ubuntu_Upstart_Job_OUTPUTS = \
 com_ubuntu_Upstart_Job_XML = \
 	../dbus/com.ubuntu.Upstart.Job.xml
 
-$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) ../nih-dbus-tool/nih_dbus_tool.py
-	$(MAKE) -C ../nih-dbus-tool $(AM_MAKEFLAGS) nih-dbus-tool
-	python $(top_builddir)/nih-dbus-tool/nih_dbus_tool.py \
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)  $(top_builddir)/nih-dbus-tool/nih-dbus-tool
+	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
 		--mode=object --prefix=job_class --output=$@ $<
 
 
@@ -81,28 +80,26 @@ com_ubuntu_Upstart_Instance_OUTPUTS = \
 com_ubuntu_Upstart_Instance_XML = \
 	../dbus/com.ubuntu.Upstart.Instance.xml
 
-$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) ../nih-dbus-tool/nih_dbus_tool.py
-	$(MAKE) -C ../nih-dbus-tool $(AM_MAKEFLAGS) nih-dbus-tool
-	python $(top_builddir)/nih-dbus-tool/nih_dbus_tool.py \
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
+	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
 		--mode=object --prefix=job --output=$@ $<
 
 
+# These have to be built sources because we can't compile object files
+# without the header file existing first
 BUILT_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
-MAINTAINERCLEANFILES = \
+CLEANFILES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 EXTRA_DIST = \
-	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_XML) \
-	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_XML) \
-	$(com_ubuntu_Upstart_Instance_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_XML)
 
 
