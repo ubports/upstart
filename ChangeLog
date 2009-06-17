@@ -1,3 +1,10 @@
+2009-06-17  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/Upstart.conf: Update the D-Bus configuration based on newer
+	D-Bus recommended practice with a proper deny-by-default D-Bus,
+	making sure to not use send_interface without send_destination.
+	Allow introspection as well.
+
 2009-06-17  Jeff Oliver  <Jeffrey.Oliver@panasonic.aero>
 
 	* init/job_process.c (job_process_spawn): Only attempt to set
