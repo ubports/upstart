@@ -159,6 +159,14 @@
 
 	* initctl events no longer exists
 
+0.3.10 2009-06-17  "Two minutes to Belgium"
+
+	* Compilation fixes
+
+	* Fixed assertion caused by the post-start or pre-stop scripts
+	  exiting after the main process of a respawning job had exited
+	  (Bug: #381048)
+
 0.3.9  2007-10-11  "Highway to the Danger Zone"
 
 	* Fixed crasher caused by starting a job with a no-arguments event.
