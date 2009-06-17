@@ -1078,7 +1078,7 @@ test_get_instance (void)
 			job = job_new (class, "");
 
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 
 			env = nih_str_array_new (message);
@@ -1114,7 +1114,7 @@ test_get_instance (void)
 	class = job_class_new (NULL, "test");
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
+	message->connection = NULL;
 	message->message = NULL;
 
 	env = nih_str_array_new (message);
@@ -1148,7 +1148,7 @@ test_get_instance (void)
 			job = job_new (class, "wibble");
 
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 
 			env = nih_str_array_new (message);
@@ -1192,7 +1192,7 @@ test_get_instance (void)
 	job = job_new (class, "wibble");
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
+	message->connection = NULL;
 	message->message = NULL;
 
 	env = nih_str_array_new (message);
@@ -1242,7 +1242,7 @@ test_get_instance_by_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1282,7 +1282,7 @@ test_get_instance_by_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1319,7 +1319,7 @@ test_get_instance_by_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1375,7 +1375,7 @@ test_get_all_instances (void)
 
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1429,7 +1429,7 @@ test_get_all_instances (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1509,7 +1509,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1589,7 +1589,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1673,7 +1673,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1726,7 +1726,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1811,7 +1811,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1902,7 +1902,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1970,7 +1970,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2021,7 +2021,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2075,7 +2075,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2149,7 +2149,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2239,7 +2239,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2318,7 +2318,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2369,7 +2369,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2423,7 +2423,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -2518,7 +2518,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);

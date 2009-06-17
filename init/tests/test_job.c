@@ -5700,7 +5700,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -5768,7 +5768,7 @@ test_start (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -5858,7 +5858,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -5920,7 +5920,7 @@ test_stop (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -6008,7 +6008,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -6079,7 +6079,7 @@ test_restart (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);

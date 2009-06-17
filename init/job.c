@@ -57,17 +57,6 @@
 
 
 /**
- * job_interfaces:
- *
- * Interfaces exported by job objects.
- **/
-static const NihDBusInterface *job_interfaces[] = {
-	&com_ubuntu_Upstart_Instance,
-	NULL
-};
-
-
-/**
  * job_new:
  * @class: class of job,
  * @name: name for new instance.
@@ -188,8 +177,8 @@ job_register (Job            *job,
 	nih_debug ("Registered instance %s", job->path);
 
 	if (signal)
-		NIH_ZERO (job_class_instance_added (conn, job->class->path,
-						    job->path));
+		NIH_ZERO (job_class_emit_instance_added (conn, job->class->path,
+							 job->path));
 }
 
 
@@ -475,7 +464,7 @@ job_change_state (Job      *job,
 					NihListEntry   *entry = (NihListEntry *)iter;
 					DBusConnection *conn = (DBusConnection *)entry->data;
 
-					NIH_ZERO (job_class_instance_removed (
+					NIH_ZERO (job_class_emit_instance_removed (
 							  conn,
 							  job->class->path,
 							  job->path));

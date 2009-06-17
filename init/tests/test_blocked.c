@@ -101,7 +101,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);
@@ -138,7 +138,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);
@@ -176,7 +176,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);
@@ -214,7 +214,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);
@@ -252,7 +252,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);
@@ -290,7 +290,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);
@@ -328,7 +328,7 @@ test_new (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 		TEST_FREE_TAG (message);

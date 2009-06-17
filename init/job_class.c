@@ -109,17 +109,6 @@ NihHash *job_classes = NULL;
 
 
 /**
- * job_class_interfaces:
- *
- * Interfaces exported by job class objects.
- **/
-static const NihDBusInterface *job_class_interfaces[] = {
-	&com_ubuntu_Upstart_Job,
-	NULL
-};
-
-
-/**
  * job_class_init:
  *
  * Initialise the job classes hash table.
@@ -396,7 +385,7 @@ job_class_register (JobClass       *class,
 	nih_debug ("Registered job %s", class->path);
 
 	if (signal)
-		NIH_ZERO (control_job_added (conn, CONTROL_ROOT, class->path));
+		NIH_ZERO (control_emit_job_added (conn, CONTROL_ROOT, class->path));
 
 	NIH_HASH_FOREACH (class->instances, iter) {
 		Job *job = (Job *)iter;
@@ -426,7 +415,7 @@ job_class_unregister (JobClass       *class,
 
 	nih_debug ("Unregistered job %s", class->path);
 
-	NIH_ZERO (control_job_removed (conn, CONTROL_ROOT, class->path));
+	NIH_ZERO (control_emit_job_removed (conn, CONTROL_ROOT, class->path));
 }
 
 

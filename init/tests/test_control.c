@@ -920,7 +920,7 @@ test_reload_configuration (void)
 
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = NULL;
+	message->connection = NULL;
 	message->message = NULL;
 
 	ret = control_reload_configuration (NULL, message);
@@ -981,7 +981,7 @@ test_get_job_by_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1015,7 +1015,7 @@ test_get_job_by_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1044,7 +1044,7 @@ test_get_job_by_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1099,7 +1099,7 @@ test_get_all_jobs (void)
 
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1153,7 +1153,7 @@ test_get_all_jobs (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = NULL;
+			message->connection = NULL;
 			message->message = NULL;
 		}
 
@@ -1227,7 +1227,7 @@ test_emit_event (void)
 
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = conn;
+			message->connection = conn;
 			message->message = method;
 
 			TEST_FREE_TAG (message);
@@ -1301,7 +1301,7 @@ test_emit_event (void)
 
 		TEST_ALLOC_SAFE {
 			message = nih_new (NULL, NihDBusMessage);
-			message->conn = conn;
+			message->connection = conn;
 			message->message = method;
 
 			TEST_FREE_TAG (message);
@@ -1379,7 +1379,7 @@ test_emit_event (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	TEST_FREE_TAG (message);
@@ -1438,7 +1438,7 @@ test_emit_event (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	env = nih_str_array_new (message);
@@ -1475,7 +1475,7 @@ test_emit_event (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	env = nih_str_array_new (message);
@@ -1513,7 +1513,7 @@ test_emit_event (void)
 	assert (dbus_message_get_serial (method) == serial);
 
 	message = nih_new (NULL, NihDBusMessage);
-	message->conn = conn;
+	message->connection = conn;
 	message->message = method;
 
 	env = nih_str_array_new (message);

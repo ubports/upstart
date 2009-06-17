@@ -1,5 +1,20 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.c (job_class_register, job_class_unregister): Update
+	name of signal functions that we call.
+	(job_class_interfaces): No need to declare this separately
+	* init/job.c (job_register, job_change_state): Update name of signal
+	functions.
+	(job_interfaces): Drop, it comes from the generated header now
+	* init/control.c (manager_interfaces): Drop, comes from the header
+	as control_interfaces
+	(control_register_all): Change array name
+	* init/tests/test_job_class.c,
+	* init/tests/test_job.c,
+	* init/tests/test_control.c,
+	* init/tests/test_blocked.c: Rename conn member of NihDBusMessage
+	to connection
+
 	* dbus/com.ubuntu.Upstart.xml,
 	* dbus/com.ubuntu.Upstart.Job.xml,
 	* dbus/com.ubuntu.Upstart.Instance.xml: Use annotation to mark the

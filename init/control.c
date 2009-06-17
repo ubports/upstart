@@ -98,17 +98,6 @@ NihList *control_conns = NULL;
 
 
 /**
- * manager_interfaces:
- *
- * Interfaces exported by the control manager object.
- **/
-static const NihDBusInterface *manager_interfaces[] = {
-	&com_ubuntu_Upstart,
-	NULL
-};
-
-
-/**
  * control_init:
  *
  * Initialise the control connections list.
@@ -337,7 +326,7 @@ control_register_all (DBusConnection *conn)
 	 * to let this object be tied to the lifetime of the connection.
 	 */
 	NIH_MUST (nih_dbus_object_new (NULL, conn, CONTROL_ROOT,
-				       manager_interfaces, NULL));
+				       control_interfaces, NULL));
 
 	/* Register objects for each currently registered job and its
 	 * instances.
