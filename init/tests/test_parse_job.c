@@ -4306,11 +4306,49 @@ test_stanza_respawn (void)
 	nih_free (err);
 
 
+	/* Check that a respawn limit stanza with a too-large interval
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and too-large interval argument");
+	strcpy (buf, "respawn limit 10 10000000000000000000\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
+	TEST_EQ (pos, 17);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
 	/* Check that a respawn limit stanza with a non-integer limit
 	 * argument results in a syntax error.
 	 */
 	TEST_FEATURE ("with limit and non-integer limit argument");
 	strcpy (buf, "respawn limit foo 120\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a respawn limit stanza with a too-large limit
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with limit and too-large limit argument");
+	strcpy (buf, "respawn limit 10000000000000000000 120\n");
 
 	pos = 0;
 	lineno = 1;
@@ -4787,6 +4825,25 @@ test_stanza_kill (void)
 	 */
 	TEST_FEATURE ("with timeout and non-integer argument");
 	strcpy (buf, "kill timeout foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill timeout stanza with a too-large argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with timeout and too-large argument");
+	strcpy (buf, "kill timeout 10000000000000000000\n");
 
 	pos = 0;
 	lineno = 1;
@@ -7156,6 +7213,44 @@ test_stanza_limit (void)
 	 */
 	TEST_FEATURE ("with non-integer soft value argument");
 	strcpy (buf, "limit core foo 20\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a limit stanza with a too-large hard value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with too-large hard value argument");
+	strcpy (buf, "limit core 10 20000000000000000000\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_LIMIT);
+	TEST_EQ (pos, 14);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a limit stanza with a too-large soft value
+	 * argument results in a syntax error.
+	 */
+	TEST_FEATURE ("with too-large soft value argument");
+	strcpy (buf, "limit core 20000000000000000000 20\n");
 
 	pos = 0;
 	lineno = 1;

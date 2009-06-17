@@ -1,5 +1,15 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* init/parse_job.c (stanza_kill, stanza_respawn, stanza_nice)
+	(stanza_oom): Check errno after using strtol() to avoid overflows.
+	(stanza_normal, stanza_umask, stanza_limit): Also check with
+	strtoul() too
+	* init/tests/test_parse_job.c (test_stanza_kill)
+	(test_stanza_respawn): Add test cases for the two that don't
+	check for overflow already.
+	(test_stanza_limit): Add test for the too large case where we don't
+	already cope.
+
 	* dbus/Upstart.conf: Allow root to obtain properties
 
 	* dbus/com.ubuntu.Upstart.Instance.xml: Add name, goal and state

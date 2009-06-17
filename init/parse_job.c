@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1733,8 +1734,9 @@ stanza_kill (JobClass        *class,
 		if (! timearg)
 			goto finish;
 
+		errno = 0;
 		class->kill_timeout = strtol (timearg, &endptr, 10);
-		if (*endptr || (class->kill_timeout < 0))
+		if (errno || *endptr || (class->kill_timeout < 0))
 			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
 					  _(PARSE_ILLEGAL_INTERVAL_STR));
 
@@ -1821,8 +1823,9 @@ stanza_respawn (JobClass        *class,
 		if (strcmp (limitarg, "unlimited")) {
 			nih_local char *timearg = NULL;
 
+			errno = 0;
 			class->respawn_limit = strtol (limitarg, &endptr, 10);
-			if (*endptr || (class->respawn_limit < 0))
+			if (errno || *endptr || (class->respawn_limit < 0))
 				nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
 						  _(PARSE_ILLEGAL_LIMIT_STR));
 
@@ -1837,8 +1840,9 @@ stanza_respawn (JobClass        *class,
 			if (! timearg)
 				goto finish;
 
+			errno = 0;
 			class->respawn_interval = strtol (timearg, &endptr, 10);
-			if (*endptr || (class->respawn_interval < 0))
+			if (errno || *endptr || (class->respawn_interval < 0))
 				nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
 						  _(PARSE_ILLEGAL_INTERVAL_STR));
 		} else {
@@ -1924,8 +1928,9 @@ stanza_normal (JobClass        *class,
 
 			signum = nih_signal_from_name (exitarg);
 			if (signum < 0) {
+				errno = 0;
 				status = strtoul (exitarg, &endptr, 10);
-				if (*endptr || (status > INT_MAX))
+				if (errno || *endptr || (status > INT_MAX))
 					nih_return_error (-1, PARSE_ILLEGAL_EXIT,
 							  _(PARSE_ILLEGAL_EXIT_STR));
 			} else {
@@ -2110,8 +2115,9 @@ stanza_umask (JobClass        *class,
 	if (! arg)
 		goto finish;
 
+	errno = 0;
 	class->umask = (mode_t)strtoul (arg, &endptr, 8);
-	if (*endptr || (class->umask & ~0777))
+	if (errno || *endptr || (class->umask & ~0777))
 		nih_return_error (-1, PARSE_ILLEGAL_UMASK,
 				  _(PARSE_ILLEGAL_UMASK_STR));
 
@@ -2164,8 +2170,9 @@ stanza_nice (JobClass        *class,
 	if (! arg)
 		goto finish;
 
+	errno = 0;
 	class->nice = (int)strtol (arg, &endptr, 10);
-	if (*endptr || (class->nice < -20) || (class->nice > 19))
+	if (errno || *endptr || (class->nice < -20) || (class->nice > 19))
 		nih_return_error (-1, PARSE_ILLEGAL_NICE,
 				  _(PARSE_ILLEGAL_NICE_STR));
 
@@ -2221,8 +2228,9 @@ stanza_oom (JobClass        *class,
 	if (! strcmp (arg, "never")) {
 		class->oom_adj = -17;
 	} else {
+		errno = 0;
 		class->oom_adj = (int)strtol (arg, &endptr, 10);
-		if (*endptr || (class->oom_adj < -17) || (class->oom_adj > 15))
+		if (errno || *endptr || (class->oom_adj < -17) || (class->oom_adj > 15))
 			nih_return_error (-1, PARSE_ILLEGAL_OOM,
 					  _(PARSE_ILLEGAL_OOM_STR));
 	}
@@ -2328,9 +2336,10 @@ stanza_limit (JobClass        *class,
 		goto finish;
 
 	if (strcmp (softarg, "unlimited")) {
+		errno = 0;
 		class->limits[resource]->rlim_cur = strtoul (softarg, &endptr,
 							     10);
-		if (*endptr)
+		if (errno || *endptr)
 			nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
 					  _(PARSE_ILLEGAL_LIMIT_STR));
 	} else {
@@ -2348,9 +2357,10 @@ stanza_limit (JobClass        *class,
 		goto finish;
 
 	if (strcmp (hardarg, "unlimited")) {
+		errno = 0;
 		class->limits[resource]->rlim_max = strtoul (hardarg, &endptr,
 							     10);
-		if (*endptr)
+		if (errno || *endptr)
 			nih_return_error (-1, PARSE_ILLEGAL_LIMIT,
 					  _(PARSE_ILLEGAL_LIMIT_STR));
 	} else {
