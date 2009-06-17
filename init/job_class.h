@@ -203,6 +203,23 @@ int         job_class_restart              (JobClass *class,
 					    char * const *env)
 	__attribute__ ((warn_unused_result));
 
+int         job_class_get_name             (JobClass *class,
+					    NihDBusMessage *message,
+					    char **name)
+	__attribute__ ((warn_unused_result));
+int         job_class_get_description      (JobClass *class,
+					    NihDBusMessage *message,
+					    char **description)
+	__attribute__ ((warn_unused_result));
+int         job_class_get_author           (JobClass *class,
+					    NihDBusMessage *message,
+					    char **author)
+	__attribute__ ((warn_unused_result));
+int         job_class_get_version          (JobClass *class,
+					    NihDBusMessage *message,
+					    char **version)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */

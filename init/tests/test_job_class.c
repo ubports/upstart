@@ -2557,6 +2557,341 @@ test_restart (void)
 }
 
 
+void
+test_get_name (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class;
+	NihError       *error;
+	char           *name;
+	int             ret;
+
+	/* Check that the name of the job class is returned from the
+	 * property, as a child of the message.
+	 */
+	TEST_FUNCTION ("job_class_get_name");
+	nih_error_init ();
+	job_class_init ();
+
+	class = job_class_new (NULL, "test");
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		name = NULL;
+
+		ret = job_class_get_name (class, message, &name);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (name, message);
+		TEST_EQ_STR (name, "test");
+
+		nih_free (message);
+	}
+
+	nih_free (class);
+}
+
+void
+test_get_description (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class;
+	NihError       *error;
+	char           *description;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_description");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the description of the job class is returned from the
+	 * property, as a child of the message.
+	 */
+	TEST_FEATURE ("with description");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->description = nih_strdup (class, "a test job");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		description = NULL;
+
+		ret = job_class_get_description (class, message, &description);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (description, message);
+		TEST_EQ_STR (description, "a test job");
+
+		nih_free (message);
+
+		nih_free (class);
+	}
+
+
+	/* Check that when there is no description, the empty string is
+	 * returned instead.
+	 */
+	TEST_FEATURE ("with no description");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		description = NULL;
+
+		ret = job_class_get_description (class, message, &description);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (description, message);
+		TEST_EQ_STR (description, "");
+
+		nih_free (message);
+
+		nih_free (class);
+	}
+}
+
+void
+test_get_author (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class;
+	NihError       *error;
+	char           *author;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_author");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the author of the job class is returned from the
+	 * property, as a child of the message.
+	 */
+	TEST_FEATURE ("with author");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->author = nih_strdup (class, "a test job");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		author = NULL;
+
+		ret = job_class_get_author (class, message, &author);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (author, message);
+		TEST_EQ_STR (author, "a test job");
+
+		nih_free (message);
+
+		nih_free (class);
+	}
+
+
+	/* Check that when there is no author, the empty string is
+	 * returned instead.
+	 */
+	TEST_FEATURE ("with no author");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		author = NULL;
+
+		ret = job_class_get_author (class, message, &author);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (author, message);
+		TEST_EQ_STR (author, "");
+
+		nih_free (message);
+
+		nih_free (class);
+	}
+}
+
+void
+test_get_version (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class;
+	NihError       *error;
+	char           *version;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_version");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the version of the job class is returned from the
+	 * property, as a child of the message.
+	 */
+	TEST_FEATURE ("with version");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->version = nih_strdup (class, "a test job");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		version = NULL;
+
+		ret = job_class_get_version (class, message, &version);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (version, message);
+		TEST_EQ_STR (version, "a test job");
+
+		nih_free (message);
+
+		nih_free (class);
+	}
+
+
+	/* Check that when there is no version, the empty string is
+	 * returned instead.
+	 */
+	TEST_FEATURE ("with no version");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		version = NULL;
+
+		ret = job_class_get_version (class, message, &version);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (version, message);
+		TEST_EQ_STR (version, "");
+
+		nih_free (message);
+
+		nih_free (class);
+	}
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -2575,6 +2910,11 @@ main (int   argc,
 	test_start ();
 	test_stop ();
 	test_restart ();
+
+	test_get_name ();
+	test_get_description ();
+	test_get_author ();
+	test_get_version ();
 
 	return 0;
 }

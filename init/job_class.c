@@ -988,3 +988,138 @@ job_class_restart (JobClass        *class,
 
 	return 0;
 }
+
+
+/**
+ * job_class_get_name:
+ * @class: class to obtain name from,
+ * @message: D-Bus connection and message received,
+ * @name: pointer for reply string.
+ *
+ * Implements the get method for the name property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the name of the given @class, which will be stored in
+ * @name.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_name (JobClass        *class,
+		    NihDBusMessage  *message,
+		    char           **name)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
+
+	*name = class->name;
+	nih_ref (*name, message);
+
+	return 0;
+}
+
+/**
+ * job_class_get_description:
+ * @class: class to obtain name from,
+ * @message: D-Bus connection and message received,
+ * @description: pointer for reply string.
+ *
+ * Implements the get method for the description property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the description of the given @class, which will be stored
+ * in @description.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_description (JobClass        *class,
+			   NihDBusMessage  *message,
+			   char           **description)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (description != NULL);
+
+	if (class->description) {
+		*description = class->description;
+		nih_ref (*description, message);
+	} else {
+		*description = nih_strdup (message, "");
+		if (! *description)
+			nih_return_no_memory_error (-1);
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_get_author:
+ * @class: class to obtain name from,
+ * @message: D-Bus connection and message received,
+ * @author: pointer for reply string.
+ *
+ * Implements the get method for the author property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the author of the given @class, which will be stored
+ * in @author.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_author (JobClass        *class,
+			   NihDBusMessage  *message,
+			   char           **author)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (author != NULL);
+
+	if (class->author) {
+		*author = class->author;
+		nih_ref (*author, message);
+	} else {
+		*author = nih_strdup (message, "");
+		if (! *author)
+			nih_return_no_memory_error (-1);
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_get_version:
+ * @class: class to obtain name from,
+ * @message: D-Bus connection and message received,
+ * @version: pointer for reply string.
+ *
+ * Implements the get method for the version property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the version of the given @class, which will be stored
+ * in @version.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_version (JobClass        *class,
+			   NihDBusMessage  *message,
+			   char           **version)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (version != NULL);
+
+	if (class->version) {
+		*version = class->version;
+		nih_ref (*version, message);
+	} else {
+		*version = nih_strdup (message, "");
+		if (! *version)
+			nih_return_no_memory_error (-1);
+	}
+
+	return 0;
+}

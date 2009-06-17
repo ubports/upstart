@@ -45,5 +45,11 @@
       <arg name="env" type="as" direction="in" />
       <arg name="instance" type="o" direction="out" />
     </method>
+
+    <!-- Basic information about a Job -->
+    <property name="name" type="s" access="read" />
+    <property name="description" type="s" access="read" />
+    <property name="author" type="s" access="read" />
+    <property name="version" type="s" access="read" />
   </interface>
 </node>

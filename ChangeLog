@@ -1,5 +1,12 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Job.xml: Add name, description, author
+	and version properties to the job
+	* init/job_class.c (job_class_get_name)
+	(job_class_get_description, job_class_get_author)
+	(job_class_get_version): Add methods to return the property values.
+	* init/job_class.h: Add prototypes
+
 	* init/job_process.c (job_process_error_abort): Don't abort() from
 	a child process, it confuses people; just exit with an interesting
 	error code (which we ignore anyway).
