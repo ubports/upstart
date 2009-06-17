@@ -1,5 +1,9 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_error_abort): Don't abort() from
+	a child process, it confuses people; just exit with an interesting
+	error code (which we ignore anyway).
+
 	* dbus/Upstart.conf: Update the D-Bus configuration based on newer
 	D-Bus recommended practice with a proper deny-by-default D-Bus,
 	making sure to not use send_interface without send_destination.

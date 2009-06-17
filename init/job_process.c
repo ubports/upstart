@@ -572,7 +572,7 @@ job_process_spawn (JobClass     *class,
  * and the currently raised NihError to the writing end of the pipe specified
  * by @fd.
  *
- * This function calls the abort() system call, so never returns.
+ * This function calls the exit() system call, so never returns.
  **/
 static void
 job_process_error_abort (int                 fd,
@@ -596,7 +596,7 @@ job_process_error_abort (int                 fd,
 	while (write (fd, &wire_err, sizeof (wire_err)) < 0)
 		;
 
-	abort ();
+	exit (255);
 }
 
 /**
