@@ -1,5 +1,13 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Instance.xml: Add name, goal and state
+	properties to the instance
+	* init/job.c (job_get_name, job_get_goal, job_get_state): Add methods
+	to return the property values
+	* init/job.h: Add prototypes.
+	* init/tests/test_job.c (test_get_name, test_get_goal)
+	(test_get_state): Test cases.
+
 	* dbus/com.ubuntu.Upstart.Job.xml: Add name, description, author
 	and version properties to the job
 	* init/job_class.c (job_class_get_name)

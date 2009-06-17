@@ -1203,3 +1203,93 @@ job_restart (Job            *job,
 
 	return 0;
 }
+
+
+/**
+ * job_get_name:
+ * @job: job to obtain name from,
+ * @message: D-Bus connection and message received,
+ * @name: pointer for reply string.
+ *
+ * Implements the get method for the name property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the instance name of the given @job, which will be stored
+ * in @name.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_name (Job             *job,
+	      NihDBusMessage  *message,
+	      char           **name)
+{
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
+
+	*name = job->name;
+	nih_ref (*name, message);
+
+	return 0;
+}
+
+/**
+ * job_get_goal:
+ * @job: job to obtain goal from,
+ * @message: D-Bus connection and message received,
+ * @goal: pointer for reply string.
+ *
+ * Implements the get method for the goal property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the goal of the given @job as a string, which will be
+ * stored in @goal.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_goal (Job             *job,
+	      NihDBusMessage  *message,
+	      char           **goal)
+{
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (goal != NULL);
+
+	*goal = nih_strdup (message, job_goal_name (job->goal));
+	if (! *goal)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * job_get_state:
+ * @job: job to obtain state from,
+ * @message: D-Bus connection and message received,
+ * @state: pointer for reply string.
+ *
+ * Implements the get method for the state property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the state of the given @job as a string, which will be
+ * stored in @state.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_state (Job             *job,
+	      NihDBusMessage  *message,
+	      char           **state)
+{
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (state != NULL);
+
+	*state = nih_strdup (message, job_state_name (job->state));
+	if (! *state)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}

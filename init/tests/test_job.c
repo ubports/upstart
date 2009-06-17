@@ -6154,6 +6154,210 @@ test_restart (void)
 }
 
 
+void
+test_get_name (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	Job            *job = NULL;
+	NihError       *error;
+	char           *name;
+	int             ret;
+
+	TEST_FUNCTION ("job_get_name");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the name of the instance is returned from the
+	 * property, as a child of the message.
+	 */
+	TEST_FEATURE ("with instance name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "instance name");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		name = NULL;
+
+		ret = job_get_name (job, message, &name);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (name, message);
+		TEST_EQ_STR (name, "instance name");
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an instance with an empty string as the name has
+	 * the empty string returned.
+	 */
+	TEST_FEATURE ("with no instance name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		name = NULL;
+
+		ret = job_get_name (job, message, &name);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (name, message);
+		TEST_EQ_STR (name, "");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_goal (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	Job            *job = NULL;
+	NihError       *error;
+	char           *goal;
+	int             ret;
+
+	/* Check that the goal of the instance is returned a newly allocated
+	 * string, as a child of the message.
+	 */
+	TEST_FUNCTION ("job_get_goal");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+			job->goal = JOB_START;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		goal = NULL;
+
+		ret = job_get_goal (job, message, &goal);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (goal, message);
+		TEST_EQ_STR (goal, "start");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_state (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	Job            *job = NULL;
+	NihError       *error;
+	char           *state;
+	int             ret;
+
+	/* Check that the state of the instance is returned a newly allocated
+	 * string, as a child of the message.
+	 */
+	TEST_FUNCTION ("job_get_state");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		state = NULL;
+
+		ret = job_get_state (job, message, &state);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (state, message);
+		TEST_EQ_STR (state, "running");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -6176,6 +6380,10 @@ main (int   argc,
 	test_start ();
 	test_stop ();
 	test_restart ();
+
+	test_get_name ();
+	test_get_goal ();
+	test_get_state ();
 
 	return 0;
 }

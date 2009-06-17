@@ -185,6 +185,16 @@ int         job_stop            (Job *job, NihDBusMessage *message)
 int         job_restart         (Job *job, NihDBusMessage *message)
 	__attribute__ ((warn_unused_result));
 
+int         job_get_name        (Job *job, NihDBusMessage *message,
+				 char **name)
+	__attribute__ ((warn_unused_result));
+int         job_get_goal        (Job *job, NihDBusMessage *message,
+				 char **goal)
+	__attribute__ ((warn_unused_result));
+int         job_get_state       (Job *job, NihDBusMessage *message,
+				 char **state)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

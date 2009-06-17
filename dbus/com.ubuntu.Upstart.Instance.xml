@@ -18,5 +18,10 @@
     <method name="Restart">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
     </method>
+
+    <!-- Basic information about an Instance -->
+    <property name="name" type="s" access="read" />
+    <property name="goal" type="s" access="read" />
+    <property name="state" type="s" access="read" />
   </interface>
 </node>
