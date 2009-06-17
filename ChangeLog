@@ -1,5 +1,8 @@
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Copy in news from 0.5.2; that release doesn't appear in
+	this ChangeLog since it was made on a separate branch.
+
 	* NEWS: Include 0.3.10 release, which happened from a separate branch.
 
 	* init/parse_job.c (stanza_kill, stanza_respawn, stanza_nice)

@@ -1,4 +1,48 @@
-0.5.2  XXXX-XX-XX
+0.5.2  2009-06-17  "Something, something, something, D-Bus"
+
+	* The licence for Upstart has been updated to GNU GPL v3.
+
+	* Overhaul of the automatically generated D-Bus bindings code,
+	  fixing many issues with memory leaks, inconsistent return values
+	  and loss of method returns after the method has taken place.
+
+	* D-Bus 1.2.4 is now required, and must be patched to fix
+	  https://bugs.freedesktop.org/show_bug.cgi?id=22316
+
+	* D-Bus Job objects now have "name", "description", "author"
+	  and "version" properties.
+
+	* D-Bus Instance object now have "name", "goal" and "state"
+	  properties.
+
+	* initctl now obtains the name properties for display instead of
+	  printing the mangled object path component.  (Bug: #299290)
+
+	* D-Bus configuration updated now that the daemon is fixed to be
+	  deny-by-default, and updated to avoid bare "send_interface"
+	  stanzas.  (Bug: #323021)
+
+	* Fixed assertion caused by the post-start or pre-stop scripts
+          exiting after the main process of a respawning job had exited
+          (Bug: #381048)
+
+	* The /proc filesystem need not be mounted if the "oom_adj"
+	  configuration stanza is not used.  (Bug: #259801)
+
+	* Overly large values to configuration stanzas are now caught
+	  and rejected.  (Bug: #340134)
+
+	* The --enable-compiler-warnings configure option has been
+	  extended to add -Wextra, but turns off a few of the more extreme
+	  warnings
+
+	* GNU C Library v2.4 (or backported inotify support) is required
+
+	* pkg-config 0.22 is now required, it probably was anyway but we
+	  now explicitly check for it.
+
+	* Dependency on Python for the D-Bus binding tool has been dropped
+	  and replaced with a dependency on expat 2.0.0
 
 0.5.1  2009-01-29  "Unexpected item in bagging area"
 
