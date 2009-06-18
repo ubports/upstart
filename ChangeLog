@@ -1,3 +1,7 @@
+2009-06-18  Casey Dahlin  <cdahlin@redhat.com>
+
+	* util/man/initctl.8: Fix formatting of SYNOPSIS
+
 2009-06-18  Scott James Remnant  <scott@netsplit.com>
 
 	* dbus/com.ubuntu.Upstart.xml, dbus/com.ubuntu.Upstart.Job.xml,
