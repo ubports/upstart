@@ -1,5 +1,8 @@
 2009-06-23  Scott James Remnant  <scott@netsplit.com>
 
+	* COPYING: Change licence to version 2 of the GNU GPL.
+	All files have been updated to reflect this.
+
 	* init/paths.h (CONFFILE): Add new macro
 	* init/Makefile.am (AM_CPPFLAGS): Add CONFFILE definition
 	(install-data-local): No need to make conf.d or jobs.d
