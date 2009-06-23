@@ -1,3 +1,22 @@
+0.6.0  xxxx-xx-xx
+
+0.5.3  2009-06-22  "Britain's Flag Carrier"
+
+	* Fixed segfault when initctl status called with arguments.
+	  (Bug: #388753)
+
+	* Fixed segfault when initctl log-priority called with no argument.
+	  (Bug: #280529)
+
+	* Fixed shutdown to pass $INIT_HALT variable as last argument, not
+	  as first.  (Bug: #303574)
+
+	* Added temporary support for "telinit u" until we have true re-exec
+	  support.  This will be replaced by an initctl command in future.
+	  (Bug: #388742)
+
+	* Corrected formatting of initctl(8) manpage.  (Bug: #388745)
+
 0.5.2  2009-06-17  "Something, something, something, D-Bus"
 
 	* The licence for Upstart has been updated to GNU GPL v3.
