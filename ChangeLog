@@ -1,5 +1,12 @@
 2009-06-23  Scott James Remnant  <scott@netsplit.com>
 
+	* init/paths.h (CONFFILE): Add new macro
+	* init/Makefile.am (AM_CPPFLAGS): Add CONFFILE definition
+	(install-data-local): No need to make conf.d or jobs.d
+	* init/main.c: Only parse CONFFILE (/etc/init.conf) as a
+	configuration file source and CONFDIR (/etc/init) as a job
+	configuration source.
+
 	* configure.ac: Bump version to 0.6.0
 	* NEWS: Copy in news from 0.5.3; that release doesn't appear in
 	this ChangeLog since it was made on a separate branch.  Begin

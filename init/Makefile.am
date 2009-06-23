@@ -7,6 +7,7 @@ AM_CFLAGS = \
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
+	-DCONFFILE="\"$(sysconfdir)/init.conf\"" \
 	-DCONFDIR="\"$(initconfdir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
@@ -272,8 +273,6 @@ test_control_LDADD = \
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(initconfdir)
-	$(MKDIR_P) $(DESTDIR)$(initconfdir)/conf.d
-	$(MKDIR_P) $(DESTDIR)$(initconfdir)/jobs.d
 
 clean-local:
 	rm -f *.gcno *.gcda

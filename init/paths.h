@@ -65,6 +65,15 @@
 
 
 /**
+ * CONFFILE:
+ *
+ * Init daemon configuration file.
+ **/
+#ifndef CONFFILE
+#define CONFFILE "/etc/init.conf"
+#endif
+
+/**
  * CONFDIR:
  *
  * Top-level directory of the system configuration files.

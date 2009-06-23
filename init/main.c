@@ -246,9 +246,8 @@ main (int   argc,
 
 
 	/* Read configuration */
-	NIH_MUST (conf_source_new (NULL, CONFDIR "/init.conf", CONF_FILE));
-	NIH_MUST (conf_source_new (NULL, CONFDIR "/conf.d", CONF_DIR));
-	NIH_MUST (conf_source_new (NULL, CONFDIR "/jobs.d", CONF_JOB_DIR));
+	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
+	NIH_MUST (conf_source_new (NULL, CONFDIR, CONF_JOB_DIR));
 
 	conf_reload ();
 
