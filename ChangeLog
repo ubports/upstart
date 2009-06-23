@@ -1,5 +1,32 @@
 2009-06-23  Scott James Remnant  <scott@netsplit.com>
 
+	* Makefile.am (SUBDIRS): Add util to the list of sub-directories
+	again.
+	* configure.ac (AC_CONFIG_FILES): Generate util/Makefile
+	* util/Makefile.am (AM_CFLAGS): Append D-Bus CFLAGS
+	(AM_CPPFLAGS): Make sure the build directory is also in the quoted
+	include path
+	(nodist_initctl_SOURCES): Build and link the generated D-Bus
+	bindings, but don't distribute them
+	(initctl_LDADD): Drop the libupstart dependency, instead put
+	libnih-dbus and DBUS_LIBS in there.
+	(com_ubuntu_Upstart_OUTPUTS, com_ubuntu_Upstart_XML)
+	($(com_ubuntu_Upstart_OUTPUTS)): Auto-generate D-Bus binding code
+	to proxy the manager object
+	(com_ubuntu_Upstart_Job_OUTPUTS, com_ubuntu_Upstart_Job_XML)
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): Auto-generate D-Bus binding
+	code to proxy job class objects
+	(com_ubuntu_Upstart_Instance_OUTPUTS)
+	(com_ubuntu_Upstart_Instance_XML)
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Auto-generate D-Bus
+	binding code to proxy job instance objects
+	(BUILT_SOURCES, CLEANFILES): Built sources have to come first
+	and be cleaned up
+	(test_initctl_LDADD): Tests need to be linked to libnih-dbus
+	and the D-Bus libraries, as well as the auto-generated output
+	* init/Makefile.am (EXTRA_DIST): Drop the EXTRA_DIST for the
+	sources, already handled since they're in a different directory
+
 	* COPYING: Change licence to version 2 of the GNU GPL.
 	All files have been updated to reflect this.
 

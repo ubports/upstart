@@ -1,9 +1,12 @@
 ## Process this file with automake to produce Makefile.in
 
+AM_CFLAGS = \
+	$(DBUS_CFLAGS)
+
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
-	-I$(top_builddir) -I$(top_srcdir) -iquote$(srcdir) \
+	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
 
 
@@ -24,12 +27,66 @@ sbin_PROGRAMS = \
 
 initctl_SOURCES = \
 	initctl.c
+nodist_initctl_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 initctl_LDFLAGS = -static
 initctl_LDADD = \
-	../upstart/libupstart.la \
 	../nih/libnih.la \
-	$(LTLIBINTL)
+	../nih-dbus/libnih-dbus.la \
+	$(LTLIBINTL) \
+	$(DBUS_LIBS)
+
+
+com_ubuntu_Upstart_OUTPUTS = \
+	com.ubuntu.Upstart.c \
+	com.ubuntu.Upstart.h
+
+com_ubuntu_Upstart_XML = \
+	../dbus/com.ubuntu.Upstart.xml
+
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
+	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
+		--mode=proxy --prefix=upstart --output=$@ $<
+
+
+com_ubuntu_Upstart_Job_OUTPUTS = \
+	com.ubuntu.Upstart.Job.c \
+	com.ubuntu.Upstart.Job.h
+
+com_ubuntu_Upstart_Job_XML = \
+	../dbus/com.ubuntu.Upstart.Job.xml
+
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)  $(top_builddir)/nih-dbus-tool/nih-dbus-tool
+	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
+		--mode=proxy --prefix=job_class --output=$@ $<
+
+
+com_ubuntu_Upstart_Instance_OUTPUTS = \
+	com.ubuntu.Upstart.Instance.c \
+	com.ubuntu.Upstart.Instance.h
+
+com_ubuntu_Upstart_Instance_XML = \
+	../dbus/com.ubuntu.Upstart.Instance.xml
+
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
+	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
+		--mode=proxy --prefix=job --output=$@ $<
+
+
+# These have to be built sources because we can't compile object files
+# without the header file existing first
+BUILT_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
+
+CLEANFILES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 
 reboot_SOURCES = \
@@ -126,7 +183,12 @@ tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 test_initctl_SOURCES = tests/test_initctl.c initctl.c
 test_initctl_CFLAGS = -DTEST
 test_initctl_LDFLAGS = -static
-test_initctl_LDADD = ../upstart/libupstart.la ../nih/libnih.la
+test_initctl_LDADD = \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	../nih/libnih.la \
+	../nih-dbus/libnih-dbus.la \
+	$(DBUS_LIBS)
 
 
 clean-local:

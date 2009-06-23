@@ -98,13 +98,8 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
-EXTRA_DIST = \
-	$(com_ubuntu_Upstart_XML) \
-	$(com_ubuntu_Upstart_Job_XML) \
-	$(com_ubuntu_Upstart_Instance_XML)
 
-
-EXTRA_DIST += init.supp
+EXTRA_DIST = init.supp
 
 
 TESTS = \
