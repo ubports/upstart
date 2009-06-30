@@ -1,3 +1,9 @@
+2009-06-30  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/Upstart.conf: It doesn't make much sense to restrict getting
+	the values of properties, or looking up jobs or interfaces, so make
+	these public.
+
 2009-06-23  Scott James Remnant  <scott@netsplit.com>
 
 	* Makefile.am (SUBDIRS): Add util to the list of sub-directories
