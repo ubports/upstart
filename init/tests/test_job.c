@@ -46,6 +46,8 @@
 #include <nih-dbus/dbus_object.h>
 #include <nih-dbus/errors.h>
 
+#include "dbus/upstart.h"
+
 #include "process.h"
 #include "job_class.h"
 #include "job.h"
@@ -105,7 +107,7 @@ test_new (void)
 		TEST_EQ_STR (job->name, "");
 
 		TEST_ALLOC_PARENT (job->path, job);
-		TEST_EQ_STR (job->path, "/com/ubuntu/Upstart/jobs/test/_");
+		TEST_EQ_STR (job->path, DBUS_PATH_UPSTART "/jobs/test/_");
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
@@ -170,7 +172,7 @@ test_new (void)
 		TEST_EQ_STR (job->name, "fred");
 
 		TEST_ALLOC_PARENT (job->path, job);
-		TEST_EQ_STR (job->path, "/com/ubuntu/Upstart/jobs/test/fred");
+		TEST_EQ_STR (job->path, DBUS_PATH_UPSTART "/jobs/test/fred");
 
 		event_operator_reset (job->stop_on);
 
@@ -210,7 +212,7 @@ test_new (void)
 	TEST_EQ_STR (job->name, "fred");
 
 	TEST_ALLOC_PARENT (job->path, job);
-	TEST_EQ_STR (job->path, "/com/ubuntu/Upstart/jobs/test/fred");
+	TEST_EQ_STR (job->path, DBUS_PATH_UPSTART "/jobs/test/fred");
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
 							 job->path,
@@ -223,7 +225,7 @@ test_new (void)
 	dbus_connection_flush (conn);
 
 	TEST_DBUS_MESSAGE (client_conn, message);
-	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Job",
+	TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
 					   "InstanceAdded"));
 
 	TEST_EQ_STR (dbus_message_get_path (message), class->path);
@@ -302,7 +304,7 @@ test_register (void)
 	dbus_connection_flush (conn);
 
 	TEST_DBUS_MESSAGE (client_conn, message);
-	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Job",
+	TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
 					   "InstanceAdded"));
 
 	TEST_EQ_STR (dbus_message_get_path (message), class->path);
@@ -3372,7 +3374,7 @@ test_change_state (void)
 		dbus_connection_flush (conn);
 
 		TEST_DBUS_MESSAGE (client_conn, message);
-		TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Job",
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
 						   "InstanceRemoved"));
 
 		TEST_EQ_STR (dbus_message_get_path (message), class->path);
@@ -5726,7 +5728,7 @@ test_start (void)
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
 		job->path,
-		"com.ubuntu.Upstart.Instance",
+		DBUS_INTERFACE_UPSTART_INSTANCE,
 		"Start");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -5794,7 +5796,7 @@ test_start (void)
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
 		job->path,
-		"com.ubuntu.Upstart.Instance",
+		DBUS_INTERFACE_UPSTART_INSTANCE,
 		"Start");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -5824,7 +5826,7 @@ test_start (void)
 	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
 
 	dbus_error = (NihDBusError *)error;
-	TEST_EQ_STR (dbus_error->name, "com.ubuntu.Upstart.Error.AlreadyStarted");
+	TEST_EQ_STR (dbus_error->name, DBUS_INTERFACE_UPSTART ".Error.AlreadyStarted");
 
 	nih_free (dbus_error);
 
@@ -5884,7 +5886,7 @@ test_stop (void)
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
 		job->path,
-		"com.ubuntu.Upstart.Instance",
+		DBUS_INTERFACE_UPSTART_INSTANCE,
 		"Stop");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -5946,7 +5948,7 @@ test_stop (void)
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
 		job->path,
-		"com.ubuntu.Upstart.Instance",
+		DBUS_INTERFACE_UPSTART_INSTANCE,
 		"Stop");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -5976,7 +5978,7 @@ test_stop (void)
 	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
 
 	dbus_error = (NihDBusError *)error;
-	TEST_EQ_STR (dbus_error->name, "com.ubuntu.Upstart.Error.AlreadyStopped");
+	TEST_EQ_STR (dbus_error->name, DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped");
 
 	nih_free (dbus_error);
 
@@ -6034,7 +6036,7 @@ test_restart (void)
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
 		job->path,
-		"com.ubuntu.Upstart.Instance",
+		DBUS_INTERFACE_UPSTART_INSTANCE,
 		"Restart");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -6105,7 +6107,7 @@ test_restart (void)
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
 		job->path,
-		"com.ubuntu.Upstart.Instance",
+		DBUS_INTERFACE_UPSTART_INSTANCE,
 		"Restart");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -6135,7 +6137,7 @@ test_restart (void)
 	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
 
 	dbus_error = (NihDBusError *)error;
-	TEST_EQ_STR (dbus_error->name, "com.ubuntu.Upstart.Error.AlreadyStopped");
+	TEST_EQ_STR (dbus_error->name, DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped");
 
 	nih_free (dbus_error);
 

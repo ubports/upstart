@@ -42,6 +42,8 @@
 #include <nih-dbus/dbus_message.h>
 #include <nih-dbus/dbus_object.h>
 
+#include "dbus/upstart.h"
+
 #include "environ.h"
 #include "job_class.h"
 #include "blocked.h"
@@ -50,22 +52,6 @@
 #include "errors.h"
 
 #include "com.ubuntu.Upstart.h"
-
-
-/**
- * CONTORL_SERVER_ADDRESS:
- *
- * D-Bus address of our internal server used for private connections.
- **/
-#define CONTROL_SERVER_ADDRESS "unix:abstract=/com/ubuntu/upstart"
-
-/**
- * CONTROL_BUS_NAME:
- *
- * Well-known name that we register on the system bus so that clients may
- * contact us.
- **/
-#define CONTROL_BUS_NAME "com.ubuntu.Upstart"
 
 
 /* Prototypes for static functions */
@@ -129,7 +115,7 @@ control_server_open (void)
 
 	control_init ();
 
-	server = nih_dbus_server (CONTROL_SERVER_ADDRESS,
+	server = nih_dbus_server (DBUS_ADDRESS_UPSTART,
 				  control_server_connect,
 				  control_disconnected);
 	if (! server)
@@ -228,7 +214,7 @@ control_bus_open (void)
 	 * them.
 	 */
 	dbus_error_init (&error);
-	ret = dbus_bus_request_name (conn, CONTROL_BUS_NAME,
+	ret = dbus_bus_request_name (conn, DBUS_SERVICE_UPSTART,
 				     DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
 	if (ret < 0) {
 		/* Error while requesting the name */
@@ -326,7 +312,7 @@ control_register_all (DBusConnection *conn)
 	 * for clients.  We only check for success, otherwise we're happy
 	 * to let this object be tied to the lifetime of the connection.
 	 */
-	NIH_MUST (nih_dbus_object_new (NULL, conn, CONTROL_ROOT,
+	NIH_MUST (nih_dbus_object_new (NULL, conn, DBUS_PATH_UPSTART,
 				       control_interfaces, NULL));
 
 	/* Register objects for each currently registered job and its
@@ -407,7 +393,7 @@ control_get_job_by_name (void            *data,
 	class = (JobClass *)nih_hash_lookup (job_classes, name);
 	if (! class) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.UnknownJob",
+			DBUS_INTERFACE_UPSTART ".Error.UnknownJob",
 			_("Unknown job: %s"), name);
 		return -1;
 	}

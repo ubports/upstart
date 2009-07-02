@@ -39,6 +39,8 @@
 #include <nih-dbus/dbus_object.h>
 #include <nih-dbus/dbus_util.h>
 
+#include "dbus/upstart.h"
+
 #include "environ.h"
 #include "process.h"
 #include "job_class.h"
@@ -161,7 +163,7 @@ job_class_new (const void *parent,
 	if (! class->name)
 		goto error;
 
-	class->path = nih_dbus_path (class, CONTROL_ROOT, "jobs",
+	class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
 				     class->name, NULL);
 	if (! class->path)
 		goto error;
@@ -386,7 +388,8 @@ job_class_register (JobClass       *class,
 	nih_debug ("Registered job %s", class->path);
 
 	if (signal)
-		NIH_ZERO (control_emit_job_added (conn, CONTROL_ROOT, class->path));
+		NIH_ZERO (control_emit_job_added (conn, DBUS_PATH_UPSTART,
+						  class->path));
 
 	NIH_HASH_FOREACH (class->instances, iter) {
 		Job *job = (Job *)iter;
@@ -416,7 +419,8 @@ job_class_unregister (JobClass       *class,
 
 	nih_debug ("Unregistered job %s", class->path);
 
-	NIH_ZERO (control_emit_job_removed (conn, CONTROL_ROOT, class->path));
+	NIH_ZERO (control_emit_job_removed (conn, DBUS_PATH_UPSTART,
+					    class->path));
 }
 
 
@@ -550,7 +554,7 @@ job_class_get_instance (JobClass        *class,
 
 	if (! job) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.UnknownInstance",
+			DBUS_INTERFACE_UPSTART ".Error.UnknownInstance",
 			_("Unknown instance: %s"), name);
 		return -1;
 	}
@@ -595,7 +599,7 @@ job_class_get_instance_by_name (JobClass        *class,
 	job = (Job *)nih_hash_lookup (class->instances, name);
 	if (! job) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.UnknownInstance",
+			DBUS_INTERFACE_UPSTART ".Error.UnknownInstance",
 			_("Unknown instance: %s"), name);
 		return -1;
 	}
@@ -741,7 +745,7 @@ job_class_start (JobClass        *class,
 
 	if (job->goal == JOB_START) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.AlreadyStarted",
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStarted",
 			_("Job is already running: %s"),
 			job_name (job));
 		return -1;
@@ -843,7 +847,7 @@ job_class_stop (JobClass       *class,
 
 	if (! job) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.UnknownInstance",
+			DBUS_INTERFACE_UPSTART ".Error.UnknownInstance",
 			_("Unknown instance: %s"), name);
 		return -1;
 	}
@@ -851,7 +855,7 @@ job_class_stop (JobClass       *class,
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped",
 			_("Job has already been stopped: %s"),
 			job_name (job));
 
@@ -954,7 +958,7 @@ job_class_restart (JobClass        *class,
 
 	if (! job) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.UnknownInstance",
+			DBUS_INTERFACE_UPSTART ".Error.UnknownInstance",
 			_("Unknown instance: %s"), name);
 		return -1;
 	}
@@ -962,7 +966,7 @@ job_class_restart (JobClass        *class,
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped",
 			_("Job has already been stopped: %s"), job->name);
 
 		return -1;

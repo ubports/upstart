@@ -42,6 +42,8 @@
 #include <nih-dbus/dbus_object.h>
 #include <nih-dbus/dbus_util.h>
 
+#include "dbus/upstart.h"
+
 #include "events.h"
 #include "environ.h"
 #include "process.h"
@@ -97,7 +99,7 @@ job_new (JobClass   *class,
 
 	job->class = class;
 
-	job->path = nih_dbus_path (job, CONTROL_ROOT, "jobs",
+	job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
 				   class->name, job->name, NULL);
 	if (! job->path)
 		goto error;
@@ -681,7 +683,7 @@ job_finished (Job *job,
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.JobFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
 						  _("Job failed to start")));
 			} else {
 				NIH_ZERO (job_class_start_reply (
@@ -694,7 +696,7 @@ job_finished (Job *job,
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.JobFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
 						  _("Job failed while stopping")));
 			} else {
 				NIH_ZERO (job_class_stop_reply (
@@ -706,7 +708,7 @@ job_finished (Job *job,
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.JobFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
 						  _("Job failed to restart")));
 			} else {
 				NIH_ZERO (job_class_restart_reply (
@@ -719,7 +721,7 @@ job_finished (Job *job,
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.JobFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
 						  _("Job failed to start")));
 			} else {
 				NIH_ZERO (job_start_reply (blocked->message));
@@ -730,7 +732,7 @@ job_finished (Job *job,
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.JobFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
 						  _("Job failed while stopping")));
 			} else {
 				NIH_ZERO (job_stop_reply (blocked->message));
@@ -741,7 +743,7 @@ job_finished (Job *job,
 			if (failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.JobFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
 						  _("Job failed to restart")));
 			} else {
 				NIH_ZERO (job_restart_reply (blocked->message));
@@ -1075,7 +1077,7 @@ job_start (Job             *job,
 
 	if (job->goal == JOB_START) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.AlreadyStarted",
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStarted",
 			_("Job is already running: %s"),
 			job_name (job));
 
@@ -1126,7 +1128,7 @@ job_stop (Job            *job,
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped",
 			_("Job has already been stopped: %s"),
 			job_name (job));
 
@@ -1177,7 +1179,7 @@ job_restart (Job            *job,
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
-			"com.ubuntu.Upstart.Error.AlreadyStopped",
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped",
 			_("Job has already been stopped: %s"),
 			job_name (job));
 

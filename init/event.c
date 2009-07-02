@@ -35,6 +35,8 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+#include "dbus/upstart.h"
+
 #include "environ.h"
 #include "event.h"
 #include "job.h"
@@ -442,7 +444,7 @@ event_finished (Event *event)
 			if (event->failed) {
 				NIH_ZERO (nih_dbus_message_error (
 						  blocked->message,
-						  "com.ubuntu.Upstart.Error.EventFailed",
+						  DBUS_INTERFACE_UPSTART ".Error.EventFailed",
 						  "%s", _("Event failed")));
 			} else {
 				NIH_ZERO (control_emit_event_reply (

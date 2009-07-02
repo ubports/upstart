@@ -1,3 +1,50 @@
+2009-07-02  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/Makefile.am (EXTRA_DIST): Make sure we distribute it
+	* dbus/upstart.h: Add a header file with the usual D-Bus constants.
+	* init/control.h: Drop CONTROL_ROOT, replace with DBUS_PATH_UPSTART
+	* init/control.c (control_server_open, control_bus_open)
+	(control_register_all): Replace CONTROL_* constants with the new ones
+	(control_get_job_by_name): Use DBUS_INTERFACE_UPSTART when constructing
+	error names.
+	* init/job_class.c (job_class_new, job_class_register)
+	(job_class_unregister): Construct paths using DBUS_PATH_UPSTART
+	(job_class_get_instance)
+	(job_class_get_instance_by_name, job_class_start)
+	(job_class_stop, job_class_restart): Use DBUS_INTERFACE_UPSTART to
+	construct error names
+	* init/job.c (job_new): Construct path using DBUS_PATH_UPSTART
+	(job_finished, job_start, job_stop, job_restart): Use
+	DBUS_INTERFACE_UPSTART to construct error names.
+	* init/event.c (event_finished): Use DBUS_INTERFACE_UPSTART to
+	construct error name.
+	* init/tests/test_control.c (test_server_open): Don't hardcode
+	the address, extract the abstract path from the constant.
+	(test_server_connect, test_bus_open, test_emit_event): Don't
+	harcode addresses, paths or interfaces - use the constants
+	* init/tests/test_job_class.c (test_consider, test_reconsider)
+	(test_register, test_unregister, test_start, test_stop)
+	(test_restart, test_get_instance, test_get_instance_by_name):
+	Use the constants instead of harcoding.
+	(test_new): Derive the expected path from the constant
+	* init/tests/test_job.c (test_new): Derive the paths from the
+	constant, check for jobs by that interface constant.
+	(test_change_state): Use DBUS_INTERFACE_UPSTART_JOB
+	(test_start, test_stop, test_restart): Use DBUS_INTERFACE_UPSTART_INSTANCE,
+	and generate errors from DBUS_INTERFACE_UPSTART
+
+	* dbus/com.ubuntu.Upstart.xml,
+	* dbus/com.ubuntu.Upstart.Job.xml,
+	* dbus/com.ubuntu.Upstart.Instance.xml: Remove the empty symbol
+	annotation for the interfaces.
+	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Define the default
+	interface and build-time instead.
+	* util/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Likewise for util
+
 2009-06-30  Scott James Remnant  <scott@netsplit.com>
 
 	* dbus/Upstart.conf: It doesn't make much sense to restrict getting

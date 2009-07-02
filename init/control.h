@@ -28,15 +28,6 @@
 #include <nih-dbus/dbus_message.h>
 
 
-/**
- * CONTROL_ROOT:
- *
- * Well-known object name that we register for the manager object, and that
- * we use as the root path for all of our other objects.
- **/
-#define CONTROL_ROOT "/com/ubuntu/Upstart"
-
-
 NIH_BEGIN_EXTERN
 
 DBusServer     *control_server;

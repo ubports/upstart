@@ -51,6 +51,8 @@
 #include <nih-dbus/dbus_object.h>
 #include <nih-dbus/errors.h>
 
+#include "dbus/upstart.h"
+
 #include "job_class.h"
 #include "job.h"
 #include "conf.h"
@@ -62,6 +64,7 @@ void
 test_server_open (void)
 {
 	NihError           *err;
+	const char *        address;
 	struct sockaddr_un  addr;
 	socklen_t           addrlen;
 	int                 ret, fd;
@@ -104,13 +107,16 @@ test_server_open (void)
 	fd = socket (PF_UNIX, SOCK_STREAM, 0);
 	assert (fd >= 0);
 
+	address = DBUS_ADDRESS_UPSTART;
+	assert (address = strchr (address, '/'));
+
 	addr.sun_family = AF_UNIX;
 	addr.sun_path[0] = '\0';
-	strncpy (addr.sun_path + 1, "/com/ubuntu/upstart",
+	strncpy (addr.sun_path + 1, address,
 		 sizeof (addr.sun_path) - 1);
 
 	addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
-	addrlen += strlen ("/com/ubuntu/upstart");
+	addrlen += strlen (address);
 
 	assert0 (bind (fd, &addr, addrlen));
 
@@ -165,8 +171,7 @@ test_server_connect (void)
 		assert (nih_signal_add_handler (NULL, SIGTERM,
 						nih_main_term_signal, NULL));
 
-		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart",
-					 NULL);
+		conn = nih_dbus_connect (DBUS_ADDRESS_UPSTART, NULL);
 		assert (conn != NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
@@ -197,11 +202,11 @@ test_server_connect (void)
 	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
-							 "/com/ubuntu/Upstart",
+							 DBUS_PATH_UPSTART,
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
 	TEST_EQ_P (object->data, NULL);
 
 	kill (pid, SIGTERM);
@@ -236,8 +241,7 @@ test_server_connect (void)
 		assert (nih_signal_add_handler (NULL, SIGTERM,
 						nih_main_term_signal, NULL));
 
-		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart",
-					 NULL);
+		conn = nih_dbus_connect (DBUS_ADDRESS_UPSTART, NULL);
 		assert (conn != NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
@@ -268,43 +272,43 @@ test_server_connect (void)
 	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
-							 "/com/ubuntu/Upstart",
+							 DBUS_PATH_UPSTART,
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
 	TEST_EQ_P (object->data, NULL);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
-							 "/com/ubuntu/Upstart/jobs/foo",
+							 DBUS_PATH_UPSTART "/jobs/foo",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/foo");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/foo");
 	TEST_EQ_P (object->data, class1);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
-							 "/com/ubuntu/Upstart/jobs/bar",
+							 DBUS_PATH_UPSTART "/jobs/bar",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar");
 	TEST_EQ_P (object->data, class2);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
-							 "/com/ubuntu/Upstart/jobs/bar/test1",
+							 DBUS_PATH_UPSTART "/jobs/bar/test1",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test1");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test1");
 	TEST_EQ_P (object->data, job1);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (conn,
-							 "/com/ubuntu/Upstart/jobs/bar/test2",
+							 DBUS_PATH_UPSTART "/jobs/bar/test2",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test2");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test2");
 	TEST_EQ_P (object->data, job2);
 
 	kill (pid, SIGTERM);
@@ -487,11 +491,11 @@ test_bus_open (void)
 	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
-							 "/com/ubuntu/Upstart",
+							 DBUS_PATH_UPSTART,
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
 	TEST_EQ_P (object->data, NULL);
 
 	kill (pid, SIGTERM);
@@ -569,43 +573,43 @@ test_bus_open (void)
 	TEST_EQ_P (entry->data, control_bus);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
-							 "/com/ubuntu/Upstart",
+							 DBUS_PATH_UPSTART,
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
 	TEST_EQ_P (object->data, NULL);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
-							 "/com/ubuntu/Upstart/jobs/foo",
+							 DBUS_PATH_UPSTART "/jobs/foo",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/foo");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/foo");
 	TEST_EQ_P (object->data, class1);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
-							 "/com/ubuntu/Upstart/jobs/bar",
+							 DBUS_PATH_UPSTART "/jobs/bar",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar");
 	TEST_EQ_P (object->data, class2);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
-							 "/com/ubuntu/Upstart/jobs/bar/test1",
+							 DBUS_PATH_UPSTART "/jobs/bar/test1",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test1");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test1");
 	TEST_EQ_P (object->data, job1);
 
 	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
-							 "/com/ubuntu/Upstart/jobs/bar/test2",
+							 DBUS_PATH_UPSTART "/jobs/bar/test2",
 							 (void **)&object));
 
 	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
-	TEST_EQ_STR (object->path, "/com/ubuntu/Upstart/jobs/bar/test2");
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test2");
 	TEST_EQ_P (object->data, job2);
 
 	kill (pid, SIGTERM);
@@ -1030,7 +1034,7 @@ test_get_job_by_name (void)
 
 		dbus_error = (NihDBusError *)error;
 		TEST_EQ_STR (dbus_error->name,
-			     "com.ubuntu.Upstart.Error.UnknownJob");
+			     DBUS_INTERFACE_UPSTART ".Error.UnknownJob");
 
 		nih_free (error);
 
@@ -1215,8 +1219,8 @@ test_emit_event (void)
 	TEST_ALLOC_FAIL {
 		method = dbus_message_new_method_call (
 			dbus_bus_get_unique_name (conn),
-			"/com/ubuntu/Upstart",
-			"com.ubuntu.Upstart",
+			DBUS_PATH_UPSTART,
+			DBUS_INTERFACE_UPSTART,
 			"EmitEvent");
 
 		dbus_connection_send (client_conn, method, &serial);
@@ -1289,8 +1293,8 @@ test_emit_event (void)
 	TEST_ALLOC_FAIL {
 		method = dbus_message_new_method_call (
 			dbus_bus_get_unique_name (conn),
-			"/com/ubuntu/Upstart",
-			"com.ubuntu.Upstart",
+			DBUS_PATH_UPSTART,
+			DBUS_INTERFACE_UPSTART,
 			"EmitEvent");
 
 		dbus_connection_send (client_conn, method, &serial);
@@ -1368,8 +1372,8 @@ test_emit_event (void)
 	TEST_FEATURE ("with failed event");
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
-		"/com/ubuntu/Upstart",
-		"com.ubuntu.Upstart",
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
 		"EmitEvent");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -1415,7 +1419,7 @@ test_emit_event (void)
 	TEST_DBUS_MESSAGE (client_conn, reply);
 
 	TEST_TRUE (dbus_message_is_error (reply,
-					  "com.ubuntu.Upstart.Error.EventFailed"));
+					  DBUS_INTERFACE_UPSTART ".Error.EventFailed"));
 	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
 
 	dbus_message_unref (reply);
@@ -1427,8 +1431,8 @@ test_emit_event (void)
 	TEST_FEATURE ("with empty name");
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
-		"/com/ubuntu/Upstart",
-		"com.ubuntu.Upstart",
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
 		"EmitEvent");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -1464,8 +1468,8 @@ test_emit_event (void)
 	TEST_FEATURE ("with missing equals in environment list");
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
-		"/com/ubuntu/Upstart",
-		"com.ubuntu.Upstart",
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
 		"EmitEvent");
 
 	dbus_connection_send (client_conn, method, &serial);
@@ -1502,8 +1506,8 @@ test_emit_event (void)
 	TEST_FEATURE ("with invalid name in environment list");
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
-		"/com/ubuntu/Upstart",
-		"com.ubuntu.Upstart",
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
 		"EmitEvent");
 
 	dbus_connection_send (client_conn, method, &serial);
