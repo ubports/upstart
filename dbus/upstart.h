@@ -43,21 +43,21 @@
  *
  * The interface exported by the manager object.
  **/
-#define DBUS_INTERFACE_UPSTART "com.ubuntu.Upstart"
+#define DBUS_INTERFACE_UPSTART "com.ubuntu.Upstart0_6"
 
 /**
  * DBUS_INTERFACE_UPSTART_JOB:
  *
  * The interface exported by job objects.
  **/
-#define DBUS_INTERFACE_UPSTART_JOB "com.ubuntu.Upstart.Job"
+#define DBUS_INTERFACE_UPSTART_JOB "com.ubuntu.Upstart0_6.Job"
 
 /**
  * DBUS_INTERFACE_UPSTART_INSTANCE:
  *
  * The interface exported by instance objects.
  **/
-#define DBUS_INTERFACE_UPSTART_INSTANCE "com.ubuntu.Upstart.Instance"
+#define DBUS_INTERFACE_UPSTART_INSTANCE "com.ubuntu.Upstart0_6.Instance"
 
 
 /**

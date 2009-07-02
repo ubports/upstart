@@ -1,5 +1,8 @@
 2009-07-02  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/Upstart.conf: Need to adjust the security configuration
+	* dbus/upstart.h: And the constants as well.
+
 	* dbus/com.ubuntu.Upstart.xml,
 	* dbus/com.ubuntu.Upstart.Job.xml,
 	* dbus/com.ubuntu.Upstart.Instance.xml: Now we don't hardcode the
