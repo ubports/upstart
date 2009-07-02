@@ -29,7 +29,7 @@ initctl_SOURCES = \
 	initctl.c
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
-	$(com_ubuntu_Upstart_Job_OUTPUTS)
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 initctl_LDFLAGS = -static
@@ -49,7 +49,8 @@ com_ubuntu_Upstart_XML = \
 
 $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=upstart --output=$@ $<
+		--mode=proxy --prefix=upstart --default-interface=com.ubuntu.Upstart \
+		--output=$@ $<
 
 
 com_ubuntu_Upstart_Job_OUTPUTS = \
@@ -61,7 +62,8 @@ com_ubuntu_Upstart_Job_XML = \
 
 $(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)  $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=job_class --output=$@ $<
+		--mode=proxy --prefix=job_class --default-interface=com.ubuntu.Upstart.Job \
+		--output=$@ $<
 
 
 com_ubuntu_Upstart_Instance_OUTPUTS = \
@@ -73,7 +75,8 @@ com_ubuntu_Upstart_Instance_XML = \
 
 $(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=job --output=$@ $<
+		--mode=proxy --prefix=job --default-interface=com.ubuntu.Upstart.Instance \
+		--output=$@ $<
 
 
 # These have to be built sources because we can't compile object files

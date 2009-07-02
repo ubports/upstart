@@ -21,8 +21,6 @@
 
 <node>
   <interface name="com.ubuntu.Upstart.Instance">
-    <annotation name="com.netsplit.Nih.Symbol" value="" />
-
     <!-- Methods to directly control instances.  Unlike the equivalent methods
          for a Job, these are not permitted to pass or set environment. -->
     <method name="Start">

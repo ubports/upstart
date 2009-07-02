@@ -20,8 +20,6 @@
 
 <node name="/com/ubuntu/Upstart">
   <interface name="com.ubuntu.Upstart">
-    <annotation name="com.netsplit.Nih.Symbol" value="" />
-
     <!-- Reload all configuration sources -->
     <method name="ReloadConfiguration">
     </method>
