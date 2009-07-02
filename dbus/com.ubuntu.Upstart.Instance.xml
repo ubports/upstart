@@ -20,7 +20,7 @@
   "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 
 <node>
-  <interface name="com.ubuntu.Upstart.Instance">
+  <interface name="com.ubuntu.Upstart0_6.Instance">
     <!-- Methods to directly control instances.  Unlike the equivalent methods
          for a Job, these are not permitted to pass or set environment. -->
     <method name="Start">

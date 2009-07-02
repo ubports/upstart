@@ -49,7 +49,7 @@ com_ubuntu_Upstart_XML = \
 
 $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=upstart --default-interface=com.ubuntu.Upstart \
+		--mode=proxy --prefix=upstart --default-interface=com.ubuntu.Upstart0_6 \
 		--output=$@ $<
 
 
@@ -62,7 +62,7 @@ com_ubuntu_Upstart_Job_XML = \
 
 $(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)  $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=job_class --default-interface=com.ubuntu.Upstart.Job \
+		--mode=proxy --prefix=job_class --default-interface=com.ubuntu.Upstart0_6.Job \
 		--output=$@ $<
 
 
@@ -75,7 +75,7 @@ com_ubuntu_Upstart_Instance_XML = \
 
 $(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=job --default-interface=com.ubuntu.Upstart.Instance \
+		--mode=proxy --prefix=job --default-interface=com.ubuntu.Upstart0_6.Instance \
 		--output=$@ $<
 
 

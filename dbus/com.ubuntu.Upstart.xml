@@ -19,7 +19,7 @@
   "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 
 <node name="/com/ubuntu/Upstart">
-  <interface name="com.ubuntu.Upstart">
+  <interface name="com.ubuntu.Upstart0_6">
     <!-- Reload all configuration sources -->
     <method name="ReloadConfiguration">
     </method>

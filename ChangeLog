@@ -1,5 +1,17 @@
 2009-07-02  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml,
+	* dbus/com.ubuntu.Upstart.Job.xml,
+	* dbus/com.ubuntu.Upstart.Instance.xml: Now we don't hardcode the
+	interface name anywhere, we can version it properly.
+	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Update default interface
+	names.
+	* util/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Update here too.
+
 	* dbus/Makefile.am (EXTRA_DIST): Make sure we distribute it
 	* dbus/upstart.h: Add a header file with the usual D-Bus constants.
 	* init/control.h: Drop CONTROL_ROOT, replace with DBUS_PATH_UPSTART

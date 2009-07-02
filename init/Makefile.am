@@ -59,7 +59,7 @@ com_ubuntu_Upstart_XML = \
 
 $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=object --prefix=control --default-interface=com.ubuntu.Upstart \
+		--mode=object --prefix=control --default-interface=com.ubuntu.Upstart0_6 \
 		--output=$@ $<
 
 
@@ -72,7 +72,7 @@ com_ubuntu_Upstart_Job_XML = \
 
 $(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)  $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=object --prefix=job_class --default-interface=com.ubuntu.Upstart.Job \
+		--mode=object --prefix=job_class --default-interface=com.ubuntu.Upstart0_6.Job \
 		--output=$@ $<
 
 
@@ -85,7 +85,7 @@ com_ubuntu_Upstart_Instance_XML = \
 
 $(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
 	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=object --prefix=job --default-interface=com.ubuntu.Upstart.Instance \
+		--mode=object --prefix=job --default-interface=com.ubuntu.Upstart0_6.Instance \
 		--output=$@ $<
 
 
