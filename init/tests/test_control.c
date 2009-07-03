@@ -1455,7 +1455,7 @@ test_emit_event (void)
 
 	dbus_error = (NihDBusError *)nih_error_get ();
 	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
-	TEST_EQ (dbus_error->error.number, NIH_DBUS_ERROR);
+	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
 	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
 	nih_free (dbus_error);
 
@@ -1493,7 +1493,7 @@ test_emit_event (void)
 
 	dbus_error = (NihDBusError *)nih_error_get ();
 	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
-	TEST_EQ (dbus_error->error.number, NIH_DBUS_ERROR);
+	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
 	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
 	nih_free (dbus_error);
 
@@ -1531,7 +1531,7 @@ test_emit_event (void)
 
 	dbus_error = (NihDBusError *)nih_error_get ();
 	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
-	TEST_EQ (dbus_error->error.number, NIH_DBUS_ERROR);
+	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
 	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
 	nih_free (dbus_error);
 

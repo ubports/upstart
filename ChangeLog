@@ -1,5 +1,8 @@
 2009-07-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_control.c (test_emit_event): Directly acess
+	the number from an NihDBusError
+
 	* dbus/com.ubuntu.Upstart.xml: Add a "version" property to obtain
 	the version of the init daemon, and a "log_priority" property to
 	get and set the daemon's log priority.
