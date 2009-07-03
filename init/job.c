@@ -1296,3 +1296,76 @@ job_get_state (Job             *job,
 
 	return 0;
 }
+
+
+/**
+ * job_get_processes:
+ * @job: job to obtain state from,
+ * @message: D-Bus connection and message received,
+ * @processes: pointer for reply array.
+ *
+ * Implements the get method for the processes property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the current set of processes for the given @job as an
+ * array of process names and pids, which will be stored in @processes.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_processes (Job *                  job,
+		   NihDBusMessage *       message,
+		   JobProcessesElement ***processes)
+{
+	size_t num_processes;
+
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (processes != NULL);
+
+	*processes = nih_alloc (message, sizeof (JobProcessesElement *) * 1);
+	if (! *processes)
+		nih_return_no_memory_error (-1);
+
+	num_processes = 0;
+	(*processes)[num_processes] = NULL;
+
+	for (int i = 0; i < PROCESS_LAST; i++) {
+		JobProcessesElement * process;
+		JobProcessesElement **tmp;
+
+		if (job->pid[i] <= 0)
+			continue;
+
+		process = nih_new (*processes, JobProcessesElement);
+		if (! process) {
+			nih_error_raise_no_memory ();
+			nih_free (*processes);
+			return -1;
+		}
+
+		process->item0 = nih_strdup (process, process_name (i));
+		if (! process->item0) {
+			nih_error_raise_no_memory ();
+			nih_free (*processes);
+			return -1;
+		}
+
+		process->item1 = job->pid[i];
+
+		tmp = nih_realloc (*processes, message,
+				   (sizeof (JobProcessesElement *)
+				    * (num_processes + 2)));
+		if (! tmp) {
+			nih_error_raise_no_memory ();
+			nih_free (*processes);
+			return -1;
+		}
+
+		*processes = tmp;
+		(*processes)[num_processes++] = process;
+		(*processes)[num_processes] = NULL;
+	}
+
+	return 0;
+}

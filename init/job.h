@@ -35,6 +35,8 @@
 #include "job_class.h"
 #include "event_operator.h"
 
+#include "com.ubuntu.Upstart.Instance.h"
+
 
 /**
  * JobGoal:
@@ -194,6 +196,10 @@ int         job_get_goal        (Job *job, NihDBusMessage *message,
 	__attribute__ ((warn_unused_result));
 int         job_get_state       (Job *job, NihDBusMessage *message,
 				 char **state)
+	__attribute__ ((warn_unused_result));
+
+int         job_get_processes   (Job *job, NihDBusMessage *message,
+				 JobProcessesElement ***processes)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

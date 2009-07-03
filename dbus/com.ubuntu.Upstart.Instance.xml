@@ -37,5 +37,6 @@
     <property name="name" type="s" access="read" />
     <property name="goal" type="s" access="read" />
     <property name="state" type="s" access="read" />
+    <property name="processes" type="a(si)" access="read" />
   </interface>
 </node>

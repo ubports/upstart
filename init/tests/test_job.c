@@ -6197,7 +6197,7 @@ test_get_name (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -6237,7 +6237,7 @@ test_get_name (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -6291,7 +6291,7 @@ test_get_goal (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -6346,7 +6346,7 @@ test_get_state (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -6354,6 +6354,466 @@ test_get_state (void)
 
 		TEST_ALLOC_PARENT (state, message);
 		TEST_EQ_STR (state, "running");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+
+void
+test_get_processes (void)
+{
+	NihDBusMessage *      message = NULL;
+	JobClass *            class = NULL;
+	Job *                 job = NULL;
+	JobProcessesElement **processes;
+	NihError *            error;
+	int                   ret;
+
+	TEST_FUNCTION ("job_get_processes");
+	nih_error_init ();
+	job_class_init ();
+
+
+	/* Check that a job with no active processes has an empty array
+	 * returned.
+	 */
+	TEST_FEATURE ("with no processes");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_STARTING;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 1);
+
+		TEST_EQ_P (processes[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active pre-start process has a single
+	 * array entry for that process with its pid returned.
+	 */
+	TEST_FEATURE ("with pre-start process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_PRE_START] = process_new (class);
+			class->process[PROCESS_PRE_START]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_PRE_START;
+			job->pid[PROCESS_PRE_START] = 1014;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "pre-start");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 1014);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active post-start process, and no main
+	 * process, has a single array entry for that process with its pid
+	 * returned.
+	 */
+	TEST_FEATURE ("with post-start process and no main process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_POST_START] = process_new (class);
+			class->process[PROCESS_POST_START]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_POST_START;
+			job->pid[PROCESS_POST_START] = 2137;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "post-start");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 2137);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active main process has a single array
+	 * entry for that process with its pid returned.
+	 */
+	TEST_FEATURE ("with main process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->pid[PROCESS_MAIN] = 3648;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "main");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 3648);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active main process, and a simultaneous
+	 * post-start process, has two array entries returned: one for each
+	 * process with its pid.  The main process should be listed first.
+	 */
+	TEST_FEATURE ("with main process and post-start process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_POST_START] = process_new (class);
+			class->process[PROCESS_POST_START]->command = "echo";
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_POST_START;
+			job->pid[PROCESS_POST_START] = 2137;
+			job->pid[PROCESS_MAIN] = 3648;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 3);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "main");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 3648);
+
+		TEST_ALLOC_PARENT (processes[1], processes);
+		TEST_ALLOC_SIZE (processes[1], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[1]->item0, "post-start");
+		TEST_ALLOC_PARENT (processes[1]->item0, processes[1]);
+		TEST_EQ (processes[1]->item1, 2137);
+
+		TEST_EQ_P (processes[2], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active main process, and a simultaneous
+	 * pre-stop process, has two array entries returned: one for each
+	 * process with its pid.  The main process should be listed first.
+	 */
+	TEST_FEATURE ("with main process and pre-stop process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = "echo";
+			class->process[PROCESS_PRE_STOP] = process_new (class);
+			class->process[PROCESS_PRE_STOP]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_PRE_STOP;
+			job->pid[PROCESS_MAIN] = 3648;
+			job->pid[PROCESS_PRE_STOP] = 7864;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 3);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "main");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 3648);
+
+		TEST_ALLOC_PARENT (processes[1], processes);
+		TEST_ALLOC_SIZE (processes[1], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[1]->item0, "pre-stop");
+		TEST_ALLOC_PARENT (processes[1]->item0, processes[1]);
+		TEST_EQ (processes[1]->item1, 7864);
+
+		TEST_EQ_P (processes[2], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active pre-stop process, and no main
+	 * process, has a single array entry for that process with its pid
+	 * returned.
+	 */
+	TEST_FEATURE ("with pre-stop process and no main process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_PRE_STOP] = process_new (class);
+			class->process[PROCESS_PRE_STOP]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_PRE_STOP;
+			job->pid[PROCESS_PRE_STOP] = 7864;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "pre-stop");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 7864);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active post-stop process has a single
+	 * array entry for that process with its pid returned.
+	 */
+	TEST_FEATURE ("with post-stop process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_POST_STOP;
+			job->pid[PROCESS_POST_STOP] = 9764;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "post-stop");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 9764);
+
+		TEST_EQ_P (processes[1], NULL);
 
 		nih_free (message);
 		nih_free (class);
@@ -6387,6 +6847,8 @@ main (int   argc,
 	test_get_name ();
 	test_get_goal ();
 	test_get_state ();
+
+	test_get_processes ();
 
 	return 0;
 }

@@ -1,5 +1,15 @@
 2009-07-03  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Instance.xml: Add a "processes" property
+	to obtain the list of current job processes, both their type and
+	their pid.
+	* init/job.c (job_get_processes): Implement the new property accessor
+	* init/job.h: Add prototype
+	* init/tests/test_job.c (test_get_processes): Add test cases for
+	returning process arrays.
+	(test_get_name, test_get_goal, test_get_state): Add missing free
+	for job class.
+
 	* init/tests/test_control.c (test_emit_event): Directly acess
 	the number from an NihDBusError
 
