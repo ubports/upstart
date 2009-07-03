@@ -47,15 +47,18 @@
     <method name="Start">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="env" type="as" direction="in" />
+      <arg name="wait" type="b" direction="in" />
       <arg name="instance" type="o" direction="out" />
     </method>
     <method name="Stop">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="env" type="as" direction="in" />
+      <arg name="wait" type="b" direction="in" />
     </method>
     <method name="Restart">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="env" type="as" direction="in" />
+      <arg name="wait" type="b" direction="in" />
       <arg name="instance" type="o" direction="out" />
     </method>
 

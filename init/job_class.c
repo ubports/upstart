@@ -663,7 +663,8 @@ job_class_get_all_instances (JobClass         *class,
  * job_class_start:
  * @class: job class to be started,
  * @message: D-Bus connection and message received,
- * @env: NULL-terminated array of environment variables.
+ * @env: NULL-terminated array of environment variables,
+ * @wait: whether to wait for command to finish before returning.
  *
  * Implements the top half of the Start method of the com.ubuntu.Upstart.Job
  * interface, the bottom half may be found in job_finished().
@@ -680,14 +681,19 @@ job_class_get_all_instances (JobClass         *class,
  * com.ubuntu.Upstart.Error.JobFailed D-BUs error will be returned when the
  * problem occurs.
  *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished starting (running for tasks); when @wait is FALSE, the method
+ * call returns once the command has been processed and the goal changed.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 job_class_start (JobClass        *class,
 		 NihDBusMessage  *message,
-		 char * const    *env)
+		 char * const    *env,
+		 int              wait)
 {
-	 Blocked        *blocked = NULL;
+	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **start_env = NULL;
 	nih_local char  *name = NULL;
@@ -751,8 +757,9 @@ job_class_start (JobClass        *class,
 		return -1;
 	}
 
-	blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_START_METHOD,
-					 message));
+	if (wait)
+		blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_START_METHOD,
+						 message));
 
 	if (job->start_env)
 		nih_unref (job->start_env, job);
@@ -761,11 +768,13 @@ job_class_start (JobClass        *class,
 	nih_ref (job->start_env, job);
 
 	job_finished (job, FALSE);
-	nih_list_add (&job->blocking, &blocked->entry);
+	if (wait)
+		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_START);
 
-	nih_ref (blocked, job);
+	if (! wait)
+		NIH_ZERO (job_class_start_reply (message, job->path));
 
 	return 0;
 }
@@ -774,7 +783,8 @@ job_class_start (JobClass        *class,
  * job_class_stop:
  * @class: job class to be stopped,
  * @message: D-Bus connection and message received,
- * @env: NULL-terminated array of environment variables.
+ * @env: NULL-terminated array of environment variables,
+ * @wait: whether to wait for command to finish before returning.
  *
  * Implements the top half of the Stop method of the com.ubuntu.Upstart.Job
  * interface, the bottom half may be found in job_finished().
@@ -790,12 +800,17 @@ job_class_start (JobClass        *class,
  * com.ubuntu.Upstart.Error.JobFailed D-Bus error will be returned when the
  * problem occurs.
  *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished stopping; when @wait is FALSE, the method call returns once
+ * the command has been processed and the goal changed.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 job_class_stop (JobClass       *class,
 		NihDBusMessage *message,
-		char * const   *env)
+		char * const   *env,
+		int             wait)
 {
 	Blocked         *blocked = NULL;
 	Job             *job;
@@ -862,8 +877,9 @@ job_class_stop (JobClass       *class,
 		return -1;
 	}
 
-	blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_STOP_METHOD,
-					 message));
+	if (wait)
+		blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_STOP_METHOD,
+						 message));
 
 	if (job->stop_env)
 		nih_unref (job->stop_env, job);
@@ -872,9 +888,13 @@ job_class_stop (JobClass       *class,
 	nih_ref (job->stop_env, job);
 
 	job_finished (job, FALSE);
-	nih_list_add (&job->blocking, &blocked->entry);
+	if (wait)
+		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);
+
+	if (! wait)
+		NIH_ZERO (job_class_stop_reply (message));
 
 	return 0;
 }
@@ -883,7 +903,8 @@ job_class_stop (JobClass       *class,
  * job_restart:
  * @class: job class to be restarted,
  * @message: D-Bus connection and message received,
- * @env: NULL-terminated array of environment variables.
+ * @env: NULL-terminated array of environment variables,
+ * @wait: whether to wait for command to finish before returning.
  *
  * Implements the top half of the Restart method of the com.ubuntu.Upstart.Job
  * interface, the bottom half may be found in job_finished().
@@ -902,12 +923,18 @@ job_class_stop (JobClass       *class,
  * com.ubuntu.Upstart.Error.JobFailed D-Bus error will be returned when the
  * problem occurs.
  *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished starting again (running for tasks); when @wait is FALSE, the
+ * method call returns once the command has been processed and the goal
+ * changed.
+
  * Returns: zero on success, negative value on raised error.
  **/
 int
 job_class_restart (JobClass        *class,
 		   NihDBusMessage  *message,
-		   char * const    *env)
+		   char * const    *env,
+		   int              wait)
 {
 	Blocked         *blocked = NULL;
 	Job             *job;
@@ -972,8 +999,10 @@ job_class_restart (JobClass        *class,
 		return -1;
 	}
 
-	blocked = NIH_MUST (blocked_new (job, BLOCKED_JOB_RESTART_METHOD,
-					 message));
+	if (wait)
+		blocked = NIH_MUST (blocked_new (job,
+						 BLOCKED_JOB_RESTART_METHOD,
+						 message));
 
 	if (job->start_env)
 		nih_unref (job->start_env, job);
@@ -986,10 +1015,14 @@ job_class_restart (JobClass        *class,
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
-	nih_list_add (&job->blocking, &blocked->entry);
+	if (wait)
+		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);
 	job_change_goal (job, JOB_START);
+
+	if (! wait)
+		NIH_ZERO (job_class_restart_reply (message, job->path));
 
 	return 0;
 }

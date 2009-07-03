@@ -53,6 +53,7 @@
 
 #include "dbus/upstart.h"
 
+#include "blocked.h"
 #include "event.h"
 #include "job.h"
 #include "conf.h"
@@ -1476,6 +1477,7 @@ test_start (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
+	Blocked *        blocked;
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
@@ -1519,7 +1521,7 @@ test_start (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_start (class, message, env);
+	ret = job_class_start (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -1537,6 +1539,18 @@ test_start (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STARTING);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_START_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
@@ -1544,6 +1558,9 @@ test_start (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -1563,6 +1580,86 @@ test_start (void)
 	TEST_EQ_STR (path, job->path);
 
 	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can start a new instance of a job without waiting
+	 * for it to complete, the reply should be sent to the sender
+	 * immediately and the job not blocked.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		class->path,
+		DBUS_INTERFACE_UPSTART_JOB,
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	env = nih_str_array_new (message);
+
+	ret = job_class_start (class, message, env, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	job = (Job *)nih_hash_lookup (class->instances, "");
+
+	TEST_NE_P (job, NULL);
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_ALLOC_PARENT (job, class);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	TEST_TRUE (dbus_message_get_args (reply, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, job->path);
+
+	dbus_message_unref (reply);
+
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
 
 	nih_free (class);
 
@@ -1599,7 +1696,7 @@ test_start (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_start (class, message, env);
+	ret = job_class_start (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -1617,10 +1714,24 @@ test_start (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_START_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	job_change_state (job, job_next_state (job));
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STARTING);
+
+	TEST_NOT_FREE (blocked);
 
 	nih_free (job->blocker);
 	job->blocker = NULL;
@@ -1629,6 +1740,9 @@ test_start (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -1683,7 +1797,7 @@ test_start (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_start (class, message, env);
+	ret = job_class_start (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -1738,7 +1852,7 @@ test_start (void)
 	assert (nih_str_array_add (&env, message, NULL, "FOO=wibble"));
 	assert (nih_str_array_add (&env, message, NULL, "BAR=wobble"));
 
-	ret = job_class_start (class, message, env);
+	ret = job_class_start (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -1764,6 +1878,18 @@ test_start (void)
 	TEST_EQ_STR (job->env[3], "BAR=wobble");
 	TEST_EQ_P (job->env[4], NULL);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_START_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
@@ -1771,6 +1897,9 @@ test_start (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -1822,7 +1951,7 @@ test_start (void)
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
 
-	ret = job_class_start (class, message, env);
+	ret = job_class_start (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -1865,6 +1994,7 @@ test_stop (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
+	Blocked *        blocked;
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
@@ -1914,7 +2044,7 @@ test_stop (void)
 
 	TEST_FREE_TAG (job);
 
-	ret = job_class_stop (class, message, env);
+	ret = job_class_stop (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -1926,12 +2056,26 @@ test_stop (void)
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_STOP_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
 	job_change_state (job, job_next_state (job));
 
 	TEST_FREE (job);
+
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -1945,6 +2089,77 @@ test_stop (void)
 	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
 
 	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can stop a job without waiting for the command
+	 * to finish, the reply should be sent to the sender immediately
+	 * and no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		class->path,
+		DBUS_INTERFACE_UPSTART_JOB,
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	env = nih_str_array_new (message);
+
+	TEST_FREE_TAG (job);
+
+	ret = job_class_stop (class, message, env, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_NOT_FREE (job);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_FREE (job);
 
 	nih_free (class);
 
@@ -1980,7 +2195,7 @@ test_stop (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_stop (class, message, env);
+	ret = job_class_stop (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -2031,7 +2246,7 @@ test_stop (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_stop (class, message, env);
+	ret = job_class_stop (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -2089,7 +2304,7 @@ test_stop (void)
 
 	TEST_FREE_TAG (job);
 
-	ret = job_class_stop (class, message, env);
+	ret = job_class_stop (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -2105,12 +2320,26 @@ test_stop (void)
 	TEST_EQ_STR (job->stop_env[1], "BAR=wobble");
 	TEST_EQ_P (job->stop_env[2], NULL);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_STOP_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
 	job_change_state (job, job_next_state (job));
 
 	TEST_FREE (job);
+
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -2160,7 +2389,7 @@ test_stop (void)
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
 
-	ret = job_class_stop (class, message, env);
+	ret = job_class_stop (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -2202,6 +2431,7 @@ test_restart (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
+	Blocked *        blocked;
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
@@ -2249,7 +2479,7 @@ test_restart (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_restart (class, message, env);
+	ret = job_class_restart (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -2259,6 +2489,18 @@ test_restart (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_RESTART_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
@@ -2267,6 +2509,8 @@ test_restart (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STARTING);
 
+	TEST_NOT_FREE (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
@@ -2274,6 +2518,9 @@ test_restart (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -2293,6 +2540,88 @@ test_restart (void)
 	TEST_EQ_STR (path, job->path);
 
 	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can restart the job without waiting for the command
+	 * to finish, the reply should be sent immediately and no blocking
+	 * entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		class->path,
+		DBUS_INTERFACE_UPSTART_JOB,
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	env = nih_str_array_new (message);
+
+	ret = job_class_restart (class, message, env, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	TEST_TRUE (dbus_message_get_args (reply, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, job->path);
+
+	dbus_message_unref (reply);
+
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
 
 	nih_free (class);
 
@@ -2328,7 +2657,7 @@ test_restart (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_restart (class, message, env);
+	ret = job_class_restart (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -2379,7 +2708,7 @@ test_restart (void)
 
 	env = nih_str_array_new (message);
 
-	ret = job_class_restart (class, message, env);
+	ret = job_class_restart (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -2435,7 +2764,7 @@ test_restart (void)
 	assert (nih_str_array_add (&env, message, NULL, "FOO=wibble"));
 	assert (nih_str_array_add (&env, message, NULL, "BAR=wobble"));
 
-	ret = job_class_restart (class, message, env);
+	ret = job_class_restart (class, message, env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -2453,6 +2782,18 @@ test_restart (void)
 	TEST_EQ_STR (job->start_env[3], "BAR=wobble");
 	TEST_EQ_P (job->start_env[4], NULL);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_JOB_RESTART_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
@@ -2467,6 +2808,8 @@ test_restart (void)
 	TEST_EQ_STR (job->env[3], "BAR=wobble");
 	TEST_EQ_P (job->env[4], NULL);
 
+	TEST_NOT_FREE (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
@@ -2474,6 +2817,9 @@ test_restart (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -2529,7 +2875,7 @@ test_restart (void)
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
 
-	ret = job_class_restart (class, message, env);
+	ret = job_class_restart (class, message, env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -2576,10 +2922,10 @@ test_get_name (void)
 	nih_error_init ();
 	job_class_init ();
 
-	class = job_class_new (NULL, "test");
-
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
 			message->message = NULL;
@@ -2597,7 +2943,7 @@ test_get_name (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2607,9 +2953,8 @@ test_get_name (void)
 		TEST_EQ_STR (name, "test");
 
 		nih_free (message);
+		nih_free (class);
 	}
-
-	nih_free (class);
 }
 
 void
@@ -2651,7 +2996,7 @@ test_get_description (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2661,7 +3006,6 @@ test_get_description (void)
 		TEST_EQ_STR (description, "a test job");
 
 		nih_free (message);
-
 		nih_free (class);
 	}
 
@@ -2691,7 +3035,7 @@ test_get_description (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2701,7 +3045,6 @@ test_get_description (void)
 		TEST_EQ_STR (description, "");
 
 		nih_free (message);
-
 		nih_free (class);
 	}
 }
@@ -2745,7 +3088,7 @@ test_get_author (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2755,7 +3098,6 @@ test_get_author (void)
 		TEST_EQ_STR (author, "a test job");
 
 		nih_free (message);
-
 		nih_free (class);
 	}
 
@@ -2785,7 +3127,7 @@ test_get_author (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2795,7 +3137,6 @@ test_get_author (void)
 		TEST_EQ_STR (author, "");
 
 		nih_free (message);
-
 		nih_free (class);
 	}
 }
@@ -2839,7 +3180,7 @@ test_get_version (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2849,7 +3190,6 @@ test_get_version (void)
 		TEST_EQ_STR (version, "a test job");
 
 		nih_free (message);
-
 		nih_free (class);
 	}
 
@@ -2879,7 +3219,7 @@ test_get_version (void)
 			nih_free (error);
 
 			nih_free (message);
-
+			nih_free (class);
 			continue;
 		}
 
@@ -2889,7 +3229,6 @@ test_get_version (void)
 		TEST_EQ_STR (version, "");
 
 		nih_free (message);
-
 		nih_free (class);
 	}
 }

@@ -193,15 +193,15 @@ int         job_class_get_all_instances    (JobClass *class,
 
 int         job_class_start                (JobClass *class,
 					    NihDBusMessage *message,
-					    char * const *env)
+					    char * const *env, int wait)
 	__attribute__ ((warn_unused_result));
 int         job_class_stop                 (JobClass *class,
 					    NihDBusMessage *message,
-					    char * const *env)
+					    char * const *env, int wait)
 	__attribute__ ((warn_unused_result));
 int         job_class_restart              (JobClass *class,
 					    NihDBusMessage *message,
-					    char * const *env)
+					    char * const *env, int wait)
 	__attribute__ ((warn_unused_result));
 
 int         job_class_get_name             (JobClass *class,

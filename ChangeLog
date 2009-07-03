@@ -1,5 +1,19 @@
 2009-07-03  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Job.xml (Start, Stop, Restart): Add wait
+	arguments to these too
+	* init/job_class.c (job_class_start, job_class_stop)
+	(job_class_restart): Add wait arguments, when TRUE the functions
+	behave as before; when FALSE the methods return after changing
+	the goal and no blocked entries are created.
+	* init/job_class.h: Amend prototypes.
+	* init/tests/test_job_class.c (test_start, test_stop, test_restart): 
+	Pass TRUE for wait and check for a blocking entry in existing tests,
+	add tests for passing FALSE and making sure that there's no blocking
+	but we still get the reply.
+	(test_get_name, test_get_description, test_get_author)
+	(test_get_version): Add missing code to free the class on enomem
+
 	* dbus/com.ubuntu.Upstart.xml (EmitEvent): Add wait argument
 	* init/control.c (control_emit_event): Add wait argument, when TRUE
 	this behaves as before; when FALSE the method returns after queuing
