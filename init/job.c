@@ -1052,7 +1052,8 @@ job_state_from_name (const char *state)
 /**
  * job_start:
  * @job: job to be started,
- * @message: D-Bus connection and message received.
+ * @message: D-Bus connection and message received,
+ * @wait: whether to wait for command to finish before returning.
  *
  * Implements the top half of the Start method of the
  * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
@@ -1064,11 +1065,16 @@ job_state_from_name (const char *state)
  * start again, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
  * be returned when the problem occurs.
  *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished starting (running for tasks); when @wait is FALSE, the method
+ * call returns once the command has been processed and the goal changed.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 job_start (Job             *job,
-	   NihDBusMessage  *message)
+	   NihDBusMessage  *message,
+	   int              wait)
 {
 	Blocked *blocked;
 
@@ -1084,18 +1090,25 @@ job_start (Job             *job,
 		return -1;
 	}
 
-	blocked = blocked_new (job, BLOCKED_INSTANCE_START_METHOD, message);
-	if (! blocked)
-		nih_return_system_error (-1);
+	if (wait) {
+		blocked = blocked_new (job, BLOCKED_INSTANCE_START_METHOD,
+				       message);
+		if (! blocked)
+			nih_return_system_error (-1);
+	}
 
 	if (job->start_env)
 		nih_unref (job->start_env, job);
 	job->start_env = NULL;
 
 	job_finished (job, FALSE);
-	nih_list_add (&job->blocking, &blocked->entry);
+	if (wait)
+		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_START);
+
+	if (! wait)
+		NIH_ZERO (job_start_reply (message));
 
 	return 0;
 }
@@ -1103,7 +1116,8 @@ job_start (Job             *job,
 /**
  * job_stop:
  * @job: job to be stopped,
- * @message: D-Bus connection and message received.
+ * @message: D-Bus connection and message received,
+ * @wait: whether to wait for command to finish before returning.
  *
  * Implements the top half of the Stop method of the
  * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
@@ -1115,11 +1129,16 @@ job_start (Job             *job,
  * stopping, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
  * be returned when the problem occurs.
  *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished stopping; when @wait is FALSE, the method call returns once
+ * the command has been processed and the goal changed.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 job_stop (Job            *job,
-	  NihDBusMessage *message)
+	  NihDBusMessage *message,
+	  int             wait)
 {
 	Blocked *blocked;
 
@@ -1135,18 +1154,25 @@ job_stop (Job            *job,
 		return -1;
 	}
 
-	blocked = blocked_new (job, BLOCKED_INSTANCE_STOP_METHOD, message);
-	if (! blocked)
-		nih_return_system_error (-1);
+	if (wait) {
+		blocked = blocked_new (job, BLOCKED_INSTANCE_STOP_METHOD,
+				       message);
+		if (! blocked)
+			nih_return_system_error (-1);
+	}
 
 	if (job->stop_env)
 		nih_unref (job->stop_env, job);
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
-	nih_list_add (&job->blocking, &blocked->entry);
+	if (wait)
+		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);
+
+	if (! wait)
+		NIH_ZERO (job_stop_reply (message));
 
 	return 0;
 }
@@ -1154,7 +1180,8 @@ job_stop (Job            *job,
 /**
  * job_restart:
  * @job: job to be restarted,
- * @message: D-Bus connection and message received.
+ * @message: D-Bus connection and message received,
+ * @wait: whether to wait for command to finish before returning.
  *
  * Implements the top half of the Restart method of the
  * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
@@ -1166,11 +1193,17 @@ job_stop (Job            *job,
  * restart, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
  * be returned when the problem occurs.
  *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished starting again (running for tasks); when @wait is FALSE, the
+ * method call returns once the command has been processed and the goal
+ * changed.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 job_restart (Job            *job,
-	     NihDBusMessage *message)
+	     NihDBusMessage *message,
+	     int             wait)
 {
 	Blocked *blocked;
 
@@ -1186,9 +1219,12 @@ job_restart (Job            *job,
 		return -1;
 	}
 
-	blocked = blocked_new (job, BLOCKED_INSTANCE_RESTART_METHOD, message);
-	if (! blocked)
-		nih_return_system_error (-1);
+	if (wait) {
+		blocked = blocked_new (job, BLOCKED_INSTANCE_RESTART_METHOD,
+				       message);
+		if (! blocked)
+			nih_return_system_error (-1);
+	}
 
 	if (job->start_env)
 		nih_unref (job->start_env, job);
@@ -1199,10 +1235,14 @@ job_restart (Job            *job,
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
-	nih_list_add (&job->blocking, &blocked->entry);
+	if (wait)
+		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);
 	job_change_goal (job, JOB_START);
+
+	if (! wait)
+		NIH_ZERO (job_restart_reply (message));
 
 	return 0;
 }

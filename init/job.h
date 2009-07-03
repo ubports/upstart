@@ -181,11 +181,11 @@ const char *job_state_name      (JobState state)
 	__attribute__ ((const));
 JobState    job_state_from_name (const char *state);
 
-int         job_start           (Job *job, NihDBusMessage *message)
+int         job_start           (Job *job, NihDBusMessage *message, int wait)
 	__attribute__ ((warn_unused_result));
-int         job_stop            (Job *job, NihDBusMessage *message)
+int         job_stop            (Job *job, NihDBusMessage *message, int wait)
 	__attribute__ ((warn_unused_result));
-int         job_restart         (Job *job, NihDBusMessage *message)
+int         job_restart         (Job *job, NihDBusMessage *message, int wait)
 	__attribute__ ((warn_unused_result));
 
 int         job_get_name        (Job *job, NihDBusMessage *message,

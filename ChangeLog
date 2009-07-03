@@ -1,5 +1,16 @@
 2009-07-03  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.Instance.xml (Start, Stop, Restart): add
+	wait arguments to the instance commands as well.
+	* init/job.c (job_start, job_stop, job_restart): Add wait arguments,
+	when TRUE the functions behave as before; when FALSE the methods
+	return after changing the goal and no blocked entries are created.
+	* init/job.h: Amend prototypes.
+	* init/tests/test_job.c (test_start, test_stop, test_restart): 
+	Pass TRUE for wait and check for a blocking entry in existing tests,
+	add tests for passing FALSE and making sure that there's no blocking
+	but we still get the reply.
+
 	* dbus/com.ubuntu.Upstart.Job.xml (Start, Stop, Restart): Add wait
 	arguments to these too
 	* init/job_class.c (job_class_start, job_class_stop)

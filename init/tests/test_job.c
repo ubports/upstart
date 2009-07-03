@@ -5699,6 +5699,7 @@ test_start (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
+	Blocked *        blocked;
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
@@ -5744,7 +5745,7 @@ test_start (void)
 
 	TEST_FREE_TAG (message);
 
-	ret = job_start (job, message);
+	ret = job_start (job, message, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -5754,6 +5755,18 @@ test_start (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_INSTANCE_START_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	job_change_state (job, job_next_state (job));
 
 	TEST_EQ (job->goal, JOB_START);
@@ -5762,10 +5775,15 @@ test_start (void)
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
+	TEST_NOT_FREE (blocked);
+
 	job_change_state (job, job_next_state (job));
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -5779,6 +5797,77 @@ test_start (void)
 	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
 
 	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can start a stopping job instance without waiting
+	 * for the command to complete, the reply should be sent immediately
+	 * and no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_start (job, message, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
 
 	nih_free (class);
 
@@ -5812,7 +5901,7 @@ test_start (void)
 
 	TEST_FREE_TAG (message);
 
-	ret = job_start (job, message);
+	ret = job_start (job, message, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -5855,6 +5944,7 @@ test_stop (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
+	Blocked *        blocked;
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
@@ -5902,7 +5992,7 @@ test_stop (void)
 
 	TEST_FREE_TAG (message);
 
-	ret = job_stop (job, message);
+	ret = job_stop (job, message, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -5912,12 +6002,26 @@ test_stop (void)
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_INSTANCE_STOP_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
 	nih_free (job->blocker);
 	job->blocker = NULL;
 
 	job_change_state (job, job_next_state (job));
 
 	TEST_FREE (job);
+
+	TEST_FREE (blocked);
 
 	TEST_FREE (message);
 	dbus_message_unref (method);
@@ -5931,6 +6035,73 @@ test_stop (void)
 	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
 
 	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can stop a running job instance without waiting
+	 * for it to complete, the reply should be sent immediately and
+	 * no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	TEST_FREE_TAG (job);
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_stop (job, message, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_FREE (job);
 
 	nih_free (class);
 
@@ -5964,7 +6135,7 @@ test_stop (void)
 
 	TEST_FREE_TAG (message);
 
-	ret = job_stop (job, message);
+	ret = job_stop (job, message, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -6007,6 +6178,7 @@ test_restart (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
+	Blocked *        blocked;
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
@@ -6052,7 +6224,7 @@ test_restart (void)
 
 	TEST_FREE_TAG (message);
 
-	ret = job_restart (job, message);
+	ret = job_restart (job, message, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -6061,6 +6233,110 @@ test_restart (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_INSTANCE_RESTART_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	TEST_NOT_FREE (blocked);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can restart a running job instance without waiting
+	 * for the command to complete, the reply should be sent immediately
+	 * and no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_restart (job, message, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	TEST_LIST_EMPTY (&job->blocking);
 
 	nih_free (job->blocker);
 	job->blocker = NULL;
@@ -6077,19 +6353,6 @@ test_restart (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_RUNNING);
-
-	TEST_FREE (message);
-	dbus_message_unref (method);
-
-	dbus_connection_flush (conn);
-
-	TEST_DBUS_MESSAGE (client_conn, reply);
-
-	TEST_EQ (dbus_message_get_type (reply),
-		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
-	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
-
-	dbus_message_unref (reply);
 
 	nih_free (class);
 
@@ -6123,7 +6386,7 @@ test_restart (void)
 
 	TEST_FREE_TAG (message);
 
-	ret = job_restart (job, message);
+	ret = job_restart (job, message, TRUE);
 
 	TEST_LT (ret, 0);
 

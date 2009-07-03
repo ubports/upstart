@@ -25,12 +25,15 @@
          for a Job, these are not permitted to pass or set environment. -->
     <method name="Start">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
+      <arg name="wait" type="b" direction="in" />
     </method>
     <method name="Stop">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
+      <arg name="wait" type="b" direction="in" />
     </method>
     <method name="Restart">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
+      <arg name="wait" type="b" direction="in" />
     </method>
 
     <!-- Basic information about an Instance -->
