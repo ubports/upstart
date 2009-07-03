@@ -43,6 +43,7 @@
 #include <nih/timer.h>
 #include <nih/io.h>
 #include <nih/main.h>
+#include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>
 
@@ -1546,6 +1547,558 @@ test_emit_event (void)
 }
 
 
+void
+test_get_version (void)
+{
+	NihDBusMessage *message = NULL;
+	char           *version;
+	NihError       *error;
+	int             ret;
+
+	/* Check that the function returns the package string as a newly
+	 * allocated child of the message structure.
+	 */
+	TEST_FUNCTION ("control_get_version");
+	nih_error_init ();
+	job_class_init ();
+	package_string = "init (upstart 1.0)";
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_version (NULL, message, &version);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (version, message);
+		TEST_EQ_STR (version, package_string);
+
+		nih_free (message);
+	}
+}
+
+
+void
+test_get_log_priority (void)
+{
+	NihDBusMessage *message = NULL;
+	char           *priority;
+	NihError       *error;
+	int             ret;
+
+	TEST_FUNCTION ("control_get_log_priority");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_FATAL priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with fatal");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_FATAL;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "fatal");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_ERROR priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with error");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_ERROR;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "error");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_WARN priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with warn");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_WARN;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "warn");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_MESSAGE priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_MESSAGE;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "message");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_INFO priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with info");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_INFO;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "info");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_DEBUG priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with debug");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_DEBUG;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "debug");
+
+		nih_free (message);
+	}
+
+
+	nih_log_priority = NIH_LOG_UNKNOWN;
+}
+
+void
+test_set_log_priority (void)
+{
+	NihDBusMessage *message = NULL;
+	NihError       *error;
+	NihDBusError   *dbus_err;
+	int             ret;
+
+	TEST_FUNCTION ("control_set_log_priority");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the function sets the log priority to NIH_LOG_FATAL
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with fatal");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "fatal");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_FATAL);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function sets the log priority to NIH_LOG_ERROR
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with error");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "error");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_ERROR);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function sets the log priority to NIH_LOG_WARN
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with warn");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "warn");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_WARN);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function sets the log priority to NIH_LOG_MESSAGE
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "message");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_MESSAGE);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function sets the log priority to NIH_LOG_INFO
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with info");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "info");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_INFO);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function sets the log priority to NIH_LOG_DEBUG
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with debug");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "debug");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_DEBUG);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns an invalid arguments error when
+	 * given an unrecognised string.
+	 */
+	TEST_FEATURE ("with unknown string");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_MESSAGE;
+
+		ret = control_set_log_priority (NULL, message, "wibble");
+
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+
+		if (test_alloc_failed
+		    && (error->number == ENOMEM)) {
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_err = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_err->name, DBUS_ERROR_INVALID_ARGS);
+
+		nih_free (dbus_err);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_MESSAGE);
+
+		nih_free (message);
+	}
+
+
+	nih_log_priority = NIH_LOG_UNKNOWN;
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -1565,6 +2118,11 @@ main (int   argc,
 	test_get_all_jobs ();
 
 	test_emit_event ();
+
+	test_get_version ();
+
+	test_get_log_priority ();
+	test_set_log_priority ();
 
 	return 0;
 }

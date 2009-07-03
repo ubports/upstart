@@ -33,6 +33,7 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/io.h>
+#include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>
@@ -513,6 +514,140 @@ control_emit_event (void            *data,
 	}
 
 	nih_list_add (&event->blocking, &blocked->entry);
+
+	return 0;
+}
+
+
+/**
+ * control_get_version:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @version: pointer for reply string.
+ *
+ * Implements the get method for the version property of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to obtain the version of the init daemon, which will be stored
+ * as a string in @version.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_version (void *          data,
+		     NihDBusMessage *message,
+		     char **         version)
+{
+	nih_assert (message != NULL);
+	nih_assert (version != NULL);
+
+	*version = nih_strdup (message, package_string);
+	if (! *version)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_get_log_priority:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @log_priority: pointer for reply string.
+ *
+ * Implements the get method for the log_priority property of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to obtain the init daemon's current logging level, which will
+ * be stored as a string in @log_priority.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_log_priority (void *          data,
+			  NihDBusMessage *message,
+			  char **         log_priority)
+{
+	const char *priority;
+
+	nih_assert (message != NULL);
+	nih_assert (log_priority != NULL);
+
+	switch (nih_log_priority) {
+	case NIH_LOG_DEBUG:
+		priority = "debug";
+		break;
+	case NIH_LOG_INFO:
+		priority = "info";
+		break;
+	case NIH_LOG_MESSAGE:
+		priority = "message";
+		break;
+	case NIH_LOG_WARN:
+		priority = "warn";
+		break;
+	case NIH_LOG_ERROR:
+		priority = "error";
+		break;
+	case NIH_LOG_FATAL:
+		priority = "fatal";
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
+
+	*log_priority = nih_strdup (message, priority);
+	if (! *log_priority)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_set_log_priority:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @log_priority: string log priority to be set.
+ *
+ * Implements the get method for the log_priority property of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to change the init daemon's current logging level to that given
+ * as a string in @log_priority.  If the string is not recognised, the
+ * com.ubuntu.Upstart.Error.InvalidLogPriority error will be returned.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_set_log_priority (void *          data,
+			  NihDBusMessage *message,
+			  const char *    log_priority)
+{
+	nih_assert (message != NULL);
+	nih_assert (log_priority != NULL);
+
+	if (! strcmp (log_priority, "debug")) {
+		nih_log_set_priority (NIH_LOG_DEBUG);
+
+	} else if (! strcmp (log_priority, "info")) {
+		nih_log_set_priority (NIH_LOG_INFO);
+
+	} else if (! strcmp (log_priority, "message")) {
+		nih_log_set_priority (NIH_LOG_MESSAGE);
+
+	} else if (! strcmp (log_priority, "warn")) {
+		nih_log_set_priority (NIH_LOG_WARN);
+
+	} else if (! strcmp (log_priority, "error")) {
+		nih_log_set_priority (NIH_LOG_ERROR);
+
+	} else if (! strcmp (log_priority, "fatal")) {
+		nih_log_set_priority (NIH_LOG_FATAL);
+
+	} else {
+		nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
+				      _("The log priority given was not recognised"));
+		return -1;
+	}
 
 	return 0;
 }

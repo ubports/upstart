@@ -60,6 +60,17 @@ int  control_emit_event           (void *data, NihDBusMessage *message,
 				   const char *name, char * const *env)
 	__attribute__ ((warn_unused_result));
 
+int  control_get_version          (void *data, NihDBusMessage *message,
+				   char **version)
+	__attribute__ ((warn_unused_result));
+
+int  control_get_log_priority     (void *data, NihDBusMessage *message,
+				   char **log_priority)
+	__attribute__ ((warn_unused_result));
+int  control_set_log_priority     (void *data, NihDBusMessage *message,
+				   const char *log_priority)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_CONTROL_H */

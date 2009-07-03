@@ -48,5 +48,9 @@
       <arg name="name" type="s" direction="in" />
       <arg name="env" type="as" direction="in" />
     </method>
+
+    <!-- Basic information about Upstart -->
+    <property name="version" type="s" access="read" />
+    <property name="log_priority" type="s" access="readwrite" />
   </interface>
 </node>
