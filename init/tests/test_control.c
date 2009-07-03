@@ -54,6 +54,7 @@
 
 #include "dbus/upstart.h"
 
+#include "blocked.h"
 #include "job_class.h"
 #include "job.h"
 #include "conf.h"
@@ -1198,6 +1199,7 @@ test_emit_event (void)
 	char           **env;
 	int              ret;
 	Event           *event;
+	Blocked *        blocked;
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
@@ -1241,7 +1243,7 @@ test_emit_event (void)
 			env = nih_str_array_new (message);
 		}
 
-		ret = control_emit_event (NULL, message, "test", env);
+		ret = control_emit_event (NULL, message, "test", env, TRUE);
 
 		if (test_alloc_failed) {
 			TEST_LT (ret, 0);
@@ -1264,6 +1266,18 @@ test_emit_event (void)
 		TEST_EQ_STR (event->name, "test");
 		TEST_EQ_P (event->env[0], NULL);
 
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_EMIT_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		TEST_ALLOC_PARENT (blocked->message, blocked);
+
+		TEST_FREE_TAG (blocked);
+
 		nih_discard (message);
 		TEST_NOT_FREE (message);
 
@@ -1271,6 +1285,8 @@ test_emit_event (void)
 		event_poll ();
 
 		TEST_LIST_EMPTY (events);
+
+		TEST_FREE (blocked);
 
 		TEST_FREE (message);
 		dbus_message_unref (method);
@@ -1319,7 +1335,7 @@ test_emit_event (void)
 						   "BAR=BAZ"));
 		}
 
-		ret = control_emit_event (NULL, message, "test", env);
+		ret = control_emit_event (NULL, message, "test", env, TRUE);
 
 		if (test_alloc_failed) {
 			TEST_LT (ret, 0);
@@ -1344,6 +1360,18 @@ test_emit_event (void)
 		TEST_EQ_STR (event->env[1], "BAR=BAZ");
 		TEST_EQ_P (event->env[2], NULL);
 
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_EMIT_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		TEST_ALLOC_PARENT (blocked->message, blocked);
+
+		TEST_FREE_TAG (blocked);
+
 		nih_discard (message);
 		TEST_NOT_FREE (message);
 
@@ -1351,6 +1379,8 @@ test_emit_event (void)
 		event_poll ();
 
 		TEST_LIST_EMPTY (events);
+
+		TEST_FREE (blocked);
 
 		TEST_FREE (message);
 		dbus_message_unref (method);
@@ -1364,6 +1394,80 @@ test_emit_event (void)
 		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
 
 		dbus_message_unref (reply);
+	}
+
+
+	/* Check that we can emit an event without waiting for it to
+	 * finish, we should get the reply straight away.
+	 */
+	TEST_FEATURE ("with no wait");
+	TEST_ALLOC_FAIL {
+		method = dbus_message_new_method_call (
+			dbus_bus_get_unique_name (conn),
+			DBUS_PATH_UPSTART,
+			DBUS_INTERFACE_UPSTART,
+			"EmitEvent");
+
+		dbus_connection_send (client_conn, method, &serial);
+		dbus_connection_flush (client_conn);
+		dbus_message_unref (method);
+
+		TEST_DBUS_MESSAGE (conn, method);
+		assert (dbus_message_get_serial (method) == serial);
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = conn;
+			message->message = method;
+
+			TEST_FREE_TAG (message);
+
+			env = nih_str_array_new (message);
+		}
+
+		ret = control_emit_event (NULL, message, "test", env, FALSE);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			dbus_message_unref (method);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "test");
+		TEST_EQ_P (event->env[0], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_discard (message);
+		TEST_FREE (message);
+		dbus_message_unref (method);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, reply);
+
+		TEST_EQ (dbus_message_get_type (reply),
+			 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+		dbus_message_unref (reply);
+
+
+		event_poll ();
+
+		TEST_LIST_EMPTY (events);
 	}
 
 
@@ -1392,7 +1496,7 @@ test_emit_event (void)
 
 	env = nih_str_array_new (NULL);
 
-	ret = control_emit_event (NULL, message, "test", env);
+	ret = control_emit_event (NULL, message, "test", env, TRUE);
 
 	TEST_EQ (ret, 0);
 
@@ -1449,7 +1553,7 @@ test_emit_event (void)
 
 	env = nih_str_array_new (message);
 
-	ret = control_emit_event (NULL, message, "", env);
+	ret = control_emit_event (NULL, message, "", env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -1487,7 +1591,7 @@ test_emit_event (void)
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO_BAR"));
 
-	ret = control_emit_event (NULL, message, "test", env);
+	ret = control_emit_event (NULL, message, "test", env, TRUE);
 
 	TEST_LT (ret, 0);
 
@@ -1525,7 +1629,7 @@ test_emit_event (void)
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=BAZ"));
 
-	ret = control_emit_event (NULL, message, "test", env);
+	ret = control_emit_event (NULL, message, "test", env, TRUE);
 
 	TEST_LT (ret, 0);
 

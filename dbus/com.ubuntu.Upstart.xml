@@ -47,6 +47,7 @@
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="name" type="s" direction="in" />
       <arg name="env" type="as" direction="in" />
+      <arg name="wait" type="b" direction="in" />
     </method>
 
     <!-- Basic information about Upstart -->

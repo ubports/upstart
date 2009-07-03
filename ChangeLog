@@ -1,5 +1,15 @@
 2009-07-03  Scott James Remnant  <scott@netsplit.com>
 
+	* dbus/com.ubuntu.Upstart.xml (EmitEvent): Add wait argument
+	* init/control.c (control_emit_event): Add wait argument, when TRUE
+	this behaves as before; when FALSE the method returns after queuing
+	the event and no blocked entry is created for it.
+	* init/control.h: Amend prototype.
+	* init/tests/test_control.c (test_emit_event): Pass TRUE for wait
+	and check for a blocking entry in existing tests, add a test for
+	passing FALSE and making sure that there's no blocking but we
+	still get the reply.
+
 	* dbus/com.ubuntu.Upstart.Instance.xml: Add a "processes" property
 	to obtain the list of current job processes, both their type and
 	their pid.

@@ -460,7 +460,8 @@ control_get_all_jobs (void             *data,
  * @data: not used,
  * @message: D-Bus connection and message received,
  * @name: name of event to emit,
- * @env: environment of environment.
+ * @env: environment of environment,
+ * @wait: whether to wait for event completion before returning.
  *
  * Implements the top half of the EmitEvent method of the com.ubuntu.Upstart
  * interface, the bottom half may be found in event_finished().
@@ -472,13 +473,19 @@ control_get_all_jobs (void             *data,
  * com.ubuntu.Upstart.Error.EventFailed D-Bus error will be returned when
  * the event finishes.
  *
+ * When @wait is TRUE the method call will not return until the event
+ * has completed, which means that all jobs affected by the event have
+ * finished starting (running for tasks) or stopping; when @wait is FALSE,
+ * the method call returns once the event has been queued.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 control_emit_event (void            *data,
 		    NihDBusMessage  *message,
 		    const char      *name,
-		    char * const    *env)
+		    char * const    *env,
+		    int              wait)
 {
 	Event   *event;
 	Blocked *blocked;
@@ -506,14 +513,18 @@ control_emit_event (void            *data,
 	if (! event)
 		nih_return_system_error (-1);
 
-	blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
-	if (! blocked) {
-		nih_error_raise_system ();
-		nih_free (event);
-		return -1;
-	}
+	if (wait) {
+		blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
+		if (! blocked) {
+			nih_error_raise_system ();
+			nih_free (event);
+			return -1;
+		}
 
-	nih_list_add (&event->blocking, &blocked->entry);
+		nih_list_add (&event->blocking, &blocked->entry);
+	} else {
+		NIH_ZERO (control_emit_event_reply (message));
+	}
 
 	return 0;
 }
