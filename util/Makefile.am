@@ -31,7 +31,6 @@ nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
-
 initctl_LDFLAGS = -static
 initctl_LDADD = \
 	../nih/libnih.la \
@@ -147,7 +146,7 @@ telinit_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 install-data-hook:
 	src=`echo initctl | sed '$(transform)'`.8; \
-	for symlink in start stop status; do \
+	for symlink in start stop restart status; do \
 	  inst=`echo $$symlink | sed '$(transform)'`.8; \
           echo " ln -sf '$$src' '$(DESTDIR)$(man8dir)/$$inst'"; \
 	  ln -sf "$$src" "$(DESTDIR)$(man8dir)/$$inst"; \
@@ -162,7 +161,7 @@ install-data-hook:
 
 install-exec-hook:
 	src=`echo initctl | sed '$(transform);s/$$/$(EXEEXT)/'`; \
-	for symlink in start stop status; do \
+	for symlink in start stop restart status; do \
 	  inst=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
           echo " ln -sf '$$src' '$(DESTDIR)$(sbindir)/$$inst'"; \
 	  ln -sf "$$src" "$(DESTDIR)$(sbindir)/$$inst"; \
@@ -184,7 +183,7 @@ check_PROGRAMS = $(TESTS)
 tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 
 test_initctl_SOURCES = tests/test_initctl.c initctl.c
-test_initctl_CFLAGS = -DTEST
+test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
 test_initctl_LDFLAGS = -static
 test_initctl_LDADD = \
 	com.ubuntu.Upstart.o \

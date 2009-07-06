@@ -1,3 +1,14 @@
+2009-07-06  Scott James Remnant  <scott@netsplit.com>
+
+	* util/initctl.c: Rewrite from scratch, utilising the current
+	D-Bus API and auto-generated method functions for it.
+	* util/tests/test_initctl.c: Rewrite from scratch to test all
+	of the new methods.
+	* util/Makefile.am (test_initctl_CFLAGS): Include AM_CFLAGS
+	(install-data-hook, install-exec-hook): Install a symlink for
+	"restart" as well.
+	* NEWS: Update.
+
 2009-07-03  Scott James Remnant  <scott@netsplit.com>
 
 	* dbus/com.ubuntu.Upstart.Instance.xml (Start, Stop, Restart): add

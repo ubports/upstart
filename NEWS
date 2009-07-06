@@ -1,5 +1,102 @@
 0.6.0  xxxx-xx-xx
 
+	* The licence for Upstart has been changed back to version 2 of the
+	  GNU GPL.
+
+	* Configuration paths have changed.  Global configuration now
+	  resides in "/etc/init.conf" while jobs are now configured in
+	  "/etc/init"
+
+	* The D-Bus interface remains unstable, to reflect this the current
+	  interface name has changed to "com.ubuntu.Upstart0_6" and the
+	  name of the job and instance interfaces have changed to match.
+
+	* The "EmitEvent" D-Bus method gains a wait argument, when given
+	  as TRUE (the recommended setting) the method call will be blocked
+	  until all effects of the event have finished.  When FALSE the
+	  method call will return once the event has been queued.
+
+	* The "Start", "Stop" and "Restart" D-Bus methods of jobs and
+	  instances gain a similar wait argument.
+
+	* The Upstart D-Bus object now has "version" and "log_priority"
+	  properties.  The former is to obtain the version of the init daemon,
+	  the latter allows you to obtain and change the logging priority.
+
+	* Job D-Bus objects now have "name", "description", "author" and
+	  "version" properties to obtain the job name and the contents of
+	  the equivalent job file fields for the others.
+
+	* Instance D-Bus objects now have "name", "goal", "state" and
+	  "processes" properties to obtain the instance name, goal, state
+	  and list of running processes and their pids respectively.
+
+	* The default D-Bus security policy now permits use of the "Get"
+	  methods by all users, including obtaining values of properties.
+
+	* initctl has been rewritten with functionality more along the
+	  lines of Upstart 0.3.x than before; since many distributions are
+	  still shipping 0.3.x the summary of changes for the tool reflects
+	  both changes from 0.3.x and 0.5.x
+
+	* The global "-p"/"--pid" argument has been dropped, since
+	  communication is over D-Bus.  New "--system" and "--dest" arguments
+	  have been added to force communication over the system bus, and
+	  specify the destination, instead of using the private socket.
+
+	* The "-i"/"--id" and "--show-ids" options to commands have been
+	  dropped since jobs no longer have ids.
+
+	* Since instances may now have names, these will be displayed in
+	  brackets after the job name when one is present.  The output of
+	  the goal and state are now expressed as "start/running" instead
+	  of "(start) running" to disambiguate.
+
+	* initctl "start" and "stop" now only output the final state of
+	  the job, not intermediate states it passes through.  When called
+	  with "--no-wait", the commands now output a status before
+	  returning (which may not be the final status).
+
+	* initctl "start", "stop" and "status" now only accept a single
+	  job name.  Further arguments are taken as KEY=VALUE environment
+	  variables to pass to the job, replacing the previous "-e" option.
+
+	* There is a new initctl "restart" command, with matching
+	  /sbin/restart symlink.  This is the atomic equivalent of calling
+	  "stop" and "start" with the exception that a stopped job will
+	  not be started again.
+
+	* In keeping with the newer instance model, instance jobs are now
+	  output on separate lines with their full names rather than
+	  indented under a "master" instance.
+
+	* initctl "status" will exit non-zero if the job name was not
+	  found.  (Bug: #328323)
+
+	* initctl "status" now outputs information for multi-instance
+	  jobs.  (Bug: #331407)
+
+	* initctl "list" no longer accepts a pattern, use grep.  Output
+	  is no longer sorted.
+
+	* initctl "emit" no longer outputs changes that occur as a result
+	  of the event.
+
+	* When initctl "emit" is called with "--no-wait", it will return
+	  immediately.  (Bug: #324890)
+
+	* initctl "emit" now only accepts a single event name.  Further
+	  arguments are taken as KEY=VALUE environment for the event,
+	  replacing the previous "-e" option.
+
+	* initctl "jobs" and "events" have been dropped.
+
+	* initctl "log-priority" may be called without arguments, in
+	  which case it will output the current priority.  (Bug: #280529)
+
+	* initctl "reload" has been renamed to "reload-configuration"
+	  to avoid confusion with reloading a job's configuration.
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.
