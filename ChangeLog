@@ -1,3 +1,7 @@
+2009-07-07  Scott James Remnant  <scott@netsplit.com>
+
+	* util/man/initctl.8: Improve the manpage.
+
 2009-07-06  Scott James Remnant  <scott@netsplit.com>
 
 	* util/initctl.c: Rewrite from scratch, utilising the current

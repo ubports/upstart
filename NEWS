@@ -97,6 +97,8 @@
 	* initctl "reload" has been renamed to "reload-configuration"
 	  to avoid confusion with reloading a job's configuration.
 
+	* initctl(8) man page updated.  (Bug: #285753)
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.
