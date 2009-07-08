@@ -1,5 +1,15 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/sysv.c (sysv_change_runlevel): Pretty much the core compat
+	function for System V, generate a runlevel event and store the
+	appropriate things in utmp and wtmp.
+	* util/sysv.h: Prototype.
+	* util/tests/test_sysv.c: Test cases for the new function.
+	* util/Makefile.am (TESTS): Run the sysv test cases
+	(test_sysv_SOURCES, nodist_test_sysv_SOURCES, test_sysv_LDFLAGS)
+	(test_sysv_LDADD): Details for the sysv test cases, which obviously
+	depend on the auto-generated bindings code.
+
 	* util/utmp.c (utmp_write_runlevel): Make sure that it's ok to
 	have no previous runlevel.
 	* util/tests/test_utmp.c (test_write_runlevel): Add no previous

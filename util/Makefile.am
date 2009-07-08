@@ -177,7 +177,8 @@ install-exec-hook:
 
 TESTS = \
 	test_initctl \
-	test_utmp
+	test_utmp \
+	test_sysv
 
 check_PROGRAMS = $(TESTS)
 
@@ -196,6 +197,17 @@ test_utmp_LDFLAGS = -static
 test_utmp_LDADD = \
 	utmp.o \
 	../nih/libnih.la
+
+test_sysv_SOURCES = tests/test_sysv.c
+nodist_test_sysv_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS)
+test_sysv_LDFLAGS = -static
+test_sysv_LDADD = \
+	sysv.o utmp.o \
+	../nih/libnih.la \
+	../nih-dbus/libnih-dbus.la \
+	$(LTLIBINTL) \
+	$(DBUS_LIBS)
 
 
 .PHONY: tests
