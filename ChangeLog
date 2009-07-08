@@ -1,5 +1,13 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* conf/rc-sysinit.conf: Michael Biebl pointed out that by setting
+	the runlevel to "S" during sysinit, we end up with the runlevel
+	after boot being "S 2" - and that means scripts in rc2.d that
+	are also in rcS.d won't get started.  The way we had it before
+	("N 2") was correct.  This happily fixes the one corner case our
+	reboot handling didn't cover - crashing in single user mode and
+	rebooting.
+
 	* util/telinit.c: Fix missing ret = from kill
 
 	* conf/rc-sysinit.conf: Ignore -s/single if we're already coming
