@@ -152,7 +152,7 @@ test_upstart_open (void)
 		TEST_EQ_P (proxy->owner, NULL);
 		TEST_EQ_STR (proxy->path, DBUS_PATH_UPSTART);
 		TEST_ALLOC_PARENT (proxy->path, proxy);
-		TEST_TRUE (proxy->auto_start);
+		TEST_FALSE (proxy->auto_start);
 
 		TEST_EQ_P (proxy->lost_handler, NULL);
 		TEST_EQ_P (proxy->data, NULL);
@@ -217,7 +217,7 @@ test_upstart_open (void)
 		TEST_ALLOC_PARENT (proxy->owner, proxy);
 		TEST_EQ_STR (proxy->path, DBUS_PATH_UPSTART);
 		TEST_ALLOC_PARENT (proxy->path, proxy);
-		TEST_TRUE (proxy->auto_start);
+		TEST_FALSE (proxy->auto_start);
 
 		TEST_EQ_P (proxy->lost_handler, NULL);
 		TEST_EQ_P (proxy->data, NULL);
@@ -278,7 +278,7 @@ test_upstart_open (void)
 		TEST_ALLOC_PARENT (proxy->owner, proxy);
 		TEST_EQ_STR (proxy->path, DBUS_PATH_UPSTART);
 		TEST_ALLOC_PARENT (proxy->path, proxy);
-		TEST_TRUE (proxy->auto_start);
+		TEST_FALSE (proxy->auto_start);
 
 		TEST_EQ_P (proxy->lost_handler, NULL);
 		TEST_EQ_P (proxy->data, NULL);

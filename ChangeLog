@@ -1,5 +1,14 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (upstart_open, start_action, stop_action)
+	(restart_action, status_action, list_action): Don't auto-start
+	the init daemon, it makes no sense.
+	(upstart_open): When not running from the test suite, and not as
+	root, it makes sense to default to using the system bus daemon.
+	* util/tests/test_initctl.c (test_upstart_open): Make sure that
+	auto-start is FALSE, not TRUE.
+	* NEWS: Update.
+
 	* util/Makefile.am (dist_man_MANS): Oops, had the wrong name for
 	the runlevel(7) manpage.
 

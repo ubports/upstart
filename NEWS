@@ -42,7 +42,9 @@
 	* The global "-p"/"--pid" argument has been dropped, since
 	  communication is over D-Bus.  New "--system" and "--dest" arguments
 	  have been added to force communication over the system bus, and
-	  specify the destination, instead of using the private socket.
+	  specify the destination, instead of using the private socket (this
+	  is the default when run as non-root to permit "list" and "status"
+	  to work for ordinary users).
 
 	* The "-i"/"--id" and "--show-ids" options to commands have been
 	  dropped since jobs no longer have ids.

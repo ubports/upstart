@@ -24,8 +24,11 @@
 
 #include <dbus/dbus.h>
 
+#include <sys/types.h>
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -79,7 +82,7 @@ int log_priority_action         (NihCommand *command, char * const *args);
  * Whether to connect to the init daemon on the D-Bus system bus or
  * privately.
  **/
-int system_bus = FALSE;
+int system_bus = -1;
 
 /**
  * dest_name:
@@ -128,6 +131,9 @@ upstart_open (const void *parent)
 	DBusConnection *connection;
 	NihDBusProxy *  upstart;
 
+	if (system_bus < 0)
+		system_bus = getuid () ? TRUE : FALSE;
+
 	dbus_error_init (&dbus_error);
 	if (system_bus) {
 		if (! dest_name)
@@ -174,6 +180,8 @@ upstart_open (const void *parent)
 		dbus_connection_unref (connection);
 		return NULL;
 	}
+
+	upstart->auto_start = FALSE;
 
 	/* Drop initial reference now the proxy holds one */
 	dbus_connection_unref (connection);
@@ -357,6 +365,8 @@ start_action (NihCommand *  command,
 	if (! job_class)
 		goto error;
 
+	job_class->auto_start = FALSE;
+
 	/* When called from a job handler, we directly change the goal
 	 * so we need the instance.  These calls are always made without
 	 * waiting, since otherwise we'd block the job we're called from.
@@ -372,6 +382,8 @@ start_action (NihCommand *  command,
 					  NULL, NULL);
 		if (! job)
 			goto error;
+
+		job->auto_start = FALSE;
 
 		pending_call = job_start (job, FALSE,
 					  (JobStartReply)reply_handler,
@@ -407,6 +419,8 @@ start_action (NihCommand *  command,
 						  NULL, NULL));
 			if (! job)
 				goto error;
+
+			job->auto_start = FALSE;
 		}
 
 		status = NIH_SHOULD (job_status (NULL, job_class, job));
@@ -486,6 +500,8 @@ stop_action (NihCommand *  command,
 	if (! job_class)
 		goto error;
 
+	job_class->auto_start = FALSE;
+
 	/* When called from a job handler, we directly change the goal
 	 * so need the instance.  These calls are always made without
 	 * waiting, since otherwise we'd block the job we're called from.
@@ -501,6 +517,8 @@ stop_action (NihCommand *  command,
 					  NULL, NULL);
 		if (! job)
 			goto error;
+
+		job->auto_start = FALSE;
 
 		pending_call = job_stop (job, FALSE,
 					 (JobStopReply)reply_handler,
@@ -519,6 +537,8 @@ stop_action (NihCommand *  command,
 					  NULL, NULL);
 		if (! job)
 			goto error;
+
+		job->auto_start = FALSE;
 
 		pending_call = job_class_stop (job_class, &args[1], (! no_wait),
 					       (JobClassStopReply)reply_handler,
@@ -608,6 +628,8 @@ restart_action (NihCommand *  command,
 	if (! job_class)
 		goto error;
 
+	job_class->auto_start = FALSE;
+
 	/* When called from a job handler, we directly toggle the goal
 	 * so we need the instance.  These calls are always made without
 	 * waiting, since otherwise we'd block the job we're called from.
@@ -623,6 +645,8 @@ restart_action (NihCommand *  command,
 					  NULL, NULL);
 		if (! job)
 			goto error;
+
+		job->auto_start = FALSE;
 
 		pending_call = job_restart (job, FALSE,
 					    (JobRestartReply)reply_handler,
@@ -658,6 +682,8 @@ restart_action (NihCommand *  command,
 						  NULL, NULL));
 			if (! job)
 				goto error;
+
+			job->auto_start = FALSE;
 		}
 
 		status = NIH_SHOULD (job_status (NULL, job_class, job));
@@ -737,6 +763,8 @@ status_action (NihCommand *  command,
 	if (! job_class)
 		goto error;
 
+	job_class->auto_start = FALSE;
+
 	/* Obtain a proxy to the specific instance.  Catch the case where
 	 * we were just given a job name, and there was no single instance
 	 * running.
@@ -765,6 +793,8 @@ status_action (NihCommand *  command,
 					  NULL, NULL);
 		if (! job)
 			goto error;
+
+		job->auto_start = FALSE;
 	} else {
 		job = NULL;
 	}
@@ -826,6 +856,8 @@ list_action (NihCommand *  command,
 		if (! job_class)
 			goto error;
 
+		job_class->auto_start = FALSE;
+
 		/* Obtain a list of instances, catch an error from the
 		 * command and assume the job just went away.
 		 */
@@ -874,6 +906,8 @@ list_action (NihCommand *  command,
 						  NULL, NULL);
 			if (! job)
 				goto error;
+
+			job->auto_start = FALSE;
 
 			status = job_status (NULL, job_class, job);
 			if (! status) {
