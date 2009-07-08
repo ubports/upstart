@@ -122,8 +122,6 @@
 	* telinit will no longer silently ignore the "a", "b" or "c"
 	  runlevels.
 
-	* telinit will no longer silently ignore the "-t" argument.
-
 	* telinit now accepts the previously ignored "-e" argument, passing
 	  the environment variables given along with the runlevel event.
 

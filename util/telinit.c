@@ -94,6 +94,9 @@ static NihOption options[] = {
 	{ 'e', NULL, N_("set environment variable in the runlevel event"),
 	  NULL, "KEY=VALUE", &extra_env, env_option },
 
+	/* Compatibility options, all ignored */
+	{ 't', NULL, NULL, NULL, "SECONDS", NULL, NULL },
+
 	NIH_OPTION_LAST
 };
 
