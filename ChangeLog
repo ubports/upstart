@@ -1,5 +1,8 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/telinit.c: Catch a missing argument separately so we don't
+	output "(null)"
+
 	* README: Update requirements.
 	* TODO: Update.
 

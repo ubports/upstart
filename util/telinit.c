@@ -130,8 +130,12 @@ main (int   argc,
 		exit (1);
 
 	/* First argument must be a single character we know */
-	if ((! args[0]) || (! strchr ("0123456SsQqUu", args[0][0]))
-	    || args[0][1]) {
+	if (! args[0]) {
+		fprintf (stderr, _("%s: missing runlevel\n"), program_name);
+		nih_main_suggest_help ();
+		exit (1);
+	}
+	if ((! strchr ("0123456SsQqUu", args[0][0])) || args[0][1]) {
 		fprintf (stderr, _("%s: illegal runlevel: %s\n"),
 			 program_name, args[0]);
 		nih_main_suggest_help ();
