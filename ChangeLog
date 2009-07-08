@@ -1,5 +1,14 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/runlevel.c: Drop about 90% of the code, this just becomes
+	a wrapper around utmp_get_runlevel()
+	* util/man/runlevel.8: Update the runlevel manpage.
+	* util/man/runlevel.7: Also put together a manual page that
+	describes the runlevel event, as well as the implementation in
+	Upstart.
+	* util/Makefile.am (dist_man_MANS): Install the new manpage.
+	* NEWS: Update.
+
 	* util/Makefile.am (reboot_SOURCES, runlevel_SOURCES): Compile and
 	link the utmp handling source, depending on the header.
 	(reboot_LDADD, runlevel_LDADD): Drop dependency on libupstart

@@ -1,0 +1,244 @@
+.TH runlevel 7 2009-07-08 "Upstart"
+.\"
+.SH NAME
+runlevel \- event signalling change of system runlevel
+.\"
+.SH SYNOPSIS
+.B runlevel
+.BI RUNLEVEL\fR= RUNLEVEL
+.BI PREVLEVEL\fR= PREVLEVEL
+.IR ENV...
+.\"
+.SH DESCRIPTION
+This page describes the
+.B runlevel
+Upstart event, and the general implementation of runlevels in the Upstart
+system.  For the runlevel tool, see
+.BR runlevel (8)
+.\"
+.SS The runlevel event
+The
+.B runlevel
+event signals a change of system runlevel.  The new system runlevel is
+given in the
+.B RUNLEVEL
+argument, and the previous system runlevel in the
+.B PREVLEVEL
+argument (which may be empty).
+
+Additional environment may follow these depending on the runlevel, and the
+tool that emitted the event.  The
+.BR shutdown (8)
+tool will supply an
+.B INIT_HALT
+variable set to either
+.I HALT
+or
+.I POWEROFF
+when called with
+.B -H
+or
+.B -P
+respectively.
+.\"
+.SS Runlevels
+.\"
+Runlevels are a concept from UNIX\*R System V used by the
+.BR init (8)
+daemon or other system initialisation system to define modes of system
+operation.
+
+Eight runlevels are permitted, the first seven are numbered
+.BR 0 - 6
+and the eighth is named
+.B S
+or
+.B s
+(both are permitted).
+
+Services and other system components are said to exist in one or more
+runlevels.  When switching from one runlevel to another, the services
+that should not exist in the new runlevel are stopped and the services
+that only exist in the new runlevel are started.
+
+This is performed by the
+.B /etc/init.d/rc
+script executed on a change of runlevel
+(by jobs run on the
+.B runlevel
+event in the Upstart system).  This script examines symlinks in the
+.I /etc/rc?.d
+directories, symlinks beginning
+.B K
+are services to be stopped and symlinks beginning
+.B S
+are services to be started.
+
+The authorative documentation for this process can be found in the
+.I System run levels and init.d scripts
+section of the
+.I Debian Policy Manual.  This may be currently found at
+.RB < http://www.debian.org/doc/debian-policy/ch-opersys.html#s-sysvinit >
+
+Runlevels
+.BR 0 ,
+.BR 1 " and"
+.B 6
+are reserved.  Runlevel
+.B 0
+is used to halt the system and
+.B 6
+to reboot the system.  Runlevel
+.B 1
+is used to bring the system back down into single-user mode, after which
+the runlevel will be
+.BR S .
+.\"
+.SS System V initialisation in Upstart
+The compatible implementation of runlevels permits Upstart jobs to be run
+on the
+.B runlevel
+event that perform the same functionality as the original System V
+.BR init (8)
+daemon.
+
+The
+.I /etc/init/rc.conf
+job is run on the
+.B runlevel
+event, thus receiving the
+.B RUNLEVEL
+and
+.B PREVLEVEL
+environment variables.  Its sole job is to execute the
+.B /etc/init.d/rc
+script, passing the new runlevel as an argument.
+
+Initial system startup is provided by the
+.I /etc/init/rc-sysinit.conf
+job.  This is run on the
+.B startup
+event, and is primarily responsible for running the
+.B /etc/init.d/rc
+script with the special
+.B S
+argument and calling
+.BR telinit (8)
+to switch into the default runlevel when done.  This also handles the
+.BR -b ,
+.BR emergency ,
+.BR -s and
+.B single
+kernel command-line options as well as specifying an alternate runlevel
+on the kernel command-line.
+
+Finally the
+.I /etc/init/rcS.conf
+job handles the special case of entering the single-user runlevel after
+the system has been booted.
+.\"
+.SS Implementation of runlevels in Upstart
+The Upstart
+.BR init (8)
+daemon has no native concepts of runlevel, and unlike the System V daemon,
+makes no attempt to keep track of the current runlevel.
+
+Instead a compatible implementation is provided by the
+.BR runlevel (8),
+.BR telinit (8)
+and
+.BR shutdown (8)
+tools supplied with Upstart.
+
+The
+.BR telinit (8)
+and
+.BR shutdown (8)
+tools are used by system administrators to change the runlevel, thus they
+both generate this
+.B runlevel
+event obtaining the value for the
+.B PREVLEVEL
+environment variable from their own environment (the
+.B RUNLEVEL
+variable) or the
+.I /var/run/utmp
+file.
+
+Additionally they update the
+.I /var/run/utmp
+file with the new runlevel, and append a log entry to the
+.I /var/log/wtmp
+file.
+
+The
+.BR runlevel (8)
+tool may be used by system administrators to obtain the current runlevel,
+this reads the
+.B RUNLEVEL
+and
+.B PREVLEVEL
+variables from its own environment or reads the current and previous
+runlevel from
+.IR /var/run/utmp .
+
+The
+.BR who (1)
+.B -r
+command may also be used to read the current runlevel from
+.IR /var/run/utmp .
+
+This provides full compatibility with System V.
+
+During the boot scripts, where the
+.I /var/run/utmp
+file may not yet be writable, the
+.B RUNLEVEL
+and
+.B PREVLEVEL
+environment variables will be available so
+.BR telinit (8)
+will still provide the correct values.
+
+Once the boot scripts have finished, while the environment variables may no
+longer be available, the
+.I /var/run/utmp
+file will be and the most recent
+.BR telinit (8)
+invocation should have successfully written to it.
+.\"
+.SS Boot time records
+The
+.BR telinit (8)
+tool also takes care of writing the boot time record to both
+.I /var/run/utmp
+and
+.IR /var/log/wtmp .
+
+This is written if the previous runlevel in these files does not match the
+previous runlevel obtained from its environment.  In general this occurs
+when switching from runlevel
+.B S
+to the default runlevel, at which point the
+.I /var/run/utmp
+and
+.I /var/log/wtmp
+files are both writable, and the
+.BR telinit (8)
+invocation to do the switch has
+.BI RUNLEVEL\fR= S
+in its environment.
+.\"
+.SH EXAMPLE
+A service running in the typical multi-user runlevels might use:
+
+.B start on runlevel [2345]
+
+.B stop on runlevel [!2345]
+.\"
+.SH SEE ALSO
+.BR runlevel (8)
+.BR init (8)
+.BR telinit (8)
+.BR shutdown (8)
+.BR who (1)

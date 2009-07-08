@@ -99,6 +99,13 @@
 
 	* initctl(8) man page updated.  (Bug: #285753)
 
+	* runlevel no longer accepts the --set and --reboot arguments,
+	  instead telinit will now set store these values in utmp and wtmp.
+
+	* runlevel(7) man page added to describe the runlevel event, and
+	  the implementation of runlevels and System V compatibility in
+	  Upstart.  (Bug: #60429)
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.

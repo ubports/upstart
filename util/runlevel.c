@@ -22,15 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/utsname.h>
-
-#include <time.h>
-#include <utmp.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
@@ -40,24 +32,7 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-
-/* Prototypes for static functions */
-static void store (short type, pid_t pid, const char *user);
-
-
-/**
- * reboot:
- *
- * TRUE if we need to store a reboot record.
- **/
-static int reboot = FALSE;
-
-/**
- * set:
- *
- * Run level to store in the utmp file.
- **/
-static char *set = NULL;
+#include "utmp.h"
 
 
 /**
@@ -66,11 +41,6 @@ static char *set = NULL;
  * Command-line options accepted.
  **/
 static NihOption options[] = {
-	{ 0, "reboot", N_("store time of system boot"),
-	  NULL, NULL, &reboot, NULL },
-	{ 0, "set", N_("store new runlevel"),
-	  NULL, "RUNLEVEL", &set, NULL },
-
 	NIH_OPTION_LAST
 };
 
@@ -79,8 +49,9 @@ int
 main (int   argc,
       char *argv[])
 {
-	struct utmp   utmp, *lvl;
-	char        **args, prev = 0, cur = 0;
+	char **args;
+	int    runlevel;
+	int    prevlevel;
 
 	nih_main_init (argv[0]);
 
@@ -88,117 +59,28 @@ main (int   argc,
 	nih_option_set_synopsis (_("Output previous and current runlevel."));
 	nih_option_set_help (
 		_("The system /var/run/utmp file is used unless the alternate "
-		  "file UTMP is given.\n"
-		  "\n"
-		  "Normally this will only output the most recent runlevel "
-		  "record in the utmp file, the --set option can be used to "
-		  "add a new record.  RUNLEVEL should be one of 0123456S.\n"
-		  "\n"
-		  "Alternately a reboot record may be added to the file by "
-		  "using the --reboot option, this produces no output."));
+		  "file UTMP is given.\n"));
 
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
 
-	/* Allow overriding of the utmp filename */
-	if (args[0])
-		utmpname (args[0]);
+	runlevel = NIH_SHOULD (utmp_get_runlevel (args[0], &prevlevel));
+	if (runlevel < 0) {
+		NihError *err;
 
-	/* Store the reboot time? */
-	if (reboot) {
-		store (BOOT_TIME, 0, "reboot");
-		exit (0);
-	}
-
-
-	/* Retrieve the last runlevel marker */
-	memset (&utmp, 0, sizeof (utmp));
-	utmp.ut_type = RUN_LVL;
-
-	setutent ();
-	lvl = getutid (&utmp);
-	if (lvl) {
-		prev = lvl->ut_pid / 256;
-		if (! prev)
-			prev = 'N';
-
-		cur = lvl->ut_pid % 256;
-	}
-	endutent ();
-
-	/* Set the new runlevel */
-	if (set) {
-		/* Sanity check */
-		if ((strlen (set) != 1) || (! strchr ("0123456S", set[0]))) {
-			fprintf (stderr, _("%s: illegal runlevel: %s\n"),
-				 program_name, set);
-			nih_main_suggest_help ();
-			exit (1);
+		err = nih_error_get ();
+		if (err->number == ESRCH) {
+			nih_message ("unknown");
+		} else {
+			nih_error ("%s", err->message);
 		}
 
-		store (RUN_LVL, set[0] + cur * 256, "runlevel");
-
-		prev = cur;
-		if (! prev)
-			prev = 'N';
-
-		cur = set[0];
-	}
-
-	if (cur) {
-		printf ("%c %c\n", prev, cur);
-	} else {
-		printf ("unknown\n");
+		nih_free (err);
 		exit (1);
 	}
 
+	nih_message ("%c %c", prevlevel, runlevel);
+
 	return 0;
-}
-
-
-/**
- * store:
- * @type: type of entry,
- * @pid: pid for entry,
- * @user: username to store.
- *
- * Write an entry to the utmp and wtmp files, the id and line are always
- * "~~" and "~" respectively.
- **/
-static void
-store (short       type,
-       pid_t       pid,
-       const char *user)
-{
-	struct utmp    utmp;
-	struct utsname uts;
-	struct timeval tv;
-
-	nih_assert (user != NULL);
-	nih_assert (strlen (user) > 0);
-
-	memset (&utmp, 0, sizeof (utmp));
-
-	utmp.ut_type = type;
-	utmp.ut_pid = pid;
-
-	strcpy (utmp.ut_line, "~");
-	strcpy (utmp.ut_id, "~~");
-	strncpy (utmp.ut_user, user, sizeof (utmp.ut_user));
-	if (uname (&uts) == 0)
-		strncpy (utmp.ut_host, uts.release, sizeof (utmp.ut_host));
-
-	/* Not really struct timeval when on 64-bit */
-	gettimeofday (&tv, NULL);
-	utmp.ut_tv.tv_sec = tv.tv_sec;
-	utmp.ut_tv.tv_usec = tv.tv_usec;
-
-	/* Write utmp entry */
-	setutent ();
-	pututline (&utmp);
-	endutent ();
-
-	/* Write wtmp entry */
-	updwtmp (WTMP_FILE, &utmp);
 }
