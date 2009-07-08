@@ -93,7 +93,7 @@ utmp_read_runlevel (const char *utmp_file,
 		return -1;
 	}
 
-	runlevel = lvl->ut_pid % 256;
+	runlevel = lvl->ut_pid % 256 ?: 'N';
 	if (runlevel < 0)
 		runlevel = 'N';
 	if (prevlevel) {

@@ -93,7 +93,7 @@ sysv_change_runlevel (int           runlevel,
 	if (prevlevel < 0) {
 		nih_free (nih_error_get ());
 
-		prevlevel = 0;
+		prevlevel = 'N';
 	}
 
 	/* Connect to Upstart via the private socket, establish a proxy and
