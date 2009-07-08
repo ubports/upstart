@@ -1,5 +1,19 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/Makefile.am (reboot_SOURCES, runlevel_SOURCES): Compile and
+	link the utmp handling source, depending on the header.
+	(reboot_LDADD, runlevel_LDADD): Drop dependency on libupstart
+	(shutdown_SOURCES, telinit_SOURCES): Compile and link both the
+	utmp handling and sysv compat source, depending on the headers
+	(nodist_shutdown_SOURCES, nodist_telinit_SOURCES): Also link in
+	the auto-generated bindings
+	(shutdown_LDADD, telinit_LDADD): Drop dependencies on libupstart,
+	replacing with dependencies on libnih-dbus and the D-Bus libs.
+	(runlevel_SOURCES, runlevel_LDFLAGS, runlevel_LDADD)
+	(shutdown_SOURCES, shutdown_LDFLAGS, shutdown_LDADD)
+	(telinit_SOURCES, telinit_LDFLAGS, telinit_LDADD): Remove duplicate
+	entries mistakenly copied from compat/sysv
+
 	* util/sysv.c (sysv_change_runlevel): Pretty much the core compat
 	function for System V, generate a runlevel event and store the
 	appropriate things in utmp and wtmp.

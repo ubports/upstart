@@ -38,6 +38,48 @@ initctl_LDADD = \
 	$(LTLIBINTL) \
 	$(DBUS_LIBS)
 
+reboot_SOURCES = \
+	reboot.c \
+	utmp.c utmp.h
+reboot_LDFLAGS = -static
+reboot_LDADD = \
+	../nih/libnih.la \
+	$(LTLIBINTL)
+
+runlevel_SOURCES = \
+	runlevel.c \
+	utmp.c utmp.h
+runlevel_LDFLAGS = -static
+runlevel_LDADD = \
+	../nih/libnih.la \
+	$(LTLIBINTL)
+
+shutdown_SOURCES = \
+	shutdown.c \
+	utmp.c utmp.h \
+	sysv.c sysv.h
+nodist_shutdown_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS)
+shutdown_LDFLAGS = -static
+shutdown_LDADD = \
+	../nih/libnih.la \
+	../nih-dbus/libnih-dbus.la \
+	$(LTLIBINTL) \
+	$(DBUS_LIBS)
+
+telinit_SOURCES = \
+	telinit.c \
+	utmp.c utmp.h \
+	sysv.c sysv.h
+nodist_telinit_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS)
+telinit_LDFLAGS = -static
+telinit_LDADD = \
+	../nih/libnih.la \
+	../nih-dbus/libnih-dbus.la \
+	$(LTLIBINTL) \
+	$(DBUS_LIBS)
+
 
 com_ubuntu_Upstart_OUTPUTS = \
 	com.ubuntu.Upstart.c \
@@ -89,59 +131,6 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
-
-
-reboot_SOURCES = \
-	reboot.c
-
-reboot_LDFLAGS = -static
-reboot_LDADD = \
-	../../upstart/libupstart.la \
-	../../nih/libnih.la \
-	$(LTLIBINTL)
-
-
-runlevel_SOURCES = \
-	runlevel.c
-
-runlevel_LDFLAGS = -static
-runlevel_LDADD = \
-	../../upstart/libupstart.la \
-	../../nih/libnih.la \
-	$(LTLIBINTL)
-
-
-shutdown_SOURCES = \
-	shutdown.c
-
-shutdown_LDFLAGS = -static
-shutdown_LDADD = \
-	../../upstart/libupstart.la \
-	../../nih/libnih.la \
-	$(LTLIBINTL)
-
-
-telinit_SOURCES = \
-	telinit.c
-
-telinit_LDFLAGS = -static
-telinit_LDADD = \
-	../../upstart/libupstart.la \
-	../../nih/libnih.la \
-	$(LTLIBINTL)
-
-
-runlevel_SOURCES = runlevel.c
-runlevel_LDFLAGS = -static
-runlevel_LDADD = ../../nih/libnih.la $(LTLIBINTL)
-
-shutdown_SOURCES = shutdown.c
-shutdown_LDFLAGS = -static
-shutdown_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
-
-telinit_SOURCES = telinit.c
-telinit_LDFLAGS = -static
-telinit_LDADD = ../../upstart/libupstart.la ../../nih/libnih.la $(LTLIBINTL)
 
 
 install-data-hook:
