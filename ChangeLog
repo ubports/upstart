@@ -1,5 +1,20 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.c (conf_source_reload_dir): Don't blacklist certain
+	patterns from the configuration directory, instead just filter
+	to whitelist.
+	(conf_dir_filter): Whitelist filter, only accept files ending
+	in .conf
+	(conf_reload_path): Strip .conf from the filename to generate
+	the job name.
+	(conf_file_filter): Add the extra is_dir argument.
+	* init/tests/test_conf.c (test_source_reload_job_dir)
+	(test_source_reload_conf_dir, test_source_reload_file)
+	(test_source_reload): Append .conf to all our filenames
+	* init/tests/test_control.c (test_reload_configuration): Append
+	.conf to filenames here too
+	* NEWS: Update.
+
 	* init/job_process.c (job_process_run): Stop being stingy, the
 	post-stop script can have the stop environment too
 	* init/tests/test_job_process.c (test_run): Add a test case to

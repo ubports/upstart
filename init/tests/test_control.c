@@ -899,7 +899,7 @@ test_reload_configuration (void)
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	source1 = conf_source_new (NULL, filename, CONF_FILE);
 
 	f = fopen (filename, "w");
@@ -913,7 +913,7 @@ test_reload_configuration (void)
 	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar/bar");
+	strcat (filename, "/bar/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "script\n");
@@ -948,11 +948,11 @@ test_reload_configuration (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar/bar");
+	strcat (filename, "/bar/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);

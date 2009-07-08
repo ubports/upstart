@@ -141,7 +141,7 @@ test_source_reload_job_dir (void)
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /sbin/daemon\n");
@@ -149,7 +149,7 @@ test_source_reload_job_dir (void)
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "script\n");
@@ -157,13 +157,14 @@ test_source_reload_job_dir (void)
 	fprintf (f, "end script\n");
 	fclose (f);
 
+	/* FIXME sub-directories are broken */
 	strcpy (filename, dirname);
 	strcat (filename, "/frodo");
 
 	mkdir (filename, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /bin/tool\n");
@@ -196,7 +197,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -216,7 +217,7 @@ test_source_reload_job_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -236,7 +237,7 @@ test_source_reload_job_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -270,7 +271,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respawn\n");
@@ -313,7 +314,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with modified job (direct write)");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respawn\n");
@@ -363,10 +364,10 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with modified job (atomic rename)");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	strcpy (tmpname, dirname);
-	strcat (tmpname, "/frodo/.bar.swp");
+	strcat (tmpname, "/frodo/.bar.conf.swp");
 
 	f = fopen (tmpname, "w");
 	fprintf (f, "respawn\n");
@@ -418,7 +419,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with deleted job");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	unlink (filename);
 
@@ -449,7 +450,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with modification to running job");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respawn\n");
@@ -524,7 +525,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with modification to replacement for running job");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respawn\n");
@@ -581,7 +582,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with deletion of replacement for running job");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	unlink (filename);
 
@@ -621,7 +622,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with deletion of running job");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respawn\n");
@@ -682,7 +683,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with error after modification of job");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0200);
 
@@ -712,7 +713,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ_P (job, NULL);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0644);
 
@@ -722,7 +723,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with parse error after modification of job");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /bin/tool\n");
@@ -770,7 +771,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ_P (job, NULL);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 
 	nih_free (source);
@@ -781,7 +782,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with error parsing job");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0000);
 
@@ -798,14 +799,14 @@ test_source_reload_job_dir (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -825,7 +826,7 @@ test_source_reload_job_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -848,7 +849,7 @@ test_source_reload_job_dir (void)
 	nih_free (source);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	chmod (filename, 0644);
 
 
@@ -857,7 +858,7 @@ test_source_reload_job_dir (void)
 	 */
 	TEST_FEATURE ("with job parse error");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respin\n");
@@ -876,7 +877,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
@@ -889,7 +890,7 @@ test_source_reload_job_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -909,7 +910,7 @@ test_source_reload_job_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -966,7 +967,7 @@ test_source_reload_job_dir (void)
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
@@ -974,11 +975,11 @@ test_source_reload_job_dir (void)
 	rmdir (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	rmdir (dirname);
@@ -1020,7 +1021,7 @@ no_inotify:
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /sbin/daemon\n");
@@ -1028,7 +1029,7 @@ no_inotify:
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "script\n");
@@ -1042,7 +1043,7 @@ no_inotify:
 	mkdir (filename, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /bin/tool\n");
@@ -1063,7 +1064,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1083,7 +1084,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1103,7 +1104,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1142,7 +1143,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /sbin/daemon --foo\n");
@@ -1150,12 +1151,12 @@ no_inotify:
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "exec /bin/tool --foo\n");
@@ -1169,7 +1170,7 @@ no_inotify:
 	TEST_EQ (source->flag, FALSE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1190,7 +1191,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1210,7 +1211,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
@@ -1219,7 +1220,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1248,7 +1249,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with error parsing job without inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0000);
 
@@ -1261,14 +1262,14 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_EQ_P (file, NULL);
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1288,7 +1289,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1311,7 +1312,7 @@ no_inotify:
 	nih_free (source);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	chmod (filename, 0644);
 
 
@@ -1320,7 +1321,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with job parse error without inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "respin\n");
@@ -1335,7 +1336,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1346,7 +1347,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1366,7 +1367,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1422,7 +1423,7 @@ no_inotify:
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
@@ -1430,11 +1431,11 @@ no_inotify:
 	rmdir (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	rmdir (dirname);
@@ -1496,14 +1497,14 @@ test_source_reload_conf_dir (void)
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1515,7 +1516,7 @@ test_source_reload_conf_dir (void)
 	mkdir (filename, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1548,7 +1549,7 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1560,7 +1561,7 @@ test_source_reload_conf_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1572,7 +1573,7 @@ test_source_reload_conf_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1597,7 +1598,7 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1626,7 +1627,7 @@ test_source_reload_conf_dir (void)
 	 */
 	TEST_FEATURE ("with modified file in directory");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#still nothing to test\n");
@@ -1659,7 +1660,7 @@ test_source_reload_conf_dir (void)
 	 */
 	TEST_FEATURE ("with deleted file");
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	unlink (filename);
 
@@ -1685,7 +1686,7 @@ test_source_reload_conf_dir (void)
 	 */
 	TEST_FEATURE ("with error after modification of file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1729,7 +1730,7 @@ test_source_reload_conf_dir (void)
 	 */
 	TEST_FEATURE ("with parse error after modification of file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1778,7 +1779,7 @@ test_source_reload_conf_dir (void)
 	 */
 	TEST_FEATURE ("with error parsing file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0000);
 
@@ -1795,14 +1796,14 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1814,7 +1815,7 @@ test_source_reload_conf_dir (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1829,7 +1830,7 @@ test_source_reload_conf_dir (void)
 	nih_free (source);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	chmod (filename, 0644);
 
 
@@ -1867,7 +1868,7 @@ test_source_reload_conf_dir (void)
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
@@ -1875,11 +1876,11 @@ test_source_reload_conf_dir (void)
 	rmdir (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	rmdir (dirname);
@@ -1912,14 +1913,14 @@ no_inotify:
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1931,7 +1932,7 @@ no_inotify:
 	mkdir (filename, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -1952,7 +1953,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1964,7 +1965,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -1976,7 +1977,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2007,19 +2008,19 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2033,7 +2034,7 @@ no_inotify:
 	TEST_EQ (source->flag, FALSE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2045,7 +2046,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2057,13 +2058,13 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/foo");
+	strcat (filename, "/frodo/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2084,7 +2085,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with error parsing file without inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0000);
 
@@ -2097,13 +2098,13 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2115,7 +2116,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2130,7 +2131,7 @@ no_inotify:
 	nih_free (source);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	chmod (filename, 0644);
 
 
@@ -2139,7 +2140,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with parse error without inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "oops\n");
@@ -2154,7 +2155,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2166,7 +2167,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2178,7 +2179,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2226,7 +2227,7 @@ no_inotify:
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/frodo/bar");
+	strcat (filename, "/frodo/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
@@ -2234,11 +2235,11 @@ no_inotify:
 	rmdir (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	rmdir (dirname);
@@ -2291,14 +2292,14 @@ test_source_reload_file (void)
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2319,7 +2320,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with new conf file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -2334,7 +2335,7 @@ test_source_reload_file (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2346,7 +2347,7 @@ test_source_reload_file (void)
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_EQ_P (file, NULL);
@@ -2361,7 +2362,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with new file alongside conf file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -2369,7 +2370,7 @@ test_source_reload_file (void)
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/baz");
+	strcat (filename, "/baz.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2393,7 +2394,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with modification to file alongside conf file");
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2417,7 +2418,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with modification (direct write)");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	old_file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_FREE_TAG (old_file);
@@ -2459,7 +2460,7 @@ test_source_reload_file (void)
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	rename (tmpname, filename);
 
@@ -2490,7 +2491,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with deletion");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	unlink (filename);
 
@@ -2516,7 +2517,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with creation (direct write)");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2545,7 +2546,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with creation (atomic rename)");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	unlink (filename);
 
@@ -2569,7 +2570,7 @@ test_source_reload_file (void)
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	rename (tmpname, filename);
 
@@ -2595,7 +2596,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with error after modification");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0200);
 
@@ -2625,7 +2626,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with parse error after modification");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2673,7 +2674,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with physical error parsing file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2699,7 +2700,7 @@ test_source_reload_file (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 	TEST_EQ_P (file, NULL);
 
@@ -2708,7 +2709,7 @@ test_source_reload_file (void)
 	nih_free (source);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	chmod (filename, 0644);
 
 
@@ -2717,7 +2718,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with parse error");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "oops\n");
@@ -2736,7 +2737,7 @@ test_source_reload_file (void)
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2757,7 +2758,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with non-existant file");
 	strcpy (filename, dirname);
-	strcat (filename, "/wibble");
+	strcat (filename, "/wibble.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -2787,7 +2788,7 @@ test_source_reload_file (void)
 	 */
 	TEST_FEATURE ("with deletion of parent directory");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -2795,15 +2796,15 @@ test_source_reload_file (void)
 	TEST_EQ (ret, 0);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/baz");
+	strcat (filename, "/baz.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	rmdir (dirname);
@@ -2836,14 +2837,14 @@ no_inotify:
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
 	fclose (f);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2855,7 +2856,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with new conf file but no inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -2866,7 +2867,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2887,7 +2888,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with reload of conf file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -2898,7 +2899,7 @@ no_inotify:
 	TEST_EQ (source->flag, TRUE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "#nothing to test\n");
@@ -2912,7 +2913,7 @@ no_inotify:
 	TEST_EQ (source->flag, FALSE);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	file = (ConfFile *)nih_hash_lookup (source->files, filename);
 
 	TEST_ALLOC_SIZE (file, sizeof (ConfFile));
@@ -2932,7 +2933,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with error parsing file without inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	chmod (filename, 0000);
 
@@ -2964,7 +2965,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with parse error without inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "oops\n");
@@ -2997,7 +2998,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with non-existant conf file and no inotify");
 	strcpy (filename, dirname);
-	strcat (filename, "/wibble");
+	strcat (filename, "/wibble.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -3023,7 +3024,7 @@ no_inotify:
 	 */
 	TEST_FEATURE ("with reload of deleted conf file");
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 
 	source = conf_source_new (NULL, filename, CONF_FILE);
 	ret = conf_source_reload (source);
@@ -3051,7 +3052,7 @@ no_inotify:
 
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar");
+	strcat (filename, "/bar.conf");
 	unlink (filename);
 
 	rmdir (dirname);
@@ -3085,7 +3086,7 @@ test_source_reload (void)
 	mkdir (dirname, 0755);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	source1 = conf_source_new (NULL, filename, CONF_FILE);
 
 	f = fopen (filename, "w");
@@ -3102,7 +3103,7 @@ test_source_reload (void)
 	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar/bar");
+	strcat (filename, "/bar/bar.conf");
 
 	f = fopen (filename, "w");
 	fprintf (f, "script\n");
@@ -3127,11 +3128,11 @@ test_source_reload (void)
 	nih_free (source3);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/foo");
+	strcat (filename, "/foo.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);
-	strcat (filename, "/bar/bar");
+	strcat (filename, "/bar/bar.conf");
 	unlink (filename);
 
 	strcpy (filename, dirname);

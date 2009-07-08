@@ -56,7 +56,10 @@ static int  conf_source_reload_file    (ConfSource *source)
 static int  conf_source_reload_dir     (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
-static int  conf_file_filter           (ConfSource *source, const char *path);
+static int  conf_file_filter           (ConfSource *source, const char *path,
+					int is_dir);
+static int  conf_dir_filter            (ConfSource *source, const char *path,
+					int is_dir);
 static void conf_create_modify_handler (ConfSource *source, NihWatch *watch,
 					const char *path,
 					struct stat *statbuf);
@@ -408,7 +411,8 @@ conf_source_reload_dir (ConfSource *source)
 
 	if (! source->watch) {
 		source->watch = nih_watch_new (source, source->path,
-					       TRUE, TRUE, nih_file_ignore,
+					       TRUE, TRUE,
+					       (NihFileFilter)conf_dir_filter,
 					       (NihCreateHandler)conf_create_modify_handler,
 					       (NihModifyHandler)conf_create_modify_handler,
 					       (NihDeleteHandler)conf_delete_handler,
@@ -432,7 +436,7 @@ conf_source_reload_dir (ConfSource *source)
 	 * way.  If this fails too, then we can discard the inotify error
 	 * since this one will be better.
 	 */
-	if (nih_dir_walk (source->path, nih_file_ignore,
+	if (nih_dir_walk (source->path, (NihFileFilter)conf_dir_filter,
 			  (NihFileVisitor)conf_file_visitor, NULL,
 			  source) < 0) {
 		if (err)
@@ -462,7 +466,8 @@ conf_source_reload_dir (ConfSource *source)
 /**
  * conf_file_filter:
  * @source: configuration source,
- * @path: path to check.
+ * @path: path to check,
+ * @is_dir: TRUE if @path is a directory.
  *
  * When we watch the parent directory of a file for changes, we receive
  * notification about all changes to that directory.  We only care about
@@ -473,7 +478,8 @@ conf_source_reload_dir (ConfSource *source)
  **/
 static int
 conf_file_filter (ConfSource *source,
-		  const char *path)
+		  const char *path,
+		  int         is_dir)
 {
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
@@ -482,6 +488,42 @@ conf_file_filter (ConfSource *source,
 		return FALSE;
 
 	if (! strcmp (source->watch->path, path))
+		return FALSE;
+
+	return TRUE;
+}
+
+/**
+ * conf_dir_filter:
+ * @source: configuration source,
+ * @path: path to check,
+ * @is_dir: TRUE of @path is a directory.
+ *
+ * This is the file filter used for the jobs directory, we only care
+ * about paths with the ".conf" extension.  Directories that
+ * match the nih_file_ignore() function are also ignored.
+ *
+ * Returns: FALSE if @path ends in ".conf", or is the original source,
+ * TRUE otherwise.
+ **/
+static int
+conf_dir_filter (ConfSource *source,
+		 const char *path,
+		 int         is_dir)
+{
+	char *ptr;
+
+	nih_assert (source != NULL);
+	nih_assert (path != NULL);
+
+	if (! strcmp (source->path, path))
+		return FALSE;
+
+	if (is_dir)
+		return nih_file_ignore (NULL, path);
+
+	ptr = strrchr (path, '.');
+	if (ptr && (! strcmp (ptr, ".conf")))
 		return FALSE;
 
 	return TRUE;
@@ -640,7 +682,8 @@ conf_reload_path (ConfSource *source,
 {
 	ConfFile       *file;
 	nih_local char *buf = NULL;
-	const char     *name;
+	const char     *start, *end;
+	nih_local char *name = NULL;
 	size_t          len, pos, lineno;
 	NihError       *err = NULL;
 
@@ -680,14 +723,22 @@ conf_reload_path (ConfSource *source,
 		break;
 	case CONF_JOB_DIR:
 		/* Construct the job name by taking the path and removing
-		 * the directory name from the front.
+		 * the directory name from the front and the extension
+		 * from the end.
 		 */
-		name = path;
-		if (! strncmp (name, source->path, strlen (source->path)))
-			name += strlen (source->path);
+		start = path;
+		if (! strncmp (start, source->path, strlen (source->path)))
+			start += strlen (source->path);
 
-		while (*name == '/')
-			name++;
+		while (*start == '/')
+			start++;
+
+		end = strrchr (start, '.');
+		if (end && (! strcmp (end, ".conf"))) {
+			name = NIH_MUST (nih_strndup (NULL, start, end - start));
+		} else {
+			name = NIH_MUST (nih_strdup (NULL, start));
+		}
 
 		/* Create a new job item and parse the buffer to produce
 		 * the job definition.

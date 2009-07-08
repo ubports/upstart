@@ -7,6 +7,8 @@
 	  resides in "/etc/init.conf" while jobs are now configured in
 	  "/etc/init"
 
+	* Job configuration filenames must now end in ".conf"
+
 	* Default configuration files are now supplied in the "conf"
 	  sub-directory of the source, and installed into "/etc/init".
 
