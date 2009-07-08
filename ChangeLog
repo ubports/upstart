@@ -1,5 +1,8 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* conf/rc-sysinit.conf: Ignore -s/single if we're already coming
+	from single-user-mode.
+
 	* util/telinit.c (options): Unignore the -t option
 	* NEWS: Update.
 
