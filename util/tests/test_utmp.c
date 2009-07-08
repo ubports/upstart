@@ -94,6 +94,47 @@ test_read_runlevel (void)
 	}
 
 
+	/* Check that if no filename is passed, it defaults to the currently
+	 * set file.
+	 */
+	TEST_FEATURE ("with no filename");
+	TEST_ALLOC_FAIL {
+		unlink (filename);
+
+		file = fopen (filename, "w");
+		fclose (file);
+
+		memset (&utmp, 0, sizeof utmp);
+
+		utmp.ut_type = RUN_LVL;
+		utmp.ut_pid = '2' + 'S' * 256;
+
+		strcpy (utmp.ut_line, "~");
+		strcpy (utmp.ut_id, "~~");
+		strncpy (utmp.ut_user, "runlevel", sizeof utmp.ut_user);
+		if (uname (&uts) == 0)
+			strncpy (utmp.ut_host, uts.release,
+				 sizeof utmp.ut_host);
+
+		gettimeofday (&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		utmpxname (filename);
+
+		setutxent ();
+		pututxline (&utmp);
+		endutxent ();
+
+		prevlevel = 0;
+
+		runlevel = utmp_read_runlevel (NULL, &prevlevel);
+
+		TEST_EQ (runlevel, '2');
+		TEST_EQ (prevlevel, 'S');
+	}
+
+
 	/* Check that if there was no previous runlevel, the special 'N'
 	 * runlevel is returned instead.
 	 */

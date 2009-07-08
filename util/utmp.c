@@ -82,7 +82,8 @@ utmp_read_runlevel (const char *utmp_file,
 	memset (&utmp, 0, sizeof utmp);
 	utmp.ut_type = RUN_LVL;
 
-	utmpxname (utmp_file ?: _PATH_UTMPX);
+	if (utmp_file)
+		utmpxname (utmp_file);
 	setutxent ();
 
 	lvl = getutxid (&utmp);
