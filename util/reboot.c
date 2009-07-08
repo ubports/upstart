@@ -173,17 +173,10 @@ main (int   argc,
 	if ((mode == HALT) && poweroff)
 		mode = POWEROFF;
 
-	/* Write the shutdown record */
-	if (utmp_write_shutdown (NULL, NULL) < 0)
-		nih_free (nih_error_get ());
-
-	if (exit_only)
-		exit (0);
-
 	/* Normally we just exec shutdown, which notifies everyone and
 	 * signals init.
 	 */
-	if (! force) {
+	if ((! force) && (! exit_only)) {
 		char *args[5];
 		int   i = 0;
 
@@ -213,6 +206,12 @@ main (int   argc,
 		exit (1);
 	}
 
+	/* Write the shutdown record */
+	if (utmp_write_shutdown (NULL, NULL) < 0)
+		nih_free (nih_error_get ());
+
+	if (exit_only)
+		exit (0);
 
 	/* Re-enable Control-Alt-Delete in case it breaks */
 	reboot (RB_ENABLE_CAD);
