@@ -347,7 +347,7 @@ test_get_runlevel (void)
 
 
 	/* Check that when the environment variables are set, but empty,
-	 * the code falls through and uses the values from utmp.
+	 * the code substitutes 'N' instead.
 	 */
 	TEST_FEATURE ("with empty environment");
 	setenv ("RUNLEVEL", "", TRUE);
@@ -385,8 +385,8 @@ test_get_runlevel (void)
 
 		runlevel = utmp_get_runlevel (filename, &prevlevel);
 
-		TEST_EQ (runlevel, '2');
-		TEST_EQ (prevlevel, 'S');
+		TEST_EQ (runlevel, 'N');
+		TEST_EQ (prevlevel, 'N');
 	}
 
 	unsetenv ("RUNLEVEL");

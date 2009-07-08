@@ -858,7 +858,7 @@ test_change_runlevel (void)
 
 			TEST_EQ (args_elements, 2);
 			TEST_EQ_STR (args_value[0], "RUNLEVEL=2");
-			TEST_EQ_STR (args_value[1], "PREVLEVEL=");
+			TEST_EQ_STR (args_value[1], "PREVLEVEL=N");
 			dbus_free_string_array (args_value);
 
 			TEST_FALSE (wait_value);

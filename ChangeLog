@@ -1,5 +1,10 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/tests/test_utmp.c (test_get_runlevel): Replace test case
+	with one that expects 'N' rather than fall-through.
+	* util/tests/test_sysv.c (test_change_runlevel): Expect N when
+	there is no previous runlevel
+
 	* util/utmp.c (utmp_read_runlevel): Also catch a zero runlevel from
 	utmp, replacing with 'N' - these functions should never return 0
 	* util/sysv.c (sysv_change_runlevel): Should set prevlevel to N
