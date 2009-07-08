@@ -118,6 +118,17 @@
 	  the former will reload the Upstart configuration while the latter
 	  will re-execute Upstart.
 
+	* reboot no longer silently ignores the "-t" option.
+
+	* reboot now silently ignores the "-n", "-i" and "-h" options; it
+	  will no longer sync your disks, down your network interfaces or
+	  spin down your hard drives.  This functionality is all handled
+	  by the kernel on a modern system.  (Bug: #92685)
+
+	* reboot now writes a "shutdown" record to /var/log/wtmp, this means
+	  that the "-w" option is honoured with its original intent.  We
+	  still silently ignore the "-d" option.
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.
