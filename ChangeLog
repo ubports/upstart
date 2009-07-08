@@ -1,3 +1,10 @@
+2009-07-08  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_run): Stop being stingy, the
+	post-stop script can have the stop environment too
+	* init/tests/test_job_process.c (test_run): Add a test case to
+	make sure it is.
+
 2009-07-08  Michael Biebl  <mbiebl@gmail.com>
 
 	* contrib/vim/syntax/upstart.vim: Upstart job syntax highlighting

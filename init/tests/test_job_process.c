@@ -474,6 +474,58 @@ test_run (void)
 	}
 
 
+	/* Check that the post-stop job is run with the environment from the
+	 * stop_env member as well as from the env member, overriding where
+	 * necessary, and the job name and id appended.
+	 */
+	TEST_FEATURE ("with environment for post-stop");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->leader = TRUE;
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = nih_sprintf (
+				class->process[PROCESS_POST_STOP],
+				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
+
+			job = job_new (class, "");
+			job->goal = JOB_STOP;
+			job->state = JOB_POST_STOP;
+
+			assert (nih_str_array_add (&job->env, job, NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&job->env, job, NULL, "BAR=BAZ"));
+
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "FOO=SMACK"));
+			assert (nih_str_array_add (&job->stop_env, job, NULL,
+						   "CRACKLE=FIZZ"));
+		}
+
+		ret = job_process_run (job, PROCESS_POST_STOP);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
+
+		waitpid (job->pid[PROCESS_POST_STOP], NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		/* Read back the environment to make sure it matched that from
+		 * the job.
+		 */
+		output = fopen (filename, "r");
+		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		TEST_FILE_EQ (output, "BAR=BAZ\n");
+		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_END (output);
+		fclose (output);
+		unlink (filename);
+
+		nih_free (class);
+	}
+
+
 	if (stat ("/dev/fd", &statbuf) < 0) {
 		printf ("SKIP: no /dev/fd\n");
 		goto no_devfd;
