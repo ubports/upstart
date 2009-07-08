@@ -170,7 +170,7 @@ main (int   argc,
 		break;
 	case 'U':
 	case 'u':
-		kill (1, SIGTERM);
+		ret = kill (1, SIGTERM);
 		if (ret < 0)
 			nih_error_raise_system ();
 		break;
