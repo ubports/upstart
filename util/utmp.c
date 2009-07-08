@@ -162,11 +162,9 @@ utmp_write_runlevel (const char *utmp_file,
 	int          ret;
 
 	nih_assert (runlevel > 0);
-	nih_assert (prevlevel > 0);
+	nih_assert (prevlevel >= 0);
 
 	utmp_entry (&reboot, BOOT_TIME, 0, NULL, NULL, NULL);
-	utmp_entry (&utmp, RUN_LVL, runlevel + prevlevel * 256,
-		    NULL, NULL, NULL);
 
 	/* Check for the previous runlevel entry in utmp, if it doesn't
 	 * match then we assume a missed reboot so write the boot time
@@ -194,6 +192,9 @@ utmp_write_runlevel (const char *utmp_file,
 	}
 
 	/* Write the runlevel change record */
+	utmp_entry (&utmp, RUN_LVL, runlevel + prevlevel * 256,
+		    NULL, NULL, NULL);
+
 	ret = utmp_write (utmp_file, &utmp);
 	wtmp_write (wtmp_file, &utmp);
 

@@ -618,6 +618,71 @@ test_write_runlevel (void)
 	}
 
 
+	/* Check that it's ok to have no known previous runlevels, it
+	 * will be left blank in the file and reboot entries always
+	 * added.
+	 */
+	TEST_FEATURE ("with no previous runlevel");
+	TEST_ALLOC_FAIL {
+		unlink (utmp_file);
+		fclose (fopen (utmp_file, "w"));
+
+		unlink (wtmp_file);
+		fclose (fopen (wtmp_file, "w"));
+
+		ret = utmp_write_runlevel (utmp_file, wtmp_file, '2', 0);
+
+		TEST_EQ (ret, 0);
+
+		utmpxname (utmp_file);
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, BOOT_TIME);
+		TEST_EQ (utmp->ut_pid, 0);
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "reboot");
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, RUN_LVL);
+		TEST_EQ (utmp->ut_pid, '2');
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "runlevel");
+
+		utmp = getutxent ();
+		TEST_EQ_P (utmp, NULL);
+
+
+		utmpxname (wtmp_file);
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, BOOT_TIME);
+		TEST_EQ (utmp->ut_pid, 0);
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "reboot");
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, RUN_LVL);
+		TEST_EQ (utmp->ut_pid, '2');
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "runlevel");
+
+		utmp = getutxent ();
+		TEST_EQ_P (utmp, NULL);
+	}
+
+
 	/* Check that the new runlevel record replaces the existing record
 	 * in the utmp file, but appends a new record to the wtmp file.
 	 * Since the records match, no reboot record need to be written.

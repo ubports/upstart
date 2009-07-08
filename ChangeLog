@@ -1,5 +1,10 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/utmp.c (utmp_write_runlevel): Make sure that it's ok to
+	have no previous runlevel.
+	* util/tests/test_utmp.c (test_write_runlevel): Add no previous
+	runlevel test.
+
 	* util/utmp.c (utmp_read_runlevel): Don't call utmpxname() if we
 	don't pass a utmp_file, letting glibc pick the default.
 	* util/tests/test_utmp.c (test_read_runlevel): Add a test case for
