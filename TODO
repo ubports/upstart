@@ -1,48 +1,14 @@
-Before 0.5.0:
-
- * runlevel
-   - argument may be passed to utmpname() to select alternate
-   - setutent, then getutent to iterate through, endutent when done
-   - find first RUN_LVL entry
-   - top 8 bits is previous, lower is current, no previous? use N
- * telinit
-   - write runlevel record to utmp
-   - emit runlevel event with RUNLEVEL and PREVLEVEL variables
-   - maybe wait for it to finish?
- * shutdown
-   - fancy wrapper around telinit with environment
-
- * reboot
-   - get current runlevel from $RUNLEVEL
-   - if not set, get from utmp
-   - only actually reboot in 0 or 6, otherwise exec shutdown
-   - write shutdown record
-   - reboot() -- should this be done from init now?
+0.6.x series:
 
  * going into runlevel S from !S, need to stty console
  * going into 6, 0 or 1, need to stty console
  * reset console before S process
 
- * reboot record at early point?
+ * init needs to grow "utmp XXX", which maintains INIT_PROCESS and
+   DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
 
-
- * Handling of utmp and wtmp needs to be somewhat better.
-   - common function to read/write to utmp and wtmp
-   - should be able to read current runlevel (as runlevel does right now)
-   - should be able to set current runlevel (as runlevel does right now)
-   - move runlevel setting code into telinit before it emits the event,
-     which should include RUNLEVEL and PREVLEVEL in the environment
-   - shutdown should write a shutdown entry
-   - reboot should check the current runlevel, and exec shutdown based on 
-     that, as well as -f
-   - reboot should write the wtmp shutdown record
-   - somehow on startup we should write the reboot record as early as we
-     can
-   - init needs to grow "utmp XXX", which maintains INIT_PROCESS and
-     DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
-
-
-0.5.x series:
+   For that we'll probably need to support ${..#...} so that we can do
+   utmp ${TTY#tty}
 
  * There's a lot of complicated code that's pretty much duplicated between
    event_pending_handle_jobs(), job_class_start(), job_class_stop(),
@@ -59,6 +25,9 @@ Before 0.5.0:
    to include the event-like information in the error.  This should be
    possible, it just needs a marshalling function?  (Maybe we should be able
    to generate those)
+
+ * Information about what caused a job to stop (failed information or event)
+   should be available to other jobs, and to the job's post-stop script.
 
  * I'm still not convinced that just clearing blocking is the right approach,
    and still think we need some kind of next_blocking list of things that

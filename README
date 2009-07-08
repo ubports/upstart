@@ -39,13 +39,13 @@ The recommended versions are:
 Communication with other processes utilises the D-Bus messaging
 system.  In order to query the availibility of the external library,
 the pkg-config tool is used; and in order to generate the D-Bus
-bindings necessary, the Python intrepreter will be used.
+bindings necessary, the expat XML parsing library will be used.
 
 The recommended versions are:
 
-	* D-Bus 1.2.1
 	* pkg-config 0.22
-	* Python 2.5
+	* D-Bus 1.2.14
+	* expat 2.0.0
 
 These should all be available from the current release of any modern
 Linux distribution.

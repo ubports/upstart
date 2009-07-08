@@ -1,5 +1,8 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* README: Update requirements.
+	* TODO: Update.
+
 	* conf/rc-sysinit.conf: Fix typo.
 
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
