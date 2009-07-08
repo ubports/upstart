@@ -94,8 +94,13 @@ utmp_read_runlevel (const char *utmp_file,
 	}
 
 	runlevel = lvl->ut_pid % 256;
-	if (prevlevel)
+	if (runlevel < 0)
+		runlevel = 'N';
+	if (prevlevel) {
 		*prevlevel = lvl->ut_pid / 256 ?: 'N';
+		if (*prevlevel < 0)
+			*prevlevel = 'N';
+	}
 
 	endutxent ();
 
@@ -124,11 +129,11 @@ utmp_get_runlevel (const char *utmp_file,
 	renv = getenv ("RUNLEVEL");
 	penv = getenv ("PREVLEVEL");
 
-	if (renv && renv[0]) {
+	if (renv) {
 		if (prevlevel)
 			*prevlevel = penv && penv[0] ? penv[0] : 'N';
 
-		return renv[0];
+		return renv[0] ?: 'N';
 	}
 
 	return utmp_read_runlevel (utmp_file, prevlevel);
