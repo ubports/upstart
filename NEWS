@@ -7,6 +7,15 @@
 	  resides in "/etc/init.conf" while jobs are now configured in
 	  "/etc/init"
 
+	* Default configuration files are now supplied in the "conf"
+	  sub-directory of the source, and installed into "/etc/init".
+
+	  These match the Debian/Ubuntu sysvinit configuration so may
+	  require some tweaking for other distributions, but provide an
+	  excellent base.
+
+	  The old example-jobs tarballs are deprecated.
+
 	* The D-Bus interface remains unstable, to reflect this the current
 	  interface name has changed to "com.ubuntu.Upstart0_6" and the
 	  name of the job and instance interfaces have changed to match.

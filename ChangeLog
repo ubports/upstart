@@ -1,5 +1,16 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* conf/control-alt-delete.conf: Default job for Control-Alt-Delete
+	* conf/rc-sysinit.conf: Default job for system initialisation
+	* conf/rc.conf: A fully wacky instance job that runs the rc script
+	for runlevel changes
+	* conf/rcS.conf: And a job for single-user-mode, which calls back
+	to rc-sysinit
+	* conf/Makefile.am (dist_init_DATA): Install the default files
+	into the /etc/init directory
+	* configure.ac (AC_CONFIG_FILES): Create conf/Makefile
+	* Makefile.am (SUBDIRS): Recurse into the conf directory.
+
 	* util/initctl.c (upstart_open, start_action, stop_action)
 	(restart_action, status_action, list_action): Don't auto-start
 	the init daemon, it makes no sense.
