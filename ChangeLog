@@ -1,5 +1,18 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/telinit.c: Drop quite a bit of the code of telinit too,
+	just becoming a wrapper about sysv_change_runlevel() - also support
+	Qq/Uu by using kill()
+	* util/tests/test_telinit.c (test_env_option): Since we have an
+	env option, we should test it.	
+	* util/man/telinit.8: Update the manual page.
+	* util/man/runlevel.8: Typo (/var/run/wtmp -> /var/log/wtmp)
+	* util/Makefile.am (TESTS): Run the new test
+	(test_telinit_SOURCES, test_telinit_CFLAGS)
+	(test_telinit_LDFLAGS, test_telinit_LDADD): Details for the
+	test suite binary
+	* NEWS: Update.
+
 	* util/runlevel.c: Drop about 90% of the code, this just becomes
 	a wrapper around utmp_get_runlevel()
 	* util/man/runlevel.8: Update the runlevel manpage.

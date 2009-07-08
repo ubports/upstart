@@ -168,7 +168,8 @@ install-exec-hook:
 TESTS = \
 	test_initctl \
 	test_utmp \
-	test_sysv
+	test_sysv \
+	test_telinit
 
 check_PROGRAMS = $(TESTS)
 
@@ -197,6 +198,17 @@ test_sysv_LDADD = \
 	../nih/libnih.la \
 	../nih-dbus/libnih-dbus.la \
 	$(LTLIBINTL) \
+	$(DBUS_LIBS)
+
+test_telinit_SOURCES = tests/test_telinit.c telinit.c
+test_telinit_CFLAGS = $(AM_CFLAGS) -DTEST
+test_telinit_LDFLAGS = -static
+test_telinit_LDADD = \
+	sysv.o utmp.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	../nih/libnih.la \
+	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
 

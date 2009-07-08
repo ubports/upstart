@@ -106,6 +106,18 @@
 	  the implementation of runlevels and System V compatibility in
 	  Upstart.  (Bug: #60429)
 
+	* telinit will no longer silently ignore the "a", "b" or "c"
+	  runlevels.
+
+	* telinit will no longer silently ignore the "-t" argument.
+
+	* telinit now accepts the previously ignored "-e" argument, passing
+	  the environment variables given along with the runlevel event.
+
+	* telinit now officially accepts the "q"/"Q" and "u"/"U" arguments,
+	  the former will reload the Upstart configuration while the latter
+	  will re-execute Upstart.
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.
