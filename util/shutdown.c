@@ -22,13 +22,15 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <dbus/dbus.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
 
 #include <pwd.h>
-#include <utmp.h>
 #include <time.h>
+#include <utmpx.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -49,7 +51,10 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
-#include <upstart/message.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/errors.h>
+
+#include "sysv.h"
 
 
 /**
@@ -76,8 +81,10 @@
 #endif
 
 
+/* Prototypes for option functions */
+static int runlevel_option (NihOption *option, const char *arg);
+
 /* Prototypes for static functions */
-static int   runlevel_setter   (NihOption *option, const char *arg);
 static void  shutdown_now      (void)
 	__attribute__ ((noreturn));
 static void  cancel_callback   (void *data, NihSignal *signal)
@@ -94,7 +101,7 @@ static void  sysvinit_shutdown (void);
  *
  * Runlevel to switch to.
  **/
-static const char *runlevel = NULL;
+static int runlevel = 0;
 
 /**
  * init_halt:
@@ -102,13 +109,6 @@ static const char *runlevel = NULL;
  * Value of init_halt environment variable for event.
  **/
 static const char *init_halt = NULL;
-
-/**
- * what:
- *
- * What are we shutting down into (for the message).
- **/
-static const char *what = NULL;
 
 /**
  * cancel:
@@ -141,19 +141,63 @@ static int delay = 0;
 
 
 /**
+ * runlevel_option:
+ * @option: option found in arguments,
+ * @arg: always NULL.
+ *
+ * This function is called whenever one of the -r, -h, -H or -P options
+ * is found in the argument list.  It changes the runlevel to that implied
+ * by the option.
+ **/
+static int
+runlevel_option (NihOption  *option,
+		 const char *arg)
+{
+	int *value;
+
+	nih_assert (option != NULL);
+	nih_assert (option->value != NULL);
+	nih_assert (arg == NULL);
+
+	value = (int *)option->value;
+
+	switch (option->option) {
+	case 'r':
+		*value = '6';
+		init_halt = NULL;
+		break;
+	case 'h':
+		*value = '0';
+		init_halt = NULL;
+		break;
+	case 'H':
+		*value = '0';
+		init_halt = "HALT";
+		break;
+	case 'P':
+		*value = '0';
+		init_halt = "POWEROFF";
+		break;
+	}
+
+	return 0;
+}
+
+
+/**
  * options:
  *
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
 	{ 'r', NULL, N_("reboot after shutdown"),
-	  NULL, NULL, &runlevel, runlevel_setter },
+	  NULL, NULL, &runlevel, runlevel_option },
 	{ 'h', NULL, N_("halt or power off after shutdown"),
-	  NULL, NULL, &runlevel, runlevel_setter },
+	  NULL, NULL, &runlevel, runlevel_option },
 	{ 'H', NULL, N_("halt after shutdown (implies -h)"),
-	  NULL, NULL, &runlevel, runlevel_setter },
+	  NULL, NULL, &runlevel, runlevel_option },
 	{ 'P', NULL, N_("power off after shutdown (implies -h)"),
-	  NULL, NULL, &runlevel, runlevel_setter },
+	  NULL, NULL, &runlevel, runlevel_option },
 	{ 'c', NULL, N_("cancel a running shutdown"),
 	  NULL, NULL, &cancel, NULL },
 	{ 'k', NULL, N_("only send warnings, don't shutdown"),
@@ -179,10 +223,12 @@ int
 main (int   argc,
       char *argv[])
 {
-	char   **args, *message, *msg;
-	int      arg;
-	size_t   messagelen;
-	pid_t    pid = 0;
+	char **         args;
+	nih_local char *message = NULL;
+	size_t          messagelen;
+	nih_local char *msg = NULL;
+	int             arg;
+	pid_t           pid = 0;
 
 	nih_main_init (argv[0]);
 
@@ -220,9 +266,8 @@ main (int   argc,
 	 * down into single-user mode.
 	 */
 	if (! runlevel) {
-		runlevel = "1";
+		runlevel = '1';
 		init_halt = NULL;
-		what = "maintenance";
 	}
 
 
@@ -346,7 +391,6 @@ main (int   argc,
 	/* Send an initial message */
 	msg = NIH_MUST (warning_message (message));
 	wall (msg);
-	nih_free (msg);
 
 	if (warn_only)
 		exit (0);
@@ -402,54 +446,6 @@ main (int   argc,
 
 
 /**
- * runlevel_setter:
- * @option: option found in arguments,
- * @arg: always NULL.
- *
- * This function is called whenever one of the -r, -h, -H or -P options
- * is found in the argument list.  It changes the runlevel to that implied
- * by the option.
- **/
-static int
-runlevel_setter (NihOption  *option,
-		 const char *arg)
-{
-	char **value;
-
-	nih_assert (option != NULL);
-	nih_assert (option->value != NULL);
-	nih_assert (arg == NULL);
-
-	value = (char **)option->value;
-
-	switch (option->option) {
-	case 'r':
-		*value = "6";
-		init_halt = NULL;
-		what = "reboot";
-		break;
-	case 'h':
-		*value = "0";
-		init_halt = NULL;
-		what = "halt";
-		break;
-	case 'H':
-		*value = "0";
-		init_halt = "HALT";
-		what = "halt";
-		break;
-	case 'P':
-		*value = "0";
-		init_halt = "POWEROFF";
-		what = "power off";
-		break;
-	}
-
-	return 0;
-}
-
-
-/**
  * shutdown_now:
  *
  * Send a signal to init to shut down the machine.
@@ -459,55 +455,34 @@ runlevel_setter (NihOption  *option,
 static void
 shutdown_now (void)
 {
-	NihIoMessage  *message;
-	char         **args, **env;
-	int            sock;
-
-	/* Connect to the daemon */
-	sock = upstart_open ();
-	if (sock < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal (_("Unable to establish control socket: %s"),
-			   err->message);
-		exit (1);
-	}
-
-	/* Build the message to send */
-	args = NIH_MUST (nih_str_array_new (NULL));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, runlevel));
+	nih_local char **extra_env = NULL;
+	NihDBusError *   dbus_err;
 
 	if (init_halt) {
 		char *e;
 
 		e = NIH_MUST (nih_sprintf (NULL, "INIT_HALT=%s", init_halt));
 
-		env = NIH_MUST (nih_str_array_new (NULL));
-		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, e));
-	} else {
-		env = NULL;
+		extra_env = NIH_MUST (nih_str_array_new (NULL));
+		NIH_MUST (nih_str_array_addp (&extra_env, NULL, NULL, e));
 	}
 
-	message = NIH_MUST (upstart_message_new (NULL, UPSTART_INIT_DAEMON,
-						 UPSTART_EVENT_EMIT,
-						 "runlevel", args, env));
+	if (sysv_change_runlevel (runlevel, extra_env, NULL, NULL) < 0) {
+		dbus_err = (NihDBusError *)nih_error_get ();
 
-	/* Send the message */
-	if (nih_io_message_send (message, sock) < 0) {
-		NihError *err;
+		if ((dbus_err->number != NIH_DBUS_ERROR)
+		    || strcmp (dbus_err->name, DBUS_ERROR_NO_SERVER)) {
+			nih_fatal ("%s", dbus_err->message);
+			exit (1);
+		}
 
-		err = nih_error_get ();
+		nih_free (dbus_err);
 
 		/* Connection Refused means that init isn't running, this
 		 * might mean we've just upgraded to upstart and haven't
 		 * yet rebooted ... so try /dev/initctl
 		 */
-		if (err->number == ECONNREFUSED)
-			sysvinit_shutdown ();
-
-		nih_fatal (_("Unable to send message: %s"), err->message);
-		exit (1);
+		sysvinit_shutdown ();
 	}
 
 	unlink (ETC_NOLOGIN);
@@ -549,8 +524,8 @@ cancel_callback (void      *data,
 static void
 timer_callback (const char *message)
 {
-	char *msg;
-	int   warn = FALSE;
+	nih_local char *msg = NULL;
+	int             warn = FALSE;
 
 	delay--;
 	msg = NIH_MUST (warning_message (message));
@@ -584,8 +559,6 @@ timer_callback (const char *message)
 	/* Shutdown the machine at zero */
 	if (! delay)
 		shutdown_now ();
-
-	nih_free (msg);
 }
 
 
@@ -601,29 +574,70 @@ timer_callback (const char *message)
 static char *
 warning_message (const char *message)
 {
-	char *banner, *msg;
+	nih_local char *banner = NULL;
+	char *          msg;
 
 	nih_assert (message != NULL);
 
-	if (delay > 1) {
-		banner = nih_sprintf (NULL, _("The system is going down for "
-					      "%s in %d minutes!"),
-				      what, delay);
-	} else if (delay) {
-		banner = nih_sprintf (NULL, _("The system is going down for "
-					      "%s IN ONE MINUTE!"),
-				      what);
-	} else {
-		banner = nih_sprintf (NULL, _("The system is going down for "
-					      "%s NOW!"),
-				      what);
+	if ((runlevel == '0')
+	    && init_halt && (! strcmp (init_halt, "POWEROFF"))) {
+		if (delay) {
+			banner = nih_sprintf (
+				NULL, _n("The system is going down for "
+					 "power off in %d minute!",
+					 "The system is going down for "
+					 "power off in %d minutes!",
+					 delay), delay);
+		} else {
+			banner = nih_strdup (
+				NULL, _("The system is going down for "
+					"power off NOW!"));
+		}
+	} else if (runlevel == '0') {
+		if (delay) {
+			banner = nih_sprintf (
+				NULL, _n("The system is going down for "
+					 "halt in %d minute!",
+					 "The system is going down for "
+					 "halt in %d minutes!",
+					 delay), delay);
+		} else {
+			banner = nih_strdup (
+				NULL, _("The system is going down for "
+					"halt NOW!"));
+		}
+	} else if (runlevel == '1') {
+		if (delay) {
+			banner = nih_sprintf (
+				NULL, _n("The system is going down for "
+					 "maintenance in %d minute!",
+					 "The system is going down for "
+					 "maintenance in %d minutes!",
+					 delay), delay);
+		} else {
+			banner = nih_strdup (
+				NULL, _("The system is going down for "
+					"maintenance NOW!"));
+		}
+	} else if (runlevel == '6') {
+		if (delay) {
+			banner = nih_sprintf (
+				NULL, _n("The system is going down for "
+					 "reboot in %d minute!",
+					 "The system is going down for "
+					 "reboot in %d minutes!",
+					 delay), delay);
+		} else {
+			banner = nih_strdup (
+				NULL, _("The system is going down for "
+					"reboot NOW!"));
+		}
 	}
 
 	if (! banner)
 		return NULL;
 
 	msg = nih_sprintf (NULL, "\r%s\r\n%s", banner, message);
-	nih_free (banner);
 
 	return msg;
 }
@@ -649,13 +663,16 @@ alarm_handler (int signum)
 static void
 wall (const char *message)
 {
-	struct sigaction  act;
-	struct utmp      *ent;
-	pid_t             pid;
-	time_t            now;
-	struct tm        *tm;
-	char             *user, *tty, hostname[MAXHOSTNAMELEN];
-	char             *banner1, *banner2;
+	struct sigaction act;
+	struct utmpx *   ent;
+	pid_t            pid;
+	time_t           now;
+	struct tm *      tm;
+	char *           user;
+	char *           tty;
+	char             hostname[MAXHOSTNAMELEN];
+	char *           banner1;
+	char *           banner2;
 
 	pid = fork ();
 	if (pid < 0) {
@@ -711,8 +728,8 @@ wall (const char *message)
 
 
 	/* Iterate entries in the utmp file */
-	setutent ();
-	while ((ent = getutent ()) != NULL) {
+	setutxent ();
+	while ((ent = getutxent ()) != NULL) {
 		char dev[PATH_MAX + 1];
 		int  fd;
 
@@ -745,7 +762,7 @@ wall (const char *message)
 		}
 		alarm (0);
 	}
-	endutent ();
+	endutxent ();
 
 	nih_free (banner1);
 	nih_free (banner2);
@@ -787,7 +804,7 @@ sysvinit_shutdown (void)
 	request.cmd = 1;
 
 	/* Select a runlevel based on the event name */
-	request.runlevel = runlevel[0];
+	request.runlevel = runlevel;
 
 
 	/* Break syscalls with SIGALRM */

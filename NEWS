@@ -100,7 +100,7 @@
 	* initctl(8) man page updated.  (Bug: #285753)
 
 	* runlevel no longer accepts the --set and --reboot arguments,
-	  instead telinit will now set store these values in utmp and wtmp.
+	  instead telinit and shutdown write these records into utmp and wtmp.
 
 	* runlevel(7) man page added to describe the runlevel event, and
 	  the implementation of runlevels and System V compatibility in
@@ -128,6 +128,9 @@
 	* reboot now writes a "shutdown" record to /var/log/wtmp, this means
 	  that the "-w" option is honoured with its original intent.  We
 	  still silently ignore the "-d" option.
+
+	* shutdown message generation fixed to be more easily translatable.
+	  (Bug: #102565)
 
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 

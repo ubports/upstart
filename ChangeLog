@@ -1,5 +1,13 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/shutdown.c: Gets a bit of a redress, but not much of rewrite
+	since this is largely just compatibility madness.
+	(shutdown_now): Port to use sysv_change_runlevel()
+	(warning_message): Construct plural forms a little better.
+	(wall): use utmpx, rather than utmp
+	* util/man/shutdown.8: Minor tweaks and improvements
+	* NEWS: Update.
+
 	* util/reboot.c: Following the pattern of the previous, remove much
 	of the reboot code, but in the process adding support for reboot
 	implying --force in runlevel 0 or 6, and writing the shutdown
