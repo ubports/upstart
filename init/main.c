@@ -450,5 +450,18 @@ hup_handler (void      *data,
 {
 	nih_info (_("Reloading configuration"));
 	conf_reload ();
+
+	if (! control_bus) {
+		nih_info (_("Reconnecting to system bus"));
+
+		if (control_bus_open () < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn ("%s: %s", _("Unable to connect to the system bus"),
+				  err->message);
+			nih_free (err);
+		}
+	}
 }
 #endif /* DEBUG */

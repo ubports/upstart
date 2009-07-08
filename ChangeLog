@@ -1,5 +1,8 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (hup_handler): Also try and reconnect to the message
+	bus if we've lost the connection.
+
 	* init/conf.c (conf_source_reload_dir): Don't blacklist certain
 	patterns from the configuration directory, instead just filter
 	to whitelist.
