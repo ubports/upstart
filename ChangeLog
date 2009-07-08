@@ -1,5 +1,10 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* conf/rc.conf: This doesn't need to be an instance job, Upstart
+	will do the right thing and stop the task before starting it again
+	with the new environment (I spent so much time on that, you'd think
+	I'd remember :p)
+
 	* conf/control-alt-delete.conf: Default job for Control-Alt-Delete
 	* conf/rc-sysinit.conf: Default job for system initialisation
 	* conf/rc.conf: A fully wacky instance job that runs the rc script
