@@ -1,5 +1,8 @@
 2009-07-08  Scott James Remnant  <scott@netsplit.com>
 
+	* util/Makefile.am (dist_man_MANS): Oops, had the wrong name for
+	the runlevel(7) manpage.
+
 	* util/shutdown.c: Gets a bit of a redress, but not much of rewrite
 	since this is largely just compatibility madness.
 	(shutdown_now): Port to use sysv_change_runlevel()

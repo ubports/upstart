@@ -12,11 +12,11 @@ AM_CPPFLAGS = \
 
 dist_man_MANS = \
 	man/initctl.8 \
-	man/initctl.7 \
 	man/reboot.8 \
 	man/shutdown.8 \
 	man/runlevel.8 \
-	man/telinit.8
+	man/telinit.8 \
+	man/runlevel.7
 
 
 sbin_PROGRAMS = \
