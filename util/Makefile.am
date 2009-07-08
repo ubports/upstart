@@ -176,11 +176,10 @@ install-exec-hook:
 
 
 TESTS = \
-	test_initctl
+	test_initctl \
+	test_utmp
 
 check_PROGRAMS = $(TESTS)
-
-tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 
 test_initctl_SOURCES = tests/test_initctl.c initctl.c
 test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
@@ -192,6 +191,15 @@ test_initctl_LDADD = \
 	../nih-dbus/libnih-dbus.la \
 	$(DBUS_LIBS)
 
+test_utmp_SOURCES = tests/test_utmp.c
+test_utmp_LDFLAGS = -static
+test_utmp_LDADD = \
+	utmp.o \
+	../nih/libnih.la
+
+
+.PHONY: tests
+tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 
 clean-local:
 	rm -f *.gcno *.gcda
