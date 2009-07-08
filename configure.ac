@@ -47,6 +47,6 @@ esac
 AC_CONFIG_FILES([ Makefile m4/Makefile intl/Makefile
 		  nih/Makefile nih-dbus/Makefile nih-dbus-tool/Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
-		  doc/Makefile po/Makefile.in ])
+		  doc/Makefile contrib/Makefile po/Makefile.in ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
