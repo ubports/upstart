@@ -129,6 +129,10 @@
 	  the former will reload the Upstart configuration while the latter
 	  will re-execute Upstart.
 
+	* telinit q will also attempt to reconnect to the D-Bus system bus
+	  if the connection has not been made, or has been lost.
+	  (Bug: #323022)
+
 	* reboot no longer silently ignores the "-t" option.
 
 	* reboot now silently ignores the "-n", "-i" and "-h" options; it
