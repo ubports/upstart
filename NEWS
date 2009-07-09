@@ -154,6 +154,9 @@
 	* Respawn detection now uses the monotonic clock so is unaffected
 	  by system clock changes.  (Bug: #389586)
 
+	* Significant improvement in the amount of manual pages included
+	  with Upstart and their content.  (Bug: #60429)
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.
