@@ -71,6 +71,27 @@ if a
 record was found, otherwise it will exit with status
 .IR 1 .
 .\"
+.SH ENVIRONMENT
+.TP
+.B RUNLEVEL
+.B runlevel
+will read the current runlevel from this environment variable if set in
+preference to reading from
+.I /var/run/utmp
+.\"
+.TP
+.B PREVLEVEL
+.B runlevel
+will read the previous runlevel from this environment variable if
+.B RUNLEVEL
+ was given, in preference to reading from
+.I /var/run/utmp
+.\"
+.SH FILES
+.TP
+.I /var/run/utmp
+Where the current and previous runlevels will be read from.
+.\"
 .SH NOTES
 The Upstart
 .BR init (8)

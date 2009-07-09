@@ -1,5 +1,8 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/man/runlevel.8, util/man/telinit.8, util/man/shutdown.8,
+	* util/man/reboot.8: Add environment and files sections.
+
 	* init/man/startup.7, init/man/starting.7, init/man/started.7,
 	* init/man/stopping.7, init/man/stopped.7
 	* init/man/control-alt-delete.7, init/man/keyboard-request.7,

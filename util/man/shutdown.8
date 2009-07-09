@@ -83,6 +83,24 @@ is not specified with this option, the first argument is
 Only send out the warning messages and disable logins, do not actually
 bring the system down.
 .\"
+.SH ENVIRONMENT
+.TP
+.B RUNLEVEL
+.B shutdown
+will read the current runlevel from this environment variable if set in
+preference to reading from
+.I /var/run/utmp
+.\"
+.SH FILES
+.TP
+.I /var/run/utmp
+Where the current runlevel will be read from; this file will also be updated
+with the new runlevel.
+.\"
+.TP
+.I /var/log/wtmp
+A new runlevel record will be appended to this file for the new runlevel.
+.\"
 .SH NOTES
 The Upstart
 .BR init (8)

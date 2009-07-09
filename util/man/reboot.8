@@ -61,6 +61,24 @@ system call and instead only writes the shutdown record to
 Outputs slightly more verbose messages when rebooting, useful for debugging
 problems with shutdown.
 .\"
+.SH ENVIRONMENT
+.TP
+.B RUNLEVEL
+.B reboot
+will read the current runlevel from this environment variable if set in
+preference to reading from
+.I /var/run/utmp
+.\"
+.SH FILES
+.TP
+.I /var/run/utmp
+Where the current runlevel will be read from; this file will also be updated
+with the runlevel record being replaced by a shutdown time record.
+.\"
+.TP
+.I /var/log/wtmp
+A new runlevel record for the shutdown time will be appended to this file.
+.\"
 .SH AUTHOR
 Written by Scott James Remnant
 .RB < scott@netsplit.com >
