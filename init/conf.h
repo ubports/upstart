@@ -105,7 +105,7 @@ typedef struct conf_file {
 
 NIH_BEGIN_EXTERN
 
-NihList *conf_sources;
+extern NihList *conf_sources;
 
 
 void        conf_init          (void);

@@ -74,8 +74,8 @@ typedef struct event {
 
 NIH_BEGIN_EXTERN
 
-int      paused;
-NihList *events;
+extern int      paused;
+extern NihList *events;
 
 
 void   event_init    (void);

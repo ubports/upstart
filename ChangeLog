@@ -1,5 +1,12 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/conf.h,
+	* init/control.h,
+	* init/event.h,
+	* init/job_class.h: Variable declarations in header files need to
+	be prefixed with "extern", the NIH_BEGIN_EXTERN stuff only applies
+	to C++.
+
 	* util/reboot.c: Reboot can't write the shutdown time before
 	calling shutdown, otherwise shutdown won't be able to get the
 	current runlevel anymore.

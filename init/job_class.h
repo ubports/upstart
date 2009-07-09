@@ -154,7 +154,7 @@ typedef struct job_class {
 
 NIH_BEGIN_EXTERN
 
-NihHash *job_classes;
+extern NihHash *job_classes;
 
 
 void        job_class_init                 (void);

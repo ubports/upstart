@@ -30,10 +30,10 @@
 
 NIH_BEGIN_EXTERN
 
-DBusServer     *control_server;
-DBusConnection *control_bus;
+extern DBusServer     *control_server;
+extern DBusConnection *control_bus;
 
-NihList        *control_conns;
+extern NihList        *control_conns;
 
 
 void control_init                 (void);
