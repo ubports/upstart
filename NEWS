@@ -143,6 +143,13 @@
 	* shutdown message generation fixed to be more easily translatable.
 	  (Bug: #102565)
 
+	* The TERM/KILL timeout, and other system timeouts, now use the
+	  monotonic clock so are unaffected by system clock changes.
+	  (Bug: #389588)
+
+	* Respawn detection now uses the monotonic clock so is unaffected
+	  by system clock changes.  (Bug: #389586)
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.

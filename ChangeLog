@@ -1,5 +1,12 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_catch_runaway): Use a monotonic
+	clock, not the realtime clock, for respawn interval detection.
+	* init/tests/test_job_process.c (test_kill, test_handler): Use the
+	monotonic clock in test cases too
+	* init/Makefile.am (init_LDADD): Link with librt
+	* NEWS: Update.
+
 	* util/utmp.c (utmp_write_runlevel): Don't write 'N' to utmp or
 	wtmp for the previous runlevel, this will force writing reboot
 	records if prevlevel='N'/0 since read_runlevel will always return

@@ -30,6 +30,7 @@
 #include <sys/ptrace.h>
 #include <sys/resource.h>
 
+#include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <limits.h>
@@ -1189,6 +1190,8 @@ job_process_terminated (Job         *job,
 static int
 job_process_catch_runaway (Job *job)
 {
+	struct timespec now;
+
 	nih_assert (job != NULL);
 
 	if (job->class->respawn_limit && job->class->respawn_interval) {
@@ -1197,13 +1200,15 @@ job_process_catch_runaway (Job *job)
 		/* Time since last respawn ... this goes very large if we
 		 * haven't done one, which is fine
 		 */
-		interval = time (NULL) - job->respawn_time;
+		nih_assert (clock_gettime (CLOCK_MONOTONIC, &now) == 0);
+
+		interval = now.tv_sec - job->respawn_time;
 		if (interval < job->class->respawn_interval) {
 			job->respawn_count++;
 			if (job->respawn_count > job->class->respawn_limit)
 				return TRUE;
 		} else {
-			job->respawn_time = time (NULL);
+			job->respawn_time = now.tv_sec;
 			job->respawn_count = 1;
 		}
 	}

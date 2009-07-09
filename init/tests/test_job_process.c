@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include <time.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -1094,11 +1095,12 @@ test_spawn (void)
 void
 test_kill (void)
 {
-	JobClass *class;
-	Job       *job = NULL;
-	NihTimer  *timer;
-	pid_t      pid;
-	int        status;
+	JobClass *      class;
+	Job *           job = NULL;
+	NihTimer *      timer;
+	struct timespec now;
+	pid_t           pid;
+	int             status;
 
 	TEST_FUNCTION ("job_process_kill");
 	nih_timer_init ();
@@ -1142,11 +1144,13 @@ test_kill (void)
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_NE_P (job->kill_timer, NULL);
 		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
 		TEST_ALLOC_PARENT (job->kill_timer, job);
-		TEST_GE (job->kill_timer->due, time (NULL) + 950);
-		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+		TEST_GE (job->kill_timer->due, now.tv_sec + 950);
+		TEST_LE (job->kill_timer->due, now.tv_sec + 1000);
 
 		TEST_EQ (job->kill_process, PROCESS_MAIN);
 
@@ -1198,11 +1202,13 @@ test_kill (void)
 
 		TEST_EQ (kill (job->pid[PROCESS_MAIN], 0), 0);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_NE_P (job->kill_timer, NULL);
 		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
 		TEST_ALLOC_PARENT (job->kill_timer, job);
-		TEST_GE (job->kill_timer->due, time (NULL) + 950);
-		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+		TEST_GE (job->kill_timer->due, now.tv_sec + 950);
+		TEST_LE (job->kill_timer->due, now.tv_sec + 1000);
 
 		TEST_EQ (job->kill_process, PROCESS_MAIN);
 
@@ -1234,16 +1240,18 @@ test_kill (void)
 void
 test_handler (void)
 {
-	ConfSource   *source;
-	ConfFile     *file;
-	JobClass     *class;
-	Job          *job = NULL;
-	Blocked      *blocked = NULL;
-	Event        *event;
-	FILE         *output;
-	int           exitcodes[2] = { 100, SIGINT << 8 }, status;
-	pid_t         pid;
-	siginfo_t     info;
+	ConfSource *    source;
+	ConfFile *      file;
+	JobClass *      class;
+	Job *           job = NULL;
+	Blocked *       blocked = NULL;
+	Event *         event;
+	FILE *          output;
+	int             exitcodes[2] = { 100, SIGINT << 8 };
+	int             status;
+	pid_t           pid;
+	siginfo_t       info;
+	struct timespec now;
 
 	TEST_FUNCTION ("job_process_handler");
 	program_name = "test";
@@ -1757,8 +1765,10 @@ test_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_EQ (job->respawn_count, 1);
-		TEST_LE (job->respawn_time, time (NULL));
+		TEST_LE (job->respawn_time, now.tv_sec);
 
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
@@ -1842,8 +1852,10 @@ test_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_EQ (job->respawn_count, 1);
-		TEST_LE (job->respawn_time, time (NULL));
+		TEST_LE (job->respawn_time, now.tv_sec);
 
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
@@ -1901,8 +1913,10 @@ test_handler (void)
 			event_block (event);
 			nih_list_add (&job->blocking, &blocked->entry);
 
+			assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 			job->respawn_count = 5;
-			job->respawn_time = time (NULL) - 5;
+			job->respawn_time = now.tv_sec - 5;
 		}
 
 		job->goal = JOB_START;
@@ -2080,8 +2094,10 @@ test_handler (void)
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_EQ (job->respawn_count, 1);
-		TEST_LE (job->respawn_time, time (NULL));
+		TEST_LE (job->respawn_time, now.tv_sec);
 
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
@@ -3119,8 +3135,10 @@ test_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_POST_START], 0);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_EQ (job->respawn_count, 1);
-		TEST_LE (job->respawn_time, time (NULL));
+		TEST_LE (job->respawn_time, now.tv_sec);
 
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);
@@ -3433,8 +3451,10 @@ test_handler (void)
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (job->pid[PROCESS_PRE_STOP], 0);
 
+		assert0 (clock_gettime (CLOCK_MONOTONIC, &now));
+
 		TEST_EQ (job->respawn_count, 1);
-		TEST_LE (job->respawn_time, time (NULL));
+		TEST_LE (job->respawn_time, now.tv_sec);
 
 		TEST_EQ (event->blockers, 1);
 		TEST_EQ (event->failed, FALSE);

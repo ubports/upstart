@@ -42,12 +42,12 @@ nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
-
 init_LDADD = \
 	../nih/libnih.la \
 	../nih-dbus/libnih-dbus.la \
 	$(LTLIBINTL) \
-	$(DBUS_LIBS)
+	$(DBUS_LIBS) \
+	-lrt
 
 
 com_ubuntu_Upstart_OUTPUTS = \
