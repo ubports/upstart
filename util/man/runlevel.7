@@ -117,7 +117,7 @@ script, passing the new runlevel as an argument.
 Initial system startup is provided by the
 .I /etc/init/rc-sysinit.conf
 job.  This is run on the
-.B startup
+.BR startup (7)
 event, and is primarily responsible for running the
 .B /etc/init.d/rc
 script with the special
@@ -127,15 +127,18 @@ argument and calling
 to switch into the default runlevel when done.  This also handles the
 .BR -b ,
 .BR emergency ,
-.BR -s and
+.B -s
+and
 .B single
 kernel command-line options as well as specifying an alternate runlevel
 on the kernel command-line.
 
 Finally the
 .I /etc/init/rcS.conf
-job handles the special case of entering the single-user runlevel after
-the system has been booted.
+job handles the special case of entering the single-user runlevel and
+providing a login shell.  Once that shell terminates, this restarts the
+.I rc-sysinit
+job to re-enter the default runlevel.
 .\"
 .SS Implementation of runlevels in Upstart
 The Upstart
