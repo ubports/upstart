@@ -1,4 +1,4 @@
-.TH runlevel 7 2009-07-08 "Upstart"
+.TH runlevel 7 2009-07-09 "Upstart"
 .\"
 .SH NAME
 runlevel \- event signalling change of system runlevel
@@ -7,7 +7,7 @@ runlevel \- event signalling change of system runlevel
 .B runlevel
 .BI RUNLEVEL\fR= RUNLEVEL
 .BI PREVLEVEL\fR= PREVLEVEL
-.IR ENV...
+.RI [ ENV ]...
 .\"
 .SH DESCRIPTION
 This page describes the
@@ -235,9 +235,12 @@ in its environment.
 .SH EXAMPLE
 A service running in the typical multi-user runlevels might use:
 
-.B start on runlevel [2345]
-
-.B stop on runlevel [!2345]
+.RS
+.nf
+start on runlevel [2345]
+stop on runlevel [!2345]
+.fi
+.RE
 .\"
 .SH SEE ALSO
 .BR runlevel (8)

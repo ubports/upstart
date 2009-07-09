@@ -15,7 +15,15 @@ AM_CPPFLAGS = \
 
 
 dist_man_MANS = \
-	man/init.8
+	man/init.8 \
+	man/startup.7 \
+	man/starting.7 \
+	man/started.7 \
+	man/stopping.7 \
+	man/stopped.7 \
+	man/control-alt-delete.7 \
+	man/keyboard-request.7 \
+	man/power-status-changed.7
 
 
 sbin_PROGRAMS = init
