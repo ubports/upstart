@@ -157,6 +157,9 @@
 	* Significant improvement in the amount of manual pages included
 	  with Upstart and their content.  (Bug: #60429)
 
+	* A manual page refering people from /etc/inittab to /etc/init
+	  is also included.  (Bug: #72058)
+
 0.5.3  2009-06-22  "Britain's Flag Carrier"
 
 	* Fixed segfault when initctl status called with arguments.

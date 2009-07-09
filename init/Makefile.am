@@ -25,7 +25,8 @@ dist_man_MANS = \
 	man/control-alt-delete.7 \
 	man/keyboard-request.7 \
 	man/power-status-changed.7 \
-	man/upstart.7
+	man/upstart.7 \
+	man/inittab.5
 
 
 sbin_PROGRAMS = init

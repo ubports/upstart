@@ -1,5 +1,9 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/man/inittab.5: People keep trying "man inittab", so explain
+	that it's gone.
+	* init/Makefile.am (dist_man_MANS): Install it
+
 	* NEWS: Declare the "lacks documentation" bug fixed
 
 	* init/man/init.8: Refresh and turn it into more of an overview
