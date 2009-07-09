@@ -169,6 +169,9 @@ utmp_write_runlevel (const char *utmp_file,
 	nih_assert (runlevel > 0);
 	nih_assert (prevlevel >= 0);
 
+	if (prevlevel == 'N')
+		prevlevel = 0;
+
 	utmp_entry (&reboot, BOOT_TIME, 0, NULL, NULL, NULL);
 
 	/* Check for the previous runlevel entry in utmp, if it doesn't

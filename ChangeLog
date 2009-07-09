@@ -1,5 +1,17 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* util/utmp.c (utmp_write_runlevel): Don't write 'N' to utmp or
+	wtmp for the previous runlevel, this will force writing reboot
+	records if prevlevel='N'/0 since read_runlevel will always return
+	'N' in that case.
+	* util/tests/test_utmp.c (test_write_runlevel): Add test case for
+	passing 'N' and having it treated as zero
+	(test_read_runlevel): Add a couple of test cases for the problems
+	we found last night where shutdown and corrupt utmp records result
+	in the wrong data being returned.
+	* util/tests/test_sysv.c (test_change_runlevel): Add a test case
+	for switching from sysinit to the first runlevel
+
 	* init/conf.h,
 	* init/control.h,
 	* init/event.h,

@@ -239,6 +239,88 @@ test_read_runlevel (void)
 	}
 
 
+	/* Check that an empty runlevel record (e.g. by the shutdown tool)
+	 * results in the 'N' runlevel being returned instead.
+	 */
+	TEST_FEATURE ("with shutdown record");
+	TEST_ALLOC_FAIL {
+		unlink (filename);
+
+		file = fopen (filename, "w");
+		fclose (file);
+
+		memset (&utmp, 0, sizeof utmp);
+
+		utmp.ut_type = RUN_LVL;
+		utmp.ut_pid = 0;
+
+		strcpy (utmp.ut_line, "~");
+		strcpy (utmp.ut_id, "~~");
+		strncpy (utmp.ut_user, "shutdown", sizeof utmp.ut_user);
+		if (uname (&uts) == 0)
+			strncpy (utmp.ut_host, uts.release,
+				 sizeof utmp.ut_host);
+
+		gettimeofday (&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		utmpxname (filename);
+
+		setutxent ();
+		pututxline (&utmp);
+		endutxent ();
+
+		prevlevel = 0;
+
+		runlevel = utmp_read_runlevel (filename, &prevlevel);
+
+		TEST_EQ (runlevel, 'N');
+		TEST_EQ (prevlevel, 'N');
+	}
+
+
+	/* Check that a corrupt runlevel record results in the 'N' runlevel
+	 * being returned instead.
+	 */
+	TEST_FEATURE ("with corrupt record");
+	TEST_ALLOC_FAIL {
+		unlink (filename);
+
+		file = fopen (filename, "w");
+		fclose (file);
+
+		memset (&utmp, 0, sizeof utmp);
+
+		utmp.ut_type = RUN_LVL;
+		utmp.ut_pid = -14 + -12 * 256;
+
+		strcpy (utmp.ut_line, "~");
+		strcpy (utmp.ut_id, "~~");
+		strncpy (utmp.ut_user, "runlevel", sizeof utmp.ut_user);
+		if (uname (&uts) == 0)
+			strncpy (utmp.ut_host, uts.release,
+				 sizeof utmp.ut_host);
+
+		gettimeofday (&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		utmpxname (filename);
+
+		setutxent ();
+		pututxline (&utmp);
+		endutxent ();
+
+		prevlevel = 0;
+
+		runlevel = utmp_read_runlevel (filename, &prevlevel);
+
+		TEST_EQ (runlevel, 'N');
+		TEST_EQ (prevlevel, 'N');
+	}
+
+
 	unlink (filename);
 }
 
@@ -631,6 +713,71 @@ test_write_runlevel (void)
 		fclose (fopen (wtmp_file, "w"));
 
 		ret = utmp_write_runlevel (utmp_file, wtmp_file, '2', 0);
+
+		TEST_EQ (ret, 0);
+
+		utmpxname (utmp_file);
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, BOOT_TIME);
+		TEST_EQ (utmp->ut_pid, 0);
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "reboot");
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, RUN_LVL);
+		TEST_EQ (utmp->ut_pid, '2');
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "runlevel");
+
+		utmp = getutxent ();
+		TEST_EQ_P (utmp, NULL);
+
+
+		utmpxname (wtmp_file);
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, BOOT_TIME);
+		TEST_EQ (utmp->ut_pid, 0);
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "reboot");
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, RUN_LVL);
+		TEST_EQ (utmp->ut_pid, '2');
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "runlevel");
+
+		utmp = getutxent ();
+		TEST_EQ_P (utmp, NULL);
+	}
+
+
+	/* Check that the user-facing 'N' for no previous runlevel is
+	 * converted to zero and thus always left blank in the file and
+	 * reboot entries always added.
+	 */
+	TEST_FEATURE ("with unknown previous runlevel");
+	TEST_ALLOC_FAIL {
+		unlink (utmp_file);
+		fclose (fopen (utmp_file, "w"));
+
+		unlink (wtmp_file);
+		fclose (fopen (wtmp_file, "w"));
+
+		ret = utmp_write_runlevel (utmp_file, wtmp_file, '2', 'N');
 
 		TEST_EQ (ret, 0);
 

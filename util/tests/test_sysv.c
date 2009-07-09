@@ -339,6 +339,191 @@ test_change_runlevel (void)
 	}
 
 
+	/* Check that when called from the rc-sysvinit script, with the
+	 * RUNLEVEL and PREVLEVEL variables empty and no valid information
+	 * in the utmp or wtmp files, N is used as the previous runlevel
+	 * and reboot is added.
+	 */
+	TEST_FEATURE ("with sysvinit to 2 switch");
+	setenv ("RUNLEVEL", "", TRUE);
+	setenv ("PREVLEVEL", "", TRUE);
+
+	TEST_ALLOC_FAIL {
+		TEST_CHILD_WAIT (server_pid, wait_fd) {
+			TEST_ALLOC_SAFE {
+				server = nih_dbus_server (dest_address,
+							  my_connect_handler,
+							  NULL);
+				assert (server != NULL);
+			}
+
+			my_connect_handler_called = FALSE;
+			last_connection = NULL;
+
+			TEST_CHILD_RELEASE (wait_fd);
+
+			/* Wait for a connection from the server */
+			nih_main_loop ();
+
+			assert (my_connect_handler_called);
+			assert (last_connection);
+
+			/* Expect the EmitEvent method call on the manager
+			 * object, make sure the arguments are right and
+			 * reply to acknowledge.
+			 */
+			TEST_DBUS_MESSAGE (last_connection, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"EmitEvent"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &args_value, &args_elements,
+							  DBUS_TYPE_BOOLEAN, &wait_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "runlevel");
+
+			TEST_EQ (args_elements, 2);
+			TEST_EQ_STR (args_value[0], "RUNLEVEL=2");
+			TEST_EQ_STR (args_value[1], "PREVLEVEL=N");
+			dbus_free_string_array (args_value);
+
+			TEST_FALSE (wait_value);
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+			}
+
+			dbus_connection_send (last_connection, reply, NULL);
+			dbus_connection_flush (last_connection);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			dbus_connection_close (last_connection);
+			dbus_connection_unref (last_connection);
+
+			dbus_server_disconnect (server);
+			dbus_server_unref (server);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+
+		unlink (utmp_file);
+		fclose (fopen (utmp_file, "w"));
+
+		unlink (wtmp_file);
+		fclose (fopen (wtmp_file, "w"));
+
+
+		ret = sysv_change_runlevel ('2', NULL, utmp_file, wtmp_file);
+
+		if (test_alloc_failed
+		    && (ret < 0)) {
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			kill (server_pid, SIGTERM);
+			waitpid (server_pid, NULL, 0);
+
+			/* Make sure no runlevel was written */
+			utmpxname (utmp_file);
+			setutxent ();
+
+			utmp = getutxent ();
+			TEST_EQ_P (utmp, NULL);
+
+			endutxent ();
+
+
+			utmpxname (wtmp_file);
+			setutxent ();
+
+			utmp = getutxent ();
+			TEST_EQ_P (utmp, NULL);
+
+			endutxent ();
+
+			dbus_shutdown ();
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		waitpid (server_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		utmpxname (utmp_file);
+		setutxent ();
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, BOOT_TIME);
+		TEST_EQ (utmp->ut_pid, 0);
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "reboot");
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, RUN_LVL);
+		TEST_EQ (utmp->ut_pid, '2');
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "runlevel");
+
+		utmp = getutxent ();
+		TEST_EQ_P (utmp, NULL);
+
+		endutxent ();
+
+
+		utmpxname (wtmp_file);
+		setutxent ();
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, BOOT_TIME);
+		TEST_EQ (utmp->ut_pid, 0);
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "reboot");
+
+		utmp = getutxent ();
+		TEST_NE_P (utmp, NULL);
+
+		TEST_EQ (utmp->ut_type, RUN_LVL);
+		TEST_EQ (utmp->ut_pid, '2');
+		TEST_EQ_STR (utmp->ut_line, "~");
+		TEST_EQ_STR (utmp->ut_id, "~~");
+		TEST_EQ_STR (utmp->ut_user, "runlevel");
+
+		utmp = getutxent ();
+		TEST_EQ_P (utmp, NULL);
+
+		endutxent ();
+
+		dbus_shutdown ();
+	}
+
+	unsetenv ("RUNLEVEL");
+	unsetenv ("PREVLEVEL");
+
+
 	/* Check that when called from the rcS script, with the RUNLEVEL
 	 * and PREVLEVEL variables set but no valid information in the utmp
 	 * or wtmp files, the environment is used and reboot records are
