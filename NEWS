@@ -3,6 +3,9 @@
 	* The licence for Upstart has been changed back to version 2 of the
 	  GNU GPL.
 
+	* D-Bus 1.2.15 is now required, this is the current GIT HEAD
+	  pending a 1.2.16 release.
+
 	* Configuration paths have changed.  Global configuration now
 	  resides in "/etc/init.conf" while jobs are now configured in
 	  "/etc/init"

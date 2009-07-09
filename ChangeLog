@@ -1,5 +1,8 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* README: Note that we need D-Bus GIT HEAD.
+	* NEWS: Update.
+
 	* init/man/inittab.5: People keep trying "man inittab", so explain
 	that it's gone.
 	* init/Makefile.am (dist_man_MANS): Install it

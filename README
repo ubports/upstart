@@ -44,7 +44,7 @@ bindings necessary, the expat XML parsing library will be used.
 The recommended versions are:
 
 	* pkg-config 0.22
-	* D-Bus 1.2.14
+	* D-Bus 1.2.15 (GIT HEAD pre 1.2.16)
 	* expat 2.0.0
 
 These should all be available from the current release of any modern
