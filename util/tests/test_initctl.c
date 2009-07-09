@@ -25,8 +25,8 @@
 #include <dbus/dbus.h>
 
 #include <stdio.h>
-#include <setjmp.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_connection.h>
@@ -88,7 +88,7 @@ test_upstart_open (void)
 	DBusServer *    server = NULL;
 	pid_t           dbus_pid;
 	DBusConnection *server_conn = NULL;
-	NihDBusProxy *  proxy;
+	NihDBusProxy *  proxy = NULL;
 	FILE *          output;
 
 	TEST_FUNCTION ("upstart_open");
@@ -393,7 +393,7 @@ test_job_status (void)
 	DBusMessage *   method_call;
 	const char *    interface;
 	const char *    property;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	DBusMessageIter iter;
 	DBusMessageIter arrayiter;
 	DBusMessageIter dictiter;
@@ -3195,7 +3195,7 @@ test_start_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
@@ -3212,7 +3212,7 @@ test_start_action (void)
 	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("start_action");
@@ -3325,12 +3325,8 @@ test_start_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -3659,12 +3655,8 @@ test_start_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -3995,12 +3987,8 @@ test_start_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -4359,12 +4347,8 @@ test_start_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -4986,7 +4970,7 @@ test_stop_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
@@ -4998,7 +4982,7 @@ test_stop_action (void)
 	DBusMessageIter subiter;
 	NihCommand      command;
 	char *          args[4];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("stop_action");
@@ -5141,12 +5125,8 @@ test_stop_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -5391,12 +5371,8 @@ test_stop_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -5641,12 +5617,8 @@ test_stop_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -5890,12 +5862,8 @@ test_stop_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -6582,7 +6550,7 @@ test_restart_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
@@ -6599,7 +6567,7 @@ test_restart_action (void)
 	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("restart_action");
@@ -6712,12 +6680,8 @@ test_restart_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -7046,12 +7010,8 @@ test_restart_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -7382,12 +7342,8 @@ test_restart_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -7746,12 +7702,8 @@ test_restart_action (void)
 			 * of memory cases.
 			 */
 			for (;;) {
-				sigjmp_buf env;
-
-				void hup_handler (int signum) { siglongjmp (env, signum); }
+				void hup_handler (int signum) { _exit (0); }
 				signal (SIGHUP, hup_handler);
-				if (sigsetjmp (env, FALSE))
-					exit (0);
 
 				/* Expect the Get call for the job name, reply with
 				 * the name.
@@ -8373,7 +8325,7 @@ test_status_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
@@ -8389,7 +8341,7 @@ test_status_action (void)
 	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("status_action");
@@ -9906,7 +9858,7 @@ test_list_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    str_value;
 	const char *    interface;
 	const char *    property;
@@ -9919,7 +9871,7 @@ test_list_action (void)
 	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[1];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("list_action");
@@ -11203,14 +11155,14 @@ test_emit_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
 	int             wait_value;
 	NihCommand      command;
 	char *          args[4];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("emit_action");
@@ -11641,10 +11593,10 @@ test_reload_configuration_action (void)
 	FILE *          errors;
 	pid_t           server_pid;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	NihCommand      command;
 	char *          args[1];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("reload_configuration_action");
@@ -11828,13 +11780,13 @@ test_version_action (void)
 	DBusMessage *   method_call;
 	const char *    interface;
 	const char *    property;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	DBusMessageIter iter;
 	DBusMessageIter subiter;
 	const char *    str_value;
 	NihCommand      command;
 	char *          args[1];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("version_action");
@@ -12047,14 +11999,14 @@ test_log_priority_action (void)
 	DBusMessage *   method_call;
 	const char *    interface;
 	const char *    property;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	DBusMessageIter iter;
 	DBusMessageIter subiter;
 	const char *    str_value;
 	char *          signature;
 	NihCommand      command;
 	char *          args[2];
-	int             ret;
+	int             ret = 0;
 	int             status;
 
 	TEST_FUNCTION ("log_priority_action");

@@ -767,7 +767,7 @@ job_class_start (JobClass        *class,
 	nih_ref (job->start_env, job);
 
 	job_finished (job, FALSE);
-	if (wait)
+	if (blocked)
 		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_START);
@@ -887,7 +887,7 @@ job_class_stop (JobClass       *class,
 	nih_ref (job->stop_env, job);
 
 	job_finished (job, FALSE);
-	if (wait)
+	if (blocked)
 		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);
@@ -1014,7 +1014,7 @@ job_class_restart (JobClass        *class,
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
-	if (wait)
+	if (blocked)
 		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);

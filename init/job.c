@@ -1076,7 +1076,7 @@ job_start (Job             *job,
 	   NihDBusMessage  *message,
 	   int              wait)
 {
-	Blocked *blocked;
+	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
@@ -1102,7 +1102,7 @@ job_start (Job             *job,
 	job->start_env = NULL;
 
 	job_finished (job, FALSE);
-	if (wait)
+	if (blocked)
 		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_START);
@@ -1140,7 +1140,7 @@ job_stop (Job            *job,
 	  NihDBusMessage *message,
 	  int             wait)
 {
-	Blocked *blocked;
+	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
@@ -1166,7 +1166,7 @@ job_stop (Job            *job,
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
-	if (wait)
+	if (blocked)
 		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);
@@ -1205,7 +1205,7 @@ job_restart (Job            *job,
 	     NihDBusMessage *message,
 	     int             wait)
 {
-	Blocked *blocked;
+	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
@@ -1235,7 +1235,7 @@ job_restart (Job            *job,
 	job->stop_env = NULL;
 
 	job_finished (job, FALSE);
-	if (wait)
+	if (blocked)
 		nih_list_add (&job->blocking, &blocked->entry);
 
 	job_change_goal (job, JOB_STOP);

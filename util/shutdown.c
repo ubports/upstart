@@ -397,7 +397,9 @@ main (int   argc,
 
 
 	/* Give us a sane environment */
-	chdir ("/");
+	if (chdir ("/") < 0)
+		nih_warn ("%s: %s", _("Unable to change directory"),
+			  strerror (errno));
 	umask (022);
 
 	/* Shutdown now? */

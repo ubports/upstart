@@ -75,9 +75,9 @@ test_change_runlevel (void)
 {
 	pid_t           server_pid;
 	int             wait_fd;
-	DBusServer *    server;
+	DBusServer *    server = NULL;
 	DBusMessage *   method_call;
-	DBusMessage *   reply;
+	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;

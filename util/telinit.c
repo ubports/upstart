@@ -178,6 +178,8 @@ main (int   argc,
 		if (ret < 0)
 			nih_error_raise_system ();
 		break;
+	default:
+		nih_assert_not_reached ();
 	}
 
 	if (ret < 0) {

@@ -2909,7 +2909,7 @@ void
 test_get_name (void)
 {
 	NihDBusMessage *message = NULL;
-	JobClass       *class;
+	JobClass       *class = NULL;
 	NihError       *error;
 	char           *name;
 	int             ret;
@@ -2960,7 +2960,7 @@ void
 test_get_description (void)
 {
 	NihDBusMessage *message = NULL;
-	JobClass       *class;
+	JobClass       *class = NULL;
 	NihError       *error;
 	char           *description;
 	int             ret;
@@ -3052,7 +3052,7 @@ void
 test_get_author (void)
 {
 	NihDBusMessage *message = NULL;
-	JobClass       *class;
+	JobClass       *class = NULL;
 	NihError       *error;
 	char           *author;
 	int             ret;
@@ -3144,7 +3144,7 @@ void
 test_get_version (void)
 {
 	NihDBusMessage *message = NULL;
-	JobClass       *class;
+	JobClass       *class = NULL;
 	NihError       *error;
 	char           *version;
 	int             ret;

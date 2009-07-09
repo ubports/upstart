@@ -1,5 +1,26 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job.c (job_start, job_stop, job_restart): Restructure
+	slightly to avoid gcc warning
+	* init/job_class.c (job_class_start, job_class_restart): Make the
+	same change to these too
+	* util/shutdown.c: Warn if we can't change directory
+	* util/telinit.c: Assert that we don't fall out of the switch
+	* init/tests/test_job_class.c (test_get_version)
+	(test_get_author, test_get_description, test_get_name): Initialise
+	alloc-safe variables to NULL to avoid gcc warning
+	* util/tests/test_initctl.c (test_job_status, test_start_action)
+	(test_stop_action, test_restart_action, test_status_action)
+	(test_list_action, test_emit_action)
+	(test_reload_configuration_action, test_version_action)
+	(test_log_priority_action, test_upstart_open): Initialise alloc-safe
+	variables to NULL and diverted return values to 0 to avoid gcc
+	warnings.
+	(test_start_action, test_stop_action, test_restart_action):
+	Replace sigsetjmp/siglongjmp with a call to _exit() in the handler
+	* util/tests/test_sysv.c (test_change_runlevel): Initialise alloc-safe
+	variables to NULL to avoid gcc warnings
+
 	* util/man/runlevel.7: Formatting fixes, and mention that rcS
 	runs rc-sysinit again.
 	* util/man/runlevel.8: s/utilities/tools/
