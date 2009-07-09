@@ -232,7 +232,6 @@ test_pending (void)
 			event = event_new (NULL, "test", NULL);
 
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->task = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
@@ -1623,7 +1622,6 @@ test_finished (void)
 			TEST_FREE_TAG (event);
 
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
 
@@ -1658,7 +1656,6 @@ test_finished (void)
 			TEST_FREE_TAG (event);
 
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
 
@@ -1701,7 +1698,6 @@ test_finished (void)
 			TEST_FREE_TAG (event);
 
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
 

@@ -38,7 +38,6 @@
  * can produce an error.
  **/
 typedef enum job_process_error_type {
-	JOB_PROCESS_ERROR_FORK,
 	JOB_PROCESS_ERROR_CONSOLE,
 	JOB_PROCESS_ERROR_RLIMIT,
 	JOB_PROCESS_ERROR_PRIORITY,

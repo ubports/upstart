@@ -180,10 +180,6 @@ static int stanza_normal      (JobClass *class, NihConfigStanza *stanza,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
 
-static int stanza_session     (JobClass *class, NihConfigStanza *stanza,
-			       const char *file, size_t len,
-			       size_t *pos, size_t *lineno)
-	__attribute__ ((warn_unused_result));
 static int stanza_console     (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -242,7 +238,6 @@ static NihConfigStanza stanzas[] = {
 	{ "kill",        (NihConfigHandler)stanza_kill        },
 	{ "respawn",     (NihConfigHandler)stanza_respawn     },
 	{ "normal",      (NihConfigHandler)stanza_normal      },
-	{ "session",     (NihConfigHandler)stanza_session     },
 	{ "console",     (NihConfigHandler)stanza_console     },
 	{ "umask",       (NihConfigHandler)stanza_umask       },
 	{ "nice",        (NihConfigHandler)stanza_nice        },
@@ -1961,61 +1956,6 @@ finish:
 	return ret;
 }
 
-
-/**
- * stanza_session:
- * @class: job class being parsed,
- * @stanza: stanza found,
- * @file: file or string to parse,
- * @len: length of @file,
- * @pos: offset within @file,
- * @lineno: line number.
- *
- * Parse a session stanza from @file, extracting a single argument that
- * should be leader to specify that the job processes will be session leaders.
- *
- * Returns: zero on success, negative value on error.
- **/
-static int
-stanza_session (JobClass        *class,
-		NihConfigStanza *stanza,
-		const char      *file,
-		size_t           len,
-		size_t          *pos,
-		size_t          *lineno)
-{
-	size_t          a_pos, a_lineno;
-	int             ret = -1;
-	nih_local char *arg = NULL;
-
-	nih_assert (class != NULL);
-	nih_assert (stanza != NULL);
-	nih_assert (file != NULL);
-	nih_assert (pos != NULL);
-
-	a_pos = *pos;
-	a_lineno = (lineno ? *lineno : 1);
-
-	arg = nih_config_next_arg (NULL, file, len, &a_pos, &a_lineno);
-	if (! arg)
-		goto finish;
-
-	if (! strcmp (arg, "leader")) {
-		class->leader = TRUE;
-	} else {
-		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
-				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
-	}
-
-	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
-
-finish:
-	*pos = a_pos;
-	if (lineno)
-		*lineno = a_lineno;
-
-	return ret;
-}
 
 /**
  * stanza_console:

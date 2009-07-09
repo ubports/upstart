@@ -128,7 +128,6 @@ test_new (void)
 		TEST_EQ_P (class->normalexit, NULL);
 		TEST_EQ (class->normalexit_len, 0);
 
-		TEST_EQ (class->leader, FALSE);
 		TEST_EQ (class->console, CONSOLE_NONE);
 
 		TEST_EQ (class->umask, 022);

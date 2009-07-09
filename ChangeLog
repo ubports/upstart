@@ -1,5 +1,32 @@
 2009-07-09  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_class.h (JobClass): Drop the leader option; at the time
+	it seemed to make sense that Upstart would provide a "daemon"-like
+	environment, but it really doesn't in practice.  Software should
+	feel safe to daemonise on its own, and I'd rather fix supervision
+	of those; freeing up Upstart jobs to run as new sessions by default
+	again.  This is also the only real option that would change the
+	behaviour between 0.6 and 0.10 in an awkwardly compatible way.
+	* init/job_class.c (job_class_new): Remove leader initialisation
+	* init/tests/test_job_class.c (test_new): Drop the initialisation
+	check for leader
+	* init/parse_job.c (stanza_session): Drop the stanza
+	* init/tests/test_parse_job.c (test_stanza_session): Drop the
+	stanza test cases.
+	* init/job_process.c (job_process_spawn): Drop the double-fork.
+	This means we don't need to read the pid of our extra child either.
+	(job_process_error_read): we no longer need a fork error.
+	* init/job_process.h (JobProcessErrorType): Drop the fork error.
+	* init/tests/test_job_process.c (test_spawn): Replace the simple job
+	test case with the session leader test case, now that's the default.
+	(test_run, test_spawn, test_kill, test_handler): Remove all the
+	class->leader = TRUE from the tests, we only ever really tested
+	session leaders anyway since that's all the test suite could follow
+	* init/tests/test_job.c (test_change_goal, test_change_state):
+	Remove the leader flag from test jobs
+	* init/tests/test_event.c (test_pending, test_finished): Remove
+	the leader flag from test jobs.
+
 	* init/job_process.c (job_process_catch_runaway): Use a monotonic
 	clock, not the realtime clock, for respawn interval detection.
 	* init/tests/test_job_process.c (test_kill, test_handler): Use the

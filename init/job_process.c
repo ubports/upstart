@@ -390,16 +390,6 @@ job_process_spawn (JobClass     *class,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
-		/* If the job is not a session leader, it will fork twice,
-		 * so we need to read the new child pid.
-		 */
-		if (! class->leader) {
-			ssize_t len;
-
-			len = read (fds[0], &pid, sizeof (pid));
-			nih_assert (len == sizeof (pid));
-		}
-
 		/* Read error from the pipe, return if one is raised */
 		if (job_process_error_read (fds[0]) < 0) {
 			close (fds[0]);
@@ -433,32 +423,9 @@ job_process_spawn (JobClass     *class,
 	nih_io_set_cloexec (fds[1]);
 
 	/* Become the leader of a new session and process group, shedding
-	 * any controlling tty (which we shouldn't have had anyway).  If
-	 * the process is not supposed to be a session leader, we need to
-	 * fork again and write back our new pid.
+	 * any controlling tty (which we shouldn't have had anyway).
 	 */
 	setsid ();
-	if (! class->leader) {
-		pid = fork ();
-		if (pid > 0) {
-			exit (0);
-		} else if (pid < 0) {
-			nih_error_raise_system ();
-
-			/* Write -1 as the pid to the parent followed by
-			 * the error.
-			 */
-			while (write (fds[1], &pid, sizeof (pid)) < 0)
-				;
-			job_process_error_abort (fds[1],
-						 JOB_PROCESS_ERROR_FORK, 0);
-		}
-
-		/* Write the new child pid to the parent */
-		pid = getpid ();
-		while (write (fds[1], &pid, sizeof (pid)) < 0)
-			;
-	}
 
 	/* Set the standard file descriptors to an output of our chosing;
 	 * any other open descriptor must be intended for the child, or have
@@ -653,11 +620,6 @@ job_process_error_read (int fd)
 	err->error.number = JOB_PROCESS_ERROR;
 
 	switch (err->type) {
-	case JOB_PROCESS_ERROR_FORK:
-		err->error.message = NIH_MUST (nih_sprintf (
-				  err, _("unable to fork: %s"),
-				  strerror (err->errnum)));
-		break;
 	case JOB_PROCESS_ERROR_CONSOLE:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to open console: %s"),

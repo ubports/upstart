@@ -145,7 +145,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -178,7 +177,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -216,7 +214,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -254,7 +251,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -292,7 +288,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -330,7 +325,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -380,7 +374,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -431,7 +424,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_PRE_STOP] = process_new (class);
 			class->process[PROCESS_PRE_STOP]->command = nih_sprintf (
 				class->process[PROCESS_PRE_STOP],
@@ -483,7 +475,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_POST_STOP] = process_new (class);
 			class->process[PROCESS_POST_STOP]->command = nih_sprintf (
 				class->process[PROCESS_POST_STOP],
@@ -540,7 +531,6 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_alloc (
@@ -607,7 +597,6 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
 
@@ -644,7 +633,6 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "true";
 
@@ -682,7 +670,6 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->expect = EXPECT_DAEMON;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
@@ -730,7 +717,6 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->expect = EXPECT_FORK;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
@@ -780,7 +766,6 @@ no_devfd:
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test");
-			class->leader = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = filename;
 
@@ -813,11 +798,10 @@ test_spawn (void)
 {
 	FILE             *output;
 	char              function[PATH_MAX], filename[PATH_MAX];
-	char              buf[80], filebuf[80];
-	struct stat       statbuf;
+	char              buf[80];
 	char             *env[3], *args[4];
 	JobClass         *class;
-	pid_t             pid, ppid, pgrp;
+	pid_t             pid;
 	siginfo_t         info;
 	NihError         *err;
 	JobProcessError  *perr;
@@ -830,78 +814,14 @@ test_spawn (void)
 	args[2] = filename;
 	args[3] = NULL;
 
-	/* Check that we can spawn a simple job, since this will not be a
-	 * session leader, we spin for the child process to complete and
-	 * then read from the file written to check that the process tree
-	 * is what we expect it to look like.
+	/* Check that we can spawn a simple job, waiting for the child
+	 * process to complete and reading from the file written to check
+	 * that the process tree is what we expect it to look like.
 	 */
 	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
 	class = job_class_new (NULL, "test");
-
-	pid = job_process_spawn (class, args, NULL, FALSE);
-	TEST_GT (pid, 0);
-
-	while (stat (filename, &statbuf) < 0)
-		;
-
-	output = fopen (filename, "r");
-
-	TEST_GT (pid, 0);
-	TEST_NE (pid, getpid ());
-
-	sprintf (buf, "pid: %d\n", pid);
-	TEST_FILE_EQ (output, buf);
-
-	/* Get the parent process id out, it may be 1 or an intermediate
-	 * depending on racy things
-	 */
-	if (! fgets (filebuf, sizeof (filebuf), output))
-		TEST_FAILED ("eof on file %p (output), expected pgrp line",
-			     output);
-
-	TEST_EQ_STRN (filebuf, "ppid: ");
-	sscanf (filebuf, "ppid: %d\n", &ppid);
-	TEST_NE (ppid, pid);
-	TEST_NE (ppid, getpid ());
-
-	/* Get the process group id out, it must only ever be an intermediate
-	 * and must match parent id unless that was 1.
-	 */
-	if (! fgets (filebuf, sizeof (filebuf), output))
-		TEST_FAILED ("eof on file %p (output), expected pgrp line",
-			     output);
-
-	TEST_EQ_STRN (filebuf, "pgrp: ");
-	sscanf (filebuf, "pgrp: %d\n", &pgrp);
-	TEST_NE (pgrp, pid);
-	TEST_NE (pgrp, getpid ());
-	if (ppid != 1)
-		TEST_EQ (pgrp, ppid);
-
-	/* Session id must match process group - compare normally */
-	sprintf (buf, "sid: %d\n", pgrp);
-	TEST_FILE_EQ (output, buf);
-
-	TEST_FILE_END (output);
-
-	fclose (output);
-	unlink (filename);
-
-	nih_free (class);
-
-
-	/* Check that we can spawn a job we expect to be the session
-	 * leader, again wait for the child process and read from the file
-	 * written to check the process tree is shwat we expect it to look
-	 * like.
-	 */
-	TEST_FEATURE ("with session leader");
-	sprintf (function, "%d", TEST_PIDS);
-
-	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
@@ -939,7 +859,6 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_CONSOLE);
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 	class->console = CONSOLE_NONE;
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
@@ -966,7 +885,6 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_PWD);
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 	class->chdir = "/tmp";
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
@@ -996,7 +914,6 @@ test_spawn (void)
 	env[2] = NULL;
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 
 	pid = job_process_spawn (class, args, env, FALSE);
 	TEST_GT (pid, 0);
@@ -1022,7 +939,6 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
@@ -1043,7 +959,6 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 
 	pid = job_process_spawn (class, args, NULL, TRUE);
 	TEST_GT (pid, 0);
@@ -1073,7 +988,6 @@ test_spawn (void)
 	args[2] = NULL;
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_LT (pid, 0);
@@ -1107,7 +1021,6 @@ test_kill (void)
 	event_init ();
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 	class->kill_timeout = 1000;
 
 	class->process[PROCESS_MAIN] = process_new (class);
@@ -1260,7 +1173,6 @@ test_handler (void)
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 	file = conf_file_new (source, "/tmp/test");
 	file->job = class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 

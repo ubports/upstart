@@ -381,7 +381,6 @@ test_change_goal (void)
 	program_name = "test";
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 	class->process[PROCESS_PRE_START] = process_new (class);
@@ -627,7 +626,6 @@ test_change_state (void)
 	mkdir (dirname, 0700);
 
 	class = job_class_new (NULL, "test");
-	class->leader = TRUE;
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 		class->process[PROCESS_MAIN], "touch %s/run", dirname);

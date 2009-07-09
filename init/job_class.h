@@ -90,7 +90,6 @@ typedef enum console_type {
  * @respawn_interval: barrier for @respawn_limit,
  * @normalexit: array of exit codes that prevent a respawn,
  * @normalexit_len: length of @normalexit array,
- * @leader: TRUE if processes should be session leaders,
  * @console: how to arrange processes' stdin/out/err file descriptors,
  * @umask: file mode creation mask,
  * @nice: process priority,
@@ -138,7 +137,6 @@ typedef struct job_class {
 	int            *normalexit;
 	size_t          normalexit_len;
 
-	int             leader;
 	ConsoleType     console;
 
 	mode_t          umask;

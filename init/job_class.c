@@ -206,7 +206,6 @@ job_class_new (const void *parent,
 	class->normalexit = NULL;
 	class->normalexit_len = 0;
 
-	class->leader = FALSE;
 	class->console = CONSOLE_NONE;
 
 	class->umask = JOB_DEFAULT_UMASK;
