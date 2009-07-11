@@ -1,5 +1,11 @@
 2009-07-11  Scott James Remnant  <scott@netsplit.com>
 
+	* init/control.c (control_server_open): Don't hardcode the server
+	address, otherwise the test suite can't test this function.
+	* init/tests/test_control.c (test_server_open)
+	(test_server_connect, test_server_close): Change the server
+	address in the tests.
+
 	* configure.ac: Bump version to 0.6.1
 	* NEWS: Begin new release
 
