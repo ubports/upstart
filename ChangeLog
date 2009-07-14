@@ -1,5 +1,14 @@
 2009-07-14  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job_process.c (test_handler): Rework the existing
+	ptrace fork handler test case to make sure we test the case where
+	we get the fork event before the stopped child.  Add a second test
+	case for the opposite (stopped child before the fork event) which
+	we don't currently handle.
+	* init/job_process.c (job_process_trace_fork): Test for the missed
+	child event using ptrace(), if it succeeds the child is ready so
+	we can just assume we had the event.
+
 	* util/Makefile.am (EXTRA_DIST): Distribute the valgrind suppressions
 	file
 
