@@ -1417,8 +1417,10 @@ test_write_shutdown (void)
 
 		TEST_LT (ret, 0);
 
+		/* glibc < 2.10 seem to return EBADF not ACCESS */
 		err = nih_error_get ();
-		TEST_EQ (err->number, EBADF);
+		if (err->number != EBADF)
+			TEST_EQ (err->number, EACCES);
 		nih_free (err);
 
 		utmpxname (utmp_file);
