@@ -1,3 +1,8 @@
+2009-07-14  Scott James Remnant  <scott@netsplit.com>
+
+	* util/tests/test_utmp.c (test_write_runlevel): Looks like glibc
+	is fixed to return the right error code.
+
 2009-07-11  Scott James Remnant  <scott@netsplit.com>
 
 	* init/control.c (control_server_open): Don't hardcode the server
