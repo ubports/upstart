@@ -1,4 +1,4 @@
-upstart (0.6.0-3) UNRELEASED; urgency=low
+upstart (0.6.0-3) karmic; urgency=low
 
   * Add Conflicts on older Upstart packages to make update-manager's
     job easier.
