@@ -1,3 +1,9 @@
+upstart (0.6.0-5) UNRELEASED; urgency=low
+
+  * 
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 14 Jul 2009 13:35:28 +0100
+
 upstart (0.6.0-4) karmic; urgency=low
 
   * Don't build the testsuite with -fPIE on armel; LP: #398403.
