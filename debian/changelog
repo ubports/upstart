@@ -1,4 +1,4 @@
-upstart (0.6.0-4) UNRELEASED; urgency=low
+upstart (0.6.0-4) karmic; urgency=low
 
   * Don't build the testsuite with -fPIE on armel; LP: #398403.
 
