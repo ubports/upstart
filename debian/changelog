@@ -1,4 +1,4 @@
-upstart (0.6.0-2) UNRELEASED; urgency=low
+upstart (0.6.0-2) karmic; urgency=low
 
   * Bump D-Bus build dependency to ensure we get the container abandonment
     patches, and the GIT version bump.
