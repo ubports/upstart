@@ -1,9 +1,9 @@
-upstart (0.6.0-5) UNRELEASED; urgency=low
+upstart (0.6.0-5) karmic; urgency=low
 
   * Cherry-pick patch from -r1188 to fix "expect fork" and "expect daemon"
     LP: #264711.
 
- -- Scott James Remnant <scott@ubuntu.com>  Tue, 14 Jul 2009 13:35:28 +0100
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 14 Jul 2009 15:19:17 +0100
 
 upstart (0.6.0-4) karmic; urgency=low
 
