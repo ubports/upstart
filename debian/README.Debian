@@ -1,0 +1,200 @@
+upstart
+=======
+
+Upstart is a replacement for the traditional sysvinit package, and
+runs as process #1.  Through upstart, we are able to have an
+event-driven process, whilst at the same time retaining compatibility
+for the original sysvinit behaviour.
+
+This file documents how to do a few common operations with the new
+system.
+
+
+Where are initscripts installed?
+--------------------------------
+
+This has not changed, they are installed in /etc/init.d.  See
+/etc/init.d/README.
+
+Important system jobs are no longer shipped as initscripts, but as
+upstart jobs.  These are installed in /etc/init
+
+
+How are initscripts started and stopped?
+----------------------------------------
+
+This has not changed, symlinks are made from the initscript in the
+/etc/init.d directory to the /etc/rc?.d directories.  See
+/etc/init.d/README and /etc/rc?.d/README.
+
+
+What order are initscripts started and stopped in?
+--------------------------------------------------
+
+This has not changed, the symlinks are named SNNname or KNNname, where
+NN is a number from 00 to 99.  The K scripts are run first in
+numerical order, followed by the S scripts in numerical order.
+
+
+How do I find the current/previous runlevel?
+--------------------------------------------
+
+This has not changed, use the "runlevel" command.  See runlevel(8).
+
+
+How do I change the runlevel?
+-----------------------------
+
+This has not changed, use the "telinit" command or just invoke "init"
+directly.  See telinit(8).
+
+
+How do I change the default runlevel?
+-------------------------------------
+
+If you have an /etc/inittab file, edit it.  Locate the following line:
+
+    id:N:initdefault:
+
+Where N is the default runlevel, change this to match.
+
+Most people won't have that file, you can edit /etc/init/rc-sysinit.conf
+and change the following line:
+
+    env DEFAULT_RUNLEVEL=2
+
+
+How do I shutdown the machine?
+------------------------------
+
+This has not changed, use the "shutdown" command provided by the
+upstart package; you may also use the "reboot"/"halt"/"poweroff"
+commands as a short-cut.  See shutdown(8) and reboot(8).
+
+You can also press Control-Alt-Delete on a console to reboot the
+machine.
+
+
+How do I change the behaviour of Control-Alt-Delete?
+----------------------------------------------------
+
+Edit the /etc/init/control-alt-delete.conf file, the line beginning
+"exec" is what upstart will run when this key combination is pressed.
+
+To not do anything, you can simply delete this file.
+
+
+How do I enter single-user mode?
+--------------------------------
+
+This hasn't changed, choose the "(recovery mode)" option from GRUB;
+add "-s", "S" or "single" to the kernel command-line; or from a
+running machine, run "telinit 1" or "shutdown now".
+
+
+How do I reduce the number of gettys?
+-------------------------------------
+
+Also see "How do I change which runlevels gettys are run in?"
+
+In /etc/init there is a file named ttyN.conf for each getty that will be
+started, where N is numbered 1 to 6.  Remove any that you do not
+want.
+
+This will not take immediate effect, however you can run "stop ttyN"
+to stop one that is running.
+
+
+How do I change getty parameters?
+---------------------------------
+
+In /etc/init there is a file named ttyN.conf for each getty that will be
+started, where N is numbered 1 to 6.  Edit these files, the line
+beginning "respawn" is what upstart will run.
+
+This will not take immediate effect, run "stop ttyN" followed by
+"start ttyN" or just kill the running getty to respawn with the new
+parameters.
+
+
+How do I change which runlevels gettys are run in?
+--------------------------------------------------
+
+In /etc/init there is a file named ttyN.conf for each getty that will be
+started, where N is numbered 1 to 6.  Edit these files, there are two
+lines:
+
+   start on runlevel [2345]
+   stop on runlevel [!2345]
+
+Change the set of runlevels to match your taste.
+
+This will not take immediate effect, however you can run "stop ttyN"
+to stop one that is running or "start ttyN" to start one that isn't.
+
+
+How do I increase the number of gettys?
+---------------------------------------
+
+In /etc/init there is a file named ttyN.conf for each getty that will be
+started, where N is numbered 1 to 6.
+
+Copy one of these files to a new name, we suggest you simply name it
+after the tty, e.g. "ttyS0".
+
+Edit that file, change the "respawn" line to match your requirements;
+in particular you'll need to change the tty the getty should be run
+on.
+
+This will not take immediate effect, however you can run "start ttyN"
+to start the getty.
+
+
+How do I add a serial console?
+------------------------------
+
+See "How do I increase the number of gettys?"
+
+
+How can I see boot messages on the console?
+-------------------------------------------
+
+This is nothing to do with upstart, but I'll answer this anyway.
+Remove "quiet" from the kernel command-line.
+
+To make this permanent, edit /boot/grub/menu.lst and edit the line
+that begins "# defoptions=" (yes, it looks like a comment).
+
+This will change both usplash and the LSB init logging.
+
+
+Upstart isn't working, how do I debug it?
+-----------------------------------------
+
+Add "--debug" to the kernel command-line, and be sure to remove "quiet"
+and "splash".  You'll now see debugging messages as upstart works.
+
+
+Can I query upstart for a list of jobs?
+---------------------------------------
+
+Yes, "initctl list" will list the known jobs and their status.
+
+
+How do I manually start or stop a job?
+--------------------------------------
+
+Use "start JOB" or "stop JOB".
+
+
+How do I find the status of a job?
+----------------------------------
+
+Use "status JOB".
+
+
+Can I emit an event by hand?
+----------------------------
+
+Yes, "initctl emit EVENT" will emit the named event and cause any
+jobs waiting for it to be started or stopped as appropriate.
