@@ -30,6 +30,12 @@ else
 	confflags += --build=$(DEB_BUILD_GNU_TYPE) --host=$(DEB_HOST_GNU_TYPE)
 endif
 
+DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
+CHECK_VARS =
+ifeq ($(DEB_HOST_ARCH),armel)
+CHECK_VARS += CFLAGS="$(filter-out -fPIE,$(CFLAGS))"
+endif
+
 
 # Run the package configure script
 config.status: configure
@@ -46,7 +52,7 @@ build-stamp: config.status
 	dh_testdir
 
 	$(MAKE)
-	$(MAKE) check || true
+	$(MAKE) check $(CHECK_VARS) || true
 	touch $@
 
 # Install the package underneath debian/tmp
