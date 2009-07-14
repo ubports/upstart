@@ -1164,6 +1164,7 @@ test_handler (void)
 	int             status;
 	pid_t           pid;
 	siginfo_t       info;
+	unsigned long   data;
 	struct timespec now;
 
 	TEST_FUNCTION ("job_process_handler");
@@ -4007,11 +4008,12 @@ test_handler (void)
 	class->expect = EXPECT_NONE;
 
 
-	/* Check that when a process forks, the trace state is set to expect
-	 * a new child, the job is updated to the new child and the old
-	 * parent is detached.
+	/* Check that when a process forks and we receive the event for
+	 * the parent before the child (faked by killing the child), the
+	 * trace state is to expect a new child - with the state updated
+	 * to have the new pid, and the parent detached.
 	 */
-	TEST_FEATURE ("with forked process");
+	TEST_FEATURE ("with fork notification before child");
 	class->expect = EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
@@ -4034,6 +4036,25 @@ test_handler (void)
 
 		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
 
+		/* Get the child process id now; it'll be stopped at a
+		 * trapped SIGSTOP, so continue and let it die - thus
+		 * simulating the event not having been received yet.
+		 */
+		assert0 (ptrace (PTRACE_GETEVENTMSG, pid, NULL, &data));
+
+		assert0 (waitid (P_PID, (pid_t)data,
+				 &info, WSTOPPED | WNOWAIT));
+		TEST_EQ (info.si_pid, (pid_t)data);
+		TEST_EQ (info.si_code, CLD_TRAPPED);
+		TEST_EQ (info.si_status, SIGSTOP);
+
+		assert0 (ptrace (PTRACE_CONT, (pid_t)data, NULL, 0));
+
+		waitpid ((pid_t)data, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		/* Now carray on with the test */
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
@@ -4055,16 +4076,76 @@ test_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		assert0 (waitid (P_PID, job->pid[PROCESS_MAIN],
+		nih_free (job);
+	}
+
+	class->expect = EXPECT_NONE;
+
+
+	/* Check that when a process forks and we receive the event for
+	 * the child before the parent (forced by deliberately waiting
+	 * for the child and reaping its event first), the existing
+	 * child is handled anyway and the trace state updated with the
+	 * new pid, the parent detached and the new child being traced
+	 * with a normal state.
+	 */
+	TEST_FEATURE ("with child notification before parent");
+	class->expect = EXPECT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			fork ();
+			exit (0);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+		assert0 (ptrace (PTRACE_SETOPTIONS, pid, NULL,
+				 PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC));
+		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		/* Wait for the child process to reach SIGSTOP as well,
+		 * taking it off the wait queue.
+		 */
+		assert0 (ptrace (PTRACE_GETEVENTMSG, pid, NULL, &data));
+
+		assert0 (waitid (P_PID, (pid_t)data,
 				 &info, WSTOPPED | WNOWAIT));
-		TEST_EQ (info.si_pid, job->pid[PROCESS_MAIN]);
+		TEST_EQ (info.si_pid, (pid_t)data);
 		TEST_EQ (info.si_code, CLD_TRAPPED);
 		TEST_EQ (info.si_status, SIGSTOP);
 
-		assert0 (ptrace (PTRACE_DETACH, job->pid[PROCESS_MAIN],
-				 NULL, 0));
+		/* Now carry on with the test */
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
 
-		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_DIVERT_STDERR (output) {
+			job_process_handler (NULL, pid, NIH_CHILD_PTRACE,
+					     PTRACE_EVENT_FORK);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_NE (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 1);
+		TEST_EQ (job->trace_state, TRACE_NORMAL);
+
+		waitpid (pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		waitpid ((pid_t)data, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 

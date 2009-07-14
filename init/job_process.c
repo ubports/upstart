@@ -1396,6 +1396,20 @@ job_process_trace_fork (Job         *job,
 	 */
 	job->pid[process] = (pid_t)data;
 	job->trace_state = TRACE_NEW_CHILD;
+
+	/* We may have already had the wait notification for the new child
+	 * waiting at SIGSTOP, in which case a ptrace() call will succeed
+	 * for it.
+	 */
+	if (ptrace (PTRACE_SETOPTIONS, job->pid[process], NULL, 0) < 0) {
+		nih_debug ("Failed to set options for new %s %s process (%d), "
+			   "probably not yet forked: %s",
+			   job_name (job), process_name (process),
+			   job->pid[process], strerror (errno));
+		return;
+	}
+
+	job_process_trace_new_child (job, process);
 }
 
 /**
