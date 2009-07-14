@@ -10,7 +10,7 @@ Package: upstart
 Architecture: any
 Pre-Depends: ${shlibs:Depends}, sysvinit-utils, sysv-rc, initscripts
 Replaces: sysvinit, upstart-compat-sysv, startup-tasks, system-services
-Conflicts: sysvinit
+Conflicts: sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Provides: upstart-compat-sysv, startup-tasks, system-services
 Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles

@@ -1,3 +1,10 @@
+upstart (0.6.0-3) UNRELEASED; urgency=low
+
+  * Add Conflicts on older Upstart packages to make update-manager's
+    job easier.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Fri, 10 Jul 2009 10:11:21 +0100
+
 upstart (0.6.0-2) karmic; urgency=low
 
   * Bump D-Bus build dependency to ensure we get the container abandonment
