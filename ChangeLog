@@ -1,3 +1,8 @@
+2009-07-15  Scott James Remnant  <scott@netsplit.com>
+
+	* README: Now that D-Bus 1.2.16 proper has been released, update
+	our requirements.
+
 2009-07-14  Scott James Remnant  <scott@netsplit.com>
 
 	* TODO: Update

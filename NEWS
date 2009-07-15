@@ -1,5 +1,7 @@
 0.6.1  xxxx-xx-xx
 
+	* D-Bus 1.2.16 is now required.
+
 	* Updated ptrace() code to handle receiving the trapped stopped
 	  child _before_ we receive the trapped fork() syscall, which
 	  seems to be the most common way the race goes when running
