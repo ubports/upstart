@@ -1,5 +1,7 @@
 2009-07-16  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Release 0.6.1
+
 	* util/runlevel.c: Output the path before the error message,
 	to make it clear that it's the utmp file missing not runlevel.
 
