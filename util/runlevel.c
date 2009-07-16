@@ -22,6 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <utmpx.h>
 #include <errno.h>
 #include <unistd.h>
 
@@ -73,10 +74,14 @@ main (int   argc,
 		if (err->number == ESRCH) {
 			nih_message ("unknown");
 		} else {
-			nih_error ("%s", err->message);
+			nih_error ("%s: %s", args[0] ?: _PATH_UTMPX,
+				   err->message);
 		}
 
 		nih_free (err);
+		exit (1);
+	} else if (runlevel == 'N') {
+		nih_message ("unknown");
 		exit (1);
 	}
 

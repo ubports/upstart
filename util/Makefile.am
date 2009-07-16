@@ -134,6 +134,9 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 
+EXTRA_DIST = util.supp
+
+
 install-data-hook:
 	src=`echo initctl | sed '$(transform)'`.8; \
 	for symlink in start stop restart status; do \
