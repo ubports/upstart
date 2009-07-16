@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2009-07-09 16:53+0100\n"
+"POT-Creation-Date: 2009-07-16 17:46+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -68,18 +68,18 @@ msgstr ""
 msgid "Error while reading from descriptor"
 msgstr ""
 
-#: nih/main.c:229
+#: nih/main.c:233
 #, c-format
 msgid "Try `%s --help' for more information.\n"
 msgstr ""
 
-#: nih/main.c:251
+#: nih/main.c:255
 msgid ""
 "This is free software; see the source for copying conditions.  There is NO "
 "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
 msgstr ""
 
-#: nih/main.c:314 util/shutdown.c:415
+#: nih/main.c:318 util/shutdown.c:415
 msgid "Unable to write pid file"
 msgstr ""
 
@@ -586,33 +586,33 @@ msgstr ""
 msgid "Configuration directory deleted"
 msgstr ""
 
-#: init/control.c:148
+#: init/control.c:155
 msgid "Connection from private client"
 msgstr ""
 
-#: init/control.c:283
+#: init/control.c:290
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:349 init/main.c:451
+#: init/control.c:356 init/main.c:451
 msgid "Reloading configuration"
 msgstr ""
 
-#: init/control.c:389 init/control.c:500
+#: init/control.c:396 init/control.c:507
 msgid "Name may not be empty string"
 msgstr ""
 
-#: init/control.c:398
+#: init/control.c:405
 #, c-format
 msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:507 init/job_class.c:520 init/job_class.c:708
+#: init/control.c:514 init/job_class.c:520 init/job_class.c:708
 #: init/job_class.c:827 init/job_class.c:951
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
-#: init/control.c:659
+#: init/control.c:666
 msgid "The log priority given was not recognised"
 msgstr ""
 
@@ -854,7 +854,7 @@ msgstr ""
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1299 init/job_process.c:1390 init/job_process.c:1430
+#: init/job_process.c:1299 init/job_process.c:1390 init/job_process.c:1444
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
@@ -874,7 +874,7 @@ msgstr ""
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1426
+#: init/job_process.c:1440
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
@@ -1147,15 +1147,15 @@ msgstr ""
 msgid "Powering off"
 msgstr ""
 
-#: util/runlevel.c:58
+#: util/runlevel.c:59
 msgid "[UTMP]"
 msgstr ""
 
-#: util/runlevel.c:59
+#: util/runlevel.c:60
 msgid "Output previous and current runlevel."
 msgstr ""
 
-#: util/runlevel.c:61
+#: util/runlevel.c:62
 msgid ""
 "The system /var/run/utmp file is used unless the alternate file UTMP is "
 "given.\n"

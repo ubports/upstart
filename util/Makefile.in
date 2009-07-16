@@ -450,6 +450,7 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
+EXTRA_DIST = util.supp
 test_initctl_SOURCES = tests/test_initctl.c initctl.c
 test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
 test_initctl_LDFLAGS = -static

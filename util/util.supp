@@ -1,0 +1,10 @@
+# This is a valgrind suppressions file.
+
+# utmp(x)name leaks the filename we pass
+{
+    utmpname-filename
+    Memcheck:Leak
+    fun:malloc
+    fun:strdup
+    fun:utmpname
+}
