@@ -62,6 +62,9 @@
 #include "errors.h"
 
 
+extern const char *control_server_address;
+
+
 void
 test_server_open (void)
 {
@@ -75,6 +78,8 @@ test_server_open (void)
 	program_name = "test";
 	control_init ();
 	nih_io_init ();
+
+	control_server_address = "unix:abstract=/com/ubuntu/upstart/test";
 
 	/* Check that control_server_open() creates a new listening D-Bus
 	 * server and sets the control_server global.
@@ -109,7 +114,7 @@ test_server_open (void)
 	fd = socket (PF_UNIX, SOCK_STREAM, 0);
 	assert (fd >= 0);
 
-	address = DBUS_ADDRESS_UPSTART;
+	address = "unix:abstract=/com/ubuntu/upstart/test";
 	assert (address = strchr (address, '/'));
 
 	addr.sun_family = AF_UNIX;
@@ -155,6 +160,8 @@ test_server_connect (void)
 	control_init ();
 	nih_io_init ();
 
+	control_server_address = "unix:abstract=/com/ubuntu/upstart/test";
+
 	assert0 (control_server_open ());
 	assert (NIH_LIST_EMPTY (control_conns));
 
@@ -173,7 +180,7 @@ test_server_connect (void)
 		assert (nih_signal_add_handler (NULL, SIGTERM,
 						nih_main_term_signal, NULL));
 
-		conn = nih_dbus_connect (DBUS_ADDRESS_UPSTART, NULL);
+		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart/test", NULL);
 		assert (conn != NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
@@ -243,7 +250,7 @@ test_server_connect (void)
 		assert (nih_signal_add_handler (NULL, SIGTERM,
 						nih_main_term_signal, NULL));
 
-		conn = nih_dbus_connect (DBUS_ADDRESS_UPSTART, NULL);
+		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart/test", NULL);
 		assert (conn != NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
@@ -340,6 +347,8 @@ test_server_close (void)
 	 */
 	TEST_FUNCTION ("control_server_close");
 	control_init ();
+
+	control_server_address = "unix:abstract=/com/ubuntu/upstart/test";
 
 	assert0 (control_server_open ());
 	assert (control_server != NULL);

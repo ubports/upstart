@@ -4,6 +4,11 @@
  * going into 6, 0 or 1, need to stty console
  * reset console before S process
 
+ * we should mark fds and sockets close-on-exec when we create them, rather
+   than later
+ * the fork() pipe should be close-on-exec rather than closing it in the
+   child
+
  * init needs to grow "utmp XXX", which maintains INIT_PROCESS and
    DEAD_PROCESS entries for the given ut_id (3 chars max), used for getty
 

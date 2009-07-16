@@ -62,6 +62,13 @@ static void  control_register_all   (DBusConnection *conn);
 
 
 /**
+ * control_server_address:
+ *
+ * Address on which the control server may be reached.
+ **/
+const char *control_server_address = DBUS_ADDRESS_UPSTART;
+
+/**
  * control_server:
  *
  * D-Bus server listening for new direct connections.
@@ -116,7 +123,7 @@ control_server_open (void)
 
 	control_init ();
 
-	server = nih_dbus_server (DBUS_ADDRESS_UPSTART,
+	server = nih_dbus_server (control_server_address,
 				  control_server_connect,
 				  control_disconnected);
 	if (! server)
