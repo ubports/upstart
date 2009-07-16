@@ -7,6 +7,7 @@ upstart (0.6.1-1) UNRELEASED; urgency=low
 
   * Provide/Conflict/Replace the agreed "upstart-job" meta-package.
     LP: #399799.
+  * Bump dpkg dependency to 1.2.16
 
  -- Scott James Remnant <scott@ubuntu.com>  Thu, 16 Jul 2009 18:22:45 +0100
 
