@@ -1,3 +1,8 @@
+2009-07-16  Scott James Remnant  <scott@netsplit.com>
+
+	* util/runlevel.c: If there is no current runlevel because the
+	environment variable is empty, output "unknown" instead of "N N".
+
 2009-07-15  Scott James Remnant  <scott@netsplit.com>
 
 	* README: Now that D-Bus 1.2.16 proper has been released, update

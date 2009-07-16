@@ -78,6 +78,9 @@ main (int   argc,
 
 		nih_free (err);
 		exit (1);
+	} else if (runlevel == 'N') {
+		nih_message ("unknown");
+		exit (1);
 	}
 
 	nih_message ("%c %c", prevlevel, runlevel);

@@ -8,6 +8,9 @@
 	  as init.  This seems to make "expect fork/daemon" largely work.
 	  (Bug: #264711)
 
+	* runlevel will now output "unknown" and exit with an error when
+	  called before the first telinit call.  (Bug: #400248)
+
 0.6.0  2009-07-09  "How appropriate, you fight like a cow"
 
 	* The licence for Upstart has been changed back to version 2 of the
