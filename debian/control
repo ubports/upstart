@@ -11,9 +11,9 @@ Vcs-Browser: http://bazaar.launchpad.net/~ubuntu-core-dev/upstart/ubuntu
 Package: upstart
 Architecture: any
 Pre-Depends: ${shlibs:Depends}, sysvinit-utils, sysv-rc, initscripts
-Replaces: sysvinit, upstart-compat-sysv, startup-tasks, system-services
-Conflicts: sysvinit, upstart-compat-sysv, startup-tasks, system-services
-Provides: upstart-compat-sysv, startup-tasks, system-services
+Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
+Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
+Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services
 Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during

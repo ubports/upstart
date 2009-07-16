@@ -5,6 +5,9 @@ upstart (0.6.1-1) UNRELEASED; urgency=low
     - Fixed runlevel to output "unknown" not "N N".  LP: #400248.
     - Fixed runlevel to prefix error messages with filename.  LP: #400241.
 
+  * Provide/Conflict/Replace the agreed "upstart-job" meta-package.
+    LP: #399799.
+
  -- Scott James Remnant <scott@ubuntu.com>  Thu, 16 Jul 2009 18:22:45 +0100
 
 upstart (0.6.0-5) karmic; urgency=low
