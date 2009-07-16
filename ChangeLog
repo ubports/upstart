@@ -1,5 +1,8 @@
 2009-07-16  Scott James Remnant  <scott@netsplit.com>
 
+	* util/runlevel.c: Output the path before the error message,
+	to make it clear that it's the utmp file missing not runlevel.
+
 	* util/runlevel.c: If there is no current runlevel because the
 	environment variable is empty, output "unknown" instead of "N N".
 
