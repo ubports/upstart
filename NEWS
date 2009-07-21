@@ -1,5 +1,8 @@
 0.6.2  xxxx-xx-xx
 
+	* Fixed an assertion when a job receives a stop event or the
+	  stop command while still in the starting state.
+
 0.6.1  2009-07-16  "Born in the wagon of a travelling show"
 
 	* D-Bus 1.2.16 is now required.
