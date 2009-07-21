@@ -7,6 +7,8 @@
 	  exec another before fork()ing while still following (e.g.
 	  main script exec'ing a daemon)
 
+	* Restored missing chdir("/") call when catching crashes.
+
 0.6.1  2009-07-16  "Born in the wagon of a travelling show"
 
 	* D-Bus 1.2.16 is now required.
