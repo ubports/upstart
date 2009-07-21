@@ -1,5 +1,11 @@
 2009-07-21  Scott James Remnant  <scott@netsplit.com>
 
+	* init/tests/test_job_process.c (test_handler): We should allow
+	a job to exec() before it calls fork() to allow shell scripts to
+	exec daemons.
+	* init/job_process.c (job_process_trace_exec): Continue the traced
+	process instead of detaching if it has not yet forked.
+
 	* init/job.c (job_change_state): Obvious bug fix; the set of states
 	into which we can enter JOB_STOPPING includes JOB_STARTING because
 	we can get the "stop" event or command there.
