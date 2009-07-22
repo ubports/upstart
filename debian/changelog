@@ -1,3 +1,12 @@
+upstart (0.6.2-1) UNRELEASED; urgency=low
+
+  * New upstream release:
+    - Fixed assertion when stopping a job during its starting event.
+    - Fixed fork following to not stop on exec() before fork()
+    - Fixed missing chdir() in crash handler.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 22 Jul 2009 10:38:12 +0100
+
 upstart (0.6.1-1) karmic; urgency=low
 
   * New upstream release:
