@@ -30,10 +30,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.6.1\n"
+"Project-Id-Version: upstart 0.6.2\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2009-07-16 17:46+0100\n"
-"PO-Revision-Date: 2009-07-16 17:46+0100\n"
+"POT-Creation-Date: 2009-07-21 18:18+0100\n"
+"PO-Revision-Date: 2009-07-21 18:18+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "MIME-Version: 1.0\n"
@@ -637,7 +637,7 @@ msgstr "Connection from private client"
 msgid "Disconnected from system bus"
 msgstr "Disconnected from system bus"
 
-#: init/control.c:356 init/main.c:451
+#: init/control.c:356 init/main.c:452
 msgid "Reloading configuration"
 msgstr "Reloading configuration"
 
@@ -683,76 +683,76 @@ msgstr "%s goal changed from %s to %s"
 msgid "%s state changed from %s to %s"
 msgstr "%s state changed from %s to %s"
 
-#: init/job.c:687 init/job.c:725
+#: init/job.c:688 init/job.c:726
 msgid "Job failed to start"
 msgstr "Job failed to start"
 
-#: init/job.c:700 init/job.c:736
+#: init/job.c:701 init/job.c:737
 msgid "Job failed while stopping"
 msgstr "Job failed while stopping"
 
-#: init/job.c:712 init/job.c:747
+#: init/job.c:713 init/job.c:748
 msgid "Job failed to restart"
 msgstr "Job failed to restart"
 
-#: init/job.c:940
+#: init/job.c:941
 msgid "stop"
 msgstr "stop"
 
-#: init/job.c:942
+#: init/job.c:943
 msgid "start"
 msgstr "start"
 
-#: init/job.c:944
+#: init/job.c:945
 msgid "respawn"
 msgstr "respawn"
 
-#: init/job.c:989
+#: init/job.c:990
 msgid "waiting"
 msgstr "waiting"
 
-#: init/job.c:991
+#: init/job.c:992
 msgid "starting"
 msgstr "starting"
 
-#: init/job.c:993 init/process.c:80
+#: init/job.c:994 init/process.c:80
 msgid "pre-start"
 msgstr "pre-start"
 
-#: init/job.c:995
+#: init/job.c:996
 msgid "spawned"
 msgstr "spawned"
 
-#: init/job.c:997 init/process.c:82
+#: init/job.c:998 init/process.c:82
 msgid "post-start"
 msgstr "post-start"
 
-#: init/job.c:999
+#: init/job.c:1000
 msgid "running"
 msgstr "running"
 
-#: init/job.c:1001 init/process.c:84
+#: init/job.c:1002 init/process.c:84
 msgid "pre-stop"
 msgstr "pre-stop"
 
-#: init/job.c:1003
+#: init/job.c:1004
 msgid "stopping"
 msgstr "stopping"
 
-#: init/job.c:1005
+#: init/job.c:1006
 msgid "killed"
 msgstr "killed"
 
-#: init/job.c:1007 init/process.c:86
+#: init/job.c:1008 init/process.c:86
 msgid "post-stop"
 msgstr "post-stop"
 
-#: init/job.c:1087 init/job_class.c:754
+#: init/job.c:1088 init/job_class.c:754
 #, c-format
 msgid "Job is already running: %s"
 msgstr "Job is already running: %s"
 
-#: init/job.c:1151 init/job.c:1216 init/job_class.c:873 init/job_class.c:996
+#: init/job.c:1152 init/job.c:1217 init/job_class.c:873 init/job_class.c:996
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr "Job has already been stopped: %s"
@@ -892,12 +892,12 @@ msgstr "%s %s process ended, respawning"
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr "Failed to set ptrace options for %s %s process (%d): %s"
 
-#: init/job_process.c:1259
+#: init/job_process.c:1259 init/job_process.c:1454
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr "Failed to continue traced %s %s process (%d): %s"
 
-#: init/job_process.c:1299 init/job_process.c:1390 init/job_process.c:1444
+#: init/job_process.c:1299 init/job_process.c:1390 init/job_process.c:1445
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr "Failed to detach traced %s %s process (%d): %s"
@@ -944,7 +944,7 @@ msgstr "Need to be root"
 msgid "Not being executed as init"
 msgstr "Not being executed as init"
 
-#: init/main.c:184 init/main.c:361
+#: init/main.c:184 init/main.c:362
 msgid "Unable to set root directory"
 msgstr "Unable to set root directory"
 
@@ -952,21 +952,21 @@ msgstr "Unable to set root directory"
 msgid "Unable to listen for private connections"
 msgstr "Unable to listen for private connections"
 
-#: init/main.c:378
+#: init/main.c:379
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr "Caught %s, core dumped"
 
-#: init/main.c:382
+#: init/main.c:383
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr "Caught %s, unable to dump core"
 
-#: init/main.c:455
+#: init/main.c:456
 msgid "Reconnecting to system bus"
 msgstr "Reconnecting to system bus"
 
-#: init/main.c:461
+#: init/main.c:462
 msgid "Unable to connect to the system bus"
 msgstr "Unable to connect to the system bus"
 
