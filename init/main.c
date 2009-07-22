@@ -358,8 +358,9 @@ crash_handler (int signum)
 		setrlimit (RLIMIT_CORE, &limit);
 
 		/* Dump in the root directory */
-		nih_warn ("%s: %s", _("Unable to set root directory"),
-			  strerror (errno));
+		if (chdir ("/"))
+			nih_warn ("%s: %s", _("Unable to set root directory"),
+				  strerror (errno));
 
 		/* Raise the signal again */
 		raise (signum);

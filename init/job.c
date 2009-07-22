@@ -404,7 +404,8 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_STOPPING:
-			nih_assert ((old_state == JOB_PRE_START)
+			nih_assert ((old_state == JOB_STARTING)
+				    || (old_state == JOB_PRE_START)
 				    || (old_state == JOB_SPAWNED)
 				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)

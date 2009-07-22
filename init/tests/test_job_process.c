@@ -4155,11 +4155,66 @@ test_handler (void)
 	class->expect = EXPECT_NONE;
 
 
-	/* Check that should the process call exec() it ends the tracing
-	 * even if we haven't had enough forks yet and moves the job into
-	 * the running state.
+	/* Check that should the process call exec() before the first fork()
+	 * it's allowed since it's likely a shell script calling the real
+	 * thing that we want to follow.
 	 */
-	TEST_FEATURE ("with exec call by process");
+	TEST_FEATURE ("with exec call by initial process");
+	class->expect = EXPECT_DAEMON;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+			job->trace_forks = 0;
+			job->trace_state = TRACE_NORMAL;
+		}
+
+		TEST_CHILD (pid) {
+			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
+			raise (SIGSTOP);
+			execl ("/bin/true", "true", NULL);
+			exit (15);
+		}
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+		assert0 (ptrace (PTRACE_SETOPTIONS, pid, NULL,
+				 PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC));
+		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
+
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = pid;
+
+		TEST_DIVERT_STDERR (output) {
+			job_process_handler (NULL, pid, NIH_CHILD_PTRACE,
+					     PTRACE_EVENT_EXEC);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NORMAL);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		nih_free (job);
+	}
+
+	class->expect = EXPECT_NONE;
+
+
+	/* Check that should the process call exec() after fork() it ends
+	 * the tracing even if we haven't had enough forks yet and moves
+	 * the job into the running state.
+	 */
+	TEST_FEATURE ("with exec call by process after fork");
 	class->expect = EXPECT_DAEMON;
 
 	TEST_ALLOC_FAIL {
