@@ -1,20 +1,20 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_MAIN_H
@@ -102,11 +102,14 @@ struct nih_main_loop_func {
 
 NIH_BEGIN_EXTERN
 
-const char *program_name;
-const char *package_name;
-const char *package_version;
-const char *package_copyright;
-const char *package_bugreport;
+extern const char *program_name;
+extern const char *package_name;
+extern const char *package_version;
+extern const char *package_copyright;
+extern const char *package_bugreport;
+extern const char *package_string;
+
+extern NihList *nih_main_loop_functions;
 
 
 void             nih_main_init_full      (const char *argv0,
@@ -115,7 +118,6 @@ void             nih_main_init_full      (const char *argv0,
 					  const char *bugreport,
 					  const char *copyright);
 
-const char *     nih_main_package_string (void);
 void             nih_main_suggest_help   (void);
 void             nih_main_version        (void);
 
@@ -129,6 +131,7 @@ int              nih_main_write_pidfile  (pid_t pid)
 	__attribute__ ((warn_unused_result));
 void             nih_main_unlink_pidfile (void);
 
+void             nih_main_loop_init      (void);
 int              nih_main_loop           (void);
 void             nih_main_loop_interrupt (void);
 void             nih_main_loop_exit      (int status);

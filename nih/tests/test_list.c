@@ -2,21 +2,21 @@
  *
  * test_list.c - test suite for nih/list.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
@@ -164,10 +164,10 @@ test_add (void)
 	TEST_EQ_P (ptr->prev, entry2);
 	TEST_EQ_P (entry2->prev, ptr);
 
-	nih_list_free (list);
-	nih_list_free (entry1);
-	nih_list_free (entry2);
-	nih_list_free (ptr);
+	nih_free (list);
+	nih_free (entry1);
+	nih_free (entry2);
+	nih_free (ptr);
 }
 
 void
@@ -312,11 +312,41 @@ test_foreach_safe (void)
 	NihList *list, *entry[3];
 	int      i;
 
+	TEST_FUNCTION ("NIH_LIST_FOREACH_SAFE");
+
+	/* Check that NIH_LIST_FOREACH_SAFE iterates the list correctly in
+	 * order, visiting each entry.
+	 */
+	TEST_FEATURE ("with ordinary iteration");
+	list = nih_list_new (NULL);
+	entry[0] = nih_list_add (list, nih_list_new (NULL));
+	entry[1] = nih_list_add (list, nih_list_new (NULL));
+	entry[2] = nih_list_add (list, nih_list_new (NULL));
+
+	i = 0;
+	NIH_LIST_FOREACH_SAFE (list, iter) {
+		if (i > 2)
+			TEST_FAILED ("wrong number of iterations, expected %d got %d",
+				     3, i + 1);
+
+		if (iter != entry[i])
+			TEST_FAILED ("wrong list entry, expected %p got %p",
+				     entry[i], iter);
+
+		i++;
+	}
+
+	nih_free (list);
+	nih_free (entry[0]);
+	nih_free (entry[1]);
+	nih_free (entry[2]);
+
+
 	/* Check that NIH_LIST_FOREACH_SAFE iterates the list correctly in
 	 * order, visiting each entry; and that it's safe to remove entries
 	 * while doing so.
 	 */
-	TEST_FUNCTION ("NIH_LIST_FOREACH_SAFE");
+	TEST_FEATURE ("with removal of visited node");
 	list = nih_list_new (NULL);
 	entry[0] = nih_list_add (list, nih_list_new (NULL));
 	entry[1] = nih_list_add (list, nih_list_new (NULL));
@@ -340,6 +370,40 @@ test_foreach_safe (void)
 
 	/* Check that the list is now empty */
 	TEST_LIST_EMPTY (list);
+
+	nih_free (list);
+	nih_free (entry[0]);
+	nih_free (entry[1]);
+	nih_free (entry[2]);
+
+
+	/* Check that NIH_LIST_FOREACH_SAFE iterates the list correctly in
+	 * order, visiting each entry; and that it's safe to remove the
+	 * next entry while doing so.
+	 */
+	TEST_FEATURE ("with removal of next node");
+	list = nih_list_new (NULL);
+	entry[0] = nih_list_add (list, nih_list_new (NULL));
+	entry[1] = nih_list_add (list, nih_list_new (NULL));
+	entry[2] = nih_list_add (list, nih_list_new (NULL));
+
+	i = 0;
+	NIH_LIST_FOREACH_SAFE (list, iter) {
+		if (i > 2)
+			TEST_FAILED ("wrong number of iterations, expected %d got %d",
+				     3, i + 1);
+
+		if (iter != entry[i])
+			TEST_FAILED ("wrong list entry, expected %p got %p",
+				     entry[i], iter);
+
+		if (i == 0)
+			nih_list_remove (entry[1]);
+
+		/* Next entry visited should be 2 */
+		i += 2;
+	}
+
 
 	nih_free (list);
 	nih_free (entry[0]);
@@ -399,7 +463,7 @@ test_remove (void)
 }
 
 void
-test_destructor (void)
+test_destroy (void)
 {
 	NihList *list, *entry, *tail;
 	int      ret;
@@ -408,11 +472,11 @@ test_destructor (void)
 	 * list, it needn't bother updating the entry itself seeing as it's
 	 * being freed anyway.
 	 */
-	TEST_FUNCTION ("nih_list_destructor");
+	TEST_FUNCTION ("nih_list_destroy");
 	list = nih_list_new (NULL);
 	entry = nih_list_add (list, nih_list_new (NULL));
 	tail = nih_list_add (list, nih_list_new (NULL));
-	ret = nih_list_destructor (entry);
+	ret = nih_list_destroy (entry);
 
 	TEST_EQ (ret, 0);
 
@@ -422,46 +486,6 @@ test_destructor (void)
 	TEST_EQ_P (tail->prev, list);
 
 	nih_free (entry);
-	nih_free (list);
-	nih_free (tail);
-}
-
-
-static int was_called;
-
-static int
-destructor_called (void *ptr)
-{
-	was_called++;
-
-	return 0;
-}
-
-void
-test_free (void)
-{
-	NihList *list, *entry, *tail;
-	int      ret;
-
-	/* Check that destructors are called on nih_list_free and the return
-	 * value of that destructor is returned; the entry should be cut out
-	 * of the list it was in.
-	 */
-	TEST_FUNCTION ("nih_list_free");
-	list = nih_list_new (NULL);
-	entry = nih_list_add (list, nih_list_new (NULL));
-	tail = nih_list_add (list, nih_list_new (NULL));
-	nih_alloc_set_destructor (entry, destructor_called);
-	ret = nih_list_free (entry);
-
-	TEST_EQ (ret, 0);
-	TEST_TRUE (was_called);
-
-	TEST_EQ_P (list->next, tail);
-	TEST_EQ_P (tail->next, list);
-	TEST_EQ_P (list->prev, tail);
-	TEST_EQ_P (tail->prev, list);
-
 	nih_free (list);
 	nih_free (tail);
 }
@@ -480,8 +504,7 @@ main (int   argc,
 	test_foreach ();
 	test_foreach_safe ();
 	test_remove ();
-	test_destructor ();
-	test_free ();
+	test_destroy ();
 
 	return 0;
 }

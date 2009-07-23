@@ -10,31 +10,191 @@
    event-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_list_new
    fun:event_init
 }
 
 {
-   job-init
+   job-class-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_hash_new
-   fun:job_init
+   fun:job_class_init
+}
+{
+   job-class-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc_ref_new
+   fun:nih_alloc
+   fun:nih_hash_new
+   fun:job_class_init
 }
 
 {
    notify-init
    Memcheck:Leak
    fun:malloc
-   fun:realloc
-   fun:nih_alloc_using
    fun:nih_alloc
    fun:nih_list_new
    fun:notify_init
+}
+
+{
+   conf-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:conf_init
+}
+
+{
+   control-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:control_init
+}
+
+# job_run_process will leak its args member to children, knowing full
+# well they will either exec() or exit()
+{
+   job-process-run-args
+   Memcheck:Leak
+   fun:realloc
+   fun:_test_realloc
+   fun:nih_realloc
+   fun:nih_str_array_addp
+   fun:nih_str_array_addn
+   fun:nih_str_split
+   fun:job_process_run
+}
+
+# job_name uses a static string which it reuses each time
+{
+   job-name-string
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:_test_realloc
+   fun:_test_malloc
+   fun:nih_alloc
+   fun:nih_strndup
+   fun:nih_strdup
+   fun:job_name
+}
+{
+   job-name-string
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:_test_realloc
+   fun:_test_malloc
+   fun:nih_alloc
+   fun:nih_vsprintf
+   fun:nih_sprintf
+   fun:job_name
+}
+
+# when testing stop events, the stopping event will be emitted and
+# immediately processed since we're inside event_poll() - and then the
+# post-stop process will be run inside the finished handler for it, making
+# the child appear to leak it
+{
+  job-emit-event-in-event-poll
+  Memcheck:Leak
+  fun:realloc
+  fun:_test_realloc
+  fun:nih_realloc
+  fun:nih_str_array_addp
+  fun:environ_add
+  fun:job_emit_event
+  fun:job_change_state
+  fun:job_change_goal
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+
+# valgrind seems to lose track of this one, it's definitely freed and
+# just gets leaked when in a child
+{
+  event-environ-in-event-poll
+  Memcheck:Leak
+  fun:realloc
+  fun:nih_realloc
+  fun:nih_str_array_addp
+  fun:nih_str_array_add
+  fun:test_pending_handle_jobs
+}
+
+# collected environment will appear to be leaked from the child's POV when
+# we run it inside event poll
+{
+  event-operator-environment-in-event-poll
+  Memcheck:Leak
+  fun:realloc
+  fun:_test_realloc
+  fun:nih_realloc
+  fun:nih_str_array_addp
+  fun:environ_add
+  fun:event_operator_environment
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+{
+  event-operator-environment-in-event-poll
+  Memcheck:Leak
+  fun:malloc
+  fun:realloc
+  fun:_test_realloc
+  fun:_test_malloc
+  fun:nih_alloc
+  fun:nih_strndup
+  fun:nih_strdup
+  fun:environ_add
+  fun:event_operator_environment
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+{
+  event-operator-environment-in-event-poll
+  Memcheck:Leak
+  fun:malloc
+  fun:realloc
+  fun:_test_realloc
+  fun:_test_malloc
+  fun:nih_alloc
+  fun:nih_strndup
+  fun:nih_strdup
+  fun:environ_add
+  fun:environ_append
+  fun:event_operator_environment
+  fun:event_pending_handle_jobs
+  fun:event_pending
+  fun:event_poll
+}
+
+
+
+# Surely this should be a default suppression?
+{
+  glibc-setenv
+  Memcheck:Leak
+  fun:realloc
+  obj:/lib/libc-*.so
+  fun:setenv
+}
+{
+  glibc-setenv
+  Memcheck:Leak
+  fun:realloc
+  obj:/lib/tls/i686/cmov/libc-*.so
+  fun:setenv
 }

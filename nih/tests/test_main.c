@@ -2,21 +2,21 @@
  *
  * test_main.c - test suite for nih/main.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
@@ -25,7 +25,9 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include <fcntl.h>
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -56,17 +58,41 @@ test_init (void)
 	TEST_FUNCTION ("nih_main_init_full");
 
 	/* Check that we can initialise the program with all of the arguments
-	 * and that they're all copied correctly into the globals
+	 * and that they're all copied correctly into the globals.  When the
+	 * program and package names are the same, the package string should
+	 * only contain one copy.
 	 */
-	TEST_FEATURE ("with all arguments");
-	nih_main_init_full ("argv0", "package", "version", "bugreport",
-			    "copyright");
+	TEST_FEATURE ("with same program and package names");
+	TEST_ALLOC_FAIL {
+		nih_main_init_full ("test", "test", "1.0",
+				    "bugreport", "copyright");
 
-	TEST_EQ_STR (program_name, "argv0");
-	TEST_EQ_STR (package_name, "package");
-	TEST_EQ_STR (package_version, "version");
-	TEST_EQ_STR (package_bugreport, "bugreport");
-	TEST_EQ_STR (package_copyright, "copyright");
+		TEST_EQ_STR (program_name, "test");
+		TEST_EQ_STR (package_name, "test");
+		TEST_EQ_STR (package_version, "1.0");
+		TEST_EQ_STR (package_bugreport, "bugreport");
+		TEST_EQ_STR (package_copyright, "copyright");
+
+		TEST_EQ_STR (package_string, "test 1.0");
+	}
+
+
+	/* Check that when the program and package names differ, the
+	 * package string contains both.
+	 */
+	TEST_FEATURE ("with different program and package names");
+	TEST_ALLOC_FAIL {
+		nih_main_init_full ("test", "wibble", "1.0",
+				    "bugreport", "copyright");
+
+		TEST_EQ_STR (program_name, "test");
+		TEST_EQ_STR (package_name, "wibble");
+		TEST_EQ_STR (package_version, "1.0");
+		TEST_EQ_STR (package_bugreport, "bugreport");
+		TEST_EQ_STR (package_copyright, "copyright");
+
+		TEST_EQ_STR (package_string, "test (wibble 1.0)");
+	}
 
 
 	/* Check that we can pass NULL for both the bug report address and
@@ -74,7 +100,7 @@ test_init (void)
 	 */
 	TEST_FEATURE ("with missing arguments");
 	package_bugreport = package_copyright = NULL;
-	nih_main_init_full ("argv0", "package", "version", NULL, NULL);
+	nih_main_init_full ("argv0", "package", "1.0", NULL, NULL);
 
 	TEST_EQ_P (package_bugreport, NULL);
 	TEST_EQ_P (package_copyright, NULL);
@@ -85,85 +111,57 @@ test_init (void)
 	 */
 	TEST_FEATURE ("with empty arguments");
 	package_bugreport = package_copyright = NULL;
-	nih_main_init_full ("argv0", "package", "version", "", "");
+	nih_main_init_full ("argv0", "package", "1.0", "", "");
 
 	TEST_EQ_P (package_bugreport, NULL);
 	TEST_EQ_P (package_copyright, NULL);
 
 
 	/* Check that the program name contains only the basename of a
-	 * full path supplied.
+	 * full path supplied, and this is replicated into the package
+	 * string.
 	 */
 	TEST_FEATURE ("with full program path");
-	nih_main_init_full ("/usr/bin/argv0", "package", "version",
-			    "bugreport", "copyright");
+	TEST_ALLOC_FAIL {
+		nih_main_init_full ("/usr/bin/argv0", "package", "1.0",
+				    "bugreport", "copyright");
 
-	TEST_EQ_STR (program_name, "argv0");
+		TEST_EQ_STR (program_name, "argv0");
+		TEST_EQ_STR (package_name, "package");
+
+		TEST_EQ_STR (package_string, "argv0 (package 1.0)");
+	}
+
+
+	/* Check that the program name contains only the actual name
+	 * of the program when it's supplied as a login shell path
+	 * (prefixed with a dash).
+	 */
+	TEST_FEATURE ("with login shell path");
+	TEST_ALLOC_FAIL {
+		nih_main_init_full ("-argv0", "package", "1.0",
+				    "bugreport", "copyright");
+
+		TEST_EQ_STR (program_name, "argv0");
+		TEST_EQ_STR (package_name, "package");
+
+		TEST_EQ_STR (package_string, "argv0 (package 1.0)");
+	}
 
 
 	/* Check that the nih_main_init macro passes all the arguments for
 	 * us, except the program name, which we pass.
 	 */
 	TEST_FUNCTION ("nih_main_init");
-	nih_main_init ("argv[0]");
-
-	TEST_EQ_STR (program_name, "argv[0]");
-	TEST_EQ_STR (package_name, PACKAGE_NAME);
-	TEST_EQ_STR (package_version, PACKAGE_VERSION);
-	TEST_EQ_STR (package_bugreport, PACKAGE_BUGREPORT);
-	TEST_EQ_STR (package_copyright, PACKAGE_COPYRIGHT);
-}
-
-void
-test_package_string (void)
-{
-	const char *str;
-
-	TEST_FUNCTION ("nih_package_string");
-
-	/* Check that the package string outputs just the program name and
-	 * version if the program and package names match.  If the allocation
-	 * fails, the program name should be returned.
-	 */
-	TEST_FEATURE ("with same program and package names");
 	TEST_ALLOC_FAIL {
-		nih_main_init_full ("test", "test", "1.0",
-				    "bugreport", "copyright");
-		str = nih_main_package_string ();
+		nih_main_init ("argv[0]");
 
-		if (test_alloc_failed) {
-			TEST_EQ_STR (str, "test");
-			continue;
-		}
-
-		TEST_EQ_STR (str, "test 1.0");
+		TEST_EQ_STR (program_name, "argv[0]");
+		TEST_EQ_STR (package_name, PACKAGE_NAME);
+		TEST_EQ_STR (package_version, PACKAGE_VERSION);
+		TEST_EQ_STR (package_bugreport, PACKAGE_BUGREPORT);
+		TEST_EQ_STR (package_copyright, PACKAGE_COPYRIGHT);
 	}
-
-
-	/* Check that the package string includes the package name if it
-	 * differs from the program name.
-	 */
-	TEST_FEATURE ("with different program and package names");
-	TEST_ALLOC_FAIL {
-		nih_main_init_full ("test", "wibble", "1.0",
-				    "bugreport", "copyright");
-		str = nih_main_package_string ();
-
-		if (test_alloc_failed) {
-			TEST_EQ_STR (str, "test");
-			continue;
-		}
-
-		TEST_EQ_STR (str, "test (wibble 1.0)");
-	}
-
-
-	/* Check that a repeated call returns the same pointer */
-	TEST_FEATURE ("with repeated call");
-	nih_main_init_full ("test", "wibble", "1.0", "bugreport", "copyright");
-
-	str = nih_main_package_string ();
-	TEST_EQ_P (nih_main_package_string (), str);
 }
 
 void
@@ -234,21 +232,27 @@ test_daemonise (void)
 	 */
 	TEST_FUNCTION ("nih_main_daemonise");
 
-	pipe (fds);
+	assert0 (pipe (fds));
 	TEST_CHILD (pid) {
 		char buf[80];
+		int  fd;
 
 		program_name = "test";
+		fd = open ("/dev/null", O_WRONLY);
+		assert (fd >= 0);
+		assert (dup2 (fd, STDERR_FILENO) >= 0);
+		assert0 (close (fd));
+
 		if (nih_main_daemonise () < 0)
 			exit (50);
 
-		getcwd (buf, sizeof (buf));
+		assert (getcwd (buf, sizeof (buf)));
 		if (strcmp (buf, "/")) {
-			write (fds[1], "wd", 2);
+			assert (write (fds[1], "wd", 2) == 2);
 			exit (10);
 		}
 
-		write (fds[1], "ok", 2);
+		assert (write (fds[1], "ok", 2) == 2);
 		exit (10);
 	}
 
@@ -472,7 +476,7 @@ test_main_loop (void)
 	TEST_TRUE (callback_called);
 	TEST_EQ_P (last_data, &func);
 
-	nih_list_free (&func->entry);
+	nih_free (func);
 }
 
 void
@@ -498,7 +502,7 @@ test_main_loop_add_func (void)
 		TEST_EQ_P (func->callback, my_callback);
 		TEST_EQ_P (func->data, &func);
 
-		nih_list_free (&func->entry);
+		nih_free (func);
 	}
 }
 
@@ -509,7 +513,6 @@ main (int   argc,
 {
 	test_init_gettext ();
 	test_init ();
-	test_package_string ();
 	test_suggest_help ();
 	test_version ();
 	test_daemonise ();

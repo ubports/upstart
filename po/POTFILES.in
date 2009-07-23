@@ -19,25 +19,51 @@ nih/watch.c
 
 nih/errors.h
 
-upstart/enum.c
-upstart/message.c
-upstart/wire.c
+nih-dbus/dbus_connection.c
+nih-dbus/dbus_error.c
+nih-dbus/dbus_message.c
+nih-dbus/dbus_object.c
+nih-dbus/dbus_pending_data.c
+nih-dbus/dbus_proxy.c
+nih-dbus/dbus_util.c
 
-upstart/errors.h
+nih-dbus/errors.h
 
-init/cfgfile.c
+nih-dbus-tool/annotation.c
+nih-dbus-tool/argument.c
+nih-dbus-tool/demarshal.c
+nih-dbus-tool/indent.c
+nih-dbus-tool/interface.c
+nih-dbus-tool/main.c
+nih-dbus-tool/marshal.c
+nih-dbus-tool/method.c
+nih-dbus-tool/node.c
+nih-dbus-tool/output.c
+nih-dbus-tool/parse.c
+nih-dbus-tool/property.c
+nih-dbus-tool/signal.c
+nih-dbus-tool/symbol.c
+nih-dbus-tool/type.c
+
+nih-dbus-tool/errors.h
+
+init/blocked.c
+init/conf.c
 init/control.c
+init/environ.c
 init/event.c
+init/event_operator.c
 init/job.c
+init/job_class.c
+init/job_process.c
 init/main.c
-init/notify.c
+init/parse_conf.c
+init/parse_job.c
 init/process.c
+init/system.c
 
 util/initctl.c
-
-compat/sysv/reboot.c
-compat/sysv/runlevel.c
-compat/sysv/shutdown.c
-compat/sysv/telinit.c
-
-logd/main.c
+util/reboot.c
+util/runlevel.c
+util/shutdown.c
+util/telinit.c

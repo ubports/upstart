@@ -1,20 +1,20 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_IO_H
@@ -215,7 +215,7 @@ typedef struct nih_io_message {
  * @error_handler: function called when an error occurs,
  * @data: pointer passed to functions,
  * @shutdown: TRUE if the structure should be freed once the buffers are empty,
- * @close: set during the watcher to allow lazy closing.
+ * @free: pointer to variable to set to TRUE if freed during the watcher.
  *
  * This structure implements more featureful I/O handling than provided by
  * an NihIoWatch alone.
@@ -255,11 +255,16 @@ struct nih_io {
 	void                *data;
 
 	int                  shutdown;
-	int                 *close;
+	int                 *free;
 };
 
 
 NIH_BEGIN_EXTERN
+
+extern NihList *nih_io_watches;
+
+
+void          nih_io_init                (void);
 
 NihIoWatch *  nih_io_add_watch           (const void *parent, int fd,
 					  NihIoEvents events,
@@ -307,7 +312,7 @@ NihIo *       nih_io_reopen              (const void *parent, int fd,
 					  void *data)
 	__attribute__ ((warn_unused_result, malloc));
 void          nih_io_shutdown            (NihIo *io);
-void          nih_io_close               (NihIo *io);
+int           nih_io_destroy             (NihIo *io);
 
 NihIoMessage *nih_io_read_message        (const void *parent, NihIo *io);
 void          nih_io_send_message        (NihIo *io, NihIoMessage *message);

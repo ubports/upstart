@@ -1,0 +1,27 @@
+.TH inittab 5 2009-07-09 "Upstart"
+.\"
+.SH NAME
+inittab \- init daemon configuration
+.\"
+.SH SYNOPSIS
+.B /etc/inittab
+.\"
+.SH DESCRIPTION
+The
+.I /etc/inittab
+file was the configuration file used by the original System V
+.BR init (8)
+daemon.
+
+The Upstart
+.BR init (8)
+daemon does not use this file, and instead reads its configuration from
+files in
+.IR /etc/init .
+See
+.BR init (5)
+for more details.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR init (5)

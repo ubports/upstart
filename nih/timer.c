@@ -2,21 +2,21 @@
  *
  * timer.c - timeouts, periodic and scheduled timers
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -31,12 +31,13 @@
 #include <nih/alloc.h>
 #include <nih/list.h>
 #include <nih/logging.h>
+#include <nih/error.h>
 
 #include "timer.h"
 
 
 /**
- * timers:
+ * nih_timers:
  *
  * This is the list of all registered timers, it is not sorted into any
  * particular order.  The due time of timers should be set when the timer
@@ -44,7 +45,7 @@
  *
  * Each item is an NihTimer structure.
  **/
-static NihList *timers = NULL;
+NihList *nih_timers = NULL;
 
 
 /**
@@ -52,17 +53,17 @@ static NihList *timers = NULL;
  *
  * Initialise the timer list.
  **/
-static inline void
+void
 nih_timer_init (void)
 {
-	if (! timers)
-		NIH_MUST (timers = nih_list_new (NULL));
+	if (! nih_timers)
+		nih_timers = NIH_MUST (nih_list_new (NULL));
 }
 
 
 /**
  * nih_timer_add_timeout:
- * @parent: parent of timer,
+ * @parent: parent object for new timer,
  * @timeout: seconds to wait before triggering,
  * @callback: function to be called,
  * @data: pointer to pass to function as first argument.
@@ -71,15 +72,16 @@ nih_timer_init (void)
  * time, or the soonest period thereafter.  A timer may be called
  * immediately by passing zero or a non-negative number as @timeout.
  *
- * The timer structure is allocated using nih_alloc() and stored in a linked
- * list, a default destructor is set that removes the timer from the list.
+ * The timer structure is allocated using nih_alloc() and stored in
+ * a linked list; there is no non-allocated version of this function
+ * because of this and because it will be automatically freed once called.
+ *
  * Cancellation of the timer can be performed by freeing it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned timer.  When all parents
+ * of the returned timer are freed, the returned timer will also be
+ * freed.
  *
  * Returns: the new timer information, or NULL if insufficient memory.
  **/
@@ -89,7 +91,8 @@ nih_timer_add_timeout (const void *parent,
 		       NihTimerCb  callback,
 		       void       *data)
 {
-	NihTimer *timer;
+	NihTimer *      timer;
+	struct timespec now;
 
 	nih_assert (callback != NULL);
 
@@ -100,7 +103,8 @@ nih_timer_add_timeout (const void *parent,
 		return NULL;
 
 	nih_list_init (&timer->entry);
-	nih_alloc_set_destructor (timer, (NihDestructor)nih_list_destructor);
+
+	nih_alloc_set_destructor (timer, nih_list_destroy);
 
 	timer->type = NIH_TIMER_TIMEOUT;
 	timer->timeout = timeout;
@@ -108,16 +112,17 @@ nih_timer_add_timeout (const void *parent,
 	timer->callback = callback;
 	timer->data = data;
 
-	timer->due = time (NULL) + timeout;
+	nih_assert (clock_gettime (CLOCK_MONOTONIC, &now) == 0);
+	timer->due = now.tv_sec + timeout;
 
-	nih_list_add (timers, &timer->entry);
+	nih_list_add (nih_timers, &timer->entry);
 
 	return timer;
 }
 
 /**
  * nih_timer_add_periodic:
- * @parent: parent of timer,
+ * @parent: parent object for new timer,
  * @period: number of seconds between calls,
  * @callback: function to be called,
  * @data: pointer to pass to function as first argument.
@@ -125,15 +130,16 @@ nih_timer_add_timeout (const void *parent,
  * Arranges for the @callback function to be called every @period seconds,
  * or the soonest time thereafter.
  *
- * The timer structure is allocated using nih_alloc() and stored in a linked
- * list, a default destructor is set that removes the timer from the list.
+ * The timer structure is allocated using nih_alloc() and stored in
+ * a linked list; there is no non-allocated version of this function
+ * because of this.
+ *
  * Cancellation of the timer can be performed by freeing it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned timer.  When all parents
+ * of the returned timer are freed, the returned timer will also be
+ * freed.
  *
  * Returns: the new timer information, or NULL if insufficient memory.
  **/
@@ -143,7 +149,8 @@ nih_timer_add_periodic (const void *parent,
 			NihTimerCb  callback,
 			void       *data)
 {
-	NihTimer *timer;
+	NihTimer *      timer;
+	struct timespec now;
 
 	nih_assert (callback != NULL);
 	nih_assert (period > 0);
@@ -155,7 +162,8 @@ nih_timer_add_periodic (const void *parent,
 		return NULL;
 
 	nih_list_init (&timer->entry);
-	nih_alloc_set_destructor (timer, (NihDestructor)nih_list_destructor);
+
+	nih_alloc_set_destructor (timer, nih_list_destroy);
 
 	timer->type = NIH_TIMER_PERIODIC;
 	timer->period = period;
@@ -163,16 +171,17 @@ nih_timer_add_periodic (const void *parent,
 	timer->callback = callback;
 	timer->data = data;
 
-	timer->due = time (NULL) + period;
+	nih_assert (clock_gettime (CLOCK_MONOTONIC, &now) == 0);
+	timer->due = now.tv_sec + period;
 
-	nih_list_add (timers, &timer->entry);
+	nih_list_add (nih_timers, &timer->entry);
 
 	return timer;
 }
 
 /**
  * nih_timer_add_scheduled:
- * @parent: parent of timer,
+ * @parent: parent object for new timer,
  * @schedule: trigger schedule,
  * @callback: function to be called,
  * @data: pointer to pass to function as first argument.
@@ -180,15 +189,16 @@ nih_timer_add_periodic (const void *parent,
  * Arranges for the @callback function to be called based on the @schedule
  * given.
  *
- * The timer structure is allocated using nih_alloc() and stored in a linked
- * list, a default destructor is set that removes the timer from the list.
+ * The timer structure is allocated using nih_alloc() and stored in
+ * a linked list; there is no non-allocated version of this function
+ * because of this.
+ *
  * Cancellation of the timer can be performed by freeing it.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned timer.  When all parents
+ * of the returned timer are freed, the returned timer will also be
+ * freed.
  *
  * Returns: the new timer information, or NULL if insufficient memory.
  **/
@@ -210,7 +220,8 @@ nih_timer_add_scheduled (const void       *parent,
 		return NULL;
 
 	nih_list_init (&timer->entry);
-	nih_alloc_set_destructor (timer, (NihDestructor)nih_list_destructor);
+
+	nih_alloc_set_destructor (timer, nih_list_destroy);
 
 	timer->type = NIH_TIMER_SCHEDULED;
 	memcpy (&timer->schedule, schedule, sizeof (NihTimerSchedule));
@@ -221,7 +232,7 @@ nih_timer_add_scheduled (const void       *parent,
 	/* FIXME Not implemented */
 	timer->due = 0;
 
-	nih_list_add (timers, &timer->entry);
+	nih_list_add (nih_timers, &timer->entry);
 
 	return timer;
 }
@@ -247,7 +258,7 @@ nih_timer_next_due (void)
 	nih_timer_init ();
 
 	next = NULL;
-	NIH_LIST_FOREACH (timers, iter) {
+	NIH_LIST_FOREACH (nih_timers, iter) {
 		NihTimer *timer = (NihTimer *)iter;
 
 		if ((next == NULL) || (timer->due < next->due))
@@ -271,30 +282,38 @@ nih_timer_next_due (void)
 void
 nih_timer_poll (void)
 {
-	time_t now;
+	struct timespec now;
 
 	nih_timer_init ();
 
-	now = time (NULL);
-	NIH_LIST_FOREACH_SAFE (timers, iter) {
+	nih_assert (clock_gettime (CLOCK_MONOTONIC, &now) == 0);
+
+	NIH_LIST_FOREACH_SAFE (nih_timers, iter) {
 		NihTimer *timer = (NihTimer *)iter;
+		int       free_when_done = FALSE;
 
-		if (timer->due > now)
+		if (timer->due > now.tv_sec)
 			continue;
-
-		timer->callback (timer->data, timer);
 
 		switch (timer->type) {
 		case NIH_TIMER_TIMEOUT:
-			nih_list_free (&timer->entry);
+			nih_ref (timer, nih_timers);
+			free_when_done = TRUE;
 			break;
 		case NIH_TIMER_PERIODIC:
-			timer->due = now + timer->period;
+			timer->due = now.tv_sec + timer->period;
 			break;
 		case NIH_TIMER_SCHEDULED:
 			/* FIXME Not implemented */
 			timer->due = 0;
 			break;
 		}
+
+		nih_error_push_context ();
+		timer->callback (timer->data, timer);
+		nih_error_pop_context ();
+
+		if (free_when_done)
+			nih_free (timer);
 	}
 }

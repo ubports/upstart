@@ -2,21 +2,21 @@
  *
  * error.c - error handling
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <nih/macros.h>
@@ -38,7 +39,8 @@
 
 
 /* Prototypes for static functions */
-static void nih_error_clear (void);
+static void nih_error_clear   (void);
+static int  nih_error_destroy (NihError *error);
 
 
 /**
@@ -83,19 +85,24 @@ static __thread NihList *context_stack = NULL;
  *
  * Initialise the context stack.
  **/
-static inline void
+void
 nih_error_init (void)
 {
 	if (! context_stack) {
-		NIH_MUST (context_stack = nih_list_new (NULL));
+		context_stack = NIH_MUST (nih_list_new (NULL));
 
 		nih_error_push_context ();
+
+		nih_assert (atexit (nih_error_clear) == 0);
 	}
 }
 
 
 /**
- * nih_error_raise:
+ * _nih_error_raise:
+ * @filename: filename where the error was raised,
+ * @line: line number of @filename where the error was raised,
+ * @function: function name the error was raised within,
  * @number: numeric identifier,
  * @message: human-readable message.
  *
@@ -105,28 +112,41 @@ nih_error_init (void)
  *
  * @message should be a static string, as it will not be freed when the
  * error object is.
+ *
+ * This function should never be called directly, instead use the
+ * nih_error_raise() macro to pass the correct arguments for @filename,
+ * @line and @function.
  **/
 void
-nih_error_raise (int         number,
-		 const char *message)
+_nih_error_raise (const char *filename,
+		  int         line,
+		  const char *function,
+		  int         number,
+		  const char *message)
 {
 	NihError *error;
 
+	nih_assert (filename != NULL);
+	nih_assert (line > 0);
+	nih_assert (function != NULL);
 	nih_assert (number > 0);
 	nih_assert (message != NULL);
 
 	nih_error_init ();
 
-	NIH_MUST (error = nih_new (CURRENT_CONTEXT, NihError));
+	error = NIH_MUST (nih_new (NULL, NihError));
 
 	error->number = number;
 	error->message = message;
 
-	nih_error_raise_again (error);
+	_nih_error_raise_error (filename, line, function, error);
 }
 
 /**
- * nih_error_raise_printf:
+ * _nih_error_raise_printf:
+ * @filename: filename where the error was raised,
+ * @line: line number of @filename where the error was raised,
+ * @function: function name the error was raised within,
  * @number: numeric identifier,
  * @format: format string for human-readable message.
  *
@@ -136,60 +156,85 @@ nih_error_raise (int         number,
  *
  * The human-readable message for the error is parsed according to @format,
  * and allocated as a child of the error object so that it is freed.
+ *
+ * This function should never be called directly, instead use the
+ * nih_error_raise_printf() macro to pass the correct arguments for @filename,
+ * @line and @function.
  **/
 void
-nih_error_raise_printf (int         number,
-			const char *format,
-			...)
+_nih_error_raise_printf (const char *filename,
+			 int         line,
+			 const char *function,
+			 int         number,
+			 const char *format,
+			 ...)
 {
 	NihError *error;
 	va_list   args;
 
+	nih_assert (filename != NULL);
+	nih_assert (line > 0);
+	nih_assert (function != NULL);
 	nih_assert (number > 0);
 	nih_assert (format != NULL);
 
 	nih_error_init ();
 
-	NIH_MUST (error = nih_new (CURRENT_CONTEXT, NihError));
+	error = NIH_MUST (nih_new (NULL, NihError));
 
 	error->number = number;
 
 	va_start (args, format);
-	NIH_MUST (error->message = nih_vsprintf (error, format, args));
+	error->message = NIH_MUST (nih_vsprintf (error, format, args));
 	va_end (args);
 
-	nih_error_raise_again (error);
+	_nih_error_raise_error (filename, line, function, error);
 }
 
 /**
- * nih_error_raise_system:
+ * _nih_error_raise_system:
+ * @filename: filename where the error was raised,
+ * @line: line number of @filename where the error was raised,
+ * @function: function name the error was raised within.
  *
  * Raises an error with details taken from the current value of errno,
  * if an unhandled error already exists then an error message is emmitted
  * through the logging system; you should try to avoid this.
+ *
+ * This function should never be called directly, instead use the
+ * nih_error_raise_system() macro to pass the correct arguments for @filename,
+ * @line and @function.
  **/
 void
-nih_error_raise_system (void)
+_nih_error_raise_system (const char *filename,
+			 int         line,
+			 const char *function)
 {
 	NihError *error;
 	int       saved_errno;
 
+	nih_assert (filename != NULL);
+	nih_assert (line > 0);
+	nih_assert (function != NULL);
 	nih_assert (errno > 0);
 	saved_errno = errno;
 
 	nih_error_init ();
 
-	NIH_MUST (error = nih_new (CURRENT_CONTEXT, NihError));
+	error = NIH_MUST (nih_new (NULL, NihError));
 
 	error->number = saved_errno;
-	NIH_MUST (error->message = nih_strdup (error, strerror (saved_errno)));
+	error->message = NIH_MUST (nih_strdup (error, strerror (saved_errno)));
 
-	nih_error_raise_again (error);
+	_nih_error_raise_error (filename, line, function, error);
 	errno = saved_errno;
 }
 
 /**
- * nih_error_raise_again:
+ * _nih_error_raise_error:
+ * @filename: filename where the error was raised,
+ * @line: line number of @filename where the error was raised,
+ * @function: function name the error was raised within,
  * @error: existing object to raise.
  *
  * Raises the existing error object in the current error context,
@@ -198,51 +243,71 @@ nih_error_raise_system (void)
  *
  * This is normally used to raise a taken error that has not been handled,
  * or to raise a custom error object.
+ *
+ * The destructor of @error will be overwritten so that the context can
+ * be cleared when the error is freed.
+ *
+ * This function should never be called directly, instead use the
+ * nih_error_raise_error() macro to pass the correct arguments for @filename,
+ * @line and @function.
  **/
 void
-nih_error_raise_again (NihError *error)
+_nih_error_raise_error (const char *filename,
+			int         line,
+			const char *function,
+			NihError *  error)
 {
+	nih_assert (filename != NULL);
+	nih_assert (line > 0);
+	nih_assert (function != NULL);
 	nih_assert (error != NULL);
 	nih_assert (error->number > 0);
 	nih_assert (error->message != NULL);
 
 	nih_error_init ();
+	nih_error_clear ();
 
-	if (CURRENT_CONTEXT->error)
-		nih_error_clear ();
+	error->filename = filename;
+	error->line = line;
+	error->function = function;
 
 	CURRENT_CONTEXT->error = error;
+
+	nih_alloc_set_destructor (error, nih_error_destroy);
 }
 
 
 /**
  * nih_error_clear:
  *
- * Clear the error from the current context, emitting a log message so that
- * it isn't lost.  In an ideal world, this would be an assertion, except
- * it would assert in the wrong place (a new error, not at the unhandled one).
+ * Ensure that the current context has no raised error, if it does then
+ * there's a programming error so we abort after logging where the error
+ * was originally raised.
  **/
 static void
 nih_error_clear (void)
 {
 	nih_assert (context_stack != NULL);
-	nih_assert (CURRENT_CONTEXT->error != NULL);
 
-	nih_error ("%s: %s", _("Unhandled Error"),
+	if (! NIH_UNLIKELY (CURRENT_CONTEXT->error))
+		return;
+
+	nih_fatal ("%s:%d: Unhandled error from %s: %s",
+		   CURRENT_CONTEXT->error->filename,
+		   CURRENT_CONTEXT->error->line,
+		   CURRENT_CONTEXT->error->function,
 		   CURRENT_CONTEXT->error->message);
-
-	nih_free (CURRENT_CONTEXT->error);
-	CURRENT_CONTEXT->error = NULL;
+	abort ();
 }
+
 
 /**
  * nih_error_get:
  *
- * Returns the last unhandled error from the current context, clearing it
- * so that further errors may be raised.
+ * Returns the last unhandled error from the current context.
  *
  * The object must be freed with nih_free() once you are finished with it,
- * if you want to raise it again, use nih_error_raise_again().
+ * otherwise the error will still considered to be raised.
  *
  * Returns: error object from current context.
  **/
@@ -255,10 +320,59 @@ nih_error_get (void)
 	nih_assert (CURRENT_CONTEXT->error != NULL);
 
 	error = CURRENT_CONTEXT->error;
-	CURRENT_CONTEXT->error = NULL;
 
 	return error;
 }
+
+/**
+ * nih_error_steal:
+ *
+ * Returns the last unhandled error from the current context, and removes
+ * it from the error context.  To re-raise, it must be given to
+ * nih_error_raise_error().
+ *
+ * Returns: error object from current context.
+ **/
+NihError *
+nih_error_steal (void)
+{
+	NihError *error;
+
+	nih_assert (context_stack != NULL);
+	nih_assert (CURRENT_CONTEXT->error != NULL);
+
+	error = CURRENT_CONTEXT->error;
+	CURRENT_CONTEXT->error = NULL;
+
+	nih_alloc_set_destructor (error, NULL);
+
+	return error;
+}
+
+
+/**
+ * nih_error_destroy:
+ * @error: error being freed.
+ *
+ * This is the destructor function for errors, attached when the error
+ * is connected to the context.  It ensures that the error is removed from
+ * the context when it is freed.
+ *
+ * Returns: always zero.
+ **/
+static int
+nih_error_destroy (NihError *error)
+{
+	nih_assert (error != NULL);
+	nih_assert (context_stack != NULL);
+	nih_assert (CURRENT_CONTEXT->error != NULL);
+	nih_assert (CURRENT_CONTEXT->error == error);
+
+	CURRENT_CONTEXT->error = NULL;
+
+	return 0;
+}
+
 
 
 /**
@@ -276,7 +390,7 @@ nih_error_push_context (void)
 
 	nih_error_init ();
 
-	NIH_MUST (new_context = nih_new (context_stack, NihErrorCtx));
+	new_context = NIH_MUST (nih_new (context_stack, NihErrorCtx));
 
 	nih_list_init (&new_context->entry);
 	new_context->error = NULL;
@@ -300,8 +414,7 @@ nih_error_pop_context (void)
 	nih_assert (CURRENT_CONTEXT != DEFAULT_CONTEXT);
 
 	context = CURRENT_CONTEXT;
-	if (context->error)
-		nih_error_clear ();
+	nih_error_clear ();
 
 	nih_list_remove (&context->entry);
 	nih_free (context);

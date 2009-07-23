@@ -35,12 +35,10 @@ digraph {
 	killed [label="killed\n(wait for SIGCHLD)"];
 	post_stop [label="post-stop"];
 	emit_stopped [shape=rectangle,label="emit stopped"];
-	deleted [shape=diamond,label="deleted\n(free job)"];
 
 	waiting -> starting [color=green];
-	waiting -> deleted [color=red];
 	starting -> pre_start [color=green];
-	starting -> emit_stopped [color=red];
+	starting -> stopping [color=red];
 	pre_start -> spawned [color=green];
 	pre_start -> stopping [color=red];
 	spawned -> post_start [color=green];

@@ -2,21 +2,21 @@
  *
  * file.c - file and directory utility functions
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 
 #include <fcntl.h>
+#include <stdio.h>
 #include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,6 +74,72 @@ static int    nih_dir_walk_visit (const char *dirname, NihList *dirs,
 
 
 /**
+ * nih_file_read:
+ * @parent: parent object for new string,
+ * @path: path to read,
+ * @length: pointer to store file length in.
+ *
+ * Opens the file at @path and reads the contents into memory, returning
+ * a newly allocated string.  If the file is particularly large, it may
+ * not be possible to read into memory at all, and you'll need to use
+ * nih_file_map() instead.
+ *
+ * The returned data will NOT be NULL terminated.
+ *
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned string.  When all parents
+ * of the returned string are freed, the returned string will also be
+ * freed.
+ *
+ * Returns: newly allocated string or NULL if insufficient memory.
+ **/
+char *
+nih_file_read (const void *parent,
+	       const char *path,
+	       size_t     *length)
+{
+	struct stat  statbuf;
+	FILE        *fp;
+	char        *file = NULL;
+
+	nih_assert (path != NULL);
+	nih_assert (length != NULL);
+
+	fp = fopen (path, "r");
+	if (! fp)
+		nih_return_system_error (NULL);
+
+	if (fstat (fileno (fp), &statbuf) < 0)
+		goto error;
+
+	if ((size_t)statbuf.st_size > SIZE_MAX) {
+		errno = EFBIG;
+		goto error;
+	}
+
+	*length = statbuf.st_size;
+
+	file = nih_alloc (parent, statbuf.st_size);
+	if (! file)
+		goto error;
+
+	if (fread (file, 1, statbuf.st_size, fp) != (size_t)statbuf.st_size) {
+		errno = EILSEQ;
+		goto error;
+	}
+
+	fclose (fp);
+	return file;
+error:
+	nih_error_raise_system ();
+	if (file)
+		nih_free (file);
+	fclose (fp);
+
+	return NULL;
+}
+
+/**
  * nih_file_map:
  * @path: path to open,
  * @flags: open mode,
@@ -109,6 +176,11 @@ nih_file_map (const char *path,
 
 	if (fstat (fd, &statbuf) < 0)
 		goto error;
+
+	if ((size_t)statbuf.st_size > SIZE_MAX) {
+		errno = EFBIG;
+		goto error;
+	}
 
 	*length = statbuf.st_size;
 
@@ -375,6 +447,19 @@ nih_file_is_packaging (const char *path)
 	if (ptr && (! strncmp (ptr, ".dpkg-", 6)))
 		return TRUE;
 
+	/* Matches *.rpm{save,orig,new}; used by rpm */
+	if (ptr && (! strncmp (ptr, ".rpmsave", 9)))
+		return TRUE;
+	if (ptr && (! strncmp (ptr, ".rpmorig", 9)))
+		return TRUE;
+	if (ptr && (! strncmp (ptr, ".rpmnew", 8)))
+		return TRUE;
+
+	/* Matches *;[a-fA-F0-9]{8}; used by rpm */
+	ptr = strrchr (path, ';');
+	if (ptr && (strspn (ptr + 1, "abcdefABCDEF0123456789") == 8)
+	    && (! ptr[9]))
+		return TRUE;
 
 	return FALSE;
 }
@@ -448,10 +533,11 @@ nih_dir_walk (const char          *path,
 	      NihFileErrorHandler  error,
 	      void                *data)
 {
-	NihList      *dirs;
-	struct stat   statbuf;
-	char        **paths, **subpath;
-	int           ret = 0;
+	nih_local NihList  *dirs = NULL;
+	struct stat         statbuf;
+	nih_local char    **paths = NULL;
+	char              **subpath;
+	int                 ret = 0;
 
 	nih_assert (path != NULL);
 	nih_assert (visitor != NULL);
@@ -461,13 +547,14 @@ nih_dir_walk (const char          *path,
 		return -1;
 
 
-	NIH_MUST (dirs = nih_list_new (NULL));
+	dirs = NIH_MUST (nih_list_new (NULL));
 
 	if (stat (path, &statbuf) == 0) {
 		NihDirEntry *entry;
 
-		NIH_MUST (entry = nih_new (dirs, NihDirEntry));
+		entry = NIH_MUST (nih_new (dirs, NihDirEntry));
 		nih_list_init (&entry->entry);
+		nih_alloc_set_destructor (entry, nih_list_destroy);
 		entry->dev = statbuf.st_dev;
 		entry->ino = statbuf.st_ino;
 		nih_list_add (dirs, &entry->entry);
@@ -479,9 +566,6 @@ nih_dir_walk (const char          *path,
 		if (ret < 0)
 			break;
 	}
-
-	nih_free (dirs);
-	nih_free (paths);
 
 	return ret;
 }
@@ -515,23 +599,21 @@ nih_dir_walk_scan (const char    *path,
 		nih_return_system_error (NULL);
 
 	npaths = 0;
-	NIH_MUST (paths = nih_str_array_new (NULL));
+	paths = NIH_MUST (nih_str_array_new (NULL));
 
 	while ((ent = readdir (dir)) != NULL) {
-		char  *subpath;
+		nih_local char *subpath = NULL;
 
 		/* Always ignore '.' and '..' */
 		if ((! strcmp (ent->d_name, "."))
 		    || (! strcmp (ent->d_name, "..")))
 			continue;
 
-		NIH_MUST (subpath = nih_sprintf (paths, "%s/%s",
+		subpath = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 						 path, ent->d_name));
 
-		if (filter && filter (data, subpath)) {
-			nih_free (subpath);
+		if (filter && filter (data, subpath, ent->d_type == DT_DIR))
 			continue;
-		}
 
 		NIH_MUST (nih_str_array_addp (&paths, NULL, &npaths, subpath));
 	}
@@ -601,9 +683,10 @@ nih_dir_walk_visit (const char          *dirname,
 	/* Iterate into sub-directories; first checking for directory loops.
 	 */
 	if (S_ISDIR (statbuf.st_mode)) {
-		NihDirEntry  *entry;
-		char        **paths, **subpath;
-		int           ret = 0;
+		nih_local NihDirEntry  *entry = NULL;
+		nih_local char        **paths = NULL;
+		char                  **subpath;
+		int                     ret = 0;
 
 		NIH_LIST_FOREACH (dirs, iter) {
 			NihDirEntry *entry = (NihDirEntry *)iter;
@@ -624,8 +707,9 @@ nih_dir_walk_visit (const char          *dirname,
 		/* Record the device and inode numbers in the stack so that
 		 * we can detect directory loops.
 		 */
-		NIH_MUST (entry = nih_new (dirs, NihDirEntry));
+		entry = NIH_MUST (nih_new (NULL, NihDirEntry));
 		nih_list_init (&entry->entry);
+		nih_alloc_set_destructor (entry, nih_list_destroy);
 		entry->dev = statbuf.st_dev;
 		entry->ino = statbuf.st_ino;
 		nih_list_add (dirs, &entry->entry);
@@ -641,9 +725,6 @@ nih_dir_walk_visit (const char          *dirname,
 			if (ret < 0)
 				break;
 		}
-
-		nih_list_free (&entry->entry);
-		nih_free (paths);
 
 		if (ret < 0)
 			return ret;

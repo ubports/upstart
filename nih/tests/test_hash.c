@@ -2,21 +2,21 @@
  *
  * test_hash.c - test suite for nih/hash.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
@@ -46,10 +46,25 @@ new_entry (void       *parent,
 	return (NihList *)entry;
 }
 
-static const char *
-key_function (NihList *entry)
+static const void *
+my_key_function (NihList *entry)
 {
-	return ((HashEntry *)entry)->key;
+	return "foo";
+}
+
+static uint32_t
+my_hash_function (const void *key)
+{
+	static uint32_t hash = 0;
+
+	return hash++;
+}
+
+static int
+my_cmp_function (const void *key1,
+		 const void *key2)
+{
+	return 0;
 }
 
 
@@ -67,7 +82,10 @@ test_new (void)
 	 */
 	TEST_FEATURE ("with zero size");
 	TEST_ALLOC_FAIL {
-		hash = nih_hash_new (NULL, 0, key_function);
+		hash = nih_hash_new (NULL, 0,
+				     my_key_function,
+				     my_hash_function,
+				     my_cmp_function);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (hash, NULL);
@@ -75,7 +93,9 @@ test_new (void)
 		}
 
 		TEST_ALLOC_SIZE (hash, sizeof(NihHash));
-		TEST_EQ_P (hash->key_function, key_function);
+		TEST_EQ_P (hash->key_function, my_key_function);
+		TEST_EQ_P (hash->hash_function, my_hash_function);
+		TEST_EQ_P (hash->cmp_function, my_cmp_function);
 
 		TEST_EQ (hash->size, 17);
 		TEST_NE_P (hash->bins, NULL);
@@ -93,7 +113,10 @@ test_new (void)
 	 */
 	TEST_FEATURE ("with medium size");
 	TEST_ALLOC_FAIL {
-		hash = nih_hash_new (NULL, 650, key_function);
+		hash = nih_hash_new (NULL, 600,
+				     my_key_function,
+				     my_hash_function,
+				     my_cmp_function);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (hash, NULL);
@@ -116,7 +139,10 @@ test_new (void)
 	 */
 	TEST_FEATURE ("with large size");
 	TEST_ALLOC_FAIL {
-		hash = nih_hash_new (NULL, 40000000, key_function);
+		hash = nih_hash_new (NULL, 40000000,
+				     my_key_function,
+				     my_hash_function,
+				     my_cmp_function);
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (hash, NULL);
@@ -135,13 +161,51 @@ test_new (void)
 }
 
 void
+test_string_new (void)
+{
+	NihHash *hash;
+	size_t   i;
+
+	/* Check that we can create a small hash table; a small prime number
+	 * should be selected for the actual size, and that number of empty
+	 * bins should be allocated as a child of the hash table.
+	 */
+	TEST_FUNCTION ("nih_hash_string_new");
+	TEST_ALLOC_FAIL {
+		hash = nih_hash_string_new (NULL, 0);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (hash, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (hash, sizeof(NihHash));
+		TEST_EQ_P (hash->key_function,
+			   (NihKeyFunction)nih_hash_string_key);
+		TEST_EQ_P (hash->hash_function,
+			   (NihHashFunction)nih_hash_string_hash);
+		TEST_EQ_P (hash->cmp_function,
+			   (NihCmpFunction)nih_hash_string_cmp);
+
+		TEST_EQ (hash->size, 17);
+		TEST_NE_P (hash->bins, NULL);
+		TEST_ALLOC_PARENT (hash->bins, hash);
+
+		for (i = 0; i < hash->size; i++)
+			TEST_LIST_EMPTY (&hash->bins[i]);
+
+		nih_free (hash);
+	}
+}
+
+void
 test_add (void)
 {
 	NihHash *hash;
 	NihList *entry1, *entry2, *entry3, *entry4, *ptr;
 
 	TEST_FUNCTION ("nih_hash_add");
-	hash = nih_hash_new (NULL, 0, key_function);
+	hash = nih_hash_string_new (NULL, 0);
 	entry1 = new_entry (hash, "entry 1");
 	entry2 = new_entry (hash, "entry 2");
 	entry3 = new_entry (hash, "entry 1");
@@ -213,7 +277,7 @@ test_add_unique (void)
 	NihList *entry1, *entry2, *entry3, *entry4, *ptr;
 
 	TEST_FUNCTION ("nih_hash_add_unique");
-	hash = nih_hash_new (NULL, 0, key_function);
+	hash = nih_hash_string_new (NULL, 0);
 	entry1 = new_entry (hash, "entry 1");
 	entry2 = new_entry (hash, "entry 2");
 	entry3 = new_entry (hash, "entry 1");
@@ -284,7 +348,7 @@ test_replace (void)
 	NihList *entry1, *entry2, *entry3, *entry4, *ptr;
 
 	TEST_FUNCTION ("nih_hash_replace");
-	hash = nih_hash_new (NULL, 0, key_function);
+	hash = nih_hash_string_new (NULL, 0);
 	entry1 = new_entry (hash, "entry 1");
 	entry2 = new_entry (hash, "entry 2");
 	entry3 = new_entry (hash, "entry 1");
@@ -360,7 +424,7 @@ test_search (void)
 	NihList *entry1, *entry2, *entry3, *ptr;
 
 	TEST_FUNCTION ("nih_hash_search");
-	hash = nih_hash_new (NULL, 0, key_function);
+	hash = nih_hash_string_new (NULL, 0);
 	entry1 = nih_hash_add (hash, new_entry (hash, "entry 1"));
 	entry2 = nih_hash_add (hash, new_entry (hash, "entry 2"));
 	entry3 = nih_hash_add (hash, new_entry (hash, "entry 2"));
@@ -409,10 +473,10 @@ test_lookup (void)
 	NihList *entry1, *entry2, *entry3, *ptr;
 
 	TEST_FUNCTION ("nih_hash_lookup");
-	hash = nih_hash_new (NULL, 0, key_function);
+	hash = nih_hash_string_new (NULL, 0);
 	entry1 = nih_hash_add (hash, new_entry (hash, "entry 1"));
 	entry2 = nih_hash_add (hash, new_entry (hash, "entry 2"));
-	entry3 = nih_hash_add (hash, new_entry (hash, "entry 2"));
+	entry3 = new_entry (hash, "entry 3");
 
 	/* Check that we find a single matching entry. */
 	TEST_FEATURE ("with single match");
@@ -450,8 +514,8 @@ test_foreach (void)
 	 * in the hash in the order we expect them to come out in, but add
 	 * them in a different order for sanity.
 	 */
-	TEST_FUNCTION ("nih_HASH_FOREACH");
-	hash = nih_hash_new (NULL, 0, key_function);
+	TEST_FUNCTION ("NIH_HASH_FOREACH");
+	hash = nih_hash_string_new (NULL, 0);
 	entry0 = entry[2] = new_entry (hash, "entry 1");
 	entry1 = entry[1] = new_entry (hash, "entry 2");
 	entry2 = entry[3] = new_entry (hash, "entry 1");
@@ -489,8 +553,8 @@ test_foreach_safe (void)
 	 * order, visiting each entry in each bin; and that it's safe to
 	 * remove the entries while doing so.
 	 */
-	TEST_FUNCTION ("nih_HASH_FOREACH");
-	hash = nih_hash_new (NULL, 0, key_function);
+	TEST_FUNCTION ("NIH_HASH_FOREACH_SAFE");
+	hash = nih_hash_string_new (NULL, 0);
 	entry0 = entry[2] = new_entry (hash, "entry 1");
 	entry1 = entry[1] = new_entry (hash, "entry 2");
 	entry2 = entry[3] = new_entry (hash, "entry 1");
@@ -538,7 +602,7 @@ test_string_key (void)
 	TEST_EQ_P (key, ((HashEntry *)entry)->key);
 	TEST_EQ_STR (key, "my entry");
 
-	nih_list_free (entry);
+	nih_free (entry);
 }
 
 
@@ -547,6 +611,7 @@ main (int   argc,
       char *argv[])
 {
 	test_new ();
+	test_string_new ();
 	test_add ();
 	test_add_unique ();
 	test_replace ();

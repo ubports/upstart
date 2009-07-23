@@ -2,864 +2,391 @@
  *
  * test_job.c - test suite for init/job.c
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
+#include <nih-dbus/test_dbus.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <sys/select.h>
 
-#include <time.h>
 #include <stdio.h>
+#include <limits.h>
 #include <signal.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
+#include <nih/timer.h>
 #include <nih/hash.h>
-#include <nih/io.h>
 #include <nih/main.h>
+#include <nih/error.h>
+#include <nih/errors.h>
 
-#include "event.h"
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_message.h>
+#include <nih-dbus/dbus_object.h>
+#include <nih-dbus/errors.h>
+
+#include "dbus/upstart.h"
+
+#include "process.h"
+#include "job_class.h"
 #include "job.h"
+#include "event.h"
+#include "event_operator.h"
+#include "blocked.h"
+#include "conf.h"
 #include "control.h"
-
-
-void
-test_process_new (void)
-{
-	JobProcess *process;
-
-	/* Check that we can create a new JobProcess structure; the structure
-	 * should be allocated with nih_alloc and have sensible defaults.
-	 */
-	TEST_FUNCTION ("job_process_new");
-	TEST_ALLOC_FAIL {
-		process = job_process_new (NULL);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (process, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (process, sizeof (JobProcess));
-
-		TEST_EQ (process->script, FALSE);
-		TEST_EQ_P (process->command, NULL);
-		TEST_EQ (process->pid, 0);
-
-		nih_free (process);
-	}
-}
-
-void
-test_process_copy (void)
-{
-	JobProcess *process, *copy;
-
-	TEST_FUNCTION ("job_process_copy");
-
-	/* Check that we can create a copy of a fresh structure, with most
-	 * fields left unset.
-	 */
-	TEST_FEATURE ("with unconfigured job process");
-	process = job_process_new (NULL);
-
-	TEST_ALLOC_FAIL {
-		copy = job_process_copy (NULL, process);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (JobProcess));
-
-		TEST_EQ (process->script, FALSE);
-		TEST_EQ_P (process->command, NULL);
-		TEST_EQ (process->pid, 0);
-
-		nih_free (copy);
-	}
-
-	nih_free (process);
-
-
-	/* Check that we can create a copy of an existing structure which
-	 * has the same configured details, but a clean state.
-	 */
-	TEST_FEATURE ("with configured job process");
-	process = job_process_new (NULL);
-	process->script = TRUE;
-	process->command = nih_strdup (process, "/usr/sbin/daemon");
-	process->pid = 1000;
-
-	TEST_ALLOC_FAIL {
-		copy = job_process_copy (NULL, process);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (JobProcess));
-
-		TEST_EQ (copy->script, process->script);
-		TEST_ALLOC_PARENT (copy->command, copy);
-		TEST_EQ_STR (copy->command, process->command);
-		TEST_EQ (copy->pid, 0);
-
-		nih_free (copy);
-	}
-
-	nih_free (process);
-}
 
 
 void
 test_new (void)
 {
-	Job *job;
-	int  i;
+	JobClass       *class;
+	Job            *job;
+	EventOperator  *oper;
+	pid_t           dbus_pid;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+	char           *path;
+	int             i;
+
+	TEST_FUNCTION ("job_new");
+	nih_error_init ();
+	nih_timer_init ();
+	nih_main_loop_init ();
+	control_init ();
+	conf_init ();
+
 
 	/* Check that we can create a new job structure; the structure
-	 * should be allocated with nih_alloc, placed in the jobs hash
-	 * and have sensible defaults.
+	 * should be allocated with nih_alloc, placed in the instances
+	 * list of the class and have sensible defaults.
 	 */
-	TEST_FUNCTION ("job_new");
-	job_init ();
+	TEST_FEATURE ("with no name");
+	class = job_class_new (NULL, "test");
+	class->stop_on = event_operator_new (class, EVENT_MATCH, "baz", NULL);
+
 	TEST_ALLOC_FAIL {
-		job = job_new (NULL, "test");
+		job = job_new (class, "");
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (job, NULL);
 			continue;
 		}
 
+		TEST_ALLOC_PARENT (job, class);
+		TEST_ALLOC_SIZE (job, sizeof (Job));
+		TEST_LIST_NOT_EMPTY (&job->entry);
+
+		TEST_EQ_P (job->class, class);
+
+		TEST_ALLOC_PARENT (job->name, job);
+		TEST_EQ_STR (job->name, "");
+
+		TEST_ALLOC_PARENT (job->path, job);
+		TEST_EQ_STR (job->path, DBUS_PATH_UPSTART "/jobs/test/_");
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ_P (job->env, NULL);
+
+		TEST_EQ_P (job->start_env, NULL);
+		TEST_EQ_P (job->stop_env, NULL);
+
+		oper = (EventOperator *)job->stop_on;
+		TEST_ALLOC_PARENT (oper, job);
+		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "baz");
+		TEST_EQ_P (oper->env, NULL);
+		TEST_EQ (oper->value, FALSE);
+
+		TEST_NE_P (job->pid, NULL);
+		TEST_ALLOC_PARENT (job->pid, job);
+		TEST_ALLOC_SIZE (job->pid, sizeof (pid_t) * PROCESS_LAST);
+
+		for (i = 0; i < PROCESS_LAST; i++)
+			TEST_EQ (job->pid[i], 0);
+
+		TEST_EQ_P (job->blocker, NULL);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		TEST_EQ_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, (ProcessType)-1);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_EQ (job->respawn_count, 0);
+		TEST_EQ (job->respawn_time, 0);
+
+		TEST_EQ (job->trace_forks, 0);
+		TEST_EQ (job->trace_state, TRACE_NONE);
+
+		event_operator_reset (job->stop_on);
+
+		nih_free (job);
+	}
+
+
+	/* Check that if a name is passed, it is stored in the job.
+	 */
+	TEST_FEATURE ("with name given");
+	TEST_ALLOC_FAIL {
+		job = job_new (class, "fred");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+			continue;
+		}
+
+		TEST_ALLOC_PARENT (job, class);
 		TEST_ALLOC_SIZE (job, sizeof (Job));
 		TEST_LIST_NOT_EMPTY (&job->entry);
 
 		TEST_ALLOC_PARENT (job->name, job);
-		TEST_EQ_STR (job->name, "test");
-		TEST_EQ_P (job->description, NULL);
-		TEST_EQ_P (job->author, NULL);
-		TEST_EQ_P (job->version, NULL);
+		TEST_EQ_STR (job->name, "fred");
 
-		TEST_EQ_P (job->replacement, NULL);
-		TEST_EQ_P (job->replacement_for, NULL);
-		TEST_EQ_P (job->instance_of, NULL);
+		TEST_ALLOC_PARENT (job->path, job);
+		TEST_EQ_STR (job->path, DBUS_PATH_UPSTART "/jobs/test/fred");
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
+		event_operator_reset (job->stop_on);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_LIST_EMPTY (&job->start_events);
-		TEST_LIST_EMPTY (&job->stop_events);
-		TEST_LIST_EMPTY (&job->emits);
-
-		TEST_NE_P (job->process, NULL);
-		TEST_ALLOC_PARENT (job->process, job);
-		TEST_ALLOC_SIZE (job->process,
-				 sizeof (JobProcess *) * PROCESS_LAST);
-
-		for (i = 0; i < PROCESS_LAST; i++)
-			TEST_EQ_P (job->process[i], NULL);
-
-		TEST_EQ_P (job->normalexit, NULL);
-		TEST_EQ (job->normalexit_len, 0);
-
-		TEST_EQ (job->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		TEST_EQ (job->instance, FALSE);
-		TEST_EQ (job->service, FALSE);
-		TEST_EQ (job->respawn, FALSE);
-		TEST_EQ (job->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
-		TEST_EQ (job->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
-		TEST_EQ (job->respawn_count, 0);
-		TEST_EQ (job->respawn_time, 0);
-
-		TEST_EQ (job->daemon, FALSE);
-		TEST_EQ_P (job->pid_file, NULL);
-		TEST_EQ_P (job->pid_binary, NULL);
-		TEST_EQ (job->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
-		TEST_EQ_P (job->pid_timer, NULL);
-
-		TEST_EQ (job->console, CONSOLE_NONE);
-		TEST_EQ_P (job->env, NULL);
-
-		TEST_EQ (job->umask, JOB_DEFAULT_UMASK);
-		TEST_EQ (job->nice, 0);
-
-		for (i = 0; i < RLIMIT_NLIMITS; i++)
-			TEST_EQ_P (job->limits[i], NULL);
-
-		TEST_EQ_P (job->chroot, NULL);
-		TEST_EQ_P (job->chdir, NULL);
-
-		nih_list_free (&job->entry);
-	}
-}
-
-void
-test_copy (void)
-{
-	Job        *job, *copy;
-	JobProcess *process;
-	Event      *event;
-	int         i;
-
-	TEST_FUNCTION ("job_copy");
-
-	/* Check that we can create a copy of a fresh structure, with most
-	 * fields left unset.
-	 */
-	TEST_FEATURE ("with unconfigured job");
-	job = job_new (NULL, "test");
-
-	TEST_ALLOC_FAIL {
-		copy = job_copy (NULL, job);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&copy->entry);
-
-		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_STR (copy->name, "test");
-		TEST_EQ_P (copy->description, NULL);
-		TEST_EQ_P (copy->author, NULL);
-		TEST_EQ_P (copy->version, NULL);
-
-		TEST_EQ_P (copy->replacement, NULL);
-		TEST_EQ_P (copy->replacement_for, NULL);
-		TEST_EQ_P (copy->instance_of, NULL);
-
-		TEST_EQ (copy->goal, JOB_STOP);
-		TEST_EQ (copy->state, JOB_WAITING);
-
-		TEST_EQ_P (copy->cause, NULL);
-		TEST_EQ_P (copy->blocked, NULL);
-
-		TEST_EQ (copy->failed, FALSE);
-		TEST_EQ (copy->failed_process, -1);
-		TEST_EQ (copy->exit_status, 0);
-
-		TEST_LIST_EMPTY (&copy->start_events);
-		TEST_LIST_EMPTY (&copy->stop_events);
-		TEST_LIST_EMPTY (&copy->emits);
-
-		TEST_NE_P (copy->process, NULL);
-		TEST_ALLOC_PARENT (copy->process, copy);
-		TEST_ALLOC_SIZE (copy->process,
-				 sizeof (JobProcess *) * PROCESS_LAST);
-
-		for (i = 0; i < PROCESS_LAST; i++)
-			TEST_EQ_P (copy->process[i], NULL);
-
-		TEST_EQ_P (copy->normalexit, NULL);
-		TEST_EQ (copy->normalexit_len, 0);
-
-		TEST_EQ (copy->kill_timeout, JOB_DEFAULT_KILL_TIMEOUT);
-		TEST_EQ_P (copy->kill_timer, NULL);
-
-		TEST_EQ (copy->instance, FALSE);
-		TEST_EQ (copy->service, FALSE);
-		TEST_EQ (copy->respawn, FALSE);
-		TEST_EQ (copy->respawn_limit, JOB_DEFAULT_RESPAWN_LIMIT);
-		TEST_EQ (copy->respawn_interval, JOB_DEFAULT_RESPAWN_INTERVAL);
-		TEST_EQ (copy->respawn_count, 0);
-		TEST_EQ (copy->respawn_time, 0);
-
-		TEST_EQ (copy->daemon, FALSE);
-		TEST_EQ_P (copy->pid_file, NULL);
-		TEST_EQ_P (copy->pid_binary, NULL);
-		TEST_EQ (copy->pid_timeout, JOB_DEFAULT_PID_TIMEOUT);
-		TEST_EQ_P (copy->pid_timer, NULL);
-
-		TEST_EQ (copy->console, CONSOLE_NONE);
-		TEST_EQ_P (copy->env, NULL);
-
-		TEST_EQ (copy->umask, JOB_DEFAULT_UMASK);
-		TEST_EQ (copy->nice, 0);
-
-		for (i = 0; i < RLIMIT_NLIMITS; i++)
-			TEST_EQ_P (copy->limits[i], NULL);
-
-		TEST_EQ_P (copy->chroot, NULL);
-		TEST_EQ_P (copy->chdir, NULL);
-
-		nih_list_free (&copy->entry);
-	}
-
-	nih_list_free (&job->entry);
-
-
-	/* Check that we can create a copy of an existing structure which
-	 * has the same configured details, but a clean state.
-	 */
-	TEST_FEATURE ("with configured");
-	job = job_new (NULL, "test");
-	job->description = nih_strdup (job, "an example job");
-	job->author = nih_strdup (job, "joe bloggs");
-	job->version = nih_strdup (job, "1.0");
-
-	job->replacement = (void *)-1;
-	job->replacement_for = (void *)-1;
-	job->instance_of = (void *)-1;
-
-	job->goal = JOB_STOP;
-	job->state = JOB_POST_STOP;
-
-	job->cause = (void *)-1;
-	job->blocked = (void *)-1;
-
-	job->failed = TRUE;
-	job->failed_process = PROCESS_MAIN;
-	job->exit_status = SIGSEGV << 8;
-
-	event = event_new (job, "foo");
-	nih_list_add (&job->start_events, &event->entry);
-
-	event = event_new (job, "bar");
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "frodo"));
-	NIH_MUST (nih_str_array_add (&event->args, event, NULL, "bilbo"));
-
-	NIH_MUST (nih_str_array_add (&event->env, event, NULL, "FOO=BAR"));
-	nih_list_add (&job->start_events, &event->entry);
-
-	event = event_new (job, "baz");
-	nih_list_add (&job->stop_events, &event->entry);
-
-	event = event_new (job, "wibble");
-	nih_list_add (&job->emits, &event->entry);
-
-	job->normalexit = nih_alloc (job, sizeof (int) * 2);
-	job->normalexit[0] = 99;
-	job->normalexit[1] = 100;
-	job->normalexit_len = 2;
-
-	job->kill_timeout = 10;
-	job->kill_timer = (void *)-1;
-
-	job->instance = TRUE;
-	job->service = TRUE;
-	job->respawn = TRUE;
-	job->respawn_limit = 20;
-	job->respawn_interval = 100;
-	job->respawn_count = 8;
-	job->respawn_time = time (NULL) - 20;
-
-	job->daemon = TRUE;
-	job->pid_file = nih_strdup (job, "/var/run/job.pid");
-	job->pid_binary = nih_strdup (job, "/usr/lib/daemon");
-	job->pid_timeout = 30;
-	job->pid_timer = (void *)-1;
-
-	process = job_process_new (job->process);
-	process->script = FALSE;
-	process->command = nih_strdup (process, "/usr/sbin/daemon");
-	process->pid = 1000;
-	job->process[PROCESS_MAIN] = process;
-
-	process = job_process_new (job);
-	process->script = TRUE;
-	process->command = nih_strdup (process, "mkdir /var/run/daemon\n");
-	job->process[PROCESS_PRE_START] = process;
-
-	process = job_process_new (job);
-	process->script = TRUE;
-	process->command = nih_strdup (process,
-				       "echo start | nc -q0 127.0.0.1 80\n");
-	job->process[PROCESS_POST_START] = process;
-
-	process = job_process_new (job);
-	process->script = TRUE;
-	process->command = nih_strdup (process,
-				       "echo stop | nc -q0 127.0.0.1 80\n");
-	process->pid = 1010;
-	job->process[PROCESS_PRE_STOP] = process;
-
-	process = job_process_new (job);
-	process->script = TRUE;
-	process->command = nih_strdup (process, "rm -rf /var/run/daemon\n");
-	job->process[PROCESS_POST_STOP] = process;
-
-	job->console = CONSOLE_OUTPUT;
-
-	job->env = nih_str_array_new (job);
-	NIH_MUST (nih_str_array_add (&job->env, job, NULL, "EH=OH"));
-	NIH_MUST (nih_str_array_add (&job->env, job, NULL, "LA=LA"));
-
-	job->umask = 002;
-	job->nice = -5;
-
-	job->limits[RLIMIT_CORE] = nih_new (job, struct rlimit);
-	job->limits[RLIMIT_CORE]->rlim_cur = RLIM_INFINITY;
-	job->limits[RLIMIT_CORE]->rlim_max = RLIM_INFINITY;
-
-	job->limits[RLIMIT_CPU] = nih_new (job, struct rlimit);
-	job->limits[RLIMIT_CPU]->rlim_cur = 120;
-	job->limits[RLIMIT_CPU]->rlim_max = 180;
-
-	job->chroot = nih_strdup (job, "/var/run/daemon");
-	job->chdir = nih_strdup (job, "/etc");
-
-	TEST_ALLOC_FAIL {
-		copy = job_copy (NULL, job);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (copy, NULL);
-			continue;
-		}
-
-		TEST_ALLOC_SIZE (copy, sizeof (Job));
-		TEST_LIST_NOT_EMPTY (&copy->entry);
-
-		TEST_ALLOC_PARENT (copy->name, copy);
-		TEST_EQ_STR (copy->name, "test");
-		TEST_ALLOC_PARENT (copy->description, copy);
-		TEST_EQ_STR (copy->description, job->description);
-		TEST_ALLOC_PARENT (copy->author, copy);
-		TEST_EQ_STR (copy->author, job->author);
-		TEST_ALLOC_PARENT (copy->version, copy);
-		TEST_EQ_STR (copy->version, job->version);
-
-		TEST_EQ_P (copy->replacement, NULL);
-		TEST_EQ_P (copy->replacement_for, NULL);
-		TEST_EQ_P (copy->instance_of, NULL);
-
-		TEST_EQ (copy->goal, JOB_STOP);
-		TEST_EQ (copy->state, JOB_WAITING);
-
-		TEST_EQ_P (copy->cause, NULL);
-		TEST_EQ_P (copy->blocked, NULL);
-
-		TEST_EQ (copy->failed, FALSE);
-		TEST_EQ (copy->failed_process, -1);
-		TEST_EQ (copy->exit_status, 0);
-
-		TEST_LIST_NOT_EMPTY (&copy->start_events);
-
-		event = (Event *)copy->start_events.next;
-		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "foo");
-		TEST_EQ_P (event->args, NULL);
-		TEST_EQ_P (event->env, NULL);
-
-		event = (Event *)event->entry.next;
-		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "bar");
-		TEST_ALLOC_PARENT (event->args, event);
-		TEST_ALLOC_SIZE (event->args, sizeof (char *) * 3);
-		TEST_ALLOC_PARENT (event->args[0], event->args);
-		TEST_ALLOC_PARENT (event->args[1], event->args);
-		TEST_EQ_STR (event->args[0], "frodo");
-		TEST_EQ_STR (event->args[1], "bilbo");
-		TEST_EQ_P (event->args[2], NULL);
-		TEST_ALLOC_PARENT (event->env, event);
-		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 2);
-		TEST_ALLOC_PARENT (event->env[0], event->env);
-		TEST_EQ_P (event->env[1], NULL);
-
-		TEST_EQ_P (event->entry.next, &copy->start_events);
-
-		TEST_LIST_NOT_EMPTY (&copy->stop_events);
-
-		event = (Event *)copy->stop_events.next;
-		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "baz");
-		TEST_EQ_P (event->args, NULL);
-		TEST_EQ_P (event->env, NULL);
-
-		TEST_EQ_P (event->entry.next, &copy->stop_events);
-
-		TEST_LIST_NOT_EMPTY (&copy->emits);
-
-		event = (Event *)copy->emits.next;
-		TEST_ALLOC_PARENT (event, copy);
-		TEST_ALLOC_SIZE (event, sizeof (Event));
-		TEST_EQ_STR (event->name, "wibble");
-		TEST_EQ_P (event->args, NULL);
-		TEST_EQ_P (event->env, NULL);
-
-		TEST_EQ_P (event->entry.next, &copy->emits);
-
-		TEST_NE_P (copy->process, NULL);
-		TEST_ALLOC_PARENT (copy->process, copy);
-		TEST_ALLOC_SIZE (copy->process,
-				 sizeof (JobProcess *) * PROCESS_LAST);
-
-		for (i = 0; i < PROCESS_LAST; i++) {
-			TEST_ALLOC_PARENT (copy->process[i], copy->process);
-			TEST_ALLOC_SIZE (copy->process[i],
-					 sizeof (JobProcess));
-			TEST_EQ (copy->process[i]->script,
-				 job->process[i]->script);
-			TEST_EQ_STR (copy->process[i]->command,
-				     job->process[i]->command);
-			TEST_EQ (copy->process[i]->pid, 0);
-		}
-
-		TEST_ALLOC_PARENT (copy->normalexit, copy);
-		TEST_ALLOC_SIZE (copy->normalexit, sizeof (int) * 2);
-		TEST_EQ (copy->normalexit[0], 99);
-		TEST_EQ (copy->normalexit[1], 100);
-		TEST_EQ (copy->normalexit_len, 2);
-
-		TEST_EQ (copy->kill_timeout, job->kill_timeout);
-		TEST_EQ_P (copy->kill_timer, NULL);
-
-		TEST_EQ (copy->instance, job->instance);
-		TEST_EQ (copy->service, job->service);
-		TEST_EQ (copy->respawn, job->respawn);
-		TEST_EQ (copy->respawn_limit, job->respawn_limit);
-		TEST_EQ (copy->respawn_interval, job->respawn_interval);
-		TEST_EQ (copy->respawn_count, 0);
-		TEST_EQ (copy->respawn_time, 0);
-
-		TEST_EQ (copy->daemon, job->daemon);
-		TEST_ALLOC_PARENT (copy->pid_file, copy);
-		TEST_EQ_STR (copy->pid_file, job->pid_file);
-		TEST_ALLOC_PARENT (copy->pid_binary, copy);
-		TEST_EQ_STR (copy->pid_binary, job->pid_binary);
-		TEST_EQ (copy->pid_timeout, job->pid_timeout);
-		TEST_EQ_P (copy->pid_timer, NULL);
-
-		TEST_EQ (copy->console, job->console);
-		TEST_ALLOC_PARENT (copy->env, copy);
-		TEST_ALLOC_SIZE (copy->env, sizeof (char *) * 3);
-		TEST_EQ_STR (copy->env[0], "EH=OH");
-		TEST_EQ_STR (copy->env[1], "LA=LA");
-		TEST_EQ_P (copy->env[2], NULL);
-
-		TEST_EQ (copy->umask, job->umask);
-		TEST_EQ (copy->nice, job->nice);
-
-		for (i = 0; i < RLIMIT_NLIMITS; i++) {
-			if (job->limits[i]) {
-				TEST_ALLOC_PARENT (copy->limits[i], copy);
-				TEST_ALLOC_SIZE (copy->limits[i],
-						 sizeof (struct rlimit));
-				TEST_EQ (copy->limits[i]->rlim_cur,
-					 job->limits[i]->rlim_cur);
-				TEST_EQ (copy->limits[i]->rlim_max,
-					 job->limits[i]->rlim_max);
-			} else {
-				TEST_EQ_P (copy->limits[i], NULL);
-			}
-		}
-
-		TEST_ALLOC_PARENT (copy->chroot, copy);
-		TEST_EQ_STR (copy->chroot, job->chroot);
-		TEST_ALLOC_PARENT (copy->chdir, copy);
-		TEST_EQ_STR (copy->chdir, job->chdir);
-
-		nih_list_free (&copy->entry);
-	}
-
-	nih_list_free (&job->entry);
-}
-
-
-void
-test_find_by_name (void)
-{
-	Job *job1, *job2, *job3, *ptr;
-
-	TEST_FUNCTION ("job_find_by_name");
-	job1 = job_new (NULL, "foo");
-	job2 = job_new (NULL, "bar");
-	job3 = job_new (NULL, "baz");
-
-	/* Check that we can find a job that exists by its name. */
-	TEST_FEATURE ("with name we expect to find");
-	ptr = job_find_by_name ("foo");
-
-	TEST_EQ_P (ptr, job1);
-
-
-	/* Check that we get NULL if the job doesn't exist. */
-	TEST_FEATURE ("with name we do not expect to find");
-	ptr = job_find_by_name ("frodo");
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that we ignore jobs about to be deleted. */
-	TEST_FEATURE ("with deleted job");
-	job2->state = JOB_DELETED;
-	ptr = job_find_by_name ("bar");
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that if an entry is an instance, we get the real job. */
-	TEST_FEATURE ("with instance");
-	job2->state = JOB_WAITING;
-	job2->instance_of = job3;
-	ptr = job_find_by_name ("bar");
-
-	TEST_EQ (ptr, job3);
-
-
-	/* Check that if an entry is an replacement, we get the current job. */
-	TEST_FEATURE ("with replacement");
-	job2->instance_of = NULL;
-	job2->replacement_for = job3;
-	ptr = job_find_by_name ("bar");
-
-	TEST_EQ (ptr, job3);
-
-
-	/* Check that we get NULL if the job list is empty, and nothing
-	 * bad happens.
-	 */
-	TEST_FEATURE ("with empty job list");
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
-	ptr = job_find_by_name ("foo");
-
-	TEST_EQ_P (ptr, NULL);
-}
-
-void
-test_find_by_pid (void)
-{
-	Job         *job1, *job2, *job3, *job4, *job5, *ptr;
-	ProcessType  process;
-
-	TEST_FUNCTION ("job_find_by_pid");
-	job1 = job_new (NULL, "foo");
-	job1->process[PROCESS_MAIN] = job_process_new (job1);
-	job1->process[PROCESS_MAIN]->pid = 10;
-	job1->process[PROCESS_POST_START] = job_process_new (job1);
-	job1->process[PROCESS_POST_START]->pid = 15;
-	job2 = job_new (NULL, "bar");
-	job3 = job_new (NULL, "baz");
-	job3->process[PROCESS_PRE_START] = job_process_new (job3);
-	job3->process[PROCESS_PRE_START]->pid = 20;
-	job4 = job_new (NULL, "frodo");
-	job4->process[PROCESS_MAIN] = job_process_new (job4);
-	job4->process[PROCESS_MAIN]->pid = 25;
-	job4->process[PROCESS_PRE_STOP] = job_process_new (job4);
-	job4->process[PROCESS_PRE_STOP]->pid = 30;
-	job5 = job_new (NULL, "bilbo");
-	job5->process[PROCESS_POST_STOP] = job_process_new (job5);
-	job5->process[PROCESS_POST_STOP]->pid = 35;
-
-	/* Check that we can find a job that exists by the pid of its
-	 * primary process.
-	 */
-	TEST_FEATURE ("with pid we expect to find");
-	ptr = job_find_by_pid (10, &process);
-
-	TEST_EQ_P (ptr, job1);
-	TEST_EQ (process, PROCESS_MAIN);
-
-
-	/* Check that we can find a job that exists by the pid of its
-	 * pre-start process.
-	 */
-	TEST_FEATURE ("with pre-start pid we expect to find");
-	ptr = job_find_by_pid (20, &process);
-
-	TEST_EQ_P (ptr, job3);
-	TEST_EQ (process, PROCESS_PRE_START);
-
-
-	/* Check that we can find a job that exists by the pid of its
-	 * post-start process.
-	 */
-	TEST_FEATURE ("with post-start pid we expect to find");
-	ptr = job_find_by_pid (15, &process);
-
-	TEST_EQ_P (ptr, job1);
-	TEST_EQ (process, PROCESS_POST_START);
-
-
-	/* Check that we can find a job that exists by the pid of its
-	 * pre-stop process.
-	 */
-	TEST_FEATURE ("with pre-stop pid we expect to find");
-	ptr = job_find_by_pid (30, &process);
-
-	TEST_EQ_P (ptr, job4);
-	TEST_EQ (process, PROCESS_PRE_STOP);
-
-
-	/* Check that we can find a job that exists by the pid of its
-	 * pre-stop process.
-	 */
-	TEST_FEATURE ("with post-stop pid we expect to find");
-	ptr = job_find_by_pid (35, &process);
-
-	TEST_EQ_P (ptr, job5);
-	TEST_EQ (process, PROCESS_POST_STOP);
-
-
-	/* Check that we get NULL if no job has a process with that pid. */
-	TEST_FEATURE ("with pid we do not expect to find");
-	ptr = job_find_by_pid (100, NULL);
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that we get NULL if there are jobs in the hash, but none
-	 * have pids.
-	 */
-	TEST_FEATURE ("with no pids in job table");
-	nih_list_free (&job5->entry);
-	nih_list_free (&job4->entry);
-	nih_list_free (&job3->entry);
-	nih_list_free (&job1->entry);
-	ptr = job_find_by_pid (20, NULL);
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that we get NULL if there are no jobs in the hash. */
-	TEST_FEATURE ("with empty job table");
-	nih_list_free (&job2->entry);
-	ptr = job_find_by_pid (20, NULL);
-
-	TEST_EQ_P (ptr, NULL);
-}
-
-void
-test_find_by_id (void)
-{
-	Job          *job1, *job2, *job3, *ptr;
-	unsigned int  id;
-
-	TEST_FUNCTION ("job_find_by_id");
-	job1 = job_new (NULL, "foo");
-	job2 = job_new (NULL, "bar");
-	job3 = job_new (NULL, "bar");
-
-	/* Check that we can find a job by its id. */
-	TEST_FEATURE ("with id we expect to find");
-	ptr = job_find_by_id (job2->id);
-
-	TEST_EQ_P (ptr, job2);
-
-
-	/* Check that we get NULL if the id doesn't exist. */
-	TEST_FEATURE ("with id we do not expect to find");
-	id = job3->id;
-	while ((id == job1->id) || (id == job2->id) || (id == job3->id))
-		id++;
-
-	ptr = job_find_by_id (id);
-
-	TEST_EQ_P (ptr, NULL);
-
-
-	/* Check that we get NULL if the job list is empty, and nothing
-	 * bad happens.
-	 */
-	TEST_FEATURE ("with empty job table");
-	id = job1->id;
-
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
-	ptr = job_find_by_id (id);
-
-	TEST_EQ_P (ptr, NULL);
-}
-
-
-void
-test_instance (void)
-{
-	Job *job, *ptr;
-
-	TEST_FUNCTION ("job_instance");
-
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-
-	/* Check that we get an ordinary job returned as-is. */
-	TEST_FEATURE ("with non-instance job");
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (job);
-
-		TEST_EQ_P (ptr, job);
+		nih_free (job);
 	}
 
 
-	/* Check that we get a new instance for an instance master. */
-	TEST_FEATURE ("with instance master job");
-	job->instance = TRUE;
+	/* Check that when a D-Bus connection is open, the new instance
+	 * is registered on that connection as an object and the InstanceAdded
+	 * signal is emitted.
+	 */
+	TEST_FEATURE ("with D-Bus connection");
+	dbus_error_init (&dbus_error);
 
-	TEST_ALLOC_FAIL {
-		ptr = job_instance (job);
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
-		TEST_NE_P (ptr, job);
-		TEST_EQ (ptr->instance, TRUE);
-		TEST_EQ_P (ptr->instance_of, job);
-
-		nih_list_free (&ptr->entry);
-	}
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
 
 
-	nih_list_free (&job->entry);
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
+
+	job = job_new (class, "fred");
+
+	TEST_ALLOC_PARENT (job, class);
+	TEST_ALLOC_SIZE (job, sizeof (Job));
+	TEST_LIST_NOT_EMPTY (&job->entry);
+
+	TEST_ALLOC_PARENT (job->name, job);
+	TEST_EQ_STR (job->name, "fred");
+
+	TEST_ALLOC_PARENT (job->path, job);
+	TEST_EQ_STR (job->path, DBUS_PATH_UPSTART "/jobs/test/fred");
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 job->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, job->path);
+	TEST_EQ_P (object->data, job);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, message);
+	TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
+					   "InstanceAdded"));
+
+	TEST_EQ_STR (dbus_message_get_path (message), class->path);
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, job->path);
+
+	dbus_message_unref (message);
+
+	event_operator_reset (job->stop_on);
+
+	nih_free (job);
+
+
+	nih_free (entry);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
+
+	event_operator_reset (class->stop_on);
+
+	nih_free (class);
 }
+
+void
+test_register (void)
+{
+	pid_t           dbus_pid;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
+	JobClass       *class;
+	Job            *job;
+	NihDBusObject  *object;
+	char           *path;
+
+	TEST_FUNCTION ("job_register");
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+
+	/* Check that we can register an existing job instance on the bus
+	 * using its path, and have a InstanceAdded signal emitted.
+	 */
+	TEST_FEATURE ("with signal emission");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "fred");
+
+	assert (dbus_connection_get_object_path_data (conn, job->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	job_register (job, conn, TRUE);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 job->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, job->path);
+	TEST_EQ_P (object->data, job);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, message);
+	TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
+					   "InstanceAdded"));
+
+	TEST_EQ_STR (dbus_message_get_path (message), class->path);
+
+	TEST_TRUE (dbus_message_get_args (message, NULL,
+					  DBUS_TYPE_OBJECT_PATH, &path,
+					  DBUS_TYPE_INVALID));
+
+	TEST_EQ_STR (path, job->path);
+
+	dbus_message_unref (message);
+
+	nih_free (class);
+
+
+	/* Check that we can suppress signal emission, but that the instance
+	 * is still registered.
+	 */
+	TEST_FEATURE ("without signal emission");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "fred");
+
+	assert (dbus_connection_get_object_path_data (conn, job->path,
+						      (void **)&object));
+	assert (object == NULL);
+
+	job_register (job, conn, FALSE);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 job->path,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, job->path);
+	TEST_EQ_P (object->data, job);
+
+	message = dbus_message_new_signal ("/", "com.ubuntu.Upstart.Test",
+					   "TestPassed");
+	assert (message != NULL);
+
+	dbus_connection_send (conn, message, NULL);
+
+	dbus_message_unref (message);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, message);
+	TEST_TRUE (dbus_message_is_signal (message, "com.ubuntu.Upstart.Test",
+					   "TestPassed"));
+
+	dbus_message_unref (message);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+}
+
 
 void
 test_change_goal (void)
 {
-	EventEmission *em;
-	Job           *job;
+	JobClass *class;
+	Job      *job = NULL;
+	Blocked  *blocked;
 
 	TEST_FUNCTION ("job_change_goal");
+	event_init ();
+
 	program_name = "test";
 
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job);
-	job->process[PROCESS_MAIN]->command = "echo";
-	job->process[PROCESS_PRE_START] = job_process_new (job);
-	job->process[PROCESS_PRE_START]->command = "echo";
-	job->process[PROCESS_POST_STOP] = job_process_new (job);
-	job->process[PROCESS_POST_STOP]->command = "echo";
+	class = job_class_new (NULL, "test");
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = "echo";
+	class->process[PROCESS_PRE_START] = process_new (class);
+	class->process[PROCESS_PRE_START]->command = "echo";
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = "echo";
 
 
 	/* Check that an attempt to start a waiting job results in the
@@ -868,13 +395,32 @@ test_change_goal (void)
 	 */
 	TEST_FEATURE ("with waiting job");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		nih_free (job);
 	}
 
 
@@ -884,79 +430,24 @@ test_change_goal (void)
 	 */
 	TEST_FEATURE ("with stopping job");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		job->process[PROCESS_MAIN]->pid = 1;
+		job->pid[PROCESS_MAIN] = 1;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		nih_free (job);
 	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that starting a job with a cause set unreferences it
-	 * and sets it to NULL in the job.
-	 */
-	TEST_FEATURE ("with existing cause");
-	em = event_emit ("foo", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_STOPPING;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->cause = em;
-		em->progress = EVENT_HANDLING;
-		em->jobs = 1;
-
-		job_change_goal (job, JOB_START, NULL);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-
-		TEST_EQ_P (job->cause, NULL);
-
-		TEST_EQ (em->jobs, 0);
-		TEST_EQ (em->progress, EVENT_FINISHED);
-	}
-
-	nih_list_free (&em->event.entry);
-	job->cause = NULL;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that starting a job with a cause passed references that event
-	 * and sets the cause in the job.
-	 */
-	TEST_FEATURE ("with new cause");
-	em = event_emit ("foo", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-		job->process[PROCESS_POST_STOP]->pid = 1;
-		job->cause = NULL;
-		em->jobs = 0;
-
-		job_change_goal (job, JOB_START, em);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_POST_STOP);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 1);
-
-		TEST_EQ_P (job->cause, em);
-
-		TEST_EQ (em->jobs, 1);
-	}
-
-	nih_list_free (&em->event.entry);
-	job->cause = NULL;
-	job->process[PROCESS_POST_STOP]->pid = 0;
 
 
 	/* Check that an attempt to start a job that's running and still
@@ -964,18 +455,24 @@ test_change_goal (void)
 	 */
 	TEST_FEATURE ("with running job and start");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
+		job->pid[PROCESS_MAIN] = 1;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-	}
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-	job->process[PROCESS_MAIN]->pid = 0;
+		TEST_EQ_P (job->blocker, NULL);
+
+		nih_free (job);
+	}
 
 
 	/* Check that an attempt to stop a running job results in the goal
@@ -983,18 +480,35 @@ test_change_goal (void)
 	 */
 	TEST_FEATURE ("with running job and stop");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
+		job->pid[PROCESS_MAIN] = 1;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-	}
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-	job->process[PROCESS_MAIN]->pid = 0;
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		nih_free (job);
+	}
 
 
 	/* Check that an attempt to stop a running job without any process
@@ -1002,13 +516,32 @@ test_change_goal (void)
 	 */
 	TEST_FEATURE ("with running job and no process");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_RUNNING;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		nih_free (job);
 	}
 
 
@@ -1017,89 +550,48 @@ test_change_goal (void)
 	 */
 	TEST_FEATURE ("with starting job");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[PROCESS_PRE_START]->pid = 1;
+		job->pid[PROCESS_PRE_START] = 1;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_START);
-		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 1);
+		TEST_EQ (job->pid[PROCESS_PRE_START], 1);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		nih_free (job);
 	}
-
-	job->process[PROCESS_PRE_START]->pid = 0;
-
-
-	/* Check that stopping a job with a cause event set unreferences the
-	 * event and sets it to NULL.
-	 */
-	TEST_FEATURE ("with existing cause");
-	em = event_emit ("foo", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_SPAWNED;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->cause = em;
-		em->jobs = 1;
-		em->progress = EVENT_HANDLING;
-
-		job_change_goal (job, JOB_STOP, NULL);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_SPAWNED);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-		TEST_EQ_P (job->cause, NULL);
-
-		TEST_EQ (em->jobs, 0);
-		TEST_EQ (em->progress, EVENT_FINISHED);
-	}
-
-	nih_list_free (&em->event.entry);
-	job->cause = NULL;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that stopping a job passing a cause references that event
-	 * and sets the job's cause.
-	 */
-	TEST_FEATURE ("with existing cause");
-	em = event_emit ("foo", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_STARTING;
-		job->cause = NULL;
-		em->jobs = 0;
-
-		job_change_goal (job, JOB_STOP, em);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STARTING);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->jobs, 1);
-	}
-
-	nih_list_free (&em->event.entry);
-	job->cause = NULL;
 
 
 	/* Check that an attempt to stop a waiting job does nothing. */
 	TEST_FEATURE ("with waiting job");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
-		job_change_goal (job, JOB_STOP, NULL);
+		job_change_goal (job, JOB_STOP);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_WAITING);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		nih_free (job);
 	}
 
 
-	nih_list_free (&job->entry);
+	nih_free (class);
 	event_poll ();
 }
 
@@ -1107,14 +599,24 @@ test_change_goal (void)
 void
 test_change_state (void)
 {
-	FILE          *output;
-	Job           *job;
-	EventEmission *cause, *emission;
-	struct stat    statbuf;
-	char           dirname[PATH_MAX], filename[PATH_MAX];
-	JobProcess    *tmp;
-	pid_t          pid;
-	int            status;
+	FILE            *output;
+	ConfSource      *source = NULL;
+	ConfFile        *file = NULL;
+	JobClass        *class, *replacement = NULL, *ptr;
+	Job             *job = NULL, *instance = NULL;
+	Blocked         *blocked = NULL;
+	NihListEntry    *entry = NULL;
+	Event           *cause, *event;
+	struct stat      statbuf;
+	char             dirname[PATH_MAX], filename[PATH_MAX];
+	char           **env1, **env2, **env3;
+	Process         *tmp, *fail;
+	pid_t            pid, dbus_pid;
+	DBusError        dbus_error;
+	DBusConnection  *conn, *client_conn;
+	DBusMessage     *message;
+	char            *path, *job_path = NULL;
+	int              status;
 
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
@@ -1123,35 +625,57 @@ test_change_state (void)
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0700);
 
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job);
-	job->process[PROCESS_MAIN]->command = nih_sprintf (
-		job->process[PROCESS_MAIN], "touch %s/run", dirname);
-	job->process[PROCESS_PRE_START] = job_process_new (job);
-	job->process[PROCESS_PRE_START]->command = nih_sprintf (
-		job->process[PROCESS_PRE_START], "touch %s/start", dirname);
-	job->process[PROCESS_POST_STOP] = job_process_new (job);
-	job->process[PROCESS_POST_STOP]->command = nih_sprintf (
-		job->process[PROCESS_POST_STOP], "touch %s/stop", dirname);
-	job->respawn_limit = 0;
+	class = job_class_new (NULL, "test");
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+		class->process[PROCESS_MAIN], "touch %s/run", dirname);
+	class->process[PROCESS_PRE_START] = process_new (class);
+	class->process[PROCESS_PRE_START]->command = nih_sprintf (
+		class->process[PROCESS_PRE_START], "touch %s/start", dirname);
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = nih_sprintf (
+		class->process[PROCESS_POST_STOP], "touch %s/stop", dirname);
 
-	event_init ();
+	class->start_on = event_operator_new (class, EVENT_MATCH,
+					      "wibble", NULL);
+	class->stop_on = event_operator_new (class, EVENT_MATCH,
+					     "wibble", NULL);
 
-	cause = event_emit ("wibble", NULL, NULL);
-	nih_list_remove (&cause->event.entry);
+	fail = process_new (class);
+	fail->command = nih_sprintf (fail, "%s/no/such/file", dirname);
+
+	cause = event_new (NULL, "wibble", NULL);
+	nih_list_remove (&cause->entry);
 
 
 	/* Check that a job can move from waiting to starting.  This
-	 * should emit the starting event and block on it after clearing
-	 * out any failed information from the last time the job was run.
+	 * should emit the starting event and block on it and copy the
+	 * environment from start_env.
 	 */
 	TEST_FEATURE ("waiting to starting");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_WAITING;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		env1 = job->start_env;
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_POST_STOP;
@@ -1162,83 +686,219 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "starting");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
 
-	/* Check that if a job tries to move from waiting to starting too
-	 * many times in a given period then it is caught, a message is
-	 * output and the job sent back to stopped and waiting.  We get
-	 * a stopped event, and the cause is cleared.  The failed information
-	 * should reflect that we were stopped by the starting state.
+	/* Check that a named instance of a job can move from waiting to
+	 * starting, and that the instance name is included in the event
+	 * environment.
 	 */
-	TEST_FEATURE ("waiting to starting too fast");
+	TEST_FEATURE ("waiting to starting for named instance");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_WAITING;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
 
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
+		TEST_FREE_TAG (blocked);
 
-		job->respawn_limit = 10;
-		job->respawn_interval = 1000;
-		job->respawn_time = time (NULL);
-		job->respawn_count = 10;
+		env1 = job->start_env;
 
-		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_STARTING);
-		}
-		rewind (output);
+		job->failed = TRUE;
+		job->failed_process = PROCESS_POST_STOP;
+		job->exit_status = 1;
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
+		job_change_state (job, JOB_STARTING);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "respawn");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_FILE_EQ (output,
-			      "test: test respawning too fast, stopped\n");
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
+		nih_free (job);
 	}
 
-	job->respawn_limit = 0;
-	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
-	job->respawn_time = 0;
-	job->respawn_count = 0;
+
+	/* Check that any exported variable is added to the starting event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("waiting to starting with export");
+	assert (nih_str_array_add (&(class->export), class, NULL, "FOO"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "JOB"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "JOB=wibble"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_WAITING;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		env1 = job->start_env;
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_POST_STOP;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STARTING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "FOO=BAR");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	nih_free (class->export);
+	class->export = NULL;
 
 
 	/* Check that a job with a start process can move from starting
@@ -1246,12 +906,22 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("starting to pre-start");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
-		job->process[PROCESS_PRE_START]->pid = 0;
+		job->pid[PROCESS_PRE_START] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1261,9 +931,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_PRE_START);
-		TEST_NE (job->process[PROCESS_PRE_START]->pid, 0);
+		TEST_NE (job->pid[PROCESS_PRE_START], 0);
 
-		waitpid (job->process[PROCESS_PRE_START]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_PRE_START], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1272,17 +942,24 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-	}
 
-	job->process[PROCESS_PRE_START]->pid = 0;
+		nih_free (job);
+	}
 
 
 	/* Check that a job without a start process can move from starting
@@ -1291,16 +968,26 @@ test_change_state (void)
 	 * we should get a started event emitted.
 	 */
 	TEST_FEATURE ("starting to pre-start without process");
-	tmp = job->process[PROCESS_PRE_START];
-	job->process[PROCESS_PRE_START] = NULL;
+	tmp = class->process[PROCESS_PRE_START];
+	class->process[PROCESS_PRE_START] = NULL;
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_STARTING;
-		job->process[PROCESS_MAIN]->pid = 0;
+		job->pid[PROCESS_MAIN] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1310,9 +997,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1321,40 +1008,145 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->process[PROCESS_PRE_START] = tmp;
-	job->process[PROCESS_MAIN]->pid = 0;
+	class->process[PROCESS_PRE_START] = tmp;
+
+
+	/* Check that a job with a start process that fails to run moves
+	 * from starting to pre-start, the goal gets changed to stop, the
+	 * status to stopping and the failed information set correctly.
+	 */
+	TEST_FEATURE ("starting to pre-start for failed process");
+	tmp = class->process[PROCESS_PRE_START];
+	class->process[PROCESS_PRE_START] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_STARTING;
+		job->pid[PROCESS_PRE_START] = 0;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_PRE_START);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, TRUE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_PRE_START);
+		TEST_EQ (job->exit_status, -1);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
+				       "pre-start process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	class->process[PROCESS_PRE_START] = tmp;
 
 
 	/* Check that a job with a main process can move from pre-start to
-	 * spawned and have the process run, and as it's not a daemon,
+	 * spawned and have the process run, and as it's not going to wait,
 	 * the state will be skipped forwards to running and the started
 	 * event emitted.
 	 */
 	TEST_FEATURE ("pre-start to spawned");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[PROCESS_MAIN]->pid = 0;
+		job->pid[PROCESS_MAIN] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1364,9 +1156,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1375,40 +1167,209 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->process[PROCESS_MAIN]->pid = 0;
+
+	/* Check that a job with a named instance includes the instance
+	 * name in the started event.
+	 */
+	TEST_FEATURE ("pre-start to spawned for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
 
 
- 	/* Check that a job without a main process can move from pre-start
+	/* Check that any exported variable is added to the started event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("pre-start to spawned with export");
+	assert (nih_str_array_add (&(class->export), class, NULL, "FOO"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "JOB"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_SPAWNED);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		strcpy (filename, dirname);
+		strcat (filename, "/run");
+		TEST_EQ (stat (filename, &statbuf), 0);
+		unlink (filename);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "FOO=BAR");
+		TEST_EQ_P (event->env[3], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	nih_free (class->export);
+	class->export = NULL;
+
+
+	/* Check that a job without a main process can move from pre-start
 	 * straight to running skipping the interim steps, and has the
 	 * started event emitted.
 	 */
 	TEST_FEATURE ("pre-start to spawned without process");
-	tmp = job->process[PROCESS_MAIN];
-	job->process[PROCESS_MAIN] = NULL;
+	tmp = class->process[PROCESS_MAIN];
+	class->process[PROCESS_MAIN] = NULL;
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1419,41 +1380,147 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->process[PROCESS_MAIN] = tmp;
+	class->process[PROCESS_MAIN] = tmp;
 
 
-	/* Check that a job which has a main process that becomes a daemon
-	 * can move from pre-start to spawned and have the process run.
-	 * The state will remain in spawned until that process dies, and
-	 * we have a better pid.
+	/* Check that a job with a main process that fails has its goal
+	 * changed to stop, the state changed to stopping and failed
+	 * information filled in.
 	 */
-	TEST_FEATURE ("pre-start to spawned for daemon");
-	job->daemon = TRUE;
+	TEST_FEATURE ("pre-start to spawned for failed process");
+	tmp = class->process[PROCESS_MAIN];
+	class->process[PROCESS_MAIN] = fail;
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_PRE_START;
-		job->process[PROCESS_MAIN]->pid = 0;
+		job->pid[PROCESS_MAIN] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_SPAWNED);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, TRUE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, -1);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
+				       "main process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	class->process[PROCESS_MAIN] = tmp;
+
+
+	/* Check that a job which has a main process that needs to wait for
+	 * an event can move from pre-start to spawned and have the process
+	 * run.  The state will remain in spawned until whatever we're
+	 * waiting for happens.
+	 */
+	TEST_FEATURE ("pre-start to spawned for waiting job");
+	class->expect = EXPECT_STOP;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_PRE_START;
+		job->pid[PROCESS_MAIN] = 0;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1463,9 +1530,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_SPAWNED);
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1474,37 +1541,55 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->daemon = FALSE;
-	job->process[PROCESS_MAIN]->pid = 0;
+	class->expect = EXPECT_NONE;
 
 
 	/* Check that a job with a post-start process can move from spawned
 	 * to post-start, and have the process run.
 	 */
 	TEST_FEATURE ("spawned to post-start");
-	job->process[PROCESS_POST_START] = job_process_new (job);
-	job->process[PROCESS_POST_START]->command = nih_sprintf (
-		job->process[PROCESS_POST_START],
+	class->process[PROCESS_POST_START] = process_new (class);
+	class->process[PROCESS_POST_START]->command = nih_sprintf (
+		class->process[PROCESS_POST_START],
 		"touch %s/post-start", dirname);
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_POST_START]->pid = 0;
+		job->pid[PROCESS_MAIN] = 1;
+		job->pid[PROCESS_POST_START] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1514,10 +1599,10 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-		TEST_NE (job->process[PROCESS_POST_START]->pid, 0);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+		TEST_NE (job->pid[PROCESS_POST_START], 0);
 
-		waitpid (job->process[PROCESS_POST_START]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_POST_START], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1526,19 +1611,27 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	nih_free (job->process[PROCESS_POST_START]);
-	job->process[PROCESS_POST_START] = NULL;
-	job->process[PROCESS_MAIN]->pid = 0;
+	nih_free (class->process[PROCESS_POST_START]);
+	class->process[PROCESS_POST_START] = NULL;
 
 
 	/* Check that a job without a post-start process can move from
@@ -1548,12 +1641,22 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("spawned to post-start without process");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
-		job->process[PROCESS_MAIN]->pid = 1;
+		job->pid[PROCESS_MAIN] = 1;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1563,85 +1666,131 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->process[PROCESS_MAIN]->pid = 0;
 
-
-	/* Check that a task can move from post-start to running, which will
-	 * emit the started event but leave the cause alone.
+	/* Check that a job with a post-start process ignores the failure
+	 * of that process and can move from spawned to post-start, skipping
+	 * over that state, and instead going to the running state.  Because
+	 * we get there, we should get a started event emitted.
 	 */
-	TEST_FEATURE ("post-start to running");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
+	TEST_FEATURE ("spawned to post-start for failed process");
+	class->process[PROCESS_POST_START] = fail;
 
-		job->cause = cause;
-		job->blocked = NULL;
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_change_state (job, JOB_RUNNING);
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_POST_START);
+		}
+		rewind (output);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
+				       "post-start process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
 	}
 
-	job->process[PROCESS_MAIN]->pid = 0;
+	class->process[PROCESS_POST_START] = NULL;
 
 
 	/* Check that a service can move from post-start to running, which
-	 * will emit the started event and clear the cause since the job
-	 * has reached the desired state.
+	 * will emit the started event and unblock the events that caused
+	 * us to start since the job has reached the desired state.
 	 */
 	TEST_FEATURE ("post-start to running for service");
-	job->service = TRUE;
-
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
+		job->pid[PROCESS_MAIN] = 1;
 
-		cause->jobs = 2;
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1651,48 +1800,127 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		TEST_EQ (cause->jobs, 1);
+		TEST_EQ_P (job->blocker, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "started");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->service = FALSE;
-	job->process[PROCESS_MAIN]->pid = 0;
+
+	/* Check that a task can move from post-start to running, which will
+	 * emit the started event but leave events blocked and referenced.
+	 */
+	TEST_FEATURE ("post-start to running for task");
+	class->task = TRUE;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_POST_START;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_RUNNING);
+
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "started");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	class->task = FALSE;
 
 
 	/* Check that a job with a pre-stop process can move from running
 	 * to pre-stop, and have the process run.
 	 */
 	TEST_FEATURE ("running to pre-stop");
-	job->process[PROCESS_PRE_STOP] = job_process_new (job);
-	job->process[PROCESS_PRE_STOP]->command = nih_sprintf (
-		job->process[PROCESS_PRE_STOP],
+	class->process[PROCESS_PRE_STOP] = process_new (class);
+	class->process[PROCESS_PRE_STOP]->command = nih_sprintf (
+		class->process[PROCESS_PRE_STOP],
 		"touch %s/pre-stop", dirname);
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_PRE_STOP]->pid = 0;
+		job->pid[PROCESS_MAIN] = 1;
+		job->pid[PROCESS_PRE_STOP] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1702,10 +1930,10 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_PRE_STOP);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-		TEST_NE (job->process[PROCESS_PRE_STOP]->pid, 0);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+		TEST_NE (job->pid[PROCESS_PRE_STOP], 0);
 
-		waitpid (job->process[PROCESS_PRE_STOP]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_PRE_STOP], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -1714,19 +1942,27 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	nih_free (job->process[PROCESS_PRE_STOP]);
-	job->process[PROCESS_PRE_STOP] = NULL;
-	job->process[PROCESS_MAIN]->pid = 0;
+	nih_free (class->process[PROCESS_PRE_STOP]);
+	class->process[PROCESS_PRE_STOP] = NULL;
 
 
 	/* Check that a job without a pre-stop process can move from
@@ -1736,12 +1972,22 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("running to pre-stop without process");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
+		job->pid[PROCESS_MAIN] = 1;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1751,27 +1997,296 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "ok");
-		TEST_EQ_P (emission->event.args[2], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
-	job->process[PROCESS_MAIN]->pid = 0;
+
+	/* Check that a job with a named instance and without a pre-stop
+	 * process includes the instance name in the stopping event.
+	 */
+	TEST_FEATURE ("running to pre-stop for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+
+	/* Check that any exported variable is added to the stopping event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("running to pre-stop with export");
+	assert (nih_str_array_add (&(class->export), class, NULL, "FOO"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "JOB"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		job_change_state (job, JOB_PRE_STOP);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_STR (event->env[3], "FOO=BAR");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+	}
+
+	nih_free (class->export);
+	class->export = NULL;
+
+
+	/* Check that a job with a pre-stop process ignores any failure and
+	 * moves from running to pre-stop, and then straight into the stopping
+	 * state, emitting that event.
+	 */
+	TEST_FEATURE ("running to pre-stop for failed process");
+	class->process[PROCESS_PRE_STOP] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_PRE_STOP);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 1);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
+				       "pre-stop process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	class->process[PROCESS_PRE_STOP] = NULL;
 
 
 	/* Check that a job can move from running to stopping, by-passing
@@ -1780,11 +2295,21 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("running to stopping");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -1795,26 +2320,210 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 1);
+
+		nih_free (job);
 	}
+
+
+	/* Check that a job with a named instance that fails includes the
+	 * instance name in the stopping event after the failed information.
+	 */
+	TEST_FEATURE ("running to stopping for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		nih_free (job);
+	}
+
+
+	/* Check that any exported variable is added to the stopping event
+	 * from the job environment after any failed information; it should
+	 * not be possible to overwrite built-in variables, and any unknown
+	 * variables should be ignored.
+	 */
+	TEST_FEATURE ("running to stopping with export");
+	assert (nih_str_array_add (&(class->export), class, NULL, "FOO"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "JOB"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_RUNNING;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		job_change_state (job, JOB_STOPPING);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_STR (event->env[5], "FOO=BAR");
+		TEST_EQ_P (event->env[6], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_EQ (job->failed, TRUE);
+		TEST_EQ (job->failed_process, PROCESS_MAIN);
+		TEST_EQ (job->exit_status, 1);
+
+		nih_free (job);
+	}
+
+	nih_free (class->export);
+	class->export = NULL;
 
 
 	/* Check that a job killed by a signal can move from running to
@@ -1824,11 +2533,21 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("running to stopping for killed process");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -1839,25 +2558,46 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=SEGV");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, SIGSEGV << 8);
+
+		nih_free (job);
 	}
 
 
@@ -1868,11 +2608,21 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("running to stopping for unknown signal");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_RUNNING;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -1883,57 +2633,107 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_SIGNAL=33");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=33");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_MAIN);
 		TEST_EQ (job->exit_status, 33 << 8);
+
+		nih_free (job);
 	}
 
 
-	/* Check that a job can move from pre-stop back to starting again,
-	 * which should only clear the cause.
+	/* Check that a job can move from pre-stop back to running again;
+	 * clearing the block and reference on the events that stopped it
+	 * including their environment.
 	 */
-	TEST_FEATURE ("pre-stop to stopping");
+	TEST_FEATURE ("pre-stop to running");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "BAZ=BAZ"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_PRE_STOP;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		env1 = job->stop_env;
+		TEST_FREE_TAG (env1);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		job_change_goal (job, JOB_START, NULL);
+		job_change_goal (job, JOB_START);
 		job_change_state (job, JOB_RUNNING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_FREE (env1);
+		TEST_EQ_P (job->stop_env, NULL);
+
+		TEST_FREE (blocked);
+		TEST_LIST_EMPTY (&job->blocking);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
 
@@ -1943,11 +2743,21 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("pre-stop to stopping");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_PRE_STOP;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -1958,22 +2768,44 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopping");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "ok");
-		TEST_EQ_P (emission->event.args[2], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
 
@@ -1983,16 +2815,26 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("stopping to killed");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
-		TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
+		TEST_CHILD (job->pid[PROCESS_MAIN]) {
 			pause ();
 		}
-		pid = job->process[PROCESS_MAIN]->pid;
+		pid = job->pid[PROCESS_MAIN];
 		setpgid (pid, pid);
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2002,28 +2844,37 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+		TEST_EQ (job->pid[PROCESS_MAIN], pid);
 
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
 		TEST_TRUE (WIFSIGNALED (status));
 		TEST_EQ (WTERMSIG (status), SIGTERM);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_NE_P (job->kill_timer, NULL);
+		TEST_EQ (job->kill_process, PROCESS_MAIN);
 
-		nih_list_free (&job->kill_timer->entry);
+		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
-	}
+		job->kill_process = -1;
 
-	job->process[PROCESS_MAIN]->pid = 0;
+		nih_free (job);
+	}
 
 
 	/* Check that a job with no running process can move from stopping
@@ -2032,12 +2883,22 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("stopping to killed without process");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_STOPPING;
-		job->process[PROCESS_POST_STOP]->pid = 0;
+		job->pid[PROCESS_POST_STOP] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2047,9 +2908,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
-		TEST_NE (job->process[PROCESS_POST_STOP]->pid, 0);
+		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
-		waitpid (job->process[PROCESS_POST_STOP]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2058,19 +2919,27 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-	}
+		TEST_EQ (job->kill_process, (ProcessType)-1);
 
-	job->process[PROCESS_POST_STOP]->pid = 0;
+		nih_free (job);
+	}
 
 
 	/* Check that a job with a stop process can move from killed
@@ -2078,12 +2947,22 @@ test_change_state (void)
 	 */
 	TEST_FEATURE ("killed to post-stop");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
-		job->process[PROCESS_POST_STOP]->pid = 0;
+		job->pid[PROCESS_POST_STOP] = 0;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
 		job->failed_process = -1;
@@ -2093,9 +2972,9 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
-		TEST_NE (job->process[PROCESS_POST_STOP]->pid, 0);
+		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
-		waitpid (job->process[PROCESS_POST_STOP]->pid, &status, 0);
+		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -2104,126 +2983,468 @@ test_change_state (void)
 		TEST_EQ (stat (filename, &statbuf), 0);
 		unlink (filename);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
 
 	/* Check that a job without a stop process can move from killed
 	 * to post-stop, skipping over that state, and instead going all
-	 * the way through to the waiting state.  Because we get there,
-	 * we should get a stopped event emitted, and the cause forgotten.
+	 * the way through to being deleted.  Because we get there,
+	 * we should get a stopped event emitted, and both the events
+	 * that started and stopped the job forgotten.
 	 */
 	TEST_FEATURE ("killed to post-stop without process");
-	tmp = job->process[PROCESS_POST_STOP];
-	job->process[PROCESS_POST_STOP] = NULL;
+	tmp = class->process[PROCESS_POST_STOP];
+	class->process[PROCESS_POST_STOP] = NULL;
 
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_KILLED;
 
-		cause->jobs = 2;
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
 
 		job_change_state (job, JOB_POST_STOP);
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
+		TEST_FREE (job);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		TEST_EQ (cause->jobs, 1);
+		TEST_FREE (blocked);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+	class->process[PROCESS_POST_STOP] = tmp;
+
+
+	/* Check that a job with a stop process that fails to run moves
+	 * from killed to post-start, the goal gets changed to stop, the
+	 * status to stopped (and thus through to being deleted) and the
+	 * failed information set correctly.
+	 */
+	TEST_FEATURE ("killed to post-stop for failed process");
+	tmp = class->process[PROCESS_POST_STOP];
+	class->process[PROCESS_POST_STOP] = fail;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_KILLED;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_FREE_TAG (job);
+
+		TEST_DIVERT_STDERR (output) {
+			job_change_state (job, JOB_POST_STOP);
+		}
+		rewind (output);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, TRUE);
+
+		TEST_FREE (blocked);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=post-stop");
+		TEST_EQ_P (event->env[4], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, 1);
+		TEST_FILE_EQ (output, ("test: Failed to spawn test "
+				       "post-stop process: unable to execute: "
+				       "No such file or directory\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
 	}
 
-	job->process[PROCESS_POST_STOP] = tmp;
+	class->process[PROCESS_POST_STOP] = tmp;
 
 
-	/* Check that a job can move from post-stop to waiting.  This
-	 * should emit the stopped event and clear the cause, but not the
-	 * failed information.
+	/* Check that a job can move from post-stop to being deleted.  This
+	 * should emit the stopped event and clear the cause.
 	 */
 	TEST_FEATURE ("post-stop to waiting");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		cause->jobs = 2;
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
+		TEST_FREE_TAG (job);
+
 		job_change_state (job, JOB_WAITING);
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
+		TEST_FREE (job);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
 
-		TEST_EQ (cause->jobs, 1);
+		TEST_FREE (blocked);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+
+	/* Check that a job with a named instance includes the instance
+	 * name in the stopped event.
+	 */
+	TEST_FEATURE ("post-stop to waiting for named instance");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (blocked);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+
+	/* Check that any exported variable is added to the stopped event
+	 * from the job environment; it should not be possible to overwrite
+	 * built-in variables, and any unknown variables should be ignored.
+	 */
+	TEST_FEATURE ("post-stop to waiting with export");
+	assert (nih_str_array_add (&(class->export), class, NULL, "FOO"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "JOB"));
+	assert (nih_str_array_add (&(class->export), class, NULL, "BEEP"));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "foo");
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=BAZ"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "JOB=wibble"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (blocked);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_STR (event->env[5], "FOO=BAR");
+		TEST_EQ_P (event->env[6], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+	}
+
+	nih_free (class->export);
+	class->export = NULL;
+
+
+	/* Check that when a job is deleted, the InstanceRemoved signal
+	 * is also emitted on any D-Bus connections.
+	 */
+	TEST_FEATURE ("post-stop to waiting with d-bus connection");
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+			job_path = nih_strdup (NULL, job->path);
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+
+			nih_list_add (control_conns, &entry->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (blocked);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, 1);
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
+						   "InstanceRemoved"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), class->path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_OBJECT_PATH, &path,
+						  DBUS_TYPE_INVALID));
+
+		TEST_EQ_STR (path, job_path);
+
+		dbus_message_unref (message);
+
+		nih_free (job_path);
+
+		nih_list_remove (&entry->entry);
 	}
+
+	nih_free (entry);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 
 
 	/* Check that a job can move from post-stop to starting.  This
 	 * should emit the starting event and block on it, as well as clear
-	 * any failed state information; but not the cause.
+	 * any failed state information; but only unblock and unreference the
+	 * stop events, the start events should remain referenced while the
+	 * environment should be replaced with the new one.
 	 */
 	TEST_FEATURE ("post-stop to starting");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=TEA"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=COFFEE"));
+
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->start_env), job,
+						   NULL, "BAZ=BAZ"));
+
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "FOO=BAR"));
+			assert (nih_str_array_add (&(job->stop_env), job,
+						   NULL, "BAZ=BAZ"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_POST_STOP;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		env1 = job->env;
+		env2 = job->start_env;
+		env3 = job->stop_env;
+
+		TEST_FREE_TAG (env1);
+		TEST_FREE_TAG (env2);
+		TEST_FREE_TAG (env3);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
@@ -2234,275 +3455,371 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ_P (job->cause, cause);
-		TEST_EQ_P (job->blocked, (EventEmission *)events->next);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "starting");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_P (emission->event.args[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_FREE (env1);
+
+		TEST_NOT_FREE (env2);
+		TEST_EQ_P (job->env, env2);
+		TEST_EQ_P (job->start_env, NULL);
+
+		TEST_FREE (env3);
+		TEST_EQ_P (job->stop_env, NULL);
+
+		TEST_EQ_P (job->blocker, (Event *)events->next);
+
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
 	}
 
 
-	/* Check that if a job tries to move from post-stop to starting too
-	 * many times in a given period then it is caught, a message is
-	 * output and the job sent back to stopped and waiting.  We get
-	 * a stopped event, and the cause is cleared.
+	/* Check that when there is no new environment, the old one is left
+	 * intact when the job moves from post-stop to starting.
 	 */
-	TEST_FEATURE ("post-stop to starting too fast");
-	job->respawn_limit = 10;
-	job->respawn_interval = 1000;
-
+	TEST_FEATURE ("post-stop to starting without new environment");
 	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "FOO=TEA"));
+			assert (nih_str_array_add (&(job->env), job,
+						   NULL, "BAZ=COFFEE"));
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
 		job->goal = JOB_START;
 		job->state = JOB_POST_STOP;
 
-		job->cause = cause;
-		job->blocked = NULL;
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		env1 = job->env;
+
+		TEST_FREE_TAG (env1);
 
 		job->failed = TRUE;
 		job->failed_process = PROCESS_MAIN;
 		job->exit_status = 1;
 
-		job->respawn_time = time (NULL);
-		job->respawn_count = 10;
+		job_change_state (job, JOB_STARTING);
 
-		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_STARTING);
-		}
-		rewind (output);
+		TEST_EQ (job->goal, JOB_START);
+		TEST_EQ (job->state, JOB_STARTING);
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
+		TEST_EQ (cause->blockers, 1);
+		TEST_EQ (cause->failed, FALSE);
 
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
+		TEST_NOT_FREE (env1);
+		TEST_EQ_P (job->env, env1);
+		TEST_EQ_P (job->start_env, NULL);
 
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
+		TEST_EQ_P (job->blocker, (Event *)events->next);
 
-		TEST_LIST_EMPTY (events);
+		TEST_NOT_FREE (blocked);
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_EQ_P (blocked->event, cause);
+		event_unblock (cause);
 
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, 1);
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "starting");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
 
-		TEST_FILE_EQ (output,
-			      "test: test respawning too fast, stopped\n");
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
+		TEST_LIST_NOT_EMPTY (&event->blocking);
 
-	job->respawn_limit = 0;
-	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
-	job->respawn_time = 0;
-	job->respawn_count = 0;
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
 
+		TEST_LIST_EMPTY (&event->blocking);
 
-	/* Check that an instance job can move from post-stop to waiting,
-	 * going through that state and ending up in deleted.
-	 */
-	TEST_FEATURE ("post-stop to waiting for instance");
-	job->instance_of = job_new (NULL, "wibble");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		cause->jobs = 2;
-		job->cause = cause;
-		job->blocked = NULL;
-
-		job->failed = TRUE;
-		job->failed_process = PROCESS_MAIN;
-		job->exit_status = 1;
-
-		job_change_state (job, JOB_WAITING);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_DELETED);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (cause->jobs, 1);
-
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
-
-		TEST_LIST_EMPTY (events);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, 1);
-	}
-
-	nih_list_free (&job->instance_of->entry);
-	job->instance_of = NULL;
-
-
-	/* Check that a job with a replacement can move from post-stop to
-	 * waiting, going through that state and ending up in deleted where
-	 * the replacement takes over and becomes a real job.
-	 */
-	TEST_FEATURE ("post-stop to waiting for replaced job");
-	job->replacement = job_new (NULL, "wibble");
-	job->replacement->replacement_for = job;
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		cause->jobs = 2;
-		job->cause = cause;
-		job->blocked = NULL;
-
-		job->failed = TRUE;
-		job->failed_process = PROCESS_MAIN;
-		job->exit_status = 1;
-
-		job_change_state (job, JOB_WAITING);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_DELETED);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (cause->jobs, 1);
-
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "failed");
-		TEST_EQ_STR (emission->event.args[2], "main");
-		TEST_EQ_P (emission->event.args[3], NULL);
-		TEST_EQ_STR (emission->event.env[0], "EXIT_STATUS=1");
-		TEST_EQ_P (emission->event.env[1], NULL);
-		nih_list_free (&emission->event.entry);
-
-		TEST_LIST_EMPTY (events);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, 1);
-
-		TEST_EQ_P (job->replacement->replacement_for, NULL);
-	}
-
-	nih_list_free (&job->replacement->entry);
-	job->replacement = NULL;
-
-
-	/* Check that an instance of a replaced job can move from post-stop
-	 * to deleted via waiting, and cause its own instance parent to
-	 * become deleted and replaced as well.
-	 */
-	TEST_FEATURE ("post-stop to waiting for instance of replaced job");
-	job->instance_of = job_new (NULL, "wibble");
-	job->instance_of->replacement = job_new (NULL, "wibble");
-	job->instance_of->replacement->replacement_for = job->instance_of;
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		cause->jobs = 2;
-		job->cause = cause;
-		job->blocked = NULL;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_change_state (job, JOB_WAITING);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_DELETED);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ_P (job->blocked, NULL);
-
-		TEST_EQ (cause->jobs, 1);
-
-		emission = (EventEmission *)events->next;
-		TEST_ALLOC_SIZE (emission, sizeof (EventEmission));
-		TEST_EQ_STR (emission->event.name, "stopped");
-		TEST_EQ_STR (emission->event.args[0], "test");
-		TEST_EQ_STR (emission->event.args[1], "ok");
-		TEST_EQ_P (emission->event.args[2], NULL);
-		TEST_EQ_P (emission->event.env, NULL);
-		nih_list_free (&emission->event.entry);
+		nih_free (event);
 
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
 
-		TEST_EQ (job->instance_of->goal, JOB_STOP);
-		TEST_EQ (job->instance_of->state, JOB_DELETED);
-
-		TEST_EQ (job->instance_of->replacement->replacement_for, NULL);
+		nih_free (job);
 	}
 
-	nih_list_free (&job->instance_of->replacement->entry);
-	nih_list_free (&job->instance_of->entry);
-	job->instance_of = NULL;
+
+	/* Check that a job which has a better replacement can move from
+	 * post-stop to waiting, and be removed from the jobs hash table
+	 * and replaced by the better one.
+	 */
+	TEST_FEATURE ("post-stop to waiting for replaced job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+			file = conf_file_new (source, "/tmp/test");
+			file->job = job_class_new (NULL, "test");
+			replacement = file->job;
+
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		nih_hash_add (job_classes, &class->entry);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (job);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_FREE (job);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (blocked);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		ptr = (JobClass *)nih_hash_lookup (job_classes, "test");
+		TEST_EQ (ptr, replacement);
+
+		file->job = NULL;
+		nih_free (replacement);
+		nih_free (source);
+	}
+
+
+	/* Check that a job with a remaining running instance is not deleted,
+	 * and is not replaced even if there is another waiting - only the
+	 * instance should be deleted.
+	 */
+	TEST_FEATURE ("post-stop to waiting for still active job");
+	class->deleted = TRUE;
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+			file = conf_file_new (source, "/tmp/test");
+			file->job = job_class_new (NULL, "test");
+			replacement = file->job;
+
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, cause);
+			event_block (cause);
+			nih_list_add (&job->blocking, &blocked->entry);
+
+			instance = job_new (class, "");
+			instance->goal = JOB_START;
+			instance->state = JOB_RUNNING;
+		}
+
+		nih_hash_add (job_classes, &class->entry);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		job->blocker = NULL;
+		cause->failed = FALSE;
+
+		TEST_FREE_TAG (blocked);
+
+		job->failed = TRUE;
+		job->failed_process = PROCESS_MAIN;
+		job->exit_status = 1;
+
+		TEST_FREE_TAG (class);
+		TEST_FREE_TAG (job);
+		TEST_FREE_TAG (instance);
+
+		job_change_state (job, JOB_WAITING);
+
+		TEST_NOT_FREE (class);
+		TEST_FREE (job);
+		TEST_NOT_FREE (instance);
+
+		TEST_EQ (cause->blockers, 0);
+		TEST_EQ (cause->failed, FALSE);
+
+		TEST_FREE (blocked);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+		TEST_LIST_EMPTY (&event->blocking);
+		nih_free (event);
+
+		TEST_LIST_EMPTY (events);
+
+		ptr = (JobClass *)nih_hash_lookup (job_classes, "test");
+		TEST_EQ_P (ptr, class);
+
+		file->job = NULL;
+		nih_free (replacement);
+		nih_free (source);
+
+		nih_free (instance);
+	}
+
+	class->deleted = FALSE;
+
+
+	/* Check that a job with a deleted source can move from post-stop
+	 * to waiting, be removed from the jobs hash table, replaced by
+	 * a better one, then freed.
+	 */
+	TEST_FEATURE ("post-stop to waiting for deleted job");
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	file = conf_file_new (source, "/tmp/test");
+	file->job = job_class_new (NULL, "test");
+	replacement = file->job;
+
+	class->deleted = TRUE;
+	job = job_new (class, "");
+
+	nih_hash_add (job_classes, &class->entry);
+
+	blocked = blocked_new (job, BLOCKED_EVENT, cause);
+	event_block (cause);
+	nih_list_add (&job->blocking, &blocked->entry);
+
+	job->goal = JOB_STOP;
+	job->state = JOB_POST_STOP;
+
+	job->blocker = NULL;
+	cause->failed = FALSE;
+
+	TEST_FREE_TAG (blocked);
+
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = 1;
+
+	TEST_FREE_TAG (class);
+	TEST_FREE_TAG (job);
+
+	job_change_state (job, JOB_WAITING);
+
+	TEST_FREE (class);
+	TEST_FREE (job);
+
+	TEST_EQ (cause->blockers, 0);
+	TEST_EQ (cause->failed, FALSE);
+
+	TEST_FREE (blocked);
+
+	event = (Event *)events->next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "stopped");
+	TEST_EQ_STR (event->env[0], "JOB=test");
+	TEST_EQ_STR (event->env[1], "INSTANCE=");
+	TEST_EQ_STR (event->env[2], "RESULT=failed");
+	TEST_EQ_STR (event->env[3], "PROCESS=main");
+	TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+	TEST_EQ_P (event->env[5], NULL);
+	TEST_LIST_EMPTY (&event->blocking);
+	nih_free (event);
+
+	TEST_LIST_EMPTY (events);
+
+	ptr = (JobClass *)nih_hash_lookup (job_classes, "test");
+	TEST_EQ (ptr, replacement);
+
+	file->job = NULL;
+	nih_free (replacement);
+	nih_free (source);
 
 
 	fclose (output);
 	rmdir (dirname);
 
-	nih_list_free (&job->entry);
-
-	nih_list_free (&cause->event.entry);
+	nih_free (cause);
 	event_poll ();
 }
 
 void
 test_next_state (void)
 {
-	Job *job;
+	JobClass *class;
+	Job       *job;
 
 	TEST_FUNCTION ("job_next_state");
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job);
-	job->process[PROCESS_MAIN]->command = "echo";
+	class = job_class_new (NULL, "test");
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = "echo";
 
-	/* Check that the next state if we're stopping a waiting job is
-	 * deleted.  The only place this can happen is from the job loop
-	 * for jobs that should be deleted or replaced; so this is the
-	 * logical next state.
-	 */
-	TEST_FEATURE ("with waiting job and a goal of stop");
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-
-	TEST_EQ (job_next_state (job), JOB_DELETED);
-
+	job = job_new (class, "");
 
 	/* Check that the next state if we're starting a waiting job is
 	 * starting.
@@ -2515,13 +3832,13 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're stopping a starting job is
-	 * waiting.
+	 * stpoping.
 	 */
 	TEST_FEATURE ("with starting job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_STARTING;
 
-	TEST_EQ (job_next_state (job), JOB_WAITING);
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 
 	/* Check that the next state if we're starting a starting job is
@@ -2594,6 +3911,17 @@ test_next_state (void)
 	TEST_EQ (job_next_state (job), JOB_RUNNING);
 
 
+	/* Check that the next state if we're respawning after a post-start
+	 * job is stopping with the goal changed.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of respawn");
+	job->goal = JOB_RESPAWN;
+	job->state = JOB_POST_START;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+	TEST_EQ (job->goal, JOB_START);
+
+
 	/* Check that the next state if we're stopping a running job is
 	 * pre-stop.  This is the "normal" stop process, as called from the
 	 * goal change event.
@@ -2601,7 +3929,7 @@ test_next_state (void)
 	TEST_FEATURE ("with running job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
-	job->process[PROCESS_MAIN]->pid = 1;
+	job->pid[PROCESS_MAIN] = 1;
 
 	TEST_EQ (job_next_state (job), JOB_PRE_STOP);
 
@@ -2613,7 +3941,7 @@ test_next_state (void)
 	TEST_FEATURE ("with dead running job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_RUNNING;
-	job->process[PROCESS_MAIN]->pid = 0;
+	job->pid[PROCESS_MAIN] = 0;
 
 	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
@@ -2648,6 +3976,17 @@ test_next_state (void)
 	job->state = JOB_PRE_STOP;
 
 	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+
+	/* Check that the next state if we're respawning after a pre-stop
+	 * job is stopping with the goal changed.
+	 */
+	TEST_FEATURE ("with post-start job and a goal of respawn");
+	job->goal = JOB_RESPAWN;
+	job->state = JOB_PRE_STOP;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+	TEST_EQ (job->goal, JOB_START);
 
 
 	/* Check that the next state if we're starting a stopping job is
@@ -2712,2001 +4051,3034 @@ test_next_state (void)
 	TEST_EQ (job_next_state (job), JOB_WAITING);
 
 
-	nih_list_free (&job->entry);
+	nih_free (class);
 }
 
 
 void
-test_should_replace (void)
+test_failed (void)
 {
-	Job *job1, *job2, *job3;
-	int  replace;
-
-	TEST_FUNCTION ("job_should_replace");
-	job1 = job_new (NULL, "foo");
-	job1->goal = JOB_STOP;
-	job1->state = JOB_WAITING;
-
-	job2 = job_new (NULL, "bar");
-	job2->goal = JOB_START;
-	job2->state = JOB_RUNNING;
-	job2->replacement = job1;
-
-	job3 = job_new (NULL, "bar");
-	job3->goal = JOB_START;
-	job3->state = JOB_RUNNING;
-	job3->instance_of = job2;
-
-
-	/* Check that we should not replace a job that doesn't have a
-	 * replacement at this point.
-	 */
-	TEST_FEATURE ("with replacement-less job");
-	replace = job_should_replace (job1);
-
-	TEST_FALSE (replace);
-
-
-	/* Check that we should not replace a job that has a replacement,
-	 * but is still running.
-	 */
-	TEST_FEATURE ("with running job");
-	replace = job_should_replace (job2);
-
-	TEST_FALSE (replace);
-
-
-	/* Check that we should replace a job that has a replacement and
-	 * is no longer running.
-	 */
-	TEST_FEATURE ("with stopped job");
-	job2->goal = JOB_STOP;
-	job2->state = JOB_WAITING;
-
-	replace = job_should_replace (job2);
-
-	TEST_TRUE (replace);
-
-
-	/* Check that we should not replace a job that has current instances.
-	 */
-	TEST_FEATURE ("with job that has instances");
-	job2->instance = TRUE;
-
-	replace = job_should_replace (job2);
-
-	TEST_FALSE (replace);
-
-
-	/* Check that we should replace a job that has no current instances.
-	 */
-	TEST_FEATURE ("with instance-less job");
-	job3->instance_of = NULL;
-
-	replace = job_should_replace (job2);
-
-	TEST_TRUE (replace);
-
-
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
-}
-
-
-void
-test_run_process (void)
-{
-	Job           *job = NULL;
-	EventEmission *em;
-	FILE          *output;
-	struct stat    statbuf;
-	char           filename[PATH_MAX], buf[80], **args;
-	int            status, first;
-
-	TEST_FUNCTION ("job_run_process");
-	TEST_FILENAME (filename);
-
-	/* Check that we can run a simple command, and have the process id
-	 * and state filled in.  We should be able to wait for the pid to
-	 * finish and see that it has been run as expected.
-	 */
-	TEST_FEATURE ("with simple command");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"touch %s", filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		unlink (filename);
-		nih_list_free (&job->entry);
-	}
-
-
-	/* Check that we can run a command that requires a shell to be
-	 * intepreted correctly, a shell should automatically be used to
-	 * make this work.  Check the contents of a file we'll create to
-	 * check that a shell really was used.
-	 */
-	TEST_FEATURE ("with shell command");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"echo $$ > %s", filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
-		TEST_EQ (stat (filename, &statbuf), 0);
-
-		/* Filename should contain the pid */
-		output = fopen (filename, "r");
-		sprintf (buf, "%d\n", job->process[PROCESS_MAIN]->pid);
-		TEST_FILE_EQ (output, buf);
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-	/* Check that we can run a small shell script, and that it's run
-	 * by using the shell directly and passing the script in on the
-	 * command-line.
-	 */
-	TEST_FEATURE ("with small script");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"exec > %s\necho $0\necho $@", filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "/bin/sh\n");
-		TEST_FILE_EQ (output, "\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-
-	/* Check that shell scripts are run with the -e option set, so that
-	 * any failing command causes the entire script to fail.
-	 */
-	TEST_FEATURE ("with script that will fail");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"exec > %s\ntest -d %s\necho oops",
-				filename, filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 1);
-
-		output = fopen (filename, "r");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-
-	/* Check that a small shell script will have arguments from the
-	 * cause passed to it, if one exists.
-	 */
-	TEST_FEATURE ("with small script and cause");
-	args = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	em = event_emit ("test", args, NULL);
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->cause = em;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"exec > %s\necho $0\necho $@", filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "/bin/sh\n");
-		TEST_FILE_EQ (output, "foo bar\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	/* Check that an event without arguments doesn't cause any problems */
-	TEST_FEATURE ("with cause without arguments");
-	em = event_emit ("test", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->cause = em;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_sprintf (
-				job->process[PROCESS_MAIN],
-				"exec > %s\necho $0\necho $@", filename);
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "/bin/sh\n");
-		TEST_FILE_EQ (output, "\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	if (stat ("/dev/fd", &statbuf) < 0) {
-		printf ("SKIP: no /dev/fd\n");
-		goto no_devfd;
-	}
-
-	/* Check that a particularly long script is instead invoked by
-	 * using the /dev/fd feature, with the shell script fed to the
-	 * child process by an NihIo structure.
-	 */
-	TEST_FEATURE ("with long script");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_alloc (
-				job->process[PROCESS_MAIN], 4096);
-			sprintf (job->process[PROCESS_MAIN]->command,
-				 "exec > %s\necho $0\necho $@\n", filename);
-			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
-				strcat (job->process[PROCESS_MAIN]->command,
-					"# this just bulks it out a bit");
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		/* Loop until we've fed all of the data. */
-		first = TRUE;
-		for (;;) {
-			fd_set readfds, writefds, exceptfds;
-			int    nfds;
-
-			nfds = 0;
-			FD_ZERO (&readfds);
-			FD_ZERO (&writefds);
-			FD_ZERO (&exceptfds);
-
-			nih_io_select_fds (&nfds, &readfds,
-					   &writefds, &exceptfds);
-			if (! nfds) {
-				if (first)
-					TEST_FAILED ("expected to have "
-						     "data to feed.");
-				break;
-			}
-			first = FALSE;
-
-			select (nfds, &readfds, &writefds, &exceptfds, NULL);
-
-			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
-		}
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ_N (output, "/dev/fd/");
-		TEST_FILE_EQ (output, "\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-
-	/* Check that a long shell script will have arguments from the
-	 * cause passed to it, if one exists.
-	 */
-	TEST_FEATURE ("with long script and cause");
-	args = nih_str_array_new (NULL);
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
-	em = event_emit ("test", args, NULL);
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (NULL, "test");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-			job->cause = em;
-			job->process[PROCESS_MAIN] = job_process_new (job);
-			job->process[PROCESS_MAIN]->script = TRUE;
-			job->process[PROCESS_MAIN]->command = nih_alloc (
-				job->process[PROCESS_MAIN], 4096);
-			sprintf (job->process[PROCESS_MAIN]->command,
-				 "exec > %s\necho $0\necho $@\n", filename);
-			while (strlen (job->process[PROCESS_MAIN]->command) < 4000)
-				strcat (job->process[PROCESS_MAIN]->command,
-					"# this just bulks it out a bit");
-		}
-
-		job_run_process (job, PROCESS_MAIN);
-
-		TEST_NE (job->process[PROCESS_MAIN]->pid, 0);
-
-		/* Loop until we've fed all of the data. */
-		first = TRUE;
-		for (;;) {
-			fd_set readfds, writefds, exceptfds;
-			int    nfds;
-
-			nfds = 0;
-			FD_ZERO (&readfds);
-			FD_ZERO (&writefds);
-			FD_ZERO (&exceptfds);
-
-			nih_io_select_fds (&nfds, &readfds,
-					   &writefds, &exceptfds);
-			if (! nfds) {
-				if (first)
-					TEST_FAILED ("expected to have "
-						     "data to feed.");
-				break;
-			}
-			first = FALSE;
-
-			select (nfds, &readfds, &writefds, &exceptfds, NULL);
-
-			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
-		}
-
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		output = fopen (filename, "r");
-		TEST_FILE_EQ_N (output, "/dev/fd/");
-		TEST_FILE_EQ (output, "foo bar\n");
-		TEST_FILE_END (output);
-		fclose (output);
-		unlink (filename);
-
-		nih_list_free (&job->entry);
-	}
-
-	nih_list_free (&em->event.entry);
-no_devfd:
-	;
-}
-
-
-void
-test_kill_process (void)
-{
+	JobClass *class;
 	Job      *job;
-	NihTimer *timer;
-	pid_t     pid;
-	int       status;
+	Blocked  *blocked1, *blocked2;
+	Event    *event1, *event2;
 
-	TEST_FUNCTION ("job_kill_process");
-	job = job_new (NULL, "test");
-	job->kill_timeout = 1000;
-	job->respawn_limit = 0;
+	TEST_FUNCTION ("job_failed");
 
-	job->process[PROCESS_MAIN] = job_process_new (job);
-	job->process[PROCESS_MAIN]->command = nih_strdup (
-		job->process[PROCESS_MAIN], "echo");
-
-
-	/* Check that an easily killed process goes away with just a single
-	 * call to job_kill_process, having received the TERM signal.
-	 * A kill timer should be set to handle the case where the child
-	 * doesn't get reaped.
+	/* Check that when the job has failed, the process and status are
+	 * stored in the job and any events are unblocked and also marked
+	 * as failed before freeing the blocking list.
 	 */
-	TEST_FEATURE ("with easily killed process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_KILLED;
-		TEST_CHILD (job->process[PROCESS_MAIN]->pid) {
-			pause ();
-		}
-		pid = job->process[PROCESS_MAIN]->pid;
-		setpgid (pid, pid);
+	TEST_FEATURE ("with no current failure");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
 
-		job_kill_process (job, PROCESS_MAIN);
+	event1 = event_new (NULL, "foo", NULL);
+	blocked1 = blocked_new (job, BLOCKED_EVENT, event1);
+	event_block (event1);
+	nih_list_add (&job->blocking, &blocked1->entry);
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+	TEST_FREE_TAG (blocked1);
 
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGTERM);
+	event2 = event_new (NULL, "bar", NULL);
+	blocked2 = blocked_new (job, BLOCKED_EVENT, event2);
+	event_block (event2);
+	nih_list_add (&job->blocking, &blocked2->entry);
 
-		TEST_NE_P (job->kill_timer, NULL);
-		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-		TEST_ALLOC_PARENT (job->kill_timer, job);
-		TEST_GE (job->kill_timer->due, time (NULL) + 950);
-		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+	TEST_FREE_TAG (blocked2);
 
-		nih_free (job->kill_timer);
-		job->kill_timer = NULL;
+	job_failed (job, PROCESS_MAIN, 1);
 
-		event_poll ();
-	}
+	TEST_TRUE (job->failed);
+	TEST_EQ (job->failed_process, PROCESS_MAIN);
+	TEST_EQ (job->exit_status, 1);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked1);
+	TEST_FREE (blocked2);
+
+	TEST_EQ (event1->blockers, 0);
+	TEST_TRUE (event1->failed);
+
+	TEST_EQ (event2->blockers, 0);
+	TEST_TRUE (event2->failed);
+
+	nih_free (class);
 
 
-	/* Check that a process that's hard to kill doesn't go away, but
-	 * that the kill timer sends the KILL signal which should finally
-	 * get rid of it.
+	/* Check that if the job has already failed, the new failure
+	 * information does not override it and thus the events remain blocked
+	 * since these were added after the first failure.
 	 */
-	TEST_FEATURE ("with hard to kill process");
-	TEST_ALLOC_FAIL {
-		int wait_fd = 0;
+	TEST_FEATURE ("with previous failure");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = 1;
 
-		job->goal = JOB_STOP;
-		job->state = JOB_KILLED;
-		TEST_CHILD_WAIT (job->process[PROCESS_MAIN]->pid, wait_fd) {
-			struct sigaction act;
+	event1 = event_new (NULL, "foo", NULL);
+	blocked1 = blocked_new (job, BLOCKED_EVENT, event1);
+	event_block (event1);
+	nih_list_add (&job->blocking, &blocked1->entry);
 
-			act.sa_handler = SIG_IGN;
-			act.sa_flags = 0;
-			sigemptyset (&act.sa_mask);
-			sigaction (SIGTERM, &act, NULL);
+	TEST_FREE_TAG (blocked1);
 
-			TEST_CHILD_RELEASE (wait_fd);
+	event2 = event_new (NULL, "bar", NULL);
+	blocked2 = blocked_new (job, BLOCKED_EVENT, event2);
+	event_block (event2);
+	nih_list_add (&job->blocking, &blocked2->entry);
 
-			for (;;)
-				pause ();
-		}
-		pid = job->process[PROCESS_MAIN]->pid;
-		setpgid (pid, pid);
+	TEST_FREE_TAG (blocked2);
 
-		job_kill_process (job, PROCESS_MAIN);
+	job_failed (job, PROCESS_POST_STOP, 10);
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+	TEST_TRUE (job->failed);
+	TEST_EQ (job->failed_process, PROCESS_PRE_START);
+	TEST_EQ (job->exit_status, 1);
 
-		TEST_EQ (kill (job->process[PROCESS_MAIN]->pid, 0), 0);
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+	TEST_NOT_FREE (blocked1);
+	TEST_NOT_FREE (blocked2);
 
-		TEST_NE_P (job->kill_timer, NULL);
-		TEST_ALLOC_SIZE (job->kill_timer, sizeof (NihTimer));
-		TEST_ALLOC_PARENT (job->kill_timer, job);
-		TEST_GE (job->kill_timer->due, time (NULL) + 950);
-		TEST_LE (job->kill_timer->due, time (NULL) + 1000);
+	TEST_EQ (event1->blockers, 1);
+	TEST_FALSE (event1->failed);
 
-		/* Run the kill timer */
-		timer = job->kill_timer;
-		timer->callback (timer->data, timer);
-		nih_free (timer);
+	TEST_EQ (event2->blockers, 1);
+	TEST_FALSE (event2->failed);
 
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_KILLED);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, pid);
+	nih_free (class);
 
-		waitpid (job->process[PROCESS_MAIN]->pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGKILL);
-
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		event_poll ();
-	}
-
-	nih_list_free (&job->entry);
-}
-
-
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-	return 0;
-}
-
-void
-test_child_reaper (void)
-{
-	Job           *job;
-	EventEmission *em;
-	FILE          *output;
-	int            exitcodes[2] = { 100, SIGINT << 8 };
-
-	TEST_FUNCTION ("job_child_reaper");
-	program_name = "test";
-	output = tmpfile ();
-
-	job = job_new (NULL, "test");
-	job->process[PROCESS_MAIN] = job_process_new (job);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	em = event_emit ("foo", NULL, NULL);
-
-
-	/* Check that the child reaper can be called with a pid that doesn't
-	 * match the job, and that the job state doesn't change.
-	 */
-	TEST_FEATURE ("with unknown pid");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job_child_reaper (NULL, 999, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap the running task of the job, which should
-	 * set the goal to stop and transition a state change into the
-	 * stopping state.  This should not be considered a failure.
-	 */
-	TEST_FEATURE ("with running process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap a running task of the job after it's been
-	 * sent the TERM signal and a kill timer set.  The kill timer should
-	 * be cancelled and freed, and since we killed it, the job should
-	 * still not be considered failed.
-	 */
-	TEST_FEATURE ("with kill timer");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_KILLED;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_ALLOC_SAFE {
-			destructor_called = 0;
-			job->kill_timer = (void *) nih_strdup (job, "test");
-			nih_alloc_set_destructor (job->kill_timer,
-						  my_destructor);
-		}
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_TRUE (destructor_called);
-		TEST_EQ_P (job->kill_timer, NULL);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap the pre-start process of the job, and if it
-	 * terminates with a good error code, end up in the running state.
-	 */
-	TEST_FEATURE ("with pre-start process");
-	job->process[PROCESS_PRE_START] = job_process_new (job);
-	job->process[PROCESS_PRE_START]->command = "echo";
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_PRE_START;
-		job->process[PROCESS_MAIN]->pid = 0;
-		job->process[PROCESS_PRE_START]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
-		TEST_GT (job->process[PROCESS_MAIN]->pid, 0);
-
-		waitpid (job->process[PROCESS_MAIN]->pid, NULL, 0);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-	}
-
-	job->process[PROCESS_PRE_START]->pid = 0;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap a failing pre-start process of the job, which
-	 * changes the goal to stop and transitions a state change in that
-	 * direction to the stopping state.  An error should be emitted
-	 * and the job and event should be marked as failed.
-	 */
-	TEST_FEATURE ("with failed pre-start process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_PRE_START;
-		job->process[PROCESS_PRE_START]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 1);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_PRE_START);
-		TEST_EQ (job->exit_status, 1);
-
-		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
-				       "terminated with status 1\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_PRE_START]->pid = 0;
-
-
-	/* Check that we can reap a killed starting task, which should
-	 * act as if it failed.  A different error should be output and
-	 * the failed exit status should contain the signal and the high bit.
-	 */
-	TEST_FEATURE ("with killed pre-start process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_PRE_START;
-		job->process[PROCESS_PRE_START]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGTERM);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_PRE_START]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_PRE_START);
-		TEST_EQ (job->exit_status, SIGTERM << 8);
-
-		TEST_FILE_EQ (output, ("test: test pre-start process (1) "
-				       "killed by TERM signal\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_PRE_START]->pid = 0;
-
-
-	/* Check that we can catch the running task failing, and if the job
-	 * is to be respawned, go into the stopping state but don't change
-	 * the goal to stop.
-	 *
-	 * This should also emit a warning, but should not set the failed
-	 * state since we're dealing with it.
-	 */
-	TEST_FEATURE ("with respawn of running process");
-	job->respawn = TRUE;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 0);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output,
-			      "test: test main process ended, respawning\n");
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->respawn = FALSE;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can catch a running task exiting with a "normal"
-	 * exit code, and even if it's marked respawn, set the goal to
-	 * stop and transition into the stopping state.
-	 */
-	TEST_FEATURE ("with normal exit of running respawn process");
-	job->respawn = TRUE;
-	job->normalexit = exitcodes;
-	job->normalexit_len = 1;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 100);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->respawn = FALSE;
-	job->normalexit = NULL;
-	job->normalexit_len = 0;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that a running task that fails with an exit status not
-	 * listed in normalexit causes the job to be marked as failed.
-	 */
-	TEST_FEATURE ("with abnormal exit of running process");
-	job->normalexit = exitcodes;
-	job->normalexit_len = 2;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 99);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, 99);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 99\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->normalexit = NULL;
-	job->normalexit_len = 0;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that a running task that fails doesn't mark the job or
-	 * event as failed if the goal was already to stop the job (since
-	 * it's probably failed because of the TERM or KILL signal).
-	 */
-	TEST_FEATURE ("with killed running process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_KILLED;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGTERM);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) killed "
-				       "by TERM signal\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that a running task that fails with an exit status
-	 * listed in normalexit does not cause the job to be marked as
-	 * failed, but instead just stops it normally.
-	 */
-	TEST_FEATURE ("with normal exit of running process");
-	job->normalexit = exitcodes;
-	job->normalexit_len = 2;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 100);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->normalexit = NULL;
-	job->normalexit_len = 0;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that a running task that fails with an signal
-	 * listed in normalexit does not cause the job to be marked as
-	 * failed, but instead just stops it normally.
-	 */
-	TEST_FEATURE ("with normal signal killed running process");
-	job->normalexit = exitcodes;
-	job->normalexit_len = 2;
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGINT);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) killed "
-				       "by INT signal\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->normalexit = NULL;
-	job->normalexit_len = 0;
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* A running task exiting with the zero exit code is considered
-	 * a normal termination if not marked respawn.
-	 */
-	TEST_FEATURE ("with running task and zero exit");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap the post-stop process of the job, and end up
-	 * in the waiting state.
-	 */
-	TEST_FEATURE ("with post-stop process");
-	job->process[PROCESS_POST_STOP] = job_process_new (job);
-	job->process[PROCESS_POST_STOP]->command = "echo";
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-		job->process[PROCESS_POST_STOP]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_POST_STOP]->pid = 0;
-
-
-	/* Check that we can reap a failing post-stop process of the job, which
-	 * should get marked as failed if the job hasn't been already.
-	 */
-	TEST_FEATURE ("with failed post-stop process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-		job->process[PROCESS_POST_STOP]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 1);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_POST_STOP);
-		TEST_EQ (job->exit_status, 1);
-
-		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
-				       "terminated with status 1\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_POST_STOP]->pid = 0;
-
-
-	/* Check that a failing stopping task doesn't overwrite the record
-	 * of a failing earlier task.
-	 */
-	TEST_FEATURE ("with stopping task failure after failure");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-		job->process[PROCESS_POST_STOP]->pid = 1;
-
-		job->cause = em;
-		em->failed = TRUE;
-
-		job->failed = TRUE;
-		job->failed_process = PROCESS_MAIN;
-		job->exit_status = SIGSEGV << 8;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, FALSE, 1);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_WAITING);
-		TEST_EQ (job->process[PROCESS_POST_STOP]->pid, 0);
-
-		TEST_EQ_P (job->cause, NULL);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, SIGSEGV << 8);
-
-		TEST_FILE_EQ (output, ("test: test post-stop process (1) "
-				       "terminated with status 1\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_POST_STOP]->pid = 0;
-
-
-	/* Check that we can reap the post-start task of the job, the
-	 * exit status should be ignored and the job transitioned into
-	 * the running state.  The pid of the job shouldn't be cleared,
-	 * but the aux pid should be.
-	 */
-	TEST_FEATURE ("with post-start process");
-	job->process[PROCESS_POST_START] = job_process_new (job);
-	job->process[PROCESS_POST_START]->command = "echo";
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_POST_START]->pid = 2;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 2, FALSE, 1);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test post-start process (2) "
-				       "terminated with status 1\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->process[PROCESS_POST_START]->pid = 0;
-
-
-	/* Check that we can reap the running task of the job, even if it
-	 * dies during the post-start state, which should set the goal to
-	 * stop and transition a state change into the stopping state.
-	 */
-	TEST_FEATURE ("with running process in post-start state");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap the running task of the job, while there
-	 * is a post-start script running; this should only set the goal to
-	 * stop since we also have to wait for the post-start script to stop.
-	 */
-	TEST_FEATURE ("with running process while post-start running");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_POST_START]->pid = 2;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->process[PROCESS_POST_START]->pid = 0;
-
-
-	/* Check that we can reap the running process before the post-start
-	 * process finishes.  Reaping the running process should mark the job
-	 * to be stopped, but not change the state, then reaping the post-start
-	 * process should change the state.
-	 */
-	TEST_FEATURE ("with running then post-start process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_POST_START]->pid = 2;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		job_child_reaper (NULL, 2, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->process[PROCESS_POST_START]->pid = 0;
-
-
-	/* Check that we can reap a failed running process before the
-	 * post-start process finishes.  Reaping the running process
-	 * should mark the job to be stopped, but not change the state,
-	 * then reaping the post-start process should change the state.
-	 */
-	TEST_FEATURE ("with failed running then post-start process");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_START;
-		job->state = JOB_POST_START;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_POST_START]->pid = 2;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 1, TRUE, SIGSEGV);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_POST_START);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_POST_START]->pid, 2);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, SIGSEGV << 8);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "killed by SEGV signal\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		job_child_reaper (NULL, 2, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_POST_START]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, TRUE);
-
-		TEST_EQ (job->failed, TRUE);
-		TEST_EQ (job->failed_process, PROCESS_MAIN);
-		TEST_EQ (job->exit_status, SIGSEGV << 8);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->process[PROCESS_POST_START]->pid = 0;
-
-
-	/* Check that we can reap the pre-stop task of the job, the
-	 * exit status should be ignored and the job transitioned into
-	 * the stopping state.  The pid of the job shouldn't be cleared,
-	 * but the aux pid should be.
-	 */
-	TEST_FEATURE ("with pre-stop process");
-	job->process[PROCESS_PRE_STOP] = job_process_new (job);
-	job->process[PROCESS_PRE_STOP]->command = "echo";
-
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_PRE_STOP;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_PRE_STOP]->pid = 2;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		TEST_DIVERT_STDERR (output) {
-			job_child_reaper (NULL, 2, FALSE, 1);
-		}
-		rewind (output);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 1);
-		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test pre-stop process (2) "
-				       "terminated with status 1\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->process[PROCESS_PRE_STOP]->pid = 0;
-
-
-	/* Check that we can reap the running task of the job, even if it
-	 * dies during the pre-stop state, which transition a state change
-	 * into the stopping state.
-	 */
-	TEST_FEATURE ("with running process in pre-stop state");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_PRE_STOP;
-		job->process[PROCESS_MAIN]->pid = 1;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-
-
-	/* Check that we can reap the running task of the job, while there
-	 * is a pre-stop script running; this should have no other effect
-	 * since we also have to wait for the pre-stop script to stop.
-	 */
-	TEST_FEATURE ("with running process while pre-stop running");
-	TEST_ALLOC_FAIL {
-		job->goal = JOB_STOP;
-		job->state = JOB_PRE_STOP;
-		job->process[PROCESS_MAIN]->pid = 1;
-		job->process[PROCESS_PRE_STOP]->pid = 2;
-
-		job->cause = em;
-		em->failed = FALSE;
-
-		job->failed = FALSE;
-		job->failed_process = -1;
-		job->exit_status = 0;
-
-		job_child_reaper (NULL, 1, FALSE, 0);
-
-		TEST_EQ (job->goal, JOB_STOP);
-		TEST_EQ (job->state, JOB_PRE_STOP);
-		TEST_EQ (job->process[PROCESS_MAIN]->pid, 0);
-		TEST_EQ (job->process[PROCESS_PRE_STOP]->pid, 2);
-
-		TEST_EQ_P (job->cause, em);
-		TEST_EQ (em->failed, FALSE);
-
-		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, -1);
-		TEST_EQ (job->exit_status, 0);
-	}
-
-	job->process[PROCESS_MAIN]->pid = 0;
-	job->process[PROCESS_PRE_STOP]->pid = 0;
-
-
-	fclose (output);
-
-	nih_list_free (&job->entry);
-
-	nih_list_free (&em->event.entry);
-	event_poll ();
-}
-
-
-void
-test_handle_event (void)
-{
-	Job            *job1, *job2;
-	Event          *event;
-	EventEmission  *em;
-
-	TEST_FUNCTION ("job_handle_event");
-	job1 = job_new (NULL, "foo");
-	job1->respawn_limit = 0;
-
-	event = event_new (job1, "wibble");
-	nih_list_add (&job1->start_events, &event->entry);
-
-	job2 = job_new (NULL, "bar");
-	job2->respawn_limit = 0;
-
-	event = event_new (job2, "wibble");
-	nih_list_add (&job2->stop_events, &event->entry);
-
-
-	/* Check that a non matching event has no effect on either job,
-	 * and doesn't result in the emission being given any jobs.
-	 */
-	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job1->goal = JOB_STOP;
-		job1->state = JOB_WAITING;
-		job1->cause = NULL;
-
-		job2->goal = JOB_START;
-		job2->state = JOB_RUNNING;
-		job2->cause = NULL;
-
-		job_handle_event (em);
-
-		TEST_EQ (em->jobs, 0);
-
-		TEST_EQ (job1->goal, JOB_STOP);
-		TEST_EQ (job1->state, JOB_WAITING);
-		TEST_EQ_P (job1->cause, NULL);
-
-		TEST_EQ (job2->goal, JOB_START);
-		TEST_EQ (job2->state, JOB_RUNNING);
-		TEST_EQ_P (job2->cause, NULL);
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	/* Check that a matching event results in the jobs being started or
-	 * stopped as appropriate.
-	 */
-	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job1->goal = JOB_STOP;
-		job1->state = JOB_WAITING;
-		job1->cause = NULL;
-
-		job2->goal = JOB_START;
-		job2->state = JOB_RUNNING;
-		job2->cause = NULL;
-
-		job_handle_event (em);
-
-		TEST_EQ (em->jobs, 2);
-
-		TEST_EQ (job1->goal, JOB_START);
-		TEST_EQ (job1->state, JOB_STARTING);
-		TEST_EQ_P (job1->cause, em);
-
-		TEST_EQ (job2->goal, JOB_STOP);
-		TEST_EQ (job2->state, JOB_STOPPING);
-		TEST_EQ_P (job2->cause, em);
-	}
-
-	nih_list_free (&em->event.entry);
-
-	nih_list_free (&job2->entry);
-
-
-	/* Check that a matching event for an instance job results in the
-	 * job itself being unchanged, but a new job being created that's
-	 * an instance of the first and that one being started.
-	 */
-	TEST_FEATURE ("with matching event for instance job");
-	job1->instance = TRUE;
-
-	em = event_emit ("wibble", NULL, NULL);
-
-	TEST_ALLOC_FAIL {
-		em->jobs = 0;
-
-		job1->goal = JOB_STOP;
-		job1->state = JOB_WAITING;
-		job1->cause = NULL;
-
-		job_handle_event (em);
-
-		TEST_EQ (em->jobs, 1);
-
-		TEST_EQ (job1->goal, JOB_STOP);
-		TEST_EQ (job1->state, JOB_WAITING);
-		TEST_EQ_P (job1->cause, NULL);
-
-		job2 = NULL;
-		NIH_HASH_FOREACH (jobs, iter) {
-			Job *instance = (Job *)iter;
-
-			if (instance->instance_of == job1) {
-				job2 = instance;
-				break;
-			}
-		}
-
-		TEST_NE_P (job2, NULL);
-		TEST_EQ (job2->instance, TRUE);
-		TEST_EQ_P (job2->instance_of, job1);
-
-		TEST_EQ (job2->goal, JOB_START);
-		TEST_EQ (job2->state, JOB_STARTING);
-		TEST_EQ_P (job2->cause, em);
-
-		nih_list_free (&job2->entry);
-	}
-
-	nih_list_free (&em->event.entry);
-
-
-	nih_list_free (&job1->entry);
 
 	event_poll ();
 }
 
 void
-test_handle_event_finished (void)
+test_finished (void)
 {
-	Job            *job1, *job2;
-	Event          *event;
-	EventEmission  *em;
+	JobClass  *class;
+	Job       *job;
+	Blocked   *blocked1, *blocked2;
+	Event     *event1, *event2;
 
-	TEST_FUNCTION ("job_handle_event_finished");
-	job1 = job_new (NULL, "foo");
-	job1->respawn_limit = 0;
-	job1->process[PROCESS_PRE_START] = job_process_new (job1);
-	job1->process[PROCESS_PRE_START]->command = "echo";
-	job1->process[PROCESS_POST_STOP] = job_process_new (job1);
-	job1->process[PROCESS_POST_STOP]->command = "echo";
+	TEST_FUNCTION ("job_finished");
 
-	event = event_new (job1, "wibble");
-	nih_list_add (&job1->start_events, &event->entry);
-
-	job2 = job_new (NULL, "bar");
-	job2->respawn_limit = 0;
-	job2->process[PROCESS_PRE_START] = job_process_new (job2);
-	job2->process[PROCESS_PRE_START]->command = "echo";
-	job2->process[PROCESS_POST_STOP] = job_process_new (job2);
-	job2->process[PROCESS_POST_STOP]->command = "echo";
-
-	event = event_new (job2, "wibble");
-	nih_list_add (&job2->stop_events, &event->entry);
-
-
-	/* Check that a non matching event has no effect on either job.
+	/* Check that when the job has a list of blocked events, each event
+	 * is unblocked and the list itself is then freed.
 	 */
-	TEST_FEATURE ("with non-matching event");
-	em = event_emit ("biscuit", NULL, NULL);
+	TEST_FEATURE ("with blocked events");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
 
-	TEST_ALLOC_FAIL {
-		job1->goal = JOB_STOP;
-		job1->state = JOB_STOPPING;
-		job1->blocked = NULL;
+	event1 = event_new (NULL, "foo", NULL);
+	blocked1 = blocked_new (job, BLOCKED_EVENT, event1);
+	event_block (event1);
+	nih_list_add (&job->blocking, &blocked1->entry);
 
-		job2->goal = JOB_START;
-		job2->state = JOB_STARTING;
-		job2->blocked = NULL;
+	TEST_FREE_TAG (blocked1);
 
-		job_handle_event_finished (em);
+	event2 = event_new (NULL, "bar", NULL);
+	blocked2 = blocked_new (job, BLOCKED_EVENT, event2);
+	event_block (event2);
+	nih_list_add (&job->blocking, &blocked2->entry);
 
-		TEST_EQ (job1->goal, JOB_STOP);
-		TEST_EQ (job1->state, JOB_STOPPING);
-		TEST_EQ_P (job1->blocked, NULL);
+	TEST_FREE_TAG (blocked2);
 
-		TEST_EQ (job2->goal, JOB_START);
-		TEST_EQ (job2->state, JOB_STARTING);
-		TEST_EQ_P (job2->blocked, NULL);
-	}
+	job_finished (job, FALSE);
 
-	nih_list_free (&em->event.entry);
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked1);
+	TEST_FREE (blocked2);
+
+	TEST_EQ (event1->blockers, 0);
+	TEST_FALSE (event1->failed);
+
+	TEST_EQ (event2->blockers, 0);
+	TEST_FALSE (event2->failed);
+
+	nih_free (class);
 
 
-	/* Check that a matching event results in the jobs being unblocked
-	 * and then started or stopped as appropriate.
+	/* Check that when the job failed, each event in the list is
+	 * unblocked and marked as failed.
 	 */
-	TEST_FEATURE ("with matching event");
-	em = event_emit ("wibble", NULL, NULL);
+	TEST_FEATURE ("with blocked events and failure");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
 
-	TEST_ALLOC_FAIL {
-		job1->goal = JOB_STOP;
-		job1->state = JOB_STOPPING;
-		job1->process[PROCESS_POST_STOP]->pid = 0;
-		job1->blocked = em;
+	event1 = event_new (NULL, "foo", NULL);
+	blocked1 = blocked_new (job, BLOCKED_EVENT, event1);
+	event_block (event1);
+	nih_list_add (&job->blocking, &blocked1->entry);
 
-		job2->goal = JOB_START;
-		job2->state = JOB_STARTING;
-		job2->process[PROCESS_PRE_START]->pid = 0;
-		job2->blocked = em;
+	TEST_FREE_TAG (blocked1);
 
-		job_handle_event_finished (em);
+	event2 = event_new (NULL, "bar", NULL);
+	blocked2 = blocked_new (job, BLOCKED_EVENT, event2);
+	event_block (event2);
+	nih_list_add (&job->blocking, &blocked2->entry);
 
-		TEST_EQ (job1->goal, JOB_STOP);
-		TEST_EQ (job1->state, JOB_POST_STOP);
-		TEST_GT (job1->process[PROCESS_POST_STOP]->pid, 0);
-		TEST_EQ_P (job1->blocked, NULL);
+	TEST_FREE_TAG (blocked2);
 
-		waitpid (job1->process[PROCESS_POST_STOP]->pid, NULL, 0);
+	job_finished (job, TRUE);
 
-		TEST_EQ (job2->goal, JOB_START);
-		TEST_EQ (job2->state, JOB_PRE_START);
-		TEST_GT (job2->process[PROCESS_PRE_START]->pid, 0);
-		TEST_EQ_P (job2->blocked, NULL);
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked1);
+	TEST_FREE (blocked2);
 
-		waitpid (job2->process[PROCESS_PRE_START]->pid, NULL, 0);
-	}
+	TEST_EQ (event1->blockers, 0);
+	TEST_TRUE (event1->failed);
 
-	nih_list_free (&em->event.entry);
+	TEST_EQ (event2->blockers, 0);
+	TEST_TRUE (event2->failed);
+
+	nih_free (class);
 
 
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	/* Check that when the job has no blocked events, the function
+	 * still works (and just does nothing).
+	 */
+	TEST_FEATURE ("without blocked events");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job_finished (job, TRUE);
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	nih_free (class);
+
 
 	event_poll ();
 }
 
 
 void
-test_detect_stalled (void)
+test_emit_event (void)
 {
-	Job           *job1, *job2;
-	Event         *event;
+	JobClass *class;
+	Job      *job;
+	Event    *event;
+	Blocked  *blocked;
 
-	TEST_FUNCTION ("job_detect_stalled");
+	TEST_FUNCTION ("job_emit_event");
 
+	/* Check that a nameless job in the starting state has the starting
+	 * event event emitted with the job name set.
+	 */
+	TEST_FEATURE ("with singleton in starting state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "starting");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 3);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that an instance job in the starting state also has the
+	 * instance name set.
+	 */
+	TEST_FEATURE ("with instance in starting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "starting");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 3);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the running state has the started
+	 * event emitted with the job name set.
+	 */
+	TEST_FEATURE ("with singleton in running state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "started");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 3);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that an instance job in the running state also has the
+	 * instance name set.
+	 */
+	TEST_FEATURE ("with instance in running state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "started");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 3);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopping state, with no failure,
+	 * has the stopping event emitted with the job name set and the
+	 * result as "ok"
+	 */
+	TEST_FEATURE ("with non-failed singleton in stopping state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 4);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the stopping state, with no failure,
+	 * also has the instance name set before the result information.
+	 */
+	TEST_FEATURE ("with non-failed instance in stopping state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 4);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopping state, with a process
+	 * terminated by an abnormal exit code, has the stopping event emitted
+	 * with the job name set, the result as failed, and the process and
+	 * exit status members set.
+	 */
+	TEST_FEATURE ("with failed singleton in stopping state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = 1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the stopping state, with a process
+	 * terminated by an abnormal exit code, also has the instance name
+	 * set before the result information.
+	 */
+	TEST_FEATURE ("with failed instance in stopping state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = 1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopping state, with a process
+	 * killed by a signal, has the stopping event emitted with the job
+	 * name set, the result as failed, and the process and exit signal
+	 * members set.
+	 */
+	TEST_FEATURE ("with killed singleton in stopping state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = SIGSEGV << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the stopping state, with a process
+	 * killed by a signal, also has the instance name set before the
+	 * result information.
+	 */
+	TEST_FEATURE ("with killed instance in stopping state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = SIGSEGV << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopping state, with a process
+	 * killed by an unknown signal, has the stopping event emitted with
+	 * the job name set, the result as failed, and the process and exit
+	 * signal members set.
+	 */
+	TEST_FEATURE ("with unknown killed singleton in stopping state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = 47 << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=47");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the stopping state, with a process
+	 * killed by an unknown signal, also has the instance name set before
+	 * the result information.
+	 */
+	TEST_FEATURE ("with unknown killed instance in stopping state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = 47 << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=47");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopping state, with a process
+	 * that failed to start at all,has the stopping event emitted with
+	 * the job name set, the result as failed, and just the process set.
+	 */
+	TEST_FEATURE ("with unstarted singleton in stopping state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the stopping state, with a process
+	 * that failed to start at all, also has the instance name set before
+	 * the result information.
+	 */
+	TEST_FEATURE ("with unstarted instance in stopping state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopping state that failed to
+	 * respawn has the stopping event emitted with the job name set,
+	 * the result as failed and the process set to respawn.
+	 */
+	TEST_FEATURE ("with failed respawn singleton in stopping state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = -1;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=respawn");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the stopping state that failed to
+	 * respawn also has the instance name set before the result
+	 * information.
+	 */
+	TEST_FEATURE ("with failed respawn instance in stopping state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+	job->failed = TRUE;
+	job->failed_process = -1;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopping");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=respawn");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the stopped state, with no failure,
+	 * has the stopped event emitted with the job name set and the
+	 * result as "ok"
+	 */
+	TEST_FEATURE ("with non-failed singleton in stopped state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 4);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the waiting state, with no failure,
+	 * also has the instance name set before the result information.
+	 */
+	TEST_FEATURE ("with non-failed instance in waiting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 4);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=ok");
+		TEST_EQ_P (event->env[3], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the waiting state, with a process
+	 * terminated by an abnormal exit code, has the waiting event emitted
+	 * with the job name set, the result as failed, and the process and
+	 * exit status members set.
+	 */
+	TEST_FEATURE ("with failed singleton in waiting state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = 1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the waiting state, with a process
+	 * terminated by an abnormal exit code, also has the instance name
+	 * set before the result information.
+	 */
+	TEST_FEATURE ("with failed instance in waiting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = 1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_STR (event->env[4], "EXIT_STATUS=1");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the waiting state, with a process
+	 * killed by a signal, has the waiting event emitted with the job
+	 * name set, the result as failed, and the process and exit signal
+	 * members set.
+	 */
+	TEST_FEATURE ("with killed singleton in waiting state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = SIGSEGV << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the waiting state, with a process
+	 * killed by a signal, also has the instance name set before the
+	 * result information.
+	 */
+	TEST_FEATURE ("with killed instance in waiting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = SIGSEGV << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=SEGV");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the waiting state, with a process
+	 * killed by an unknown signal, has the waiting event emitted with
+	 * the job name set, the result as failed, and the process and exit
+	 * signal members set.
+	 */
+	TEST_FEATURE ("with unknown killed singleton in waiting state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = 47 << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=47");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the waiting state, with a process
+	 * killed by an unknown signal, also has the instance name set before
+	 * the result information.
+	 */
+	TEST_FEATURE ("with unknown killed instance in waiting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_PRE_START;
+	job->exit_status = 47 << 8;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 6);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=pre-start");
+		TEST_EQ_STR (event->env[4], "EXIT_SIGNAL=47");
+		TEST_EQ_P (event->env[5], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the waiting state, with a process
+	 * that failed to start at all,has the waiting event emitted with
+	 * the job name set, the result as failed, and just the process set.
+	 */
+	TEST_FEATURE ("with unstarted singleton in waiting state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the waiting state, with a process
+	 * that failed to start at all, also has the instance name set before
+	 * the result information.
+	 */
+	TEST_FEATURE ("with unstarted instance in waiting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = PROCESS_MAIN;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=main");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a nameless job in the waiting state that failed to
+	 * respawn has the waiting event emitted with the job name set,
+	 * the result as failed and the process set to respawn.
+	 */
+	TEST_FEATURE ("with failed respawn singleton in waiting state");
+	class = job_class_new (NULL, "test");
+
+	job = job_new (class, "");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = -1;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=respawn");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+
+
+	/* Check that a instance job in the waiting state that failed to
+	 * respawn also has the instance name set before the result
+	 * information.
+	 */
+	TEST_FEATURE ("with failed respawn instance in waiting state");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+
+	job = job_new (class, "foo");
+	job->goal = JOB_STOP;
+	job->state = JOB_WAITING;
+	job->failed = TRUE;
+	job->failed_process = -1;
+	job->exit_status = -1;
+
+	TEST_ALLOC_FAIL {
+		event = job_emit_event (job);
+
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_LIST_NOT_EMPTY (&event->entry);
+
+		TEST_EQ_STR (event->name, "stopped");
+		TEST_ALLOC_SIZE (event->env, sizeof (char *) * 5);
+		TEST_EQ_STR (event->env[0], "JOB=test");
+		TEST_EQ_STR (event->env[1], "INSTANCE=foo");
+		TEST_EQ_STR (event->env[2], "RESULT=failed");
+		TEST_EQ_STR (event->env[3], "PROCESS=respawn");
+		TEST_EQ_P (event->env[4], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_free (event);
+	}
+
+	nih_free (class);
+}
+
+
+void
+test_name (void)
+{
+	JobClass   *class;
+	Job        *job;
+	const char *ret;
+	char       *name;
+
+	TEST_FUNCTION ("job_name");
+
+	/* Check that the name of a non-instance job is returned. */
+	TEST_FEATURE ("with non-instance job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	TEST_ALLOC_FAIL {
+		ret = job_name (job);
+
+		TEST_EQ_STR (ret, "test");
+	}
+
+	nih_free (class);
+
+
+	/* Check that the name of an instance job is returned. */
+	TEST_FEATURE ("with instance job");
+	class = job_class_new (NULL, "test");
+	class->instance = "$FOO";
+	job = job_new (class, "foo");
+
+	TEST_ALLOC_FAIL {
+		ret = job_name (job);
+
+		TEST_EQ_STR (ret, "test (foo)");
+	}
+
+	nih_free (class);
+
+
+	/* Check that a second call to the function frees the first returned
+	 * value.
+	 */
+	TEST_FEATURE ("with multiple calls");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	ret = job_name (job);
+	name = (char *)ret;
+
+	TEST_FREE_TAG (name);
+
+	job_name (job);
+
+	TEST_FREE (name);
+
+	nih_free (class);
+}
+
+
+void
+test_goal_name (void)
+{
+	const char *name;
+
+	TEST_FUNCTION ("job_goal_name");
+
+	/* Check that the JOB_STOP goal returns the right string. */
+	TEST_FEATURE ("with stop goal");
+	name = job_goal_name (JOB_STOP);
+
+	TEST_EQ_STR (name, "stop");
+
+
+	/* Check that the JOB_START goal returns the right string. */
+	TEST_FEATURE ("with start goal");
+	name = job_goal_name (JOB_START);
+
+	TEST_EQ_STR (name, "start");
+
+
+	/* Check that the JOB_RESPAWN goal returns the right string. */
+	TEST_FEATURE ("with respawn goal");
+	name = job_goal_name (JOB_RESPAWN);
+
+	TEST_EQ_STR (name, "respawn");
+
+
+	/* Check that an invalid goal returns NULL. */
+	TEST_FEATURE ("with invalid goal");
+	name = job_goal_name (1234);
+
+	TEST_EQ_P (name, NULL);
+}
+
+void
+test_goal_from_name (void)
+{
+	JobGoal goal;
+
+	TEST_FUNCTION ("job_goal_from_name");
+
+	/* Check that the JOB_STOP goal is returned for the right string. */
+	TEST_FEATURE ("with stop goal");
+	goal = job_goal_from_name ("stop");
+
+	TEST_EQ (goal, JOB_STOP);
+
+
+	/* Check that the JOB_START goal is returned for the right string. */
+	TEST_FEATURE ("with start goal");
+	goal = job_goal_from_name ("start");
+
+	TEST_EQ (goal, JOB_START);
+
+
+	/* Check that the JOB_RESPAWN goal is returned for the right string. */
+	TEST_FEATURE ("with respawn goal");
+	goal = job_goal_from_name ("respawn");
+
+	TEST_EQ (goal, JOB_RESPAWN);
+
+
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid goal");
+	goal = job_goal_from_name ("wibble");
+
+	TEST_EQ (goal, (JobGoal)-1);
+}
+
+
+void
+test_state_name (void)
+{
+	const char *name;
+
+	TEST_FUNCTION ("job_state_name");
+
+	/* Check that the JOB_WAITING state returns the right string. */
+	TEST_FEATURE ("with waiting state");
+	name = job_state_name (JOB_WAITING);
+
+	TEST_EQ_STR (name, "waiting");
+
+
+	/* Check that the JOB_STARTING state returns the right string. */
+	TEST_FEATURE ("with starting state");
+	name = job_state_name (JOB_STARTING);
+
+	TEST_EQ_STR (name, "starting");
+
+
+	/* Check that the JOB_PRE_START state returns the right string. */
+	TEST_FEATURE ("with pre-start state");
+	name = job_state_name (JOB_PRE_START);
+
+	TEST_EQ_STR (name, "pre-start");
+
+
+	/* Check that the JOB_SPAWNED state returns the right string. */
+	TEST_FEATURE ("with spawned state");
+	name = job_state_name (JOB_SPAWNED);
+
+	TEST_EQ_STR (name, "spawned");
+
+
+	/* Check that the JOB_POST_START state returns the right string. */
+	TEST_FEATURE ("with post-start state");
+	name = job_state_name (JOB_POST_START);
+
+	TEST_EQ_STR (name, "post-start");
+
+
+	/* Check that the JOB_RUNNING state returns the right string. */
+	TEST_FEATURE ("with running state");
+	name = job_state_name (JOB_RUNNING);
+
+	TEST_EQ_STR (name, "running");
+
+
+	/* Check that the JOB_PRE_STOP state returns the right string. */
+	TEST_FEATURE ("with pre-stop state");
+	name = job_state_name (JOB_PRE_STOP);
+
+	TEST_EQ_STR (name, "pre-stop");
+
+
+	/* Check that the JOB_STOPPING state returns the right string. */
+	TEST_FEATURE ("with stopping state");
+	name = job_state_name (JOB_STOPPING);
+
+	TEST_EQ_STR (name, "stopping");
+
+
+	/* Check that the JOB_KILLED state returns the right string. */
+	TEST_FEATURE ("with killed state");
+	name = job_state_name (JOB_KILLED);
+
+	TEST_EQ_STR (name, "killed");
+
+
+	/* Check that the JOB_POST_STOP state returns the right string. */
+	TEST_FEATURE ("with post-stop state");
+	name = job_state_name (JOB_POST_STOP);
+
+	TEST_EQ_STR (name, "post-stop");
+
+
+	/* Check that an invalid state returns NULL. */
+	TEST_FEATURE ("with invalid state");
+	name = job_state_name (1234);
+
+	TEST_EQ_P (name, NULL);
+}
+
+void
+test_state_from_name (void)
+{
+	JobState state;
+
+	TEST_FUNCTION ("job_state_from_name");
+
+	/* Check that JOB_WAITING is returned for the right string. */
+	TEST_FEATURE ("with waiting state");
+	state = job_state_from_name ("waiting");
+
+	TEST_EQ (state, JOB_WAITING);
+
+
+	/* Check that JOB_STARTING is returned for the right string. */
+	TEST_FEATURE ("with starting state");
+	state = job_state_from_name ("starting");
+
+	TEST_EQ (state, JOB_STARTING);
+
+
+	/* Check that JOB_PRE_START is returned for the right string. */
+	TEST_FEATURE ("with pre-start state");
+	state = job_state_from_name ("pre-start");
+
+	TEST_EQ (state, JOB_PRE_START);
+
+
+	/* Check that JOB_SPAWNED is returned for the right string. */
+	TEST_FEATURE ("with spawned state");
+	state = job_state_from_name ("spawned");
+
+	TEST_EQ (state, JOB_SPAWNED);
+
+
+	/* Check that JOB_POST_START is returned for the right string. */
+	TEST_FEATURE ("with post-start state");
+	state = job_state_from_name ("post-start");
+
+	TEST_EQ (state, JOB_POST_START);
+
+
+	/* Check that JOB_RUNNING is returned for the right string. */
+	TEST_FEATURE ("with running state");
+	state = job_state_from_name ("running");
+
+	TEST_EQ (state, JOB_RUNNING);
+
+
+	/* Check that JOB_PRE_STOP is returned for the right string. */
+	TEST_FEATURE ("with pre-stop state");
+	state = job_state_from_name ("pre-stop");
+
+	TEST_EQ (state, JOB_PRE_STOP);
+
+
+	/* Check that JOB_STOPPING is returned for the right string. */
+	TEST_FEATURE ("with stopping state");
+	state = job_state_from_name ("stopping");
+
+	TEST_EQ (state, JOB_STOPPING);
+
+
+	/* Check that JOB_KILLED is returned for the right string. */
+	TEST_FEATURE ("with killed state");
+	state = job_state_from_name ("killed");
+
+	TEST_EQ (state, JOB_KILLED);
+
+
+	/* Check that JOB_POST_STOP is returned for the right string. */
+	TEST_FEATURE ("with post-stop state");
+	state = job_state_from_name ("post-stop");
+
+	TEST_EQ (state, JOB_POST_STOP);
+
+
+	/* Check that -1 is returned for an invalid string. */
+	TEST_FEATURE ("with invalid state");
+	state = job_state_from_name ("wibble");
+
+	TEST_EQ (state, (JobState)-1);
+}
+
+
+void
+test_start (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	Blocked *        blocked;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+
+	TEST_FUNCTION ("job_start");
+	nih_error_init ();
+	nih_main_loop_init ();
 	event_init ();
 
-	job1 = job_new (NULL, "foo");
-	job1->goal = JOB_STOP;
-	job1->state = JOB_WAITING;
-
-	job2 = job_new (NULL, "bar");
-	job2->goal = JOB_STOP;
-	job2->state = JOB_WAITING;
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
 
-	/* Check that even if we detect the stalled state, we do nothing
-	 * if there's no handled for it.
-	 */
-	TEST_FEATURE ("with stalled state and no handler");
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we can detect the stalled state, when all jobs are
-	 * stopped, which results in the stalled event being queued.
-	 */
-	TEST_FEATURE ("with stalled state");
-	event = event_new (job1, "stalled");
-	nih_list_add (&job1->start_events, &event->entry);
-
-	job_detect_stalled ();
-
-	event = (Event *)events->prev;
-	TEST_EQ_STR (event->name, "stalled");
-	nih_list_free (&event->entry);
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled state if one of the jobs
-	 * is waiting to be started.
-	 */
-	TEST_FEATURE ("with waiting job");
-	job1->goal = JOB_START;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled state if one of the jobs
-	 * is starting.
-	 */
-	TEST_FEATURE ("with starting job");
-	job1->state = JOB_PRE_START;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled state if one of the jobs
-	 * is running.
-	 */
-	TEST_FEATURE ("with running job");
-	job1->state = JOB_RUNNING;
-
-	job_detect_stalled ();
-
-	TEST_LIST_EMPTY (events);
-
-
-	/* Check that we don't detect the stalled if one of the jobs is
-	 * stopping.
+	/* Check that if we start a job instance that is stopping, the goal
+	 * is changed to start.  If we then hurry it through to running,
+	 * the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with stopping job");
-	job1->goal = JOB_STOP;
-	job1->state = JOB_POST_STOP;
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
 
-	job_detect_stalled ();
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
 
-	TEST_LIST_EMPTY (events);
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_start (job, message, TRUE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_NOT_FREE (message);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_INSTANCE_START_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	TEST_NOT_FREE (blocked);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
 
 
-	nih_list_free (&job1->entry);
-	nih_list_free (&job2->entry);
+	/* Check that we can start a stopping job instance without waiting
+	 * for the command to complete, the reply should be sent immediately
+	 * and no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_start (job, message, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	nih_free (class);
+
+
+	/* Check that if we attempt to start a job that's already started,
+	 * a D-Bus error is raised immediately.
+	 */
+	TEST_FEATURE ("with starting job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_STARTING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Start");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_start (job, message, TRUE);
+
+	TEST_LT (ret, 0);
+
+	TEST_NOT_FREE (message);
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, DBUS_INTERFACE_UPSTART ".Error.AlreadyStarted");
+
+	nih_free (dbus_error);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
 	event_poll ();
 }
 
 void
-test_free_deleted ()
+test_stop (void)
 {
-	Job *job1, *job2, *job3;
-
-	TEST_FUNCTION ("job_free_deleted");
-	job1 = job_new (NULL, "frodo");
-	job1->goal = JOB_START;
-	job1->state = JOB_RUNNING;
-
-	job2 = job_new (NULL, "bilbo");
-	job2->goal = JOB_STOP;
-	job2->state = JOB_DELETED;
-
-	job3 = job_new (NULL, "drogo");
-	job3->goal = JOB_STOP;
-	job3->state = JOB_STOPPING;
-
-	nih_alloc_set_destructor (job1, my_destructor);
-	nih_alloc_set_destructor (job2, my_destructor);
-	nih_alloc_set_destructor (job3, my_destructor);
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	Blocked *        blocked;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
 
 
-	/* Check that only those jobs in the deleted state are removed from
-	 * the list and freed.
+	TEST_FUNCTION ("job_stop");
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+
+	/* Check that if we stop a job instance that is running, the goal
+	 * is changed to stop.  If we then hurry it through to waiting,
+	 * the reply will be sent to the sender and the instance deleted.
 	 */
-	TEST_FEATURE ("with single deleted job");
-	destructor_called = 0;
+	TEST_FEATURE ("with running job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
 
-	job_free_deleted ();
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
 
-	TEST_EQ (destructor_called, 1);
+	TEST_FREE_TAG (job);
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_stop (job, message, TRUE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_NOT_FREE (message);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_INSTANCE_STOP_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_FREE (job);
+
+	TEST_FREE (blocked);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
 
 
-	/* Check that if there are no jobs to be deleted, nothing happens. */
-	TEST_FEATURE ("with no deleted jobs");
-	destructor_called = 0;
+	/* Check that we can stop a running job instance without waiting
+	 * for it to complete, the reply should be sent immediately and
+	 * no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
 
-	job_free_deleted ();
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
 
-	TEST_EQ (destructor_called, 0);
+	TEST_FREE_TAG (job);
 
-	nih_list_free (&job1->entry);
-	nih_list_free (&job3->entry);
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_stop (job, message, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_FREE (job);
+
+	nih_free (class);
+
+
+	/* Check that if we attempt to stop a job that's already been stopped,
+	 * a D-Bus error is raised immediately.
+	 */
+	TEST_FEATURE ("with stopping job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Stop");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_stop (job, message, TRUE);
+
+	TEST_LT (ret, 0);
+
+	TEST_NOT_FREE (message);
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped");
+
+	nih_free (dbus_error);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
+	event_poll ();
+}
+
+void
+test_restart (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	Blocked *        blocked;
+	int              ret;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+
+	TEST_FUNCTION ("job_restart");
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+
+	/* Check that if we restart a job instance that is running, the goal
+	 * remains at start but a state change is forced.  If we then hurry
+	 * it back through to running, the reply will be sent to the sender.
+	 */
+	TEST_FEATURE ("with running job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_restart (job, message, TRUE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_NOT_FREE (message);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	blocked = (Blocked *)job->blocking.next;
+	TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+	TEST_ALLOC_PARENT (blocked, job);
+	TEST_EQ (blocked->type, BLOCKED_INSTANCE_RESTART_METHOD);
+	TEST_EQ_P (blocked->message, message);
+
+	TEST_ALLOC_PARENT (blocked->message, blocked);
+
+	TEST_FREE_TAG (blocked);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	TEST_NOT_FREE (blocked);
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	TEST_LIST_EMPTY (&job->blocking);
+	TEST_FREE (blocked);
+
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+
+	/* Check that we can restart a running job instance without waiting
+	 * for the command to complete, the reply should be sent immediately
+	 * and no blocking entry created.
+	 */
+	TEST_FEATURE ("with no wait");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_restart (job, message, FALSE);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_STARTING);
+
+	nih_free (job->blocker);
+	job->blocker = NULL;
+
+	job_change_state (job, job_next_state (job));
+
+	TEST_EQ (job->goal, JOB_START);
+	TEST_EQ (job->state, JOB_RUNNING);
+
+	nih_free (class);
+
+
+	/* Check that if we attempt to restart a job that's already stopping,
+	 * a D-Bus error is raised immediately.
+	 */
+	TEST_FEATURE ("with stopping job");
+	class = job_class_new (NULL, "test");
+	job = job_new (class, "");
+
+	job->goal = JOB_STOP;
+	job->state = JOB_STOPPING;
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Restart");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_restart (job, message, TRUE);
+
+	TEST_LT (ret, 0);
+
+	TEST_NOT_FREE (message);
+	nih_discard (message);
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+	dbus_error = (NihDBusError *)error;
+	TEST_EQ_STR (dbus_error->name, DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped");
+
+	nih_free (dbus_error);
+
+	TEST_EQ (job->goal, JOB_STOP);
+	TEST_EQ (job->state, JOB_STOPPING);
+
+	nih_free (class);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+
+	event_poll ();
+}
+
+
+void
+test_get_name (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	Job            *job = NULL;
+	NihError       *error;
+	char           *name;
+	int             ret;
+
+	TEST_FUNCTION ("job_get_name");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the name of the instance is returned from the
+	 * property, as a child of the message.
+	 */
+	TEST_FEATURE ("with instance name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "instance name");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		name = NULL;
+
+		ret = job_get_name (job, message, &name);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (name, message);
+		TEST_EQ_STR (name, "instance name");
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an instance with an empty string as the name has
+	 * the empty string returned.
+	 */
+	TEST_FEATURE ("with no instance name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		name = NULL;
+
+		ret = job_get_name (job, message, &name);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (name, message);
+		TEST_EQ_STR (name, "");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_goal (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	Job            *job = NULL;
+	NihError       *error;
+	char           *goal;
+	int             ret;
+
+	/* Check that the goal of the instance is returned a newly allocated
+	 * string, as a child of the message.
+	 */
+	TEST_FUNCTION ("job_get_goal");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+			job->goal = JOB_START;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		goal = NULL;
+
+		ret = job_get_goal (job, message, &goal);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (goal, message);
+		TEST_EQ_STR (goal, "start");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_state (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	Job            *job = NULL;
+	NihError       *error;
+	char           *state;
+	int             ret;
+
+	/* Check that the state of the instance is returned a newly allocated
+	 * string, as a child of the message.
+	 */
+	TEST_FUNCTION ("job_get_state");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		state = NULL;
+
+		ret = job_get_state (job, message, &state);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (state, message);
+		TEST_EQ_STR (state, "running");
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+
+void
+test_get_processes (void)
+{
+	NihDBusMessage *      message = NULL;
+	JobClass *            class = NULL;
+	Job *                 job = NULL;
+	JobProcessesElement **processes;
+	NihError *            error;
+	int                   ret;
+
+	TEST_FUNCTION ("job_get_processes");
+	nih_error_init ();
+	job_class_init ();
+
+
+	/* Check that a job with no active processes has an empty array
+	 * returned.
+	 */
+	TEST_FEATURE ("with no processes");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_STARTING;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 1);
+
+		TEST_EQ_P (processes[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active pre-start process has a single
+	 * array entry for that process with its pid returned.
+	 */
+	TEST_FEATURE ("with pre-start process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_PRE_START] = process_new (class);
+			class->process[PROCESS_PRE_START]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_PRE_START;
+			job->pid[PROCESS_PRE_START] = 1014;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "pre-start");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 1014);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active post-start process, and no main
+	 * process, has a single array entry for that process with its pid
+	 * returned.
+	 */
+	TEST_FEATURE ("with post-start process and no main process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_POST_START] = process_new (class);
+			class->process[PROCESS_POST_START]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_POST_START;
+			job->pid[PROCESS_POST_START] = 2137;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "post-start");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 2137);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active main process has a single array
+	 * entry for that process with its pid returned.
+	 */
+	TEST_FEATURE ("with main process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_RUNNING;
+			job->pid[PROCESS_MAIN] = 3648;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "main");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 3648);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active main process, and a simultaneous
+	 * post-start process, has two array entries returned: one for each
+	 * process with its pid.  The main process should be listed first.
+	 */
+	TEST_FEATURE ("with main process and post-start process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_POST_START] = process_new (class);
+			class->process[PROCESS_POST_START]->command = "echo";
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_POST_START;
+			job->pid[PROCESS_POST_START] = 2137;
+			job->pid[PROCESS_MAIN] = 3648;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 3);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "main");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 3648);
+
+		TEST_ALLOC_PARENT (processes[1], processes);
+		TEST_ALLOC_SIZE (processes[1], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[1]->item0, "post-start");
+		TEST_ALLOC_PARENT (processes[1]->item0, processes[1]);
+		TEST_EQ (processes[1]->item1, 2137);
+
+		TEST_EQ_P (processes[2], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active main process, and a simultaneous
+	 * pre-stop process, has two array entries returned: one for each
+	 * process with its pid.  The main process should be listed first.
+	 */
+	TEST_FEATURE ("with main process and pre-stop process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = "echo";
+			class->process[PROCESS_PRE_STOP] = process_new (class);
+			class->process[PROCESS_PRE_STOP]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_PRE_STOP;
+			job->pid[PROCESS_MAIN] = 3648;
+			job->pid[PROCESS_PRE_STOP] = 7864;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 3);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "main");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 3648);
+
+		TEST_ALLOC_PARENT (processes[1], processes);
+		TEST_ALLOC_SIZE (processes[1], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[1]->item0, "pre-stop");
+		TEST_ALLOC_PARENT (processes[1]->item0, processes[1]);
+		TEST_EQ (processes[1]->item1, 7864);
+
+		TEST_EQ_P (processes[2], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active pre-stop process, and no main
+	 * process, has a single array entry for that process with its pid
+	 * returned.
+	 */
+	TEST_FEATURE ("with pre-stop process and no main process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_PRE_STOP] = process_new (class);
+			class->process[PROCESS_PRE_STOP]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_PRE_STOP;
+			job->pid[PROCESS_PRE_STOP] = 7864;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "pre-stop");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 7864);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that a job with an active post-stop process has a single
+	 * array entry for that process with its pid returned.
+	 */
+	TEST_FEATURE ("with post-stop process");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->command = "echo";
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_POST_STOP;
+			job->pid[PROCESS_POST_STOP] = 9764;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		processes = NULL;
+
+		ret = job_get_processes (job, message, &processes);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (processes, message);
+		TEST_ALLOC_SIZE (processes, sizeof (JobProcessesElement *) * 2);
+
+		TEST_ALLOC_PARENT (processes[0], processes);
+		TEST_ALLOC_SIZE (processes[0], sizeof (JobProcessesElement));
+		TEST_EQ_STR (processes[0]->item0, "post-stop");
+		TEST_ALLOC_PARENT (processes[0]->item0, processes[0]);
+		TEST_EQ (processes[0]->item1, 9764);
+
+		TEST_EQ_P (processes[1], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
 }
 
 
@@ -4714,25 +7086,31 @@ int
 main (int   argc,
       char *argv[])
 {
-	test_process_new ();
-	test_process_copy ();
 	test_new ();
-	test_copy ();
-	test_find_by_name ();
-	test_find_by_pid ();
-	test_find_by_id ();
-	test_instance ();
+	test_register ();
 	test_change_goal ();
 	test_change_state ();
 	test_next_state ();
-	test_should_replace ();
-	test_run_process ();
-	test_kill_process ();
-	test_child_reaper ();
-	test_handle_event ();
-	test_handle_event_finished ();
-	test_detect_stalled ();
-	test_free_deleted ();
+	test_failed ();
+	test_finished ();
+	test_emit_event ();
+
+	test_name ();
+	test_goal_name ();
+	test_goal_from_name ();
+	test_state_name ();
+	test_state_from_name ();
+
+	test_start ();
+	test_stop ();
+	test_restart ();
+
+	test_get_name ();
+	test_get_goal ();
+	test_get_state ();
+
+	test_get_processes ();
 
 	return 0;
 }
+
