@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Get the service name
+service=$(basename $0 | sed s/[SK][0-9][0-9]//)
+action=$1
+
+if [ $(id -u) -ne 0 ]; then
+	echo "Not running as root. Exiting..."
+	exit 1
+fi
+
+# Disable this warning for now
+#echo "*** Calling /etc/init.d/$service $action directly has been deprecated ***"
+
+case "$action" in
+  start)
+	echo "Starting $service..."
+	start "$service"
+	;;
+  stop)
+	echo "Stopping $service..."
+	stop "$service"
+	;;
+  restart|reload|force-reload)
+	echo "Restarting $service..."
+	restart "$service"
+	;;
+  status)
+	status "$service"
+	;;
+  lsb-header)
+	# TODO
+	exit 1
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
+	exit 3
+	;;
+esac

@@ -38,8 +38,7 @@ config.status: $(QUILT_STAMPFN) configure
 		--sysconfdir=/etc \
 		--localstatedir=/var/lib \
 		--mandir=\$${datadir}/man \
-		--infodir=\$${datadir}/info \
-		--enable-compat=sysv
+		--infodir=\$${datadir}/info
 
 
 # Build the package
@@ -59,13 +58,10 @@ install: build
 
 	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
 
-	# Copy across the default jobs
-	@set -x; for pkg in upstart upstart-compat-sysv system-services; do \
-		for job in debian/event.d/$$pkg/*; do \
-			install -m 644 -o root -g root $$job \
-				debian/$$pkg/etc/event.d || exit 1; \
-		done; \
-	done
+	# Copy the compat script
+	install -D -d debian/tmp/lib/init
+	install -m 755 -o root -g root debian/upstart-job \
+		debian/tmp/lib/init
 
 
 binary: binary-indep binary-arch
@@ -81,7 +77,7 @@ binary-arch: build install
 	dh_testroot
 	dh_installchangelogs ChangeLog
 	dh_installdocs
-	dh_install --sourcedir=debian/tmp
+	dh_install
 	dh_link
 	dh_strip
 	dh_compress

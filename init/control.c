@@ -1,878 +1,671 @@
 /* upstart
  *
- * control.c - handling of control socket requests
+ * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <dbus/dbus.h>
 
-#include <sys/types.h>
-
-#include <errno.h>
-#include <unistd.h>
-#include <fnmatch.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/list.h>
-#include <nih/hash.h>
 #include <nih/io.h>
 #include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih/errors.h>
 
-#include <upstart/message.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_connection.h>
+#include <nih-dbus/dbus_message.h>
+#include <nih-dbus/dbus_object.h>
 
-#include "job.h"
+#include "dbus/upstart.h"
+
+#include "environ.h"
+#include "job_class.h"
+#include "blocked.h"
+#include "conf.h"
 #include "control.h"
-#include "notify.h"
+#include "errors.h"
+
+#include "com.ubuntu.Upstart.h"
 
 
 /* Prototypes for static functions */
-static void control_error_handler      (void  *data, NihIo *io);
-static int  control_version_query      (void *data, pid_t pid,
-					UpstartMessageType type);
-static int  control_log_priority       (void *data, pid_t pid,
-					UpstartMessageType type,
-					NihLogLevel priority);
-static int  control_job_find           (void *data, pid_t pid,
-					UpstartMessageType type,
-					const char *pattern);
-static int  control_job_query          (void *data, pid_t pid,
-					UpstartMessageType type,
-					const char *name, unsigned int id);
-static int  control_job_start          (void *data, pid_t pid,
-					UpstartMessageType type,
-					const char *name, unsigned int id);
-static int  control_job_stop           (void *data, pid_t pid,
-					UpstartMessageType type,
-					const char *name, unsigned int id);
-static int  control_event_emit         (void *data, pid_t pid,
-					UpstartMessageType type,
-					const char *name,
-					char **args, char **env);
-static int  control_subscribe_jobs     (void *data, pid_t pid,
-					UpstartMessageType type);
-static int  control_unsubscribe_jobs   (void *data, pid_t pid,
-					UpstartMessageType type);
-static int  control_subscribe_events   (void *data, pid_t pid,
-					UpstartMessageType type);
-static int  control_unsubscribe_events (void *data, pid_t pid,
-					UpstartMessageType type);
+static int   control_server_connect (DBusServer *server, DBusConnection *conn);
+static void  control_disconnected   (DBusConnection *conn);
+static void  control_register_all   (DBusConnection *conn);
 
 
 /**
- * control_io:
+ * control_server_address:
  *
- * The NihIo being used to handle the control socket.
+ * Address on which the control server may be reached.
  **/
-NihIo *control_io = NULL;
+const char *control_server_address = DBUS_ADDRESS_UPSTART;
 
 /**
- * message_handlers:
+ * control_server:
  *
- * Functions to be run when we receive particular messages from other
- * processes.  Any message types not listed here will be discarded.
+ * D-Bus server listening for new direct connections.
  **/
-static UpstartMessage message_handlers[] = {
-	{ -1, UPSTART_VERSION_QUERY,
-	  (UpstartMessageHandler)control_version_query },
-	{ -1, UPSTART_LOG_PRIORITY,
-	  (UpstartMessageHandler)control_log_priority },
-	{ -1, UPSTART_JOB_FIND,
-	  (UpstartMessageHandler)control_job_find },
-	{ -1, UPSTART_JOB_QUERY,
-	  (UpstartMessageHandler)control_job_query },
-	{ -1, UPSTART_JOB_START,
-	  (UpstartMessageHandler)control_job_start },
-	{ -1, UPSTART_JOB_STOP,
-	  (UpstartMessageHandler)control_job_stop },
-	{ -1, UPSTART_EVENT_EMIT,
-	  (UpstartMessageHandler)control_event_emit },
-	{ -1, UPSTART_SUBSCRIBE_JOBS,
-	  (UpstartMessageHandler)control_subscribe_jobs },
-	{ -1, UPSTART_UNSUBSCRIBE_JOBS,
-	  (UpstartMessageHandler)control_unsubscribe_jobs },
-	{ -1, UPSTART_SUBSCRIBE_EVENTS,
-	  (UpstartMessageHandler)control_subscribe_events },
-	{ -1, UPSTART_UNSUBSCRIBE_EVENTS,
-	  (UpstartMessageHandler)control_unsubscribe_events },
-
-	UPSTART_MESSAGE_LAST
-};
-
+DBusServer *control_server = NULL;
 
 /**
- * control_open:
+ * control_bus:
  *
- * Opens the control socket and associates it with an NihIo structure
- * that ensures that all incoming messages are handled, outgoing messages
- * can be queued, and any errors caught and the control socket re-opened.
- *
- * Returns: NihIo for socket on success, NULL on raised error.
+ * Open connection to D-Bus system bus.  The connection may be opened with
+ * control_bus_open() and if lost will become NULL.
  **/
-NihIo *
-control_open (void)
-{
-	int sock;
-
-	sock = upstart_open ();
-	if (sock < 0)
-		return NULL;
-
-	nih_io_set_cloexec (sock);
-
-	while (! (control_io = nih_io_reopen (NULL, sock, NIH_IO_MESSAGE,
-					      (NihIoReader)upstart_message_reader,
-					      NULL, control_error_handler,
-					      message_handlers))) {
-		NihError *err;
-
-		err = nih_error_get ();
-		if (err->number != ENOMEM) {
-			nih_free (err);
-			close (sock);
-			return NULL;
-		}
-
-		nih_free (err);
-	}
-
-	return control_io;
-}
+DBusConnection *control_bus = NULL;
 
 /**
- * control_close:
+ * control_conns:
  *
- * Close the currently open control socket and free the structure handling
- * it.  Any messages in the queue will be lost.
+ * Open control connections, including the connection to the D-Bus system
+ * bus and any private client connections.
+ **/
+NihList *control_conns = NULL;
+
+
+/**
+ * control_init:
+ *
+ * Initialise the control connections list.
  **/
 void
-control_close (void)
+control_init (void)
 {
-	nih_assert (control_io != NULL);
+	if (! control_conns)
+		control_conns = NIH_MUST (nih_list_new (NULL));
+}
 
-	nih_io_close (control_io);
-	control_io = NULL;
+
+/**
+ * control_server_open:
+ *
+ * Open a listening D-Bus server and store it in the control_server global.
+ * New connections are permitted from the root user, and handled
+ * automatically in the main loop.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_server_open (void)
+{
+	DBusServer *server;
+
+	nih_assert (control_server == NULL);
+
+	control_init ();
+
+	server = nih_dbus_server (control_server_address,
+				  control_server_connect,
+				  control_disconnected);
+	if (! server)
+		return -1;
+
+	control_server = server;
+
+	return 0;
 }
 
 /**
- * control_error_handler:
- * @data: ignored,
- * @io: NihIo structure on which an error occurred.
+ * control_server_connect:
  *
- * This function is called should an error occur while reading from or
- * writing to a descriptor.  We handle errors that we recognise, otherwise
- * we log them and carry on.
+ * Called when a new client connects to our server and is used to register
+ * objects on the new connection.
+ *
+ * Returns: always TRUE.
+ **/
+static int
+control_server_connect (DBusServer     *server,
+			DBusConnection *conn)
+{
+	NihListEntry *entry;
+
+	nih_assert (server != NULL);
+	nih_assert (server == control_server);
+	nih_assert (conn != NULL);
+
+	nih_info (_("Connection from private client"));
+
+	/* Register objects on the connection. */
+	control_register_all (conn);
+
+	/* Add the connection to the list */
+	entry = NIH_MUST (nih_list_entry_new (NULL));
+
+	entry->data = conn;
+
+	nih_list_add (control_conns, &entry->entry);
+
+	return TRUE;
+}
+
+/**
+ * control_server_close:
+ *
+ * Close the connection to the D-Bus system bus.  Since the connection is
+ * shared inside libdbus, this really only drops our reference to it so
+ * it's possible to have method and signal handlers called even after calling
+ * this (normally to dispatch what's in the queue).
+ **/
+void
+control_server_close (void)
+{
+	nih_assert (control_server != NULL);
+
+	dbus_server_disconnect (control_server);
+	dbus_server_unref (control_server);
+
+	control_server = NULL;
+}
+
+
+/**
+ * control_bus_open:
+ *
+ * Open a connection to the D-Bus system bus and store it in the control_bus
+ * global.  The connection is handled automatically in the main loop.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_bus_open (void)
+{
+	DBusConnection *conn;
+	DBusError       error;
+	NihListEntry   *entry;
+	int             ret;
+
+	nih_assert (control_bus == NULL);
+
+	control_init ();
+
+	/* Connect to the D-Bus System Bus and hook everything up into
+	 * our own main loop automatically.
+	 */
+	conn = nih_dbus_bus (DBUS_BUS_SYSTEM, control_disconnected);
+	if (! conn)
+		return -1;
+
+	/* Register objects on the bus. */
+	control_register_all (conn);
+
+	/* Request our well-known name.  We do this last so that once it
+	 * appears on the bus, clients can assume we're ready to talk to
+	 * them.
+	 */
+	dbus_error_init (&error);
+	ret = dbus_bus_request_name (conn, DBUS_SERVICE_UPSTART,
+				     DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
+	if (ret < 0) {
+		/* Error while requesting the name */
+		nih_dbus_error_raise (error.name, error.message);
+		dbus_error_free (&error);
+
+		dbus_connection_unref (conn);
+		return -1;
+	} else if (ret != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+		/* Failed to obtain the name (already taken usually) */
+		nih_error_raise (CONTROL_NAME_TAKEN,
+				 _(CONTROL_NAME_TAKEN_STR));
+
+		dbus_connection_unref (conn);
+		return -1;
+	}
+
+
+	/* Add the connection to the list */
+	entry = NIH_MUST (nih_list_entry_new (NULL));
+
+	entry->data = conn;
+
+	nih_list_add (control_conns, &entry->entry);
+
+
+	control_bus = conn;
+
+	return 0;
+}
+
+/**
+ * control_bus_close:
+ *
+ * Close the connection to the D-Bus system bus.  Since the connection is
+ * shared inside libdbus, this really only drops our reference to it so
+ * it's possible to have method and signal handlers called even after calling
+ * this (normally to dispatch what's in the queue).
+ **/
+void
+control_bus_close (void)
+{
+	nih_assert (control_bus != NULL);
+
+	dbus_connection_unref (control_bus);
+
+	control_disconnected (control_bus);
+}
+
+
+/**
+ * control_disconnected:
+ *
+ * This function is called when the connection to the D-Bus system bus,
+ * or a client connection to our D-Bus server, is dropped and our reference
+ * is about to be list.  We clear the connection from our current list
+ * and drop the control_bus global if relevant.
  **/
 static void
-control_error_handler (void  *data,
-		       NihIo *io)
+control_disconnected (DBusConnection *conn)
 {
-	NihError *err;
+	nih_assert (conn != NULL);
 
-	nih_assert (io != NULL);
-	nih_assert (io == control_io);
+	if (conn == control_bus) {
+		nih_warn (_("Disconnected from system bus"));
 
-	err = nih_error_get ();
-
-	switch (err->number) {
-	case ECONNREFUSED: {
-		NihIoMessage *message;
-
-		/* Connection refused means that the process we're sending to
-		 * has closed their socket or just died.  We don't need to
-		 * error because of this, don't want to re-attempt delivery
-		 * of this message and in fact don't want to send them any
-		 * future notifications.
-		 */
-		message = (NihIoMessage *)io->send_q->next;
-
-		notify_unsubscribe ((pid_t)message->int_data);
-
-		nih_list_free (&message->entry);
-		break;
-	}
-	default:
-		nih_error (_("Error on control socket: %s"), err->message);
-		break;
+		control_bus = NULL;
 	}
 
-	nih_free (err);
+	/* Remove from the connections list */
+	NIH_LIST_FOREACH_SAFE (control_conns, iter) {
+		NihListEntry *entry = (NihListEntry *)iter;
+
+		if (entry->data == conn)
+			nih_free (entry);
+	}
 }
 
 
 /**
- * control_send_job_status:
- * @pid: destination process,
- * @job: job to send.
+ * control_register_all:
+ * @conn: connection to register objects for.
  *
- * Sends a series of messages to @pid containing the current status of @job
- * and its processes.  The UPSTART_JOB_STATUS message is sent first, giving
- * the id and name of the job, along with its current goal and state.  Then,
- * for each active process, an UPSTART_JOB_PROCESS message is sent containing
- * the process type and current pid.  Finally an UPSTART_JOB_STATUS_END
- * message is sent.
+ * Registers the manager object and objects for all jobs and instances on
+ * the given connection.
  **/
-void
-control_send_job_status (pid_t  pid,
-			 Job   *job)
+static void
+control_register_all (DBusConnection *conn)
 {
-	NihIoMessage *message;
-	int           i;
+	nih_assert (conn != NULL);
 
-	nih_assert (pid > 0);
-	nih_assert (job != NULL);
-	nih_assert (control_io != NULL);
+	job_class_init ();
 
-	NIH_MUST (message = upstart_message_new (
-			  control_io, pid, UPSTART_JOB_STATUS,
-			  job->id, job->name, job->goal, job->state));
-	nih_io_send_message (control_io, message);
-
-	for (i = 0; i < PROCESS_LAST; i++) {
-		if (job->process[i] && (job->process[i]->pid > 0)) {
-			NIH_MUST (message = upstart_message_new (
-					  control_io, pid, UPSTART_JOB_PROCESS,
-					  i, job->process[i]->pid));
-			nih_io_send_message (control_io, message);
-		}
-	}
-
-	NIH_MUST (message = upstart_message_new (
-			  control_io, pid, UPSTART_JOB_STATUS_END,
-			  job->id, job->name, job->goal, job->state));
-	nih_io_send_message (control_io, message);
-}
-
-/**
- * control_send_instance:
- * @pid: destination process,
- * @job: job to send.
- *
- * Sends a series of job status messages to @pid for each instance of @job,
- * enclosed within UPSTART_JOB_INSTANCE and UPSTART_JOB_INSTANCE_END messages
- * giving the id and name of the instance itself.
- **/
-void
-control_send_instance (pid_t  pid,
-		       Job   *job)
-{
-	NihIoMessage *message;
-
-	nih_assert (pid > 0);
-	nih_assert (job != NULL);
-	nih_assert (job->instance);
-	nih_assert (job->instance_of == NULL);
-	nih_assert (control_io != NULL);
-
-	NIH_MUST (message = upstart_message_new (
-			  control_io, pid, UPSTART_JOB_INSTANCE,
-			  job->id, job->name));
-	nih_io_send_message (control_io, message);
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		Job *instance = (Job *)iter;
-
-		if (instance->instance_of != job)
-			continue;
-
-		if (instance->state == JOB_DELETED)
-			continue;
-
-		control_send_job_status (pid, instance);
-	}
-
-	NIH_MUST (message = upstart_message_new (
-			  control_io, pid, UPSTART_JOB_INSTANCE_END,
-			  job->id, job->name));
-	nih_io_send_message (control_io, message);
-}
-
-
-/**
- * control_version_query:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system asks for our
- * version.
- *
- * We return the autoconf-set package string, containing both the package
- * name and current version, in an UPSTART_VERSION reply.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_version_query (void               *data,
-		       pid_t               pid,
-		       UpstartMessageType  type)
-{
-	NihIoMessage *reply;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_VERSION_QUERY);
-
-	nih_info (_("Control request for our version"));
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_VERSION,
-					       nih_main_package_string ()));
-	nih_io_send_message (control_io, reply);
-
-	return 0;
-}
-
-/**
- * control_log_priority:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system adjusts our
- * logging priority.
- *
- * We change the priority to the new one given and return no reply, since
- * this is always successful.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_log_priority (void               *data,
-		      pid_t               pid,
-		      UpstartMessageType  type,
-		      NihLogLevel         priority)
-{
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_LOG_PRIORITY);
-
-	nih_info (_("Control request to change logging priority"));
-
-	nih_log_set_priority (priority);
-
-	return 0;
-}
-
-
-/**
- * control_job_find:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @pattern: pattern to match or NULL.
- *
- * This function is called when another process on the system asks for the
- * list of processes matching the wildcard @pattern, which may be NULL to
- * list all jobs.
- *
- * We iterate the jobs and return the job status for each one; instances are
- * collated together and sent as a job instance group.  Deleted and
- * replacement jobs are ignored.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_job_find (void                *data,
-		  pid_t                pid,
-		  UpstartMessageType   type,
-		  const char          *pattern)
-{
-	NihIoMessage *reply;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_FIND);
-
-	if (pattern) {
-		nih_info (_("Control request for jobs matching %s"), pattern);
-	} else {
-		nih_info (_("Control request for all jobs"));
-	}
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_LIST, pattern));
-	nih_io_send_message (control_io, reply);
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		Job *job = (Job *)iter;
-
-		if ((job->state == JOB_DELETED)
-		    || (job->instance_of != NULL)
-		    || (job->replacement_for != NULL))
-			continue;
-
-		if (pattern && fnmatch (pattern, job->name, 0))
-			continue;
-
-		if (! job->instance) {
-			control_send_job_status (pid, job);
-		} else {
-			control_send_instance (pid, job);
-		}
-	}
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB_LIST_END, pattern));
-	nih_io_send_message (control_io, reply);
-
-	return 0;
-}
-
-/**
- * control_job_query:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of job to query,
- * @id: id of job to query if @name is NULL.
- *
- * This function is called when another process on the system queries the
- * state of the job named @name or with the unique @id.
- *
- * We locate the job and return the job status, either as single message set,
- * or if its an instance, the status of every instance.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_job_query (void                *data,
-		   pid_t                pid,
-		   UpstartMessageType   type,
-		   const char          *name,
-		   unsigned int         id)
-{
-	NihIoMessage *reply;
-	Job          *job;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_QUERY);
-
-	if (name) {
-		nih_info (_("Control request for status of %s"), name);
-
-		job = job_find_by_name (name);
-	} else {
-		nih_info (_("Control request for status of job #%u"), id);
-
-		job = job_find_by_id (id);
-	}
-
-	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job. */
-	if (! job) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNKNOWN,
-						       name, id));
-		nih_io_send_message (control_io, reply);
-		return 0;
-	}
-
-	if ((! job->instance) || (job->instance_of != NULL)) {
-		control_send_job_status (pid, job);
-	} else {
-		control_send_instance (pid, job);
-	}
-
-	return 0;
-}
-
-/**
- * control_job_start:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of job to start,
- * @id: id of job to start if @name is NULL.
- *
- * This function is called when another process on the system requests that
- * we start the job named @name or with the unique @id.
- *
- * We locate the job, subscribe the process to receive notification when the
- * job state changes and when the job reaches its goal, and then initiate
- * the goal change.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_job_start (void                *data,
-		   pid_t                pid,
-		   UpstartMessageType   type,
-		   const char          *name,
-		   unsigned int         id)
-{
-	NihIoMessage *reply;
-	Job          *job;
-
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_START);
-
-	if (name) {
-		nih_info (_("Control request to start %s"), name);
-
-		job = job_find_by_name (name);
-	} else {
-		nih_info (_("Control request to start job #%u"), id);
-
-		job = job_find_by_id (id);
-	}
-
-	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job,
-	 * and reply with UPSTART_JOB_INVALID if the job we found by id
-	 * is deleted, an instance or a replacement.
+	/* Register the manager object, this is the primary point of contact
+	 * for clients.  We only check for success, otherwise we're happy
+	 * to let this object be tied to the lifetime of the connection.
 	 */
-	if (! job) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNKNOWN,
-						       name, id));
-		nih_io_send_message (control_io, reply);
-		return 0;
+	NIH_MUST (nih_dbus_object_new (NULL, conn, DBUS_PATH_UPSTART,
+				       control_interfaces, NULL));
 
-	} else if ((job->state == JOB_DELETED)
-		   || (job->instance_of != NULL)
-		   || (job->replacement_for != NULL)) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_INVALID,
-						       job->id, job->name));
-		nih_io_send_message (control_io, reply);
-		return 0;
-	}
-
-	/* Obtain an instance of the job that can be started.  Make sure
-	 * that this instance isn't already started, since we might never
-	 * send a reply if it's already at rest.  Send UPSTART_JOB_UNCHANGED
-	 * so they know their command had no effect.
+	/* Register objects for each currently registered job and its
+	 * instances.
 	 */
-	job = job_instance (job);
-	if (job->goal == JOB_START) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNCHANGED,
-						       job->id, job->name));
-		nih_io_send_message (control_io, reply);
-		return 0;
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		job_class_register (class, conn, FALSE);
 	}
-
-	notify_subscribe_job (job, pid, job);
-
-	NIH_MUST (reply = upstart_message_new (control_io, pid,
-					       UPSTART_JOB,
-					       job->id, job->name));
-	nih_io_send_message (control_io, reply);
-
-	job_change_goal (job, JOB_START, NULL);
-
-	return 0;
 }
 
+
 /**
- * control_job_stop:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of job to stop,
- * @id: id of job to stop if @name is NULL.
+ * control_reload_configuration:
+ * @data: not used,
+ * @message: D-Bus connection and message received.
  *
- * This function is called when another process on the system requests that
- * we stop the job named @name or with the unique @id.
+ * Implements the ReloadConfiguration method of the com.ubuntu.Upstart
+ * interface.
  *
- * We locate the job, subscribe the process to receive notification when the
- * job state changes and when the job reaches its goal, and then initiate
- * the goal change.
+ * Called to request that Upstart reloads its configuration from disk,
+ * useful when inotify is not available or the user is generally paranoid.
  *
  * Returns: zero on success, negative value on raised error.
  **/
-static int
-control_job_stop (void                *data,
-		  pid_t                pid,
-		  UpstartMessageType   type,
-		  const char          *name,
-		  unsigned int         id)
+int
+control_reload_configuration (void           *data,
+			      NihDBusMessage *message)
 {
-	NihIoMessage *reply;
-	Job          *job;
+	nih_assert (message != NULL);
 
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_JOB_STOP);
-
-	if (name) {
-		nih_info (_("Control request to stop %s"), name);
-
-		job = job_find_by_name (name);
-	} else {
-		nih_info (_("Control request to stop job #%u"), id);
-
-		job = job_find_by_id (id);
-	}
-
-	/* Reply with UPSTART_JOB_UNKNOWN if we couldn't find the job,
-	 * and reply with UPSTART_JOB_INVALID if the job we found was
-	 * deleted or a replacement, since we can't change those.
-	 */
-	if (! job) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_UNKNOWN,
-						       name, id));
-		nih_io_send_message (control_io, reply);
-		return 0;
-
-	} else if ((job->state == JOB_DELETED)
-		   || (job->replacement_for != NULL)) {
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB_INVALID,
-						       job->id, job->name));
-		nih_io_send_message (control_io, reply);
-		return 0;
-	}
-
-	if ((! job->instance) || (job->instance_of != NULL)) {
-		/* Make sure that the job isn't already stopped, since we
-		 * might never send a reply if it's already at rest.  Send
-		 * UPSTART_JOB_UNCHANGED so they know their command had no
-		 * effect.
-		 */
-		if (job->goal == JOB_STOP) {
-			NIH_MUST (reply = upstart_message_new (
-					  control_io, pid,
-					  UPSTART_JOB_UNCHANGED,
-					  job->id, job->name));
-			nih_io_send_message (control_io, reply);
-			return 0;
-		}
-
-		notify_subscribe_job (job, pid, job);
-
-		NIH_MUST (reply = upstart_message_new (control_io, pid,
-						       UPSTART_JOB,
-						       job->id, job->name));
-		nih_io_send_message (control_io, reply);
-
-		job_change_goal (job, JOB_STOP, NULL);
-
-	} else {
-		int has_instance = FALSE;
-
-		/* We've been asked to stop an instance master, we can't
-		 * directly change the goal of those since they never have
-		 * any running processes.  Instead of returning INVALID,
-		 * we're rather more helpful, and instead stop every single
-		 * instance that's running.
-		 */
-		NIH_HASH_FOREACH (jobs, iter) {
-			Job *instance = (Job *)iter;
-
-			if (instance->instance_of != job)
-				continue;
-
-			has_instance = TRUE;
-
-			notify_subscribe_job (instance, pid, instance);
-
-			NIH_MUST (reply = upstart_message_new (
-					  control_io, pid, UPSTART_JOB,
-					  instance->id, instance->name));
-			nih_io_send_message (control_io, reply);
-
-			job_change_goal (instance, JOB_STOP, NULL);
-		}
-
-		/* If no instances were running, we send back
-		 * UPSTART_JOB_UNCHANGED since they should at least receive
-		 * something for their troubles.
-		 */
-		if (! has_instance) {
-			NIH_MUST (reply = upstart_message_new (
-					  control_io, pid,
-					  UPSTART_JOB_UNCHANGED,
-					  job->id, job->name));
-			nih_io_send_message (control_io, reply);
-			return 0;
-		}
-	}
+	nih_info (_("Reloading configuration"));
+	conf_reload ();
 
 	return 0;
 }
 
 
 /**
- * control_event_emit:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received,
- * @name: name of event to emit,
- * @args: optional arguments to event,
- * @end: optional environment for event.
+ * control_get_job_by_name:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @name: name of job to get,
+ * @job: pointer for object path reply.
  *
- * This function is called when another process on the system requests that
- * we emit a @name event, with the optional @args and @env supplied.
+ * Implements the GetJobByName method of the com.ubuntu.Upstart
+ * interface.
  *
- * We queue the pending event and subscribe the process to receive
- * notification when the event is being handled, all changes the event makes
- * and notification when the event has finished; including whether it
- * succeeded or failed.
- *
- * If given, @args and @env are re-parented to belong to the event emitted.
+ * Called to obtain the path to a D-Bus object for the job named @name,
+ * which will be stored in @job.  If no job class with that name exists,
+ * the com.ubuntu.Upstart.Error.UnknownJob D-Bus error will be raised.
  *
  * Returns: zero on success, negative value on raised error.
  **/
-static int
-control_event_emit (void                *data,
-		    pid_t                pid,
-		    UpstartMessageType   type,
-		    const char          *name,
-		    char               **args,
-		    char               **env)
+int
+control_get_job_by_name (void            *data,
+			 NihDBusMessage  *message,
+			 const char      *name,
+			 char           **job)
 {
-	EventEmission *emission;
+	JobClass *class;
 
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_EVENT_EMIT);
+	nih_assert (message != NULL);
 	nih_assert (name != NULL);
+	nih_assert (job != NULL);
 
-	nih_info (_("Control request to emit %s event"), name);
+	job_class_init ();
 
-	emission = event_emit (name, args, env);
+	/* Verify that the name is valid */
+	if (! strlen (name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Name may not be empty string"));
+		return -1;
+	}
 
-	notify_subscribe_event (emission, pid, emission);
+	/* Lookup the job and copy its path into the reply */
+	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	if (! class) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.UnknownJob",
+			_("Unknown job: %s"), name);
+		return -1;
+	}
+
+	*job = nih_strdup (message, class->path);
+	if (! *job)
+		nih_return_system_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_get_all_jobs:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @jobs: pointer for array of object paths reply.
+ *
+ * Implements the GetAllJobs method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to obtain the paths of all known jobs, which will be stored in
+ * @jobs.  If no jobs are registered, @jobs will point to an empty array.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_all_jobs (void             *data,
+		      NihDBusMessage   *message,
+		      char           ***jobs)
+{
+	char   **list;
+	size_t   len;
+
+	nih_assert (message != NULL);
+	nih_assert (jobs != NULL);
+
+	job_class_init ();
+
+	len = 0;
+	list = nih_str_array_new (message);
+	if (! list)
+		nih_return_system_error (-1);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		if (! nih_str_array_add (&list, message, &len,
+					 class->path)) {
+			nih_error_raise_system ();
+			nih_free (list);
+			return -1;
+		}
+	}
+
+	*jobs = list;
 
 	return 0;
 }
 
 
 /**
- * control_subscribe_jobs:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
+ * control_emit_event:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @name: name of event to emit,
+ * @env: environment of environment,
+ * @wait: whether to wait for event completion before returning.
  *
- * This function is called when another process on the system requests that
- * it be subscribed to job status updates.
+ * Implements the top half of the EmitEvent method of the com.ubuntu.Upstart
+ * interface, the bottom half may be found in event_finished().
  *
- * We add the subscription, no reply is sent.
+ * Called to emit an event with a given @name and @env, which will be
+ * added to the event queue and processed asynchronously.  If @name or
+ * @env are not valid, the org.freedesktop.DBus.Error.InvalidArgs D-Bus
+ * error will be returned immediately.  If the event fails, the
+ * com.ubuntu.Upstart.Error.EventFailed D-Bus error will be returned when
+ * the event finishes.
+ *
+ * When @wait is TRUE the method call will not return until the event
+ * has completed, which means that all jobs affected by the event have
+ * finished starting (running for tasks) or stopping; when @wait is FALSE,
+ * the method call returns once the event has been queued.
  *
  * Returns: zero on success, negative value on raised error.
  **/
-static int
-control_subscribe_jobs (void               *data,
-			pid_t               pid,
-			UpstartMessageType  type)
+int
+control_emit_event (void            *data,
+		    NihDBusMessage  *message,
+		    const char      *name,
+		    char * const    *env,
+		    int              wait)
 {
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_SUBSCRIBE_JOBS);
+	Event   *event;
+	Blocked *blocked;
 
-	nih_info (_("Control request to subscribe %d to jobs"), pid);
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
+	nih_assert (env != NULL);
 
-	notify_subscribe_job (NULL, pid, NULL);
+	/* Verify that the name is valid */
+	if (! strlen (name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Name may not be empty string"));
+		return -1;
+	}
+
+	/* Verify that the environment is valid */
+	if (! environ_all_valid (env)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Env must be KEY=VALUE pairs"));
+		return -1;
+	}
+
+	/* Make the event and block the message on it */
+	event = event_new (NULL, name, (char **)env);
+	if (! event)
+		nih_return_system_error (-1);
+
+	if (wait) {
+		blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
+		if (! blocked) {
+			nih_error_raise_system ();
+			nih_free (event);
+			return -1;
+		}
+
+		nih_list_add (&event->blocking, &blocked->entry);
+	} else {
+		NIH_ZERO (control_emit_event_reply (message));
+	}
+
+	return 0;
+}
+
+
+/**
+ * control_get_version:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @version: pointer for reply string.
+ *
+ * Implements the get method for the version property of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to obtain the version of the init daemon, which will be stored
+ * as a string in @version.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_version (void *          data,
+		     NihDBusMessage *message,
+		     char **         version)
+{
+	nih_assert (message != NULL);
+	nih_assert (version != NULL);
+
+	*version = nih_strdup (message, package_string);
+	if (! *version)
+		nih_return_no_memory_error (-1);
 
 	return 0;
 }
 
 /**
- * control_unsubscribe_jobs:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
+ * control_get_log_priority:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @log_priority: pointer for reply string.
  *
- * This function is called when another process on the system requests that
- * it be unsubscribed from job status updates.
+ * Implements the get method for the log_priority property of the
+ * com.ubuntu.Upstart interface.
  *
- * We lookup their current subscription, and remove it if it exists.  No
- * reply is sent, and a non-existant subscription is ignored.
+ * Called to obtain the init daemon's current logging level, which will
+ * be stored as a string in @log_priority.
  *
  * Returns: zero on success, negative value on raised error.
  **/
-static int
-control_unsubscribe_jobs (void               *data,
-			  pid_t               pid,
-			  UpstartMessageType  type)
+int
+control_get_log_priority (void *          data,
+			  NihDBusMessage *message,
+			  char **         log_priority)
 {
-	NotifySubscription *sub;
+	const char *priority;
 
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_UNSUBSCRIBE_JOBS);
+	nih_assert (message != NULL);
+	nih_assert (log_priority != NULL);
 
-	nih_info (_("Control request to unsubscribe %d from jobs"), pid);
+	switch (nih_log_priority) {
+	case NIH_LOG_DEBUG:
+		priority = "debug";
+		break;
+	case NIH_LOG_INFO:
+		priority = "info";
+		break;
+	case NIH_LOG_MESSAGE:
+		priority = "message";
+		break;
+	case NIH_LOG_WARN:
+		priority = "warn";
+		break;
+	case NIH_LOG_ERROR:
+		priority = "error";
+		break;
+	case NIH_LOG_FATAL:
+		priority = "fatal";
+		break;
+	default:
+		nih_assert_not_reached ();
+	}
 
-	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
-	if (sub)
-		nih_list_free (&sub->entry);
+	*log_priority = nih_strdup (message, priority);
+	if (! *log_priority)
+		nih_return_no_memory_error (-1);
 
 	return 0;
 }
 
 /**
- * control_subscribe_events:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
+ * control_set_log_priority:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @log_priority: string log priority to be set.
  *
- * This function is called when another process on the system requests that
- * it be subscribed to event emissions.
+ * Implements the get method for the log_priority property of the
+ * com.ubuntu.Upstart interface.
  *
- * We add the subscription, no reply is sent.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-control_subscribe_events (void               *data,
-			  pid_t               pid,
-			  UpstartMessageType  type)
-{
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_SUBSCRIBE_EVENTS);
-
-	nih_info (_("Control request to subscribe %d to events"), pid);
-
-	notify_subscribe_event (NULL, pid, NULL);
-
-	return 0;
-}
-
-/**
- * control_unsubscribe_events:
- * @data: data pointer,
- * @pid: origin process id,
- * @type: message type received.
- *
- * This function is called when another process on the system requests that
- * it be unsubscribed from event emissions.
- *
- * We lookup their current subscription, and remove it if it exists.  No
- * reply is sent, and a non-existant subscription is ignored.
+ * Called to change the init daemon's current logging level to that given
+ * as a string in @log_priority.  If the string is not recognised, the
+ * com.ubuntu.Upstart.Error.InvalidLogPriority error will be returned.
  *
  * Returns: zero on success, negative value on raised error.
  **/
-static int
-control_unsubscribe_events (void               *data,
-			    pid_t               pid,
-			    UpstartMessageType  type)
+int
+control_set_log_priority (void *          data,
+			  NihDBusMessage *message,
+			  const char *    log_priority)
 {
-	NotifySubscription *sub;
+	nih_assert (message != NULL);
+	nih_assert (log_priority != NULL);
 
-	nih_assert (pid > 0);
-	nih_assert (type == UPSTART_UNSUBSCRIBE_EVENTS);
+	if (! strcmp (log_priority, "debug")) {
+		nih_log_set_priority (NIH_LOG_DEBUG);
 
-	nih_info (_("Control request to unsubscribe %d from events"), pid);
+	} else if (! strcmp (log_priority, "info")) {
+		nih_log_set_priority (NIH_LOG_INFO);
 
-	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
-	if (sub)
-		nih_list_free (&sub->entry);
+	} else if (! strcmp (log_priority, "message")) {
+		nih_log_set_priority (NIH_LOG_MESSAGE);
+
+	} else if (! strcmp (log_priority, "warn")) {
+		nih_log_set_priority (NIH_LOG_WARN);
+
+	} else if (! strcmp (log_priority, "error")) {
+		nih_log_set_priority (NIH_LOG_ERROR);
+
+	} else if (! strcmp (log_priority, "fatal")) {
+		nih_log_set_priority (NIH_LOG_FATAL);
+
+	} else {
+		nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
+				      _("The log priority given was not recognised"));
+		return -1;
+	}
 
 	return 0;
 }

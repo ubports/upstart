@@ -1,23 +1,22 @@
 /* upstart
  *
- * job.c - handling of tasks and services
+ * job.c - core state machine of tasks and services
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -26,695 +25,205 @@
 
 
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/wait.h>
-#include <sys/resource.h>
 
-#include <stdio.h>
-#include <limits.h>
+#include <errno.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/hash.h>
-#include <nih/timer.h>
-#include <nih/io.h>
+#include <nih/signal.h>
 #include <nih/logging.h>
-#include <nih/error.h>
-#include <nih/errors.h>
 
-#include <upstart/enum.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_message.h>
+#include <nih-dbus/dbus_object.h>
+#include <nih-dbus/dbus_util.h>
 
-#include "event.h"
+#include "dbus/upstart.h"
+
+#include "events.h"
+#include "environ.h"
 #include "process.h"
+#include "job_class.h"
 #include "job.h"
-#include "notify.h"
-#include "paths.h"
+#include "job_process.h"
+#include "event.h"
+#include "event_operator.h"
+#include "blocked.h"
+#include "control.h"
 
+#include "com.ubuntu.Upstart.Job.h"
+#include "com.ubuntu.Upstart.Instance.h"
 
-/**
- * SHELL_CHARS:
- *
- * This is the list of characters that, if encountered in a process, cause
- * it to always be run with a shell.
- **/
-#define SHELL_CHARS "~`!$^&*()=|\\{}[];\"'<>?"
-
-
-/* Prototypes for static functions */
-static const char *job_name          (Job *job);
-static void        job_change_cause  (Job *job, EventEmission *emission);
-static void        job_emit_event    (Job *job);
-static int         job_catch_runaway (Job *job);
-static void        job_kill_timer    (ProcessType process, NihTimer *timer);
-
-
-/**
- * job_id
- *
- * This counter is used to assign unique job ids to jobs and is incremented
- * each time we use it.  After a while (4 billion jobs) it'll wrap over, in
- * which case you should set job_id_wrapped and take care to check an id
- * isn't taken.
- **/
-unsigned int job_id = 0;
-int          job_id_wrapped = FALSE;
-
-/**
- * jobs:
- *
- * This hash table holds the list of known jobs indexed by their name.
- * Each entry is a Job structure; multiple entries with the same name may
- * exist since some may be instances of others.
- **/
-NihHash *jobs = NULL;
-
-
-/**
- * job_init:
- *
- * Initialise the jobs hash table.
- **/
-void
-job_init (void)
-{
-	if (! jobs)
-		NIH_MUST (jobs = nih_hash_new (NULL, 0,
-					       (NihKeyFunction)job_name));
-}
-
-
-/**
- * job_process_new:
- * @parent: parent of new job process.
- *
- * Allocates and returns a new empty JobProcess structure.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: newly allocated JobProcess structure or NULL if insufficient
- * memory.
- **/
-JobProcess *
-job_process_new (const void *parent)
-{
-	JobProcess *process;
-
-	process = nih_new (parent, JobProcess);
-	if (! process)
-		return NULL;
-
-	process->script = FALSE;
-	process->command = NULL;
-	process->pid = 0;
-
-	return process;
-}
-
-/**
- * job_process_copy:
- * @parent: parent of new job process,
- * @old_process: job process to copy.
- *
- * Allocates and returns a new JobProcess structure which is a copy of the
- * configuration details of @old_process, but with a clean state.
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: newly allocated job process structure or NULL if insufficient
- * memory.
- **/
-JobProcess *
-job_process_copy (const void       *parent,
-		  const JobProcess *old_process)
-{
-	JobProcess *process;
-
-	nih_assert (old_process != NULL);
-
-	process = job_process_new (parent);
-	if (! process)
-		return NULL;
-
-	process->script = old_process->script;
-
-	if (old_process->command) {
-		process->command = nih_strdup (process, old_process->command);
-		if (! process->command) {
-			nih_free (process);
-			return NULL;
-		}
-	}
-
-	return process;
-}
-
-
-/**
- * job_next_id:
- *
- * Returns the current value of the job_id counter, unless that has
- * been wrapped before, in which case it checks whether the value is
- * currently in use before returning it.  If the value is in use, it
- * increments the counter until it finds a value that isn't, or until it
- * has checked the entire value space.
- *
- * This is most efficient while less than 4 billion jobs have been
- * defined, at which point it becomes slightly less efficient.  If there
- * are currently 4 billion known jobs (!!) we lose the ability to generate
- * unique ids, and emit an error -- if we start seeing this in the field,
- * we can always move up to a larger type or something.
- *
- * Returns: next usable id.
- **/
-static inline unsigned int
-job_next_id (void)
-{
-	unsigned int id;
-
-	/* If we've wrapped the job_id counter, we can't just assume that
-	 * the current value isn't taken, we need to make sure that nothing
-	 * is using it first.
-	 */
-	if (job_id_wrapped) {
-		unsigned int start_id = job_id;
-
-		while (job_find_by_id (job_id)) {
-			job_id++;
-
-			/* Make sure we don't end up in an infinite loop if
-			 * we're currently handling 4 billion events.
-			 */
-			if (job_id == start_id) {
-				nih_error (_("Job id %u is not unique"),
-					   job_id);
-				break;
-			}
-		}
-	}
-
-	/* Use the current value of the counter, it's unique as we're ever
-	 * going to get; increment the counter afterwards so the next time
-	 * this runs, we have moved forwards.
-	 */
-	id = job_id++;
-
-	/* If incrementing the counter gave us zero, we consumed the entire
-	 * id space.  This means that in future we can't assume that the ids
-	 * are unique, next time we'll have to be more careful.
-	 */
-	if (! job_id) {
-		if (! job_id_wrapped)
-			nih_debug ("Wrapped job_id counter");
-
-		job_id_wrapped = TRUE;
-	}
-
-	return id;
-}
 
 /**
  * job_new:
- * @parent: parent of new job,
- * @name: name of new job,
+ * @class: class of job,
+ * @name: name for new instance.
  *
- * Allocates and returns a new Job structure with the @name given, and
- * appends it to the internal list of registered jobs.  It is up to the
- * caller to ensure that @name is unique amongst the job list.
+ * Allocates and returns a new Job structure for the @class given,
+ * appending it to the list of instances for @class.  The returned job
+ * will also be an nih_alloc() child of @class.
  *
- * The job can be removed using nih_list_free().
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * @name is used to uniquely identify the instance and is normally
+ * generated by expanding the @class's instance member.
  *
  * Returns: newly allocated job structure or NULL if insufficient memory.
  **/
 Job *
-job_new (const void *parent,
+job_new (JobClass   *class,
 	 const char *name)
 {
 	Job *job;
 	int  i;
 
+	nih_assert (class != NULL);
 	nih_assert (name != NULL);
-	nih_assert (strlen (name) > 0);
 
-	job_init ();
+	control_init ();
 
-	job = nih_new (parent, Job);
+	job = nih_new (class, Job);
 	if (! job)
 		return NULL;
 
 	nih_list_init (&job->entry);
 
-	job->id = job_next_id ();
+	nih_alloc_set_destructor (job, nih_list_destroy);
+
 	job->name = nih_strdup (job, name);
-	if (! job->name) {
-		nih_free (job);
-		return NULL;
-	}
+	if (! job->name)
+		goto error;
 
-	job->description = NULL;
-	job->author = NULL;
-	job->version = NULL;
+	job->class = class;
 
-	job->replacement = NULL;
-	job->replacement_for = NULL;
-	job->instance_of = NULL;
+	job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
+				   class->name, job->name, NULL);
+	if (! job->path)
+		goto error;
 
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
+	job->env = NULL;
 
-	job->cause = NULL;
-	job->blocked = NULL;
+	job->start_env = NULL;
+	job->stop_env = NULL;
+
+	job->stop_on = NULL;
+	if (class->stop_on) {
+		job->stop_on = event_operator_copy (job, class->stop_on);
+		if (! job->stop_on)
+			goto error;
+	}
+
+	job->pid = nih_alloc (job, sizeof (pid_t) * PROCESS_LAST);
+	if (! job->pid)
+		goto error;
+
+	for (i = 0; i < PROCESS_LAST; i++)
+		job->pid[i] = 0;
+
+	job->blocker = NULL;
+	nih_list_init (&job->blocking);
+
+	job->kill_timer = NULL;
+	job->kill_process = -1;
 
 	job->failed = FALSE;
 	job->failed_process = -1;
 	job->exit_status = 0;
 
-	nih_list_init (&job->start_events);
-	nih_list_init (&job->stop_events);
-	nih_list_init (&job->emits);
-
-	job->process = nih_alloc (job, sizeof (JobProcess *)*PROCESS_LAST);
-	if (! job->process) {
-		nih_free (job);
-		return NULL;
-	}
-
-	for (i = 0; i < PROCESS_LAST; i++)
-		job->process[i] = NULL;
-
-	job->normalexit = NULL;
-	job->normalexit_len = 0;
-
-	job->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
-	job->kill_timer = NULL;
-
-	job->instance = FALSE;
-	job->service = FALSE;
-	job->respawn = FALSE;
-	job->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
-	job->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
-	job->respawn_count = 0;
 	job->respawn_time = 0;
+	job->respawn_count = 0;
 
-	job->daemon = FALSE;
-	job->pid_file = NULL;
-	job->pid_binary = NULL;
-	job->pid_timeout = JOB_DEFAULT_PID_TIMEOUT;
-	job->pid_timer = NULL;
+	job->trace_forks = 0;
+	job->trace_state = TRACE_NONE;
 
-	job->console = CONSOLE_NONE;
-	job->env = NULL;
+	nih_hash_add (class->instances, &job->entry);
 
-	job->umask = JOB_DEFAULT_UMASK;
-	job->nice = 0;
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
 
-	for (i = 0; i < RLIMIT_NLIMITS; i++)
-		job->limits[i] = NULL;
-
-	job->chroot = NULL;
-	job->chdir = NULL;
-
-	nih_hash_add (jobs, &job->entry);
-
-	return job;
-}
-
-/**
- * job_copy:
- * @parent: parent of new job,
- * @old_job: job to copy.
- *
- * Allocates and returns a new Job structure which is a copy of the
- * configuration details of @old_job, but with a clean state.
- *
- * The job can be removed using nih_list_free().
- *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned block will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
- *
- * Returns: newly allocated job structure or NULL if insufficient memory.
- **/
-Job *
-job_copy (const void *parent,
-	  const Job  *old_job)
-{
-	Job *job;
-	int  i;
-
-	nih_assert (old_job != NULL);
-
-	job = job_new (parent, old_job->name);
-	if (! job)
-		return NULL;
-
-	if (old_job->description) {
-		job->description = nih_strdup (job, old_job->description);
-		if (! job->description)
-			goto error;
-	}
-
-	if (old_job->author) {
-		job->author = nih_strdup (job, old_job->author);
-		if (! job->author)
-			goto error;
-	}
-
-	if (old_job->version) {
-		job->version = nih_strdup (job, old_job->version);
-		if (! job->version)
-			goto error;
-	}
-
-	NIH_LIST_FOREACH (&old_job->start_events, iter) {
-		Event *old_event = (Event *)iter;
-		Event *event;
-
-		event = event_copy (job, old_event);
-		if (! event)
-			goto error;
-
-		nih_list_add (&job->start_events, &event->entry);
-	}
-
-	NIH_LIST_FOREACH (&old_job->stop_events, iter) {
-		Event *old_event = (Event *)iter;
-		Event *event;
-
-		event = event_copy (job, old_event);
-		if (! event)
-			goto error;
-
-		nih_list_add (&job->stop_events, &event->entry);
-	}
-
-	NIH_LIST_FOREACH (&old_job->emits, iter) {
-		Event *old_event = (Event *)iter;
-		Event *event;
-
-		event = event_copy (job, old_event);
-		if (! event)
-			goto error;
-
-		nih_list_add (&job->emits, &event->entry);
-	}
-
-	for (i = 0; i < PROCESS_LAST; i++) {
-		if (old_job->process[i]) {
-			job->process[i] = job_process_copy (
-				job->process, old_job->process[i]);
-			if (! job->process[i])
-				goto error;
-		}
-	}
-
-	if (old_job->normalexit && old_job->normalexit_len) {
-		job->normalexit = nih_alloc (job, (sizeof (int)
-						   * old_job->normalexit_len));
-		if (! job->normalexit)
-			goto error;
-
-		memcpy (job->normalexit, old_job->normalexit,
-			sizeof (int) * old_job->normalexit_len);
-		job->normalexit_len = old_job->normalexit_len;
-	}
-
-	job->kill_timeout = old_job->kill_timeout;
-
-	job->instance = old_job->instance;
-	job->service = old_job->service;
-	job->respawn = old_job->respawn;
-	job->respawn_limit = old_job->respawn_limit;
-	job->respawn_interval = old_job->respawn_interval;
-
-	job->daemon = old_job->daemon;
-
-	if (old_job->pid_file) {
-		job->pid_file = nih_strdup (job, old_job->pid_file);
-		if (! job->pid_file)
-			goto error;
-	}
-
-	if (old_job->pid_binary) {
-		job->pid_binary = nih_strdup (job, old_job->pid_binary);
-		if (! job->pid_binary)
-			goto error;
-	}
-
-	job->pid_timeout = old_job->pid_timeout;
-
-	job->console = old_job->console;
-
-	if (old_job->env) {
-		job->env = nih_str_array_copy (job, NULL, old_job->env);
-		if (! job->env)
-			goto error;
-	}
-
-	job->umask = old_job->umask;
-	job->nice = old_job->nice;
-
-	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (old_job->limits[i]) {
-			job->limits[i] = nih_new (job, struct rlimit);
-			if (! job->limits[i])
-				goto error;
-
-			job->limits[i]->rlim_cur \
-				= old_job->limits[i]->rlim_cur;
-			job->limits[i]->rlim_max \
-				= old_job->limits[i]->rlim_max;
-		}
-	}
-
-	if (old_job->chroot) {
-		job->chroot = nih_strdup (job, old_job->chroot);
-		if (! job->chroot)
-			goto error;
-	}
-
-	if (old_job->chdir) {
-		job->chdir = nih_strdup (job, old_job->chdir);
-		if (! job->chdir)
-			goto error;
+		job_register (job, conn, TRUE);
 	}
 
 	return job;
 
 error:
-	nih_list_free (&job->entry);
+	nih_free (job);
 	return NULL;
 }
 
 /**
- * job_name:
- * @job: job to be checked.
+ * job_register:
+ * @job: job to register,
+ * @conn: connection to register for,
+ * @signal: emit the InstanceAdded signal.
  *
- * This is the hash key function for the jobs hash table, returning the
- * name of the job.
- *
- * Returns: pointer to the job name.
+ * Register the @job instance with the D-Bus connection @conn, using
+ * the path set when the job was created.
  **/
-static const char *
-job_name (Job *job)
+void
+job_register (Job            *job,
+	      DBusConnection *conn,
+	      int             signal)
 {
 	nih_assert (job != NULL);
+	nih_assert (conn != NULL);
 
-	return job->name;
+	NIH_MUST (nih_dbus_object_new (job, conn, job->path,
+				       job_interfaces, job));
+
+	nih_debug ("Registered instance %s", job->path);
+
+	if (signal)
+		NIH_ZERO (job_class_emit_instance_added (conn, job->class->path,
+							 job->path));
 }
 
-
-/**
- * job_find_by_name:
- * @name: name of job.
- *
- * Finds the job with the given @name in the jobs hash table.  This will
- * not return instance or replacement jobs, instead preferring to return
- * the job that is currently active.  It will also not return jobs that
- * are to be deleted.
- *
- * Returns: job found or NULL if not known.
- **/
-Job *
-job_find_by_name (const char *name)
-{
-	Job *job;
-
-	nih_assert (name != NULL);
-
-	job_init ();
-
-	job = (Job *)nih_hash_lookup (jobs, name);
-	while (job) {
-		if (job->instance_of) {
-			return job->instance_of;
-		} else if (job->replacement_for) {
-			return job->replacement_for;
-		} else if (job->state == JOB_DELETED) {
-			job = (Job *)nih_hash_search (jobs, name, &job->entry);
-		} else {
-			break;
-		}
-	}
-
-	return job;
-}
-
-/**
- * job_find_by_pid:
- * @pid: process id to find,
- * @process: pointer to place process which is running @pid.
- *
- * Finds the job with a process of the given @pid in the jobs hash table.
- * If @process is not NULL, the @process variable is set to point at the
- * process entry in the table which has @pid.
- *
- * Returns: job found or NULL if not known.
- **/
-Job *
-job_find_by_pid (pid_t        pid,
-		 ProcessType *process)
-{
-	Job *job;
-	int  i;
-
-	nih_assert (pid > 0);
-
-	job_init ();
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		job = (Job *)iter;
-
-		for (i = 0; i < PROCESS_LAST; i++) {
-			if (job->process[i] && (job->process[i]->pid == pid)) {
-				if (process)
-					*process = i;
-
-				return job;
-			}
-		}
-	}
-
-	return NULL;
-}
-
-/**
- * job_find_by_id:
- * @id: unique job id to find.
- *
- * Finds the job with the unique id @id in the jobs hash table.
- *
- * Returns: job found or NULL if not known.
- **/
-Job *
-job_find_by_id (unsigned int id)
-{
-	Job *job;
-
-	job_init ();
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		job = (Job *)iter;
-
-		if (job->id == id)
-			return job;
-	}
-
-	return NULL;
-}
-
-
-/**
- * job_instance:
- * @job: job to spawn from.
- *
- * This function is used to spawn a new instance of @job, if appropriate;
- * it should be called before attempting to start a job as you cannot
- * start a master of an instance job.
- *
- * It is illegal to attempt to obtain an instance of a deleted job,
- * instance job or replacement job.
- *
- * Returns: new instance, or @job for non-instance jobs.
- **/
-Job *
-job_instance (Job *job)
-{
-	Job *instance;
-
-	nih_assert (job != NULL);
-	nih_assert (job->state != JOB_DELETED);
-	nih_assert (job->instance_of == NULL);
-	nih_assert (job->replacement_for == NULL);
-
-	if (job->instance) {
-		NIH_MUST (instance = job_copy (NULL, job));
-		instance->instance_of = job;
-
-		return instance;
-	} else {
-		return job;
-	}
-}
 
 /**
  * job_change_goal:
  * @job: job to change goal of,
- * @goal: goal to change to,
- * @emission: event emission causing change.
+ * @goal: goal to change to.
  *
  * This function changes the current goal of a @job to the new @goal given,
  * performing any necessary state changes or actions (such as killing
  * the running process) to correctly enter the new goal.
  *
- * @emission is stored in the Job's cause member, and may be NULL.
- * Any previous cause is unreferenced and allowed to finish handling
- * if it has no further references.
+ * If the job is not in a rest state (WAITING or RUNNING), this has no
+ * other effect than changing the goal; since the job is waiting on some
+ * other event.  The goal change will cause it to take action to head
+ * towards stopped.
  *
- * Before starting a job, you should call job_instance() to ensure that you
- * have a job that can be started, as you may not attempt to change the
- * goal of an instance master.  You may also not change the goal of a deleted
- * job.
+ * If the job is in the WAITING state and @goal is START, the job will
+ * begin to be started and will block in the STARTING state for an event
+ * to finish.
+ *
+ * If the job is in the RUNNING state and @goal is STOP, the job will
+ * begin to be stopped and will either block in the PRE-STOP state for
+ * the pre-stop script or the STOPPING state for an event to finish.
+ *
+ * Thus in all circumstances, @job is safe to use once this function
+ * returns.  Though further calls to job_change_state may change that as
+ * noted.
  **/
 void
-job_change_goal (Job           *job,
-		 JobGoal        goal,
-		 EventEmission *emission)
+job_change_goal (Job     *job,
+		 JobGoal  goal)
 {
 	nih_assert (job != NULL);
-	nih_assert (job->state != JOB_DELETED);
-	nih_assert ((! job->instance) || (job->instance_of != NULL));
-	nih_assert (job->replacement_for == NULL);
 
 	if (job->goal == goal)
 		return;
 
-	nih_info (_("%s goal changed from %s to %s"), job->name,
+	nih_info (_("%s goal changed from %s to %s"), job_name (job),
 		  job_goal_name (job->goal), job_goal_name (goal));
 
 	job->goal = goal;
-	job_change_cause (job, emission);
-	notify_job (job);
 
 
 	/* Normally whatever process or event is associated with the state
@@ -735,39 +244,12 @@ job_change_goal (Job           *job,
 			job_change_state (job, job_next_state (job));
 
 		break;
+	case JOB_RESPAWN:
+		break;
+	default:
+		nih_assert_not_reached ();
 	}
 }
-
-/**
- * job_change_cause:
- * @job: job to change,
- * @emission: emission to set.
- *
- * Updates the reference to the emission that's causing @job to be started
- * or stopped to @emission, which may be NULL or even the same as the current
- * one.
- **/
-static void
-job_change_cause (Job           *job,
-		  EventEmission *emission)
-{
-	nih_assert (job != NULL);
-
-	if (job->cause == emission)
-		return;
-
-	if (job->cause) {
-		notify_job_event (job);
-
-		job->cause->jobs--;
-		event_emit_finished (job->cause);
-	}
-
-	job->cause = emission;
-	if (job->cause)
-		job->cause->jobs++;
-}
-
 
 /**
  * job_change_state:
@@ -784,6 +266,9 @@ job_change_cause (Job           *job,
  * assertion failure.  Also some state transitions may result in further
  * transitions, so the state when this function returns may not be the
  * state requested.
+ *
+ * WARNING: On return from this function, @job may no longer be valid
+ * since it will be freed once it becomes fully stopped.
  **/
 void
 job_change_state (Job      *job,
@@ -793,8 +278,11 @@ job_change_state (Job      *job,
 
 	while (job->state != state) {
 		JobState old_state;
+		int      unused;
 
-		nih_info (_("%s state changed from %s to %s"), job->name,
+		nih_assert (job->blocker == NULL);
+
+		nih_info (_("%s state changed from %s to %s"), job_name (job),
 			  job_state_name (job->state), job_state_name (state));
 
 		old_state = job->state;
@@ -809,24 +297,22 @@ job_change_state (Job      *job,
 			nih_assert ((old_state == JOB_WAITING)
 				    || (old_state == JOB_POST_STOP));
 
-			/* Catch runaway jobs; make sure we do this before
-			 * we emit the starting event, so other jobs don't
-			 * think we're going to be started.
+			/* Throw away our old environment and use the newly
+			 * set environment from now on; unless that's NULL
+			 * in which case we just keep our old environment.
 			 */
-			if (job_catch_runaway (job)) {
-				nih_warn (_("%s respawning too fast, stopped"),
-					  job->name);
+			if (job->start_env) {
+				if (job->env)
+					nih_unref (job->env, job);
 
-				job_change_goal (job, JOB_STOP, job->cause);
-				state = job_next_state (job);
+				job->env = job->start_env;
+				job->start_env = NULL;
+			}
 
-				if (! job->failed) {
-					job->failed = TRUE;
-					job->failed_process = -1;
-					job->exit_status = 0;
-				}
-
-				break;
+			/* Throw away the stop environment */
+			if (job->stop_env) {
+				nih_unref (job->stop_env, job);
+				job->stop_env = NULL;
 			}
 
 			/* Clear any old failed information */
@@ -834,15 +320,19 @@ job_change_state (Job      *job,
 			job->failed_process = -1;
 			job->exit_status = 0;
 
-			job_emit_event (job);
+			job->blocker = job_emit_event (job);
 
 			break;
 		case JOB_PRE_START:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
-			if (job->process[PROCESS_PRE_START]) {
-				job_run_process (job, PROCESS_PRE_START);
+			if (job->class->process[PROCESS_PRE_START]) {
+				if (job_process_run (job, PROCESS_PRE_START) < 0) {
+					job_failed (job, PROCESS_PRE_START, -1);
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
+				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -852,19 +342,25 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
-			if (job->process[PROCESS_MAIN])
-				job_run_process (job, PROCESS_MAIN);
-
-			if (! job->daemon)
+			if (job->class->process[PROCESS_MAIN]) {
+				if (job_process_run (job, PROCESS_MAIN) < 0) {
+					job_failed (job, PROCESS_MAIN, -1);
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
+				} else if (job->class->expect == EXPECT_NONE)
+					state = job_next_state (job);
+			} else {
 				state = job_next_state (job);
+			}
 
 			break;
 		case JOB_POST_START:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
 
-			if (job->process[PROCESS_POST_START]) {
-				job_run_process (job, PROCESS_POST_START);
+			if (job->class->process[PROCESS_POST_START]) {
+				if (job_process_run (job, PROCESS_POST_START) < 0)
+					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
 			}
@@ -876,19 +372,22 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_PRE_STOP));
 
 			if (old_state == JOB_PRE_STOP) {
-				notify_job_finished (job);
-				break;
-			}
+				/* Throw away the stop environment */
+				if (job->stop_env) {
+					nih_unref (job->stop_env, job);
+					job->stop_env = NULL;
+				}
 
-			job_emit_event (job);
+				/* Cancel the stop attempt */
+				job_finished (job, FALSE);
+			} else {
+				job_emit_event (job);
 
-			/* If we're a service, our goal is to be running;
-			 * notify subscribed processes that we reached it,
-			 * and change the cause.
-			 */
-			if (job->service) {
-				notify_job_finished (job);
-				job_change_cause (job, NULL);
+				/* If we're not a task, our goal is to be
+				 * running.
+				 */
+				if (! job->class->task)
+					job_finished (job, FALSE);
 			}
 
 			break;
@@ -896,29 +395,31 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_RUNNING);
 
-			if (job->process[PROCESS_PRE_STOP]) {
-				job_run_process (job, PROCESS_PRE_STOP);
+			if (job->class->process[PROCESS_PRE_STOP]) {
+				if (job_process_run (job, PROCESS_PRE_STOP) < 0)
+					state = job_next_state (job);
 			} else {
 				state = job_next_state (job);
 			}
 
 			break;
 		case JOB_STOPPING:
-			nih_assert ((old_state == JOB_PRE_START)
+			nih_assert ((old_state == JOB_STARTING)
+				    || (old_state == JOB_PRE_START)
 				    || (old_state == JOB_SPAWNED)
 				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)
 				    || (old_state == JOB_PRE_STOP));
 
-			job_emit_event (job);
+			job->blocker = job_emit_event (job);
 
 			break;
 		case JOB_KILLED:
 			nih_assert (old_state == JOB_STOPPING);
 
-			if (job->process[PROCESS_MAIN]
-			    && (job->process[PROCESS_MAIN]->pid > 0)) {
-				job_kill_process (job, PROCESS_MAIN);
+			if (job->class->process[PROCESS_MAIN]
+			    && (job->pid[PROCESS_MAIN] > 0)) {
+				job_process_kill (job, PROCESS_MAIN);
 			} else {
 				state = job_next_state (job);
 			}
@@ -927,8 +428,12 @@ job_change_state (Job      *job,
 		case JOB_POST_STOP:
 			nih_assert (old_state == JOB_KILLED);
 
-			if (job->process[PROCESS_POST_STOP]) {
-				job_run_process (job, PROCESS_POST_STOP);
+			if (job->class->process[PROCESS_POST_STOP]) {
+				if (job_process_run (job, PROCESS_POST_STOP) < 0) {
+					job_failed (job, PROCESS_POST_STOP, -1);
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
+				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -941,40 +446,43 @@ job_change_state (Job      *job,
 
 			job_emit_event (job);
 
-			notify_job_finished (job);
-			job_change_cause (job, NULL);
+			job_finished (job, FALSE);
 
-			/* Mark the job as deleted if it's an instance or
-			 * should be replaced by another.
+			/* Remove the job from the list of instances and
+			 * then allow a better class to replace us
+			 * in the hash table if we have no other instances
+			 * and there is one.
 			 */
-			if (job->instance_of || job_should_replace (job))
-				state = job_next_state (job);
+			nih_list_remove (&job->entry);
+			unused = job_class_reconsider (job->class);
 
-			break;
-		case JOB_DELETED:
-			nih_assert (job->goal == JOB_STOP);
-			nih_assert (old_state == JOB_WAITING);
-
-			/* If the job has a replacement, and isn't just
-			 * marked for deletion, let that become the prime
-			 * job now.
+			/* If the class is due to be deleted, free it
+			 * taking the job with it; otherwise free the
+			 * job.
 			 */
-			if ((job->replacement != NULL)
-			    && (job->replacement != (void *)-1))
-				job->replacement->replacement_for = NULL;
+			if (job->class->deleted && unused) {
+				nih_debug ("Destroyed unused job %s",
+					   job->class->name);
+				nih_free (job->class);
+			} else {
+				nih_debug ("Destroyed inactive instance %s",
+					   job_name (job));
 
-			/* If the job this is an instance of can be replaced,
-			 * kick it into the deleted state.
-			 */
-			if (job->instance_of
-			    && job_should_replace (job->instance_of))
-				job_change_state (job->instance_of,
-						  job_next_state (job->instance_of));
+				NIH_LIST_FOREACH (control_conns, iter) {
+					NihListEntry   *entry = (NihListEntry *)iter;
+					DBusConnection *conn = (DBusConnection *)entry->data;
 
-			break;
+					NIH_ZERO (job_class_emit_instance_removed (
+							  conn,
+							  job->class->path,
+							  job->path));
+				}
+
+				nih_free (job);
+			}
+
+			return;
 		}
-
-		notify_job (job);
 	}
 }
 
@@ -1005,16 +513,20 @@ job_next_state (Job *job)
 	case JOB_WAITING:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_DELETED;
+			nih_assert_not_reached ();
 		case JOB_START:
 			return JOB_STARTING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_WAITING;
+			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_PRE_START;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_PRE_START:
 		switch (job->goal) {
@@ -1022,6 +534,8 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_SPAWNED;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_SPAWNED:
 		switch (job->goal) {
@@ -1029,6 +543,8 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_POST_START;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_POST_START:
 		switch (job->goal) {
@@ -1036,18 +552,25 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_RUNNING;
+		case JOB_RESPAWN:
+			job_change_goal (job, JOB_START);
+			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_RUNNING:
 		switch (job->goal) {
 		case JOB_STOP:
-			if (job->process[PROCESS_MAIN]
-			    && (job->process[PROCESS_MAIN]->pid > 0)) {
+			if (job->class->process[PROCESS_MAIN]
+			    && (job->pid[PROCESS_MAIN] > 0)) {
 				return JOB_PRE_STOP;
 			} else {
 				return JOB_STOPPING;
 			}
 		case JOB_START:
 			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_PRE_STOP:
 		switch (job->goal) {
@@ -1055,6 +578,11 @@ job_next_state (Job *job)
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_RUNNING;
+		case JOB_RESPAWN:
+			job_change_goal (job, JOB_START);
+			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_STOPPING:
 		switch (job->goal) {
@@ -1062,6 +590,8 @@ job_next_state (Job *job)
 			return JOB_KILLED;
 		case JOB_START:
 			return JOB_KILLED;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_KILLED:
 		switch (job->goal) {
@@ -1069,6 +599,8 @@ job_next_state (Job *job)
 			return JOB_POST_STOP;
 		case JOB_START:
 			return JOB_POST_STOP;
+		default:
+			nih_assert_not_reached ();
 		}
 	case JOB_POST_STOP:
 		switch (job->goal) {
@@ -1076,35 +608,186 @@ job_next_state (Job *job)
 			return JOB_WAITING;
 		case JOB_START:
 			return JOB_STARTING;
+		default:
+			nih_assert_not_reached ();
 		}
 	default:
 		nih_assert_not_reached ();
 	}
 }
 
+
+/**
+ * job_failed:
+ * @job: job that has failed,
+ * @process: process that failed,
+ * @status: status of @process at failure.
+ *
+ * Mark @job as having failed, unless it already has been marked so, storing
+ * @process and @status so that they may show up as arguments and environment
+ * to the stop and stopped events generated for the job.
+ *
+ * Additionally this marks the start and stop events as failed as well; this
+ * is reported to the emitter of the event, and will also cause a failed event
+ * to be generated after the event completes.
+ *
+ * @process may be -1 to indicate a failure to respawn, and @exit_status
+ * may be -1 to indicate a spawn failure.
+ **/
+void
+job_failed (Job         *job,
+	    ProcessType  process,
+	    int          status)
+{
+	nih_assert (job != NULL);
+
+	if (job->failed)
+		return;
+
+	job->failed = TRUE;
+	job->failed_process = process;
+	job->exit_status = status;
+
+	job_finished (job, TRUE);
+}
+
+/**
+ * job_finished:
+ * @job: job that is blocking,
+ * @failed: mark events as failed.
+ *
+ * This function unblocks any events blocking on @job; it is called when the
+ * job reaches a rest state (waiting for all, running for services), when a
+ * new command is received or when the job fails.
+ *
+ * If @failed is TRUE then the events that are blocking will be marked as
+ * failed.
+ **/
+void
+job_finished (Job *job,
+	      int  failed)
+{
+	nih_assert (job != NULL);
+
+	NIH_LIST_FOREACH_SAFE (&job->blocking, iter) {
+		Blocked *blocked = (Blocked *)iter;
+
+		switch (blocked->type) {
+		case BLOCKED_EVENT:
+			if (failed)
+				blocked->event->failed = TRUE;
+
+			event_unblock (blocked->event);
+
+			break;
+		case BLOCKED_JOB_START_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
+						  _("Job failed to start")));
+			} else {
+				NIH_ZERO (job_class_start_reply (
+						  blocked->message,
+						  job->path));
+			}
+
+			break;
+		case BLOCKED_JOB_STOP_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
+						  _("Job failed while stopping")));
+			} else {
+				NIH_ZERO (job_class_stop_reply (
+						  blocked->message));
+			}
+
+			break;
+		case BLOCKED_JOB_RESTART_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
+						  _("Job failed to restart")));
+			} else {
+				NIH_ZERO (job_class_restart_reply (
+						  blocked->message,
+						  job->path));
+			}
+
+			break;
+		case BLOCKED_INSTANCE_START_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
+						  _("Job failed to start")));
+			} else {
+				NIH_ZERO (job_start_reply (blocked->message));
+			}
+
+			break;
+		case BLOCKED_INSTANCE_STOP_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
+						  _("Job failed while stopping")));
+			} else {
+				NIH_ZERO (job_stop_reply (blocked->message));
+			}
+
+			break;
+		case BLOCKED_INSTANCE_RESTART_METHOD:
+			if (failed) {
+				NIH_ZERO (nih_dbus_message_error (
+						  blocked->message,
+						  DBUS_INTERFACE_UPSTART ".Error.JobFailed",
+						  _("Job failed to restart")));
+			} else {
+				NIH_ZERO (job_restart_reply (blocked->message));
+			}
+
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+
+		nih_free (blocked);
+	}
+}
+
+
 /**
  * job_emit_event:
  * @job: job generating the event.
  *
  * Called from a state change because it believes an event should be
- * emitted.  Constructs the event with the right arguments and environment,
- * adds it to the pending queue, and if the event should block, stores it
- * in the blocked member of @job.
+ * emitted.  Constructs the event with the right arguments and environment
+ * and adds it to the pending queue.
+ *
+ * The starting and stopping events will record the job as blocking on
+ * the event, and will change the job's state when they finish.
  *
  * The stopping and stopped events have an extra argument that is "ok" if
  * the job terminated successfully, or "failed" if it terminated with an
  * error.  If failed, a further argument indicates which process it was
  * that caused the failure and either an EXIT_STATUS or EXIT_SIGNAL
  * environment variable detailing it.
+ *
+ * Returns: new Event in the queue.
  **/
-static void
+Event *
 job_emit_event (Job *job)
 {
-	EventEmission  *emission;
-	const char     *name;
-	int             stop = FALSE, block = FALSE;
-	char          **args = NULL, **env = NULL;
-	size_t          len;
+	Event           *event;
+	const char      *name;
+	int              block = FALSE, stop = FALSE;
+	nih_local char **env = NULL;
+	char           **e;
+	size_t           len;
 
 	nih_assert (job != NULL);
 
@@ -1118,8 +801,8 @@ job_emit_event (Job *job)
 		break;
 	case JOB_STOPPING:
 		name = JOB_STOPPING_EVENT;
-		stop = TRUE;
 		block = TRUE;
+		stop = TRUE;
 		break;
 	case JOB_WAITING:
 		name = JOB_STOPPED_EVENT;
@@ -1130,768 +813,600 @@ job_emit_event (Job *job)
 	}
 
 	len = 0;
-	NIH_MUST (args = nih_str_array_new (NULL));
-	NIH_MUST (nih_str_array_add (&args, NULL, &len, job->name));
+	env = NIH_MUST (nih_str_array_new (NULL));
 
+	/* Add the job and instance name */
+	NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+			       "JOB=%s", job->class->name));
+	NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+			       "INSTANCE=%s", job->name));
+
+	/* Stop events include a "failed" argument if a process failed,
+	 * otherwise stop events have an "ok" argument.
+	 */
 	if (stop && job->failed) {
-		char *exit;
+		NIH_MUST (environ_add (&env, NULL, &len, TRUE,
+				       "RESULT=failed"));
 
-		NIH_MUST (nih_str_array_add (&args, NULL, &len, "failed"));
-		if (job->failed_process == -1) {
-			NIH_MUST (nih_str_array_add (
-					  &args, NULL, &len, "respawn"));
-		} else {
-			NIH_MUST (nih_str_array_add (
-					  &args, NULL, &len,
-					  process_name (job->failed_process)));
-		}
-
-		/* If the job is terminated by a signal, that is stored in
-		 * the higher byte, and we set EXIT_SIGNAL instead of
-		 * EXIT_STATUS.
+		/* Include information about the process that failed, and
+		 * the signal/exit information.  If it was the spawn itself
+		 * that failed, we don't include signal/exit information and
+		 * if it was a respawn failure, we use the special "respawn"
+		 * argument instead of the process name,
 		 */
-		if (job->exit_status & ~0xff) {
-			const char *sig;
+		if ((job->failed_process != (ProcessType)-1)
+		    && (job->exit_status != -1)) {
+			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+					       "PROCESS=%s",
+					       process_name (job->failed_process)));
 
-			sig = nih_signal_to_name (job->exit_status >> 8);
-			if (sig) {
-				NIH_MUST (exit = nih_sprintf (
-						  NULL, "EXIT_SIGNAL=%s",
-						  sig));
+			/* If the job was terminated by a signal, that
+			 * will be stored in the higher byte and we
+			 * set EXIT_SIGNAL instead of EXIT_STATUS.
+			 */
+			if (job->exit_status & ~0xff) {
+				const char *sig;
+
+				sig = nih_signal_to_name (job->exit_status >> 8);
+				if (sig) {
+					NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+							       "EXIT_SIGNAL=%s", sig));
+				} else {
+					NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+							       "EXIT_SIGNAL=%d", job->exit_status >> 8));
+				}
 			} else {
-				NIH_MUST (exit = nih_sprintf (
-						  NULL, "EXIT_SIGNAL=%d",
-						  job->exit_status >> 8));
+				NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+						       "EXIT_STATUS=%d", job->exit_status));
 			}
+		} else if (job->failed_process != (ProcessType)-1) {
+			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
+					       "PROCESS=%s",
+					       process_name (job->failed_process)));
 		} else {
-			NIH_MUST (exit = nih_sprintf (NULL, "EXIT_STATUS=%d",
-						      job->exit_status));
+			NIH_MUST (environ_add (&env, NULL, &len, TRUE,
+					       "PROCESS=respawn"));
 		}
-
-		len = 0;
-		NIH_MUST (env = nih_str_array_new (NULL));
-		NIH_MUST (nih_str_array_addp (&env, NULL, &len, exit));
-
 	} else if (stop) {
-		NIH_MUST (nih_str_array_add (&args, NULL, &len, "ok"));
+		NIH_MUST (environ_add (&env, NULL, &len, TRUE, "RESULT=ok"));
 	}
 
-	emission = event_emit (name, args, env);
+	/* Add any exported variables from the job environment */
+	for (e = job->class->export; e && *e; e++) {
+		char * const *str;
 
-	if (block)
-		job->blocked = emission;
+		str = environ_lookup (job->env, *e, strlen (*e));
+		if (str)
+			NIH_MUST (environ_add (&env, NULL, &len, FALSE, *str));
+	}
+
+	event = NIH_MUST (event_new (NULL, name, env));
+
+	if (block) {
+		Blocked *blocked;
+
+		blocked = NIH_MUST (blocked_new (event, BLOCKED_JOB, job));
+		nih_list_add (&event->blocking, &blocked->entry);
+	}
+
+	return event;
 }
 
+
 /**
- * job_catch_runaway
- * @job: job being started.
+ * job_name:
+ * @job: job to return name of.
  *
- * This function is called when changing the state of a job to starting,
- * before emitting the event.  It ensures that a job doesn't end up in
- * a restart loop by limiting the number of restarts in a particular
- * time limit.
+ * Returns a string used in messages that contains the job name; this
+ * always begins with the name from the class, and then if set,
+ * has the name of the instance appended in brackets.
  *
- * Returns: TRUE if the job is respawning too fast, FALSE if not.
- */
-static int
-job_catch_runaway (Job *job)
+ * Returns: internal copy of the string.
+ **/
+const char *
+job_name (Job *job)
 {
+	static char *name = NULL;
+
 	nih_assert (job != NULL);
 
-	if (job->respawn_limit && job->respawn_interval) {
-		time_t interval;
+	if (name)
+		nih_discard (name);
 
-		/* Time since last respawn ... this goes very large if we
-		 * haven't done one, which is fine
-		 */
-		interval = time (NULL) - job->respawn_time;
-		if (interval < job->respawn_interval) {
-			job->respawn_count++;
-			if (job->respawn_count > job->respawn_limit)
-				return TRUE;
-		} else {
-			job->respawn_time = time (NULL);
-			job->respawn_count = 1;
-		}
+	if (*job->name) {
+		name = NIH_MUST (nih_sprintf (NULL, "%s (%s)",
+					      job->class->name, job->name));
+	} else {
+		name = NIH_MUST (nih_strdup (NULL, job->class->name));
 	}
 
-	return FALSE;
+	return name;
 }
 
 
 /**
- * job_should_replace:
- * @job: job to check.
+ * job_goal_name:
+ * @goal: goal to convert.
  *
- * This function determines whether a job has a replacement and whether it
- * should be replaced by that one by moving it to the DELETED state.
+ * Converts an enumerated job goal into the string used for the status
+ * and for logging purposes.
  *
- * A job should be replaced if it has a replacement, is in the WAITING state
- * and is either a non-instance job or an instance job without any instances.
+ * Returns: static string or NULL if goal not known.
+ **/
+const char *
+job_goal_name (JobGoal goal)
+{
+	switch (goal) {
+	case JOB_STOP:
+		return N_("stop");
+	case JOB_START:
+		return N_("start");
+	case JOB_RESPAWN:
+		return N_("respawn");
+	default:
+		return NULL;
+	}
+}
+
+/**
+ * job_goal_from_name:
+ * @goal: goal to convert.
  *
- * Returns: TRUE if job should be replaced, FALSE otherwise.
+ * Converts a job goal string into the enumeration.
+ *
+ * Returns: enumerated goal or -1 if not known.
+ **/
+JobGoal
+job_goal_from_name (const char *goal)
+{
+	nih_assert (goal != NULL);
+
+	if (! strcmp (goal, "stop")) {
+		return JOB_STOP;
+	} else if (! strcmp (goal, "start")) {
+		return JOB_START;
+	} else if (! strcmp (goal, "respawn")) {
+		return JOB_RESPAWN;
+	} else {
+		return -1;
+	}
+}
+
+
+/**
+ * job_state_name:
+ * @state: state to convert.
+ *
+ * Converts an enumerated job state into the string used for the status
+ * and for logging purposes.
+ *
+ * Returns: static string or NULL if state not known.
+ **/
+const char *
+job_state_name (JobState state)
+{
+	switch (state) {
+	case JOB_WAITING:
+		return N_("waiting");
+	case JOB_STARTING:
+		return N_("starting");
+	case JOB_PRE_START:
+		return N_("pre-start");
+	case JOB_SPAWNED:
+		return N_("spawned");
+	case JOB_POST_START:
+		return N_("post-start");
+	case JOB_RUNNING:
+		return N_("running");
+	case JOB_PRE_STOP:
+		return N_("pre-stop");
+	case JOB_STOPPING:
+		return N_("stopping");
+	case JOB_KILLED:
+		return N_("killed");
+	case JOB_POST_STOP:
+		return N_("post-stop");
+	default:
+		return NULL;
+	}
+}
+
+/**
+ * job_state_from_name:
+ * @state: state to convert.
+ *
+ * Converts a job state string into the enumeration.
+ *
+ * Returns: enumerated state or -1 if not known.
+ **/
+JobState
+job_state_from_name (const char *state)
+{
+	nih_assert (state != NULL);
+
+	if (! strcmp (state, "waiting")) {
+		return JOB_WAITING;
+	} else if (! strcmp (state, "starting")) {
+		return JOB_STARTING;
+	} else if (! strcmp (state, "pre-start")) {
+		return JOB_PRE_START;
+	} else if (! strcmp (state, "spawned")) {
+		return JOB_SPAWNED;
+	} else if (! strcmp (state, "post-start")) {
+		return JOB_POST_START;
+	} else if (! strcmp (state, "running")) {
+		return JOB_RUNNING;
+	} else if (! strcmp (state, "pre-stop")) {
+		return JOB_PRE_STOP;
+	} else if (! strcmp (state, "stopping")) {
+		return JOB_STOPPING;
+	} else if (! strcmp (state, "killed")) {
+		return JOB_KILLED;
+	} else if (! strcmp (state, "post-stop")) {
+		return JOB_POST_STOP;
+	} else {
+		return -1;
+	}
+}
+
+
+/**
+ * job_start:
+ * @job: job to be started,
+ * @message: D-Bus connection and message received,
+ * @wait: whether to wait for command to finish before returning.
+ *
+ * Implements the top half of the Start method of the
+ * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
+ * job_finished().
+ *
+ * Called on a stopping instance @job to cause it to be restarted.  If the
+ * instance goal is already start, the com.ubuntu.Upstart.Error.AlreadyStarted
+ * D_Bus error will be returned immediately.  If the instance fails to
+ * start again, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
+ * be returned when the problem occurs.
+ *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished starting (running for tasks); when @wait is FALSE, the method
+ * call returns once the command has been processed and the goal changed.
+ *
+ * Returns: zero on success, negative value on raised error.
  **/
 int
-job_should_replace (Job *job)
+job_start (Job             *job,
+	   NihDBusMessage  *message,
+	   int              wait)
 {
-	nih_assert (job != NULL);
-
-	if (! job->replacement)
-		return FALSE;
-
-	if (job->state != JOB_WAITING)
-		return FALSE;
-
-	if (! job->instance)
-		return TRUE;
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		Job *instance = (Job *)iter;
-
-		if (instance->state == JOB_DELETED)
-			continue;
-
-		if (instance->instance_of == job)
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
-/**
- * job_run_process:
- * @job: job context for process to be run in,
- * @process: job process to run.
- *
- * This function looks up @process in the job's process table and uses
- * the information there to spawn a new process for the @job, storing the
- * pid in that table entry.
- *
- * The process is normally executed using the system shell, unless the
- * script member of @process is FALSE and there are no typical shell
- * characters within the command member, in which case it is executed
- * directly using exec after splitting on whitespace.
- *
- * When exectued with the shell, if the command (which may be an entire
- * script) is reasonably small (less than 1KB) it is passed to the
- * shell using the POSIX-specified -c option.  Otherwise the shell is told
- * to read commands from one of the special /dev/fd/NN devices and NihIo
- * used to feed the script into that device.  A pointer to the NihIo object
- * is not kept or stored because it will automatically clean itself up should
- * the script go away as the other end of the pipe will be closed.
- *
- * In either case the shell is run with the -e option so that commands will
- * fail if their exit status is not checked.
- *
- * No error is returned from this function because it will block until
- * the process_spawn() calls succeeds, that can only fail for temporary
- * reasons (such as a lack of process ids) which would cause problems
- * carrying on anyway.
- **/
-void
-job_run_process (Job         *job,
-		 ProcessType  process)
-{
-	JobProcess  *proc;
-	char       **argv, *script = NULL;
-	size_t       argc;
-	int          error = FALSE, fds[2];
+	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
+	nih_assert (message != NULL);
 
-	proc = job->process[process];
-	nih_assert (proc != NULL);
-	nih_assert (proc->command != NULL);
-	nih_assert (proc->pid == 0);
+	if (job->goal == JOB_START) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStarted",
+			_("Job is already running: %s"),
+			job_name (job));
 
-	/* We run the process using a shell if it says it wants to be run
-	 * as such, or if it contains any shell-like characters; since that's
-	 * the best way to deal with things like variables.
-	 */
-	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
-		struct stat  statbuf;
-
-		argc = 0;
-		NIH_MUST (argv = nih_str_array_new (NULL));
-
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, SHELL));
-		NIH_MUST (nih_str_array_add (&argv, NULL, &argc, "-e"));
-
-		/* If the process wasn't originally marked to be run through
-		 * a shell, prepend exec to the script so that the shell
-		 * gets out of the way after parsing.
-		 */
-		if (proc->script) {
-			NIH_MUST (script = nih_strdup (NULL, proc->command));
-		} else {
-			NIH_MUST (script = nih_sprintf (NULL, "exec %s",
-							proc->command));
-		}
-
-		/* If the script is very large, we consider piping it using
-		 * /dev/fd/NNN; we can only do that if /dev/fd exists,
-		 * of course.
-		 */
-		if ((strlen (script) > 1024)
-		    && (stat (DEV_FD, &statbuf) == 0)
-		    && (S_ISDIR (statbuf.st_mode)))
-		{
-			char *cmd;
-
-			/* Close the writing end when the child is exec'd */
-			NIH_MUST (pipe (fds) == 0);
-			nih_io_set_cloexec (fds[1]);
-
-			/* FIXME actually always want it to be /dev/fd/3 and
-			 * dup2() in the child to make it that way ... no way
-			 * of passing that yet
-			 */
-			NIH_MUST (cmd = nih_sprintf (argv, "%s/%d",
-						     DEV_FD, fds[0]));
-			NIH_MUST (nih_str_array_addp (&argv, NULL,
-						      &argc, cmd));
-		} else {
-			NIH_MUST (nih_str_array_add (&argv, NULL,
-						     &argc, "-c"));
-			NIH_MUST (nih_str_array_addp (&argv, NULL,
-						      &argc, script));
-
-			/* Next argument is argv[0]; just pass the shell */
-			NIH_MUST (nih_str_array_add (&argv, NULL,
-						     &argc, SHELL));
-
-			script = NULL;
-		}
-
-		/* Append arguments from the cause event if set. */
-		if (job->cause && job->cause->event.args)
-			NIH_MUST (nih_str_array_append (&argv, NULL, &argc,
-							job->cause->event.args));
-	} else {
-		/* Split the command on whitespace to produce a list of
-		 * arguments that we can exec directly.
-		 */
-		NIH_MUST (argv = nih_str_split (NULL, proc->command,
-						" \t\r\n", TRUE));
+		return -1;
 	}
 
-
-	/* Spawn the process, repeat until fork() works */
-	while ((proc->pid = process_spawn (job, argv)) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		if (! error)
-			nih_warn ("%s: %s", _("Failed to spawn process"),
-				  err->message);
-		nih_free (err);
-
-		error = TRUE;
+	if (wait) {
+		blocked = blocked_new (job, BLOCKED_INSTANCE_START_METHOD,
+				       message);
+		if (! blocked)
+			nih_return_system_error (-1);
 	}
 
-	nih_free (argv);
+	if (job->start_env)
+		nih_unref (job->start_env, job);
+	job->start_env = NULL;
 
-	nih_info (_("Active %s %s process (%d)"),
-		  job->name, process_name (process), proc->pid);
+	job_finished (job, FALSE);
+	if (blocked)
+		nih_list_add (&job->blocking, &blocked->entry);
 
+	job_change_goal (job, JOB_START);
 
-	/* Feed the script to the child process */
-	if (script) {
-		NihIo *io;
+	if (! wait)
+		NIH_ZERO (job_start_reply (message));
 
-		/* Clean up and close the reading end (we don't need it) */
-		close (fds[0]);
-
-		/* Put the entire script into an NihIo send buffer and
-		 * then mark it for closure so that the shell gets EOF
-		 * and the structure gets cleaned up automatically.
-		 */
-		while (! (io = nih_io_reopen (job, fds[1], NIH_IO_STREAM,
-					      NULL, NULL, NULL, NULL))) {
-			NihError *err;
-
-			err = nih_error_get ();
-			if (err->number != ENOMEM)
-				nih_assert_not_reached ();
-			nih_free (err);
-		}
-
-		NIH_ZERO (nih_io_write (io, script, strlen (script)));
-		nih_io_shutdown (io);
-
-		nih_free (script);
-	}
+	return 0;
 }
 
 /**
- * job_kill_process:
- * @job: job to kill process of,
- * @process: process to be killed.
+ * job_stop:
+ * @job: job to be stopped,
+ * @message: D-Bus connection and message received,
+ * @wait: whether to wait for command to finish before returning.
  *
- * This function forces a @job to leave its current state by sending
- * @process the TERM signal, and maybe later the KILL signal.  The actual
- * state changes are performed by job_child_reaper when the process
- * has actually terminated.
+ * Implements the top half of the Stop method of the
+ * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
+ * job_finished().
+ *
+ * Called on a running instance @job to cause it to be stopped.  If the
+ * instance goal is already stop, the com.ubuntu.Upstart.Error.AlreadyStopped
+ * D_Bus error will be returned immediately.  If the instance fails while
+ * stopping, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
+ * be returned when the problem occurs.
+ *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished stopping; when @wait is FALSE, the method call returns once
+ * the command has been processed and the goal changed.
+ *
+ * Returns: zero on success, negative value on raised error.
  **/
-void
-job_kill_process (Job         *job,
-		  ProcessType  process)
+int
+job_stop (Job            *job,
+	  NihDBusMessage *message,
+	  int             wait)
 {
-	JobProcess *proc;
+	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
+	nih_assert (message != NULL);
 
-	proc = job->process[process];
-	nih_assert (proc != NULL);
-	nih_assert (proc->pid > 0);
+	if (job->goal == JOB_STOP) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped",
+			_("Job has already been stopped: %s"),
+			job_name (job));
 
-	nih_info (_("Sending TERM signal to %s %s process (%d)"),
-		  job->name, process_name (process), proc->pid);
-
-	if (process_kill (job, proc->pid, FALSE) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		if (err->number != ESRCH)
-			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
-				  job->name, process_name (process),
-				  proc->pid, err->message);
-		nih_free (err);
-
-		return;
+		return -1;
 	}
 
-	NIH_MUST (job->kill_timer = nih_timer_add_timeout (
-			  job, job->kill_timeout,
-			  (NihTimerCb)job_kill_timer, (void *)process));
+	if (wait) {
+		blocked = blocked_new (job, BLOCKED_INSTANCE_STOP_METHOD,
+				       message);
+		if (! blocked)
+			nih_return_system_error (-1);
+	}
+
+	if (job->stop_env)
+		nih_unref (job->stop_env, job);
+	job->stop_env = NULL;
+
+	job_finished (job, FALSE);
+	if (blocked)
+		nih_list_add (&job->blocking, &blocked->entry);
+
+	job_change_goal (job, JOB_STOP);
+
+	if (! wait)
+		NIH_ZERO (job_stop_reply (message));
+
+	return 0;
 }
 
 /**
- * job_kill_timer:
- * @process: process to be killed,
- * @timer: timer that caused us to be called.
+ * job_restart:
+ * @job: job to be restarted,
+ * @message: D-Bus connection and message received,
+ * @wait: whether to wait for command to finish before returning.
  *
- * This callback is called if the process failed to terminate within
- * a particular time of being sent the TERM signal.  The process is killed
- * more forcibly by sending the KILL signal.
+ * Implements the top half of the Restart method of the
+ * com.ubuntu.Upstart.Instance interface, the bottom half may be found in
+ * job_finished().
+ *
+ * Called on a running instance @job to cause it to be restarted.  If the
+ * instance goal is already stop, the com.ubuntu.Upstart.Error.AlreadyStopped
+ * D-Bus error will be returned immediately.  If the instance fails to
+ * restart, the com.ubuntu.Upstart.Error.JobFailed D-Bus error will
+ * be returned when the problem occurs.
+ *
+ * When @wait is TRUE the method call will not return until the job has
+ * finished starting again (running for tasks); when @wait is FALSE, the
+ * method call returns once the command has been processed and the goal
+ * changed.
+ *
+ * Returns: zero on success, negative value on raised error.
  **/
-static void
-job_kill_timer (ProcessType  process,
-		NihTimer    *timer)
+int
+job_restart (Job            *job,
+	     NihDBusMessage *message,
+	     int             wait)
 {
-	Job        *job;
-	JobProcess *proc;
+	Blocked *blocked = NULL;
 
-	nih_assert (timer != NULL);
-	job = nih_alloc_parent (timer);
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
 
-	proc = job->process[process];
-	nih_assert (proc != NULL);
-	nih_assert (proc->pid > 0);
+	if (job->goal == JOB_STOP) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.AlreadyStopped",
+			_("Job has already been stopped: %s"),
+			job_name (job));
 
-
-	job->kill_timer = NULL;
-
-	nih_info (_("Sending KILL signal to %s %s process (%d)"),
-		   job->name, process_name (process), proc->pid);
-
-	if (process_kill (job, proc->pid, TRUE) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		if (err->number != ESRCH)
-			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
-				  job->name, process_name (process),
-				  proc->pid, err->message);
-		nih_free (err);
-	}
-}
-
-
-/**
- * job_child_reaper:
- * @data: unused,
- * @pid: process that died,
- * @killed: whether @pid was killed,
- * @status: exit status of @pid or signal that killed it.
- *
- * This callback should be registered with nih_child_add_watch() so that
- * when processes associated with jobs die, the structure is updated and
- * the next appropriate state chosen.
- *
- * Normally this is registered so it is called for all processes, and it
- * safe to do as it only acts if the process is linked to a job.
- **/
-void
-job_child_reaper (void  *data,
-		  pid_t  pid,
-		  int    killed,
-		  int    status)
-{
-	Job         *job;
-	ProcessType  process;
-	int          failed = FALSE, stop = FALSE, state = TRUE;
-
-	nih_assert (data == NULL);
-	nih_assert (pid > 0);
-
-	/* Find the job that died; if it's not one of ours, just let it
-	 * be reaped normally
-	 */
-	job = job_find_by_pid (pid, &process);
-	if (! job)
-		return;
-
-	/* Report the death */
-	if (killed) {
-		const char *sig;
-
-		sig = nih_signal_to_name (status);
-		if (sig) {
-			nih_warn (_("%s %s process (%d) killed by %s signal"),
-				  job->name, process_name (process), pid, sig);
-		} else {
-			nih_warn (_("%s %s process (%d) killed by signal %d"),
-				  job->name, process_name (process), pid,
-				  status);
-		}
-
-		/* Store the signal value in the higher byte so we can
-		 * distinguish it from a normal exit status.
-		 */
-		status <<= 8;
-	} else if (status) {
-		nih_warn (_("%s %s process (%d) terminated with status %d"),
-			  job->name, process_name (process), pid, status);
-	} else {
-		nih_info (_("%s %s process (%d) exited normally"),
-			  job->name, process_name (process), pid);
+		return -1;
 	}
 
-	switch (process) {
-	case PROCESS_MAIN:
-		nih_assert ((job->state == JOB_RUNNING)
-			    || (job->state == JOB_SPAWNED)
-			    || (job->state == JOB_KILLED)
-			    || (job->state == JOB_STOPPING)
-			    || (job->state == JOB_POST_START)
-			    || (job->state == JOB_PRE_STOP));
-
-		/* We don't assume that because the primary process was
-		 * killed or exited with a non-zero status, it failed.
-		 * Instead we check the normalexit list to see whether
-		 * the exit signal or status is in that list, and only
-		 * if not, do we consider it failed.
-		 *
-		 * For jobs that can be respawned, a zero exit status is
-		 * also a failure unless listed.
-		 *
-		 * If the job is already to be stopped, we never consider
-		 * it to be failed since we probably caused the termination.
-		 */
-		if ((job->goal != JOB_STOP)
-		    && (killed || status || job->respawn))
-		{
-			failed = TRUE;
-			for (size_t i = 0; i < job->normalexit_len; i++) {
-				if (job->normalexit[i] == status) {
-					failed = FALSE;
-					break;
-				}
-			}
-
-			/* We might be able to respawn the failed job;
-			 * that's a simple matter of doing nothing.
-			 */
-			if (failed && job->respawn) {
-				nih_warn (_("%s %s process ended, respawning"),
-					  job->name, process_name (process));
-				failed = FALSE;
-				break;
-			}
-		}
-
-		/* We don't change the state if we're in post-start and there's
-		 * a post-start process running, or if we're in pre-stop and
-		 * there's a pre-stop process running; we wait for those to
-		 * finish instead.
-		 */
-		if ((job->state == JOB_POST_START)
-		    && job->process[PROCESS_POST_START]
-		    && (job->process[PROCESS_POST_START]->pid > 0)) {
-			state = FALSE;
-		} else if ((job->state == JOB_PRE_STOP)
-		    && job->process[PROCESS_PRE_STOP]
-		    && (job->process[PROCESS_PRE_STOP]->pid > 0)) {
-			state = FALSE;
-		}
-
-		/* Otherwise whether it's failed or not, we should
-		 * stop the job now.
-		 */
-		stop = TRUE;
-		break;
-	case PROCESS_PRE_START:
-		nih_assert (job->state == JOB_PRE_START);
-
-		/* If the pre-start script is killed or exits with a status
-		 * other than zero, it's always considered a failure since
-		 * we don't know what state the job might be in.
-		 */
-		if (killed || status) {
-			failed = TRUE;
-			stop = TRUE;
-		}
-		break;
-	case PROCESS_POST_START:
-		nih_assert (job->state == JOB_POST_START);
-
-		/* We always want to change the state when the post-start
-		 * script terminates; if the main process is running, we'll
-		 * stay in that state, otherwise we'll skip through.
-		 *
-		 * Failure is ignored since there's not much we can do
-		 * about it at this point.
-		 */
-		break;
-	case PROCESS_PRE_STOP:
-		nih_assert (job->state == JOB_PRE_STOP);
-
-		/* We always want to change the state when the pre-stop
-		 * script terminates, we either want to go back into running
-		 * or head towards killing the main process.
-		 *
-		 * Failure is ignored since there's not much we can do
-		 * about it at this point.
-		 */
-		break;
-	case PROCESS_POST_STOP:
-		nih_assert (job->state == JOB_POST_STOP);
-
-		/* If the post-stop script is killed or exits with a status
-		 * other than zero, it's always considered a failure since
-		 * we don't know what state the job might be in.
-		 */
-		if (killed || status) {
-			failed = TRUE;
-			stop = TRUE;
-		}
-		break;
-	default:
-		nih_assert_not_reached ();
+	if (wait) {
+		blocked = blocked_new (job, BLOCKED_INSTANCE_RESTART_METHOD,
+				       message);
+		if (! blocked)
+			nih_return_system_error (-1);
 	}
 
+	if (job->start_env)
+		nih_unref (job->start_env, job);
+	job->start_env = NULL;
 
-	/* Cancel any timer trying to kill the job, since it's just
-	 * died.  We could do this inside the main process block above, but
-	 * leaving it here for now means we can use the timer for any
-	 * additional process later.
-	 */
-	if (job->kill_timer) {
-		nih_free (job->kill_timer);
-		job->kill_timer = NULL;
-	}
+	if (job->stop_env)
+		nih_unref (job->stop_env, job);
+	job->stop_env = NULL;
 
-	/* Clear the process pid field */
-	job->process[process]->pid = 0;
+	job_finished (job, FALSE);
+	if (blocked)
+		nih_list_add (&job->blocking, &blocked->entry);
 
+	job_change_goal (job, JOB_STOP);
+	job_change_goal (job, JOB_START);
 
-	/* Mark the job as failed; this information shows up as arguments
-	 * and environment to the stop and stopped events generated for the
-	 * job.
-	 *
-	 * In addition, mark the cause event failed as well; this is
-	 * reported to the emitted of the event, and also causes a failed
-	 * event to be generated.
-	 */
-	if (failed && (! job->failed)) {
-		job->failed = TRUE;
-		job->failed_process = process;
-		job->exit_status = status;
+	if (! wait)
+		NIH_ZERO (job_restart_reply (message));
 
-		if (job->cause)
-			job->cause->failed = TRUE;
-	}
-
-	/* Change the goal to stop; normally this doesn't have any
-	 * side-effects, except when we're in the RUNNING state when it'll
-	 * change the state as well.  We obviously don't want to change the
-	 * state twice.
-	 */
-	if (stop) {
-		if (job->state == JOB_RUNNING)
-			state = FALSE;
-
-		job_change_goal (job, JOB_STOP, job->cause);
-	}
-
-	if (state)
-		job_change_state (job, job_next_state (job));
+	return 0;
 }
 
 
 /**
- * job_handle_event:
- * @emission: event emission to be handled.
+ * job_get_name:
+ * @job: job to obtain name from,
+ * @message: D-Bus connection and message received,
+ * @name: pointer for reply string.
  *
- * This function is called whenever the emission of an event reaches the
- * handling state.  It iterates the list of jobs and stops or starts any
- * necessary.
+ * Implements the get method for the name property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the instance name of the given @job, which will be stored
+ * in @name.
+ *
+ * Returns: zero on success, negative value on raised error.
  **/
-void
-job_handle_event (EventEmission *emission)
+int
+job_get_name (Job             *job,
+	      NihDBusMessage  *message,
+	      char           **name)
 {
-	nih_assert (emission != NULL);
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (name != NULL);
 
-	job_init ();
+	*name = job->name;
+	nih_ref (*name, message);
 
-	NIH_HASH_FOREACH_SAFE (jobs, iter) {
-		Job *job = (Job *)iter;
+	return 0;
+}
 
-		/* Never try and handle events for jobs about to be deleted,
-		 * or for a replacement job.
-		 */
-		if ((job->state == JOB_DELETED)
-		    || (job->replacement_for != NULL))
+/**
+ * job_get_goal:
+ * @job: job to obtain goal from,
+ * @message: D-Bus connection and message received,
+ * @goal: pointer for reply string.
+ *
+ * Implements the get method for the goal property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the goal of the given @job as a string, which will be
+ * stored in @goal.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_goal (Job             *job,
+	      NihDBusMessage  *message,
+	      char           **goal)
+{
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (goal != NULL);
+
+	*goal = nih_strdup (message, job_goal_name (job->goal));
+	if (! *goal)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * job_get_state:
+ * @job: job to obtain state from,
+ * @message: D-Bus connection and message received,
+ * @state: pointer for reply string.
+ *
+ * Implements the get method for the state property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the state of the given @job as a string, which will be
+ * stored in @state.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_state (Job             *job,
+	      NihDBusMessage  *message,
+	      char           **state)
+{
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (state != NULL);
+
+	*state = nih_strdup (message, job_state_name (job->state));
+	if (! *state)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+
+/**
+ * job_get_processes:
+ * @job: job to obtain state from,
+ * @message: D-Bus connection and message received,
+ * @processes: pointer for reply array.
+ *
+ * Implements the get method for the processes property of the
+ * com.ubuntu.Upstart.Instance interface.
+ *
+ * Called to obtain the current set of processes for the given @job as an
+ * array of process names and pids, which will be stored in @processes.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_get_processes (Job *                  job,
+		   NihDBusMessage *       message,
+		   JobProcessesElement ***processes)
+{
+	size_t num_processes;
+
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+	nih_assert (processes != NULL);
+
+	*processes = nih_alloc (message, sizeof (JobProcessesElement *) * 1);
+	if (! *processes)
+		nih_return_no_memory_error (-1);
+
+	num_processes = 0;
+	(*processes)[num_processes] = NULL;
+
+	for (int i = 0; i < PROCESS_LAST; i++) {
+		JobProcessesElement * process;
+		JobProcessesElement **tmp;
+
+		if (job->pid[i] <= 0)
 			continue;
 
-		/* We stop first so that if an event is listed both as a
-		 * stop and start event, it causes an active running process
-		 * to be killed, the stop script then the start script to be
-		 * run.  In any other state, it has no special effect.
-		 *
-		 * (The other way around would be just strange, it'd cause
-		 * a process's start and stop scripts to be run without the
-		 * actual process).
-		 *
-		 * Obviously there's no point matching the stop events for
-		 * the master of an instance job since they're always stopped.
-		 */
-		if ((! job->instance) || (job->instance_of != NULL)) {
-			NIH_LIST_FOREACH (&job->stop_events, iter) {
-				Event *stop_event = (Event *)iter;
-
-				if (event_match (&emission->event, stop_event))
-					job_change_goal (job, JOB_STOP,
-							 emission);
-			}
+		process = nih_new (*processes, JobProcessesElement);
+		if (! process) {
+			nih_error_raise_no_memory ();
+			nih_free (*processes);
+			return -1;
 		}
 
-		/* And there's no point matching the start events for an
-		 * instance of a job, since they're always running.
-		 */
-		if ((! job->instance) || (job->instance_of == NULL)) {
-			NIH_LIST_FOREACH (&job->start_events, iter) {
-				Event *start_event = (Event *)iter;
-
-				if (event_match (&emission->event,
-						 start_event)) {
-					Job *instance;
-
-					instance = job_instance (job);
-					job_change_goal (instance, JOB_START,
-							 emission);
-				}
-			}
-		}
-	}
-}
-
-/**
- * job_handle_event_finished:
- * @emission: event emission that has finished.
- *
- * This function is called whenever the emission of an event finishes.  It
- * iterates the list of jobs checking for any blocked by that event,
- * unblocking them and sending them to the next state.
- * necessary.
- **/
-void
-job_handle_event_finished (EventEmission *emission)
-{
-	nih_assert (emission != NULL);
-
-	job_init ();
-
-	NIH_HASH_FOREACH_SAFE (jobs, iter) {
-		Job *job = (Job *)iter;
-
-		if (job->blocked != emission)
-			continue;
-
-		job->blocked = NULL;
-		job_change_state (job, job_next_state (job));
-	}
-}
-
-
-/**
- * job_detect_stalled:
- *
- * This function is called each time through the main loop to detect whether
- * the system is stalled, a state in which all jobs are dormant.  If we
- * detect this, we generate the stalled event so that the system may take
- * action (e.g. opening a shell).
- **/
-void
-job_detect_stalled (void)
-{
-	int stalled = TRUE, can_stall = FALSE;
-
-	if (paused)
-		return;
-
-	job_init ();
-
-	NIH_HASH_FOREACH (jobs, iter) {
-		Job *job = (Job *)iter;
-
-		/* Check the start events to make sure that at least one
-		 * job handles the stalled event, otherwise we loop.
-		 */
-		NIH_LIST_FOREACH (&job->start_events, event_iter) {
-			Event *event = (Event *)event_iter;
-
-			if (! strcmp (event->name, STALLED_EVENT))
-
-				can_stall = TRUE;
+		process->item0 = nih_strdup (process, process_name (i));
+		if (! process->item0) {
+			nih_error_raise_no_memory ();
+			nih_free (*processes);
+			return -1;
 		}
 
-		if ((job->goal != JOB_STOP) || (job->state != JOB_WAITING))
-			stalled = FALSE;
+		process->item1 = job->pid[i];
+
+		tmp = nih_realloc (*processes, message,
+				   (sizeof (JobProcessesElement *)
+				    * (num_processes + 2)));
+		if (! tmp) {
+			nih_error_raise_no_memory ();
+			nih_free (*processes);
+			return -1;
+		}
+
+		*processes = tmp;
+		(*processes)[num_processes++] = process;
+		(*processes)[num_processes] = NULL;
 	}
 
-	if (stalled && can_stall) {
-		nih_info (_("System has stalled, generating %s event"),
-			  STALLED_EVENT);
-		event_emit (STALLED_EVENT, NULL, NULL);
-
-		nih_main_loop_interrupt ();
-	}
-}
-
-/**
- * job_free_deleted:
- * @data: unusued,
- * @func: loop function.
- *
- * This function is called each time through the main loop to free any
- * deleted jobs that are now in the deleted state.  We do this from the
- * main loop because otherwise we'd have to be careful whenever calling
- * job_change_goal() or job_change_state(); and we don't want that.
- **/
-void
-job_free_deleted (void)
-{
-	job_init ();
-
-	NIH_HASH_FOREACH_SAFE (jobs, iter) {
-		Job *job = (Job *)iter;
-
-		if (job->state != JOB_DELETED)
-			continue;
-
-		nih_debug ("Deleting %s job", job->name);
-		nih_list_free (&job->entry);
-	}
+	return 0;
 }

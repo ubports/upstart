@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2007-10-11 22:13+0100\n"
+"POT-Creation-Date: 2009-07-21 18:18+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -20,67 +20,67 @@ msgstr ""
 msgid "display list of commands"
 msgstr ""
 
-#: nih/command.c:141
+#: nih/command.c:139
 #, c-format
 msgid "For a list of commands, try `%s help'."
 msgstr ""
 
-#: nih/command.c:144
+#: nih/command.c:143
 msgid "COMMAND [OPTION]... [ARG]..."
 msgstr ""
 
-#: nih/command.c:162
+#: nih/command.c:158
 #, c-format
 msgid "%s: missing command\n"
 msgstr ""
 
-#: nih/command.c:170
+#: nih/command.c:166
 #, c-format
 msgid "%s: invalid command: %s\n"
 msgstr ""
 
-#: nih/command.c:181
+#: nih/command.c:177
 #, c-format
 msgid "%s [OPTION]..."
 msgstr ""
 
-#: nih/command.c:424
+#: nih/command.c:403
 #, c-format
 msgid "For more information on a command, try `%s COMMAND --help'.\n"
 msgstr ""
 
-#: nih/command.c:450
+#: nih/command.c:426
 #, c-format
 msgid "%s commands:\n"
 msgstr ""
 
-#: nih/command.c:452
+#: nih/command.c:428
 #, c-format
 msgid "Other commands:\n"
 msgstr ""
 
-#: nih/command.c:454
+#: nih/command.c:430
 #, c-format
 msgid "Commands:\n"
 msgstr ""
 
-#: nih/error.c:231
-msgid "Unhandled Error"
-msgstr ""
-
-#: nih/io.c:1203
+#: nih/io.c:1199
 msgid "Error while reading from descriptor"
 msgstr ""
 
-#: nih/main.c:249
+#: nih/main.c:233
 #, c-format
 msgid "Try `%s --help' for more information.\n"
 msgstr ""
 
-#: nih/main.c:271
+#: nih/main.c:255
 msgid ""
 "This is free software; see the source for copying conditions.  There is NO "
 "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+msgstr ""
+
+#: nih/main.c:318 util/shutdown.c:415
+msgid "Unable to write pid file"
 msgstr ""
 
 #: nih/option.c:95
@@ -124,845 +124,1076 @@ msgstr ""
 msgid "%s: illegal argument: %s\n"
 msgstr ""
 
-#: nih/option.c:862
+#: nih/option.c:857
 msgid "Usage"
 msgstr ""
 
-#: nih/option.c:866
+#: nih/option.c:861
 msgid "[OPTION]..."
 msgstr ""
 
-#: nih/option.c:915
+#: nih/option.c:909
 #, c-format
 msgid "Report bugs to <%s>\n"
 msgstr ""
 
-#: nih/option.c:941
+#: nih/option.c:911
+#, c-format
+msgid "Report bugs at <%s>\n"
+msgstr ""
+
+#: nih/option.c:936
 #, c-format
 msgid "%s options:\n"
 msgstr ""
 
-#: nih/option.c:943
+#: nih/option.c:938
 #, c-format
 msgid "Other options:\n"
 msgstr ""
 
-#: nih/option.c:945
+#: nih/option.c:940
 #, c-format
 msgid "Options:\n"
 msgstr ""
 
-#: nih/watch.c:521
+#: nih/watch.c:550
 msgid "Unable to watch directory"
 msgstr ""
 
-#: nih/errors.h:53
+#: nih/errors.h:56
 msgid "Expected token"
 msgstr ""
 
-#: nih/errors.h:54
+#: nih/errors.h:57
 msgid "Unexpected token"
 msgstr ""
 
-#: nih/errors.h:55
+#: nih/errors.h:58
 msgid "Trailing slash in file"
 msgstr ""
 
-#: nih/errors.h:56
+#: nih/errors.h:59
 msgid "Unterminated quoted string"
 msgstr ""
 
-#: nih/errors.h:57
+#: nih/errors.h:60
 msgid "Unterminated block"
 msgstr ""
 
-#: nih/errors.h:58
+#: nih/errors.h:61
 msgid "Unknown stanza"
 msgstr ""
 
-#: nih/errors.h:60
+#: nih/errors.h:63
 msgid "Directory loop detected"
 msgstr ""
 
-#: upstart/enum.c:50
-msgid "stop"
+#: nih-dbus/dbus_object.c:311
+msgid "Invalid arguments to Introspect method"
 msgstr ""
 
-#: upstart/enum.c:52
-msgid "start"
+#: nih-dbus/dbus_object.c:547
+msgid "Invalid arguments to Get method"
 msgstr ""
 
-#: upstart/enum.c:95
-msgid "waiting"
-msgstr ""
-
-#: upstart/enum.c:97
-msgid "starting"
-msgstr ""
-
-#: upstart/enum.c:99 upstart/enum.c:178
-msgid "pre-start"
-msgstr ""
-
-#: upstart/enum.c:101
-msgid "spawned"
-msgstr ""
-
-#: upstart/enum.c:103 upstart/enum.c:180
-msgid "post-start"
-msgstr ""
-
-#: upstart/enum.c:105
-msgid "running"
-msgstr ""
-
-#: upstart/enum.c:107 upstart/enum.c:182
-msgid "pre-stop"
-msgstr ""
-
-#: upstart/enum.c:109
-msgid "stopping"
-msgstr ""
-
-#: upstart/enum.c:111
-msgid "killed"
-msgstr ""
-
-#: upstart/enum.c:113 upstart/enum.c:184
-msgid "post-stop"
-msgstr ""
-
-#: upstart/enum.c:115
-msgid "deleted"
-msgstr ""
-
-#: upstart/enum.c:176
-msgid "main"
-msgstr ""
-
-#: upstart/message.c:1032
+#: nih-dbus/dbus_object.c:632
 #, c-format
-msgid "Error while handling control message: %s"
+msgid "The %s property is write-only"
 msgstr ""
 
-#: upstart/errors.h:39
-msgid "Message from illegal source"
+#: nih-dbus/dbus_object.c:688
+msgid "Invalid arguments to GetAll method"
 msgstr ""
 
-#: upstart/errors.h:40
-msgid "Invalid message received"
+#: nih-dbus/dbus_object.c:889
+msgid "Invalid arguments to Set method"
 msgstr ""
 
-#: upstart/errors.h:41
-msgid "Unknown message received"
-msgstr ""
-
-#: init/cfgfile.c:1771
-msgid "unable to read"
-msgstr ""
-
-#: init/cfgfile.c:1790
+#: nih-dbus/dbus_object.c:969
 #, c-format
-msgid "%s: 'pid file' ignored unless 'daemon' specified"
+msgid "The %s property is read-only"
 msgstr ""
 
-#: init/cfgfile.c:1796
+#: nih-dbus/errors.h:38
+msgid "Invalid arguments received in reply"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:94
+msgid "Ignored unexpected <annotation> tag"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:116
+msgid "Ignored unknown <annotation> attribute"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:159
+msgid "Ignored unknown interface annotation"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:166
+msgid "Ignored unknown method annotation"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:173
+msgid "Ignored unknown signal annotation"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:180
+msgid "Ignored unknown property annotation"
+msgstr ""
+
+#: nih-dbus-tool/annotation.c:187
+msgid "Ignored unknown argument annotation"
+msgstr ""
+
+#: nih-dbus-tool/argument.c:201
+msgid "Ignored unexpected <arg> tag"
+msgstr ""
+
+#: nih-dbus-tool/argument.c:225
+msgid "Ignored unknown <arg> attribute"
+msgstr ""
+
+#: nih-dbus-tool/interface.c:214
+msgid "Ignored unexpected <interface> tag"
+msgstr ""
+
+#: nih-dbus-tool/interface.c:234
+msgid "Ignored unknown <interface> attribute"
+msgstr ""
+
+#: nih-dbus-tool/main.c:88
 #, c-format
-msgid "%s: 'pid binary' ignored unless 'daemon' specified"
+msgid "%s: illegal output mode: %s\n"
 msgstr ""
 
-#: init/cfgfile.c:1806
+#: nih-dbus-tool/main.c:307
+msgid "output mode: object, or proxy [default: proxy]"
+msgstr ""
+
+#: nih-dbus-tool/main.c:309
+msgid "prefix for C functions [default: dbus]"
+msgstr ""
+
+#: nih-dbus-tool/main.c:311
+msgid "interface name not included in symbols"
+msgstr ""
+
+#: nih-dbus-tool/main.c:313
+msgid "write C source to FILENAME, header alongside"
+msgstr ""
+
+#: nih-dbus-tool/main.c:334
+msgid "[XMLFILE]"
+msgstr ""
+
+#: nih-dbus-tool/main.c:335
+msgid "Generate C bindings for D-Bus objects"
+msgstr ""
+
+#: nih-dbus-tool/main.c:336
+msgid "Fill this in later"
+msgstr ""
+
+#: nih-dbus-tool/main.c:351
 #, c-format
-msgid "Replacing existing %s job"
+msgid "%s: --output must be specified when using standard input\n"
 msgstr ""
 
-#: init/cfgfile.c:1852
+#: nih-dbus-tool/main.c:414
+msgid "No such interface"
+msgstr ""
+
+#: nih-dbus-tool/method.c:185
+msgid "Ignored unexpected <method> tag"
+msgstr ""
+
+#: nih-dbus-tool/method.c:205
+msgid "Ignored unknown <method> attribute"
+msgstr ""
+
+#: nih-dbus-tool/method.c:303
+msgid "Ignored NoReply annotation for method with output arguments"
+msgstr ""
+
+#: nih-dbus-tool/method.c:315
+msgid "Ignored Async annotation for NoReply method"
+msgstr ""
+
+#: nih-dbus-tool/node.c:185
+msgid "Ignored unexpected <node> tag"
+msgstr ""
+
+#: nih-dbus-tool/node.c:206
+msgid "Ignored unknown <node> attribute"
+msgstr ""
+
+#: nih-dbus-tool/parse.c:206
+msgid "Ignored unknown tag"
+msgstr ""
+
+#: nih-dbus-tool/parse.c:335
+msgid "Unable to create XML Parser"
+msgstr ""
+
+#: nih-dbus-tool/parse.c:354
+msgid "Unable to allocate parsing buffer"
+msgstr ""
+
+#: nih-dbus-tool/parse.c:362
+msgid "Read error"
+msgstr ""
+
+#: nih-dbus-tool/parse.c:384
+msgid "XML parse error"
+msgstr ""
+
+#: nih-dbus-tool/parse.c:396
+msgid "No node present"
+msgstr ""
+
+#: nih-dbus-tool/property.c:202
+msgid "Ignored unexpected <property> tag"
+msgstr ""
+
+#: nih-dbus-tool/property.c:226
+msgid "Ignored unknown <property> attribute"
+msgstr ""
+
+#: nih-dbus-tool/signal.c:183
+msgid "Ignored unexpected <signal> tag"
+msgstr ""
+
+#: nih-dbus-tool/signal.c:203
+msgid "Ignored unknown <signal> attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:81
+msgid "Unable to generate unique name for symbol"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:83
+msgid "Invalid object path in <node> name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:85
+msgid "<interface> missing required name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:86
+msgid "Invalid interface name in <interface> name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:87
+msgid ""
+"Illegal value for org.freedesktop.DBus.Deprecated interface annotation, "
+"expected 'true' or 'false'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:88
+msgid "Invalid C symbol for interface"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:89
+msgid "Unknown annotation for interface"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:90
 #, c-format
-msgid "Reading configuration from %s"
+msgid "Symbol '%s' already assigned to %s interface"
 msgstr ""
 
-#: init/cfgfile.c:1886
+#: nih-dbus-tool/errors.h:92
+msgid "<method> missing required name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:93
+msgid "Invalid method name in <method> name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:94
+msgid ""
+"Illegal value for org.freedesktop.DBus.Deprecated method annotation, "
+"expected 'true' or 'false'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:95
+msgid ""
+"Illegal value for org.freedesktop.DBus.Method.NoReply method annotation, "
+"expected 'true' or 'false'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:96
+msgid "Invalid C symbol for method"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:97
+msgid ""
+"Illegal value for com.netsplit.Nih.Method.Async method annotation, expected "
+"'true' or 'false'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:98
+msgid "Unknown annotation for method"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:99
+#, c-format
+msgid "Symbol '%s' already assigned to %s method"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:101
+msgid "<signal> missing required name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:102
+msgid "Invalid signal name in <signal> name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:103
+msgid ""
+"Illegal value for org.freedesktop.DBus.Deprecated signal annotation, "
+"expected 'true' or 'false'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:104
+msgid "Invalid C symbol for signal"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:105
+msgid "Unknown annotation for signal"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:106
+#, c-format
+msgid "Symbol '%s' already assigned to %s signal"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:108
+msgid "<property> missing required name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:109
+msgid "Invalid property name in <property> name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:110
+msgid "<property> missing required type attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:111
+msgid "Invalid D-Bus type in <property> type attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:112
+msgid "<property> missing required access attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:113
+msgid ""
+"Illegal value for <property> access attribute, expected 'read', 'write' or "
+"'readwrite'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:114
+msgid ""
+"Illegal value for org.freedesktop.DBus.Deprecated property annotation, "
+"expected 'true' or 'false'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:115
+msgid "Invalid C symbol for property"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:116
+msgid "Unknown annotation for property"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:117
+#, c-format
+msgid "Symbol '%s' already assigned to %s property"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:119
+msgid "Invalid C symbol for argument"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:120
+msgid "Unknown annotation for argument"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:121
+msgid "Invalid argument name in <arg> name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:122
+msgid "<arg> missing required type attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:123
+msgid "Invalid D-Bus type in <arg> type attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:124
+msgid "Illegal value for <arg> direction attribute, expected 'in' or 'out'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:125
+msgid "Illegal value for <arg> direction attribute, expected 'out'"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:126
+#, c-format
+msgid "Symbol '%s' already assigned to %s argument"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:128
+msgid "<annotation> missing required name attribute"
+msgstr ""
+
+#: nih-dbus-tool/errors.h:129
+msgid "<annotation> missing required value attribute"
+msgstr ""
+
+#: init/conf.c:237
+msgid "Unable to load configuration"
+msgstr ""
+
+#: init/conf.c:270
+#, c-format
+msgid "Loading configuration from %s"
+msgstr ""
+
+#: init/conf.c:307
+#, c-format
+msgid "Handling deletion of %s"
+msgstr ""
+
+#: init/conf.c:378
+msgid "Unable to watch configuration file"
+msgstr ""
+
+#: init/conf.c:456
 msgid "Unable to watch configuration directory"
 msgstr ""
 
-#: init/cfgfile.c:1998
+#: init/conf.c:568 init/conf.c:652
+msgid "Error while loading configuration file"
+msgstr ""
+
+#: init/conf.c:608
+msgid "Configuration directory deleted"
+msgstr ""
+
+#: init/control.c:155
+msgid "Connection from private client"
+msgstr ""
+
+#: init/control.c:290
+msgid "Disconnected from system bus"
+msgstr ""
+
+#: init/control.c:356 init/main.c:452
+msgid "Reloading configuration"
+msgstr ""
+
+#: init/control.c:396 init/control.c:507
+msgid "Name may not be empty string"
+msgstr ""
+
+#: init/control.c:405
 #, c-format
-msgid "Deleting %s job"
+msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:216
-#, c-format
-msgid "Error on control socket: %s"
+#: init/control.c:514 init/job_class.c:520 init/job_class.c:708
+#: init/job_class.c:827 init/job_class.c:951
+msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
-#: init/control.c:336
-msgid "Control request for our version"
+#: init/control.c:666
+msgid "The log priority given was not recognised"
 msgstr ""
 
-#: init/control.c:369
-msgid "Control request to change logging priority"
-msgstr ""
-
-#: init/control.c:406
-#, c-format
-msgid "Control request for jobs matching %s"
-msgstr ""
-
-#: init/control.c:408
-msgid "Control request for all jobs"
-msgstr ""
-
-#: init/control.c:470
-#, c-format
-msgid "Control request for status of %s"
-msgstr ""
-
-#: init/control.c:474
-#, c-format
-msgid "Control request for status of job #%u"
-msgstr ""
-
-#: init/control.c:528
-#, c-format
-msgid "Control request to start %s"
-msgstr ""
-
-#: init/control.c:532
-#, c-format
-msgid "Control request to start job #%u"
-msgstr ""
-
-#: init/control.c:615
-#, c-format
-msgid "Control request to stop %s"
-msgstr ""
-
-#: init/control.c:619
-#, c-format
-msgid "Control request to stop job #%u"
-msgstr ""
-
-#: init/control.c:748
-#, c-format
-msgid "Control request to emit %s event"
-msgstr ""
-
-#: init/control.c:779
-#, c-format
-msgid "Control request to subscribe %d to jobs"
-msgstr ""
-
-#: init/control.c:810
-#, c-format
-msgid "Control request to unsubscribe %d from jobs"
-msgstr ""
-
-#: init/control.c:840
-#, c-format
-msgid "Control request to subscribe %d to events"
-msgstr ""
-
-#: init/control.c:871
-#, c-format
-msgid "Control request to unsubscribe %d from events"
-msgstr ""
-
-#: init/event.c:263
-#, c-format
-msgid "Emission id %u is not unique"
-msgstr ""
-
-#: init/event.c:474
+#: init/event.c:273
 #, c-format
 msgid "Handling %s event"
 msgstr ""
 
-#: init/job.c:221
+#: init/event.c:373
 #, c-format
-msgid "Job id %u is not unique"
+msgid "Failed to obtain %s instance: %s"
 msgstr ""
 
-#: init/job.c:712
+#: init/event.c:448
+msgid "Event failed"
+msgstr ""
+
+#: init/job.c:223
 #, c-format
 msgid "%s goal changed from %s to %s"
 msgstr ""
 
-#: init/job.c:797
+#: init/job.c:285
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:817 util/initctl.c:787
+#: init/job.c:688 init/job.c:726
+msgid "Job failed to start"
+msgstr ""
+
+#: init/job.c:701 init/job.c:737
+msgid "Job failed while stopping"
+msgstr ""
+
+#: init/job.c:713 init/job.c:748
+msgid "Job failed to restart"
+msgstr ""
+
+#: init/job.c:941
+msgid "stop"
+msgstr ""
+
+#: init/job.c:943
+msgid "start"
+msgstr ""
+
+#: init/job.c:945
+msgid "respawn"
+msgstr ""
+
+#: init/job.c:990
+msgid "waiting"
+msgstr ""
+
+#: init/job.c:992
+msgid "starting"
+msgstr ""
+
+#: init/job.c:994 init/process.c:80
+msgid "pre-start"
+msgstr ""
+
+#: init/job.c:996
+msgid "spawned"
+msgstr ""
+
+#: init/job.c:998 init/process.c:82
+msgid "post-start"
+msgstr ""
+
+#: init/job.c:1000
+msgid "running"
+msgstr ""
+
+#: init/job.c:1002 init/process.c:84
+msgid "pre-stop"
+msgstr ""
+
+#: init/job.c:1004
+msgid "stopping"
+msgstr ""
+
+#: init/job.c:1006
+msgid "killed"
+msgstr ""
+
+#: init/job.c:1008 init/process.c:86
+msgid "post-stop"
+msgstr ""
+
+#: init/job.c:1088 init/job_class.c:754
 #, c-format
-msgid "%s respawning too fast, stopped"
+msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1385
-msgid "Failed to spawn process"
-msgstr ""
-
-#: init/job.c:1394
+#: init/job.c:1152 init/job.c:1217 init/job_class.c:873 init/job_class.c:996
 #, c-format
-msgid "Active %s %s process (%d)"
+msgid "Job has already been stopped: %s"
 msgstr ""
 
-#: init/job.c:1448
+#: init/job_class.c:557 init/job_class.c:602 init/job_class.c:865
+#: init/job_class.c:988
+#, c-format
+msgid "Unknown instance: %s"
+msgstr ""
+
+#: init/job_process.c:278
+#, c-format
+msgid "Failed to spawn %s %s process: %s"
+msgstr ""
+
+#: init/job_process.c:284
+msgid "Temporary process spawn error"
+msgstr ""
+
+#: init/job_process.c:291
+#, c-format
+msgid "%s %s process (%d)"
+msgstr ""
+
+#: init/job_process.c:625
+#, c-format
+msgid "unable to open console: %s"
+msgstr ""
+
+#: init/job_process.c:680
+#, c-format
+msgid "unable to set \"%s\" resource limit: %s"
+msgstr ""
+
+#: init/job_process.c:685
+#, c-format
+msgid "unable to set priority: %s"
+msgstr ""
+
+#: init/job_process.c:690
+#, c-format
+msgid "unable to set oom adjustment: %s"
+msgstr ""
+
+#: init/job_process.c:695
+#, c-format
+msgid "unable to change root directory: %s"
+msgstr ""
+
+#: init/job_process.c:700
+#, c-format
+msgid "unable to change working directory: %s"
+msgstr ""
+
+#: init/job_process.c:705
+#, c-format
+msgid "unable to set trace: %s"
+msgstr ""
+
+#: init/job_process.c:710
+#, c-format
+msgid "unable to execute: %s"
+msgstr ""
+
+#: init/job_process.c:741
 #, c-format
 msgid "Sending TERM signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job.c:1456
+#: init/job_process.c:749
 #, c-format
 msgid "Failed to send TERM signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job.c:1495
+#: init/job_process.c:789
 #, c-format
 msgid "Sending KILL signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job.c:1503
+#: init/job_process.c:797
 #, c-format
 msgid "Failed to send KILL signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job.c:1551
-#, c-format
-msgid "%s %s process (%d) killed by %s signal"
-msgstr ""
-
-#: init/job.c:1554
-#, c-format
-msgid "%s %s process (%d) killed by signal %d"
-msgstr ""
-
-#: init/job.c:1564
+#: init/job_process.c:845
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job.c:1567
+#: init/job_process.c:850
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job.c:1607
+#: init/job_process.c:865
+#, c-format
+msgid "%s %s process (%d) killed by %s signal"
+msgstr ""
+
+#: init/job_process.c:869
+#, c-format
+msgid "%s %s process (%d) killed by signal %d"
+msgstr ""
+
+#: init/job_process.c:883
+#, c-format
+msgid "%s %s process (%d) stopped by %s signal"
+msgstr ""
+
+#: init/job_process.c:887
+#, c-format
+msgid "%s %s process (%d) stopped by signal %d"
+msgstr ""
+
+#: init/job_process.c:901
+#, c-format
+msgid "%s %s process (%d) continued by %s signal"
+msgstr ""
+
+#: init/job_process.c:905
+#, c-format
+msgid "%s %s process (%d) continued by signal %d"
+msgstr ""
+
+#: init/job_process.c:1026
+#, c-format
+msgid "%s respawning too fast, stopped"
+msgstr ""
+
+#: init/job_process.c:1032
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job.c:1865
+#: init/job_process.c:1246
 #, c-format
-msgid "System has stalled, generating %s event"
+msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/main.c:124
+#: init/job_process.c:1259 init/job_process.c:1454
+#, c-format
+msgid "Failed to continue traced %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1299 init/job_process.c:1390 init/job_process.c:1445
+#, c-format
+msgid "Failed to detach traced %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1339
+#, c-format
+msgid "Failed to deliver signal to traced %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1374
+#, c-format
+msgid "Failed to obtain child process id for %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1381
+#, c-format
+msgid "%s %s process (%d) became new process (%d)"
+msgstr ""
+
+#: init/job_process.c:1440
+#, c-format
+msgid "%s %s process (%d) executable changed"
+msgstr ""
+
+#: init/main.c:114
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:126
+#: init/main.c:116
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:136 util/initctl.c:366 compat/sysv/reboot.c:203
-#: compat/sysv/shutdown.c:322 compat/sysv/telinit.c:91
+#: init/main.c:127 util/reboot.c:158 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:145
+#: init/main.c:136
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:259
-msgid "Unable to open control socket"
+#: init/main.c:184 init/main.c:362
+msgid "Unable to set root directory"
 msgstr ""
 
-#: init/main.c:271
-msgid "Error parsing configuration"
+#: init/main.c:261
+msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:401
+#: init/main.c:379
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:405
+#: init/main.c:383
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:436 init/main.c:563
+#: init/main.c:456
+msgid "Reconnecting to system bus"
+msgstr ""
+
+#: init/main.c:462
+msgid "Unable to connect to the system bus"
+msgstr ""
+
+#: init/process.c:78
+msgid "main"
+msgstr ""
+
+#: util/initctl.c:144
+msgid "Unable to connect to system bus"
+msgstr ""
+
+#: util/initctl.c:153
 #, c-format
-msgid "Failed to re-execute %s: %s"
+msgid "%s: --dest given without --system\n"
 msgstr ""
 
-#: init/main.c:510
-msgid "Event queue resumed"
+#: util/initctl.c:161
+msgid "Unable to connect to Upstart"
 msgstr ""
 
-#: init/main.c:513
-msgid "Event queue paused"
-msgstr ""
-
-#: init/main.c:538
-#, c-format
-msgid "Re-executing %s"
-msgstr ""
-
-#: init/process.c:159
-#, c-format
-msgid "Unable to execute \"%s\" for %s: %s"
-msgstr ""
-
-#: init/process.c:335
-#, c-format
-msgid "Unable to open logd socket: %s"
-msgstr ""
-
-#: init/process.c:356
-#, c-format
-msgid "Unable to connect to logd: %s"
-msgstr ""
-
-#: init/process.c:368 init/process.c:376
-#, c-format
-msgid "Unable to send name to logd: %s"
-msgstr ""
-
-#: init/process.c:409
-#, c-format
-msgid "Failed to open console: %s"
-msgstr ""
-
-#: util/initctl.c:396 compat/sysv/shutdown.c:513 compat/sysv/telinit.c:138
-#, c-format
-msgid "Unable to send message: %s"
-msgstr ""
-
-#: util/initctl.c:447
-#, c-format
-msgid "Unable to receive message: %s"
-msgstr ""
-
-#: util/initctl.c:464
-#, c-format
-msgid "Unable to handle message: %s"
-msgstr ""
-
-#: util/initctl.c:534
-#, c-format
-msgid "%s (instance)"
-msgstr ""
-
-#: util/initctl.c:605
-#, c-format
-msgid "%s, process %d"
-msgstr ""
-
-#: util/initctl.c:607
-#, c-format
-msgid "%s, (main) process %d"
-msgstr ""
-
-#: util/initctl.c:620
-#, c-format
-msgid "\t%s process %d"
-msgstr ""
-
-#: util/initctl.c:731
-#, c-format
-msgid "%s: goal changed"
-msgstr ""
-
-#: util/initctl.c:793
-#, c-format
-msgid "%s %s process killed by %s signal"
-msgstr ""
-
-#: util/initctl.c:796
-#, c-format
-msgid "%s %s process killed by signal %d"
-msgstr ""
-
-#: util/initctl.c:801
-#, c-format
-msgid "%s %s process terminated with status %d"
-msgstr ""
-
-#: util/initctl.c:890
-#, c-format
-msgid "No jobs matching `%s'"
-msgstr ""
-
-#: util/initctl.c:894
-msgid "No jobs registered"
-msgstr ""
-
-#: util/initctl.c:1226
-#, c-format
-msgid "Unknown job: %s"
-msgstr ""
-
-#: util/initctl.c:1228
-#, c-format
-msgid "Unknown job: #%d"
-msgstr ""
-
-#: util/initctl.c:1271
-#, c-format
-msgid "Invalid job: %s"
-msgstr ""
-
-#: util/initctl.c:1314
-#, c-format
-msgid "Job not changed: %s"
-msgstr ""
-
-#: util/initctl.c:1462
-#, c-format
-msgid "%s event failed"
-msgstr ""
-
-#: util/initctl.c:1581 util/initctl.c:1618 util/initctl.c:1671
-#: util/initctl.c:1708 util/initctl.c:1761
-#, c-format
-msgid "%s: invalid job id: %s\n"
-msgstr ""
-
-#: util/initctl.c:1603 util/initctl.c:1693 util/initctl.c:1749
+#: util/initctl.c:347 util/initctl.c:482 util/initctl.c:610 util/initctl.c:745
 #, c-format
 msgid "%s: missing job name\n"
 msgstr ""
 
-#: util/initctl.c:1826
+#: util/initctl.c:960
 #, c-format
 msgid "%s: missing event name\n"
 msgstr ""
 
-#: util/initctl.c:1930
-#, c-format
-msgid "%s: missing priority\n"
+#: util/initctl.c:1156
+msgid "use D-Bus system bus to connect to init daemon"
 msgstr ""
 
-#: util/initctl.c:1948
-#, c-format
-msgid "%s: invalid priority\n"
+#: util/initctl.c:1158
+msgid "destination well-known name on system bus"
 msgstr ""
 
-#: util/initctl.c:1967
-msgid "destination process"
-msgstr ""
-
-#: util/initctl.c:1980 util/initctl.c:1996 util/initctl.c:2012
-msgid "arguments are job ids, instead of names"
-msgstr ""
-
-#: util/initctl.c:1982 util/initctl.c:1998 util/initctl.c:2014
-#: util/initctl.c:2026 util/initctl.c:2054
-msgid "show job ids, as well as names"
-msgstr ""
-
-#: util/initctl.c:1984
+#: util/initctl.c:1171
 msgid "do not wait for job to start before exiting"
 msgstr ""
 
-#: util/initctl.c:2000
+#: util/initctl.c:1183
 msgid "do not wait for job to stop before exiting"
 msgstr ""
 
-#: util/initctl.c:2038
-msgid "show job and event ids, as well as names"
+#: util/initctl.c:1195
+msgid "do not wait for job to restart before exiting"
 msgstr ""
 
-#: util/initctl.c:2040
+#: util/initctl.c:1225
 msgid "do not wait for event to finish before exiting"
 msgstr ""
 
-#: util/initctl.c:2042
-msgid "set environment variable in jobs changed by this event"
-msgstr ""
-
-#: util/initctl.c:2066
-msgid "show event ids, as well as names"
-msgstr ""
-
-#: util/initctl.c:2096
+#: util/initctl.c:1264
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:2103
+#: util/initctl.c:1271
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:2111 util/initctl.c:2118 util/initctl.c:2125
-msgid "JOB..."
+#: util/initctl.c:1279 util/initctl.c:1291 util/initctl.c:1302
+#: util/initctl.c:1313
+msgid "JOB [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:2112
-msgid "Start jobs."
+#: util/initctl.c:1280
+msgid "Start job."
 msgstr ""
 
-#: util/initctl.c:2113
+#: util/initctl.c:1281
 msgid ""
-"JOB is one or more job names that are to be started.\n"
+"JOB is the name of the job that is to be started, this may be followed by "
+"zero or more environment variables to be defined in the new job.\n"
 "\n"
-"Alternatively if --by-id is given, JOB is one or more numeric job ids "
-"uniquely identifying a particular instance of a job."
+"The environment may also serve to distinguish between job instances, and "
+"thus decide whether a new instance will be started or an error returned if "
+"an existing instance is already running."
 msgstr ""
 
-#: util/initctl.c:2119
-msgid "Stop jobs."
+#: util/initctl.c:1292
+msgid "Stop job."
 msgstr ""
 
-#: util/initctl.c:2120
+#: util/initctl.c:1293
 msgid ""
-"JOB is one or more job names that are to be stopped.\n"
+"JOB is the name of the job that is to be stopped, this may be followed by "
+"zero or more environment variables to be passed to the job's pre-stop and "
+"post-stop processes.\n"
 "\n"
-"Alternatively if --by-id is given, JOB is one or more numeric job ids "
-"uniquely identifying a particular instance of a job."
+"The environment also serves to distinguish between job instances, and thus "
+"decide which of multiple instances will be stopped."
 msgstr ""
 
-#: util/initctl.c:2126
-msgid "Query status of jobs."
+#: util/initctl.c:1303
+msgid "Restart job."
 msgstr ""
 
-#: util/initctl.c:2127
+#: util/initctl.c:1304
 msgid ""
-"JOB is one or more job names that are to be queried.\n"
+"JOB is the name of the job that is to be restarted, this may be followed by "
+"zero or more environment variables to be defined in the job after "
+"restarting.\n"
 "\n"
-"Alternatively if --by-id is given, JOB is one or more numeric job ids "
-"uniquely identifying a particular instance of a job."
+"The environment also serves to distinguish between job instances, and thus "
+"decide which of multiple instances will be restarted."
 msgstr ""
 
-#: util/initctl.c:2133
+#: util/initctl.c:1314
+msgid "Query status of job."
+msgstr ""
+
+#: util/initctl.c:1315
+msgid ""
+"JOB is the name of the job that is to be queried, this may be followed by "
+"zero or more environment variables to distguish between job instances.\n"
+msgstr ""
+
+#: util/initctl.c:1321
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:2137
-msgid "EVENT [ARG]..."
+#: util/initctl.c:1322
+msgid "The known jobs and their current status will be output."
 msgstr ""
 
-#: util/initctl.c:2138
+#: util/initctl.c:1325
+msgid "EVENT [KEY=VALUE]..."
+msgstr ""
+
+#: util/initctl.c:1326
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:2139
+#: util/initctl.c:1327
 msgid ""
-"EVENT is the name of an event the init daemon should emit, which may have "
-"zero or more arguments specified by ARG.  These may be matched in the job "
-"definition, and are passed to any scripts run by the job.\n"
-"\n"
-"Events may also pass environment variables to the job scripts, defined using "
-"-e.  A value may be specified in the option, or if omitted, the value is "
-"taken from the environment or ignored if not present there."
+"EVENT is the name of an event the init daemon should emit, this may be "
+"followed by zero or more environment variables to be included in the event.\n"
 msgstr ""
 
-#: util/initctl.c:2150
-msgid "Receive notification of job state changes."
+#: util/initctl.c:1333
+msgid "Reload the configuration of the init daemon."
 msgstr ""
 
-#: util/initctl.c:2155
-msgid "Receive notification of emitted events."
-msgstr ""
-
-#: util/initctl.c:2160
+#: util/initctl.c:1337
 msgid "Request the version of the init daemon."
 msgstr ""
 
-#: util/initctl.c:2163
-msgid "PRIORITY"
+#: util/initctl.c:1340
+msgid "[PRIORITY]"
 msgstr ""
 
-#: util/initctl.c:2164
+#: util/initctl.c:1341
 msgid "Change the minimum priority of log messages from the init daemon"
 msgstr ""
 
-#: util/initctl.c:2166
+#: util/initctl.c:1343
 msgid ""
-"PRIORITY may be one of `debug' (messages useful for debugging upstart are "
-"logged, equivalent to --debug on kernel command-line); `info' (messages "
-"about job goal and state changes, as well as event emissions are logged, "
-"equivalent to --verbose on the kernel command-line); "
-"`message' (informational and debugging messages are suppressed, the "
-"default); `warn' (ordinary messages are suppressed whilst still logging "
-"warnings and errors); `error' (only errors are logged, equivalent to --quiet "
-"on the kernel command-line) or `fatal' (only fatal errors are logged)."
+"PRIORITY may be one of:\n"
+"  `debug' (messages useful for debugging upstart are logged, equivalent to --"
+"debug on kernel command-line);\n"
+"  `info' (messages about job goal and state changes, as well as event "
+"emissions are logged, equivalent to --verbose on the kernel command-line);\n"
+"  `message' (informational and debugging messages are suppressed, the "
+"default);   `warn' (ordinary messages are suppressed whilst still logging "
+"warnings and errors);\n"
+"  `error' (only errors are logged, equivalent to --quiet on the kernel "
+"command-line) or\n"
+"  `fatal' (only fatal errors are logged).\n"
+"\n"
+"Without arguments, this outputs the current log priority."
 msgstr ""
 
-#: compat/sysv/reboot.c:140
-msgid "don't sync before reboot or halt"
-msgstr ""
-
-#: compat/sysv/reboot.c:142
+#: util/reboot.c:106
 msgid "force reboot or halt, don't call shutdown(8)"
 msgstr ""
 
-#: compat/sysv/reboot.c:144
+#: util/reboot.c:108
 msgid "switch off the power when called as halt"
 msgstr ""
 
-#: compat/sysv/reboot.c:146
-msgid "put hard disks into standby"
+#: util/reboot.c:110
+msgid "don't actually reboot or halt, just write wtmp record"
 msgstr ""
 
-#: compat/sysv/reboot.c:148
-msgid "bring down network interfaces"
-msgstr ""
-
-#: compat/sysv/reboot.c:174
+#: util/reboot.c:136
 msgid "Halt the system."
 msgstr ""
 
-#: compat/sysv/reboot.c:177
+#: util/reboot.c:139
 msgid "Power off the system."
 msgstr ""
 
-#: compat/sysv/reboot.c:180
+#: util/reboot.c:142
 msgid "Reboot the system."
 msgstr ""
 
-#: compat/sysv/reboot.c:184
+#: util/reboot.c:146
 msgid ""
 "This command is intended to instruct the kernel to reboot or halt the "
-"system; when run without the -f option it will actually execute /sbin/"
-"shutdown.\n"
-"\n"
-"Before the system is rebooted or halted, the disks are syncd; this can be "
-"avoided by giving -n.\n"
-"\n"
-"Network interfaces can be brought down by giving the -i option, and IDE "
-"disks can be put into standby by giving the -h option.  On Linux, these are "
-"almost never necessary as the kernel shuts down all devices anyway."
+"system; when run without the -f option, or when in a system runlevel other "
+"than 0 or 6, it will actually execute /sbin/shutdown.\n"
 msgstr ""
 
-#: compat/sysv/reboot.c:240
+#: util/reboot.c:201
 msgid "Calling shutdown"
 msgstr ""
 
-#: compat/sysv/reboot.c:243
+#: util/reboot.c:204
 #, c-format
 msgid "Unable to execute shutdown: %s"
 msgstr ""
 
-#: compat/sysv/reboot.c:258
-msgid "Syncing disks"
-msgstr ""
-
-#: compat/sysv/reboot.c:272
+#: util/reboot.c:222
 msgid "Rebooting"
 msgstr ""
 
-#: compat/sysv/reboot.c:276
+#: util/reboot.c:226
 msgid "Halting"
 msgstr ""
 
-#: compat/sysv/reboot.c:280
+#: util/reboot.c:230
 msgid "Powering off"
 msgstr ""
 
-#: compat/sysv/reboot.c:305
-msgid "Putting disks into standby"
-msgstr ""
-
-#: compat/sysv/reboot.c:310
-#, c-format
-msgid "Unable to iterate IDE devices: %s"
-msgstr ""
-
-#: compat/sysv/reboot.c:358 compat/sysv/reboot.c:365
-#, c-format
-msgid "Failed to put %s into standby: %s"
-msgstr ""
-
-#: compat/sysv/reboot.c:390
-msgid "Bringing interfaces down"
-msgstr ""
-
-#: compat/sysv/reboot.c:394
-#, c-format
-msgid "Unable to open socket to iterate interfaces: %s"
-msgstr ""
-
-#: compat/sysv/reboot.c:403
-#, c-format
-msgid "Unable to get list of interfaces: %s"
-msgstr ""
-
-#: compat/sysv/reboot.c:423 compat/sysv/reboot.c:440
-#, c-format
-msgid "Failed to down interface %s: %s"
-msgstr ""
-
-#: compat/sysv/runlevel.c:70
-msgid "store time of system boot"
-msgstr ""
-
-#: compat/sysv/runlevel.c:72
-msgid "store new runlevel"
-msgstr ""
-
-#: compat/sysv/runlevel.c:88
+#: util/runlevel.c:59
 msgid "[UTMP]"
 msgstr ""
 
-#: compat/sysv/runlevel.c:89
+#: util/runlevel.c:60
 msgid "Output previous and current runlevel."
 msgstr ""
 
-#: compat/sysv/runlevel.c:91
+#: util/runlevel.c:62
 msgid ""
 "The system /var/run/utmp file is used unless the alternate file UTMP is "
 "given.\n"
-"\n"
-"Normally this will only output the most recent runlevel record in the utmp "
-"file, the --set option can be used to add a new record.  RUNLEVEL should be "
-"one of 0123456S.\n"
-"\n"
-"Alternately a reboot record may be added to the file by using the --reboot "
-"option, this produces no output."
 msgstr ""
 
-#: compat/sysv/runlevel.c:135 compat/sysv/telinit.c:79
-#, c-format
-msgid "%s: illegal runlevel: %s\n"
-msgstr ""
-
-#: compat/sysv/shutdown.c:150
+#: util/shutdown.c:193
 msgid "reboot after shutdown"
 msgstr ""
 
-#: compat/sysv/shutdown.c:152
+#: util/shutdown.c:195
 msgid "halt or power off after shutdown"
 msgstr ""
 
-#: compat/sysv/shutdown.c:154
+#: util/shutdown.c:197
 msgid "halt after shutdown (implies -h)"
 msgstr ""
 
-#: compat/sysv/shutdown.c:156
+#: util/shutdown.c:199
 msgid "power off after shutdown (implies -h)"
 msgstr ""
 
-#: compat/sysv/shutdown.c:158
+#: util/shutdown.c:201
 msgid "cancel a running shutdown"
 msgstr ""
 
-#: compat/sysv/shutdown.c:160
+#: util/shutdown.c:203
 msgid "only send warnings, don't shutdown"
 msgstr ""
 
-#: compat/sysv/shutdown.c:190
+#: util/shutdown.c:235
 msgid "TIME [MESSAGE]"
 msgstr ""
 
-#: compat/sysv/shutdown.c:191
+#: util/shutdown.c:236
 msgid "Bring the system down."
 msgstr ""
 
-#: compat/sysv/shutdown.c:193
+#: util/shutdown.c:238
 msgid ""
 "TIME may have different formats, the most common is simply the word 'now' "
 "which will bring the system down immediately.  Other valid formats are +m, "
@@ -984,127 +1215,105 @@ msgid ""
 "The default is left up to the shutdown scripts."
 msgstr ""
 
-#: compat/sysv/shutdown.c:232
+#: util/shutdown.c:276
 #, c-format
 msgid "%s: time expected\n"
 msgstr ""
 
-#: compat/sysv/shutdown.c:256
+#: util/shutdown.c:300
 #, c-format
 msgid "%s: illegal hour value\n"
 msgstr ""
 
-#: compat/sysv/shutdown.c:265
+#: util/shutdown.c:309
 #, c-format
 msgid "%s: illegal minute value\n"
 msgstr ""
 
-#: compat/sysv/shutdown.c:285
+#: util/shutdown.c:329
 #, c-format
 msgid "%s: illegal time value\n"
 msgstr ""
 
-#: compat/sysv/shutdown.c:333
+#: util/shutdown.c:374
 msgid "Shutdown is not running"
 msgstr ""
 
-#: compat/sysv/shutdown.c:342
+#: util/shutdown.c:383
 msgid "Another shutdown is already running"
 msgstr ""
 
-#: compat/sysv/shutdown.c:346
+#: util/shutdown.c:387
 msgid "Cannot find pid of running shutdown"
 msgstr ""
 
-#: compat/sysv/shutdown.c:373
-msgid "Unable to write pid file"
+#: util/shutdown.c:401
+msgid "Unable to change directory"
 msgstr ""
 
-#: compat/sysv/shutdown.c:476 compat/sysv/telinit.c:128
-#, c-format
-msgid "Unable to establish control socket: %s"
-msgstr ""
-
-#: compat/sysv/shutdown.c:537
+#: util/shutdown.c:510
 msgid "Shutdown cancelled"
 msgstr ""
 
-#: compat/sysv/shutdown.c:613
-#, c-format
-msgid "The system is going down for %s in %d minutes!"
+#: util/shutdown.c:595
+msgid "The system is going down for power off NOW!"
 msgstr ""
 
-#: compat/sysv/shutdown.c:617
-#, c-format
-msgid "The system is going down for %s IN ONE MINUTE!"
+#: util/shutdown.c:608
+msgid "The system is going down for halt NOW!"
 msgstr ""
 
-#: compat/sysv/shutdown.c:621
-#, c-format
-msgid "The system is going down for %s NOW!"
+#: util/shutdown.c:621
+msgid "The system is going down for maintenance NOW!"
 msgstr ""
 
-#: compat/sysv/shutdown.c:666
+#: util/shutdown.c:634
+msgid "The system is going down for reboot NOW!"
+msgstr ""
+
+#: util/shutdown.c:681
 #, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr ""
 
-#: compat/sysv/shutdown.c:711
+#: util/shutdown.c:726
 #, c-format
 msgid "Broadcast message from %s@%s"
 msgstr ""
 
-#: compat/sysv/shutdown.c:713
+#: util/shutdown.c:728
 #, c-format
 msgid "(%s) at %d:%02d ..."
 msgstr ""
 
-#: compat/sysv/telinit.c:68
+#: util/telinit.c:94
+msgid "set environment variable in the runlevel event"
+msgstr ""
+
+#: util/telinit.c:115
 msgid "Change runlevel."
 msgstr ""
 
-#: compat/sysv/telinit.c:70
-msgid "RUNLEVEL should be one of 0123456S."
-msgstr ""
-
-#: logd/main.c:97
-msgid "Detach and run in the background"
-msgstr ""
-
-#: logd/main.c:113
-msgid "Log output of jobs to /var/log/boot."
-msgstr ""
-
-#: logd/main.c:115
+#: util/telinit.c:117
 msgid ""
-"By default, logd does not detach from the console and remains in the "
-"foreground.  Use the --daemon option to have it detach."
+"RUNLEVEL should be one of 0123456sS, where s and S are considered "
+"identical.\n"
+"\n"
+"RUNLEVEL may also be Q or q to instruct the init daemon to reload its "
+"configuration, this is rarely necessary since the daemon watches its "
+"configuration for changes.\n"
+"\n"
+"RUNLEVEL may be U or u to instruct the init daemon to re-execute itself, "
+"this is not recommended since Upstart does not currently preserve its "
+"state.\n"
 msgstr ""
 
-#: logd/main.c:124
+#: util/telinit.c:134
 #, c-format
-msgid "%s: unexpected argument\n"
+msgid "%s: missing runlevel\n"
 msgstr ""
 
-#: logd/main.c:135
+#: util/telinit.c:139
 #, c-format
-msgid "Unable to open listening socket: %s"
-msgstr ""
-
-#: logd/main.c:148
-msgid "Unable to become daemon"
-msgstr ""
-
-#: logd/main.c:254
-#, c-format
-msgid "Unable to accept connection: %s"
-msgstr ""
-
-#: logd/main.c:263
-msgid "Insufficient memory to accept child"
-msgstr ""
-
-#: logd/main.c:365 logd/main.c:382
-#, c-format
-msgid "Error occurred while writing to log file: %s"
+msgid "%s: illegal runlevel: %s\n"
 msgstr ""

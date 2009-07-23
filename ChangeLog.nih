@@ -1,3 +1,4219 @@
+2009-07-15  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/libs.m4 (NIH_LIB_DBUS): Now that D-Bus 1.2.16 proper has been
+	released, update our version requirements to that.
+	* README: Update documentation.
+
+2009-07-14  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_main.c (test_init): Add a test for being called
+	as a login shell.
+	* nih/main.c (nih_main_init_full): Check for and skip initial dash.
+
+2009-07-11  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.3.2
+	* NEWS: Begin new release
+
+2009-07-09  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Release 0.3.1
+
+	* m4/libs.m4 (NIH_LIB_DBUS): Increase D-Bus dependency to current
+	GIT HEAD (1.2.15)
+	* README: Update documentation.
+	* NEWS: Note the change.
+
+	* nih-dbus-tool/demarshal.c (demarshal_array): Always initialise
+	all arrays to NULL first, and then only allocate the arrays after
+	to avoid gcc's uninitialised warnings.
+	* nih-dbus-tool/tests/test_demarshal.c (test_demarshal): Update
+	expected output to match
+	* nih-dbus-tool/tests/expected/test_method_proxy_notify_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_notify_function_array.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_no_input.c:
+	Update the method tests expected output too
+
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c (test_new_struct_array)
+	(test_new_dict_entry_array): Initialise alloc-safe variables to
+	NULL to avoid gcc warning
+
+	* nih-dbus/dbus_connection.c (nih_dbus_timeout_toggled): Use the
+	monotonic clock to recalculate the timer
+	* nih-dbus/Makefile.am (libnih_dbus_la_LIBS): Rename to _LIBADD
+	(libnih_dbus_la_LIBADD): Link with librt
+
+	* nih/timer.c (nih_timer_add_timeout, nih_timer_add_periodic)
+	(nih_timer_poll): Use a monotonic clock for timers, not the realtime
+	clock.
+	* nih/main.c (nih_main_loop): Calculate select time based on the
+	monotonic clock.
+	* nih/Makefile.am (libnih_la_LIBADD): Link with librt
+
+	* README: Bump the recommended D-Bus
+
+2009-07-08  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_dir_walk_scan): Should compare against DT_DIR
+	not use S_ISDIR
+
+	* NEWS: Update.
+
+	* nih/file.h (NihFileFilter): Add an is_dir argument
+	* nih/file.c (nih_dir_walk_scan): Pass the new argument
+	* nih/watch.c (nih_watch_handle): Pass the extra argument
+	* nih/tests/test_file.c (my_filter): Add the extra argument but
+	ignore
+	* nih/tests/test_watch.c (my_filter): Add here too
+
+2009-07-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/error.h (NihError): Declare this a slightly odd way to
+	permit the members to be directly embedded in sub-classes rather
+	than referring back through an accessor variable.
+	* nih-dbus/dbus_error.h (nih_dbus_error): Embed the NihError
+	members directly using the new macro.
+	* nih-dbus/dbus_error.c (nih_dbus_error_raise)
+	(nih_dbus_error_raise_printf): Just set number and message directly;
+	cast before raising.
+	* nih-dbus/dbus_object.c (nih_dbus_object_property_get)
+	(nih_dbus_object_property_get_all, nih_dbus_object_property_set): 
+	Access message through the dbus_err cast.
+	* nih-dbus/tests/test_dbus_error.c (test_error_raise)
+	(test_error_raise_printf): Test directly accessing the number
+	and message.
+
+2009-07-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/tests/test_dbus_proxy.c (test_connect): We can end up
+	with a lot of stray signals with these tests, so open and close
+	the connections for each one.
+
+	* NEWS: Update.
+	* TODO: Update.
+
+	* nih-dbus-tool/interface.c (interface_proxy_get_all_function)
+	(interface_proxy_get_all_sync_function),
+	* nih-dbus-tool/method.c (method_proxy_function)
+	(method_proxy_sync_function),
+	* nih-dbus-tool/property.c (property_proxy_get_function)
+	(property_proxy_set_function, property_proxy_get_sync_function)
+	(property_proxy_set_sync_function): Set the auto_start flag in
+	new method calls that we create.
+	* tests/expected/test_interface_proxy_get_all_function_standard.c,
+	* tests/expected/test_interface_proxy_get_all_sync_function_standard.c,
+	* tests/expected/test_interface_proxy_get_all_sync_function_structure.c,
+	* tests/expected/test_method_proxy_function_array.c,
+	* tests/expected/test_method_proxy_function_deprecated.c,
+	* tests/expected/test_method_proxy_function_no_args.c,
+	* tests/expected/test_method_proxy_function_standard.c,
+	* tests/expected/test_method_proxy_function_structure.c,
+	* tests/expected/test_method_proxy_sync_function_array_input.c,
+	* tests/expected/test_method_proxy_sync_function_deprecated.c,
+	* tests/expected/test_method_proxy_sync_function_no_args.c,
+	* tests/expected/test_method_proxy_sync_function_no_input.c,
+	* tests/expected/test_method_proxy_sync_function_no_output.c,
+	* tests/expected/test_method_proxy_sync_function_standard.c,
+	* tests/expected/test_method_proxy_sync_function_structure_input.c,
+	* tests/expected/test_method_proxy_sync_function_structure_output.c,
+	* tests/expected/test_property_proxy_get_function_standard.c,
+	* tests/expected/test_property_proxy_get_function_deprecated.c,
+	* tests/expected/test_property_proxy_get_sync_function_standard.c,
+	* tests/expected/test_property_proxy_get_sync_function_structure.c,
+	* tests/expected/test_property_proxy_get_sync_function_deprecated.c,
+	* tests/expected/test_property_proxy_set_function_standard.c,
+	* tests/expected/test_property_proxy_set_function_structure.c,
+	* tests/expected/test_property_proxy_set_function_array.c,
+	* tests/expected/test_property_proxy_set_function_deprecated.c,
+	* tests/expected/test_property_proxy_set_sync_function_standard.c,
+	* tests/expected/test_property_proxy_set_sync_function_structure.c,
+	* tests/expected/test_property_proxy_set_sync_function_array.c,
+	* tests/expected/test_property_proxy_set_sync_function_deprecated.c,
+	* tests/expected/test_node_proxy_functions_standard.c,
+	* tests/expected/test_node_proxy_functions_no_methods.c,
+	* tests/expected/test_node_proxy_functions_no_signals.c,
+	* tests/expected/test_node_proxy_functions_no_properties.c,
+	* tests/expected/test_node_proxy_functions_only_properties.c,
+	* tests/expected/test_node_proxy_functions_structure.c,
+	* tests/expected/test_output_proxy_standard.c:
+	Update expected output.
+	
+	* nih-dbus/dbus_proxy.h (NihDBusProxy): Add an auto_start member
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_new): Initialise auto_start
+	member to TRUE (the D-Bus default).
+	* nih-dbus/tests/test_dbus_proxy.c (test_new): Add checks for
+	auto-start being TRUE.
+	* nih-dbus-tool/signal.c (signal_proxy_function): Look up connection
+	and path through the proxy object; if the proxy object has a name,
+	compare the signal sender against the OWNER of that name, not the
+	name.
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Drop
+	parent argument from calls to nih_dbus_proxy_connect.  Add test
+	cases for signal catching on peer-to-peer and well-known name (we
+	were previously just using unique).
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c (test_new_byte)
+	(test_new_boolean, test_new_int16, test_new_uint16)
+	(test_new_int32, test_new_uint32, test_new_int64)
+	(test_new_uint64, test_new_double, test_new_string)
+	(test_new_object_path, test_new_signature, test_new_struct)
+	(test_new_int32_array, test_new_str_array)
+	(test_new_int32_array_array, test_new_struct_array)
+	(test_new_dict_entry_array): Drop the parent argument from calls
+	to nih_dbus_proxy_connect
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_standard.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_methods.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_properties.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_structure.c,
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.c:
+	Update expected output
+
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_new): Track the name whenever
+	one is given, not just when we have a lost handler.
+	(nih_dbus_proxy_name_track): lost_handler is not compulsory
+	(nih_dbus_proxy_name_owner_changed): Make the lost handler optional
+	(nih_dbus_proxy_destroy): name tracking must be cleaned up when
+	there's a name, not a lost handler
+	* nih-dbus/tests/test_dbus_proxy.c (test_name_owner_changed): Add
+	tests for both well-known and unique names with both being tracked.
+	(test_name_owner_changed): Add a test case for tracking a unique
+	name.
+
+	* nih-dbus/dbus_proxy.h (NihDBusProxySignal): Go back to just
+	holding a reference to the proxy in the connected signal, we need
+	its name owner tracking.
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_connect): Keep a reference
+	to the proxy, don't copy the members in; be allocated as a child
+	of the proxy.
+
+	* nih-dbus/tests/test_dbus_proxy.c (test_connect): Add a test
+	case for connecting to a signal by well-known name, rather than
+	just unique name
+
+	* nih-dbus-tool/output.c (output): Don't know where the word
+	"Forward" came from in this comment, delete it.
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.c,
+	* nih-dbus-tool/tests/expected/test_output_object_standard.c: 
+	Delete from the expected output as well.
+
+	* nih-dbus-tool/main.c: Add a --default-interface argument that
+	takes the place of setting the Symbol annotation to "".  This is
+	much cleaner, and allows the user of the code to decide, not the
+	author of the interface.
+
+	* nih-dbus-tool/interface.c (interface_annotation): Don't allow
+	the symbol annotation to be empty again.
+	(interface_end_tag): Which means that the symbol can never be
+	empty when we get to here.
+	* nih-dbus-tool/tests/test_interface.c (test_annotation): Drop the
+	test case for the empty annotation.
+	(test_end_tag): And drop the empty string test case.
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_get)
+	(test_object_property_set): We actually want "Access Denied" returned
+	instead of "No Such Method".
+	* nih-dbus/dbus_object.c (nih_dbus_object_property_get)
+	(nih_dbus_object_property_set): Rework so that we can return
+	"access denied".
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_get)
+	(test_object_property_set, test_object_property_get): Add some test
+	cases for property access.
+
+	* TODO: Update.
+
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c (test_get_all)
+	(test_get_all_sync): End-to-end test of the proxy get_all functions.
+
+	* nih-dbus-tool/interface.c (interface_proxy_get_all_notify_function)
+	(interface_proxy_get_all_sync_function): We can't use continue to
+	repeat the loop, because there might be inner loops.  Use the
+	local label trick.
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_notify_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_notify_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_sync_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_sync_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_standard.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_methods.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_signals.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_only_properties.c,
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.c: Update
+	expected output for test cases
+
+2009-07-01  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c (test_struct_to_str)
+	(test_struct_to_str_sync, test_str_to_struct)
+	(test_str_to_struct_sync, test_struct_array_to_str)
+	(test_struct_array_to_str_sync, test_str_to_struct_array)
+	(test_str_to_struct_array_sync, test_dict_entry_array_to_str)
+	(test_dict_entry_array_to_str_sync)
+	(test_str_to_dict_entry_array)
+	(test_str_to_dict_entry_array_sync, test_new_struct)
+	(test_new_struct_array, test_new_dict_entry_array)
+	(test_get_structure, test_get_structure_sync)
+	(test_set_structure, test_set_structure_sync)
+	(test_get_struct_array, test_get_struct_array_sync)
+	(test_set_struct_array, test_set_struct_array_sync)
+	(test_get_dict_entry_array, test_get_dict_entry_array_sync)
+	(test_set_dict_entry_array, test_set_dict_entry_array_sync): Proxy
+	test functions for structures, arrays of structures, and arrays
+	of dictionary entries in converstion, signal and property get/set
+	form.
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c (my_test_get_struct_array)
+	(my_test_get_dict_entry_array): Be consistent about what generates
+	a D-Bus error and what generates a generic error.
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c (test_get_struct_array)
+	(test_get_dict_entry_array): Update to match.
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test.xml: Add methods, signals
+	and properties that take a structure, an array of structures and an
+	array of dictionary entries to the tests.
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.h: Add structure
+	definition for the property we store behind the scenes, add extern
+	variables for the structure and structure/dictionary array properties
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c (my_test_struct_to_str)
+	(my_test_str_to_struct, my_test_struct_array_to_str)
+	(my_test_str_to_struct_array, my_test_dict_entry_array_to_str)
+	(my_test_str_to_dict_entry_array, my_test_get_structure)
+	(my_test_set_structure, my_test_get_struct_array)
+	(my_test_set_struct_array, my_test_get_dict_entry_array)
+	(my_test_set_dict_entry_array): Add implementation for the structure
+	and structure/dictionary array conversion functions and property
+	get/set functions.  Signal emission is implemented entirely by the
+	binding tool.
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c (test_struct_to_str)
+	(test_str_to_struct, test_struct_array_to_str)
+	(test_str_to_struct_array, test_dict_entry_array_to_str)
+	(test_str_to_dict_entry_array, test_new_struct)
+	(test_new_struct_array, test_new_dict_entry_array)
+	(test_get_structure, test_set_structure, test_get_struct_array)
+	(test_set_struct_array, test_get_dict_entry_array)
+	(test_set_dict_entry_array): Add new test cases for structures,
+	structure arrays and dictionaries.
+
+2009-06-30  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/test_node.c (test_proxy_functions): Structures
+	of readable properties come after all writable ones
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test.xml: Can't just call the
+	property "double" now it ends up in a structure, apply an annotation
+	to change the symbol.
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c (my_test_get_double)
+	(my_test_set_double): Rename
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c (test_get_double)
+	(test_get_double_sync, test_set_double, test_set_double_sync): Call
+	the renamed functions.
+
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal): Add missing test
+	cases for arrays of dictionary entries.
+	* nih-dbus-tool/tests/marshal_factory.c: Generate a dict entry test
+	* nih-dbus-tool/tests/marshal_code.h: Add the expected structure type
+	and prototypes.
+	* nih-dbus-tool/tests/test_demarshal.c (test_demarshal): Add missing
+	test cases for arrays of dictionary entries.
+	* nih-dbus-tool/tests/demarshal_code.h: Add the expected structure
+	type and prototypes.
+	* nih-dbus-tool/tests/demarshal_factory.c: Generate a dict entry test
+
+	* nih-dbus-tool/marshal.c, nih-dbus-tool/demarshal.c,
+	* nih-dbus-tool/node.c, nih-dbus-tool/method.c, nih-dbus-tool/signal.c,
+	* nih-dbus-tool/property.c: Add missing mention of @structs in
+	function documentation.
+
+	* nih-dbus-tool/tests/test_interface.c (test_proxy_get_all_function)
+	(test_proxy_get_all_notify_function)
+	(test_proxy_get_all_sync_function): Include a mix of readwrite, read
+	and writable properties in the test - only the first two should
+	appear in the output.
+
+	* nih-dbus-tool/output.c (output): Source should include string.h and
+	stdint.h for the following code, header should include stdint.h
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.c:
+	Add the headers and the get_all functions to the expected output
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.h: 
+	Add the headers, properties structure and get_all function prototypes
+	to the expected output
+	* nih-dbus-tool/tests/expected/test_output_object_standard.c,
+	* nih-dbus-tool/tests/expected/test_output_object_standard.h,
+	* nih-dbus-tool/tests/expected/test_output_object_no_interfaces.c,
+	* nih-dbus-tool/tests/expected/test_output_object_no_interfaces.h,
+	* nih-dbus-tool/tests/expected/test_output_proxy_no_interfaces.c: 
+	* nih-dbus-tool/tests/expected/test_output_proxy_no_interfaces.h: 
+	Add the headers to the expected output
+
+	* nih/test_files.h (TEST_EXPECTED_STR): Don't just compare the start
+	of the string, make sure we compare the whole string - easiest way
+	is to check the length first
+	(TEST_EXPECTED_FILE): Make sure the files are the same length
+
+	* nih-dbus-tool/node.c (node_proxy_functions): If there are
+	properties, include the async and sync versions of the get_all
+	function.  These define all the property structs, so the only ones
+	we need are the write-only ones.
+	* nih-dbus-tool/tests/test_node.c (test_proxy_functions): Add
+	the expected externs, prototypes, typedefs and structs for the
+	get_all function.
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_standard.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_methods.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_signals.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_only_properties.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_structure.c:
+	Add the "get_all" function expected output.
+
+2009-06-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test_files.h (TEST_EXPECTED_STR): Display the full original
+	string, not just the first part.
+
+	* nih-dbus-tool/interface.c (interface_proxy_get_all_function)
+	(interface_proxy_get_all_notify_function)
+	(interface_proxy_get_all_sync_function): Add functions to generate
+	proxy methods that get all of the properties of the given interface,
+	returned as members of a structure.
+	* nih-dbus-tool/interface.h: Add prototypes.
+	* nih-dbus-tool/tests/interface_factory.c: Call the new functions
+	to generate other functions that we can test
+	* nih-dbus-tool/tests/interface_code.h: Expected structure definitions,
+	typedefs and prototypes for generated code.
+	* nih-dbus-tool/tests/test_interface.c (test_proxy_get_all_function)
+	(test_proxy_get_all_notify_function)
+	(test_proxy_get_all_sync_function): Test both the generator functions
+	themselves and the code that they generate.
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_notify_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_notify_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_sync_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_interface_proxy_get_all_sync_function_structure.c:
+	Expected output from generators
+	* nih-dbus-tool/Makefile.am (check_PROGRAMS): Build the interface
+	factory binary
+	(test_interface_SOURCES): Depend on the header file
+	(nodist_test_interface_SOURCES): Build and link the generated source
+	(test_interface_LDADD): Need to link to libnih-dbus.la
+	(interface_factory_SOURCES, interface_factory_LDFLAGS)
+	(interface_factory_LDADD, tests/interface_code.c): Details to build
+	interface factory binary
+	(CLEANFILES): Make sure we clean up
+	(EXTRA_DIST): Distribute expected files
+
+2009-06-28  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test_files.h (TEST_EXPECTED_STR, TEST_EXPECTED_FILE): It's
+	getting increasingly annoying to have very large strings containing
+	C source which we compare, add a couple of macros to let us compare
+	a string or file against the contents of a file under tests/expected
+	* nih-dbus-tool/tests/test_method.c,
+	* nih-dbus-tool/tests/test_signal.c,
+	* nih-dbus-tool/tests/test_property.c,
+	* nih-dbus-tool/tests/test_node.c,
+	* nih-dbus-tool/tests/test_output.c: Cut out the embedded C source
+	into separate files
+	* nih-dbus-tool/tests/expected/test_method_object_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_no_input.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_no_output.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_structure_input.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_structure_output.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_async.c,
+	* nih-dbus-tool/tests/expected/test_method_object_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_method_reply_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_reply_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_method_reply_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_method_reply_function_array.c,
+	* nih-dbus-tool/tests/expected/test_method_reply_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_function_array.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_notify_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_notify_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_notify_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_notify_function_array.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_no_input.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_no_output.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_structure_input.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_structure_output.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_array_input.c,
+	* nih-dbus-tool/tests/expected/test_method_proxy_sync_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_signal_object_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_signal_object_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_signal_object_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_signal_object_function_array.c,
+	* nih-dbus-tool/tests/expected/test_signal_object_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_no_args.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_signal_proxy_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_object_get_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_object_get_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_property_object_get_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_object_set_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_object_set_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_property_object_set_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_notify_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_notify_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_notify_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_function_array.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_notify_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_notify_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_sync_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_sync_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_get_sync_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_sync_function_standard.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_sync_function_structure.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_sync_function_array.c,
+	* nih-dbus-tool/tests/expected/test_property_proxy_set_sync_function_deprecated.c,
+	* nih-dbus-tool/tests/expected/test_node_interfaces_array_object.c,
+	* nih-dbus-tool/tests/expected/test_node_interfaces_array_proxy.c,
+	* nih-dbus-tool/tests/expected/test_node_interfaces_array_none.c,
+	* nih-dbus-tool/tests/expected/test_node_object_functions_standard.c,
+	* nih-dbus-tool/tests/expected/test_node_object_functions_no_methods.c,
+	* nih-dbus-tool/tests/expected/test_node_object_functions_no_signals.c,
+	* nih-dbus-tool/tests/expected/test_node_object_functions_no_properties.c,
+	* nih-dbus-tool/tests/expected/test_node_object_functions_only_properties.c,
+	* nih-dbus-tool/tests/expected/test_node_object_functions_structure.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_standard.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_methods.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_signals.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_no_properties.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_only_properties.c,
+	* nih-dbus-tool/tests/expected/test_node_proxy_functions_structure.c,
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.c,
+	* nih-dbus-tool/tests/expected/test_output_proxy_standard.h,
+	* nih-dbus-tool/tests/expected/test_output_proxy_no_interfaces.c,
+	* nih-dbus-tool/tests/expected/test_output_proxy_no_interfaces.h,
+	* nih-dbus-tool/tests/expected/test_output_object_standard.c,
+	* nih-dbus-tool/tests/expected/test_output_object_standard.h,
+	* nih-dbus-tool/tests/expected/test_output_object_no_interfaces.c,
+	* nih-dbus-tool/tests/expected/test_output_object_no_interfaces.h:
+	Expected output texts
+	* nih-dbus-tool/Makefile.am (EXTRA_DIST): Distribute the expected
+	source files
+
+	* nih-dbus-tool/output.c (output): Pass a structs list to calls to
+	node_output_functions() and node_proxy_functions() and place the
+	formatted output in the header file before the typedefs.
+	* nih-dbus-tool/tests/test_output.c (test_output): Make sure we
+	test having a structure in both proxy and object mode.
+
+	* nih-dbus-tool/node.c (node_object_functions)
+	(node_proxy_functions): Call the various function generators with
+	a structs list, which we copy up into our own new structs argument.
+	* nih-dbus-tool/node.h: Add structs arguments to prototypes
+	* nih-dbus-tool/tests/test_node.c (test_object_functions)
+	(test_proxy_functions): Pass the structs argument in; make sure the
+	structures are passed back as well without duplicating the definitions
+	when we have multiple functions that declare them.
+
+2009-06-26  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_object_set_function)
+	(property_proxy_get_notify_function)
+	(property_proxy_set_function, property_proxy_get_sync_function)
+	(property_proxy_set_sync_function):  Call marshal() and demarshal()
+	with the extra arguments, obtaining most of them from our arguments
+	including the Interface and Property structures.  Copy back the list
+	of structures returned into a new structs argument that these
+	functions accept.
+	(property_proxy_get_function)
+	(property_proxy_set_notify_function): Add the extra structs argument
+	for consistency, though we don't do anything with it
+	* nih-dbus-tool/property.h: Update prototypes to add new argument
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_object_set_function, test_proxy_get_notify_function)
+	(test_proxy_set_function, test_proxy_get_sync_function)
+	(test_proxy_set_sync_function): Pass in the structs array, add tests
+	to make sure that members of this array are passed back when the
+	property is a structure
+	(test_proxy_get_function, test_proxy_set_notify_function): Pass in
+	the structs array, no need to tests passing back because none ever
+	will be,
+	* nih-dbus-tool/tests/property_factory.c: Pass expected structs
+	list when generating the code.
+
+	* nih-dbus-tool/symbol.c (symbol_typedef): Allow the postfix to
+	be NULL (property structures)
+	* nih-dbus-tool/tests/test_symbol.c (test_typedef): Add tests for
+	without postfix with/without other arguments.
+
+	* nih-dbus-tool/signal.c (signal_object_function)
+	(signal_proxy_function): Call marshal() and demarshal() with the
+	extra arguments, obtaining most of them from our arguments including
+	the Interface and Signal structures.  Copy back the list of
+	structures returned into a new structs argument that these functions
+	accept.
+	* nih-dbus-tool/signal.h: Update prototypes to add new argument
+	* nih-dbus-tool/tests/test_signal.c (test_object_function)
+	(test_proxy_function): Pass in the structs array, add tests to
+	make sure that members of this array are passed back when the signal
+	has structure arguments
+	* nih-dbus-tool/tests/signal_factory.c: Pass expected structs list
+	when generating the code.
+
+	* nih-dbus-tool/method.c (method_object_function)
+	(method_reply_function, method_proxy_function)
+	(method_proxy_notify_function, method_proxy_sync_function): Call
+	marshal() and demarshal() with the extra arguments, obtaining most
+	of them from our arguments including the Interface and Method
+	structures.  Copy back the list of structures returned into a new
+	structs argument that these functions accept.
+	* nih-dbus-tool/method.h: Update prototypes to add new argument
+	* nih-dbus-tool/tests/test_method.c (test_object_function)
+	(test_reply_function, test_proxy_function)
+	(test_proxy_notify_function, test_proxy_sync_function): Pass in the
+	structs array, add tests to make sure that members of this array
+	are passed back when the method has array arguments
+	* nih-dbus-tool/tests/method_factory.c: Pass expected structs list
+	when generating the code.
+
+	* nih-dbus-tool/demarshal.c (demarshal_struct): Generate the structure
+	name using symbol_typedef() rather than expecting type_of() to do
+	it for us.  To do this we need extra arguments giving us the
+	interface, member and variable symbol names.  Create a TypeStruct
+	for it, adding members as we go, and return it via the extra structs
+	list.
+	(demarshal_array): Take the same extra arguments as demarshal_struct()
+	so we can support arrays of structures, pass them to our recursive
+	demarshal() call and make sure we pass structs back up.  Create a
+	custom symbol for the structure array, so that it becomes
+	"PrefixInterfaceMemberArgElement".
+	(demarshal_basic): Take the extra arguments for consistency, though
+	we don't do anything with them.
+	(demarshal): Take the extra arguments, pass down to the static
+	functions.
+	* nih-dbus-tool/demarshal.h: Update prototypes.
+	* nih-dbus-tool/tests/test_demarshal.c (test_demarshal): Pass in
+	strings and structs list, check the structs list contents on the
+	way out
+	* nih-dbus-tool/tests/demarshal_factory.c (demarshal_function): Pass
+	expected structs and structs list when generating the code.
+	* nih-dbus-tool/tests/demarshal_code.h: Changes required in the name
+	of the expected structures
+	* nih-dbus-tool/Makefile.am (demarshal_factory_LDADD): Link to symbol
+
+	* nih-dbus-tool/marshal.c (marshal_struct): Generate the structure
+	name using symbol_typedef() rather than expecting type_of() to do
+	it for us.  To do this we need extra arguments giving us the
+	interface, member and variable symbol names.  Create a TypeStruct
+	for it, adding members as we go, and return it via the extra structs
+	list.
+	(marshal_array): Take the same extra arguments as marshal_struct()
+	so we can support arrays of structures, pass them to our recursive
+	marshal() call and make sure we pass structs back up.  Create a
+	custom symbol for the structure array, so that it becomes
+	"PrefixInterfaceMemberArgElement".
+	(marshal_basic): Take the extra arguments for consistency, though
+	we don't do anything with them.
+	(marshal): Take the extra arguments, pass down to the static
+	functions.
+	* nih-dbus-tool/marshal.h: Update prototypes.
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal): Pass in strings
+	and structs list, check the structs list contents on the way out
+	* nih-dbus-tool/tests/marshal_factory.c (marshal_function): Pass
+	expected structs and structs list when generating the code.
+	* nih-dbus-tool/tests/marshal_code.h: Changes required in the name
+	of the expected structures
+	* nih-dbus-tool/Makefile.am (marshal_factory_LDADD): Link to symbol
+
+	* nih-dbus-tool/type.c (type_of): Simplify type_of() so that it
+	only works for basic types.
+	* nih-dbus-tool/tests/test_type.c (test_of): Remove complex types
+
+	* nih-dbus-tool/type.h (TypeStruct): Add another type for structure
+	definitions, we need to know the name and a list of members.
+	* nih-dbus-tool/type.c (type_struct_new, type_struct_to_string):
+	Function to allocate the new type and convert it to a string
+	definition.
+	* nih-dbus-tool/tests/test_type.c (test_struct_new)
+	(test_struct_to_string): Add tests for the two new functions.
+	* nih-dbus-tool/Makefile.am (test_type_LDADD): Link to indent & symbol
+	(test_marshal_LDADD, test_demarshal_LDADD): These need to link to
+	symbol as well.
+
+	* nih-dbus/dbus_proxy.h: Since we use INT_MAX in a macro, we need
+	to include limits.h
+
+2009-06-23  Scott James Remnant  <scott@netsplit.com>
+
+	* COPYING: Change licence to version 2 of the GNU GPL.
+	All files have been updated to reflect this.
+
+2009-06-21  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.3.1
+	* NEWS: Begin new release.
+
+2009-06-17  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Release 0.3.0
+
+	* nih-dbus-tool/tests/test_interface.c (test_annotation): Add test
+	case for an empty symbol annotation
+	* nih-dbus-tool/interface.c (interface_annotation): Explicitly allow
+	the symbol to be empty
+
+	* configure.ac: Bump version up to 0.3.0, I think the nih-dbus-tool
+	changes are enough to warrant it
+
+	* nih/tests/test_error.c (test_pop_context): Initialise pid to avoid
+	gcc issue where it believes the value can be uninitialised
+	(test_raise_error): Initialise errors and pid.
+	* nih-dbus/tests/test_dbus_connection.c (test_connect): Initialise
+	variables allocated inside test constructs.
+	* nih-dbus/tests/test_dbus_message.c (test_message_error): Initialise
+	variables
+	* nih-dbus/tests/test_dbus_proxy.c (test_name_owner_changed): More
+	initialisation
+	* nih-dbus-tool/tests/test_main.c (test_mode_option): Have to
+	initialise ret.
+	* nih-dbus-tool/tests/test_node.c (test_start_tag): And another
+	* nih-dbus-tool/tests/test_interface.c (test_start_tag): One more
+	* nih-dbus-tool/tests/test_method.c (test_start_tag)
+	(test_end_tag, test_annotation): Bunch more ret initialises.
+	(test_object_function, test_reply_function, test_proxy_function)
+	(test_proxy_notify_function): Various other variables
+	* nih-dbus-tool/tests/test_signal.c (test_start_tag): Another ret
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_object_set_function, test_proxy_get_notify_function)
+	(test_proxy_set_notify_function): More miscellaneous ones
+	* nih-dbus-tool/tests/test_argument.c (test_start_tag): Another ret
+	* nih-dbus-tool/tests/test_annotation.c (test_start_tag): Yet another
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c: Even more
+	in this one.
+
+	* nih-dbus-tool/method.c (method_object_function): Don't translate
+	the string we return to the caller.
+	* nih-dbus-tool/property.c (property_object_set_function): Likewise
+	don't translate.
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Update
+	expected output in tests.
+	* nih-dbus-tool/tests/test_property.c (test_object_set_function):
+	Likewise
+	* nih-dbus-tool/tests/test_node.c (test_object_functions): Likewise
+	* nih-dbus-tool/tests/test_output.c (test_output): Likewise.
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c: Too many
+	to count in this source file
+
+	* nih-dbus-tool/Makefile.am (test_com_netsplit_Nih_Test_object_SOURCES)
+	(test_com_netsplit_Nih_Test_proxy_SOURCES): Finally decided that we're
+	not going to ship these built sources, we'd just regenerate them every
+	build anyway because nih-dbus-tool will have changed.  Make them
+	nodist.
+	(AM_CPPFLAGS): Which means we also need to include files from the
+	build directory, as well as the source directory
+	(BUILT_SOURCES): Change explanation of why it's in built sources
+	(CLEANFILES): Clean after build.
+
+	* nih/tests/test_error.c (test_raise_error, test_pop_context): Unlink
+	the core file after the assert tests.
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c,
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c,
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c: #include
+	quoted paths will only look in the source directory or current
+	working directory, for out of tree builds the current working
+	directory won't contain the header so we need to prefix with tests/
+	so we can lookup from the source directory
+	* nih-dbus-tool/tests/marshal_factory.c,
+	* nih-dbus-tool/tests/demarshal_factory.c,
+	* nih-dbus-tool/tests/method_factory.c,
+	* nih-dbus-tool/tests/signal_factory.c,
+	* nih-dbus-tool/tests/property_factory.c: Update generated code to
+	prefix includes with tests/
+
+	* nih/tests/test_error.c (test_raise_error, test_pop_context):
+	Make sure we don't expect the filename to be always relative,
+	e.g. out-of-tree builds.
+
+2009-06-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/marshal.c (marshal_array, marshal_struct): In the
+	array of structures situation, we can't just close the container
+	because it's not been completed - instead we use the new abandon
+	function to free the resources while hosing the message.
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_proxy_set_function, property_proxy_set_sync_function):
+	Likewise abandon the variant container, strictly speaking probably
+	not required but worthwhile for consistenc
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal): Update the
+	output checks to match
+	* nih-dbus-tool/tests/test_method.c (test_object_function)
+	(test_proxy_function, test_proxy_sync_function): More output updates
+	* nih-dbus-tool/tests/test_signal.c (test_object_function): Update
+	the output check
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_proxy_set_function, test_proxy_set_sync_function): Yet more
+	* nih-dbus-tool/tests/test_node.c (test_object_functions)
+	(test_proxy_functions): More output updates.
+	* nih-dbus-tool/tests/test_output.c (test_output): Also update the
+	top-level output
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c: Update the
+	property functions to raise the no memory error where appropriate,
+	also include code to return D-Bus and generic errors for testing.
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c (test_get_byte)
+	(test_get_boolean, test_get_int16, test_get_uint16)
+	(test_get_int32, test_get_uint32, test_get_int64)
+	(test_get_uint64, test_get_string, test_get_object_path)
+	(test_get_signature, test_get_int32_array, test_get_str_array)
+	(test_get_int32_array_array): Add tests for the get function returning
+	an D-Bus error and a generic error.
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c (test_get_byte)
+	(test_get_boolean, test_get_int16, test_get_uint16, test_get_int32)
+	(test_get_uint32, test_get_int64, test_get_uint64, test_get_double)
+	(test_get_string, test_get_object_path, test_get_signature)
+	(test_get_int32_array, test_get_int32_array_array): Add D-Bus error
+	and generic error test cases to the async functions, making sure that
+	the error handler is raised.
+	(test_get_byte_sync, test_get_boolean_sync, test_get_int16_sync)
+	(test_get_uint16_sync, test_get_int32_sync)
+	(test_get_uint32_sync, test_get_int64_sync)
+	(test_get_uint64_sync, test_get_double_sync, test_get_string_sync)
+	(test_get_object_path_sync, test_get_signature_sync)
+	(test_get_int32_array_sync, test_get_str_array_sync)
+	(test_get_int32_array_array_sync): Also add D-Bus and generic error
+	test cases to the sync functions, which are slightly harder to test
+	because of the need for a separate server process; still, this tests
+	the error return code.
+
+	* nih-dbus-tool/tests/test_node.c (test_object_functions): Update the
+	output tests to expect the error raises.
+	* nih-dbus-tool/tests/test_output.c (test_output): Update the output
+	tests to match as well.
+
+	* nih-dbus-tool/property.c (property_object_get_function): Raise the
+	no memory error when we return.
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function): Make
+	sure that the output matches, and test the generated function with
+	normal output, out of memory, dbus error and generic error returns.
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_property_get): It makes
+	sense to be able to return an error when getting a property, at the
+	very least it might be a PolicyKit authorisation error.
+	(nih_dbus_object_property_get_all): If we get an error while getting
+	any property, we have to return that error to the user, such is the
+	manner in which D-Bus messages have to be built.
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_get):
+	Update function to test for property getter functions returning
+	errors.
+	(test_object_property_get_all): Include a couple of test cases
+	here too.
+
+	* TODO (dbus): Update on no_reply, still not completely clear what
+	we should do with this annotation as the results are surprising
+
+	* nih-dbus-tool/method.c (method_end_tag): Ignore the NoReply
+	annotation if the method has output arguments; ignore the Async
+	annotation if the method is NoReply.
+	* nih-dbus-tool/tests/test_method.c (test_end_tag): Make sure the
+	annotations are amended and warnings emitted as appropriate.
+
+	* nih-dbus-tool/node.c (node_object_functions): Don't generate reply
+	functions for non-async method implementations
+	* nih-dbus-tool/tests/test_node.c (test_object_functions): Make the
+	peek method async so that's the only one that should have a reply
+	function.  Also add an output value to another method to check
+	ordinary return values.
+	* nih-dbus-tool/tests/test_output.c (test_output): Apply the same
+	changes to this test as well.
+
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c: Turns out
+	I was using the wrong timeout value everywhere, this is why macros are
+	useful -- replace the wrong "0" with NIH_DBUS_TIMEOUT_DEFAULT
+
+	* nih-dbus/dbus_proxy.h (NIH_DBUS_TIMEOUT_DEFAULT)
+	(NIH_DBUS_TIMEOUT_NEVER): Add macros so we don't have to remember
+	what the timeout magic numbers are
+
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c: Use
+	TEST_FUNCTION with proper function names instead of TEST_GROUP
+
+2009-06-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.h,
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c, 
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_object.c,
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c: Completely
+	rewrite these tests using TEST_DBUS, making sure we test as much of the
+	newly generated code as possible.
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test.xml: Various slight
+	updates to better test the newer code; add arrays of arrays to the
+	tests; rename "data" to "value" to avoid clash with data argument;
+	remove the glue we won't use it anymore.
+
+	* nih-dbus-tool/Makefile.am ($(com_netsplit_Nih_Test_proxy_OUTPUTS)):
+	Use "proxy" as the prefix again, "your" just looks silly.
+
+	* nih-dbus-tool/type.c (type_strcat_assert): And now the other
+	corner case we found, size arrays can be NULL if the first element
+	of the array is NULL.
+	* nih-dbus-tool/tests/test_type.c (test_strcat_assert): Add tests
+	* nih-dbus-tool/method.c (method_reply_function)
+	(method_proxy_function, method_proxy_sync_function),
+	* nih-dbus-tool/signal.c (signal_object_function),
+	* nih-dbus-tool/property.c (property_proxy_set_function)
+	(property_proxy_set_sync_function): Think-o, we can't look at the
+	previous iterated we have to look at the last function argument
+
+	* nih-dbus-tool/type.c (type_strcat_assert): We're starting to get
+	a lot of corner cases in that simple assert block, separate it out
+	so we don't have to repeatedly get it wrong.
+	* nih-dbus-tool/type.h: Add prototype
+	* nih-dbus-tool/tests/test_type.c (test_strcat_assert): The all
+	important tests.
+	* nih-dbus-tool/method.c (method_reply_function)
+	(method_proxy_function, method_proxy_sync_function): Use the new
+	function.
+	* nih-dbus-tool/signal.c (signal_object_function): Likewise.
+	* nih-dbus-tool/property.c (property_proxy_set_function)
+	(property_proxy_set_sync_function): Likewise.
+
+	* nih-dbus-tool/method.c (method_reply_function)
+	(method_proxy_function, method_proxy_sync_function): Input array
+	arguments of basic types (those with a size_t argument following)
+	may be NULL if that size_t argument is zero.  Check for this when
+	adding asserts.
+	* nih-dbus-tool/tests/test_method.c (test_reply_function)
+	(test_proxy_function, test_proxy_sync_function): Add test cases for
+	an array input argument to make sure we generate the right assert
+	* nih-dbus-tool/signal.c (signal_object_function): Needs exactly
+	the same patch
+	* nih-dbus-tool/tests/test_signal.c (test_object_function): Add
+	the test case for this one too.
+	* nih-dbus-tool/property.c (property_proxy_set_function)
+	(property_proxy_set_sync_function): We also need the same patch
+	for this one too.
+	* nih-dbus-tool/tests/test_property.c (test_proxy_set_function)
+	(test_proxy_set_sync_function): And test as well
+
+2009-06-14  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_connect): Total thinko with
+	the API; I'd expected the signal structures to be public, but we
+	don't generally want that.  Better just to take a signal name.
+	* nih-dbus/dbus_proxy.h: Update prototype.
+	* nih-dbus/tests/test_dbus_proxy.c (test_connect): Update tests
+	(test_signal_destroy): Also update this one
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Also update
+
+2009-06-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/output.c (output): Need dbus_pending_data.h in the
+	header too for the error handler typedef.
+	* nih-dbus-tool/tests/test_output.c (test_output): Add to tests
+
+2009-06-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/test_output.c (test_output): We want an extra
+	line between extern variables and functions, but only when there are
+	both.
+	* nih-dbus-tool/output.c (output): Adjust the code to make that so
+
+	* nih/child.h,
+	* nih/io.h,
+	* nih/logging.h,
+	* nih/main.h,
+	* nih/signal.h: Make sure we prefix variables with "extern"
+
+	* nih-dbus-tool/node.c (node_interfaces_array): Make the structure
+	prototypes that we export "extern", since they go in the header
+	file.
+	* nih-dbus-tool/tests/test_node.c (test_interfaces_array): Make sure
+	that the returned variable types all include "extern" in the lists,
+	but not in the output.
+	* nih-dbus-tool/tests/test_output.c (test_output): Update the output
+	checks of the headers to expect extern in front of variables.
+
+2009-06-10  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/signal.c (signal_proxy_function): Eliminate the
+	proxy passthrough and use proxied members directly.
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Update
+	expected output of tests to match.
+	* nih-dbus-tool/tests/test_node.c (test_proxy_functions): Update
+	expected output.
+	* nih-dbus-tool/tests/test_output.c (test_output): Update as well
+
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Pass
+	the extra arguments to nih_dbus_proxy_connect(), which means we
+	actually move the data pointer to the connect call now.
+
+	* nih-dbus/dbus_proxy.h (NihDBusProxySignal): Rather than reference
+	the proxy itself, copy the members that we want out of it.
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_connect): Accept a parent
+	argument, as well as a separate data argument, copy the members
+	from proxy into the object, taking a reference to the connection
+	as we do so.
+	(nih_dbus_proxy_signal_destroy): Don't forget to unref the connection
+	(nih_dbus_proxy_signal_rule): Take members directly
+	* nih-dbus/tests/test_dbus_proxy.c (test_connect): Call the function
+	with the two new arguments, update tests to check for the new members
+	(test_signal_destroy): Call with the two new arguments.
+
+	* nih-dbus-tool/property.c (property_proxy_set_sync_function): Add
+	a parent argument to the methods, even though we never use it;
+	otherwise it's irritatingly inconsistent with methods and property
+	get functions.
+	* nih-dbus-tool/tests/property_code.h: Adjust the expected prototype
+	* nih-dbus-tool/tests/test_property.c (test_proxy_set_sync_function):
+	Adjust expected output to include the parent argument
+	* nih-dbus-tool/tests/test_node.c (test_proxy_functions): Update
+	expected output to match
+	* nih-dbus-tool/tests/test_output.c (test_output): Update as well
+
+	* nih-dbus/dbus_proxy.h (NihDBusSignalhandler): Remove the proxy
+	argument.
+	* nih-dbus/tests/test_dbus_proxy.c (my_signal_handler): Remove the
+	argument from here too
+
+	* nih-dbus-tool/signal.c (signal_proxy_function): Don't pass the
+	proxy to the signal handler function; we don't pass it for method
+	or property reply handlers because we don't have it, it's inconsitent
+	to pass it here as well - we can always make a new proxy for the origin
+	after all.
+	* nih-dbus-tool/tests/signal_code.h: Update typedef
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Update
+	the tests
+	* nih-dbus-tool/tests/test_node.c (test_proxy_functions): Update
+	expected output
+	* nih-dbus-tool/tests/test_output.c (test_output): Update expected
+	output.
+
+	* nih-dbus-tool/method.c (method_proxy_notify_function): Symbol
+	name for a notify function should be implementation, it's static
+	(method_proxy_function): Call with the implementation name
+	* nih-dbus-tool/tests/method_code.h: Update name of notify function
+	we expect to be generated
+	* nih-dbus-tool/tests/method_factory.c: Updadate the name of the
+	notify function we'll supply in the test
+	* nih-dbus-tool/tests/test_method.c (test_proxy_notify_function): 
+	Rename notify function in output and when we call it
+	(test_proxy_function): Rename notify function in output
+	* nih-dbus-tool/tests/test_node.c (test_proxy_functions): Update
+	expected output
+	* nih-dbus-tool/tests/test_output.c (test_output): Update expected
+	output
+
+	* NEWS: Update
+	* TODO: Update
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test.xml: Update to newer
+	XML format, using annotations instead of namespaces.  Add a couple
+	of extra tests cases, and in particular add properties.
+	* nih-dbus-tool/Makefile.am ($(com_netsplit_Nih_Test_object_OUTPUTS)): 
+	($(com_netsplit_Nih_Test_proxy_OUTPUTS)): Use the C version of the
+	nih-dbus-tool to generate the output; currently not compatible with
+	the tests, but should generate good code.  Be sure to make the
+	output directory first (out of tree builds)
+	(nodist_test_marshal_SOURCES, nodist_test_demarshal_SOURCES)
+	(nodist_test_method_SOURCES, nodist_test_signal_SOURCES)
+	(nodist_test_property_SOURCES): We don't want to distribute the
+	*_code.c files so move them into a nodist prefixed
+	(MAINTAINERCLEANFILES): BUILT_SOURCES are always maintainer-clean,
+	so drop this
+	(EXTRA_DIST): Sources are always distributed, so drop the outputs
+	from this leaving only the XML
+	(tests/marshal_code.c, tests/demarshal_code.c)
+	(tests/method_code.c, tests/signal_code.c)
+	(tests/property_code.c): Drop the temporary output, no need for it
+	(CLEANFILES): Specify by expanding the nodist_*_SOURCES variables
+
+	* nih-dbus-tool/nih_dbus_tool.py: Drop the python version
+
+	* TODO: Update.
+
+	* nih-dbus-tool/main.c: Actually output the source and header files
+
+	* nih-dbus-tool/main.c: Generate the source and header paths earlier,
+	using an nih_local string so we don't have to free.  Make sure we
+	close the input file descriptor.  Don't put meaningless content into
+	the errors we output.
+
+	* nih-dbus-tool/main.c (mode_option): Rather than set a random enum,
+	just use TRUE/FALSE as the output and node methods do.
+	* nih-dbus-tool/tests/test_main.c (test_mode_option): Update.
+
+	* nih-dbus-tool/man/nih-dbus-tool.1: Make a start on a man page for
+	the tool.
+
+	* nih-dbus-tool/output.c (output): Primary function to output C
+	source and header files for a node in either object or proxy mode.
+	(output_preamble): Support function to generate the preamble comment
+	(output_sentinel): Support function to generate the header sentinel
+	(output_write): Support file to write out to the file descriptor
+	* nih-dbus-tool/output.h: Headers
+	* nih-dbus-tool/tests/test_output.c: Tests for the code
+	* nih-dbus-tool/Makefile.am (nih_dbus_tool_SOURCES): Compile and link
+	the new source file
+	(TESTS): Run the new tests
+	(test_output_SOURCES, test_output_LDFLAGS, test_output_LDADD): Details
+	for the new tests
+
+	* nih-dbus-tool/type.c (type_func_to_typedef, type_func_layout):
+	Use type_var_to_string instead of doing things by hand.
+
+	* nih-dbus-tool/tests/test_type.c (test_func_layout): Noticed that
+	I have no test cases for no arguments or returning void, extend the
+	existing cases.
+	* nih-dbus-tool/type.c (type_func_layout): Glad I did that - I didn't
+	cope with no arguments.
+
+	* nih-dbus-tool/type.c (type_func_to_typedef): We need to be able to
+	lay typedefs out individually, thus add this function.
+	* nih-dbus-tool/type.h: Add prototype
+	* nih-dbus-tool/tests/test_type.c (test_func_to_typedef): Add tests
+
+2009-06-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/node.c (node_object_functions)
+	(node_proxy_functions): Implement functions that call all the
+	necessary other functions to return C code for a node's object or
+	proxy implementations.
+	* nih-dbus-tool/node.h: Add prototypes.
+	* nih-dbus-tool/tests/test_node.c (test_object_functions)
+	(test_proxy_functions): Test cases for the functions.
+
+2009-06-04  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/main.c: Change the default output mode to proxy,
+	which makes a bit more sense for the majority case.
+
+	* nih-dbus-tool/signal.c (signal_proxy_function): Name the signal
+	functions _signal to match _method
+	* nih-dbus-tool/tests/signal_code.h: Update to match
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Update
+
+	* nih-dbus-tool/node.c (node_interfaces_array): The last member
+	should be just NULL, it's an array of pointers.
+	* nih-dbus-tool/tests/test_node.c (test_interfaces_array): Adjust
+	test case output to match.
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_introspect): Cope with
+	name-less arguments.
+	* nih-dbus/tests/test_dbus_object.c (test_object_introspect): Update
+	input and expected return string.
+
+	* nih-dbus-tool/interface.c (interface_end_tag): If the symbol is
+	given as "", set it to NULL.
+	* nih-dbus-tool/tests/test_interface.c (test_end_tag): Add a test
+	case for the empty symbol.
+
+	* nih-dbus-tool/node.c (node_interfaces_array): Generate the array
+	of interfaces for a given node.
+	* nih-dbus-tool/node.h: Add prototype.
+	* nih-dbus-tool/tests/test_node.c (test_interfaces_array): Add tests
+	for the new function
+
+	* nih-dbus-tool/interface.c (interface_methods_array)
+	(interface_signals_array, interface_properties_array): Return the
+	prototype with the name set, and thus don't return a static argument
+	array.
+	(interface_struct): Rewrite to reuse the name and insert the static
+	* nih-dbus-tool/interface.h: Update prototypes
+	* nih-dbus-tool/tests/test_interface.c (test_methods_array)
+	(test_signals_array, test_properties_array): Adjust to match
+
+	* nih-dbus-tool/interface.c (interface_methods_array)
+	(interface_signals_array): Restructure to expect prototypes to be
+	returned from the args array functions, using that to get the name
+	of those and generally making things a bit more readable.  Make
+	static along the way too.
+
+	* nih-dbus-tool/tests/test_interface.c (test_struct): Make sure the
+	returned items aren't arrays.
+
+	* nih-dbus-tool/signal.c (signal_args_array): Return the prototype
+	with the name set, and thus don't return a static argument array.
+	* nih-dbus-tool/signal.h: Update prototype
+	* nih-dbus-tool/tests/test_signal.c (test_args_array): Adjust to match
+
+	* nih-dbus-tool/method.c (method_args_array): Return the prototype
+	with the name set, and thus don't return a static argument array.
+	* nih-dbus-tool/method.h: Update prototype
+	* nih-dbus-tool/tests/test_method.c (test_args_array): Adjust to match
+
+	* nih-dbus-tool/type.h (type_var): Add an array member.
+	* nih-dbus-tool/type.c (type_var_new): Initialise array to FALSE.
+	(type_var_to_string, type_var_layout): Append [] if the var is an
+	array
+	* nih-dbus-tool/tests/test_type.c (test_var_new): Check array is FALSE
+	(test_var_to_string, test_var_layout): Add checks for array
+
+	* nih-dbus-tool/interface.c (interface_struct): Generate a structure
+	variable for an interface, along with the members code.
+	* nih-dbus-tool/interface.h: Add prototype
+	* nih-dbus-tool/tests/test_interface.c (test_struct): Tests.
+
+2009-06-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/method.c (method_args_array): Add missing NihDBusArg
+	* nih-dbus-tool/tests/test_method.c (test_args_array): Update
+	expected test output
+	* nih-dbus-tool/signal.c (signal_args_array): Add missing NihDBusArg
+	* nih-dbus-tool/tests/test_signal.c (test_args_array): Update
+	expected test output
+	* nih-dbus-tool/interface.c (interface_methods_array)
+	(interface_signals_array, interface_properties_array): Add missing
+	NihDBusMethod, NihDBusSignal and NihDBusProperty type names.
+	* nih-dbus-tool/tests/test_interface.c (test_methods_array)
+	(test_signals_array, test_properties_array): Update expected
+	test output
+
+	* nih-dbus-tool/interface.c (interface_properties_array): Generate
+	the array of properties for an interface
+	* nih-dbus-tool/interface.h: Add prototype
+	* nih-dbus-tool/tests/test_interface.c (test_properties_array): Tests
+
+	* nih-dbus-tool/method.c (method_args_array): Use method_args instead
+	of args to distinguish from signals.
+	* nih-dbus-tool/tests/test_method.c (test_args_array): Update.
+	* nih-dbus-tool/signal.c (signal_args_array): Use signal_args instead
+	of args to distinguish from methods.
+	* nih-dbus-tool/tests/test_signal.c (test_args_array): Update.
+	* nih-dbus-tool/interface.c (interface_methods_array)
+	(interface_signals_array): Update to match
+	* nih-dbus-tool/tests/test_interface.c (test_methods_array)
+	(test_signals_array): Also update.
+
+	* nih-dbus-tool/interface.c (interface_signals_array): Generate the
+	array of signals for an interface, including the arguments.
+	* nih-dbus-tool/interface.h: Add prototype
+	* nih-dbus-tool/tests/test_interface.c (test_signals_array): Tests.
+
+	* nih-dbus-tool/interface.c (interface_methods_array): Generate the
+	array of methods for an interface, including the arguments.
+	* nih-dbus-tool/interface.h: Add prototype
+	* nih-dbus-tool/tests/test_interface.c (test_methods_array): Tests.
+
+	* nih-dbus-tool/signal.c (signal_args_array): Generate the array
+	of arguments for a signal.
+	* nih-dbus-tool/signal.h: Add prototype.
+	* nih-dbus-tool/tests/test_signal.c (test_args_array): Tests.
+
+	* nih-dbus-tool/method.c (method_args_array): Generate the array
+	of arguments for a method.
+	* nih-dbus-tool/method.h: Add prototype.
+	* nih-dbus-tool/tests/test_method.c (test_args_array): Tests.
+
+	* nih-dbus-tool/symbol.c (symbol_impl): Allow the symbol name and
+	postfix to be NULL, as is the case for structure definitions.
+	* nih-dbus-tool/tests/test_symbol.c (test_impl): Extend test cases
+	to cover new cases.
+
+2009-06-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_object_set_function, property_proxy_get_function)
+	(property_proxy_get_notify_function)
+	(property_proxy_set_function)
+	(property_proxy_set_notify_function)
+	(property_proxy_get_sync_function)
+	(property_proxy_set_sync_function): Rather than accepting precanned
+	names, accept prefix, interface and property and generate them every
+	time.
+	* nih-dbus-tool/property.h: Update prototypes.
+	* nih-dbus-tool/tests/property_factory.c: Create an interface and
+	pass it to the functions.
+	* nih-dbus-tool/tests/property_code.h: Prototypes all change
+	* nih-dbus-tool/tests/test_property.c: Update tests.
+
+	* nih-dbus-tool/signal.c (signal_object_function)
+	(signal_proxy_function): Rather than accepting precanned names, accept
+	prefix, interface and signal and generate them every time
+	* nih-dbus-tool/signal.h: Update prototypes.
+	* nih-dbus-tool/tests/signal_factory.c: Create an interface and
+	pass it to the functions
+	* nih-dbus-tool/tests/signal_code.h: Filter function name changes
+	as a result.
+	* nih-dbus-tool/tests/test_signal.c: Update tests.
+
+	* nih-dbus-tool/method.c (method_object_function)
+	(method_reply_function, method_proxy_function)
+	(method_proxy_notify_function, method_proxy_sync_function): Rather
+	than accepting precanned names, accept prefix, interface and method
+	and generate them every time.
+	* nih-dbus-tool/method.h: Update prototypes.
+	* nih-dbus-tool/tests/method_factory.c: Create an interface and pass
+	it to the functions
+	* nih-dbus-tool/tests/method_code.h: A couple of names of generated
+	functions change as a result (becoming proper)
+	* nih-dbus-tool/tests/test_method.c: Update tests
+
+	* nih-dbus-tool/interface.c (interface_lookup_method): Move to method.c
+	(interface_lookup_signal): Move to signal.c
+	(interface_lookup_property): Move to property.c
+	* nih-dbus-tool/interface.h: Also move prototypes
+	* nih-dbus-tool/tests/test_interface.c: Also move test cases
+	* nih-dbus-tool/method.c (interface_lookup_method): Rename
+	to method_lookup
+	* nih-dbus-tool/method.h: Update prototype.
+	* nih-dbus-tool/tests/test_method.c (test_lookup_method): Rename
+	to test_lookup
+	* nih-dbus-tool/signal.c (interface_lookup_signal): Rename
+	to signal_lookup
+	* nih-dbus-tool/signal.h: Update prototype.
+	* nih-dbus-tool/tests/test_signal.c (test_lookup_signal): Rename
+	to test_lookup
+	* nih-dbus-tool/property.c (interface_lookup_property): Rename
+	to property_lookup
+	* nih-dbus-tool/property.h: Update prototype
+	* nih-dbus-tool/tests/test_property.c (test_lookup_property): Rename
+	to test_lookup
+
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_name_owner_changed): Add
+	missing DBUS_TYPE_INVALID sentinel to the dbus_message_get_args()
+	call.
+
+2009-05-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/test_node.c (test_lookup_interface): Extend
+	test case to look for NULL
+	* nih-dbus-tool/node.c (node_lookup_interface): Allow NULL symbol
+	lookup, which returns an Interface with a NULL symbol (ie. the
+	default).
+
+	* nih-dbus-tool/symbol.c (symbol_impl, symbol_extern)
+	(symbol_typedef): Name generation functions
+	(symbol_strcat_interface, symbol_strcat_title): Utility functions
+	used for the above
+	* nih-dbus-tool/symbol.h: Add prototypes
+	* nih-dbus-tool/tests/test_symbol.c (test_impl, test_extern)
+	(test_typedef): Test cases for the new functions
+
+2009-05-27  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/method.c (method_proxy_sync_function): sync function
+	returns an integer, so should not be malloc
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function):
+	Remove from tests as well
+
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function):
+	Do the child process stuff before creating the proxy, otherwise
+	it holds a reference to the connection.
+	* nih-dbus-tool/tests/test_property.c (test_proxy_get_sync_function)
+	(test_proxy_set_sync_function): Likewise.
+
+2009-05-26  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/nih_dbus_tool.py: Rename conn to connection
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c: Update conn
+	to connection here too
+
+	* nih-dbus-tool/tests/test_method.c,
+	* nih-dbus-tool/tests/test_signal.c, 
+	* nih-dbus-tool/tests/test_property.c: Update variable names in
+	test cases too
+
+	* nih-dbus-tool/method.c,
+	* nih-dbus-tool/signal.c,
+	* nih-dbus-tool/property.c: Update accessor of message, proxy and
+	object functions
+
+	* nih-dbus/tests/test_dbus_message.c,
+	* nih-dbus/tests/test_dbus_object.c,
+	* nih-dbus/tests/test_dbus_pending_data.c,
+	* nih-dbus/tests/test_dbus_proxy.c: Update to match conn/connection
+
+	* nih-dbus/dbus_proxy.c: rename conn to connection
+	* nih-dbus/dbus_proxy.h (NihDBusProxy): rename conn to connection
+
+	* nih-dbus/dbus_object.c: rename conn to connection
+	* nih-dbus/dbus_object.h (NihDBusObject): rename conn to connection
+ 
+	* nih-dbus/dbus_pending_data.c: rename conn to connection
+	* nih-dbus/dbus_pending_data.h (NihDBusPendingData): rename conn
+	to connection
+
+	* nih-dbus/dbus_message.c: rename conn to connection
+	* nih-dbus/dbus_message.h (NihDBusMessage): rename conn to connection
+
+	* nih-dbus/dbus_interface.h: Rename conn arguments to connection.
+
+	* nih-dbus/dbus_connection.c: Rename conn arguments/variables to
+	connection, for style-wise stuff
+	* nih-dbus/dbus_connection.h: Update prototypes
+
+	* nih-dbus-tool/signal.c (signal_proxy_function): Function to
+	generate D-Bus connection filter functions to catch signal
+	messages and pass them to a handler
+	* nih-dbus-tool/signal.h: Add prototype
+	* nih-dbus-tool/tests/signal_factory.c: Call the function to
+	generate a filter function for testing
+	* nih-dbus-tool/tests/signal_code.h: Expected prototype for
+	generated function, and the typedef it casts handler functions to
+	* nih-dbus-tool/tests/test_signal.c (test_proxy_function): Test
+	cases for the function and the generated function
+
+	* nih-dbus/dbus_interface.h (NihDBusSignalFilter): Rename the
+	message argument to signal, since we use message for the context
+
+2009-05-25  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_interface.h (NihDBusSignal): Add filter function
+	member, which is a D-Bus connection filter that will call a proxied
+	handler function.
+	(NihDBusProxySignal): add advanced typedef
+	(NihDBusSignalFilter): typedef for signal filter function
+
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_connect): Function to
+	connect a signal handler to a proxy using the filter function
+	defined in the NihDBusSignal structure.
+	(nih_dbus_proxy_signal_destroy): Destructor for a proxied signal
+	that removes the match on the bus daemon and the filter
+	(nih_dbus_proxy_signal_rule): Function to generate signal rule
+	* nih-dbus/dbus_proxy.h (NihDBusProxySignal): Structure with the
+	information we need about a connected signal.
+	(NihDBusSignalHandler): Typedef for signal handler function we
+	accept for nih_dbus_proxy_connect()
+	* nih-dbus/tests/test_dbus_proxy.c (test_connect)
+	(test_signal_destroy): Test the new functions
+
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_destroy)
+	(nih_dbus_proxy_name_track): If we don't pass a DBusError to
+	dbus_bus_remove_match() then it won't wait for the reply, which
+	leaks a method call reply elsewhere.
+
+2009-05-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/test_method.c (test_proxy_function)
+	(test_proxy_sync_function),
+	* nih-dbus-tool/tests/test_property.c (test_proxy_get_function)
+	(test_proxy_set_function, test_proxy_get_sync_function)
+	(test_proxy_set_sync_function),
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c (test_method_dispatch): 
+	Update arguments to nih_dbus_proxy_new() calls
+
+	* nih-dbus/dbus_proxy.h (NihDBusProxy): Add owner member to
+	store the unique name of the proxied object, also add a handler
+	function for the owner dropping off the bus and a data pointer to
+	pass to it.
+	(NihDBusLostHandler): typedef for lost handler function
+	* nih-dbus/dbus_proxy.c (nih_dbus_proxy_new): Accept the lost handler
+	and data members, setting in the function.  If the lost handler is
+	passed (which may only be passed if name is not NULL) then we'll
+	track that name on the bus.
+	(nih_dbus_proxy_destroy): We need a destructor to tear down and
+	remove bus matches and connection filters, and also unreference the
+	connection.
+	(nih_dbus_proxy_name_track): Set up tracking for a name, which is
+	far more complicated than it needs to be; arranges for the
+	NameOwnerChanged signal to be received, and obtains the current owner
+	of the name.
+	(nih_dbus_proxy_name_rule): Function to generate the match rule
+	used for the NameOwnerChanged signal.
+	(nih_dbus_proxy_name_owner_changed): Handle the NameOwnerChanged
+	rule, updating the owner member of the proxy and calling the lost
+	handler if the name becomes NULL.
+	* nih-dbus/dbus_interface.h: Add a pre-declaration for the
+	NihDBusProxy typedef since we'll need to pass this to signal filter
+	functions defined here later on
+
+2009-05-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/inotify.h: Remove this wrapper, we require a libc with
+	inotify support.
+	* m4/misc.m4 (NIH_INIT): Remove the check for sys/inotify.h
+	* nih/watch.c, 
+	* nih/watch.h,
+	* nih/tests/test_watch.c: Update includes.
+	* nih/Makefile.am (nihinclude_HEADERS): Remove inotify.h
+
+	* COPYING: Change licence from GPL-2+ to MIT.
+	All files have been updated to reflect this.
+
+2009-05-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_object.h: Separate out the actual structure
+	definitions for an interface, the overlap is getting difficult
+	to manage and they're shared with proxies anyway.
+	* nih-dbus/dbus_interface.h: File for the separated out interfaces
+	* nih-dbus/libnih-dbus.h: Include new header
+	* nih-dbus/Makefile.am (nihdbusinclude_HEADERS): Ship and install it
+
+2009-05-19  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/signal.c (signal_emit_function): Rename to
+	signal_object_function for consistency
+	* nih-dbus-tool/signal.h: Update header
+	* nih-dbus-tool/tests/signal_factory.c: Update.
+	* nih-dbus-tool/tests/test_signal.c (test_emit_function): Rename to
+	test_object_function to match; update
+
+	* nih-dbus-tool/method.c (method_proxy_sync_function): Also
+	following the property code, rework method calls to return an
+	integer as well - which means some tricksy cleanup code in the
+	case of argument errors now we don't have a top-level message
+	to free.
+	* nih-dbus-tool/tests/method_code.h: Update the expected prototype
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function):
+	Update the tests to match
+
+	* nih-dbus-tool/method.c (method_proxy_notify_function): Of course,
+	that's only useful if the notify function handles there being no
+	reply handler, so put an if around the calling of it.
+	* nih-dbus-tool/tests/test_method.c (test_proxy_notify_function):
+	Update the output tests to look for the if.  Add test cases for
+	that as well.
+
+	* nih-dbus-tool/method.c (method_proxy_function): Make the same
+	modification that we made to the property functions, allowing the
+	reply handler to be NULL as long as the error handler isn't
+	* nih-dbus-tool/tests/test_method.c (test_proxy_function): Adjust
+	the output test functions, and also add a test in for no reply
+	handler but an error handler
+
+	* nih-dbus-tool/property.c (property_proxy_set_function)
+	(property_proxy_set_notify_function): Functions to generate functions
+	to make an asynchronous method call to set the value of a property.
+	* nih-dbus-tool/property.h: Add prototypes
+	* nih-dbus-tool/tests/property_factory.c: Use the functions to
+	generate functions for testing purposes
+	* nih-dbus-tool/tests/property_code.h: Expected prototypes of
+	generated functions, along with the handler typedef that we need
+	* nih-dbus-tool/tests/test_property.c (test_proxy_set_function)
+	(test_proxy_set_notify_function): Test the functions and the
+	generated code
+
+2009-05-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_pending_data.c (nih_dbus_pending_data_new): Allow
+	handler to be NULL.
+	* nih-dbus/tests/test_dbus_pending_data.c (test_new): Make sure
+	that NULL is permitted.
+
+	* nih-dbus-tool/property.c (property_proxy_get_function)
+	(property_proxy_get_notify_function): Functions to generate functions
+	to make an asynchronous method call to get the value of a property.
+	* nih-dbus-tool/property.h: Add prototypes
+	* nih-dbus-tool/tests/property_factory.c: Use the functions to
+	generate functions for testing purposes
+	* nih-dbus-tool/tests/property_code.h: Expected prototypes of
+	generated functions, along with the handler typedef that we need
+	* nih-dbus-tool/tests/test_property.c (test_proxy_get_function)
+	(test_proxy_get_notify_function): Test the functions and the
+	generated code
+
+	* nih-dbus-tool/property.c (property_proxy_get_sync_function)
+	(property_proxy_set_sync_function): Make sure we clean up in
+	cases of out-of-memory for the interface name and property name
+	arguments.
+	* nih-dbus-tool/tests/test_property.c (test_proxy_get_sync_function)
+	(test_proxy_set_sync_function): Adjust test cases to match
+
+	* nih-dbus-tool/method.c (method_proxy_notify_function): No need
+	to use NIH_MUST when we're in an emomem loop.
+	* nih-dbus-tool/tests/test_method.c (test_proxy_notify_function): 
+	Update output tests to match.
+
+	* nih-dbus-tool/property.c (property_proxy_get_sync_function)
+	(property_proxy_set_sync_function): Functions to generate functions
+	to make a synchronous method call to get or set the value of a
+	property respectively.
+	* nih-dbus-tool/property.h: Add prototypes
+	* nih-dbus-tool/tests/property_factory.c: Call the two functions
+	to generate functions for testing
+	* nih-dbus-tool/tests/property_code.h: Prototypes for expected
+	generated functions
+	* nih-dbus-tool/tests/test_property.c (test_proxy_get_sync_function)
+	(test_proxy_set_sync_function): Test the code generator and the
+	generated code.
+
+2009-05-17  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Add entry for move of nih-dbus errors
+
+2009-05-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_error.c (test_raise_no_memory): Fix missing
+	nih_error_get ()
+	(test_raise_error): Free the second error
+	* nih/libnih.supp: Suppress the abort()-related leak
+
+	* nih-dbus-tool/method.c (method_object_function): Rename externs
+	to handlers
+	* nih-dbus-tool/method.h: Update prototype
+	* nih-dbus-tool/tests/method_factory.c: Update calls
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Update
+	variable names in tests
+
+	* nih-dbus-tool/method.c (method_reply_function)
+	(method_proxy_sync_function): Remove the unused externs parameters
+	* nih-dbus-tool/method.h: Update prototypes
+	* nih-dbus-tool/tests/method_factory.c: Don't pass when we don't
+	use them
+	* nih-dbus-tool/tests/test_method.c (test_reply_function)
+	(test_proxy_sync_function): Remove the empty list checks
+
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_object_set_function): Rename externs to handlers
+	* nih-dbus-tool/property.h: Update prototypes
+	* nih-dbus-tool/tests/property_factory.c: Update calls
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_object_set_function): Update variable names in tests.
+
+	* nih-dbus-tool/signal.c (signal_emit_function): Remove the externs
+	parameter, which is not used.
+	* nih-dbus-tool/signal.h: Update prototype
+	* nih-dbus-tool/tests/signal_factory.c: Drop externs handling
+	* nih-dbus-tool/tests/test_signal.c (test_emit_function): Drop
+	tests for empty externs list
+
+	* nih/errors.h: Remove the D-Bus errors from this file
+	* nih-dbus/errors.h: Place them in a new file.
+	* nih-dbus/libnih-dbus.h: Include the new header
+	* nih-dbus/Makefile.am (nihdbusinclude_HEADERS): Install the new
+	header.
+	* nih-dbus/dbus_error.c,
+	* nih-dbus/dbus_object.c: 
+	* nih-dbus/tests/test_dbus_connection.c,
+	* nih-dbus/tests/test_dbus_error.c,
+	* nih-dbus-tool/tests/method_factory.c,
+	* nih-dbus-tool/tests/signal_factory.c,
+	* nih-dbus-tool/tests/property_factory.c,
+	* nih-dbus-tool/tests/test_method.c,
+	* nih-dbus-tool/tests/test_property.c,
+	* nih-dbus-tool/tests/test_com.netsplit.Nih.Test_proxy.c: Update
+	headers included
+	* nih-dbus-tool/nih_dbus_tool.py (Output.sourceFile): Update generated
+	includes.
+
+	* nih-dbus/dbus_object.h (NihDBusPropertySetter): Change prototype
+	to return an int, instead of a handler result.  This allows us to
+	introduce interesting new SetMany-like methods later.
+	* nih-dbus/dbus_object.c (nih_dbus_object_property_set): Expand
+	the function to do the reply handling here, this actually makes
+	things much better for the ENOMEM case.
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_set): 
+	Adjust test cases to match
+	
+	* nih-dbus-tool/property.c (property_object_set_function): Rework
+	the prototype of property setter functions, we just want to return
+	int and have the nih-dbus core deal with sending the reply.
+	* nih-dbus-tool/tests/property_code.h: Update prototype.
+	* nih-dbus-tool/tests/test_property.c (test_object_set_function):
+	Update tests to match
+
+	* nih-dbus-tool/method.c (method_object_function): Push an error
+	context around the handler call
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Adjust
+	tests to expect the error context
+
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function): Make
+	sure the methods aren't marked to expect no reply (completeness)
+
+	* nih-dbus-tool/method.c (method_proxy_sync_function): Fix nih_strcat
+	call to not overwrite variable with return value
+
+	* nih-dbus-tool/method.c (method_proxy_function)
+	(method_proxy_notify_function): Functions to generate the two
+	functions required for an asynchronous method call, the first makes
+	the call and the second is the pending call notify function for it
+	that calls the reply handler.
+	* nih-dbus-tool/method.h: Prototypes.
+	* nih-dbus-tool/tests/method_factory.c: Call both functions to
+	generate functions for testing
+	* nih-dbus-tool/tests/method_code.h: Expected prototypes for the
+	generated functions.
+	* nih-dbus-tool/tests/test_method.c (test_proxy_function)
+	(test_proxy_notify_function): Test the code generator and the
+	generated code.
+
+2009-05-14  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_pending_data.c (nih_dbus_pending_data_new): Allocate
+	a new NihDBusPendingData structure, referencing the D-Bus connection.
+	(nih_dbus_pending_data_destroy): Unreference the attached connection.
+	* nih-dbus/dbus_pending_data.h: Function typedefs, structure and
+	function prototype.
+	* nih-dbus/tests/test_dbus_pending_data.c: Test suite.	
+	* nih-dbus/libnih-dbus.h: Include the header
+	* nih-dbus/Makefile.am (libnih_dbus_la_SOURCES): Build and link
+	the new source file
+	(nihdbusinclude_HEADERS): Install the header
+	(TESTS): Run the test suite
+	(test_dbus_pending_data_SOURCES, test_dbus_pending_data_LDFLAGS)
+	(test_dbus_pending_data_LDADD): Test suite details.
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_new): Add a comment to
+	explain why we don't reference the connection in NihDBusObject.
+	* nih-dbus/dbus_object.h (NihDBusObject): Document that no
+	reference is held on @conn
+
+2009-05-13  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/method.c (method_proxy_sync_function): Rename the
+	message local to method_call and the msg local to message to match
+	other functions.
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function): 
+	Update tests to match
+
+	* nih-dbus-tool/method.c (method_proxy_sync_function): Unreference
+	the D-Bus method call we're building, not the message we'll return.
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function):
+	Adjust output functions to account for the change.
+
+	* nih-dbus-tool/method.c (method_object_function): We can't just
+	use a do { .. } while (0) loop and continue in the case of ENOMEM
+	because that won't work for arrays.  Instead use a local label to
+	goto the continuation of an outer loop like we do in
+	method_proxy_sync_function()
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Adjust
+	output tests to account for the change.
+
+	* nih-dbus-tool/tests/test_method.c (test_object_function)
+	(test_reply_function): Add tests for argument-less methods.
+	* nih-dbus-tool/tests/test_signal.c (test_emit_function): Add
+	test for argument-less signal, and missing test for deprecated
+	signals.
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_object_set_function): Add missing tests for deprecated
+	properties.
+	* nih-dbus-tool/method.c (method_object_function)
+	(method_reply_function): Build the assert block up as we go
+	* nih-dbus-tool/signal.c (signal_emit_function): Build up the
+	assert block as we go.
+
+	* nih-dbus-tool/method.c (method_proxy_sync_function): Generate a
+	function to make a synchronous method call to a remote D-Bus object.
+	* nih-dbus-tool/method.h: Prototype.
+	* nih-dbus-tool/tests/method_factory.c: Use the function to
+	generate a function for testing
+	* nih-dbus-tool/tests/method_code.h: Add expected prototype of
+	generated function.
+	* nih-dbus-tool/tests/test_method.c (test_proxy_sync_function): Test
+	the generator function and the generated function.
+
+	* nih-dbus/dbus_message.c (nih_dbus_message_new): Pass parent to
+	nih_new() not NULL.
+
+	* nih/error.h (nih_error_raise_no_memory): Finally succum and
+	add this macro.
+	(nih_return_no_memory_error): Use that macro in this.
+	* nih/tests/test_error.c (test_raise_no_memory): Add test case.
+
+2009-05-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/method_factory.c,
+	* nih-dbus-tool/tests/signal_factory.c,
+	* nih-dbus-tool/tests/property_factory.c: Use the returned externs
+	list for the prototypes, rather than hard-coding them.
+
+	* nih-dbus-tool/type.c (type_to_static, type_to_extern): Methods
+	to prepend "static" and "extern" onto a type.
+	* nih-dbus-tool/type.h: Prototypes.
+	* nih-dbus-tool/tests/test_type.c (test_to_static)
+	(test_to_extern): Test the methods.
+
+	* nih-dbus-tool/tests/test_parse.c (test_parse_xml): Update due to
+	change in error from D-Bus 1.2.14
+
+	* nih-dbus-tool/method.c (method_object_function)
+	(method_reply_function): Replace the hand-coded function layout code
+	with a call to type_func_to_string()
+	* nih-dbus-tool/tests/test_method.c (test_object_function)
+	(test_reply_function): Adjust tests to account for the indentation
+	differences.
+	* nih-dbus-tool/signal.c (signal_emit_function): Replace code
+	* nih-dbus-tool/tests/test_signal.c (test_emit_function): Adjust tests
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_object_set_function): Replace code
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_object_set_function): Adjust tests
+
+2009-05-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/property.c (property_get_function, property_set_function):
+	Accept list arguments for prototypes and externs, filling them in.
+	* nih-dbus-tool/property.h: Adjust prototypes.
+	* nih-dbus-tool/tests/property_factory.c: Pass in the prototypes
+	and extern lists, but don't actually use them just yet.
+	* nih-dbus-tool/tests/test_property.c (test_get_function)
+	(test_set_function): Add tests for returned prototype, including
+	a test for not having a deprecated attribute.
+
+	* nih-dbus-tool/signal.c (signal_reply_function): Accept list
+	arguments for prototypes and externs, filling in the prototypes
+	one.
+	* nih-dbus-tool/signal.h: Adjust prototype.
+	* nih-dbus-tool/tests/signal_factory.c: Pass in the prototypes
+	and extern lists, but don't actually use them just yet.
+	* nih-dbus-tool/tests/test_signal.c (test_reply_function): Add
+	tests for returned prototype, including a test for not having a
+	deprecated attribute.
+
+	* nih-dbus-tool/demarshal.c (demarshal_array),
+	* nih-dbus-tool/marshal.c (marshal_array),
+	* nih-dbus-tool/method.c (method_object_function)
+	(method_reply_function),
+	* nih-dbus-tool/signal.c (signal_emit_function),
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_object_set_function): Line-up variable blocks.
+	* nih-dbus-tool/tests/test_demarshal.c (test_demarshal),
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal),
+	* nih-dbus-tool/tests/test_method.c (test_object_function)
+	(test_reply_function): 
+	* nih-dbus-tool/tests/test_signal.c (test_emit_function): 
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function): 
+	Adjust string output checks for the slight difference in indentation
+
+	* nih-dbus-tool/type.c (type_func_to_string, type_func_layout):
+	Functions to convert TypeFunc entries into strings.
+	* nih-dbus-tool/type.h: Add prototypes.
+	* nih-dbus-tool/tests/test_type.c (test_func_to_string)
+	(test_func_layout): Test cases for the functions.
+
+2009-05-10  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/type.c (type_var_to_string, type_var_layout):
+	Functions to convert TypeVar entries into strings.
+	* nih-dbus-tool/type.h: Prototypes.
+	* nih-dbus-tool/tests/test_type.c (test_var_to_string)
+	(test_var_layout): Test cases.
+
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal): Make sure
+	the input and local variable parents are correct, and make sure the
+	lists are empty in case of memory error.
+	* nih-dbus-tool/tests/test_demarshal.c (test_demarshal): Make sure
+	the output and local variable parents are correct, and make sure the
+	lists are empty in case of memory error.
+
+	* nih-dbus-tool/method.c (method_reply_function): Accept list
+	arguments for prototypes and externs, filling in the prototypes
+	one.
+	* nih-dbus-tool/method.h: Adjust prototype.
+	* nih-dbus-tool/tests/method_factory.c: Pass in the prototypes
+	and extern lists, but don't actually use them just yet.
+	* nih-dbus-tool/tests/test_method.c (test_reply_function): Add
+	tests for returned prototype, including a test for not having a
+	deprecated attribute.
+
+	* nih-dbus-tool/method.c (method_object_function): Accept list
+	arguments for prototypes and externs.
+	* nih-dbus-tool/method.h: Add prototype.
+	* nih-dbus-tool/tests/method_factory.c: Pass in the prototypes
+	and extern lists, but don't actually use them just yet.x
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Add
+	tests for returned prototype, and add a test for not having a
+	deprecated attribute
+
+	* nih-dbus-tool/type.h (TypeFunc): Structure to represent a function
+	definition.
+	* nih-dbus-tool/type.c (type_func_new): Function to create a new
+	TypeFunc structure.
+	* nih-dbus-tool/tests/test_type.c (test_func_new): Test for the
+	function.
+
+2009-05-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/error.c (nih_error_steal): Add a new function to get an
+	error and remove it from the context, needed for stashing errors
+	while trying something else - or raising an error outside of a
+	context.
+	* nih/error.h: Add prototype.
+	* nih/tests/test_error.c (test_steal): Add test cases.
+
+	* nih/error.h: Update documentation.
+
+	* TODO: Update.
+
+	* nih/main.c (nih_main_daemonise): Don't just ignore the raised
+	error when we fail to write the pid file, at least warn about it.
+	* nih/tests/test_main.c (test_daemonise): Hide the output from
+	nih_main_daemonise() which will usually bitch about permissions
+
+	* nih/tests/test_io.c (test_watcher): In various tests, we close
+	the file descriptor when reading or writing and check for an error
+	being raised - but had forgotten that we'd get the error again
+	when the structure is closed as it tries to close the descriptor
+	(test_message_recv, test_message_send, test_reopen)
+	(test_destroy): Add a few contexts around critical bits to make
+	sure we're not leaking any other errors.
+
+	* nih/error.c (nih_error_clear): Make an unhandled error an
+	assertion failure
+	* nih/tests/test_error.c (test_pop_context): Make sure the
+	unhandled error is asserted
+	(test_raise_error): Make sure a double-raise is asserted.
+
+	* nih/error.c (nih_error_clear): Allow the function to be called
+	when there is no current error in the context
+	(nih_error_init): Register as an atexit() function so that unhandled
+	errors are caught when the process exits.
+	(_nih_error_raise_error, nih_error_pop_context): Don't double check,
+	just call the function to clear the context.
+
+	* nih/error.c (_nih_error_raise_error): Don't allow the same
+	error to be raised twice anymore.
+	* nih/tests/test_error.c (test_pop_context): No need to raise the
+	error twice.
+	* nih/io.c (nih_io_watcher): Don't double-raise the error.
+	* nih/watch.c (nih_watch_add): Again, don't double-raise the error
+	* nih/tests/test_file.c (my_error_handler): No need to double-raise
+	* nih-dbus-tool/annotation.c (annotation_start_tag): Don't need
+	to double-raise either
+
+	* nih/error.h (NIH_SHOULD): We don't need to raise the error again,
+	simply don't free it.
+	* nih/error.c (_nih_error_raise_error): Don't accept a NULL
+	filename anymore.
+
+	* nih/error.c (_nih_error_raise, _nih_error_raise_printf)
+	(_nih_error_raise_system): Don't make the error a child of the
+	context.
+
+	* nih/error.h (NihError): Add filename, line and function members
+	set when the error is raised.
+	(NIH_SHOULD): Re-raise using _nih_error_raise_error() directly
+	passing NULL for the filename and such so it's not overwritten (this
+	is a temporary hack)
+	(nih_error_raise, nih_error_raise_printf)
+	(nih_error_raise_system, nih_error_raise_error): Macros to wrap the
+	underlying functions passing the filename, line and function name
+	in which they were expanded.
+	* nih/error.c (nih_error_raise, nih_error_raise_printf)
+	(nih_error_raise_system, nih_error_raise_error): Rename to have
+	an initial underscore, accepting filename, line and function
+	arguments from the wrapping macros.
+	(_nih_error_raise_error): Set the filename, line and function
+	members of the raised error (we just overwrite these).
+	(nih_error_clear): Report where the unhandled error came from.
+
+	* nih/error.c (nih_error_destroy): Add destructor functions for error
+	messages, this clears the error from the current error context.
+	(nih_error_raise_error): Set the destructor.
+	(nih_error_clear): Assert that the destructor frees the error, don't
+	do it ourselves.
+	(nih_error_get): Do not clear the error from the context.
+	(nih_error_raise_error): Check for the error being double-raised
+	which is currently permitted.
+
+2009-05-07  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/annotation.c (annotation_start_tag): Update
+	error call to nih_error_raise_error().
+
+	* nih/tests/test_error.c (test_raise_error): Use TEST_ALLOC_FAIL
+	and a separate error context for each test.
+
+	* nih/error.c (nih_error_raise_again): Rename to nih_error_raise_error()
+	(nih_error_raise, nih_error_raise_printf)
+	(nih_error_raise_system): Update calling.
+	* nih/error.h (NIH_SHOULD): Update calling.
+	Update prototype.
+	* nih/tests/test_error.c (test_raise_again): Rename and change calls.
+	* nih/io.c (nih_io_watcher): Update call.
+	* nih/watch.c (nih_watch_add): Update call.
+	* nih/tests/test_file.c (my_error_handler): Update call.
+	* nih-dbus/dbus_error.c (nih_dbus_error_raise)
+	(nih_dbus_error_raise_printf): Update calls.
+
+2009-04-28  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/marshal.c (marshal_array, marshal_struct): We
+	have to close a container in out-of-memory situations, unrefing
+	the message isn't sufficient.
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal): Make sure
+	all those containers are closed.
+	* nih-dbus-tool/tests/test_method.c (test_object_function)
+	(test_reply_function): Make sure containers called from method
+	functions are closed on error too
+	* nih-dbus-tool/property.c (property_object_get_function): Close
+	containers in case of out-of-memory error.
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function): 
+	Make sure the close container code is added.
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_message): Add a
+	test where the first handler declines
+	(test_object_property_set): Make sure that the Set handler cannot
+	decline, as we can't do the same for the Get handler.
+	* nih-dbus/dbus_object.c (nih_dbus_object_message): Move onto the
+	next handler if the handler declines.
+
+	* nih-dbus-tool/Makefile.am (nih_dbus_tool_LDADD)
+	(test_method_LDADD, test_signal_LDADD)
+	(test_com_netsplit_Nih_Test_object_LDADD)
+	(test_com_netsplit_Nih_Test_proxy_LDADD): Always put libnih.la
+	after libnih-dbus.la
+
+	* nih-dbus/dbus_object.h (NihDBusMethod): Move the method handler
+	to be the last member.
+	* nih-dbus/tests/test_dbus_object.c: Update.
+	* nih-dbus-tool/nih_dbus_tool.py (Interface.methodsArray): Update.
+
+	* nih-dbus/Makefile.am (libnih_dbus_la_LIBS): Include libnih.la
+	as it's a dependency.
+	(test_dbus_error_LDADD, test_dbus_connection_LDADD)
+	(test_dbus_message_LDADD, test_dbus_object_LDADD)
+	(test_dbus_proxy_LDADD, test_dbus_util_LDADD): Specify libnih-dbus.la
+	first since it's what we're testing, and deps go the other way
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_introspect): Add
+	a missing test case for too many arguments to the Introspect call.
+	* nih-dbus/dbus_object.c (nih_dbus_object_introspect): Which reveals
+	we didn't catch this.
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_get)
+	(test_object_property_get_all, test_object_property_set): Add
+	missing test cases for argument errors.
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_property_get_all): Add
+	function to retrieve all properties at once.
+	(nih_dbus_object_message): Call out to it.
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_get_all):
+	Test the new function.
+
+	* nih-dbus/dbus_object.h (NihDBusPropertyGetter)
+	(NihDBusPropertySetter): Add function typedefs for property get
+	and set functions.
+	(NihDBusProperty): Add getter and setter members.
+	* nih-dbus/dbus_object.c (nih_dbus_object_property_get)
+	(nih_dbus_object_property_set): Functions to handle calling the
+	getter and setter functions for a single property Get or Set method.
+	(nih_dbus_object_message): Call out to the new functions.
+	* nih-dbus/tests/test_dbus_object.c (test_object_property_get)
+	(test_object_property_set): Test the new single property get/set
+	functions.
+
+	* nih-dbus/dbus_object.h (NihDBusMarshaller): Rename to
+	NihDBusMethodHandler, since this prototype only applies to methods
+	and not to properties.
+	(nih_dbus_method): Change type and name of marshaller member to
+	handler.
+	* nih-dbus/dbus_object.c (nih_dbus_object_message): Update name
+	of function pointer member we use.
+	* nih-dbus/tests/test_dbus_object.c: Avoid using the word "marshal"
+	and use "handler" instead.
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_introspect): Put the
+	Introspect interface last, since it's the least important one;
+	we always want the object's own interfaces first, followed by
+	properties, followed by introspection, followed by children nodes.
+	* nih-dbus/tests/test_dbus_object.c (test_object_introspect):
+	Update tests to match.
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_message): Split
+	out the introspection test cases into a new function.
+	(test_object_introspect): Add a test for having no properties.
+
+	* nih-dbus/tests/test_dbus_object.c (test_object_new)
+	(test_object_destroy, test_object_unregister)
+	(test_object_message): Convert to test using TEST_DBUS rather than
+	a hodge-podge of different buses and servers.
+
+	* nih-dbus/test_dbus.h (TEST_DBUS_DISPATCH): Equivalent to
+	TEST_DBUS_MESSAGE but dispatches the message internally rather
+	than stealing it.
+
+	* nih-dbus/tests/test_dbus_connection.c (test_connect): Add tests
+	for a fake disconnected signal (as much as we can test anyway).
+
+2009-04-27  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_connection.h: Note on allocation.
+
+	* nih-dbus/dbus_message.h: Add documentation string.
+
+	* nih-dbus/tests/test_dbus_message.c (test_message_new): Add missing
+	call to dbus_shutdown() after test case.
+	(test_message_error): Rewrite using TEST_DBUS and using
+	TEST_ALLOC_FAIL to check for memory issues.
+
+	* nih-dbus/dbus_connection.h: Add documentation.
+
+	* nih-dbus/dbus_connection.c (nih_dbus_setup): We actually want
+	to attempt to setup the watch, timeout and wake-up functions each
+	time through nih_dbus_setup() so it can be called in a loop in
+	cases of out-of-memory so do this first before setting the main
+	loop function, and unwind in case of error.
+	(nih_dbus_watch_toggled): D-Bus could try and change the flags
+	with a toggle?
+
+	* nih-dbus/dbus_connection.h (NihDBusConnectHandler): Add missing
+	Returns to documentation string.
+
+	* nih-dbus/dbus_error.h: Add documentation string.
+
+	* nih-dbus/dbus_connection.c (nih_dbus_connect, nih_dbus_bus):
+	Clarify that it's ok to unreference a connection obtained with
+	these functions - indeed we do so everywhere in the test suite.
+
+	* nih-dbus/dbus_connection.c (nih_dbus_connect, nih_dbus_bus)
+	(nih_dbus_server): Return ENOMEM raised on insufficient memory
+	rather than the D-Bus equivalent; we don't just convert these
+	everywhere because sometimes we want to know that it's the
+	remote side that's out of memory and we don't want to use ENOMEM
+	for that.
+
+	* nih-dbus/tests/test_dbus_connection.c: Various cleanup fixes,
+	making sure we unref everything that we use.  Increase timeout
+	for method calls since things get slower when under valgrind.
+
+	* nih-dbus/dbus_connection.c (nih_dbus_connection_disconnected):
+	Push an error context while calling the handler.
+	(nih_dbus_new_connection): Push an error context while calling
+	the handler.
+
+	* nih/timer.c (nih_timer_poll): The timer callback can free the
+	timer, so we need to adjust the due time before we call it.  In
+	the case of timeouts, we hold a reference while calling and
+	always free after returning.  Also push an error context during
+	it so we don't leak errors.
+
+2009-04-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/tests/test_dbus_connection.c (test_connect): Add tests
+	for a method call being made and its reply received through the
+	main loop, and for a method call timing out within the main loop.
+	This exercises the watch and timeout functions.
+
+2009-04-23  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/tests/test_dbus_connection.c (test_server): Add tests
+	for address in use,
+
+	* nih/tests/test_logging.c (my_logger): Safely strdup the message.
+	(test_set_logger, test_set_priority, test_log_message): Make sure
+	all calls are wrapped with TEST_ALLOC_FAIL
+	(test_logger_printf): Call TEST_ALLOC_FAIL for everything.
+
+	* nih/Makefile.am (.PHONY): Mark tests phony.
+	* nih-dbus/Makefile.am (.PHONY): Mark tests phony.
+	* nih-dbus-tool/Makefile.am (.PHONY): Mark tests phony.
+
+	* nih-dbus/Makefile.am (libnih_dbus_la_CFLAGS, AM_CFLAGS): Replace
+	the former with the latter.
+	(test_dbus_error_CFLAGS, test_dbus_connection_LDFLAGS)
+	(test_dbus_message_CFLAGS, test_dbus_object_CFLAGS)
+	(test_dbus_proxy_CFLAGS, test_dbus_util_CFLAGS): Remove.
+
+	* nih-dbus/tests/test_dbus_connection.c: Wrap every test in
+	NIH_ALLOC_FAIL, to properly make sure that we handle failure
+	cases properly.
+	* nih-dbus/dbus_connection.c (nih_dbus_server): Disconnect the
+	server before unreferencing it.
+
+2009-04-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/nih_dbus_tool.py (Method.marshalFunction): Also fix
+	async method handler return to match.
+
+	* nih-dbus-tool/tests/test_main.c,
+	* nih-dbus-tool/tests/test_node.c,
+	* nih-dbus-tool/tests/test_interface.c,
+	* nih-dbus-tool/tests/test_method.c,
+	* nih-dbus-tool/tests/test_signal.c,
+	* nih-dbus-tool/tests/test_property.c,
+	* nih-dbus-tool/tests/test_argument.c,
+	* nih-dbus-tool/tests/test_annotation.c,
+	* nih-dbus-tool/tests/test_parse.c: All tests cases should use
+	TEST_ALLOC_FAIL, even the ones testing for errors.  To get around
+	situations where some allocations may be repeated, but others will
+	fail, check the return value to see which happened.
+
+2009-04-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/tests/test_dbus_message.c (my_return_error): Return
+	DBUS_HANDLED_RESULT_HANDLED otherwise the message will be ignored.
+
+	* nih-dbus-tool/property.c (property_object_get_function)
+	(property_object_set_function): Generate code for functions to get
+	and set, respectively, properties using a handler function.
+	* nih-dbus-tool/property.h: Add prototypes.
+	* nih-dbus-tool/tests/property_factory.c: Call the two functions
+	to generate their resulting property get and set functions and
+	place them in a C file for testing.
+	* nih-dbus-tool/tests/property_code.h: Expected prototypes for
+	generated functions.
+	* nih-dbus-tool/tests/test_property.c (test_object_get_function)
+	(test_object_set_function): Tests for the code, and for the
+	resulting generated code.
+	* nih-dbus-tool/Makefile.am (check_PROGRAMS): Run the program
+	to generate the C code.
+	(property_factory_SOURCES)
+	(property_factory_LDFLAGS, property_factory_LDADD)
+	(tests/property_code.c): Details for code generator.
+	(CLEANFILES): Clean up after.
+	(test_property_SOURCES): Link to the generated code.
+
+	* nih-dbus/dbus_object.c: Add missing include for previous commit.
+
+2009-04-20  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_message): Call the
+	marshaller function inside a context so that errors aren't leaked.
+
+	* nih-dbus/dbus_object.c (nih_dbus_object_message): We don't need
+	any special handling for async functions now we have nih_local, the
+	function simply needs to reference the message.  Drop the requirement
+	that it returns DBUS_HANDLER_RESULT_NOT_YET_HANDLED.
+	* nih-dbus-tool/method.c (method_object_function): Always return
+	DBUS_HANDLER_RESULT_HANDLED, even for async methods.
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Replace
+	tests for not yet handled with ones for the ordinary handled result.
+
+2009-04-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/signal.c (signal_emit_function): Generate code for
+	a function that emits a signal.
+	* nih-dbus-tool/signal.h: Add prototype.
+	* nih-dbus-tool/tests/signal_factory.c: Call signal_emit_function()
+	to generate a signal emission function and place it in a C file
+	for testing.
+	* nih-dbus-tool/tests/signal_code.h: Expected prototype for generated
+	function.
+	* nih-dbus-tool/tests/test_signal.c (test_emit_function): Test the
+	generator function and generated function.
+	* nih-dbus-tool/Makefile.am (check_PROGRAMS): Run the program to
+	generate the C code.
+	(signal_factory_SOURCES, signal_factory_LDFLAGS)
+	(signal_factory_LDADD, tests/signal_code.c): Details for generator
+	(CLEANFILES): Clean up after.
+	(test_signal_SOURCES): Link to the generated code.
+
+	* nih-dbus-tool/method.c (method_object_function)
+	(method_reply_function): Add missing asserts.
+
+2009-04-17  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/test_method.c: Oops, commented out the test.
+
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Add
+	test cases for the no reply expected flag on an incoming message.
+
+	* nih-dbus-tool/method.c (method_reply_function): Generate code for
+	a function that sends a reply to an asynchronous method call.
+	* nih-dbus-tool/method.h: Add prototype.
+	* nih-dbus-tool/tests/method_factory.c: Call method_reply_function()
+	to generate a reply function and place it in a C file for testing.
+	* nih-dbus-tool/tests/method_code.h: Expected prototype.
+	* nih-dbus-tool/tests/test_method.c (test_reply_function): Add test
+	cases for the code, the generated code, and the no reply expected
+	case.
+
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Add
+	tests for too many arguments in method call
+	* nih-dbus-tool/method.c (method_object_function): Add a block of
+	code to check for extra function arguments.
+
+	* nih-dbus-tool/method.c (method_object_function): When the method
+	is marked async, ignore the output arguments and don't try and send
+	any reply - instead returning the magic "not yet handled" code.
+	* nih-dbus-tool/tests/method_factory.c: Generate an async version
+	of the same function for testing.
+	* nih-dbus-tool/tests/method_code.h: Add prototype
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Test
+	code generation and the generated code for an asynchronous method.
+
+	* nih-dbus-tool/method.c (method_object_function): Generate code for
+	a function that handles an incoming method call, and calls a handler
+	function for it.
+	* nih-dbus-tool/method.h: Add prototype.
+	* nih-dbus-tool/tests/test_method.c (test_object_function): Tests
+	cases for the function and the function code it generates.
+	* nih-dbus-tool/tests/method_factory.c: Call method_object_function()
+	to generate a function, and place it in a C file for testing.
+	* nih-dbus-tool/tests/method_code.h: Prototype for generated function.
+	* nih-dbus-tool/Makefile.am (check_PROGRAMS): Build the method_factory
+	program when running tests
+	(nih_dbus_tool_SOURCES, TESTS): Marshalling/demarshalling code now
+	has to come before parsing and method code since we use it.
+	(method_factory_SOURCES, method_factory_LDFLAGS)
+	(method_factory_LDADD, tests/method_code.c): Run the method_factory
+	tool to generate tests/method_code.c
+	(test_method_SOURCES, test_method_LDADD): Link to the output of
+	the method_factory tool
+	(CLEANFILES): Clean up
+	(test_node_LDADD, test_interface_LDADD, test_signal_LDADD)
+	(test_property_LDADD, test_argument_LDADD)
+	(test_annotation_LDADD, test_parse_LDADD): Add marshal/demarshal
+	object files
+
+2009-04-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/tests/marshal_factory.c (marshal_function): Remove
+	code to get type which we never use now we have the demarshalling
+	function outputs
+	* nih-dbus-tool/tests/demarshal_factory.c (demarshal_function): Remove
+	code to get type which we never use now we have the marshalling
+	function inputs.
+
+	* nih-dbus-tool/demarshal.c (demarshal_basic): Do not make the output
+	variable a pointer, when used in method object/signal proxy mode we
+	actually have this as a local variable and want the demarshalled
+	value placed directly into it.
+	(demarshal_array, demarshal_struct): Instead of making the output
+	variable a pointer, demarshal into a local and copy that into the
+	output variable.
+	* nih-dbus-tool/tests/demarshal_factory.c (demarshal_function): Make
+	passed in outputs pointers, copy into them after demarshalling
+	* nih-dbus-tool/tests/test_demarshal.c (test_demarshal): Make sure
+	that const does not appear in the inputs, or comments, but that all
+	locals are still const (as they are only copies) even in source.
+
+2009-04-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/marshal.c (marshal_basic): Do not make the input
+	variable const, when used in method object/signal proxy mode we
+	might modify the local variable before passing it to the marshalling
+	code so can't have it const.
+	(marshal_array, marshal_struct): Instead of making the input
+	variable const, make the local we copy into const.
+	* nih-dbus-tool/tests/marshal_factory.c (marshal_function): Make
+	passed-in inputs const.
+	* nih-dbus-tool/tests/test_marshal.c (test_marshal): Make sure that
+	const does not appear in the inputs, or comments, but that all locals
+	are still const (as they are only copies) even in source.
+
+	* nih-dbus-tool/type.c (type_of): can't pass a size_t to a format
+	length, and don't want to cast down to int in case of underrun
+
+	Continue porting the D-Bus binding tool from Python to C, this code
+	implements the type marshalling and demarshalling with additional
+	support for arrays of arrays of fixed types and structures that the
+	Python code never had.
+
+	* nih-dbus-tool/type.c, nih-dbus-tool/type.h: Functions to identify
+	C types from D-Bus type signatures, and to handle variable
+	declarations
+	* nih-dbus-tool/test_type.c: Test cases
+	* nih-dbus-tool/marshal.c, nih-dbus-tool/marshal.h: Generate code
+	to marshal data from C standard types with given variable names
+	into a D-Bus message.
+	* nih-dbus-tool/tests/marshal_factory.c: Generate functions that
+	contain the generated code for types that we test
+	* nih-dbus-tool/tests/marshal_code.h: Header for generated code
+	* nih-dbus-tool/tests/test_marshal.c: Test both the output strings
+	and the behaviour of the generated code
+	* nih-dbus-tool/demarshal.c, nih-dbus-tool/demarshal.h: Generate
+	code to demarshal data from a D-Bus message into C standard types
+	with requested variable names.
+	* nih-dbus-tool/tests/demarshal_factory.c: Generate functions that
+	contain the generated code for types that we test
+	* nih-dbus-tool/tests/demarshal_code.h: Header for generated code
+	* nih-dbus-tool/tests/test_demarshal.c: Test both the output strings
+	and the behaviour of the generated code
+	* nih-dbus-tool/Makefile.am (nih_dbus_tool_SOURCES): Build and
+	link new source files
+	(TESTS): Run test cases for new source files
+	(test_type_SOURCES, test_type_LDFLAGS, test_type_LDADD)
+	(test_marshal_SOURCES, test_marshal_LDFLAGS, test_marshal_LDADD)
+	(test_demarshal_SOURCES, test_demarshal_LDFLAGS)
+	(test_demarshal_LDADD): Details for test cases.
+	(check_PROGRAMS, marshal_factory_SOURCES)
+	(marshal_factory_LDFLAGS, marshal_factory_LDADD)
+	(tests/marshal_code.c, demarshal_factory_SOURCES)
+	(demarshal_factory_LDFLAGS, demarshal_factory_LDADD)
+	(tests/demarshal_code.c, CLEANFILES): In order to test the output
+	code, we generate a C file containing it and link it to the test
+	cases.  This gets cleaned up on "clean" rather than maintainer-clean
+	
+2009-04-04  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/parse.c (parse_start_tag, parse_xml): Cast return
+	value of XML_GetCurrentLineNumber and XML_GetCurrentColumnNumber to
+	size_t and use %zu
+	* nih-dbus-tool/node.c (node_start_tag): Likewise.
+	* nih-dbus-tool/interface.c (interface_start_tag): Likewise.
+	* nih-dbus-tool/method.c (method_start_tag): Likewise.
+	* nih-dbus-tool/signal.c (signal_start_tag): Likewise.
+	* nih-dbus-tool/property.c (property_start_tag): Likewise.
+	* nih-dbus-tool/annotation.c (annotation_start_tag): Likewise.
+	* nih-dbus-tool/argument.c (argument_start_tag): Likewise.
+	(argument_end_tag): Use %zu for the unsigned count, not %zi
+
+2009-03-30  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/main.c (main): open() returns less-than-zero on error
+	not zero, which is standard input!
+
+	* nih-dbus-tool/Makefile.am (test_com_netsplit_Nih_Test_object_CFLAGS)
+	(test_com_netsplit_Nih_Test_proxy_CFLAGS): Remove the CFLAGS
+	overrides, we set this globally in the file.
+
+	* nih-dbus-tool/indent.c (indent): Function to indent the lines in
+	a string using the specified number of tabs.
+	(comment): Function to prepend the traditional " * " comment prefix
+	to the lines in a string.
+	* nih-dbus-tool/indent.h: Prototypes.
+	* nih-dbus-tool/tests/test_indent.c: Test cases.
+	* nih-dbus-tool/Makefile.am (TESTS): Build the indent test cases
+	(test_indent_SOURCES, test_indent_LDFLAGS, test_indent_LDADD): Details
+	for indent test cases
+
+	* nih-dbus-tool/main.c: Re-order so that the option variables, the
+	options list and the main() function can be contained inside a #if
+	directive so we can test the rest.
+	(source_file_path, header_file_path): Factor out the code from
+	main() that generated the source and header file paths so we can
+	test; at the same time, fix them so they don't cast ptrdiff_t to int
+	and always output to the current working directory unless output_path
+	includes one.
+	* nih-dbus-tool/tests/test_main.c: Which means we can test the
+	mode_option(), source_file_path() and header_file_path() functions
+	* nih-dbus-tool/Makefile.am (TESTS): Build and run test_main
+	(test_main_SOURCES, test_main_LDFLAGS, test_main_LDADD): usual
+	details for test_main, except we use main.c as a SOURCE rather than
+	linking in LDADD like we normally do
+	(test_main_CFLAGS): Override CFLAGS to set -DTEST, this causes us
+	to recompile main.c specially for test_main with the main() function
+	#ifdef'd out.
+
+	* nih-dbus/Makefile.am (tests): Move to the bottom of the file
+	* nih/Makefile.am (tests): Move to the bottom of the file
+	* nih-dbus-tool/Makefile.am (tests): Move to the bottom of the file
+
+	Begin replacing the old Python D-Bus bindings tool with one
+	written in C, starting with the code that parses the introspection
+	data.
+
+	* nih-dbus-tool/Makefile.am (bin_SCRIPTS, noinst_SCRIPTS)
+	(bin_PROGRAMS, noinst_PROGRAMS): Replace the nih-dbus-tool script
+	with a program that we need to compile.
+	(CLEANFILES, EXTRA_DIST, do_subst, nih-dbus-tool): Drop the rules
+	to generate the script by replacing bits out of the Python source
+	(nih_dbus_tool_SOURCES, nih_dbus_tool_LDADD): Instead build from
+	C sources, and link to libnih, libnih-dbus, expat and libdbus
+	(AM_CFLAGS): Require the D-Bus CFLAGS when compiling the tool
+	(AM_CPPFLAGS): Include quoted headers from the source directory
+	so the test suite can get at them
+	(TESTS): Add tests for the various bits of the C tool
+	(tests): Rule to generate binaries for the test suite
+	(test_symbol_SOURCES, test_symbol_LDFLAGS, test_symbol_LDADD)
+	(test_node_SOURCES, test_node_LDFLAGS, test_node_LDADD)
+	(test_interface_SOURCES, test_interface_LDFLAGS)
+	(test_interface_LDADD, test_method_SOURCES, test_method_LDFLAGS)
+	(test_method_LDADD, test_signal_SOURCES, test_signal_LDFLAGS)
+	(test_signal_LDADD, test_property_SOURCES)
+	(test_property_LDFLAGS, test_property_LDADD)
+	(test_argument_SOURCES, test_argument_LDFLAGS)
+	(test_argument_LDADD, test_annotation_SOURCES)
+	(test_annotation_LDFLAGS, test_annotation_LDADD)
+	(test_parse_SOURCES, test_parse_LDFLAGS, test_parse_LDADD): Test
+	suite details
+	* nih-dbus-tool/main.c, nih-dbus-tool/symbol.c, nih-dbus-tool/symbol.h,
+	nih-dbus-tool/tests/test_symbol.c, nih-dbus-tool/node.c,
+	nih-dbus-tool/node.h, nih-dbus-tool/tests/test_node.c,
+	nih-dbus-tool/interface.c, nih-dbus-tool/interface.h,
+	nih-dbus-tool/tests/test_interface.c, nih-dbus-tool/method.c,
+	nih-dbus-tool/method.h, nih-dbus-tool/tests/test_method.c,
+	nih-dbus-tool/signal.c, nih-dbus-tool/signal.h,
+	nih-dbus-tool/tests/test_signal.c, nih-dbus-tool/property.c,
+	nih-dbus-tool/property.h, nih-dbus-tool/tests/test_property.c,
+	nih-dbus-tool/argument.c, nih-dbus-tool/argument.h,
+	nih-dbus-tool/tests/test_argument.c, nih-dbus-tool/annotation.c,
+	nih-dbus-tool/annotation.h, nih-dbus-tool/tests/test_annotation.h,
+	nih-dbus-tool/parse.c, nih-dbus-tool/parse.h,
+	nih-dbus-tool/tests/test_parse.c, nih-dbus-tool/errors.h: Source
+	for the tool
+	* m4/misc.m4 (NIH_INIT): Explicitly check for pkg-config 0.22
+	* m4/libs.m4 (NIH_LIB_DBUS): Replace check for Python with a check
+	for the expat library, removing the HAVE_PYTHON conditional
+	entirely.  Update required D-Bus version to 1.2.4
+	* README: Update dependencies documentation
+
+2009-03-27  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_file_read, nih_file_map): Cast to the bigger type.
+
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c: Add missing
+	signal.h include.
+
+	* m4/compiler.m4: Add -Wextra, but turn off some of the silly ones.
+	* nih/io.c (nih_io_buffer_resize): Remove unnecessary assert.
+	* nih/file.c (nih_file_read, nih_file_map): Be explicit when
+	comparing signed and unsigned types.
+	* nih/option.c (nih_option_long): Cast pointer difference to size_t
+	(nih_option_group_help): Use unsigned constant.
+	* nih/command.c (nih_command_group_help): Use unsigned constant.
+	* nih/tests/test_config.c (test_parse_stanza): Cast -1 to size_t
+	to get the real number.
+	* nih-dbus/dbus_object.c (nih_dbus_object_vtable): Move static to
+	before const.
+	* nih-dbus/tests/test_dbus_message.c (my_error_connect): Put
+	static before const.
+
+2009-03-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/Makefile.am (tests): Add rule to build all test cases without
+	running them (useful when using valgrind).
+	* nih-dbus/Makefile.am (tests): Add the same rule.
+
+	* nih/test_values.h (TEST_EQ_STR, TEST_EQ_STRN, TEST_EQ_MEM)
+	(TEST_NE_STR, TEST_NE_STRN, TEST_NE_MEM): Guard against NULL being
+	parsed.
+	* nih/test_alloc.h (TEST_ALLOC_SIZE, TEST_ALLOC_PARENT)
+	(TEST_ALLOC_ORPHAN): Also guard against NULL for these.
+
+	* nih/test_files.h (TEST_FILE_MATCH): Add test that lets us match
+	the content of a file line against a wildcard pattern.
+
+2009-02-20  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/option.c (nih_option_help),
+	* nih/command.c (nih_command_help),
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c (my_str_to_int32_array): 
+	No need for a new_* temporary variable when looping over nih_realloc
+	with NIH_MUST.
+
+	* nihify: Add nih-dbus-tool symlink too
+
+	* nih/watch.c (nih_watch_new): Update to set variable outside of
+	NIH_SHOULD and NIH_MUST macros.
+	(nih_watch_add, nih_watch_handle),
+	* nih/alloc.c (nih_alloc_ref_new),
+	* nih/timer.c (nih_timer_init),
+	* nih/signal.c (nih_signal_init),
+	* nih/child.c (nih_child_init),
+	* nih/io.c (nih_io_init),
+	* nih/file.c (nih_dir_walk, nih_dir_walk_scan)
+	(nih_dir_walk_visit),
+	* nih/main.c (nih_main_init_full, nih_main_version)
+	(nih_main_set_pidfile, nih_main_get_pidfile)
+	(nih_main_write_pidfile, nih_main_loop_init),
+	* nih/option.c (nih_option_parser, nih_option_handle_arg)
+	(nih_option_join, nih_option_help, nih_option_group_help),
+	* nih/command.c (nih_command_parser, nih_command_join)
+	(nih_command_help, nih_command_group_help),
+	* nih/logging.c (nih_log_message),
+	* nih/error.c (nih_error_init, nih_error_raise)
+	(nih_error_raise_printf, nih_error_raise_system)
+	(nih_error_push_context),
+	* nih/tests/test_string.c (test_array_copy, test_array_append),
+	* nih/tests/test_watch.c (my_create_handler, my_modify_handler)
+	(my_delete_handler),
+	* nih-dbus/dbus_error.c (nih_dbus_error_raise)
+	(nih_dbus_error_raise_printf),
+	* nih-dbus-tool/tests/com.netsplit.Nih.Test_impl.c ()
+	(my_test_async_method, my_str_to_int32_array): Update to set
+	variable outside of NIH_MUST macro.
+
+2009-02-20  Casey Dahlin  <cdahlin@redhat.com>
+
+	* nih/macros.h (NIH_MUST, NIH_ZERO): Use the GCC statement
+	expression extension (also used by nih_min and nih_max) to allow
+	these macros to return the value of their expression.
+	* nih/error.h (NIH_SHOULD): Also return its value.
+
+2009-02-20  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus-tool/Makefile.am (test_com_netsplit_Nih_Test_object_LDADD)
+	(test_com_netsplit_Nih_Test_proxy_LDADD): Fix path to libnih-dbus.la
+
+	* nih/option.c (nih_option_parser): Fix a bug where a lone dash
+	would be eaten instead of treated as an argument
+	* nih/tests/test_option.c (test_parser): Add test case
+
+	* nih/option.c (nih_option_help): Support the bugs address being
+	a URL, and slightly change the wording we use.
+
+	* nih/libnih.ver: We have to export anything beginning _nih_* and
+	the program_name and package_* variables.
+
+	* configure.ac (AC_INIT): Give bugs address as a URL
+
+2009-01-30  Scott James Remnant  <scott@netsplit.com>
+
+	* Makefile.am (SUBDIRS): po needs to be last, so always append
+
+	* configure.ac: Create nih-dbus-tool Makefile
+	* Makefile.am (SUBDIRS): Add nih-dbus-tool sub-directory
+	* nih-dbus-tool/Makefile.am: Include rules to create nih-dbus-tool
+	and its tests
+	* nih-dbus/Makefile.am: Remove those rules from here
+	* nih-dbus/nih_dbus_tool.py: Move to nih-dbus-tool/nih_dbus_tool.py
+	* nih-dbus/tests/com.netsplit.Nih.Test.xml,
+	nih-dbus/tests/com.netsplit.Nih.Test_impl.c,
+	nih-dbus/tests/com.netsplit.Nih.Test_impl.h,
+	nih-dbus/tests/test_com.netsplit.Nih.Test_object.c,
+	nih-dbus/tests/test_com.netsplit.Nih.Test_proxy.c: Move to
+	nih-dbus-tool/tests
+	
+	* Makefile.am (SUBDIRS): conditionally add the nih-dbus directory
+	depending on HAVE_DBUS
+	* nih-dbus/Makefile.am: which means we don't have to conditionalise
+	anything in this file, cleaning things up a bit.
+
+2009-01-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_proxy.c (test_method_dispatch): 
+	Fix the test case to not compare a void * with strcmp
+
+2008-01-29  Casey Dahlin  <cdahlin@redhat.com>
+
+	* nih/nih_dbus_tool.py (Method.asyncDispatchPrototype): Prototype for
+	new asynchronous dispatch function, explained below.
+	(Method.asyncDispatchFunction): The asynchronous dispatch function
+	takes a proxy, the arguments to the given method, a callback and an
+	"errback" function pointer, and a void pointer. It calls the DBus
+	method, but does not wait for a reply. Instead it sets up the
+	callback to be called upon reply. If an error occurs, the errback
+	is called instead. Either function will recieve the proxy and the
+	value in the void pointer as arguments. The normal callback also
+	receives arguments for anything returned by the method.
+	(Method.asyncNotifyPrototype): Prototype for new asynchronous
+	notification function. See below.
+	(Method.asyncNotifyFunction): When the asynchronous dispatch function
+	sets up a method call, it specifies the function generated by this
+	function as the callback, and passes it an NihAsyncNotifyData struct
+	containing the user-provided callback and errback. The asynchronous
+	notify function then sets up the error to be handled by the errback
+	or marshalls the return values to the callback.
+	(Generator.exportTypedefs): This function returns a list of tuples
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_proxy.c (test_method_dispatch): 
+	of (type, name, args) format for typedefs to be placed in the
+	generated header file. Args is present for defining function
+	arguments for function pointer typedefs.
+	(lineup_typedefs): Works like the other lineup_*s. Outputs typedef
+	text from (type, name, args) tuples (see above) in a prettified,
+	well-spaced format.
+	(typedef_lineup_prefix): Used to make names line up well in
+	lineup_typedefs. If a string begins with (* it is returned as is.
+	If it begins with * it is returned with one leading space. Otherwise
+	it gets two leading spaces.
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_proxy.c (test_method_dispatch): 
+	Test asynchronous method dispatch
+
+2009-01-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_alloc_real_set_destructor): Does not modify the
+	actual data, so the pointer can be const.
+	(nih_ref): Does not modify the actual data, so the pointer can be
+	const.
+	(nih_unref_only): Does not modify the actual data, and unlike
+	nih_unref(), does not free it; so the pointer can be const
+	* nih/alloc.h: Update prototypes.
+
+	* configure.ac: Bump version to 0.2.1
+	* NEWS: Begin 0.2.1
+
+	* NEWS: Update
+
+	* nih/test_alloc.h (TEST_ALLOC_FAIL): Initialise the count in the
+	loop pre-condition, still doesn't solve gcc's issues but I prefer
+	it.
+
+	* nih/tests/test_command.c (test_help): Array was too small, increase
+	the size.
+
+	* nih/tests/test_string.c (test_str_split): Oops, left some debugging
+	in here.
+
+	* nih/file.c (nih_file_read): Never trust a changelog entry that
+	says "minor clean-up"; make sure we raise the error before returning
+	NULL.
+
+	* nih-dbus/dbus_connection.c (nih_dbus_setup)
+	(nih_dbus_add_watch, nih_dbus_add_timeout): We should discard
+	objects attached to the D-Bus connection since they're floating;
+	nobody should take a reference, but good practice and all that.
+
+	* nih/alloc.h: Document the different usage patterns
+
+	* nih/io.c (nih_io_buffer_resize): Use nih_unref() instead of
+	nih_free(), while nothing should have taken a reference, it's a
+	good pattern to stick to.
+	(nih_io_message_recv): Use nih_local for ctrl_buf
+	(nih_io_message_send): Use nih_local for ctrl_buf
+	(nih_io_send_message): Take a reference to messages on the send q
+	(nih_io_watcher_write): Unreference the message from the NihIo
+	object instead of freeing, in case a reference is used elsewhere
+	(nih_io_read): Unreference instead of freeing
+	(nih_io_get): Unreference instead of freeing
+	(nih_io_message_new): Parent should not be the NihIo
+	(nih_io_write): Obey that rule here
+
+	* nih/tests/test_io.c (test_send_message): Make sure that a
+	reference is taken after all.
+	(test_watcher): Don't create object with parent as io
+
+	* nih/file.c (nih_file_read): Minor clean-up
+
+	* nih/main.c (nih_main_set_pidfile): Discard the pid file in case
+	someone took a reference to it.
+
+	* nih/main.c (nih_main_init_full): Discard the package string in
+	case another part of the code has taken a reference to it; since
+	it never changes unless this function is called, generate it here
+	(nih_main_package_string): dropping this function
+	(nih_main_version): Fetch package_string
+	* nih/main.h: Add external package_string and drop function proto.
+	* nih/tests/test_main.c (test_package_string): Fold these tests into
+	(test_init): here.
+	* nih/libnih.supp: Update suppression
+
+	* nih/logging.c (nih_log_message): Use nih_local for message
+
+	* nih/io.c (nih_io_printf): Use nih_local for str
+
+	* nih/config.c (nih_config_parse_stanza): Use nih_local for name.
+
+2009-01-28  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_dir_walk_visit): Can't allocate nih_local var
+	with a parent, otherwise it'll never be cleaned up.
+
+	* nih/config.c (nih_config_parse): Initialise nih_local var to NULL.
+
+	* nih/alloc.c (nih_alloc_context_free): After the destructor has
+	been called, an object is dead.  Attempting to reference it should
+	fail, so we need to store a flag that this has happened.
+	(nih_realloc, nih_free, nih_discard, nih_alloc_real_set_destructor)
+	(nih_alloc_ref_new, nih_unref, nih_alloc_parent)
+	(nih_alloc_ref_lookup, nih_alloc_size): Forbid operations on
+	finalised objects.
+
+	* nih/tests/test_alloc.c (test_free): Once again I've tripped over
+	bugs where the ordering of allocations between siblings in a child
+	matters if they refer to each other in their destructor (typical
+	case, a hash table in a struct).
+	* nih/alloc.c (nih_realloc, nih_alloc_ref_new): Reverse the free
+	order, so that the last member allocated is the first one freed.
+	This was the original fix for the above bug, but this just moves
+	the problem without really fixing it.  I do think it's generally
+	correct that the order should be backwards though.
+	(nih_free): Since this is the only function that needs to do it,
+	take care of casting off parents here.
+	(nih_unref): Again, since this is the only function that needs
+	to free the context when there are no parents, do it here after
+	freeing the reference.
+	(nih_alloc_ref_free): Which means this function no longer needs
+	to recurse; nih_free() and nih_discard() always directly free a
+	context, and nih_unref() knows to if there are no parents left;
+	nih_unref() explicitly doesn't free the context.
+	(nih_unref_only): No need to pass FALSE to nih_alloc_ref_free() now.
+	(nih_alloc_context_free): This gets the big rewrite; rather than
+	just recursively freeing the heirarchy, finalise them first by
+	calling destructors and then reparenting them to the context
+	being freed.  Only free the objects after all destructors are called.
+
+	* nih/macros.h (MIN, MAX): Replace with newer evaluation-safe
+	nih_min() and nih_max()
+	* nih/io.c (nih_io_select_fds): Replace MAX with nih_max
+	(nih_io_buffer_pop): Replace MIN with nih_min
+	(nih_io_buffer_shrink): Replace MIN with nih_min
+	* nih/command.c (nih_command_group_help): Replace MAX with nih_max,
+	nicely avoiding multiple function call there.
+	* nih/option.c (nih_option_group_help): Likewise.
+	* nih/tests/test_io.c (test_select_fds): Replace MAX with nih_max
+
+	* nih-dbus/nih_dbus_tool.py (Method.replyFunction): Don't free the
+	message passed in to the function.  Since we now require the handler
+	function to take a reference to the message during async processing,
+	we can't just go around freeing it.
+	(Method.replyPrototype): Warn if the error from the reply function
+	is ignored, since this is important.
+	* nih-dbus/dbus_message.c (nih_dbus_message_error): Likewise we
+	should not free the message when passed in for a caller either.
+	* nih-dbus/tests/test_dbus_message.c (my_return_error_cb): Update
+	to make sure the message is not freed.
+	* nih-dbus/tests/com.netsplit.Nih.Test_impl.c (async_method_reply):
+	Make sure message is not freed.
+	* NEWS: Document the change
+
+2009-01-26  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Officially mandate libtool 2.2
+	* HACKING: Bump dependency on libtool to 2.2.4
+	* NEWS: Document change.
+
+	* configure.ac (AC_INIT): Bump version to 0.2.0 since we're making
+	a number of large API changes.
+	(AC_COPYRIGHT): Bump the copyright year too.
+	* NEWS (0.1.0): Declare 0.1.0 to have happened at revision 600 before
+	we started the most recent round of changes; this is the version
+	shipped with Upstart 0.5 but with the fixed list iteration.
+	(0.2.0): Begin documenting changes in the API since then; this file
+	can therefore be used as a checklist for updating software.
+
+	* nih-dbus/dbus.c, nih-dbus/dbus.h: Seperate out the code into
+	separate files to make maintenance much easier.  The new files are
+	nih-dbus/dbus_error.c, nih-dbus/dbus_error.h,
+	nih-dbus/dbus_connection.c, nih-dbus/dbus_connection.h,
+	nih-dbus/dbus_message.c, nih-dbus/dbus_message.h,
+	nih-dbus/dbus_object.c, nih-dbus/dbus_object.h,
+	nih-dbus/dbus_proxy.c, nih-dbus/dbus_proxy.h,
+	nih-dbus/dbus_util.c, nih-dbus/dbus_util.h.
+	* nih-dbus/nih_dbus_tool.py (Output.sourceFile): Change include
+	to separate ones for error, message, object and proxy.
+	(Output.headerFile): Change include to separate ones for message,
+	object and proxy.
+	* nih-dbus/dbus_message.c (nih_dbus_message_new): New function
+	separated out of nih_dbus_object_message(); also no need to cast
+	the destructor.
+	* nih-dbus/dbus_object.c (nih_dbus_object_message): Clean up to
+	call new nih_dbus_message_new function.
+	* nih-dbus/libnih-dbus.h: New top-level header to include everything
+	* nih-dbus/tests/test_dbus.c: Separate out the tests into files
+	to match the sources.  The new files are
+	nih-dbus/tests/test_dbus_error.c,
+	nih-dbus/tests/test_dbus_connection.c,
+	nih-dbus/tests/test_dbus_message.c,
+	nih-dbus/tests/test_dbus_object.c,
+	nih-dbus/tests/test_dbus_proxy.c,
+	nih-dbus/tests/test_dbus_util.c.
+	* nih-dbus/tests/test_dbus_error.c (test_error_raise_printf):
+	Looks like this function was never run in the old test suite, oops.
+	* nih-dbus/tests/test_dbus_message.c (test_message_new): Test the
+	new function
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_object.c: Drop includes
+	we don't actually seem to use the library!
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_proxy.c: Update includes
+	to include proxy
+	* nih-dbus/tests/com.netsplit.Nih.Test_impl.c: Replace includes
+	with separate ones.
+	* nih-dbus/tests/com.netsplit.Nih.Test_impl.h: Drop include.
+	* nih-dbus/Makefile.am (include_HEADERS): Install the top-level header
+	(nihdbusinclude_HEADERS): Update paths to new headers
+	(libnih_dbus_la_SOURCES): Build from new sources
+	(TESTS, test_dbus_error_SOURCES, test_dbus_error_CFLAGS)
+	(test_dbus_error_LDFLAGS, test_dbus_error_LDADD)
+	(test_dbus_connection_SOURCES, test_dbus_connection_CFLAGS)
+	(test_dbus_connection_LDFLAGS, test_dbus_connection_LDADD)
+	(test_dbus_message_SOURCES, test_dbus_message_CFLAGS)
+	(test_dbus_message_LDFLAGS, test_dbus_message_LDADD)
+	(test_dbus_object_SOURCES, test_dbus_object_CFLAGS)
+	(test_dbus_object_LDFLAGS, test_dbus_object_LDADD)
+	(test_dbus_proxy_SOURCES, test_dbus_proxy_CFLAGS)
+	(test_dbus_proxy_LDFLAGS, test_dbus_proxy_LDADD)
+	(test_dbus_util_SOURCES, test_dbus_util_CFLAGS)
+	(test_dbus_util_LDFLAGS, test_dbus_util_LDADD): Add details for
+	new tests, replacing old ones
+
+	* nih/dbus.c, nih/dbus.h, nih/libnih-dbus.supp, nih/libnih-dbus.ver,
+	nih/nih_dbus_tool.py, nih/test_dbus.h,
+	nih/tests/com.netsplit.Nih.Test.xml,
+	nih/tests/com.netsplit.Nih.Test_impl.c,
+	nih/tests/com.netsplit.Nih.Test_impl.h,
+	nih/tests/test_com.netsplit.Nih.Test_object.c,
+	nih/tests/test_com.netsplit.Nih.Test_proxy.c,
+	nih/tests/test_dbus.c: Move all D-Bus related code into a new
+	sub-directory
+	* nih/Makefile.am: Move D-Bus related rules into
+	* nih-dbus/Makefile.am: here.
+	* nih-dbus/tests/test_dbus.c: Update include path for D-Bus test
+	macros and dbus.h
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_object.c: Update include
+	path for dbus.h
+	* nih-dbus/tests/test_com.netsplit.Nih.Test_proxy.c: Update include
+	path for dbus.h
+	* nih-dbus/tests/com.netsplit.Nih.Test_impl.c: Update include path
+	for dbus.h
+	* nih-dbus/tests/com.netsplit.Nih.Test_impl.h: Update include path
+	for dbus.h
+	* nih-dbus/nih_dbus_tool.py (Output.sourceFile, Output.headerFile):
+	Generate includes with correct path for dbus.h
+	* Makefile.am (SUBDIRS): Iterate into new sub-directory
+	* configure.ac (AC_CONFIG_FILES): Generate new Makefile
+	* nihify: Create symlink to nih-dbus as well
+
+	* nih/tests/com.netsplit.Nih.Test_impl.c (my_test_async_method):
+	Take a reference to the message
+	* nih/libnih-dbus.supp: Update D-Bus suppressions.
+
+	* TODO: Update
+
+	* nih/libnih.supp: Update suppressions for new calling stack
+
+	* nih/dbus.c (nih_dbus_object_new): Update documentation to match
+	new nih_alloc(), no need to cast destructor
+	(nih_dbus_proxy_new, nih_dbus_path): Update documentation to match
+	new nih_alloc()
+	(nih_dbus_object_message): Make the message nih_local, this means
+	the handler must now reference the message otherwise it will be
+	freed.
+	(nih_dbus_object_introspect): Make the xml string nih_local
+	(nih_dbus_message_error): Make the string nih_local
+	* nih/tests/test_dbus.c (test_error_raise)
+	(test_error_raise_printf): Don't check for no parent if we don't
+	need to.
+	(my_return_error): Must reference the message
+	(test_error_raise, test_error_raise_printf): Must mean TEST_ALLOC_FAIL
+
+	* nih/main.c (nih_main_loop_add_func): Update documentation to match
+	new nih_alloc(), no need to cast destructor function.
+	(nih_main_version): Use nih_local
+	(nih_main_write_pidfile): Use nih_local
+	* nih/tests/test_main.c: Include limits.h
+
+	* nih/io.c (nih_io_watcher): Can't just break if we catch a free,
+	we have to at least process errors first!
+
+	* nih/watch.c (nih_watch_new): Update documentation to match new
+	nih_alloc(), no need to cast destructor function.
+	(nih_watch_add): No need to cast destructor function; free the
+	not a directory error as well.
+	(nih_watch_handle): Use nih_local on the path so it's always cleaned
+	up if we don't reference it; reference it when delaying the create
+	handler instead of reparenting
+	* nih/tests/test_watch.c: Include limits.h
+	(test_new): Free watch inside loop, don't select fds; no idea why
+	this code is here.
+	(test_reader): Can't just call select then handle, we actually have
+	to wait for activity first.
+	(my_create_handler, my_modify_handler, my_delete_handler): Loop over
+	allocations, we can't use TEST_ALLOC_SAFE if we don't know we're in
+	a TEST_ALLOC_FAIL.
+
+2009-01-25  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_file_read): Update documentation to match
+	new nih_alloc()
+	(nih_dir_walk, nih_dir_walk_visit): No need to cast destructor
+	function, use nih_local to clean up code a little bit.
+	(nih_dir_walk_scan): Use nih_local to make this easier.
+	* nih/tests/test_file.c: Include limits.h
+	(my_visitor): No need to cast destructor
+
+	* nih/test.h: Include config.h since that defines _GNU_SOURCE
+	* nih/tests/test_child.c, nih/tests/test_signal.c: Remove extra
+	double include.
+
+	* nih/test_alloc.h (TEST_FREE_TAG): Remove incorrect "extern"
+
+	* nih/alloc.c (nih_unref_only): Add function to allow unreferencing
+	without freeing, for example if we return something from our state
+	and want to reparent but still allow NULL.
+	* nih/alloc.h: Add prototype.
+
+	* nih/io.c (nih_io_add_watch, nih_io_message_new, nih_io_reopen):
+	Update documentation to match new nih_alloc(), no need to cast
+	destructor function.
+	(nih_io_buffer_new, nih_io_buffer_pop, nih_io_read, nih_io_get):
+	Update documentation to match new nih_alloc()
+	(nih_io_read_message): Update documentation to match new nih_alloc(),
+	reparent message by referencing to parent before unreferencing from
+	io structure.
+	* nih/tests/test_io.c (test_read_message, test_send_message):
+	Replace TEST_ALLOC_PARENT with NULL parent with TEST_ALLOC_OPRHAN
+	(test_read_message): Message must reference the io watch
+	(test_message_add_control): Remove strange allocator changing.
+	(test_message_recv): Call nih_error_init to avoid valgrind issue
+
+	* nih/child.c (nih_child_add_watch): Update documentation to match new
+	nih_alloc(), no need to cast destructor function.
+	* nih/tests/test_child.c: Include config.h
+	
+	* nih/signal.c (nih_signal_add_handler): Update documentation to
+	match new nih_alloc(), no need to cast destructor function.
+	* nih/tests/test_signal.c: Include config.h
+
+	* nih/timer.c (nih_timer_add_timeout, nih_timer_add_periodic)
+	(nih_timer_add_scheduled): Update documentation to match new
+	nih_alloc(), no need to cast destructor function.
+
+	* nih/alloc.c (nih_alloc_parent, nih_alloc_size): Pointer argument
+	should be const since we don't modify it.
+	* nih/alloc.h: Update prototype.
+
+	* nih/error.h: Add documentation for header.
+	(NIH_SHOULD): Much needed docstring.
+
+	* nih/logging.c: Include nih/macros.h
+	* nih/logging.h: Add documentation for header.
+
+	* nih/config.c (nih_config_next_token, nih_config_next_arg)
+	(nih_config_parse_args, nih_config_parse_command)
+	(nih_config_parse_block): Update documentation to match new
+	nih_alloc()
+	(nih_config_parse): Rewrite to use nih_file_read() into an nih_local
+	variable, instead of mmap which has strange behaviours in the face
+	of updates.
+	* nih/config.h: Add documentation header.
+	* nih/tests/test_config.c: Include limits.h
+
+	* nih/command.c (nih_command_parser): Update documentation to
+	match new nih_alloc(), use nih_local where possible to clean up
+	code.
+	(nih_command_join): Update documentation to match new nih_alloc()
+	(nih_command_handle): Update documentation to match new nih_alloc(),
+	use nih_local where possible to clean up code.
+	(nih_command_help): Use nih_local for groups array
+	(nih_command_group_help): Use nih_local for wrapped string
+	* nih/command.h: Add documentation string for header.
+
+	* nih/option.c (nih_option_parser): Update documentation to match
+	new nih_alloc(), should not use parent for any old allocation.
+	(nih_option_join): Update documentation to match new nih_alloc()
+	(nih_option_help): Use nih_local for temporary strings and groups
+	(nih_option_group_help): Use nih_local for temporary string.
+	* nih/option.h: Add documentation string for header.
+
+	* nih/list.h, nih/hash.h: Provide a much better documentation string.
+
+	* nih/tree.c (nih_tree_new, nih_tree_entry_new): Update documentation
+	to match new nih_alloc(); no need to cast destructor function
+	* nih/tree.h: Add documentation string for the header.
+
+	* nih/hash.c (nih_hash_new): Update documentation to match
+	new nih_alloc(); update comment to reflect what we actually do to
+	pick a prime.
+	(nih_hash_pointer_key, nih_hash_pointer_hash)
+	(nih_hash_pointer_cmp): Drop these, we were looking at the raw bytes
+	of a pointer, which is almost certainly naughty.
+	* nih/hash.h: Add documentation string, remove prototypes.
+	(NIH_HASH_FOREACH, NIH_HASH_FOREACH_SAFE): Update documentation in
+	same manner as the list functions.
+	(nih_hash_pointer_new): Drop, this is probably illegal C ;-)
+	(nih_hash_string_new): Update documentation to match new nih_alloc()
+	* nih/tests/test_hash.c (test_pointer_new, test_pointer_key): Drop.
+	(test_lookup): Modify to use string hashes instead.
+	(test_foreach, test_foreach_safe): Fix function name comment.
+
+	* nih/list.c (nih_list_new, nih_list_entry_new): Update documentation
+	to match new nih_alloc(); No need to cast the destructor function
+	anymore.
+	* nih/list.h: Add documentation string for the header.
+	(NIH_LIST_FOREACH, NIH_LIST_FOREACH_SAFE): Improve documentation
+	about which is best.
+	(NIH_LIST_ITER): Add macro to make iterating a list with an offset
+	head easier.
+
+	* nih/macros.h: Add sorely-missed documentation strings, including
+	one for the header itself.
+	(NULL): Drop, NULL is defined by the C compiler.
+
+	* nih/string.c: Update all documentation to match new nih_alloc()
+	(nih_str_array_addp): Take a reference to the passed variable
+	instead of reparenting (which isn't possible anymore).
+	(nih_str_array_add, nih_str_array_addn): Since these just call
+	nih_str_array_addp() which now takes a reference rather than
+	reparents, we can change these functions to make new_str as a
+	local variable.
+	(nih_strv_free): Drop this function, it's not used and it's utterly
+	inconsistent with the others as it expressly isn't used with
+	nih_alloc().
+	(nih_strncat): This function worryingly did not work if NULL was
+	passed, catch that and call nih_strndup() instead.
+	* nih/string.h: Add a documentation string and drop prototype.
+	* nih/tests/test_string.c (test_strv_free): Drop.
+	(test_sprintf, test_vsprintf, test_strdup, test_strndup): Replace
+	TEST_ALLOC_PARENT calls with NULL as the second argument with
+	TEST_ALLOC_ORPHAN instead.
+	(test_strcat, test_strncat, test_strcat_sprintf)
+	(test_strcat_vsprintf): Strangely these test cases don't appear to
+	have worked before, the functions return NULL in case of memory
+	allocation failure so we need to check the string against a temporary
+	copy stored before, and we need to free that string as well. 
+	Also add test cases for NULL being passed in as the source string.
+
+	* nih/test_alloc.h: Expose references to nih_alloc()'s pointers to
+	malloc, realloc and free so we can replace them for testing purposes.
+	(TEST_ALLOC_SIZE): Since this returns the size of the allocated object,
+	rather than the request, check that the block is at least as large
+	as the argument given - not exactly as large.
+	(TEST_ALLOC_PARENT): Call nih_alloc_parent directly with both
+	arguments, since it's compatible with our calling - can't output the
+	current parent now they're may be multiple though.  When passed NULL
+	this now checks if it *has* a parent (almost the exact inverse of the
+	previous meaning).
+	(TEST_ALLOC_ORPHAN): New test to make sure that an object does not
+	have a parent.
+	(_test_free_tag): Reimplement to lookup the tag block in a linked
+	list, instead of a static array, and only return TRUE or FALSE.
+	(_test_destructor): Drop, we can just use nih_list_destroy instead.
+	(TEST_FREE_TAG): Reimplement to allocate the tag struct itself as
+	the child, and place in a linked list.
+	(_test_malloc): Add malloc wrapper.
+	(_test_allocator): Rename to _test_realloc
+	(TEST_ALLOC_FAIL, TEST_ALLOC_SAFE): Change allocator through the
+	exposed variables.
+
+	* nih/alloc.h (nih_local): Macro to add a variable attribute that
+	calls a nih_discard() as a cleanup function when the variable goes
+	out of scope.
+	* nih/alloc.c (_nih_discard_local): gcc cleanup function wrapper that
+	takes the address of the local variable, it gets the actual pointer
+	out and passes it to nih_discard().  Unlike the other functions,
+	this actually allows the pointer to be NULL.
+	* nih/tests/test_alloc.c (test_local): Test local variables work!
+
+	* nih/alloc.c (nih_alloc_has_ref): Rename back to nih_alloc_parent.
+	(nih_alloc_parent): Accept NULL, if given returns TRUE if there are
+	any parents.
+	* nih/alloc.h: Update prototype.
+	* nih/tests/test_alloc.c (test_parent): Since it's a bit more
+	complex, we should probably explicitly test this ;-)
+
+	* nih/test.h, nih/test_output.h, nih/test_values.h, nih/test_process.h,
+	nih/test_divert.h, nih/test_files.h, nih/test_alloc.h, nih/test_list.h,
+	nih/test_hash.h, nih/test_dbus.h: Split the test macros out into
+	separate files to make maintaining them easier.  None of them may
+	be included directly, execept nih/test_dbus.h which is now no longer
+	included by default.
+	* nih/Makefile.am (nihinclude_HEADERS): Install new headers.
+
+	* nih/alloc.c: Re-implement as a multi-reference allocator; an object
+	may now have as many parents as you wish, each one holding its own
+	reference to it.
+	(NihAllocCtx): Restructure.
+	(NihAllocRef): New object linked by context to hold a reference.
+	(nih_alloc_init, nih_alloc_set_allocator, nih_alloc_using): Drop
+	support for custom allocators, knowing that we always use malloc
+	is useful for the implementation - we still allow the test suite
+	to change them, but nothing else.
+	(nih_alloc): Reimplement from original nih_alloc_using() function,
+	now calls nih_alloc_ref_new() if parent is not NULL.
+	(nih_realloc): Reimplement for multi-referenceness; much of the
+	this remains the same.
+	(nih_free): Reimplement as a wrap around nih_alloc_context_free().
+	(nih_discard): New function to discard an object if it has no
+	parent references, used if you believe references may have been
+	taken by functions you have called.
+	(nih_alloc_context_free): Common function to free an object, calling
+	its destructor after discarding parent references but before cleaning
+	up children.
+	(nih_alloc_reparent): Drop, it's no longer possible to simply reparent
+	an object.  Instead you should call the new functions:
+	(nih_ref, nih_alloc_ref_new, nih_unref, nih_alloc_ref_free): Handle
+	NihAllocRef objects, linking them to a context and removing them from
+	a context; when the last reference to a child is removed, we
+	automatically call nih_alloc_context_free().
+	(nih_alloc_parent, nih_alloc_has_ref): Replace the former function
+	with the latter, it's no longer possible to query the exact parent
+	since there isn't one.
+	(nih_alloc_ref_lookup): Internal function to find a reference.
+	(nih_alloc_size): Reimplement assuming malloc, which saves us some
+	space in the context structure.
+	* nih/alloc.h: Update all prototypes and documentation, including
+	adding module documentation to the top of the header file.
+	(NihAllocator): Drop typedef.
+	(nih_alloc_set_destructor): Add casting macro with name of original
+	function that calls nih_alloc_real_set_destructor().
+	* nih/tests/test_alloc.c (test_new, test_alloc): Fix to check for a
+	reference rather than the explicit parent; also include a test for
+	allocation failure using a malloc hook.
+	(test_realloc): Fix to check for a reference rather than the
+	explicit parent, change allocatil failure test to use a realloc hook
+	instead of a different allocator.
+	(test_free): Add a with parent test.
+	(test_discard): New test, as test_free() but with different expected
+	result for the parent test.
+	(test_set_allocator): Drop test.
+	(test_reparent, test_ref, test_unref): Drop the former test and
+	replace with checking that referencing and unreferencing works.
+
+2008-10-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/list.h (NIH_LIST_FOREACH_SAFE): Mark the cursor to be
+	automatically cleaned up should we exit the loop; this somewhat
+	simplifies the definition and allows returning from within the loop.
+
+	* nih/list.h (NIH_LIST_FOREACH_SAFE): Fix a typo that caused only
+	once cursor variable to be used, rather than one per iteration.
+
+	* nih/main.h, nih/main.c, nih/dbus.c, nih/tests/test_dbus.c: Revert
+	previous "delete" patch now that we can iterate linked lists
+	without tripping over the bug we found here.
+
+	* nih/libnih-dbus.supp: Update suppressions for newer glibc and
+	D-Bus without debugging enabled.
+
+	* nih/list.h (NIH_LIST_FOREACH_SAFE): Replace with a more ingenious
+	version based on work by Casey Dahlin and myself; instead of caching
+	the next pointer, place a cursor node in the list instead.  This
+	solves the issue where the next pointer may be changed or freed, and,
+	in fact solves all issues of list rearrangement.
+	* nih/tests/test_list.c (test_foreach_safe): Add test cases.
+	* nih/hash.h (NIH_HASH_FOREACH_SAFE): Update comment to match.
+
+2008-08-12  Casey Dahlin  <cdahlin@redhat.com>
+
+	* nih/main.h (NihMainLoopFunc): Add delete member.
+	* nih/main.c (nih_main_loop): Don't run the callback for any function
+	marked for deletion, instead call nih_free on it.
+	(nih_main_loop_add_func): Initialise delete to FALSE.
+	* nih/dbus.c (nih_dbus_release_callback): Add function to mark a
+	loop function as deleted.
+	(nih_dbus_setup): and use it as the free function instead of nih_free.
+	* nih/tests/test_dbus.c (test_connect, test_bus, test_setup): Check
+	that the loop functions are marked for deletion instead of freed.
+
+	* nih/nih_dbus_tool.py (Output.sourceFile): Include limits.h
+
+2008-07-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/Makefile.am (test_com_netsplit_Nih_Test_object_SOURCES)
+	(test_com_netsplit_Nih_Test_proxy_SOURCES): Add forgotten header.
+
+2008-07-01  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* nih/tests/test_com.netsplit.Nih.Test_proxy.c (test_method_dispatch):
+	Add test cases for input and output arguments of various types.
+
+	* nih/nih_dbus_tool.py (DBusArray.marshal): Add extra parens in
+	array setting call for precedence reasons.
+
+	* nih/tests/test_com.netsplit.Nih.Test_proxy.c (test_method_dispatch):
+	Add basic tests of calls to synchronous and async methods, and the
+	usual error returns.
+	* nih/tests/com.netsplit.Nih.Test_impl.c (async_method_reply): 
+	Add replies that have the wrong combinations of arguments.
+
+	* nih/tests/com.netsplit.Nih.Test_impl.c,
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (my_connect_handler)
+	(my_setup, my_teardown): Move these functions across too.
+	* nih/tests/com.netsplit.Nih.Test_impl.h: Add prototypes.
+
+	* nih/dbus.c (nih_dbus_proxy_new): Allow name to be NULL.
+	* nih/tests/test_dbus.c (test_proxy_new): Test without a name.
+
+	* nih/tests/test_com.netsplit.Nih.Test_object.c,
+	* nih/tests/com.netsplit.Nih.Test_impl.c: Separate out the server
+	object implementation so that the proxy code could use it.
+	* nih/tests/com.netsplit.Nih.Test_impl.h: Header for object definition
+	* nih/Makefile.am (test_com_netsplit_Nih_Test_object_SOURCES)
+	(test_com_netsplit_Nih_Test_proxy_SOURCES): Include the object
+	implementation code.
+
+	* nih/tests/test_com.netsplit.Nih.Test_proxy.c: Stub file for proxy
+	test cases.
+	* nih/Makefile.am (TESTS): Build the proxy test suite.
+	(test_com_netsplit_Nih_Test_proxy_SOURCES)
+	(test_com_netsplit_Nih_Test_proxy_CFLAGS)
+	(test_com_netsplit_Nih_Test_proxy_LDFLAGS)
+	(test_com_netsplit_Nih_Test_proxy_LDADD): Details for the proxy
+	test suite, which actually includes the object code since it needs
+	to implement objects too
+
+	* nih/nih_dbus_tool.py (MemberWithArgs.variables): Only include arg
+	array in object mode.
+
+	* nih/Makefile.am ($(com_netsplit_Nih_Test_object_OUTPUTS)): 
+	($(com_netsplit_Nih_Test_proxy_OUTPUTS)): Must be newer than the
+	source for the python tool
+
+	* nih/nih_dbus_tool.py (Interface.variables, Interface.exports):
+	Only include the interface definition in object mode, we will need
+	something for proxying signals later, but right now this means
+	problems when building an object and its proxy together.
+
+	* nih/Makefile.am (com_netsplit_Nih_Test_proxy_OUTPUTS)
+	(com_netsplit_Nih_Test_proxy_XML)
+	($(com_netsplit_Nih_Test_proxy_OUTPUTS)): Generate sources in proxy
+	mode for the test interfaces.
+	(BUILT_SOURCES, MAINTAINERCLEANFILES, EXTRA_DIST): Build if necessary
+	before anything else, clean in maintainer-clean and include in the
+	distribution.
+
+2008-06-30  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/libs.m4 (NIH_LIB_DBUS): Always check for Python, but don't error
+	or disable D-Bus unless the install option is defined.  Otherwise if
+	we don't have it, don't define HAVE_PYTHON.
+	* nih/Makefile.am (noinst_SCRIPTS): Only build if we have python.
+
+	* nih/Makefile.am: Redress the Makefile such that the generated test
+	sources are actually included in the distribution tarball.
+
+	* nih/dbus.h (NihDDusProxy): Add definition for proxy structure
+	and prototype for function to create one.
+	* nih/nih_dbus_tool.py (Method.dispatchFunction): Adjust name of
+	destination member in the proxy.
+	* nih/dbus.c (nih_dbus_proxy_new): Simple function to create a new
+	proxy object.
+	* nih/tests/test_dbus.c (test_proxy_new): Add simple test for the
+	simple function, which will get more complicated if we add signal
+	filter registration later.
+
+	* nih/errors.h (NIH_DBUS_INVALID_ARGS): Add error caused when the
+	reply arguments on a method call were not what we expected.
+
+	* nih/nih_dbus_tool.py: Implement the simplest of the method dispatch
+	cases, a blocking method call with the reply data returned as arguments
+	to the call.
+
+	* nih/nih_dbus_tool.py: Allocate a copy of string arguments when
+	passing, this makes them consistent with arrays, and also means that
+	we can actually do method dispatching which requires the reply data
+	to last longer than the underlying message.
+
+	* nih/nih_dbus_tool.py: Add parent argument to marshal functions for
+	when we need to allocate something (ie. arrays)
+
+	* nih/nih_dbus_tool.py (DBusArray.marshal): Add extra parens around
+	possible deferenced length variable, not needed for precedence but
+	helps clarity in generated code.
+	(DBusArray.dispatch): Increment the length inside the for loop, rather
+	than always leaving it at zero, useful for debugging.
+
+	* nih/nih_dbus_tool.py: Have a bash at sorting out the whole pointer
+	and const problem again.  Make them properties of a group, passed to
+	type functions that can add * and const as appropriate, and allows
+	DBusArray to be more clever about things.  Works for the existing
+	cases, anyway.
+
+	* nih/nih_dbus_tool.py (Method.handlerPrototype): Only include
+	function pointers when the mode is object.
+
+	* nih/nih_dbus_tool.py: Allow mode to be changed to proxy, but don't
+	specify anything to be generated for that mode yet.
+
+2008-06-11  Scott James Remnant  <scott@netsplit.com>
+
+	* Makefile.am (SUBDIRS): po has to come last to make sure we've
+	built any auto-generated code before update-po
+
+	* nih/nih_dbus_tool.py (Method.marshalFunction): Allow the message
+	for the invalid args/type message to be translated.
+
+	* nih/tests/test_child.c (test_poll): We end up creating a core file,
+	so unlink it.
+
+	* nih/Makefile.am (tests/com.netsplit.Nih.Test_object.c tests/com.netsplit.Nih.Test_object.h):
+	Create the tests directory.
+
+2008-06-08  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/Makefile.am (tests/com.netsplit.Nih.Test_object.c tests/com.netsplit.Nih.Test_object.h):
+	Make the tests directory in the output.
+
+	* nih/Makefile.am (EXTRA_DIST): Forgot to distribute the test XML
+
+	* nih/file.c (nih_file_read): Implement a simpler function for reading
+	a file into memory that does literally just that, better than map
+	for various reasons.
+	* nih/file.h: Add prototype.
+	* nih/tests/test_file.c (test_read): Test it works.
+
+2008-06-06  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_DBUS, TEST_DBUS_OPEN, TEST_DBUS_MESSAGE)
+	(TEST_DBUS_CLOSE, TEST_DBUS_END): Various useful macros to set up,
+	connect to, pop messages from, close and kill D-Bus connections to
+	a private bus daemon.
+
+	* nih/tests/test_string.c (test_array_copy): Add a test case for a
+	zero-length array, which we need to be able to support.
+	* nih/string.c (nih_str_array_copy): Fix it by always creating a
+	new array to copy into, since array can't be NULL.
+
+2008-06-04  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (test_method_marshal):
+	Why would I be allocating a string array using sizeof (int32_t),
+	fix C&P error to make amd64 happy again.
+
+2008-06-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_DBUS): Initialise _test_address to zeros so
+	valgrind shuts up.
+
+	* nih/test.h (TEST_DBUS, TEST_DBUS_END): Macros to set up a
+	temporary D-Bus session bus for testing purposes.
+
+	* nih/tests/test_dbus.c (test_object_new, test_object_destroy)
+	(test_object_unregister): Use the system bus for testing, since
+	there may be no session bus.
+
+	* nih/tests/test_dbus.c (test_bus): We get an error when the
+	session bus is not available, so we should eat that before skipping.
+
+2008-06-01  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/dbus.c (nih_dbus_object_message): Keep a reference on the
+	connection, as well as the message; otherwise if the connection is
+	disconnected while handling a async method, we'll end up trying to
+	send it to a freed connection instead of just a disconnected and
+	forgotten one.
+	(nih_dbus_message_destroy): Unreference the connection when freeing
+	the message object.
+
+2008-05-28  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO (main, timers): Update.
+
+	* nih/nih_dbus_tool.py: The C type of string-like types should be
+	just "char *"; instead we should add "const" when needed, such as
+	in the prototype of handlers and in reply functions.  This avoids
+	some const-bending games.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (my_emit_signal):
+	Adjust type of string array to match.
+
+2008-05-24  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Changed branch location again.
+
+2008-05-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/error.h (nih_return_no_memory_error): Add a convenience macro
+	for raising the ENOMEM system error with the right string, rather
+	than setting errno just do it directly.
+	* nih/tests/test_error.c (test_return_no_memory_error): Make sure
+	the macro is tested.
+	* nih/dbus.c (nih_dbus_connect, nih_dbus_bus, nih_dbus_server):
+	Use new macro to return ENOMEM when we're not sure that it's the
+	current errno.
+
+2008-05-14  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update.
+
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (my_str_to_int32_array):
+	Forgot to clean up parts after splitting.
+	(test_method_marshal): Forgot to free self-allocated arrays, and
+	we have to free a string array returned by D-Bus as well.
+	(test_signal_dispatch): Another string array to be freed.
+
+	* nih/tests/test_dbus.c (test_object_message): Don't use timeouts
+	to guess when the reply should have arrived, just use a pending
+	call notify function.  This speeds the whole thing up a hundred
+	fold and removes valgrind slowness issues.
+
+	* nih/dbus.c (nih_dbus_message_error): Asynchronous messages need
+	a way to return an error message to the sender after the handler
+	function has terminated; this function fulfills that need
+	* nih/dbus.h: Add prototype.
+	* nih/tests/test_dbus.c (test_message_error): Add test case for
+	replying to an asynchronous message with an error; this ends up
+	somewhat evil since we're not using the bindings.
+
+	* nih/nih_dbus_tool.py: Use a namespaced attribute to specify
+	whether methods should be generated synchronous (reply generated
+	after handler returns) or asynchronous (handler expected to keep
+	the message object and call a reply function later).
+	* nih/tests/com.netsplit.Nih.Test.xml: Add a test asynchronous
+	method, the same basic method as the ordinary test method, but
+	which is specified to generate an asynchronous call.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c: Add many tests
+	for async calls, in fact, we pretty much just duplicate the sync
+	tests but use a timer in the server to deliver the reply.
+
+	* nih/dbus.c (nih_dbus_object_message): Set a destructor for the
+	message that unreferences the attached D-Bus message when it
+	is freed, and don't unreference it ourselves.  Also allow the
+	handler to return "not yet handled" to mean that the method
+	has actually been handled, but the reply hasn't been sent yet.
+	(nih_dbus_message_destroy): Destructor for the message.
+
+2008-05-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/nih_dbus_tool.py: Implement handling for arrays of simple C
+	types with an extra length variable, and handling for arrays of
+	pointer types with an extra NULL element
+	* nih/tests/com.netsplit.Nih.Test.xml: Add test methods with an
+	int32 and string array as input and output, and test signals
+	with both array types.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c: Add tests for
+	the new methods and signals, testing the underlying automatic
+	generation.
+
+2008-05-10  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/string.c (nih_strncat, nih_strcat_vsprintf): Ok, there
+	was a minor technical reason after all; don't strlen the
+	string if we don't have it.
+
+	* nih/string.c (nih_strcat, nih_strncat, nih_strcat_sprintf)
+	(nih_strcat_vsprintf): Remove the restriction that the string
+	must be pre-allocated, there's no technical reason for it, I was
+	just trying to enforce a style.
+
+2008-05-09  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/nih_dbus_tool.py: Drop the data type argument, and just
+	pass around void *; we never have the types available, and since
+	we have our own prototype anyway, we never upset gcc.
+
+	* nih/dbus.c (nih_dbus_path): Empty path components are named
+	as "_" instead.
+	* nih/tests/test_dbus.c (test_path): Test the new functionality.
+
+2008-05-08  Casey Dahlin  <cdahlin@redhat.com>
+
+	* nih/file.c (nih_file_is_packaging): Add matches for various
+	RPM temporary and atomicity files.
+
+2008-05-08  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/dbus.c (nih_dbus_error_raise_printf): Add formatted error
+	function, I held out as long as I could
+	* nih/dbus.h: Add prototype.
+	* nih/tests/test_dbus.c (test_error_raise_printf): And test for it.
+	* nih/error.h: Add missing attribute
+
+	* nih/Makefile.am: No need for version info if not installing
+
+2008-05-06  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/compiler.m4: -Wformat is already in -Wall
+
+	* nih/main.c (nih_main_daemonise): Deliberately ignore chdir
+	return value, repeat the dup calls until they work.
+	(nih_main_loop_interrupt): repeat write call until it succeeds.
+	* nih/test.h (TEST_CHILD, TEST_CHILD_WAIT, TEST_CHILD_RELEASE):
+	assert that pipe() returns zero and read() and write() both return 1.
+	(TEST_DIVERT_STDOUT_FD, TEST_DIVERT_STDERR_FD): assert that dup2
+	returns a file descriptor.
+	(TEST_FILE_RESET): assert ftruncate works.
+	* nih/tests/test_io.c (test_add_watch, test_select_fds)
+	(test_handle_fds, test_reopen, test_shutdown, test_destroy)
+	(test_watcher, test_read_message, test_send_message, test_read)
+	(test_write, test_get, test_printf, test_set_nonblock)
+	(test_set_cloexec): assert that the pipe() calls work.
+	(test_watcher): assert that write() returns expected number.
+	* nih/tests/test_file.c (test_map): Check the fgets works.
+	(test_dir_walk): assert that the symlink call works.
+	* nih/tests/test_main.c (test_daemonise): assert pipe(), write()
+	and getcwd() calls work.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (my_setup):
+	initialise wait_fd to get around gcc's blindness.
+	(my_emit_signal): initialise ret.
+
+	* m4/compiler.m4: Add -Wformat, -Wformat-security and
+	-D_FORTIFY_SOURCE=2 to our default CFLAGS unless compiler warnings
+	are disabled.
+
+2008-04-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (test_method_marshal)
+	(test_signal_dispatch):	For some reason valgrind needs some
+	reassurance that it's ok to pass uninitialised data around in various
+	cases; probably good for testing anyway.
+
+	* nih/dbus.c (nih_dbus_path): Function to generate D-Bus paths with
+	appropriate escaping of non-root elements.
+	* nih/dbus.h: Add prototype.
+	* nih/tests/test_dbus.c (test_path): Test the new function.
+
+	* nih/dbus.c (nih_dbus_object_introspect): Free the introspection
+	string after sending the message (oops!)
+
+2008-04-27  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/com.netsplit.Nih.Test.xml: Add signals to the test
+	interface for the variety of basic argument types, we also need
+	a glue function to make the server emit the signal.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (my_emit_signal)
+	(test_signal_dispatch): Test the signals are emitted and dispatched
+	properly by catching them and checking them.
+
+2008-04-26  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_GROUP): Add macro for when we don't test functions.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c (test_method_marshal):
+	Use TEST_GROUP here.
+
+	* nih/tests/com.netsplit.Nih.Test.xml: Add more methods to test,
+	one generic method and two methods (in and out) for each basic type.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c: Slightly redo the
+	way we do the tests, do the basic set of tests using a single method
+	that can return cases such as errors, etc.  Then have input and output
+	marshal tests for each of the basic types.
+	* nih/nih_dbus_tool.py (NAME_RE): Cope with numerics in member names,
+	treat them the same as lowerspace characters.
+
+2008-04-25  Scott James Remnant  <scott@netsplit.com>
+
+	* TODO: Update, adding missing pieces for D-Bus support and an
+	idea for changing the way that timers/signals/io/etc. work.
+
+	* nih_dbus_tool.py: Handle the basic D-Bus types and generate
+	marshalling functions for methods and dispatch functions for
+	signals, along with all of the glue needed for nih_dbus_object_new()
+	* nih/tests/com.netsplit.Nih.Test.xml: Interface to be used for
+	testing of the generated code.
+	* nih/tests/test_com.netsplit.Nih.Test_object.c: Test suite for
+	the generated code (in object mode), so far this just tests a
+	couple of methods but will be adding a lot more tests soon.
+	* nih/Makefile.am (TESTS): Add the above test suite.
+	(test_com_netsplit_Nih_Test_object_SOURCES)
+	(test_com_netsplit_Nih_Test_object_CFLAGS)
+	(test_com_netsplit_Nih_Test_object_LDFLAGS)
+	(test_com_netsplit_Nih_Test_object_LDADD): Details for the test suite.
+	(BUILT_SOURCES): Interface definitions are auto-generated and need
+	to be done so at the start of the build so deps work properly.
+	(CLEANFILES): All built sources need to be cleaned on "make clean"
+	(tests/com.netsplit.Nih.Test_object.c tests/com.netsplit.Nih.Test_object.h):
+	Generate the interface definitions with the binding tool, being
+	sure to regenerate if the XML or binding tool change.
+
+	* nih/dbus.c (nih_dbus_object_new): Register an object with D-Bus
+	and hook it up to an internal message handling function that deals
+	with introspection and the like, while passing off actual handling
+	to marshaller functions for individual methods.
+	(nih_dbus_object_destroy): When the object is freed, unregister
+	it from the bus making sure that doing so doesn't try to free it
+	a second time.
+	(nih_dbus_object_unregister): When the bus connection is dropped
+	or object otherwise unregistered, free it, making sure that doing
+	so doesn't try to unregister it a second time.
+	(nih_dbus_object_message): Handle messages for the object, locate
+	the marshaller function in the interface structures or pass off
+	to internal handler for introspection.
+	(nih_dbus_object_introspect): Handle the Introspect method by
+	generating XML which we return in a reply.
+	* nih/dbus.h: Add prototype for new function.
+	(NihDBusObject, NihDBusMessage, NihDBusMarshaller, NihDBusArgDir)
+	(NihDBusArg, NihDBusMethod, NihDBusSignal, NihDBusAccess)
+	(NihDBusProperty, NihDBusInterface): Add the truly insane number
+	of structures and enums we need to fully specify the interfaces
+	that a D-Bus object provides; you'll never do this by hand! :-)
+	* nih/tests/test_dbus.c (test_object_new, test_object_destroy)
+	(test_object_unregister, test_object_message): Test cases for new
+	functions.
+	(test_connect, test_bus): Check error messages using the macros
+	rather than by name.
+
+2008-04-23  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_nih_dbus_tool.py: In hindsight, it's unnecessary
+	to test the binding tool directly since the tests will basically
+	just compare the output to an expected C file which will make
+	maintaining it damned hard and doesn't actually guarantee it works;
+	instead we'll test generated output.
+	* nih/Makefile.am (TESTS): Remove the call to the Python test suite,
+	and reverse the TESTS/check_PROGRAMS thing again to match.
+
+2008-04-22  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/libnih-dbus.supp: D-Bus init_system_db() related leaks
+	were likely a missing dbus_shutdown() since they've gone away
+	now.
+
+	* nih/dbus.c (nih_dbus_add_timeout, nih_dbus_timeout_toggled):
+	Slightly adjust the millisecond to second conversion to always
+	round up to the nearest whole second rather than down; that way
+	we have a 1s minimum timeout instead of an immediate one.
+
+2008-04-21  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_dbus.c (test_bus): Cope when the session bus
+	is not available.
+
+	* nih/libnih-dbus.supp: Suppress annoying NSS problems on i686
+	as well (we did x86-64 last time).  Also found that a couple of
+	the suppressions were caused by failing to shutdown properly,
+	so remove those (and uncover a D-Bus bug or two in the process).
+
+	* nih/tests/test_dbus.c: Remove unnecessary SIGPIPE setting.
+
+	* nih/libnih-dbus.supp: I keep finding ways in which D-Bus holds
+	on to data, not to mention annoying NSS problems.
+
+	* nih/libnih.supp: Add long-missing suppression for the main loop
+	functions list, seems we've never actually tested that without
+	freeing it manually.
+
+2008-04-18  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/dbus.c (nih_dbus_connect, nih_dbus_bus): Functions to connect
+	to an abitrary address or a well-known bus, calling our own handler
+	on disconnect instead of exit() and setting things up in the main
+	loop properly.
+	(nih_dbus_setup): Function called by the above, and callable
+	externally, to set up the disconnect handler and main loop hook-ups;
+	deals with shared connections by checking the main loop slot.
+	(nih_dbus_server): Similar function to create a listening server
+	and hook it up to the main loop.
+	(nih_dbus_add_watch, nih_dbus_remove_watch)
+	(nih_dbus_watch_toggled, nih_dbus_watcher): Glue functions so that
+	D-Bus can watch file descriptors using our main loop.
+	(nih_dbus_add_timeout, nih_dbus_remove_timeout)
+	(nih_dbus_timeout_toggled, nih_dbus_timer): Glue functions so that
+	D-Bus can set timeouts using our main loop.
+	(nih_dbus_wakeup_main): Glue function so that D-Bus can interrupt
+	the main loop (I think this is really for multi-threaded apps, but
+	it does no harm to force an iteration).
+	(nih_dbus_callback): Glue function to dispatch D-Bus messages
+	within the main loop.
+	(nih_dbus_connection_disconnected): Filter function to catch the
+	org.freedesktop.DBus.Local.Disconnected signal and call any
+	disconnect handler before unreferencing the connection.
+	(nih_dbus_new_connection): Handle new server connections by calling
+	the connect handler if set, referencing the new connection then
+	setting it up in the main loop.
+	* nih/dbus.h (NihDBusDisconnectHandler, NihDBusConnectHandler):
+	Function prototype typedefs for disconnect and connect handlers.
+	* nih/tests/test_dbus.c (test_connect, test_bus, test_setup)
+	(test_server): Test the new functions as best we can.
+	* nih/libnih-dbus.supp: D-Bus slot allocator doesn't free memory.
+
+	* nih/main.c (nih_main_loop_init): Make a non-static function.
+	* nih/main.h: Add prototype.
+
+2008-04-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_FILE_NE, TEST_FILE_NE_N): Fix logic of tests.
+
+2008-04-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/Makefile.am: If we're not installing the library then we
+	want to still make the script but don't want to install it.
+
+	* nih/nih_dbus_tool.py: Skeleton code for the Python binding tool.
+	* nih/tests/test_nih_dbus_tool.py: Test cases for the dbus tool.
+	* nih/Makefile.am (TESTS): When building the dbus library, also run
+	the Python test suite for the Python binding tool; this requires
+	reversing the check_PROGRAMS/TESTS setting since it needs to only
+	be in TESTS.
+
+	* nih/libnih-dbus.supp, nih/libnih-dbus.ver: Library support files.
+
+	* nih/dbus.c (nih_dbus_error_raise): Begin the D-Bus library with
+	a function to raise an NihError that can be converted into a
+	DBusError when necessary (to be used in function returns).
+	* nih/dbus.h (NihDBusError): Type for the structure since we need
+	to include a name member.
+	* nih/tests/test_dbus.c (test_error_raise): Test case.
+	* nih/errors.h: Add NIH_DBUS_ERROR error; no string for this since
+	each individual error will have its own.
+
+2008-04-11  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/misc.m4: Reverse the sense of the noinstall option, so that
+	"install" needs to be present for libnih to be installed.
+	* configure.ac: Install libnih when built from its own source.
+
+2008-03-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/Makefile.am (libraries): Build optional libnih-dbus.la
+	(libnih_dbus_la_SOURCES, libnih_dbus_la_CFLAGS)
+	(libnih_dbus_la_LIBS, -version-info 0, libnih_dbus_la_LDFLAGS):
+	Details for optional library.
+	(EXTRA_DIST): Distribute the version script and suppressions files.
+	(nihinclude_HEADERS): Install the optional libdbus header
+	(bin_SCRIPTS): Build optional nih-dbus-tool binding tool script
+	(CLEANFILES, EXTRA_DIST, do_subst, nih-dbus-tool): Create installed
+	script by substituting in another, be sure to distribute the other
+	and clean the intermediate file.
+	(TESTS): Optional test suite
+	(test_dbus_SOURCES, test_dbus_CFLAGS, test_dbus_LDFLAGS)
+	(test_dbus_LDADD): Details for the optional dbus test suite.
+	* m4/misc.m4 (AC_COPYRIGHT): Also add a Makefile PACKAGE_COPYRIGHT
+	variable for substitution.
+	(NIH_INIT): We have separate cflags for dbus-related tools, so we
+	need to check that gcc supports -c and -o.
+
+	* m4/libs.m4 (NIH_LIB_DBUS): Macro to detet whether pkg-config,
+	D-Bus and Python are available and decide based on that whether or
+	not we can build an optional D-Bus binding library; configure options
+	and arguments determine whether being unable to is a warning or an
+	error.
+	* m4/misc.m4: Add the dbus option to the help and the call to check
+	for the libraries.
+	* README: Add a section on the dependencies this introduces.
+
+	* m4/libs.m4: Add an empty file to hold macros relating to library
+	detection.
+	* m4/Makefile.am (dist_aclocal_DATA): Install and distribute the
+	new macro file.
+	* nihify: Symlink the new macro file across as well.
+
+2008-03-19  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/hash.c (nih_hash_pointer_hash): Fix hash generation on 64-bit
+	systems by using each byte rather than trying to be clever.
+
+2008-03-14  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/hash.c (nih_hash_new): Also require hash and cmp functions
+	and store in the structure.
+	(nih_hash_add, nih_hash_add_unique, nih_hash_add_replace)
+	(nih_hash_search, nih_hash_lookup): Change key type to void,
+	use hash and cmp functions from the structure.
+	(fnv_hash): Rename to nih_hash_string_key
+	(nih_hash_string_cmp): String comparison function.
+	(nih_hash_pointer_key, nih_hash_pointer_hash, nih_hash_pointer_cmp):
+	Pointer hash functions.
+	* nih/hash.h (NihHashFunction): Prototype for hash function.
+	(NihCmpFunction): Prototype for key comparison function.
+	(NihHash): Add hash_function and cmp_function members.
+	(nih_hash_pointer_new, nih_hash_string_new): Macros to wrap function
+	and pass in common key, hash and cmp functions.
+	* nih/tests/test_hash.c: Update tests to include new functions and
+	macros.
+	* nih/watch.c: Use nih_hash_string_new() to create the hash table.
+
+	* nih/command.c: Add const to local structures.
+	(nih_command_join): Expect to not change the structures passed
+	(nih_command_handle): Iterate structure as const.
+	* nih/command.h: Add const to prototype.
+	* nih/option.c: Add const to local structures.
+	(nih_option_join): Expect to not change the structures passed
+	* nih/option.h: Add const to prototype.
+
+	* nih/error.c (nih_error_init): Make extern for consistency.
+	* nih/error.h: Add prototype.
+	* nih/logging.c (nih_log_init): Make extern for consistency.
+	* nih/logging.h: Add prototype.
+
+	* nih/child.c (child_watches): Rename to nih_child_watches and
+	make extern.
+	(nih_child_init): Make extern, update name of global.
+	(nih_child_add_watch, nih_child_poll): Update name of global.
+	* nih/child.h: Add prototypes.
+	* nih/io.c (io_watches): Rename to nih_io_watches and make extern.
+	(nih_io_init): Make extern, update name of global.
+	(nih_io_add_watch, nih_io_select_fds, nih_io_handle_fds): Update
+	name of global.
+	* nih/io.h: Add prototypes.
+	* nih/main.c (loop_functions): Rename to nih_main_loop_functions
+	and make extern.
+	(nih_main_loop_init, nih_main_loop, nih_main_loop_add_func): Update
+	name of global.
+	* nih/main.h: Add prototype.
+	* nih/signal.c (signals): Rename to nih_signals and make extern.
+	(nih_signal_init): Make extern, update name of global.
+	(nih_signal_add_handler, nih_signal_poll): Update name of global.
+	* nih/signal.h: Add prototypes.
+	* nih/timer.c (timers): Rename to nih_timers and make extern.
+	(nih_timer_init): Make extern, update name of global.
+	(nih_timer_add_timeout, nih_timer_add_periodic)
+	(nih_timer_add_scheduled, nih_timer_next_due, nih_timer_poll): Update
+	name of global.
+	* nih/timer.h: Add prototypes.
+
+	* m4/misc.m4 (NIH_INIT): Allow the macro to take options, the first
+	of which shall be "noinstall" which defines a Makefile conditional
+	that prevents installation of files -- useful when embedded in
+	things like Upstart.
+	* m4/Makefile.am (dist_aclocal_DATA): Don't install if "noinstall"
+	is defined.
+	* nih/Makefile.am (lib_LTLIBRARIES): If "noinstall" is defined,
+	still build the library but do not install it.
+	(include_HEADERS): Don't install if "noinstall" is defined.
+
+2008-03-08  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Don't even need /product/ anymore.
+
+	* HACKING: Terminology changes: Bazaar-NG is now just Bazaar;
+	Malone is now just Launchpad's bug tracking system.
+
+2008-03-07  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/error.h (NIH_SHOULD): We quite often need to loop while
+	we get ENOMEM, but break on another error; this does that.
+	* nih/watch.c (nih_watch_new): Use here, fixing a bug in the process
+	where we didn't re-raise the error again.
+
+2008-03-06  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/string.c (nih_strcat, nih_strncat, nih_strcat_sprintf)
+	(nih_strcat_vsprintf): I'm needing to use realloc more than I should
+	for string concatenation, so lets have some functions to do that.
+	* nih/string.h: Prototypes for new functions.
+	* nih/tests/test_string.c (test_strcat, test_strncat)
+	(test_strcat_sprintf, test_strcat_vsprintf): Test the new functions.
+
+	* TODO: Update.
+
+2008-03-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_config.c (test_token): Also check that backslashes
+	can escape themselves; since you may want a literal one followed by
+	whitespace or a newline.
+	* nih/config.c (nih_config_token): Dequote blackslash following a
+	blackslash.
+
+	* nih/tests/test_config.c (test_token): We don't want to dequote
+	anything other than newlines and whitespace, since the quote
+	characters may be important for the value (e.g. \$FOO being different
+	to $FOO).  Add tests to make sure we don't.
+	* nih/config.c (nih_config_token): After a slash, only dequote
+	whitespace otherwise if we're copying, copy a literal slash character
+	first.
+
+	* nih/tests/test_string.c (test_array_append): Should work with a
+	NULL array argument.
+	* nih/string.c (nih_str_array_append): Make it work.
+	(nih_str_array_copy): Which makes this function somewhat simpler.
+
+2008-03-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/libnih.supp (nih-command-parser, nih-option-parser): Suppress
+	leak of internal state during --help tests.
+	(nih-main-package-string-test): Modify suppression to also catch
+	when it's allocated within a test case.
+
+2008-03-01  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tree.h (NIH_TREE_FOREACH_FULL, NIH_TREE_FOREACH_PRE_FULL)
+	(NIH_TREE_FOREACH_POST_FULL): The lack of these macros was silly.
+	* nih/tests/test_tree.c (test_foreach_full)
+	(test_foreach_pre_full, test_foreach_post_full): Add tests.
+
+	* nih/tree.c (nih_tree_next, nih_tree_prev, nih_tree_next_pre)
+	(nih_tree_prev_pre, nih_tree_next_post, nih_tree_prev_post): Rename
+	these functions to *_full and add filter and data pointers, where
+	the filter must return FALSE if given otherwise a node is ignored.
+	* nih/tree.h: Update prototypes, and keep previous behaviour with
+	the old names through the use of macros.  Typedef the filter function
+	pointer type.
+	* nih/tests/test_tree.c (test_next_full, test_prev_full)
+	(test_next_pre_full, test_prev_pre_full, text_next_post_full)
+	(test_prev_post_full): Test iteration with filters.
+
+2008-01-16  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tree.c (nih_tree_next, nih_tree_prev, nih_tree_next_pre)
+	(nih_tree_prev_pre, nih_tree_next_post, nih_tree_prev_post): It's
+	never possible to break out of the loop since we always return
+	inside it.
+
+	* nih/tests/test_child.c (test_poll): Add test case for the watch
+	being on the wrong event.
+
+	* m4/compiler.m4 (NIH_COMPILER_COVERAGE): Allow this to disable
+	use of -Os, which otherwise wouldn't be.
+
+	* configure.ac (AC_COPYRIGHT): Update copyright to 2008.
+
+2008-01-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/tests/test_child.c (test_poll): Don't run the ptrace tests
+	under valgrind, since they upset it somewhat and return different
+	things (I expect we end up tracing valgrind itself).
+
+	* nih/main.c (nih_main_daemonise): Formatting fix.
+
+2008-01-14  Scott James Remnant  <scott@netsplit.com>
+
+	* HACKING: Correct bzr URL to trunk.
+
+2007-12-06  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/child.c (nih_child_poll): I give up.  The wait queue can change
+	between an invocation of waitid with WNOWAIT and the invocation later
+	to "remove" the entry.  WNOWAIT is a waste of time, and no matter how
+	useful it might have been, I just see no way of actually using it.
+	* nih/child.h: Update documentation.
+
+2007-12-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/signal.c (nih_signal_set_handler): Drop the SA_NOCLDSTOP flag
+	from when we were setting SIGCHLD, I've no idea why this crept in
+	and it now stops us doing things we want to.
+	* nih/tests/test_signal.c (test_set_handler): Remove the test for it.
+
+	* nih/tests/test_child.c (test_poll): Fix for AMD64, the data
+	argument for PTRACE_GETEVENTMSG is unsigned long, which is larger
+	than pid_t here.
+
+	* nih/tests/test_child.c (test_poll): Fix up several race
+	conditions in the ptrace test cases, there are a lot of quirks you
+	have to remember when dealing this most insane of syscalls.
+	(signal from traced child): Once we've finished the test we must
+	detach from the child otherwise we'll trap our own SIGTERM and the
+	child won't exit.  Tthere's no need to send SIGCONT since this
+	is an ordinary ptrace signal trap.
+	(exec by traced child): Detach and send SIGCONT in case the process
+	we run gets a signal delivered to it; if that happened, we'd trap
+	that signal and the child would never exit.
+	(fork by traced child): This is the most pathalogical.  We had a
+	race where nih_child_poll() was actually reaping the event for the
+	child stopping.  Change to get the child pid and wait for it before
+	calling the poll function.  Don't bother waiting for the child to
+	terminate, we shouldn't ever find out if we've detached properly.
+
+2007-11-29  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/main.c (nih_main_write_pidfile): Have to cast the difference
+	in pointers to int, otherwise we get a compiler warning on amd64.
+
+	* nih/child.c (nih_child_poll): Remove the hacks that shift the
+	status information back now that we have a kernel patch in akpm's
+	tree to fix it.
+
+2007-11-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/child.c (nih_child_poll): I found out what was causing the
+	signal information to be missing for CLD_STOPPED, a kernel bug;
+	cope with it for now by shifting the status across 8 bits for
+	CLD_TRAPPED and CLD_STOPPED until I get Roland to fix that bit.
+	* nih/tests/test_child.c (test_poll): Replace sleeps with waitid
+	WNOWAIT calls now that that particular kernel bug is fixed; add
+	a couple of pauses so that the child doesn't exit and clean up
+	the wait queue before we get a chance to look.  Add a wait on the
+	child stopping after fork to avoid a race condition where the child
+	isn't actually running yet when we try and detach from it.
+
+	* nih/child.h (NihChildWatch): Add events member and rename reaper
+	to handler, since it can now be called for things like stop, trap
+	and ptrace events.
+	(NihReaper): Rename to NihChildHandler
+	(NihChildEvents): Enumeration/bit flags for events member
+	* nih/child.c (WAITOPTS): Define wait options in one place to make
+	repeating them easier.
+	(nih_child_add_watch): Add events argument and change type and name
+	of function argument, set in the structure.
+	(nih_child_poll): Rather than just working out a killed boolean (which
+	was wrong anyway since it didn't take CLD_DUMPED into account), we
+	store one of many events in the event argument and convert status if
+	necessary (bit shifting for CLD_TRAPPED and ptrace events).  Check
+	this event against the events mask in the watch, and pass to the
+	handler.
+	* nih/tests/test_child.c (test_add_watch): Check that events and
+	handler are initialised correctly.
+	(test_poll): Many new test cases for exiting, killing, aborting,
+	stopping, continuing, trapping and ptracing.
+
+2007-11-03  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/watch.h (NihWatch): Add created hash table so we can easily
+	delay the create_handler until the file is closed.
+	* nih/watch.c (nih_watch_new): Initialise the created hash table.
+	(nih_watch_handle): When a file is created, add an entry to the
+	created hash table and return without calling a handler -- for all
+	paths, check for and remove any remove any existing created entry;
+	call create_handler instead of modify_handler if this exists, and
+	don't call delete_handler at all.
+	* nih/tests/test_watch.c (test_new): Check created is initialised.
+	(test_reader): Test that creating a file doesn't trigger create
+	until it's closed and that unlinking a file before it's been closed
+	doesn't trigger at all.
+
+	* nih/test.h (TEST_FREE_TAG): assert that we don't use this on
+	a NULL pointer.
+
+2007-11-02  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/test.h (TEST_FUNCTION_FEATURE): Add macro for when we're
+	testing a specific feature of a function.
+
+2007-10-27  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/compiler.m4 (NIH_COMPILER_OPTIMISATIONS): Add extra [...]
+
+	* m4/compiler.m4 (NIH_COMPILER_WARNINGS): Add missing [...] around
+	the second argument to AS_IF.
+	(NIH_COMPILER_OPTIMISATIONS): Fix wrong use of [..][..] to [....]
+	(NIH_COMPILER_COVERAGE): Remove extraneous comma
+
+	* m4/linker.m4 (NIH_LINKER_VERSION_SCRIPT): Restore AM_CONDITIONAL
+	that was mistakenly dropped.
+
+2007-10-26  Scott James Remnant  <scott@netsplit.com>
+
+	* m4/linker.m4 (NIH_LINKER_SYMBOLIC_FUNCTIONS): Test that checks
+	for -Bsymbolic-functions
+
+	* m4/linker.m4: Style fix.
+
+	* m4/compiler.m4 (NIH_COMPILER_COVERAGE, NIH_COMPILER_OPTIMISATIONS)
+	(NIH_COMPILER_WARNINGS): Update to use AS_IF.
+
+	* m4/compiler.m4 (NIH_C_THREAD): Shell fix.
+
+	* m4/linker.m4 (NIH_LINKER_OPTIMISATIONS): Update to use AS_IF.
+
+	* m4/linker.m4 (NIH_LINKER_VERSION_SCRIPT): Update so it supports
+	a config.cache
+
+2007-10-24  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/file.c (nih_file_map): Catch a file larger than the length of
+	size_t and raise the standard EFBIG error message.  Noticed by
+	Kees Cook.
+
+2007-10-15  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_alloc_using, nih_alloc_reparent, nih_realloc):
+	Change the order in which children allocations are stored in the
+	list such that the last allocation is freed first rather than
+	the other way around.  This solves issues of children being stored
+	inside an allocated hash table which will be freed first.
+
+	* m4/misc.m4 (NIH_INIT): Use AC_PROG_CC_C99 instead of NIH_C_C99
+	* configure.ac: Bump Autoconf dependency to 2.61
+	* HACKING: Likewise increase documentation
+
+	* HACKING: Correct Bazaar branch now we're natively hosted on LP
+
+	* nih/test.h (_test_allocator): Mark used in case it isn't.
+	(_test_free_tag, _test_free_tags, _test_destructor)
+	(TEST_FREE_TAG, TEST_FREE, TEST_NOT_FREE): Since destructors are
+	now intended for internal use by an object, we shouldn't abuse them
+	in test cases like we were doing - since we might not chain up
+	properly and miss vital behaviour as a result.  Instead implement
+	some tests that use a destructor on an nih_alloc() child of the object
+	to determine freeness.
+	* nih/tests/test_watch.c (test_reader): Use TEST_FREE instead of
+	a custom destructor, which are no longer favoured for this kind
+	of work.
+	* nih/tests/test_error.c (test_raise_again, test_pop_context): 
+	Use TEST_FREE instead of custom destructor.
+	* nih/tests/test_timer.c (test_poll): Use TEST_FREE/TEST_NOT_FREE
+	* nih/tests/test_child.c (test_poll): Use TEST_FREE, etc.
+	* nih/tests/test_io.c (test_shutdown, test_watcher)
+	(test_read_message, test_read, test_get): Use TEST_FREE, etc.
+
+	* nih/hash.c, nih/timer.c, nih/signal.c, nih/child.c, nih/io.c,
+	nih/watch.c: Document why non-allocated versions of functions
+	are missing.
+	* TODO: Update.
+
+2007-10-14  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/alloc.c (nih_free): Call destructors before freeing children,
+	this makes them more consistent with being structure clean-up
+	functions rather than using them to detect a free.  Don't return
+	values from children destructors.
+	* nih/tests/test_alloc.c (test_free): Adjust test, return values
+	from children destructors are never returned.
+
+	* nih/watch.c (nih_watch_new): Make the io structure an nih_alloc
+	child of the watch, now that we don't perform any kind of lazy
+	freeing or closing.
+	(nih_watch_destroy): No need to close the io structure since it'll
+	be automatically freed, just set the flag to be caught in the reader.
+	* nih/tests/test_watch.c (test_new): Check parent of watch->io
+	is watch, not NUL.
+	(test_destroy): Don't use the destructor anymore, nih_alloc is tested
+	elsewhere.
+	(test_reader): Don't use destructor to test watch->io
+	(my_destructor): Always call nih_watch_destroy since this is only
+	used for that.
+
+	* nih/io.c (nih_io_close): Rename to nih_io_destroy, setting a free
+	flag in the structure if necessary before closing the descriptor
+	and calling the error handler if there's a problem.
+	(nih_io_reopen): Set destructor
+	(nih_io_watcher): Rename lazy_close to caught_free and check its
+	value after any calls to the reader, error handler or close handler
+	functions; if true, simply bail out.  Reorder leaving so that a
+	shutdown check happens last (since this can free the structure).
+	(nih_io_closed): Now simply calls the close handler if it exists,
+	otherwise frees the structure.
+	* nih/io.h (NihIo): Rename close member to free.
+	Update prototypes.
+	* nih/tests/test_io.c (my_reader, test_reopen): Use nih_free
+	instead of nih_io_close.
+	(test_reopen): Create new fds each time, since they are closed
+	on free now.
+	(destructor_called): Chain up to call nih_io_destroy
+	(test_close): Rename to test_destroy and alter appropriately.
+	(test_watcher): Adjust documentation to say we're checking that free
+	is called in the reader.
+	(test_send_message, test_write, test_printf): Open pipes rather
+	than just stdout, because that will end up closed.
+
+2007-10-12  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/watch.h (NihCreateHandler, NihModifyHandler, NihDeleteHandler):
+	Modify doc strings to mention nih_free instead of nih_watch_free
+
+	* nih/tests/test_file.c (my_visitor): Set destructor for the list
+	entries we create as we go.
+
+	* nih/watch.c (nih_watch_reader): Rework the function slightly,
+	instead of using the free pointer to free at the end of the handler,
+	use it to detect the free after the handler returns and immediately
+	abort -- it means we won't process remaining watches but meh.
+	(nih_watch_handle): Get passed the caught_free flag and check it
+	after calling any handlers to make sure we abort properly.
+	(nih_watch_free): Rename to nih_watch_destroy and just handle the
+	internal cleanup.
+	(nih_watch_new): Set the destructor properly.
+	* nih/watch.h: Update prototypes.
+	* nih/tests/test_watch.c (test_free): Rename to test_destroy.
+	(my_delete_handler): Use nih_free not nih_watch_free
+	(my_destructor): Chain up to nih_watch_destroy for NihWatch.
+
+	* nih/tests/test_watch.c (my_destructor): Neither NihWatch nor NihIo
+	need a destructor to be called.
+
+	* nih/tests/test_child.c (test_poll): Fix erroneous removal of "1"
+
+	* TODO: Update.
+
+2007-10-11  Scott James Remnant  <scott@netsplit.com>
+
+	* nih/option.c, nih/command.c, nih/config.c: Remove references to
+	nih_alloc_set_destructor() from doc strings since this is now
+	considered bad practice.
+
+	* nih/main.c (nih_main_loop_add_func): Adjust call to set destructor
+	* nih/tests/test_main.c (test_main_loop)
+	(test_main_loop_add_func): Call nih_free instead of nih_list_free
+
+	* nih/watch.c (nih_watch_add, nih_watch_handle): Call nih_free
+	instead of nih_list_free
+	(nih_watch_add): Set destructor to nih_list_destroy for now.
+	* nih/tests/test_watch.c (my_destructor): Call nih_list_destroy
+	for NihWatch structure.
+
+	* nih/file.c (nih_dir_walk_visit): Call nih_free instead of
+	nih_list_free
+	(nih_dir_walk, nih_dir_walk_visit): Set destructor on object.
+
+	* nih/tests/test_io.c (test_add_watch, test_select_fds)
+	(test_handle_fds, test_shutdown, test_watcher): Call nih-free
+	instead of nih_list_free
+	(destructor_called): Call nih_list_destroy when passed an
+	NihIoMessage; a bit icky since this is also called for an NihIo
+	which doesn't have a destructor (yet)
+
+	* nih/io.c (nih_io_watcher_write, nih_io_read, nih_io_get): Call
+	nih_free instead of nih_list_free.
+	(nih_io_add_watch): Adjust call to set destructor
+	(nih_io_message_new): Set a destructor so the message is removed
+	from a list when freed.
+
+	* nih/child.c (nih_child_add_watch): Adjust call to set destructor
+	(nih_child_poll): Call nih_free instead of nih_list_free
+	* nih/tests/test_child.c (test_add_watch, test_poll): Call nih_free
+	instead of nih_list_free.
+	(my_destructor): Call nih_list_destroy().
+
+	* nih/string.c: Fix documentation as below.
+
+	* nih/hash.c: Fix doc string, destructors are now considered internal
+	and shouldn't be set by callers.
+
+	* nih/signal.c (nih_signal_add_handler): Adjust call to set destructor
+	* nih/tests/test_signal.c (test_add_handler): Call nih_free instead
+	of nih_list_free
+
+	* nih/timer.c: Fix doc strings
+
+	* nih/timer.c (nih_timer_add_timeout, nih_timer_add_periodic)
+	(nih_timer_add_scheduled): Adjust calls to set destructor.
+	(nih_timer_poll): Call nih_free rather than nih_list_free.
+	* nih/tests/test_timer.c (test_add_timeout, test_add_periodic)
+	(test_add_scheduled, test_next_due): Call nih_free rather than
+	nih_list_free
+	(my_destructor): Call the list destructor.
+
+	* nih/tree.c (nih_tree_destructor): Rename to nih_tree_destroy()
+	(nih_tree_free): Drop.
+	(nih_tree_new, nih_tree_entry_new): Set destructor.
+	* nih/tree.h: Update prototypes.
+	* nih/tests/test_tree.c (test_destructor): Rename.
+	(test_free): Drop
+
+	* nih/: Documentation string fix.
+
+	* nih/tests/test_hash.c (test_string_key): Replace nih_list_free
+	call with nih_free, since we're not overriding the destructor.
+
+	* nih/list.c (nih_list_free): Drop this function.
+	(nih_list_destructor): Rename to nih_list_destroy()
+	(nih_list_new, nih_list_entry_new): Set destructor function.
+	* nih/list.h: Update prototypes.
+	* nih/tests/test_list.c (test_destructor): Rename.
+	(test_free): Drop.
+	(test_add): Replace nih_list_free calls with nih_free
+
 2007-10-08  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac (AM_GNU_GETTEXT_VERSION): Bump to 0.16.1 since this

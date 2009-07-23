@@ -2,21 +2,21 @@
  *
  * test_file.c - test suite for nih/file.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
@@ -27,6 +27,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -39,6 +40,69 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 #include <nih/errors.h>
+
+
+void
+test_read (void)
+{
+	FILE     *fd;
+	char      filename[PATH_MAX], *file;
+	size_t    length;
+	NihError *err;
+
+	TEST_FUNCTION ("nih_file_read");
+	nih_error_init ();
+
+
+	/* Check that we can read a file into memory, and that the memory
+	 * contents match the file.
+	 */
+	TEST_FEATURE ("with existing file");
+	TEST_FILENAME (filename);
+
+	fd = fopen (filename, "w");
+	fprintf (fd, "test\n");
+	fclose (fd);
+
+	TEST_ALLOC_FAIL {
+		length = 0;
+		file = nih_file_read (NULL, filename, &length);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (file, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_ALLOC_SIZE (file, 5);
+
+		TEST_NE_P (file, NULL);
+		TEST_EQ (length, 5);
+		TEST_EQ_MEM (file, "test\n", 5);
+
+		nih_free (file);
+	}
+
+	unlink (filename);
+
+
+	/* Check that if we try and read a non-existant file, we get an
+	 * error raised.
+	 */
+	TEST_FEATURE ("with non-existant file");
+	length = 0;
+	file = nih_file_read (NULL, filename, &length);
+
+	TEST_EQ_P (file, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, ENOENT);
+	nih_free (err);
+}
 
 
 void
@@ -112,7 +176,8 @@ test_map (void)
 	munmap (map, length);
 	fd = fopen (filename, "r");
 
-	fgets (text, sizeof (text), fd);
+	if (! fgets (text, sizeof (text), fd))
+		TEST_FAILED ("unexpected eof on file");
 	TEST_EQ_STR (text, "cool\n");
 
 	fclose (fd);
@@ -598,6 +663,7 @@ my_visitor (void        *data,
 	TEST_ALLOC_SAFE {
 		v = nih_new (visited, Visited);
 		nih_list_init (&v->entry);
+		nih_alloc_set_destructor (v, nih_list_destroy);
 
 		v->data = data;
 		v->dirname = nih_strdup (v, dirname);
@@ -635,7 +701,6 @@ my_error_handler (void        *data,
 	last_error_path = strdup (path);
 
  	if (data == (void *)-2) {
-		nih_error_raise_again (err);
 		return -1;
 	}
 
@@ -647,7 +712,8 @@ my_error_handler (void        *data,
 
 static int
 my_filter (void       *data,
-	   const char *path)
+	   const char *path,
+	   int         is_dir)
 {
 	char *slash;
 
@@ -1220,7 +1286,7 @@ test_dir_walk (void)
 	TEST_FEATURE ("with simple directory loop");
 	strcpy (filename, dirname);
 	strcat (filename, "/bar/loop");
-	symlink (dirname, filename);
+	assert0 (symlink (dirname, filename));
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -1325,6 +1391,7 @@ int
 main (int   argc,
       char *argv[])
 {
+	test_read ();
 	test_map ();
 	test_unmap ();
 	test_is_hidden ();

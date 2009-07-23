@@ -3,50 +3,19 @@ Section: admin
 Priority: extra
 Maintainer: Michael Biebl <biebl@debian.org>
 Uploaders: martin f. krafft <madduck@debian.org>
-Standards-Version: 3.8.1
-Build-Depends: debhelper (>= 7), quilt
+Standards-Version: 3.8.2
+Build-Depends: debhelper (>= 7), quilt, pkg-config (>= 0.22), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0)
 Vcs-Git: git://git.debian.org/git/collab-maint/upstart.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/upstart.git;a=summary
 Homepage: http://upstart.ubuntu.com/
 
 Package: upstart
 Architecture: any
-Pre-Depends: ${shlibs:Depends}, sysvinit-utils (>= 2.86.ds1-23)
-Recommends: upstart-compat-sysv, upstart-logd, startup-tasks, system-services
-Conflicts: sysvinit
-Replaces: sysvinit
+Depends: ${shlibs:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts
+Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
+Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
+Provides: upstart-job
 Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during
  shutdown and supervising them while the system is running.
-
-Package: upstart-compat-sysv
-Architecture: any
-Depends: ${shlibs:Depends}, upstart (= ${binary:Version}), sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts
-Replaces: upstart (<< 0.3.1-1), sysvinit
-Description: compatibility for System-V-like init
- This package contains compatibility tasks and utilities that emulate
- the behaviour of the original sysvinit package, including runlevels,
- and ensures that the initscripts in /etc/rc*.d are still run.
-
-Package: upstart-logd
-Architecture: any
-Depends: ${shlibs:Depends}, upstart (= ${binary:Version})
-Description: boot logging daemon
- This package contains the logd daemon used by /sbin/init to log output
- of jobs started with "console logged" in their definitions.
-
-Package: startup-tasks
-Architecture: any
-Depends: upstart (>= 0.2.0)
-Description: definitions of essential tasks to run on startup
- This package contains the definitions of tasks essential for normal
- startup of a Linux system.
-
-Package: system-services
-Architecture: any
-Depends: upstart (>= 0.2.0), upstart-compat-sysv
-Replaces: upstart (<< 0.2.1-6)
-Description: definitions of essential system services
- This package contains the definitions of services essential for the
- normal operation of a Linux system.

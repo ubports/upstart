@@ -1,36 +1,32 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_WATCH_H
 #define NIH_WATCH_H
 
-#ifdef HAVE_SYS_INOTIFY_H
-# include <sys/inotify.h>
-#else
-# include <nih/inotify.h>
-#endif /* HAVE_SYS_INOTIFY_H */
-
+#include <sys/inotify.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include <nih/macros.h>
 #include <nih/list.h>
+#include <nih/hash.h>
 #include <nih/file.h>
 #include <nih/io.h>
 
@@ -50,7 +46,7 @@ typedef struct nih_watch NihWatch;
  * @path contains the path to the file, including the directory prefix
  * which can be found in @watch.
  *
- * It is safe to remove the watch with nih_watch_free() from this function.
+ * It is safe to remove the watch with nih_free() from this function.
  **/
 typedef void (*NihCreateHandler) (void *data, NihWatch *watch,
 				  const char *path, struct stat *statbuf);
@@ -67,7 +63,7 @@ typedef void (*NihCreateHandler) (void *data, NihWatch *watch,
  * the path to the file, including the directory prefix which can be
  * found in @watch.
  *
- * It is safe to remove the watch with nih_watch_free() from this function.
+ * It is safe to remove the watch with nih_free() from this function.
  **/
 typedef void (*NihModifyHandler) (void *data, NihWatch *watch,
 				  const char *path, struct stat *statbuf);
@@ -88,7 +84,7 @@ typedef void (*NihModifyHandler) (void *data, NihWatch *watch,
  * with the top-level path as an argument (check watch->path).  It is
  * normal and safe to free the watch at this point.
  *
- * It is safe to remove the watch with nih_watch_free() from this function.
+ * It is safe to remove the watch with nih_free() from this function.
  **/
 typedef void (*NihDeleteHandler) (void *data, NihWatch *watch,
 				  const char *path);
@@ -104,8 +100,9 @@ typedef void (*NihDeleteHandler) (void *data, NihWatch *watch,
  * @create: call @create_handler for existing files,
  * @filter: function to filter paths watched,
  * @create_handler: function called when a path is created,
- * @modify_handler; function called when a path is modified,
+ * @modify_handler: function called when a path is modified,
  * @delete_handler: function called when a path is deleted,
+ * @created: hash table of created files,
  * @data: pointer to pass to functions,
  * @free: allows free to be called within a handler.
  *
@@ -127,6 +124,8 @@ struct nih_watch {
 	NihCreateHandler  create_handler;
 	NihModifyHandler  modify_handler;
 	NihDeleteHandler  delete_handler;
+
+	NihHash          *created;
 
 	void             *data;
 	int              *free;
@@ -152,17 +151,17 @@ typedef struct nih_watch_handle {
 
 NIH_BEGIN_EXTERN
 
-NihWatch *nih_watch_new  (const void *parent, const char *path, int subdirs,
-			  int create, NihFileFilter filter,
-			  NihCreateHandler create_handler,
-			  NihModifyHandler modify_handler,
-			  NihDeleteHandler delete_handler, void *data)
+NihWatch *nih_watch_new     (const void *parent, const char *path, int subdirs,
+			     int create, NihFileFilter filter,
+			     NihCreateHandler create_handler,
+			     NihModifyHandler modify_handler,
+			     NihDeleteHandler delete_handler, void *data)
 	__attribute__ ((warn_unused_result, malloc));
 
-int       nih_watch_add  (NihWatch *watch, const char *path, int subdirs)
+int       nih_watch_add     (NihWatch *watch, const char *path, int subdirs)
 	__attribute__ ((warn_unused_result));
 
-int       nih_watch_free (NihWatch *watch);
+int       nih_watch_destroy (NihWatch *watch);
 
 NIH_END_EXTERN
 

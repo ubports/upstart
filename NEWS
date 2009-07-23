@@ -1,3 +1,425 @@
+0.6.2  2009-07-21  "Buggrit, millennium hand and shrimp"
+
+	* Fixed an assertion when a job receives a stop event or the
+	  stop command while still in the starting state.
+
+	* Changed exec() trace handling to allow the main process to
+	  exec another before fork()ing while still following (e.g.
+	  main script exec'ing a daemon)
+
+	* Restored missing chdir("/") call when catching crashes.
+
+0.6.1  2009-07-16  "Born in the wagon of a travelling show"
+
+	* D-Bus 1.2.16 is now required.
+
+	* Updated ptrace() code to handle receiving the trapped stopped
+	  child _before_ we receive the trapped fork() syscall, which
+	  seems to be the most common way the race goes when running
+	  as init.  This seems to make "expect fork/daemon" largely work.
+	  (Bug: #264711)
+
+	* runlevel will now output "unknown" and exit with an error when
+	  called before the first telinit call.  (Bug: #400248)
+
+	* runlevel will prefix error messages with the utmp filename being
+	  used.  (Bug: #400241)
+
+0.6.0  2009-07-09  "How appropriate, you fight like a cow"
+
+	* The licence for Upstart has been changed back to version 2 of the
+	  GNU GPL.
+
+	* D-Bus 1.2.15 is now required, this is the current GIT HEAD
+	  pending a 1.2.16 release.
+
+	* Configuration paths have changed.  Global configuration now
+	  resides in "/etc/init.conf" while jobs are now configured in
+	  "/etc/init"
+
+	* Job configuration filenames must now end in ".conf"
+
+	* Default configuration files are now supplied in the "conf"
+	  sub-directory of the source, and installed into "/etc/init".
+
+	  These match the Debian/Ubuntu sysvinit configuration so may
+	  require some tweaking for other distributions, but provide an
+	  excellent base.
+
+	  The old example-jobs tarballs are deprecated.
+
+	* The D-Bus interface remains unstable, to reflect this the current
+	  interface name has changed to "com.ubuntu.Upstart0_6" and the
+	  name of the job and instance interfaces have changed to match.
+
+	* The "EmitEvent" D-Bus method gains a wait argument, when given
+	  as TRUE (the recommended setting) the method call will be blocked
+	  until all effects of the event have finished.  When FALSE the
+	  method call will return once the event has been queued.
+
+	* The "Start", "Stop" and "Restart" D-Bus methods of jobs and
+	  instances gain a similar wait argument.
+
+	* The Upstart D-Bus object now has "version" and "log_priority"
+	  properties.  The former is to obtain the version of the init daemon,
+	  the latter allows you to obtain and change the logging priority.
+
+	* Job D-Bus objects now have "name", "description", "author" and
+	  "version" properties to obtain the job name and the contents of
+	  the equivalent job file fields for the others.
+
+	* Instance D-Bus objects now have "name", "goal", "state" and
+	  "processes" properties to obtain the instance name, goal, state
+	  and list of running processes and their pids respectively.
+
+	* The default D-Bus security policy now permits use of the "Get"
+	  methods by all users, including obtaining values of properties.
+
+	* initctl has been rewritten with functionality more along the
+	  lines of Upstart 0.3.x than before; since many distributions are
+	  still shipping 0.3.x the summary of changes for the tool reflects
+	  both changes from 0.3.x and 0.5.x
+
+	* The global "-p"/"--pid" argument has been dropped, since
+	  communication is over D-Bus.  New "--system" and "--dest" arguments
+	  have been added to force communication over the system bus, and
+	  specify the destination, instead of using the private socket (this
+	  is the default when run as non-root to permit "list" and "status"
+	  to work for ordinary users).
+
+	* The "-i"/"--id" and "--show-ids" options to commands have been
+	  dropped since jobs no longer have ids.
+
+	* Since instances may now have names, these will be displayed in
+	  brackets after the job name when one is present.  The output of
+	  the goal and state are now expressed as "start/running" instead
+	  of "(start) running" to disambiguate.
+
+	* initctl "start" and "stop" now only output the final state of
+	  the job, not intermediate states it passes through.  When called
+	  with "--no-wait", the commands now output a status before
+	  returning (which may not be the final status).
+
+	* initctl "start", "stop" and "status" now only accept a single
+	  job name.  Further arguments are taken as KEY=VALUE environment
+	  variables to pass to the job, replacing the previous "-e" option.
+
+	* There is a new initctl "restart" command, with matching
+	  /sbin/restart symlink.  This is the atomic equivalent of calling
+	  "stop" and "start" with the exception that a stopped job will
+	  not be started again.
+
+	* In keeping with the newer instance model, instance jobs are now
+	  output on separate lines with their full names rather than
+	  indented under a "master" instance.
+
+	* initctl "status" will exit non-zero if the job name was not
+	  found.  (Bug: #328323)
+
+	* initctl "status" now outputs information for multi-instance
+	  jobs.  (Bug: #331407)
+
+	* initctl "list" no longer accepts a pattern, use grep.  Output
+	  is no longer sorted.
+
+	* initctl "emit" no longer outputs changes that occur as a result
+	  of the event.
+
+	* When initctl "emit" is called with "--no-wait", it will return
+	  immediately.  (Bug: #324890)
+
+	* initctl "emit" now only accepts a single event name.  Further
+	  arguments are taken as KEY=VALUE environment for the event,
+	  replacing the previous "-e" option.
+
+	* initctl "jobs" and "events" have been dropped.
+
+	* initctl "log-priority" may be called without arguments, in
+	  which case it will output the current priority.  (Bug: #280529)
+
+	* initctl "reload" has been renamed to "reload-configuration"
+	  to avoid confusion with reloading a job's configuration.
+
+	* initctl(8) man page updated.  (Bug: #285753)
+
+	* runlevel no longer accepts the --set and --reboot arguments,
+	  instead telinit and shutdown write these records into utmp and wtmp.
+
+	* runlevel(7) man page added to describe the runlevel event, and
+	  the implementation of runlevels and System V compatibility in
+	  Upstart.  (Bug: #60429)
+
+	* telinit will no longer silently ignore the "a", "b" or "c"
+	  runlevels.
+
+	* telinit now accepts the previously ignored "-e" argument, passing
+	  the environment variables given along with the runlevel event.
+
+	* telinit now officially accepts the "q"/"Q" and "u"/"U" arguments,
+	  the former will reload the Upstart configuration while the latter
+	  will re-execute Upstart.
+
+	* telinit q will also attempt to reconnect to the D-Bus system bus
+	  if the connection has not been made, or has been lost.
+	  (Bug: #323022)
+
+	* reboot no longer silently ignores the "-t" option.
+
+	* reboot now silently ignores the "-n", "-i" and "-h" options; it
+	  will no longer sync your disks, down your network interfaces or
+	  spin down your hard drives.  This functionality is all handled
+	  by the kernel on a modern system.  (Bug: #92685)
+
+	* reboot now writes a "shutdown" record to /var/log/wtmp, this means
+	  that the "-w" option is honoured with its original intent.  We
+	  still silently ignore the "-d" option.
+
+	* shutdown message generation fixed to be more easily translatable.
+	  (Bug: #102565)
+
+	* The TERM/KILL timeout, and other system timeouts, now use the
+	  monotonic clock so are unaffected by system clock changes.
+	  (Bug: #389588)
+
+	* Respawn detection now uses the monotonic clock so is unaffected
+	  by system clock changes.  (Bug: #389586)
+
+	* Significant improvement in the amount of manual pages included
+	  with Upstart and their content.  (Bug: #60429)
+
+	* A manual page refering people from /etc/inittab to /etc/init
+	  is also included.  (Bug: #72058)
+
+0.5.3  2009-06-22  "Britain's Flag Carrier"
+
+	* Fixed segfault when initctl status called with arguments.
+	  (Bug: #388753)
+
+	* Fixed segfault when initctl log-priority called with no argument.
+	  (Bug: #280529)
+
+	* Fixed shutdown to pass $INIT_HALT variable as last argument, not
+	  as first.  (Bug: #303574)
+
+	* Added temporary support for "telinit u" until we have true re-exec
+	  support.  This will be replaced by an initctl command in future.
+	  (Bug: #388742)
+
+	* Corrected formatting of initctl(8) manpage.  (Bug: #388745)
+
+0.5.2  2009-06-17  "Something, something, something, D-Bus"
+
+	* The licence for Upstart has been updated to GNU GPL v3.
+
+	* Overhaul of the automatically generated D-Bus bindings code,
+	  fixing many issues with memory leaks, inconsistent return values
+	  and loss of method returns after the method has taken place.
+
+	* D-Bus 1.2.4 is now required, and must be patched to fix
+	  https://bugs.freedesktop.org/show_bug.cgi?id=22316
+
+	* D-Bus Job objects now have "name", "description", "author"
+	  and "version" properties.
+
+	* D-Bus Instance object now have "name", "goal" and "state"
+	  properties.
+
+	* initctl now obtains the name properties for display instead of
+	  printing the mangled object path component.  (Bug: #299290)
+
+	* D-Bus configuration updated now that the daemon is fixed to be
+	  deny-by-default, and updated to avoid bare "send_interface"
+	  stanzas.  (Bug: #323021)
+
+	* Fixed assertion caused by the post-start or pre-stop scripts
+          exiting after the main process of a respawning job had exited
+          (Bug: #381048)
+
+	* The /proc filesystem need not be mounted if the "oom_adj"
+	  configuration stanza is not used.  (Bug: #259801)
+
+	* Overly large values to configuration stanzas are now caught
+	  and rejected.  (Bug: #340134)
+
+	* The --enable-compiler-warnings configure option has been
+	  extended to add -Wextra, but turns off a few of the more extreme
+	  warnings
+
+	* GNU C Library v2.4 (or backported inotify support) is required
+
+	* pkg-config 0.22 is now required, it probably was anyway but we
+	  now explicitly check for it.
+
+	* Dependency on Python for the D-Bus binding tool has been dropped
+	  and replaced with a dependency on expat 2.0.0
+
+0.5.1  2009-01-29  "Unexpected item in bagging area"
+
+	* Major rewrite of the memory allocator used by Upstart; the
+	  old allocator had several limitations and a few issues.
+	  I must stress that none of the issues were known to affect
+	  Upstart itself, however it pays to be prudent.
+
+	* An issue where an object in a linked list would be freed after
+	  the linked list was freed was fixed.  Upstart had some twisty
+	  code logic to work around it, which has now been dropped.
+
+	* An issue where a string could fail to be appended in an OOM
+	  situation was fixed; if Upstart is affected, this could cause
+	  D-Bus Introspection data to be corrupted.
+
+	* An issue where multiple socket watches being freed could lead
+	  to bad memory access has been fixed; Upstart 0.5.0 included a
+	  temporary fix for the D-Bus connection handling, this replaces
+	  that with a proper fix that also corrects the same problem for
+	  timers and other main loop watches that Upstart was not believed
+	  to be affected by.
+
+	* Compiler warnings when compiling the test suite with -O1 and
+	  above have been fixed where found.
+
+	* A race condition in the test cases for a process stopping with
+	  SIGSTOP has been fixed, this could sometimes cause this test
+	  to hang.
+
+0.5.0  2008-08-12  "One of those deaf-mutes"
+
+	* The relationship between job definitions and their running
+          instances has been overhauled completely.  Jobs may have
+          zero or more instances, each one uniquely identified by
+          their instance name which is set by expanding the argument
+          to the "instance" stanza against the instance's environment.
+
+	  For example, a job with "instance $TTY" in its definition
+	  will have new instances created when started with TTY=tty1
+	  and TTY=tty2, but starting again with TTY=tty1 will fail if
+	  that instance is already running.
+
+	* The default job configuration remains to be a singleton,
+          however this is now accomplished simply by having the
+          default for the instance stanza set to a static string.
+
+	* Job events now include the instance name in a new $INSTANCE
+          variable, and will always have $UPSTART_INSTANCE set in the
+          environment of their processes.
+
+	* Jobs may export environment from themselves into the job
+          events using the new "export" stanza.
+
+	* Events no longer have both arguments and environment,
+          instead the order the environment is specified in is
+          remembered and is used when matching.
+
+	* The "start on" and "stop on" stanzas may now only be
+          specified once, multiple events should be joined with the
+          new "or" operator.  A new "and" operator exists as well, and
+          parentheses are permitted, allowing arbitrarily complicated
+          expression matches.
+
+	* All environment from the matched start events is placed in
+          the job, with the list of matched events placed in the
+          $UPSTART_EVENTS variable, replacing the previous singular
+          $UPSTART_EVENT variable.
+
+	* The matches for the "stop on" stanza may refer to variables
+          from the job environment, which comes from the "start on"
+          stanza.
+
+	  For example:
+	      start on started apache or started httpd
+	      stop on stopping $JOB
+
+	* Job environment from the start command or events is
+          available to all scripts, including "pre-stop" and "post-stop".
+
+	* Environment from the matched stop events is only available
+          to the "pre-stop" script, with the list of matched events
+          placed in the $UPSTART_STOP_EVENTS variable so that the list
+          of events that started the job is still available.
+
+	* Environment is no longer lost after a respawn.
+
+	* Environment from the kernel or initramfs may be included in
+          a job by use of the "env NAME" stanza without a value set.
+
+	* The "started" event is no longer emitted if the pre-stop
+          script restarts the job, since the "stopping" event was
+          never emitted.
+
+	* By default, jobs now have the most suitable settings for
+	  a daemon process that would match what they would have had
+	  by calling daemon(). In particular, this means that the
+	  previous "service" stanza is now the default and tasks need
+	  to specify a "task" stanza.  It also means that if the job
+	  really wishes to be a session leader (e.g. getty), it must
+	  specify the new "session leader" stanza.
+
+	* Processes that fork once may be supervised with the new
+          "expect fork" stanza, processes that fork twice (most
+          daemons) may be supervised with the new "expect daemon"
+          stanza and processes that do not fork may signal readiness
+          by SIGSTOP with the new "expect stop" stanza.
+
+	* The "pid file", "pid timeout" and "daemon" stanzas have been
+          removed in favour of the new functionality.
+
+	* "respawn" now works for tasks, this will repeat the task
+          until it finishes with a zero exit status or any other
+          specified by "normal exit".
+
+	* "respawn limit" now only affects automatic respawns, not
+          those done by command.
+
+	* If the main process fails to start due to exec() error, or
+          other process setup error, it will not be respawned.
+
+	* "respawn limit" may be "unlimited".
+
+	* The "stalled" event has been removed.
+
+	* "logd" was not maintained, and did not function correctly,
+          so has been removed from the source.  The "console logged"
+          stanza has also been removed.
+
+	* New "oom" stanza allows adjustment of the OOM killer
+          priority of the process and may be "never" to inhibit it.
+
+	* The configuration directory has now changed to
+          /etc/init/jobs.d
+
+	* Configuration is still reloaded with inotify, but may be
+          forced by sending init a HUP signal or with "initctl reload".
+
+	* Support for the STOP, CONT and TERM signals has been
+          removed.
+
+	* libupstart and the native IPC mechanism has been removed,
+          communication is now via D-Bus which is a new dependency.
+
+	* The dependency on D-Bus introduces build-dependencies on
+          pkg-config and Python.
+
+	* The minimal recommended kernel version is now 2.6.24
+
+	* The compat directory has been removed, the utilities are now
+          considered part of Upstart.
+
+	* initctl jobs has been dropped.
+
+	* initctl commands do not support --no-wait yet
+
+	* initctl status with no arguments now shows all jobs.
+
+	* initctl events no longer exists
+
+0.3.10 2009-06-17  "Two minutes to Belgium"
+
+	* Compilation fixes
+
+	* Fixed assertion caused by the post-start or pre-stop scripts
+	  exiting after the main process of a respawning job had exited
+	  (Bug: #381048)
+
 0.3.9  2007-10-11  "Highway to the Danger Zone"
 
 	* Fixed crasher caused by starting a job with a no-arguments event.

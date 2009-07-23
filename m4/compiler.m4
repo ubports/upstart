@@ -2,26 +2,12 @@
 #
 # compiler.m4 - autoconf macros for compiler settings
 #
-# Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+# Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+# Copyright © 2009 Canonical Ltd.
 #
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
-# ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# This file is free software; the author gives unlimited permission to
+# copy and/or distribute it, with or without modifications, as long as
+# this notice is preserved.
 
 
 # NIH_COMPILER_WARNINGS
@@ -32,14 +18,12 @@ AC_DEFUN([NIH_COMPILER_WARNINGS],
 [AC_ARG_ENABLE(compiler-warnings,
 	AS_HELP_STRING([--enable-compiler-warnings],
 	               [Enable additional compiler warnings]),
-[if test "x$enable_compiler_warnings" = "xyes"; then
-	if test "x$GCC" = "xyes"; then
-                CFLAGS="-Wall -Werror $CFLAGS"
-        fi
-	if test "x$GXX" = "xyes"; then
-		CXXFLAGS="-Wall -Werror $CXXFLAGS"
-	fi
-fi])dnl
+[AS_IF([test "x$enable_compiler_warnings" = "xyes"],
+       [AS_IF([test "x$GCC" = "xyes"],
+              [CFLAGS="-Wall -Wextra -Wno-empty-body -Wno-missing-field-initializers -Wno-unused-parameter -Wformat-security -Werror -D_FORTIFY_SOURCE=2 $CFLAGS"])
+        AS_IF([test "x$GXX" = "xyes"],
+       	      [CXXFLAGS="-Wall -Wextra -Wno-empty-body -Wno-missing-field-initializers -Wno-unused-parameter -Wformat-security -Werror -D_FORTIFY_SOURCE=2 $CXXFLAGS"])])
+])dnl
 ])# NIH_COMPILER_WARNINGS
 
 # NIH_COMPILER_OPTIMISATIONS
@@ -49,27 +33,25 @@ AC_DEFUN([NIH_COMPILER_OPTIMISATIONS],
 [AC_ARG_ENABLE(compiler-optimisations,
 	AS_HELP_STRING([--disable-compiler-optimisations],
 		       [Disable compiler optimisations]),
-[if test "x$enable_compiler_optimisations" = "xno"; then
-	[CFLAGS=`echo "$CFLAGS" | sed -e "s/ -O[1-9]*\b/ -O0/g"`]
-	[CXXFLAGS=`echo "$CXXFLAGS" | sed -e "s/ -O[1-9]*\b/ -O0/g"`]
-fi])dnl
+[AS_IF([test "x$enable_compiler_optimisations" = "xno"],
+       [[CFLAGS=`echo "$CFLAGS" | sed -e "s/ -O[1-9s]*\b/ -O0/g"`
+	 CXXFLAGS=`echo "$CXXFLAGS" | sed -e "s/ -O[1-9s]*\b/ -O0/g"`]])
+])dnl
 ])# NIH_COMPILER_OPTIMISATIONS
 
 # NIH_COMPILER_COVERAGE
-# ----------------------
+# ---------------------
 # Add configure option to enable coverage data.
 AC_DEFUN([NIH_COMPILER_COVERAGE],
 [AC_ARG_ENABLE(compiler-coverage,
 	AS_HELP_STRING([--enable-compiler-coverage],
 		       [Enable generation of coverage data]),
-[if test "x$enable_compiler_coverage" = "xyes"; then
-	if test "x$GCC" = "xyes"; then
-		CFLAGS="$CFLAGS -fprofile-arcs -ftest-coverage"
-	fi
-	if test "x$GXX" = "xyes"; then
-		CXXFLAGS="$CXXFLAGS -fprofile-arcs -ftest-coverage"
-	fi
-fi])dnl
+[AS_IF([test "x$enable_compiler_coverage" = "xyes"],
+       [AS_IF([test "x$GCC" = "xyes"],
+	      [CFLAGS="$CFLAGS -fprofile-arcs -ftest-coverage"])
+	AS_IF([test "x$GXX" = "xyes"],
+	      [CXXFLAGS="$CXXFLAGS -fprofile-arcs -ftest-coverage"])])
+])dnl
 ])# NIH_COMPILER_COVERAGE
 
 # NIH_TRY_C99([ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
@@ -105,7 +87,7 @@ AC_DEFUN([NIH_TRY_C99],
 ])# NIH_TRY_C99
 
 # NIH_C_C99
-# ----------
+# ---------
 # Check whether the compiler can do C99, adding a compiler flag if
 # necessary.
 AC_DEFUN([NIH_C_C99],
@@ -142,7 +124,7 @@ AS_IF([test "x$enable_threading" != "xno" ],
 [AC_CACHE_CHECK([whether compiler supports __thread], [nih_cv_c_thread],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[int __thread a;]], [])],
                    [nih_cv_c_thread=yes], [nih_cv_c_thread=no])])
-AS_IF([test $nih_cv_c_thread = no],
+AS_IF([test "x$nih_cv_c_thread" = "xno"],
       [AC_DEFINE([__thread],,
                  [Define to empty if `__thread' is not supported.])])],
 [AC_DEFINE([__thread], )])dnl

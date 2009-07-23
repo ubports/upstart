@@ -2,21 +2,21 @@
  *
  * option.c - command-line argument and option parsing
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -39,7 +39,7 @@
 
 /**
  * NihOptionCtx:
- * @parent: parent for new allocations,
+ * @parent: parent object for returned array,
  * @argc: number of arguments,
  * @argv: arguments array,
  * @options: list of options,
@@ -90,7 +90,7 @@ static void        nih_option_group_help  (NihOptionGroup *group,
  * These default options are appended to those defined by the user
  * so they can be overriden.
  **/
-static NihOption default_options[] = {
+static const NihOption default_options[] = {
 	{ 'q', "quiet",
 	  N_("reduce output to errors only"),
 	  NULL, NULL, NULL, nih_option_quiet },
@@ -146,7 +146,7 @@ static const char *footer_string = NULL;
 
 /**
  * nih_option_parser:
- * @parent: parent for returned arguments,
+ * @parent: parent object for returned array,
  * @argc: number of arguments,
  * @argv: command-line arguments,
  * @options: options to look for,
@@ -167,11 +167,10 @@ static const char *footer_string = NULL;
  * the items are children of the array, so it is only necessary to call
  * nih_free() on the array.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned array.  When all parents
+ * of the returned array are freed, the returned array will also be
+ * freed.
  *
  * Errors are handled by printing a message to standard error.
  *
@@ -194,10 +193,10 @@ nih_option_parser (const void *parent,
 	ctx.argc = argc;
 	ctx.argv = argv;
 
-	ctx.options = nih_option_join (parent, options, default_options);
+	ctx.options = nih_option_join (NULL, options, default_options);
 
 	ctx.nargs = 0;
-	NIH_MUST (ctx.args = nih_str_array_new (parent));
+	ctx.args = NIH_MUST (nih_str_array_new (parent));
 
 	ctx.nonopt = 0;
 	ctx.optend = 0;
@@ -207,7 +206,8 @@ nih_option_parser (const void *parent,
 		char *arg;
 
 		arg = ctx.argv[ctx.arg];
-		if ((arg[0] != '-') || (ctx.optend && ctx.arg > ctx.optend)) {
+		if ((arg[0] != '-') || (arg[1] == '\0')
+		    || (ctx.optend && ctx.arg > ctx.optend)) {
 			/* Not an option */
 			if (ctx.arg > ctx.nonopt) {
 				NIH_MUST (nih_str_array_add
@@ -384,7 +384,7 @@ nih_option_long (NihOptionCtx *ctx)
 	 */
 	arg = ctx->argv[ctx->arg] + 2;
 	ptr = strchr (arg, '=');
-	len = (ptr ? ptr - arg : strlen (arg));
+	len = (ptr ? (size_t)(ptr - arg) : strlen (arg));
 
 	/* Find the option */
 	opt = nih_option_get_long (ctx, arg, len);
@@ -509,7 +509,7 @@ nih_option_handle_arg (NihOptionCtx *ctx,
 		if (*value)
 			nih_free (*value);
 
-		NIH_MUST (*value = nih_strdup (ctx->parent, arg));
+		*value = NIH_MUST (nih_strdup (ctx->parent, arg));
 	}
 
 	return 0;
@@ -554,7 +554,7 @@ nih_option_next_nonopt (NihOptionCtx *ctx)
 
 /**
  * nih_option_join:
- * @parent: parent for new allocation,
+ * @parent: parent object for new array,
  * @a: first option array,
  * @b: second option array.
  *
@@ -565,21 +565,21 @@ nih_option_next_nonopt (NihOptionCtx *ctx)
  * copied in from @a and @b including any pointers therein.  Freeing the
  * new array with nih_free() is entirely safe.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned array.  When all parents
+ * of the returned array are freed, the returned array will also be
+ * freed.
  *
  * Returns: combined option array.
  **/
 NihOption *
-nih_option_join (const void *parent,
-		 NihOption  *a,
-		 NihOption  *b)
+nih_option_join (const void      *parent,
+		 const NihOption *a,
+		 const NihOption *b)
 {
-	NihOption *opt, *opts;
-	size_t     alen = 0, blen = 0;
+	const NihOption *opt;
+	NihOption       *opts;
+	size_t           alen = 0, blen = 0;
 
 	nih_assert (a != NULL);
 	nih_assert (b != NULL);
@@ -593,7 +593,7 @@ nih_option_join (const void *parent,
 		blen++;
 
 	/* Allocate combined list */
-	NIH_MUST (opts = nih_alloc (parent,
+	opts = NIH_MUST (nih_alloc (parent,
 				    sizeof (NihOption) * (alen + blen + 1)));
 
 	/* Copy options, making sure to copy the last option from b */
@@ -825,20 +825,16 @@ nih_option_set_footer (const char *footer)
 static void
 nih_option_help (NihOption *options)
 {
-	NihOption       *opt;
-	NihOptionGroup **groups;
-	size_t           group, ngroups;
-	int              other = FALSE;
+	NihOption                 *opt;
+	nih_local NihOptionGroup **groups = NULL;
+	size_t                     group, ngroups;
+	int                        other = FALSE;
 
 	nih_assert (program_name != NULL);
 
-	groups = NULL;
-	ngroups = 0;
-
 	/* Count the number of option groups */
+	ngroups = 0;
 	for (opt = options; (opt->option || opt->long_option); opt++) {
-		NihOptionGroup **new_groups;
-
 		if (! opt->group) {
 			other = TRUE;
 			continue;
@@ -852,10 +848,9 @@ nih_option_help (NihOption *options)
 		if (group < ngroups)
 			continue;
 
-		NIH_MUST (new_groups = nih_realloc (groups, NULL,
+		groups = NIH_MUST (nih_realloc (groups, NULL,
 						    (sizeof (NihOptionGroup *)
 						     * (ngroups + 1))));
-		groups = new_groups;
 		groups[ngroups++] = opt->group;
 	}
 
@@ -871,12 +866,11 @@ nih_option_help (NihOption *options)
 
 	/* Wrap the synopsis to the screen width */
 	if (synopsis_string) {
-		char *str;
+		nih_local char *str;
 
-		NIH_MUST (str = nih_str_screen_wrap (NULL, synopsis_string,
+		str = NIH_MUST (nih_str_screen_wrap (NULL, synopsis_string,
 						     0, 0));
 		printf ("%s\n", str);
-		nih_free (str);
 	}
 	printf ("\n");
 
@@ -892,11 +886,10 @@ nih_option_help (NihOption *options)
 
 	/* Wrap the help to the screen width */
 	if (help_string) {
-		char *str;
+		nih_local char *str;
 
-		NIH_MUST (str = nih_str_screen_wrap (NULL, help_string, 0, 0));
+		str = NIH_MUST (nih_str_screen_wrap (NULL, help_string, 0, 0));
 		printf ("%s\n", str);
-		nih_free (str);
 
 		if (package_bugreport || footer_string)
 			printf ("\n");
@@ -911,11 +904,13 @@ nih_option_help (NihOption *options)
 	}
 
 	/* Append the bug report address */
-	if (package_bugreport)
-		printf (_("Report bugs to <%s>\n"), package_bugreport);
-
-	if (groups)
-		nih_free (groups);
+	if (package_bugreport) {
+		if (strchr (package_bugreport, '@')) {
+			printf (_("Report bugs to <%s>\n"), package_bugreport);
+		} else {
+			printf (_("Report bugs at <%s>\n"), package_bugreport);
+		}
+	}
 }
 
 /**
@@ -945,11 +940,12 @@ nih_option_group_help (NihOptionGroup  *group,
 		printf (_("Options:\n"));
 	}
 
-	width = MAX (nih_str_screen_width (), 50) - 31;
+	width = nih_max (nih_str_screen_width (), 50U) - 31;
 
 	for (opt = options; (opt->option || opt->long_option); opt++) {
-		char   *str, *ptr;
-		size_t  len = 0;
+		nih_local char *str = NULL;
+		char           *ptr;
+		size_t          len = 0;
 
 		if (opt->group != group)
 			continue;
@@ -999,7 +995,7 @@ nih_option_group_help (NihOptionGroup  *group,
 		/* Format the help string to fit in the latter
 		 * half of the screen
 		 */
-		NIH_MUST (str = nih_str_wrap (NULL, opt->help, width, 0, 2));
+		str = NIH_MUST (nih_str_wrap (NULL, opt->help, width, 0, 2));
 
 		/* Write the description to the screen */
 		ptr = str;
@@ -1028,8 +1024,6 @@ nih_option_group_help (NihOptionGroup  *group,
 			if (*ptr == '\n')
 				ptr++;
 		}
-
-		nih_free (str);
 	}
 
 	printf ("\n");

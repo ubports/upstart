@@ -1,21 +1,20 @@
 /* upstart
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef INIT_PATHS_H
@@ -27,7 +26,12 @@
  * This is the default PATH set by the init process itself.
  **/
 #ifndef PATH
-#define PATH "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
+#define _PATH "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
+#ifdef EXTRA_PATH
+#define PATH _PATH ":" EXTRA_PATH
+#else
+#define PATH _PATH
+#endif
 #endif
 
 
@@ -62,12 +66,21 @@
 
 
 /**
- * CFG_DIR:
+ * CONFFILE:
  *
- * Directory to find configuration files in.
+ * Init daemon configuration file.
  **/
-#ifndef CFG_DIR
-#define CFG_DIR "/etc/event.d"
+#ifndef CONFFILE
+#define CONFFILE "/etc/init.conf"
+#endif
+
+/**
+ * CONFDIR:
+ *
+ * Top-level directory of the system configuration files.
+ **/
+#ifndef CONFDIR
+#define CONFDIR "/etc/init"
 #endif
 
 
@@ -82,13 +95,22 @@
 #endif
 
 /**
+ * SBINDIR:
+ *
+ * Directory containing system binaries.
+ **/
+#ifndef SBINDIR
+#define SBINDIR "/sbin"
+#endif
+
+/**
  * TELINIT:
  *
  * This is the telinit binary used when init is executed as an ordinary
  * process.
  **/
 #ifndef TELINIT
-#define TELINIT "/sbin/telinit"
+#define TELINIT SBINDIR "/telinit"
 #endif
 
 

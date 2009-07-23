@@ -2,30 +2,35 @@
  *
  * test_error.c - test suite for nih/error.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
 
+#include <sys/wait.h>
+
 #include <errno.h>
+#include <stdio.h>
+#include <signal.h>
 #include <string.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/main.h>
 #include <nih/error.h>
 #include <nih/logging.h>
 
@@ -101,75 +106,113 @@ test_raise_system (void)
 	nih_error_pop_context ();
 }
 
-
-static int was_logged;
-static int was_destroyed;
-
-static int
-logger_called (NihLogLevel  priority,
-	       const char  *message)
+void
+test_raise_no_memory (void)
 {
-	was_logged++;
+	NihError *error;
 
-	return 0;
+	/* Check that we can raise a no memory error.
+	 */
+	TEST_FUNCTION ("nih_error_raise_no_memory");
+	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		nih_error_raise_no_memory ();
+		error = nih_error_get ();
+
+		TEST_EQ (error->number, ENOMEM);
+		TEST_EQ_STR (error->message, strerror (ENOMEM));
+
+		nih_free (error);
+	}
+	nih_error_pop_context ();
 }
 
-static int
-destructor_called (void *ptr)
-{
-	was_destroyed++;
-
-	return 2;
-}
 
 void
-test_raise_again (void)
+test_raise_error (void)
 {
-	NihError *error1, *error2, *error3;
+	NihError *error1 = NULL;
+	NihError *error2 = NULL;
+	pid_t     pid = 0; 
+	int       status;
+	FILE *    output;
 
-	TEST_FUNCTION ("nih_error_raise_again");
+	TEST_FUNCTION ("nih_error_raise_error");
+	output = tmpfile ();
+
 
 	/* Check that we can raise an arbitrary error object, and that we
 	 * get the exact pointer we raised.
 	 */
 	TEST_FEATURE ("with no current error");
-	error1 = nih_new (NULL, NihError);
-	error1->number = ENOENT;
-	error1->message = strerror (ENOENT);
-	nih_error_raise_again (error1);
-	error2 = nih_error_get ();
+	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			error1 = nih_new (NULL, NihError);
+			error1->number = ENOENT;
+			error1->message = strerror (ENOENT);
+		}
 
-	TEST_EQ_P (error2, error1);
+		nih_error_raise_error (error1);
+		error2 = nih_error_get ();
+
+		TEST_EQ_P (error2, error1);
+
+		nih_free (error1);
+	}
+	nih_error_pop_context ();
 
 
 	/* Check that an error raised while there's already an unhandled
-	 * error causes an error message to be logged through the usual
-	 * mechanism and the unhandled error to be destroyed.  The error
-	 * returned should be the new one.
+	 * error causes an assertion.
 	 */
 	TEST_FEATURE ("with unhandled error");
-	was_destroyed = 0;
-	nih_alloc_set_destructor (error1, destructor_called);
-	nih_error_raise_again (error1);
+	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			error1 = nih_new (NULL, NihError);
+			error1->number = ENOENT;
+			error1->message = strerror (ENOENT);
+		}
 
-	error2 = nih_new (NULL, NihError);
-	error2->number = ENODEV;
-	error2->message = strerror (ENODEV);
+		TEST_FREE_TAG (error1);
+		nih_error_raise_error (error1);
 
-	was_logged = 0;
-	nih_log_set_priority (NIH_LOG_MESSAGE);
-	nih_log_set_logger (logger_called);
+		TEST_ALLOC_SAFE {
+			error2 = nih_new (NULL, NihError);
+			error2->number = ENODEV;
+			error2->message = strerror (ENODEV);
+		}
 
-	nih_error_raise_again (error2);
-	error3 = nih_error_get ();
+		TEST_DIVERT_STDERR (output) {
+			TEST_CHILD (pid) {
+				nih_error_raise_error (error2);
+				exit (0);
+			}
+		}
 
-	TEST_EQ_P (error3, error2);
-	TEST_TRUE (was_logged);
-	TEST_TRUE (was_destroyed);
+		waitpid (pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGABRT);
 
-	nih_free (error3);
+		rewind (output);
 
-	nih_log_set_logger (nih_logger_printf);
+		TEST_FILE_MATCH (output, ("test:*tests/test_error.c:[0-9]*: "
+					  "Unhandled error from test_raise_error: "
+					  "No such file or directory\n"));
+		TEST_FILE_END (output);
+
+		TEST_FILE_RESET (output);
+
+		unlink ("core");
+
+		nih_free (error1);
+		nih_free (error2);
+	}
+	nih_error_pop_context ();
+
+
+	fclose (output);
 }
 
 
@@ -238,6 +281,114 @@ test_return_system_error (void)
 	nih_error_pop_context ();
 }
 
+static int
+call_return_no_memory_error (int ret)
+{
+	nih_return_no_memory_error (ret);
+}
+
+void
+test_return_no_memory_error (void)
+{
+	NihError *error;
+	int       ret;
+
+	/* Check that the macro to raise an ENOMEM error return from a
+	 * function does just that without modifying errno.
+	 */
+	TEST_FUNCTION ("nih_return_no_memory_error");
+	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		errno = ENOENT;
+		ret = call_return_no_memory_error (-1);
+		error = nih_error_get ();
+
+		TEST_EQ (ret, -1);
+		TEST_EQ (error->number, ENOMEM);
+		TEST_EQ_STR (error->message, strerror (ENOMEM));
+
+		if (! test_alloc_failed)
+			TEST_EQ (errno, ENOENT);
+
+		nih_free (error);
+	}
+	nih_error_pop_context ();
+}
+
+
+void
+test_steal (void)
+{
+	NihError *error1;
+	NihError *error2;
+
+	TEST_FUNCTION ("nih_error_steal");
+
+
+	/* Check that after raising an error, we can steal it, and raise
+	 * another error in its place without freeing the original error.
+	 */
+	TEST_FEATURE ("with same context");
+	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		nih_error_raise (0x20001, "Test error");
+		error1 = nih_error_steal ();
+
+		TEST_EQ (error1->number, 0x20001);
+		TEST_EQ_STR (error1->message, "Test error");
+
+		TEST_FREE_TAG (error1);
+
+		nih_error_raise (0x20002, "Different error");
+		error2 = nih_error_get ();
+
+		TEST_NE_P (error2, error1);
+		TEST_NOT_FREE (error1);
+
+		TEST_EQ (error2->number, 0x20002);
+		TEST_EQ_STR (error2->message, "Different error");
+
+		nih_free (error2);
+		nih_free (error1);
+	}
+	nih_error_pop_context ();
+
+
+	/* Check that nih_error_steal() can be used to raise an error from
+	 * one context into another.
+	 */
+	TEST_FEATURE ("with different contexts");
+	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		nih_error_push_context ();
+		nih_error_raise (0x20001, "Test error");
+		error1 = nih_error_steal ();
+
+		TEST_EQ (error1->number, 0x20001);
+		TEST_EQ_STR (error1->message, "Test error");
+
+		TEST_FREE_TAG (error1);
+
+		nih_error_pop_context ();
+
+		TEST_NOT_FREE (error1);
+
+		nih_error_raise_error (error1);
+
+		error2 = nih_error_get ();
+
+		TEST_EQ_P (error2, error1);
+		TEST_NOT_FREE (error1);
+
+		TEST_EQ (error2->number, 0x20001);
+		TEST_EQ_STR (error2->message, "Test error");
+
+		nih_free (error1);
+	}
+	nih_error_pop_context ();
+
+}
+
 
 void
 test_push_context (void)
@@ -268,45 +419,73 @@ void
 test_pop_context (void)
 {
 	NihError *error;
+	FILE *    output;
+	pid_t     pid = 0;
+	int       status;
 
 	TEST_FUNCTION ("nih_error_pop_context");
-	nih_error_raise (0x20003, "Error in default context");
+	output = tmpfile ();
+
 
 	/* Check that we can pop the error context; when doing so, if an
-	 * unhandled error exists, an error is logged through the usual
-	 * mechanism and the error destroyed.
+	 * unhandled error exists then an assertion is raised.
 	 */
 	TEST_FEATURE ("with unhandled error in context");
-	nih_error_push_context ();
+	TEST_ALLOC_FAIL {
+		TEST_DIVERT_STDERR (output) {
+			TEST_CHILD (pid) {
+				nih_error_push_context ();
 
-	nih_error_raise (0x20004, "Error in new context");
-	error = nih_error_get ();
+				nih_error_raise (0x20004, "Error in new context");
+				error = nih_error_get ();
 
-	was_destroyed = 0;
-	nih_alloc_set_destructor (error, destructor_called);
-	nih_error_raise_again (error);
+				nih_error_pop_context ();
+				exit (0);
+			}
+		}
 
-	was_logged = 0;
-	nih_log_set_priority (NIH_LOG_MESSAGE);
-	nih_log_set_logger (logger_called);
+		waitpid (pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGABRT);
 
-	nih_error_pop_context ();
+		rewind (output);
 
-	TEST_TRUE (was_logged);
-	TEST_TRUE (was_destroyed);
+		TEST_FILE_MATCH (output, ("test:*tests/test_error.c:[0-9]*: "
+					  "Unhandled error from test_pop_context: "
+					  "Error in new context\n"));
+		TEST_FILE_END (output);
 
-	nih_log_set_logger (nih_logger_printf);
+		TEST_FILE_RESET (output);
+
+		unlink ("core");
+	}
 
 
 	/* Check that once popped, any unhandled error in lower contexts
 	 * is available again.
 	 */
-	TEST_FEATURE ("with unhandler error beneath context");
-	error = nih_error_get ();
+	TEST_FEATURE ("with unhandled error beneath context");
+	TEST_ALLOC_FAIL {
+		nih_error_raise (0x20003, "Error in default context");
+		nih_error_push_context ();
 
-	TEST_EQ (error->number, 0x20003);
+		nih_error_raise (0x20004, "Error in new context");
 
-	nih_free (error);
+		error = nih_error_get ();
+		TEST_EQ (error->number, 0x20004);
+
+		nih_free (error);
+
+		nih_error_pop_context ();
+
+		error = nih_error_get ();
+		TEST_EQ (error->number, 0x20003);
+
+		nih_free (error);
+	}
+
+
+	fclose (output);
 }
 
 
@@ -314,12 +493,18 @@ int
 main (int   argc,
       char *argv[])
 {
+	program_name = "test";
+	nih_error_init ();
+
 	test_raise ();
 	test_raise_printf ();
 	test_raise_system ();
-	test_raise_again ();
+	test_raise_no_memory ();
+	test_raise_error ();
 	test_return_error ();
 	test_return_system_error ();
+	test_return_no_memory_error ();
+	test_steal ();
 	test_push_context ();
 	test_pop_context ();
 

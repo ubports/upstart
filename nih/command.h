@@ -1,24 +1,38 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_COMMAND_H
 #define NIH_COMMAND_H
+
+/**
+ * Builds on the command-line option and arguments parser to provide an
+ * application interface where the first non-option argument is the name
+ * of a command.  Both global and command-specific options are permitted,
+ * and global options may appear both before and after the command.
+ *
+ * Description your commands using an array of NihCommand members,
+ * with each describing its options using an array of NihOption members.
+ * Pass this all to nih_command_parser().
+ *
+ * Commands are implemented with a handler function that is called,
+ * when nih_command_parser returns it has completed its work.
+ **/
 
 #include <nih/macros.h>
 
@@ -108,7 +122,7 @@ int         nih_command_parser (const void *parent, int argc, char *argv[],
 				NihOption *options, NihCommand *commands);
 
 NihCommand *nih_command_join   (const void *parent,
-				NihCommand *a, NihCommand *b)
+				const NihCommand *a, const NihCommand *b)
 	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN

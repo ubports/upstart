@@ -2,21 +2,21 @@
  *
  * signal.c - easier and main-loop signal handling
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -123,12 +123,12 @@ static const SignalName signal_names[] = {
 static volatile sig_atomic_t signals_caught[NUM_SIGNALS];
 
 /**
- * signals:
+ * nih_signals:
  *
  * This is the list of registered signals, not sorted into any particular
  * order.  Each item is an NihSignal structure.
  **/
-static NihList *signals = NULL;
+NihList *nih_signals = NULL;
 
 
 /**
@@ -136,11 +136,11 @@ static NihList *signals = NULL;
  *
  * Initialise the list of signals.
  **/
-static inline void
+void
 nih_signal_init (void)
 {
-	if (! signals)
-		NIH_MUST (signals = nih_list_new (NULL));
+	if (! nih_signals)
+		nih_signals = NIH_MUST (nih_list_new (NULL));
 }
 
 
@@ -168,8 +168,6 @@ nih_signal_set_handler (int    signum,
 	act.sa_flags = 0;
 	if (signum != SIGALRM)
 		act.sa_flags |= SA_RESTART;
-	if (signum == SIGCHLD)
-		act.sa_flags |= SA_NOCLDSTOP;
 	sigemptyset (&act.sa_mask);
 
 	if (sigaction (signum, &act, NULL) < 0)
@@ -249,7 +247,7 @@ nih_signal_reset (void)
 
 /**
  * nih_signal_add_handler:
- * @parent: parent of structure,
+ * @parent: parent object for new signal,
  * @signum: signal number to catch,
  * @handler: function to call,
  * @data: pointer to pass to @handler.
@@ -259,14 +257,14 @@ nih_signal_reset (void)
  * have been set to nih_signal_handler() using nih_signal_set_handler(),
  *
  * The callback structure is allocated using nih_alloc() and stored in a
- * linked list, a default destructor is set that removes the handler from
- * the list.  Removal of the handler can be performed by freeing it.
+ * linked list; there is no non-allocated version because of this.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * Removal of the handler can be performed by freeing it.
+ *
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned signal.  When all parents
+ * of the returned signal are freed, the returned signal will also be
+ * freed.
  *
  * Returns: the signal information, or NULL if insufficient memory.
  **/
@@ -289,14 +287,15 @@ nih_signal_add_handler (const void       *parent,
 		return NULL;
 
 	nih_list_init (&signal->entry);
-	nih_alloc_set_destructor (signal, (NihDestructor)nih_list_destructor);
+
+	nih_alloc_set_destructor (signal, nih_list_destroy);
 
 	signal->signum = signum;
 
 	signal->handler = handler;
 	signal->data = data;
 
-	nih_list_add (signals, &signal->entry);
+	nih_list_add (nih_signals, &signal->entry);
 
 	return signal;
 }
@@ -338,7 +337,7 @@ nih_signal_poll (void)
 
 	nih_signal_init ();
 
-	NIH_LIST_FOREACH_SAFE (signals, iter) {
+	NIH_LIST_FOREACH_SAFE (nih_signals, iter) {
 		NihSignal *signal = (NihSignal *)iter;
 
 		if (! signals_caught[signal->signum])

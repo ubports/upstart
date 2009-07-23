@@ -1,3387 +1,2214 @@
 /* upstart
  *
- * test_control.c - test suite for init/control.c
+ * test_dbus.c - test suite for init/dbus.c
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
+#include <nih-dbus/test_dbus.h>
 
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdarg.h>
+#include <dbus/dbus.h>
+
+#include <fcntl.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
-#include <nih/string.h>
 #include <nih/list.h>
+#include <nih/string.h>
+#include <nih/signal.h>
+#include <nih/timer.h>
 #include <nih/io.h>
+#include <nih/main.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih/errors.h>
 
-#include <upstart/message.h>
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_connection.h>
+#include <nih-dbus/dbus_object.h>
+#include <nih-dbus/errors.h>
 
-#include "event.h"
+#include "dbus/upstart.h"
+
+#include "blocked.h"
+#include "job_class.h"
 #include "job.h"
+#include "conf.h"
 #include "control.h"
-#include "notify.h"
+#include "errors.h"
 
 
-extern int upstart_disable_safeties;
+extern const char *control_server_address;
 
 
 void
-test_open (void)
+test_server_open (void)
 {
-	NihIo              *io;
 	NihError           *err;
+	const char *        address;
 	struct sockaddr_un  addr;
-	int                 val, sock;
-	char                name[26];
-	socklen_t           len;
+	socklen_t           addrlen;
+	int                 ret, fd;
 
-	TEST_FUNCTION ("control_open");
-	io = control_open ();
-	control_close ();
+	TEST_FUNCTION ("control_server_open");
+	program_name = "test";
+	control_init ();
+	nih_io_init ();
 
+	control_server_address = "unix:abstract=/com/ubuntu/upstart/test";
 
-	/* Check that we can open the control socket, the returned structure
-	 * should be an NihIo on a non-blocking, close-on-exec socket that
-	 * matches the parameters of the upstart communication socket.
+	/* Check that control_server_open() creates a new listening D-Bus
+	 * server and sets the control_server global.
 	 */
-	TEST_FEATURE ("with no open socket");
-	TEST_ALLOC_FAIL {
-		io = control_open ();
+	TEST_FEATURE ("with expected success");
+	assert (NIH_LIST_EMPTY (nih_io_watches));
 
-		TEST_ALLOC_SIZE (io, sizeof (NihIo));
-		TEST_EQ (io->type, NIH_IO_MESSAGE);
-		TEST_EQ (io->watch->events, NIH_IO_READ);
+	ret = control_server_open ();
 
-		len = sizeof (addr);
-		getsockname (io->watch->fd, (struct sockaddr *)&addr, &len);
+	TEST_EQ (ret, 0);
+	TEST_NE_P (control_server, NULL);
 
-		TEST_EQ (addr.sun_family, AF_UNIX);
-		TEST_EQ (addr.sun_path[0], '\0');
-
-		sprintf (name, "/com/ubuntu/upstart/%d", getpid ());
-		TEST_EQ_STRN (addr.sun_path + 1, name);
-
-		val = 0;
-		len = sizeof (val);
-		getsockopt (io->watch->fd, SOL_SOCKET, SO_TYPE,
-			    &val, &len);
-
-		TEST_EQ (val, SOCK_DGRAM);
-
-		val = 0;
-		len = sizeof (val);
-		getsockopt (io->watch->fd, SOL_SOCKET, SO_PASSCRED,
-			    &val, &len);
-		TEST_NE (val, 0);
-
-		TEST_TRUE (fcntl (io->watch->fd, F_GETFL) & O_NONBLOCK);
-		TEST_TRUE (fcntl (io->watch->fd, F_GETFD) & FD_CLOEXEC);
-
-		control_close ();
-	}
-
-
-	/* Check that if we call control_open() while something else has
-	 * already got a socket open, we get EADDRINUSE.
+	/* D-Bus provides no method to obtain the fd of the server, so
+	 * we have to steal it.
 	 */
-	TEST_FEATURE ("with already bound socket");
-	sock = upstart_open ();
-	io = control_open ();
+	assert (! NIH_LIST_EMPTY (nih_io_watches));
+	fd = ((NihIoWatch *)nih_io_watches->next)->fd;
 
-	TEST_EQ_P (io, NULL);
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_server_get_is_connected (control_server));
+
+	control_server_close ();
+
+	dbus_shutdown ();
+
+
+	/* Check that if something else is already listening on that address,
+	 * control_server_open returns NULL and a D-Bus error code.
+	 */
+	TEST_FEATURE ("with already listening");
+	fd = socket (PF_UNIX, SOCK_STREAM, 0);
+	assert (fd >= 0);
+
+	address = "unix:abstract=/com/ubuntu/upstart/test";
+	assert (address = strchr (address, '/'));
+
+	addr.sun_family = AF_UNIX;
+	addr.sun_path[0] = '\0';
+	strncpy (addr.sun_path + 1, address,
+		 sizeof (addr.sun_path) - 1);
+
+	addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
+	addrlen += strlen (address);
+
+	assert0 (bind (fd, &addr, addrlen));
+
+	assert0 (listen (fd, SOMAXCONN));
+
+	ret = control_server_open ();
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (control_server, NULL);
 
 	err = nih_error_get ();
-	TEST_EQ (err->number, EADDRINUSE);
+	TEST_EQ (err->number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (((NihDBusError *)err)->name, DBUS_ERROR_ADDRESS_IN_USE);
 	nih_free (err);
 
-	close (sock);
-}
+	dbus_shutdown ();
 
-
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-
-	return 0;
+	close (fd);
 }
 
 void
-test_close (void)
+test_server_connect (void)
 {
-	NihIo *io;
-	int    fd;
+	NihListEntry   *entry;
+	NihDBusObject  *object;
+	DBusConnection *conn;
+	JobClass       *class1, *class2;
+	Job            *job1, *job2;
+	pid_t           pid;
+	int             fd, wait_fd, status;
 
-	/* Check that when we close the control socket, the NihIo structure
-	 * is freed and the socket itself closed.
+	TEST_FUNCTION ("control_server_connect");
+	program_name = "test";
+	control_init ();
+	nih_io_init ();
+
+	control_server_address = "unix:abstract=/com/ubuntu/upstart/test";
+
+	assert0 (control_server_open ());
+	assert (NIH_LIST_EMPTY (control_conns));
+
+
+	/* Check that a new connection to our server is accepted and stored
+	 * in the connections list, with the manager object registered on
+	 * it.
 	 */
-	TEST_FUNCTION ("control_close");
-	io = control_open ();
-	fd = io->watch->fd;
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (io, my_destructor);
-
-	control_close ();
-
-	TEST_TRUE (destructor_called);
-	TEST_LT (fcntl (fd, F_GETFD), 0);
-	TEST_EQ (errno, EBADF);
-}
-
-
-static int logger_called = 0;
-
-static int
-my_logger (NihLogLevel  priority,
-	   const char  *message)
-{
-	logger_called++;
-
-	return 0;
-}
-
-void
-test_error_handler (void)
-{
-	NihIo              *io;
-	NihIoMessage       *message;
-	pid_t               pid;
-	int                 wait_fd, status;
-	NotifySubscription *sub;
-
-	TEST_FUNCTION ("control_error_handler");
-
-	/* Check that we handle an error on the socket by emitting a warning
-	 * message.
-	 */
-	TEST_FEATURE ("with error on socket");
-	io = control_open ();
-
-	logger_called = 0;
-	nih_log_set_logger (my_logger);
-
-	nih_error_raise (EBADF, strerror (EBADF));
-	io->error_handler (io->data, io);
-
-	TEST_TRUE (logger_called);
-
-	nih_log_set_logger (nih_logger_printf);
-
-	control_close ();
-
-
-	/* Check that the error handler can handle receiving ECONNREFUSED
-	 * from a subscribed process that has gone away; the message should
-	 * be removed from the send queue, and the job's subscription
-	 * cancelled.
-	 */
-	TEST_FEATURE ("with subscribed process going away");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	fflush (stdout);
+	TEST_FEATURE ("with no jobs");
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		int sock;
+		DBusConnection *conn;
 
-		sock = upstart_open ();
+		control_server_close ();
+
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart/test", NULL);
+		assert (conn != NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
+
+		nih_main_loop ();
+
+		dbus_connection_unref (conn);
+
+		dbus_shutdown ();
 
 		exit (0);
 	}
 
-	sub = notify_subscribe_job (NULL, pid, NULL);
-	TEST_NE_P (sub, NULL);
+	assert (nih_timer_add_timeout (NULL, 1,
+				       (NihTimerCb)nih_main_term_signal, NULL));
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (sub, my_destructor);
+	nih_main_loop ();
 
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_NE_P (entry->data, NULL);
+
+	conn = entry->data;
+
+	dbus_connection_get_unix_fd (conn, &fd);
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 DBUS_PATH_UPSTART,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
+	TEST_EQ_P (object->data, NULL);
+
+	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
-	NIH_MUST (message = upstart_message_new (control_io, pid,
-						 UPSTART_NO_OP));
-	nih_io_send_message (control_io, message);
+	dbus_connection_close (conn);
+	dbus_connection_unref (conn);
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	nih_free (entry);
 
-	TEST_TRUE (destructor_called);
 
-	TEST_LIST_EMPTY (io->send_q);
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-
-static int
-check_version (void               *data,
-	       pid_t               pid,
-	       UpstartMessageType  type,
-	       const char         *version)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_VERSION);
-
-	TEST_EQ_STR (version, nih_main_package_string ());
-
-	return 0;
-}
-
-
-static int
-check_job (void               *data,
-	   pid_t               pid,
-	   UpstartMessageType  type,
-	   unsigned int        id,
-	   const char         *name)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-
-	return 0;
-}
-
-
-static int
-check_job_instance (void               *data,
-		    pid_t               pid,
-		    UpstartMessageType  type,
-		    unsigned int        id,
-		    const char         *name)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_INSTANCE);
-
-	TEST_EQ (id, 0xdeadbabe);
-	TEST_EQ_STR (name, "test");
-
-	return 0;
-}
-
-static int
-check_job_instance_end (void               *data,
-			pid_t               pid,
-			UpstartMessageType  type,
-			unsigned int        id,
-			const char         *name)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_INSTANCE_END);
-
-	TEST_EQ (id, 0xdeadbabe);
-	TEST_EQ_STR (name, "test");
-
-	return 0;
-}
-
-
-static int
-check_job_status__waiting (void               *data,
-			   pid_t               pid,
-			   UpstartMessageType  type,
-			   unsigned int        id,
-			   const char         *name,
-			   JobGoal             goal,
-			   JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_WAITING);
-
-	return 0;
-}
-
-static int
-check_job_status_end__waiting (void               *data,
-			       pid_t               pid,
-			       UpstartMessageType  type,
-			       unsigned int        id,
-			       const char         *name,
-			       JobGoal             goal,
-			       JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS_END);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_WAITING);
-
-	return 0;
-}
-
-
-static int
-check_job_status__starting (void               *data,
-			    pid_t               pid,
-			    UpstartMessageType  type,
-			    unsigned int        id,
-			    const char         *name,
-			    JobGoal             goal,
-			    JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_STARTING);
-
-	return 0;
-}
-
-static int
-check_job_status_end__starting (void               *data,
-				pid_t               pid,
-				UpstartMessageType  type,
-				unsigned int        id,
-				const char         *name,
-				JobGoal             goal,
-				JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS_END);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_START);
-	TEST_EQ (state, JOB_STARTING);
-
-	return 0;
-}
-
-
-static int
-check_job_status__running (void               *data,
-			   pid_t               pid,
-			   UpstartMessageType  type,
-			   unsigned int        id,
-			   const char         *name,
-			   JobGoal             goal,
-			   JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_RUNNING);
-
-	return 0;
-}
-
-static int
-check_job_status_end__running (void               *data,
-			       pid_t               pid,
-			       UpstartMessageType  type,
-			       unsigned int        id,
-			       const char         *name,
-			       JobGoal             goal,
-			       JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS_END);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_RUNNING);
-
-	return 0;
-}
-
-
-static int
-check_job_status__pre_stop (void               *data,
-			    pid_t               pid,
-			    UpstartMessageType  type,
-			    unsigned int        id,
-			    const char         *name,
-			    JobGoal             goal,
-			    JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_PRE_STOP);
-
-	return 0;
-}
-
-static int
-check_job_status_end__pre_stop (void               *data,
-				pid_t               pid,
-				UpstartMessageType  type,
-				unsigned int        id,
-				const char         *name,
-				JobGoal             goal,
-				JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS_END);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_PRE_STOP);
-
-	return 0;
-}
-
-
-static int
-check_job_status__stopping (void               *data,
-			    pid_t               pid,
-			    UpstartMessageType  type,
-			    unsigned int        id,
-			    const char         *name,
-			    JobGoal             goal,
-			    JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_STOPPING);
-
-	return 0;
-}
-
-static int
-check_job_status_end__stopping (void               *data,
-				pid_t               pid,
-				UpstartMessageType  type,
-				unsigned int        id,
-				const char         *name,
-				JobGoal             goal,
-				JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS_END);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_STOPPING);
-
-	return 0;
-}
-
-
-static int
-check_job_status__deleted (void               *data,
-			   pid_t               pid,
-			   UpstartMessageType  type,
-			   unsigned int        id,
-			   const char         *name,
-			   JobGoal             goal,
-			   JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_DELETED);
-
-	return 0;
-}
-
-static int
-check_job_status_end__deleted (void               *data,
-			       pid_t               pid,
-			       UpstartMessageType  type,
-			       unsigned int        id,
-			       const char         *name,
-			       JobGoal             goal,
-			       JobState            state)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_STATUS_END);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (goal, JOB_STOP);
-	TEST_EQ (state, JOB_DELETED);
-
-	return 0;
-}
-
-
-static int
-check_job_process (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   ProcessType         process,
-		   pid_t               process_pid)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_PROCESS);
-
-	TEST_EQ (process, PROCESS_MAIN);
-	TEST_EQ (process_pid, 1000);
-
-	return 0;
-}
-
-
-static int
-check_job_unknown (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   const char         *name,
-		   unsigned int        id)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_UNKNOWN);
-
-	TEST_EQ_STR (name, "test");
-	TEST_EQ (id, 0);
-
-	return 0;
-}
-
-static int
-check_job_invalid (void               *data,
-		   pid_t               pid,
-		   UpstartMessageType  type,
-		   unsigned int        id,
-		   const char         *name)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_INVALID);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-
-	return 0;
-}
-
-static int
-check_job_unchanged (void               *data,
-		     pid_t               pid,
-		     UpstartMessageType  type,
-		     unsigned int        id,
-		     const char         *name)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_JOB_UNCHANGED);
-
-	TEST_EQ (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-
-	return 0;
-}
-
-
-static int
-check_event (void               *data,
-	     pid_t               pid,
-	     UpstartMessageType  type,
-	     unsigned int        id,
-	     const char         *name,
-	     char * const       *args,
-	     char * const       *env)
-{
-	TEST_EQ (pid, getppid ());
-	TEST_EQ (type, UPSTART_EVENT);
-
-	TEST_EQ_U (id, 0xdeafbeef);
-	TEST_EQ_STR (name, "test");
-	TEST_EQ_P (args, NULL);
-	TEST_EQ_P (env, NULL);
-
-	return 0;
-}
-
-
-static int                check_list_all = FALSE;
-static int                check_list_responses = 0;
-static UpstartMessageType last_type = -1;
-static unsigned int       last_job_id = 0, last_instance_id = 0;
-
-static int
-check_list (void               *data,
-	    pid_t               pid,
-	    UpstartMessageType  type,
-	    ...)
-{
-	va_list args;
-	int     ret = 0;
-
-	TEST_EQ (pid, getppid ());
-
-	va_start (args, type);
-
-	switch (type) {
-	case UPSTART_JOB_INSTANCE: {
-		unsigned int  id;
-		char         *name;
-
-		if ((last_type != UPSTART_JOB_LIST)
-		    && (last_type != UPSTART_JOB_STATUS_END)
-		    && (last_type != UPSTART_JOB_INSTANCE_END))
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		id = va_arg (args, unsigned int);
-		name = va_arg (args, char *);
-
-		if (id == 0xbeeb1003) {
-			TEST_EQ_STR (name, "baz");
-		} else {
-			TEST_FAILED ("unexpected job #%08x", id);
-		}
-
-		check_list_responses++;
-		last_instance_id = id;
-		break;
-	}
-	case UPSTART_JOB_INSTANCE_END: {
-		unsigned int  id;
-		char         *name;
-
-		if ((last_type != UPSTART_JOB_INSTANCE)
-		    && (last_type != UPSTART_JOB_STATUS_END))
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		id = va_arg (args, unsigned int);
-		name = va_arg (args, char *);
-
-		TEST_EQ (id, last_instance_id);
-
-		if (id == 0xbeeb1003) {
-			TEST_EQ_STR (name, "baz");
-		} else {
-			TEST_FAILED ("unexpected job #%08x", id);
-		}
-
-		last_instance_id = -1;
-		break;
-	}
-	case UPSTART_JOB_STATUS: {
-		unsigned int  id;
-		char         *name;
-
-		if ((last_type != UPSTART_JOB_LIST)
-		    && (last_type != UPSTART_JOB_STATUS_END)
-		    && (last_type != UPSTART_JOB_INSTANCE))
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		id = va_arg (args, unsigned int);
-		name = va_arg (args, char *);
-
-		if (id == 0xbeeb1001) {
-			TEST_TRUE (check_list_all);
-			TEST_EQ_STR (name, "foo");
-			check_list_responses++;
-		} else if (id == 0xbeeb1002) {
-			TEST_EQ_STR (name, "bar");
-			check_list_responses++;
-		} else if (id == 0xbeeb1004) {
-			TEST_EQ (last_type, UPSTART_JOB_INSTANCE);
-			TEST_EQ (last_instance_id, 0xbeeb1003);
-			TEST_EQ_STR (name, "baz");
-		} else {
-			TEST_FAILED ("unexpected job #%08x", id);
-		}
-
-		last_job_id = id;
-		break;
-	}
-	case UPSTART_JOB_STATUS_END: {
-		unsigned int  id;
-		char         *name;
-
-		if ((last_type != UPSTART_JOB_STATUS)
-		    && (last_type != UPSTART_JOB_PROCESS))
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		id = va_arg (args, unsigned int);
-		name = va_arg (args, char *);
-
-		TEST_EQ (id, last_job_id);
-
-		if (id == 0xbeeb1001) {
-			TEST_TRUE (check_list_all);
-			TEST_EQ_STR (name, "foo");
-		} else if (id == 0xbeeb1002) {
-			TEST_EQ_STR (name, "bar");
-		} else if (id == 0xbeeb1004) {
-			TEST_EQ (last_instance_id, 0xbeeb1003);
-			TEST_EQ_STR (name, "baz");
-		} else {
-			TEST_FAILED ("unexpected job #%08x", id);
-		}
-
-		last_job_id = -1;
-		break;
-	}
-	case UPSTART_JOB_PROCESS: {
-		ProcessType process;
-		pid_t       process_pid;
-
-		if ((last_type != UPSTART_JOB_STATUS)
-		    && (last_type != UPSTART_JOB_PROCESS))
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		process = va_arg (args, unsigned int);
-		process_pid = va_arg (args, int);
-
-		if (last_job_id == 0xbeeb1001) {
-			TEST_EQ (process, PROCESS_MAIN);
-			TEST_EQ (process_pid, 1000);
-		} else if (last_job_id == 0xbeeb1002) {
-			if (process == PROCESS_MAIN) {
-				TEST_EQ (process_pid, 1000);
-			} else if (process == PROCESS_PRE_STOP) {
-				TEST_EQ (process_pid, 1001);
-			} else {
-				TEST_FAILED ("unexpected process %d",
-					     process);
-			}
-		} else {
-			TEST_FAILED ("process wasn't expected for job #%08x",
-				     last_job_id);
-		}
-
-		break;
-	}
-	case UPSTART_JOB_LIST: {
-		char *pattern;
-
-		if (last_type != -1)
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		pattern = va_arg (args, char *);
-		if (check_list_all) {
-			TEST_EQ_P (pattern, NULL);
-		} else {
-			TEST_EQ_STR (pattern, "b*");
-		}
-
-		break;
-	}
-	case UPSTART_JOB_LIST_END: {
-		char *pattern;
-
-		if ((last_type != UPSTART_JOB_LIST)
-		    && (last_type != UPSTART_JOB_INSTANCE_END)
-		    && (last_type != UPSTART_JOB_STATUS_END))
-			TEST_FAILED ("incorrect message order (%04x before %04x)",
-				     last_type, type);
-
-		pattern = va_arg (args, char *);
-		if (check_list_all) {
-			TEST_EQ_P (pattern, NULL);
-		} else {
-			TEST_EQ_STR (pattern, "b*");
-		}
-
-		ret = 1;
-		break;
-	}
-	default:
-		TEST_FAILED ("unexpected message type %04x received", type);
-		break;
-	}
-
-	va_end (args);
-
-	last_type = type;
-
-	return ret;
-}
-
-
-
-void
-test_send_job_status (void)
-{
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-	Job   *job;
-
-	/* Check that we can send the status of a job to a child, it should
-	 * receive the start message, a message for the running process and
-	 * an end message.
+	/* Check that when there are existing jobs and instances, the
+	 * new connection has them automatically registered.
 	 */
-	TEST_FUNCTION ("control_send_job_status");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FEATURE ("with existing jobs");
+	class1 = job_class_new (NULL, "foo");
+	nih_hash_add (job_classes, &class1->entry);
 
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process[PROCESS_PRE_START] = job_process_new (job->process);
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->pid = 1000;
-	job->process[PROCESS_POST_STOP] = job_process_new (job->process);
+	class2 = job_class_new (NULL, "bar");
+	job1 = job_new (class2, "test1");
+	job2 = job_new (class2, "test2");
+	nih_hash_add (job_classes, &class2->entry);
 
-	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		DBusConnection *conn;
 
-		sock = upstart_open ();
+		control_server_close ();
+
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		conn = nih_dbus_connect ("unix:abstract=/com/ubuntu/upstart/test", NULL);
+		assert (conn != NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
+		nih_main_loop ();
 
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
+		dbus_connection_unref (conn);
 
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
+		dbus_shutdown ();
 
 		exit (0);
 	}
 
-	control_send_job_status (pid, job);
+	assert (nih_timer_add_timeout (NULL, 1,
+				       (NihTimerCb)nih_main_term_signal, NULL));
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	nih_main_loop ();
 
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_NE_P (entry->data, NULL);
+
+	conn = entry->data;
+
+	dbus_connection_get_unix_fd (conn, &fd);
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 DBUS_PATH_UPSTART,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
+	TEST_EQ_P (object->data, NULL);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 DBUS_PATH_UPSTART "/jobs/foo",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/foo");
+	TEST_EQ_P (object->data, class1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 DBUS_PATH_UPSTART "/jobs/bar",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar");
+	TEST_EQ_P (object->data, class2);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 DBUS_PATH_UPSTART "/jobs/bar/test1",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test1");
+	TEST_EQ_P (object->data, job1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (conn,
+							 DBUS_PATH_UPSTART "/jobs/bar/test2",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test2");
+	TEST_EQ_P (object->data, job2);
+
+	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
-	nih_list_free (&job->entry);
+	dbus_connection_close (conn);
+	dbus_connection_unref (conn);
+
+	nih_free (entry);
+
+	nih_free (class1);
+	nih_free (class2);
 
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
+	control_server_close ();
+
+	dbus_shutdown ();
 }
 
 void
-test_send_instance (void)
+test_server_close (void)
 {
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-	Job   *job, *instance;
-
-	/* Check that we can send the status of an instance job to a child,
-	 * with the status of each instance inside it.
+	/* Check that control_server_close sets control_server back to
+	 * NULL, as well as disconnected and unreferencing the server.
 	 */
-	TEST_FUNCTION ("control_send_instance");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FUNCTION ("control_server_close");
+	control_init ();
 
-	job = job_new (NULL, "test");
-	job->id = 0xdeadbabe;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->instance = TRUE;
+	control_server_address = "unix:abstract=/com/ubuntu/upstart/test";
 
-	instance = job_new (NULL, "test");
-	instance->id = 0xdeafbeef;
-	instance->goal = JOB_STOP;
-	instance->state = JOB_STOPPING;
-	instance->process[PROCESS_PRE_START] = job_process_new (instance);
-	instance->process[PROCESS_MAIN] = job_process_new (instance);
-	instance->process[PROCESS_MAIN]->pid = 1000;
-	instance->process[PROCESS_POST_STOP] = job_process_new (instance);
-	instance->instance = TRUE;
-	instance->instance_of = job;
+	assert0 (control_server_open ());
+	assert (control_server != NULL);
 
-	fflush (stdout);
+	control_server_close ();
+
+	TEST_EQ_P (control_server, NULL);
+
+	dbus_shutdown ();
+}
+
+
+static int drop_connection = FALSE;
+static int refuse_registration = FALSE;
+static DBusConnection *server_conn = NULL;
+
+static int
+my_connect_handler (DBusServer     *server,
+		    DBusConnection *conn)
+{
+	DBusMessage   *message, *reply;
+	char          *id = ":1";
+	dbus_uint32_t  request;
+
+	assert (server_conn == NULL);
+
+	dbus_connection_ref (conn);
+
+	/* Expect Hello from the client, return a fake unique name */
+	TEST_DBUS_MESSAGE (conn, message);
+	assert (dbus_message_is_method_call (message, DBUS_INTERFACE_DBUS,
+					     "Hello"));
+
+	reply = dbus_message_new_method_return (message);
+	assert (reply != NULL);
+
+	dbus_message_append_args (reply,
+				  DBUS_TYPE_STRING, &id,
+				  DBUS_TYPE_INVALID);
+
+	assert (dbus_connection_send (conn, reply, NULL));
+	dbus_connection_flush (conn);
+
+	dbus_message_unref (reply);
+	dbus_message_unref (message);
+
+	if (drop_connection) {
+		dbus_connection_unref (conn);
+		return FALSE;
+	}
+
+	request = (refuse_registration ? DBUS_REQUEST_NAME_REPLY_EXISTS
+		   : DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER);
+
+	/* Expect RequestName from the client, return a fake unique name */
+	TEST_DBUS_MESSAGE (conn, message);
+	assert (dbus_message_is_method_call (message, DBUS_INTERFACE_DBUS,
+					     "RequestName"));
+
+	reply = dbus_message_new_method_return (message);
+	assert (reply != NULL);
+
+	dbus_message_append_args (reply,
+				  DBUS_TYPE_UINT32, &request,
+				  DBUS_TYPE_INVALID);
+
+	assert (dbus_connection_send (conn, reply, NULL));
+	dbus_connection_flush (conn);
+
+	dbus_message_unref (reply);
+	dbus_message_unref (message);
+
+	server_conn = conn;
+
+	dbus_connection_unref (conn);
+
+	return TRUE;
+}
+
+void
+test_bus_open (void)
+{
+	FILE          *output;
+	JobClass      *class1, *class2;
+	Job           *job1, *job2;
+	NihError      *err;
+	NihListEntry  *entry;
+	NihDBusObject *object;
+	pid_t          pid;
+	int            ret, wait_fd, fd, status;
+
+	TEST_FUNCTION ("control_bus_open");
+	program_name = "test";
+	control_init ();
+	output = tmpfile ();
+	err = 0;
+
+
+	/* Check that control_bus_open() opens a connection to the system bus,
+	 * we test this by faking the registration part of the system bus and
+	 * making sure everything works.  The control_bus global should be
+	 * set to non-NULL and also stored in the connections list.
+	 */
+	TEST_FEATURE ("with system bus");
+	drop_connection = FALSE;
+	refuse_registration = FALSE;
+	server_conn = NULL;
+
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		DBusServer *server;
 
-		sock = upstart_open ();
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		server = nih_dbus_server ("unix:abstract=/com/ubuntu/upstart/test",
+					  my_connect_handler, NULL);
 
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Should receive UPSTART_JOB_INSTANCE */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_instance,
-						       NULL));
-		nih_free (message);
+		nih_main_loop ();
 
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
+		assert (server_conn != NULL);
 
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
+		dbus_connection_close (server_conn);
+		dbus_connection_unref (server_conn);
 
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
+		dbus_server_disconnect (server);
+		dbus_server_unref (server);
 
-		/* Should receive UPSTART_JOB_INSTANCE_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_instance_end,
-						       NULL));
-		nih_free (message);
+		dbus_shutdown ();
 
 		exit (0);
 	}
 
-	control_send_instance (pid, job);
+	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	ret = control_bus_open ();
 
+	TEST_EQ (ret, 0);
+	TEST_NE_P (control_bus, NULL);
+
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_EQ_P (entry->data, control_bus);
+
+	dbus_connection_get_unix_fd (control_bus, &fd);
+	TEST_TRUE (fcntl (fd, F_GETFD) & FD_CLOEXEC);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 DBUS_PATH_UPSTART,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
+	TEST_EQ_P (object->data, NULL);
+
+	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
-	nih_list_free (&instance->entry);
-	nih_list_free (&job->entry);
+	TEST_DIVERT_STDERR (output) {
+		control_bus_close ();
+	}
+	rewind (output);
+
+	dbus_shutdown ();
+
+	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
 
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-
-void
-test_version_query (void)
-{
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-
-	/* Check that we can handle a message from a child process asking us
-	 * for our version.
+	/* Check that existing jobs and instances are registered on the
+	 * new bus connection.  This inherently checks that this does not
+	 * cause signals to be emitted because our fake server expects the
+	 * first message to be a request name method.
 	 */
-	TEST_FUNCTION ("control_version_query");
-	nih_main_init_full ("test", "upstart", "0.5.0", NULL, NULL);
+	TEST_FEATURE ("with existing jobs");
+	drop_connection = FALSE;
+	refuse_registration = FALSE;
+	server_conn = NULL;
 
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	class1 = job_class_new (NULL, "foo");
+	nih_hash_add (job_classes, &class1->entry);
 
-	fflush (stdout);
+	class2 = job_class_new (NULL, "bar");
+	job1 = job_new (class2, "test1");
+	job2 = job_new (class2, "test2");
+	nih_hash_add (job_classes, &class2->entry);
+
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		DBusServer *server;
 
-		sock = upstart_open ();
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_VERSION_QUERY);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
+		server = nih_dbus_server ("unix:abstract=/com/ubuntu/upstart/test",
+					  my_connect_handler, NULL);
 
-		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Should receive UPSTART_VERSION */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_version,
-						       NULL));
-		nih_free (message);
+		nih_main_loop ();
+
+		assert (server_conn != NULL);
+
+		dbus_connection_close (server_conn);
+		dbus_connection_unref (server_conn);
+
+		dbus_server_disconnect (server);
+		dbus_server_unref (server);
+
+		dbus_shutdown ();
 
 		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
+	ret = control_bus_open ();
+
+	TEST_EQ (ret, 0);
+	TEST_NE_P (control_bus, NULL);
+
+	TEST_LIST_NOT_EMPTY (control_conns);
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_ALLOC_SIZE (entry, sizeof (NihListEntry));
+	TEST_EQ_P (entry->data, control_bus);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 DBUS_PATH_UPSTART,
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART);
+	TEST_EQ_P (object->data, NULL);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 DBUS_PATH_UPSTART "/jobs/foo",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/foo");
+	TEST_EQ_P (object->data, class1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 DBUS_PATH_UPSTART "/jobs/bar",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar");
+	TEST_EQ_P (object->data, class2);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 DBUS_PATH_UPSTART "/jobs/bar/test1",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test1");
+	TEST_EQ_P (object->data, job1);
+
+	TEST_TRUE (dbus_connection_get_object_path_data (control_bus,
+							 DBUS_PATH_UPSTART "/jobs/bar/test2",
+							 (void **)&object));
+
+	TEST_ALLOC_SIZE (object, sizeof (NihDBusObject));
+	TEST_EQ_STR (object->path, DBUS_PATH_UPSTART "/jobs/bar/test2");
+	TEST_EQ_P (object->data, job2);
+
+	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_DIVERT_STDERR (output) {
+		control_bus_close ();
+	}
+	rewind (output);
+
+	dbus_shutdown ();
+
+	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
+
+	nih_free (class1);
+	nih_free (class2);
 
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
-test_log_priority (void)
-{
-	NihIo *io;
-	pid_t  pid;
-	int    status, wait_fd;
-
-	/* Check that we can handle a message from a child process changing
-	 * our logging priority.
+	/* Check that if the system bus drops the connection during
+	 * registration, control_bus_open returns an error.
 	 */
-	TEST_FUNCTION ("control_log_priority");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FEATURE ("with disconnect during registration");
+	drop_connection = TRUE;
+	refuse_registration = FALSE;
+	server_conn = NULL;
 
-	nih_log_set_priority (NIH_LOG_MESSAGE);
-
-	fflush (stdout);
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
+		DBusServer *server;
 
-		sock = upstart_open ();
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_LOG_PRIORITY,
-					       NIH_LOG_DEBUG);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
+		server = nih_dbus_server ("unix:abstract=/com/ubuntu/upstart/test",
+					  my_connect_handler, NULL);
 
-		/* Allow the parent to continue so it can receive it */
 		TEST_CHILD_RELEASE (wait_fd);
+
+		nih_main_loop ();
+
+		assert (server_conn == NULL);
+
+		dbus_server_disconnect (server);
+		dbus_server_unref (server);
+
+		dbus_shutdown ();
 
 		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
+	ret = control_bus_open ();
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (control_bus, NULL);
+
+	TEST_LIST_EMPTY (control_conns);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_DBUS_ERROR);
+	/* Under valgrind we seem to get NoReply instead */
+	if (strcmp (((NihDBusError *)err)->name, DBUS_ERROR_NO_REPLY)) {
+		TEST_EQ_STR (((NihDBusError *)err)->name,
+			     DBUS_ERROR_DISCONNECTED);
+	}
+	nih_free (err);
+
+	kill (pid, SIGTERM);
 	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_EQ (nih_log_priority, NIH_LOG_DEBUG);
+	dbus_shutdown ();
+
+	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
 
 
-	nih_log_set_priority (NIH_LOG_MESSAGE);
+	/* Check that if the system bus says our name is already taken,
+	 * control_bus_open returns an error.
+	 */
+	TEST_FEATURE ("with our name already taken");
+	drop_connection = FALSE;
+	refuse_registration = TRUE;
+	server_conn = NULL;
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		DBusServer *server;
+
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		assert (nih_signal_add_handler (NULL, SIGTERM,
+						nih_main_term_signal, NULL));
+
+		server = nih_dbus_server ("unix:abstract=/com/ubuntu/upstart/test",
+					  my_connect_handler, NULL);
+
+		TEST_CHILD_RELEASE (wait_fd);
+
+		nih_main_loop ();
+
+		assert (server_conn != NULL);
+
+		dbus_connection_close (server_conn);
+		dbus_connection_unref (server_conn);
+
+		dbus_server_disconnect (server);
+		dbus_server_unref (server);
+
+		dbus_shutdown ();
+
+		exit (0);
+	}
+
+	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
+
+	ret = control_bus_open ();
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (control_bus, NULL);
+
+	TEST_LIST_EMPTY (control_conns);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, CONTROL_NAME_TAKEN);
+	nih_free (err);
+
+	kill (pid, SIGTERM);
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	dbus_shutdown ();
+
+	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
+
+
+	/* Check that if the system bus is not listening, control_bus_open
+	 * returns NULL and a D-Bus error code.
+	 */
+	TEST_FEATURE ("with no system bus");
+	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
+
+	ret = control_bus_open ();
+
+	TEST_LT (ret, 0);
+	TEST_EQ_P (control_bus, NULL);
+
+	TEST_LIST_EMPTY (control_conns);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (((NihDBusError *)err)->name, DBUS_ERROR_NO_SERVER);
+	nih_free (err);
+
+	dbus_shutdown ();
+
+	unsetenv ("DBUS_SYSTEM_BUS_ADDRESS");
+}
+
+void
+test_bus_close (void)
+{
+	FILE         *output;
+	NihListEntry *entry;
+	pid_t         dbus_pid;
+
+	/* Check that control_bus_close sets control_bus back to NULL
+	 * and is removed from the list of active connections.
+	 */
+	TEST_FUNCTION ("control_bus_close");
+	control_init ();
+	output = tmpfile ();
+
+	TEST_DBUS (dbus_pid);
+
+	assert (NIH_LIST_EMPTY (control_conns));
+
+	assert0 (control_bus_open ());
+	assert (control_bus != NULL);
+
+	assert (! NIH_LIST_EMPTY (control_conns));
+	entry = (NihListEntry *)control_conns->next;
+
+	TEST_FREE_TAG (entry);
+
+	TEST_DIVERT_STDERR (output) {
+		control_bus_close ();
+	}
+	rewind (output);
+
+	TEST_EQ_P (control_bus, NULL);
+
+	TEST_FREE (entry);
+
+	TEST_LIST_EMPTY (control_conns);
+
+	TEST_FILE_EQ (output, "test: Disconnected from system bus\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+	fclose (output);
+
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 }
 
 
 void
-test_job_find (void)
+test_disconnected (void)
 {
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-	Job   *job1, *job2, *job3, *job4, *job5, *job6;
+	FILE         *output;
+	NihListEntry *entry;
+	pid_t         dbus_pid;
 
-	TEST_FUNCTION ("control_job_find");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	job1 = job_new (NULL, "foo");
-	job1->id = 0xbeeb1001;
-	job1->goal = JOB_START;
-	job1->state = JOB_RUNNING;
-	job1->process[PROCESS_MAIN] = job_process_new (job1->process);
-	job1->process[PROCESS_MAIN]->command = "echo";
-	job1->process[PROCESS_MAIN]->pid = 1000;
-
-	job2 = job_new (NULL, "bar");
-	job2->id = 0xbeeb1002;
-	job2->goal = JOB_STOP;
-	job2->state = JOB_PRE_STOP;
-	job2->process[PROCESS_MAIN] = job_process_new (job2->process);
-	job2->process[PROCESS_MAIN]->command = "echo";
-	job2->process[PROCESS_MAIN]->pid = 1000;
-	job2->process[PROCESS_PRE_STOP] = job_process_new (job2->process);
-	job2->process[PROCESS_PRE_STOP]->command = "echo";
-	job2->process[PROCESS_PRE_STOP]->pid = 1001;
-
-	job3 = job_new (NULL, "baz");
-	job3->id = 0xbeeb1003;
-	job3->instance = TRUE;
-	job3->goal = JOB_STOP;
-	job3->state = JOB_WAITING;
-
-	job4 = job_new (NULL, "baz");
-	job4->id = 0xbeeb1004;
-	job4->instance = TRUE;
-	job4->instance_of = job3;
-	job4->goal = JOB_START;
-	job4->state = JOB_STARTING;
-
-	job5 = job_new (NULL, "test");
-	job5->id = 0xbeeb1005;
-	job5->goal = JOB_STOP;
-	job5->state = JOB_DELETED;
-
-	job6 = job_new (NULL, "foo");
-	job6->id = 0xbeeb1006;
-	job6->goal = JOB_STOP;
-	job6->state = JOB_WAITING;
-	job6->replacement_for = job1;
-	job1->replacement = job6;
-
-
-	/* Check that we can obtain a list of all jobs by passing a NULL
-	 * pattern, which should return the list excluding both the deleted
-	 * job and that which is a replacement for another.
+	/* Check that if the bus connection is disconnected, control_bus is
+	 * set back to NULL automatically.
 	 */
-	TEST_FEATURE ("with no pattern");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+	TEST_FUNCTION ("control_disconnected");
+	program_name = "test";
+	output = tmpfile ();
+	control_init ();
 
-		sock = upstart_open ();
+	drop_connection = FALSE;
+	refuse_registration = FALSE;
+	server_conn = NULL;
 
-		/* Send the job query message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_FIND, NULL);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
+	assert (NIH_LIST_EMPTY (control_conns));
 
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
+	TEST_DBUS (dbus_pid);
 
-		check_list_all = TRUE;
-		check_list_responses = 0;
-		last_type = -1;
+	assert0 (control_bus_open ());
+	assert (control_bus != NULL);
 
-		/* Handle messages until we receive UPSTART_JOB_LIST_END */
-		for (;;) {
-			int ret;
+	assert (! NIH_LIST_EMPTY (control_conns));
+	entry = (NihListEntry *)control_conns->next;
 
-			message = nih_io_message_recv (NULL, sock, &len);
-			ret = upstart_message_handle_using (message, message,
-							    (UpstartMessageHandler)
-							    check_list,
-							    NULL);
+	TEST_FREE_TAG (entry);
+
+	TEST_DBUS_END (dbus_pid);
+
+	TEST_DIVERT_STDERR (output) {
+		while (control_bus &&
+		       dbus_connection_read_write_dispatch (control_bus, -1))
+			;
+	}
+	rewind (output);
+
+	TEST_EQ_P (control_bus, NULL);
+
+	TEST_FREE (entry);
+
+	TEST_LIST_EMPTY (control_conns);
+
+	TEST_FILE_EQ (output, "test: Disconnected from system bus\n");
+	TEST_FILE_END (output);
+	TEST_FILE_RESET (output);
+
+	fclose (output);
+
+	dbus_shutdown ();
+}
+
+
+void
+test_reload_configuration (void)
+{
+	FILE           *f;
+	ConfSource     *source1, *source2, *source3;
+	char            dirname[PATH_MAX], filename[PATH_MAX];
+	NihDBusMessage *message;
+	int             ret;
+
+	/* Check that we can ask the daemon to reload its configuration;
+	 * there's no need to simulate this deeply, we just set up a config
+	 * and then reload it and see whether it turned up.
+	 */
+	TEST_FUNCTION ("control_reload_configuration");
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	source1 = conf_source_new (NULL, filename, CONF_FILE);
+
+	f = fopen (filename, "w");
+	fprintf (f, "#empty\n");
+	fclose (f);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+	mkdir (filename, 0755);
+
+	source2 = conf_source_new (NULL, filename, CONF_JOB_DIR);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar/bar.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "script\n");
+	fprintf (f, "  echo\n");
+	fprintf (f, "end script\n");
+	fclose (f);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/baz");
+	source3 = conf_source_new (NULL, filename, CONF_DIR);
+
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = NULL;
+	message->message = NULL;
+
+	ret = control_reload_configuration (NULL, message);
+
+	TEST_EQ (ret, 0);
+
+	nih_free (message);
+
+	TEST_HASH_NOT_EMPTY (source1->files);
+
+	TEST_HASH_NOT_EMPTY (source2->files);
+
+	TEST_HASH_EMPTY (source3->files);
+
+	nih_free (source1);
+	nih_free (source2);
+	nih_free (source3);
+
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	unlink (filename);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar/bar.conf");
+	unlink (filename);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar");
+	rmdir (filename);
+
+	rmdir (dirname);
+}
+
+
+void
+test_get_job_by_name (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class;
+	char           *path;
+	NihError       *error;
+	NihDBusError   *dbus_error;
+	int             ret;
+
+	TEST_FUNCTION ("control_get_job_by_name");
+	nih_error_init ();
+	job_class_init ();
+
+	class = job_class_new (NULL, "test");
+	nih_hash_add (job_classes, &class->entry);
+
+
+	/* Check that when given a known job name, the path to that job
+	 * is returned as a duplicate child of the message structure.
+	 */
+	TEST_FEATURE ("with known job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_job_by_name (NULL, message, "test", &path);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
 			nih_free (message);
 
-			assert (ret >= 0);
-			if (ret > 0)
-				break;
+			continue;
 		}
 
-		TEST_EQ (check_list_responses, 3);
+		TEST_EQ (ret, 0);
 
-		exit (0);
+		TEST_ALLOC_PARENT (path, message);
+		TEST_EQ_STR (path, class->path);
+
+		nih_free (message);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
-
-
-	/* Check that we can provide a pattern, and have only jobs matching
-	 * that returned.
+	/* Check that when given an unknown job name, an unknown job
+	 * D-Bus error is raised and an error returned.
 	 */
-	TEST_FEATURE ("with pattern");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+	TEST_FEATURE ("with unknown job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-		sock = upstart_open ();
+		ret = control_get_job_by_name (NULL, message, "foo", &path);
 
-		/* Send the job query message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_FIND, "b*");
-		assert (nih_io_message_send (message, sock) > 0);
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_error = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_error->name,
+			     DBUS_INTERFACE_UPSTART ".Error.UnknownJob");
+
+		nih_free (error);
+
 		nih_free (message);
+	}
 
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
 
-		check_list_all = FALSE;
-		check_list_responses = 0;
-		last_type = -1;
+	/* Check that when given an illegal job name, an invalid args
+	 * D-Bus error is raised and an error returned.
+	 */
+	TEST_FEATURE ("with illegal job name");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-		/* Handle messages until we receive UPSTART_JOB_LIST_END */
-		for (;;) {
-			int ret;
+		ret = control_get_job_by_name (NULL, message, "", &path);
 
-			message = nih_io_message_recv (NULL, sock, &len);
-			ret = upstart_message_handle_using (message, message,
-							    (UpstartMessageHandler)
-							    check_list,
-							    NULL);
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_error = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+
+		nih_free (error);
+
+		nih_free (message);
+	}
+
+	nih_free (class);
+}
+
+void
+test_get_all_jobs (void)
+{
+	NihDBusMessage  *message = NULL;
+	JobClass        *class1, *class2, *class3;
+	NihError        *error;
+	char           **paths;
+	int              ret;
+
+	TEST_FUNCTION ("control_get_all_jobs");
+	nih_error_init ();
+	job_class_init ();
+
+
+	/* Check that paths for each of the registered jobs are returned
+	 * in an array allocated as a child of the message structure.
+	 */
+	TEST_FEATURE ("with registered jobs");
+	class1 = job_class_new (NULL, "frodo");
+	nih_hash_add (job_classes, &class1->entry);
+
+	class2 = job_class_new (NULL, "bilbo");
+	nih_hash_add (job_classes, &class2->entry);
+
+	class3 = job_class_new (NULL, "sauron");
+	nih_hash_add (job_classes, &class3->entry);
+
+	TEST_ALLOC_FAIL {
+		int found1 = FALSE, found2 = FALSE, found3 = FALSE, i;
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		ret = control_get_all_jobs (NULL, message, &paths);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
 			nih_free (message);
 
-			assert (ret >= 0);
-			if (ret > 0)
-				break;
+			continue;
 		}
 
-		TEST_EQ (check_list_responses, 2);
+		TEST_EQ (ret, 0);
 
-		exit (0);
+		TEST_ALLOC_PARENT (paths, message);
+		TEST_ALLOC_SIZE (paths, sizeof (char *) * 4);
+		TEST_EQ_P (paths[3], NULL);
+
+		for (i = 0; i < 3; i++) {
+			TEST_ALLOC_PARENT (paths[i], paths);
+
+			if (! strcmp (paths[i], class1->path))
+				found1 = TRUE;
+			if (! strcmp (paths[i], class2->path))
+				found2 = TRUE;
+			if (! strcmp (paths[i], class3->path))
+				found3 = TRUE;
+		}
+
+		TEST_TRUE (found1);
+		TEST_TRUE (found2);
+		TEST_TRUE (found3);
+
+		nih_free (message);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
+	nih_free (class3);
+	nih_free (class2);
+	nih_free (class1);
 
 
-	nih_list_free (&job6->entry);
-	nih_list_free (&job5->entry);
-	nih_list_free (&job4->entry);
-	nih_list_free (&job3->entry);
-	nih_list_free (&job2->entry);
-	nih_list_free (&job1->entry);
+	/* Check that when no jobs are registered, an empty array is
+	 * returned instead of an error.
+	 */
+	TEST_FEATURE ("with no registered jobs");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
+		ret = control_get_all_jobs (NULL, message, &paths);
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (paths, message);
+		TEST_ALLOC_SIZE (paths, sizeof (char *) * 1);
+		TEST_EQ_P (paths[0], NULL);
+
+		nih_free (message);
+	}
 }
 
 void
-test_job_query (void)
+test_emit_event (void)
 {
-	NihIo *io;
-	pid_t  pid;
-	int    wait_fd, status;
-	Job   *job, *instance;
-
-	TEST_FUNCTION ("control_job_query");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* Check that we can handle a message from a child process asking us
-	 * for the state of an ordinary job.  The child should receive the
-	 * status in reply.
-	 */
-	TEST_FEATURE ("with known job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-	job->process[PROCESS_MAIN]->pid = 1000;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job query message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that a job can be queries by its id, instead of its name. */
-	TEST_FEATURE ("with known job by id");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-	job->process[PROCESS_MAIN]->pid = 1000;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job query message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that querying the state of an instance master returns
-	 * a list of all of its instances.
-	 */
-	TEST_FEATURE ("with instance job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeadbabe;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->instance = TRUE;
-
-	instance = job_new (NULL, "test");
-	instance->id = 0xdeafbeef;
-	instance->goal = JOB_STOP;
-	instance->state = JOB_STOPPING;
-	instance->process[PROCESS_MAIN] = job_process_new (job->process);
-	instance->process[PROCESS_MAIN]->command = "echo";
-	instance->process[PROCESS_MAIN]->pid = 1000;
-	instance->instance = TRUE;
-	instance->instance_of = job;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job query message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_INSTANCE */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_instance,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_INSTANCE_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_instance_end,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&instance->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask for the state of an instance of a job (by its
-	 * id) that we just get the status of the instance, not a list of
-	 * them.
-	 */
-	TEST_FEATURE ("with instance of a job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeadbabe;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->instance = TRUE;
-
-	instance = job_new (NULL, "test");
-	instance->id = 0xdeafbeef;
-	instance->goal = JOB_STOP;
-	instance->state = JOB_STOPPING;
-	instance->process[PROCESS_MAIN] = job_process_new (job->process);
-	instance->process[PROCESS_MAIN]->command = "echo";
-	instance->process[PROCESS_MAIN]->pid = 1000;
-	instance->instance = TRUE;
-	instance->instance_of = job;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job query message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY,
-					       NULL, 0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&instance->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask for the status of an unknown job, we get an
-	 * error in reply.
-	 */
-	TEST_FEATURE ("with unknown job");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_UNKNOWN */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_unknown,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
-
-
-	/* Check that if we ask for the state of a deleted job we actually
-	 * do get the job in reply, with the deleted state.
-	 */
-	TEST_FEATURE ("with deleted job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_DELETED;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_QUERY, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__deleted,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__deleted,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_DELETED);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
-test_job_start (void)
-{
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	Job                *job, *instance;
-	NotifySubscription *sub;
-
-	TEST_FUNCTION ("control_job_start");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* Check that we can handle a message from a child process asking us
-	 * to start up a job.  The child should be subscribed to the job,
-	 * and therefore receive replies containing status updates as the
-	 * job heads towards being running.
-	 */
-	TEST_FEATURE ("with known job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job start message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it and see
-		 * the subscription.
-		 */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__waiting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__waiting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__starting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__starting,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
-	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&sub->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that a job can be started by its id, instead of its name. */
-	TEST_FEATURE ("with known job by id");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job start message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it and see
-		 * the subscription.
-		 */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__waiting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__waiting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__starting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__starting,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
-	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&sub->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that we can handle the starting of a new instance; the job
-	 * the child should receive status message for, and to which it should
-	 * be subscribed, should be the instance rather than the master which
-	 * should be untouched.
-	 */
-	TEST_FEATURE ("with instance job");
-	job_id = 0xdeafbeee;
-
-	job = job_new (NULL, "test");
-	job->instance = TRUE;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job start message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it and see
-		 * the subscription.
-		 */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__waiting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__waiting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__starting,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__starting,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	instance = job_find_by_id (0xdeafbeef);
-
-	TEST_NE_P (instance, NULL);
-	TEST_EQ (instance->instance, TRUE);
-	TEST_EQ_P (instance->instance_of, job);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, instance);
-	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	TEST_EQ (instance->goal, JOB_START);
-	TEST_EQ (instance->state, JOB_STARTING);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&sub->entry);
-	nih_list_free (&instance->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to start an unknown job, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with unknown job");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_UNKNOWN */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_unknown,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
-
-
-	/* Check that if we ask to start a deleted job, which we have to do
-	 * by its id since it won't be found otherwise, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with deleted job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_DELETED;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_INVALID */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_invalid,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_DELETED);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to start a instance job, which we have to do
-	 * by its id since it won't be found otherwise, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with instance job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->instance_of = (void *)-1;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_INVALID */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_invalid,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to start a replacement job, which we have to
-	 * do by its id since it won't be found otherwise, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with replacement job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->replacement_for = (void *)-1;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_INVALID */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_invalid,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to start a job that is already running,
-	 * we get an unchanged message in reply.
-	 */
-	TEST_FEATURE ("with already started job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_START, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_UNCHANGED */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_unchanged,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_STARTING);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
-test_job_stop (void)
-{
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	Job                *job, *instance;
-	NotifySubscription *sub;
-
-	TEST_FUNCTION ("control_job_stop");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
-	/* Check that we can handle a message from a child process asking us
-	 * to stop a running job.  The child should be subscribed to the job,
-	 * and therefore receive replies containing status updates as the
-	 * job heads towards being waiting.
-	 */
-	TEST_FEATURE ("with known job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-	job->process[PROCESS_MAIN]->pid = 1000;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job stop message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it and see
-		 * the subscription.
-		 */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job,
-						       NULL));
-		nih_free (message);
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__running,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__running,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__pre_stop,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__pre_stop,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
-	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&sub->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that a job can be stopped by its id, instead of its name. */
-	TEST_FEATURE ("with known job by id");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-	job->process[PROCESS_MAIN]->pid = 1000;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job stop message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it and see
-		 * the subscription.
-		 */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__running,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__running,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__pre_stop,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__pre_stop,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
-	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_STOPPING);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&sub->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that attempting to stop an instance master actually stops
-	 * all of its instances, returning UPSTART_JOB for each one.
-	 */
-	TEST_FEATURE ("with instance job");
-	job = job_new (NULL, "test");
-	job->instance = TRUE;
-	job->id = 0xdeafbeee;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-
-	instance = job_new (NULL, "test");
-	instance->instance = TRUE;
-	instance->id = 0xdeafbeef;
-	instance->instance_of = job;
-	instance->goal = JOB_START;
-	instance->state = JOB_RUNNING;
-	instance->process[PROCESS_MAIN] = job_process_new (job->process);
-	instance->process[PROCESS_MAIN]->command = "echo";
-	instance->process[PROCESS_MAIN]->pid = 1000;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		/* Send the job stop message */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it and see
-		 * the subscription.
-		 */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job,
-						       NULL));
-		nih_free (message);
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__running,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__running,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__pre_stop,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__pre_stop,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, job);
-	TEST_EQ_P (sub, NULL);
-
-	sub = notify_subscription_find (pid, NOTIFY_JOB, instance);
-	TEST_NE_P (sub, NULL);
-
-	TEST_EQ (instance->goal, JOB_STOP);
-	TEST_EQ (instance->state, JOB_STOPPING);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&sub->entry);
-	nih_list_free (&instance->entry);
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to stop an unknown job, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with unknown job");
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_UNKNOWN */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_unknown,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	event_poll ();
-
-
-	/* Check that if we ask to stop a deleted job, which we have to do
-	 * by its id since it won't be found otherwise, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with deleted job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_DELETED;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_INVALID */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_invalid,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_DELETED);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to stop a replacement job, which we have to do
-	 * by its id since it won't be found otherwise, we get an error
-	 * in reply.
-	 */
-	TEST_FEATURE ("with replacement job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->replacement_for = (void *)-1;
-	job->goal = JOB_START;
-	job->state = JOB_RUNNING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-	job->process[PROCESS_MAIN]->pid = 1000;
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, NULL,
-					       0xdeafbeef);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_INVALID */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_invalid,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_START);
-	TEST_EQ (job->state, JOB_RUNNING);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	/* Check that if we ask to stop a job that is already stopped,
-	 * we get an unchanged message in reply.
-	 */
-	TEST_FEATURE ("with already stopped job");
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_WAITING;
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->command = "echo";
-
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
-
-		sock = upstart_open ();
-
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_JOB_STOP, "test", 0);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_UNCHANGED */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_unchanged,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
-	}
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	TEST_EQ (job->goal, JOB_STOP);
-	TEST_EQ (job->state, JOB_WAITING);
-
-	nih_list_free (&job->entry);
-	event_poll ();
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-
-void
-test_event_emit (void)
-{
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	EventEmission      *em;
-	NotifySubscription *sub;
-
-	/* Check that we can handle a message from a child process requesting
-	 * that an event be emitted.  We don't send an immediate reply,
-	 * however we should be able to find the event in the queue and see
-	 * that there's a subscription on it.
-	 */
-	TEST_FUNCTION ("control_event_emit");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
-
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message = NULL;
+	dbus_uint32_t    serial;
+	char           **env;
+	int              ret;
+	Event           *event;
+	Blocked *        blocked;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+	TEST_FUNCTION ("control_emit_event");
+	nih_error_init ();
+	nih_main_loop_init ();
 	event_init ();
 
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage  *message;
-		char         **args, **env;
-		int            sock;
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
 
-		sock = upstart_open ();
 
-		args = nih_str_array_new (NULL);
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "foo"));
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL, "bar"));
+	/* Check that we can emit an event with an empty environment list
+	 * which will be added to the event queue while the message is
+	 * blocked.  When the event is finished, the reply will be sent
+	 * and the message structure freed.
+	 */
+	TEST_FEATURE ("with empty environment list");
+	TEST_ALLOC_FAIL {
+		method = dbus_message_new_method_call (
+			dbus_bus_get_unique_name (conn),
+			DBUS_PATH_UPSTART,
+			DBUS_INTERFACE_UPSTART,
+			"EmitEvent");
 
-		env = nih_str_array_new (NULL);
-		NIH_MUST (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
+		dbus_connection_send (client_conn, method, &serial);
+		dbus_connection_flush (client_conn);
+		dbus_message_unref (method);
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_EVENT_EMIT, "wibble",
-					       args, env);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
+		TEST_DBUS_MESSAGE (conn, method);
+		assert (dbus_message_get_serial (method) == serial);
 
-		nih_free (args);
-		nih_free (env);
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = conn;
+			message->message = method;
 
-		exit (0);
+			TEST_FREE_TAG (message);
+
+			env = nih_str_array_new (message);
+		}
+
+		ret = control_emit_event (NULL, message, "test", env, TRUE);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			dbus_message_unref (method);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "test");
+		TEST_EQ_P (event->env[0], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_EMIT_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		TEST_ALLOC_PARENT (blocked->message, blocked);
+
+		TEST_FREE_TAG (blocked);
+
+		nih_discard (message);
+		TEST_NOT_FREE (message);
+
+
+		event_poll ();
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_FREE (blocked);
+
+		TEST_FREE (message);
+		dbus_message_unref (method);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, reply);
+
+		TEST_EQ (dbus_message_get_type (reply),
+			 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+		dbus_message_unref (reply);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+	/* Check that if we supply an environment list, it's placed straight
+	 * into the event.
+	 */
+	TEST_FEATURE ("with environment list");
+	TEST_ALLOC_FAIL {
+		method = dbus_message_new_method_call (
+			dbus_bus_get_unique_name (conn),
+			DBUS_PATH_UPSTART,
+			DBUS_INTERFACE_UPSTART,
+			"EmitEvent");
 
-	em = (EventEmission *)events->prev;
-	TEST_EQ_STR (em->event.name, "wibble");
-	TEST_EQ_STR (em->event.args[0], "foo");
-	TEST_EQ_STR (em->event.args[1], "bar");
-	TEST_EQ_P (em->event.args[2], NULL);
-	TEST_EQ_STR (em->event.env[0], "FOO=BAR");
-	TEST_EQ_P (em->event.env[1], NULL);
+		dbus_connection_send (client_conn, method, &serial);
+		dbus_connection_flush (client_conn);
+		dbus_message_unref (method);
 
-	sub = notify_subscription_find (pid, NOTIFY_EVENT, em);
-	TEST_NE_P (sub, NULL);
+		TEST_DBUS_MESSAGE (conn, method);
+		assert (dbus_message_get_serial (method) == serial);
 
-	nih_list_free (&em->event.entry);
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = conn;
+			message->message = method;
+
+			TEST_FREE_TAG (message);
+
+			env = nih_str_array_new (message);
+			assert (nih_str_array_add (&env, message, NULL,
+						   "FOO=BAR"));
+			assert (nih_str_array_add (&env, message, NULL,
+						   "BAR=BAZ"));
+		}
+
+		ret = control_emit_event (NULL, message, "test", env, TRUE);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			dbus_message_unref (method);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "test");
+		TEST_EQ_STR (event->env[0], "FOO=BAR");
+		TEST_EQ_STR (event->env[1], "BAR=BAZ");
+		TEST_EQ_P (event->env[2], NULL);
+
+		TEST_LIST_NOT_EMPTY (&event->blocking);
+
+		blocked = (Blocked *)event->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, event);
+		TEST_EQ (blocked->type, BLOCKED_EMIT_METHOD);
+		TEST_EQ_P (blocked->message, message);
+
+		TEST_ALLOC_PARENT (blocked->message, blocked);
+
+		TEST_FREE_TAG (blocked);
+
+		nih_discard (message);
+		TEST_NOT_FREE (message);
+
+
+		event_poll ();
+
+		TEST_LIST_EMPTY (events);
+
+		TEST_FREE (blocked);
+
+		TEST_FREE (message);
+		dbus_message_unref (method);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, reply);
+
+		TEST_EQ (dbus_message_get_type (reply),
+			 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+		dbus_message_unref (reply);
+	}
+
+
+	/* Check that we can emit an event without waiting for it to
+	 * finish, we should get the reply straight away.
+	 */
+	TEST_FEATURE ("with no wait");
+	TEST_ALLOC_FAIL {
+		method = dbus_message_new_method_call (
+			dbus_bus_get_unique_name (conn),
+			DBUS_PATH_UPSTART,
+			DBUS_INTERFACE_UPSTART,
+			"EmitEvent");
+
+		dbus_connection_send (client_conn, method, &serial);
+		dbus_connection_flush (client_conn);
+		dbus_message_unref (method);
+
+		TEST_DBUS_MESSAGE (conn, method);
+		assert (dbus_message_get_serial (method) == serial);
+
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = conn;
+			message->message = method;
+
+			TEST_FREE_TAG (message);
+
+			env = nih_str_array_new (message);
+		}
+
+		ret = control_emit_event (NULL, message, "test", env, FALSE);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			dbus_message_unref (method);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		event = (Event *)events->next;
+		TEST_ALLOC_SIZE (event, sizeof (Event));
+		TEST_EQ_STR (event->name, "test");
+		TEST_EQ_P (event->env[0], NULL);
+
+		TEST_LIST_EMPTY (&event->blocking);
+
+		nih_discard (message);
+		TEST_FREE (message);
+		dbus_message_unref (method);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, reply);
+
+		TEST_EQ (dbus_message_get_type (reply),
+			 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+		TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+		dbus_message_unref (reply);
+
+
+		event_poll ();
+
+		TEST_LIST_EMPTY (events);
+	}
+
+
+	/* Check that if the event is marked as failed, an ordinary reply
+	 * is not sent when its finished, but an error instead.
+	 */
+	TEST_FEATURE ("with failed event");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	env = nih_str_array_new (NULL);
+
+	ret = control_emit_event (NULL, message, "test", env, TRUE);
+
+	TEST_EQ (ret, 0);
+
+	TEST_LIST_NOT_EMPTY (events);
+
+	event = (Event *)events->next;
+	TEST_ALLOC_SIZE (event, sizeof (Event));
+	TEST_EQ_STR (event->name, "test");
+	TEST_EQ_P (event->env[0], NULL);
+
+	nih_discard (message);
+	TEST_NOT_FREE (message);
+
+
+	event->failed = TRUE;
 	event_poll ();
 
+	TEST_LIST_EMPTY (events);
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
+	TEST_FREE (message);
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_TRUE (dbus_message_is_error (reply,
+					  DBUS_INTERFACE_UPSTART ".Error.EventFailed"));
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+
+	/* Check that if the event name is empty, an error is returned
+	 * immediately.
+	 */
+	TEST_FEATURE ("with empty name");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	env = nih_str_array_new (message);
+
+	ret = control_emit_event (NULL, message, "", env, TRUE);
+
+	TEST_LT (ret, 0);
+
+	dbus_error = (NihDBusError *)nih_error_get ();
+	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
+	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+	nih_free (dbus_error);
+
+	nih_free (message);
+	dbus_message_unref (method);
+
+
+	/* Check that if an entry in the environment list is missing an
+	 * equals, an error is returned immediately.
+	 */
+	TEST_FEATURE ("with missing equals in environment list");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	env = nih_str_array_new (message);
+	assert (nih_str_array_add (&env, message, NULL, "FOO_BAR"));
+
+	ret = control_emit_event (NULL, message, "test", env, TRUE);
+
+	TEST_LT (ret, 0);
+
+	dbus_error = (NihDBusError *)nih_error_get ();
+	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
+	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+	nih_free (dbus_error);
+
+	nih_free (message);
+	dbus_message_unref (method);
+
+
+	/* Check that if an entry in the environment list has an invalid name,
+	 * an error is returned immediately.
+	 */
+	TEST_FEATURE ("with invalid name in environment list");
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		DBUS_PATH_UPSTART,
+		DBUS_INTERFACE_UPSTART,
+		"EmitEvent");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	env = nih_str_array_new (message);
+	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=BAZ"));
+
+	ret = control_emit_event (NULL, message, "test", env, TRUE);
+
+	TEST_LT (ret, 0);
+
+	dbus_error = (NihDBusError *)nih_error_get ();
+	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
+	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
+	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
+	nih_free (dbus_error);
+
+	nih_free (message);
+	dbus_message_unref (method);
+
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 }
 
 
 void
-test_subscribe_jobs (void)
+test_get_version (void)
 {
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	Job                *job;
-	NotifySubscription *sub;
+	NihDBusMessage *message = NULL;
+	char           *version;
+	NihError       *error;
+	int             ret;
 
-	/* Check that we can handle a message from a child process asking us
-	 * to subscribe them to job status notifications.  We then tickle
-	 * a job so that the child gets a status notification.
+	/* Check that the function returns the package string as a newly
+	 * allocated child of the message structure.
 	 */
-	TEST_FUNCTION ("control_subscribe_jobs");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FUNCTION ("control_get_version");
+	nih_error_init ();
+	job_class_init ();
+	package_string = "init (upstart 1.0)";
 
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_START;
-	job->state = JOB_STARTING;
-	job->process[PROCESS_PRE_START] = job_process_new (job->process);
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_POST_STOP] = job_process_new (job->process);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		ret = control_get_version (NULL, message, &version);
 
-		sock = upstart_open ();
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_SUBSCRIBE_JOBS);
-		assert (nih_io_message_send (message, sock) > 0);
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (version, message);
+		TEST_EQ_STR (version, package_string);
+
 		nih_free (message);
+	}
+}
 
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
 
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__starting,
-						       NULL));
+void
+test_get_log_priority (void)
+{
+	NihDBusMessage *message = NULL;
+	char           *priority;
+	NihError       *error;
+	int             ret;
+
+	TEST_FUNCTION ("control_get_log_priority");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_FATAL priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with fatal");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_FATAL;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "fatal");
+
 		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__starting,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
-	TEST_NE_P (sub, NULL);
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_ERROR priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with error");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-	notify_job (job);
+		nih_log_priority = NIH_LOG_ERROR;
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+		ret = control_get_log_priority (NULL, message, &priority);
 
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
 
-	nih_list_free (&job->entry);
-	nih_list_free (&sub->entry);
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "error");
+
+		nih_free (message);
+	}
 
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_WARN priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with warn");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_WARN;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "warn");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_MESSAGE priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_MESSAGE;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "message");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_INFO priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with info");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_INFO;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "info");
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns the correct string for the
+	 * NIH_LOG_DEBUG priority as an allocated child of the message
+	 * structure.
+	 */
+	TEST_FEATURE ("with debug");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_DEBUG;
+
+		ret = control_get_log_priority (NULL, message, &priority);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (priority, message);
+		TEST_EQ_STR (priority, "debug");
+
+		nih_free (message);
+	}
+
+
+	nih_log_priority = NIH_LOG_UNKNOWN;
 }
 
 void
-test_unsubscribe_jobs (void)
+test_set_log_priority (void)
 {
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	Job                *job;
-	NotifySubscription *sub;
+	NihDBusMessage *message = NULL;
+	NihError       *error;
+	NihDBusError   *dbus_err;
+	int             ret;
 
-	/* Check that we can handle a message from a child process asking us
-	 * to unsubscribe them from job status notifications.
+	TEST_FUNCTION ("control_set_log_priority");
+	nih_error_init ();
+	job_class_init ();
+
+	/* Check that the function sets the log priority to NIH_LOG_FATAL
+	 * when given the correct string.
 	 */
-	TEST_FUNCTION ("control_unsubscribe_jobs");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FEATURE ("with fatal");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-	job = job_new (NULL, "test");
-	job->id = 0xdeafbeef;
-	job->goal = JOB_STOP;
-	job->state = JOB_STOPPING;
-	job->process[PROCESS_PRE_START] = job_process_new (job->process);
-	job->process[PROCESS_MAIN] = job_process_new (job->process);
-	job->process[PROCESS_MAIN]->pid = 1000;
-	job->process[PROCESS_POST_STOP] = job_process_new (job->process);
+		nih_log_priority = NIH_LOG_UNKNOWN;
 
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		ret = control_set_log_priority (NULL, message, "fatal");
 
-		sock = upstart_open ();
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_SUBSCRIBE_JOBS);
-		assert (nih_io_message_send (message, sock) > 0);
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_FATAL);
+
 		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_JOB_STATUS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_PROCESS */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_process,
-						       NULL));
-		nih_free (message);
-
-		/* Should receive UPSTART_JOB_STATUS_END */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_job_status_end__stopping,
-						       NULL));
-		nih_free (message);
-
-		/* Having received a status update, we know the parent has
-		 * found our subscription, so now we unsubscribe.
-		 */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_UNSUBSCRIBE_JOBS);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscription_find (pid, NOTIFY_JOB, NULL);
-	TEST_NE_P (sub, NULL);
-
-	destructor_called = 0;
-	nih_alloc_set_destructor (sub, my_destructor);
-
-	notify_job (job);
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	TEST_TRUE (destructor_called);
-
-	nih_list_free (&job->entry);
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
-test_subscribe_events (void)
-{
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	EventEmission      *emission;
-	NotifySubscription *sub;
-
-	/* Check that we can handle a message from a child process asking us
-	 * to subscribe them to event notifications.  We then emit an event
-	 * so that the child gets a notification.
+	/* Check that the function sets the log priority to NIH_LOG_ERROR
+	 * when given the correct string.
 	 */
-	TEST_FUNCTION ("control_subscribe_events");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FEATURE ("with error");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		nih_log_priority = NIH_LOG_UNKNOWN;
 
-		sock = upstart_open ();
+		ret = control_set_log_priority (NULL, message, "error");
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_SUBSCRIBE_EVENTS);
-		assert (nih_io_message_send (message, sock) > 0);
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_ERROR);
+
 		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_EVENT */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_event,
-						       NULL));
-		nih_free (message);
-
-		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
-	TEST_NE_P (sub, NULL);
-
-	emission = event_emit ("test", NULL, NULL);
-	emission->id = 0xdeafbeef;
-	notify_event (emission);
-
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
-
-	nih_list_free (&emission->event.entry);
-	nih_list_free (&sub->entry);
-
-
-	control_close ();
-	upstart_disable_safeties = FALSE;
-}
-
-void
-test_unsubscribe_events (void)
-{
-	NihIo              *io;
-	pid_t               pid;
-	int                 wait_fd, status;
-	EventEmission      *emission;
-	NotifySubscription *sub;
-
-	/* Check that we can handle a message from a child process asking us
-	 * to unsubscribe them from event notifications.
+	/* Check that the function sets the log priority to NIH_LOG_WARN
+	 * when given the correct string.
 	 */
-	TEST_FUNCTION ("control_unsubscribe_events");
-	io = control_open ();
-	upstart_disable_safeties = TRUE;
+	TEST_FEATURE ("with warn");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-	fflush (stdout);
-	TEST_CHILD_WAIT (pid, wait_fd) {
-		NihIoMessage *message;
-		int           sock;
-		size_t        len;
+		nih_log_priority = NIH_LOG_UNKNOWN;
 
-		sock = upstart_open ();
+		ret = control_set_log_priority (NULL, message, "warn");
 
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_SUBSCRIBE_EVENTS);
-		assert (nih_io_message_send (message, sock) > 0);
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_WARN);
+
 		nih_free (message);
-
-		/* Allow the parent to continue so it can receive it */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* Should receive UPSTART_EVENT */
-		message = nih_io_message_recv (NULL, sock, &len);
-		assert0 (upstart_message_handle_using (message, message,
-						       (UpstartMessageHandler)
-						       check_event,
-						       NULL));
-		nih_free (message);
-
-		/* Having received an event, we know the parent has
-		 * found our subscription, so now we unsubscribe.
-		 */
-		message = upstart_message_new (NULL, getppid (),
-					       UPSTART_UNSUBSCRIBE_EVENTS);
-		assert (nih_io_message_send (message, sock) > 0);
-		nih_free (message);
-
-		exit (0);
 	}
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
 
-	sub = notify_subscription_find (pid, NOTIFY_EVENT, NULL);
-	TEST_NE_P (sub, NULL);
+	/* Check that the function sets the log priority to NIH_LOG_MESSAGE
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with message");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (sub, my_destructor);
+		nih_log_priority = NIH_LOG_UNKNOWN;
 
-	emission = event_emit ("test", NULL, NULL);
-	emission->id = 0xdeafbeef;
-	notify_event (emission);
+		ret = control_set_log_priority (NULL, message, "message");
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
 
-	waitpid (pid, &status, 0);
-	if ((! WIFEXITED (status)) || (WEXITSTATUS (status) != 0))
-		exit (1);
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
 
-	io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
-	while (! NIH_LIST_EMPTY (io->send_q))
-		io->watch->watcher (io, io->watch, NIH_IO_READ | NIH_IO_WRITE);
+			nih_free (message);
 
-	TEST_TRUE (destructor_called);
+			continue;
+		}
 
-	nih_list_free (&emission->event.entry);
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_MESSAGE);
+
+		nih_free (message);
+	}
 
 
-	control_close ();
-	upstart_disable_safeties = FALSE;
+	/* Check that the function sets the log priority to NIH_LOG_INFO
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with info");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "info");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_INFO);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function sets the log priority to NIH_LOG_DEBUG
+	 * when given the correct string.
+	 */
+	TEST_FEATURE ("with debug");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_UNKNOWN;
+
+		ret = control_set_log_priority (NULL, message, "debug");
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_DEBUG);
+
+		nih_free (message);
+	}
+
+
+	/* Check that the function returns an invalid arguments error when
+	 * given an unrecognised string.
+	 */
+	TEST_FEATURE ("with unknown string");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		nih_log_priority = NIH_LOG_MESSAGE;
+
+		ret = control_set_log_priority (NULL, message, "wibble");
+
+		TEST_LT (ret, 0);
+
+		error = nih_error_get ();
+
+		if (test_alloc_failed
+		    && (error->number == ENOMEM)) {
+			nih_free (error);
+
+			nih_free (message);
+
+			continue;
+		}
+
+		TEST_EQ (error->number, NIH_DBUS_ERROR);
+		TEST_ALLOC_SIZE (error, sizeof (NihDBusError));
+
+		dbus_err = (NihDBusError *)error;
+		TEST_EQ_STR (dbus_err->name, DBUS_ERROR_INVALID_ARGS);
+
+		nih_free (dbus_err);
+
+		TEST_EQ (nih_log_priority, NIH_LOG_MESSAGE);
+
+		nih_free (message);
+	}
+
+
+	nih_log_priority = NIH_LOG_UNKNOWN;
 }
 
 
@@ -3389,22 +2216,26 @@ int
 main (int   argc,
       char *argv[])
 {
-	test_open ();
-	test_close ();
-	test_error_handler ();
-	test_send_job_status ();
-	test_send_instance ();
-	test_version_query ();
-	test_log_priority ();
-	test_job_find ();
-	test_job_query ();
-	test_job_start ();
-	test_job_stop ();
-	test_event_emit ();
-	test_subscribe_jobs ();
-	test_unsubscribe_jobs ();
-	test_subscribe_events ();
-	test_unsubscribe_events ();
+	test_server_open ();
+	test_server_connect ();
+	test_server_close ();
+
+	test_bus_open ();
+	test_bus_close ();
+
+	test_disconnected ();
+
+	test_reload_configuration ();
+
+	test_get_job_by_name ();
+	test_get_all_jobs ();
+
+	test_emit_event ();
+
+	test_get_version ();
+
+	test_get_log_priority ();
+	test_set_log_priority ();
 
 	return 0;
 }

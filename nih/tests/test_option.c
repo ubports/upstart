@@ -2,21 +2,21 @@
  *
  * test_option.c - test suite for nih/option.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
@@ -141,6 +141,25 @@ test_parser (void)
 		TEST_EQ_STR (args[1], "bar");
 		TEST_EQ_STR (args[2], "baz");
 		TEST_EQ_P (args[3], NULL);
+
+		nih_free (args);
+	}
+
+
+	/* Check that a dash on its own is not taken from the arguments.
+	 */
+	TEST_FEATURE ("with lone dash");
+	TEST_ALLOC_FAIL {
+		argc = 0;
+		argv[argc++] = "ignored";
+		argv[argc++] = "-";
+		argv[argc] = NULL;
+
+		args = nih_option_parser (NULL, argc, argv, options, FALSE);
+
+		TEST_NE_P (args, NULL);
+		TEST_EQ_STR (args[0], "-");
+		TEST_EQ_P (args[1], NULL);
 
 		nih_free (args);
 	}

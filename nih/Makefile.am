@@ -6,7 +6,13 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/intl
 
 
-lib_LTLIBRARIES = libnih.la
+libraries = libnih.la
+
+if INSTALL_NIH
+lib_LTLIBRARIES = $(libraries)
+else
+noinst_LTLIBRARIES = $(libraries)
+endif
 
 libnih_la_SOURCES = \
 	alloc.c \
@@ -28,15 +34,21 @@ libnih_la_SOURCES = \
 	error.c
 
 
+if INSTALL_NIH
 libnih_la_LDFLAGS = \
 	-version-info 0:0:0
 if HAVE_VERSION_SCRIPT_ARG
 libnih_la_LDFLAGS += @VERSION_SCRIPT_ARG@=$(srcdir)/libnih.ver
 endif
+endif
+
+libnih_la_LIBADD = -lrt
+
 
 EXTRA_DIST = libnih.ver libnih.supp
 
 
+if INSTALL_NIH
 include_HEADERS = \
 	libnih.h
 
@@ -61,8 +73,16 @@ nihinclude_HEADERS = \
 	logging.h \
 	error.h \
 	errors.h \
-	inotify.h \
-	test.h
+	test.h \
+	test_output.h \
+	test_values.h \
+	test_process.h \
+	test_divert.h \
+	test_files.h \
+	test_alloc.h \
+	test_list.h \
+	test_hash.h
+endif
 
 
 TESTS = \
@@ -154,6 +174,9 @@ test_error_SOURCES = tests/test_error.c
 test_error_LDFLAGS = -static
 test_error_LDADD = libnih.la
 
+
+.PHONY: tests
+tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 
 clean-local:
 	rm -f *.gcno *.gcda
