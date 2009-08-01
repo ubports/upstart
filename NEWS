@@ -3,6 +3,9 @@
 	* Fixed an assertion when a job's main process is terminated
 	  while in the stopping state.  (Bug: #406408)
 
+	* nih-dbus-tool(1) manpage will not be installed, since the binary
+	  is not.  (Bug: #403103)
+
 0.6.2  2009-07-21  "Buggrit, millennium hand and shrimp"
 
 	* Fixed an assertion when a job receives a stop event or the
