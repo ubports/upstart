@@ -1160,6 +1160,7 @@ test_handler (void)
 	Job *           job = NULL;
 	Blocked *       blocked = NULL;
 	Event *         event;
+	Event *         bevent;
 	FILE *          output;
 	int             exitcodes[2] = { 100, SIGINT << 8 };
 	int             status;
@@ -3407,6 +3408,68 @@ test_handler (void)
 	class->process[PROCESS_PRE_STOP] = NULL;
 
 	class->respawn = FALSE;
+
+
+	/* Check that a running task that exits while we're waiting for
+	 * the stopping event to finish does not change the state or
+	 * record the exit information since we were stopping anyway and
+	 * this just makes our job easier.
+	 */
+	TEST_FEATURE ("with running process while stopping");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+
+			bevent = event_new (job, "stopping", NULL);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_STOPPING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = bevent;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_process_handler (NULL, 1, NIH_CHILD_KILLED, SIGTERM);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+		event_unblock (event);
+
+		TEST_EQ_P (job->blocker, bevent);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		nih_free (job);
+
+		TEST_FILE_EQ (output, ("test: test main process (1) "
+				       "killed by TERM signal\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+	}
 
 
 #if HAVE_VALGRIND_VALGRIND_H

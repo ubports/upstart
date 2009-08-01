@@ -1,3 +1,13 @@
+2009-08-01  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_job_process.c (test_handler): Add a missing test
+	case for the running process exiting while we're in the stopping
+	state.
+	* init/job_process.c (job_process_terminated): Don't change the
+	state or record failure information if we're in the stopping state
+	when the main process dies, otherwise we hit an assertion later;
+	just wait for the stopping event to finish and carry on as before.
+
 2009-07-31  Scott James Remnant  <scott@netsplit.com>
 
 	* dbus/upstart.h: Allow the service name and address to be overriden
