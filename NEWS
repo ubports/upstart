@@ -1,7 +1,9 @@
-0.6.3  xxxx-xx-xx
+0.6.3  2009-08-02  "Our last, best hope for peace"
 
 	* Fixed an assertion when a job's main process is terminated
 	  while in the stopping state.  (Bug: #406408)
+
+	* Fixed compilation on ia64.
 
 	* nih-dbus-tool(1) manpage will not be installed, since the binary
 	  is not.  (Bug: #403103)
