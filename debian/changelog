@@ -1,11 +1,11 @@
-upstart (0.6.3-1) UNRELEASED; urgency=low
+upstart (0.6.3-1) karmic; urgency=low
 
   * New upstream release:
     - Fixed assertion when a job exits while stopping.  LP: #406408.
     - Fixed compilation on ia64.
     - nih-dbus-tool(1) manpage no longer installed.
 
- -- Scott James Remnant <scott@ubuntu.com>  Mon, 03 Aug 2009 23:33:13 +0100
+ -- Scott James Remnant <scott@ubuntu.com>  Mon, 03 Aug 2009 23:58:47 +0100
 
 upstart (0.6.2-1) karmic; urgency=low
 
