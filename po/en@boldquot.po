@@ -30,10 +30,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.6.2\n"
+"Project-Id-Version: upstart 0.6.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2009-07-21 18:18+0100\n"
-"PO-Revision-Date: 2009-07-21 18:18+0100\n"
+"POT-Creation-Date: 2009-08-02 17:27+0100\n"
+"PO-Revision-Date: 2009-08-02 17:27+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "MIME-Version: 1.0\n"
@@ -837,87 +837,87 @@ msgstr "Sending KILL signal to %s %s process (%d)"
 msgid "Failed to send KILL signal to %s %s process (%d): %s"
 msgstr "Failed to send KILL signal to %s %s process (%d): %s"
 
-#: init/job_process.c:845
+#: init/job_process.c:846
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr "%s %s process (%d) terminated with status %d"
 
-#: init/job_process.c:850
+#: init/job_process.c:851
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr "%s %s process (%d) exited normally"
 
-#: init/job_process.c:865
+#: init/job_process.c:866
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr "%s %s process (%d) killed by %s signal"
 
-#: init/job_process.c:869
+#: init/job_process.c:870
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr "%s %s process (%d) killed by signal %d"
 
-#: init/job_process.c:883
+#: init/job_process.c:884
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr "%s %s process (%d) stopped by %s signal"
 
-#: init/job_process.c:887
+#: init/job_process.c:888
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr "%s %s process (%d) stopped by signal %d"
 
-#: init/job_process.c:901
+#: init/job_process.c:902
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr "%s %s process (%d) continued by %s signal"
 
-#: init/job_process.c:905
+#: init/job_process.c:906
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr "%s %s process (%d) continued by signal %d"
 
-#: init/job_process.c:1026
+#: init/job_process.c:1039
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr "%s respawning too fast, stopped"
 
-#: init/job_process.c:1032
+#: init/job_process.c:1045
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr "%s %s process ended, respawning"
 
-#: init/job_process.c:1246
+#: init/job_process.c:1259
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr "Failed to set ptrace options for %s %s process (%d): %s"
 
-#: init/job_process.c:1259 init/job_process.c:1454
+#: init/job_process.c:1272 init/job_process.c:1467
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr "Failed to continue traced %s %s process (%d): %s"
 
-#: init/job_process.c:1299 init/job_process.c:1390 init/job_process.c:1445
+#: init/job_process.c:1312 init/job_process.c:1403 init/job_process.c:1458
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr "Failed to detach traced %s %s process (%d): %s"
 
-#: init/job_process.c:1339
+#: init/job_process.c:1352
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr "Failed to deliver signal to traced %s %s process (%d): %s"
 
-#: init/job_process.c:1374
+#: init/job_process.c:1387
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr "Failed to obtain child process id for %s %s process (%d): %s"
 
-#: init/job_process.c:1381
+#: init/job_process.c:1394
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr "%s %s process (%d) became new process (%d)"
 
-#: init/job_process.c:1440
+#: init/job_process.c:1453
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr "%s %s process (%d) executable changed"

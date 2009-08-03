@@ -832,6 +832,7 @@ job_process_handler (void           *data,
 	 * job's process it was.  If we don't know about it, then we simply
 	 * ignore the event.
 	 */
+	nih_debug ("Ignored event %x (%d) for process %d", event, status, pid);
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
@@ -997,6 +998,18 @@ job_process_terminated (Job         *job,
 		 */
 		if (job->state == JOB_KILLED)
 			break;
+
+		/* Yet another corner case is terminating when we were
+		 * already stopping, we don't to tamper with the goal or
+		 * state because we're still waiting for the stopping
+		 * event to finish and that might restart it anyway.
+		 * We also don't want to consider it a failure, because
+		 * we want the stopping and stopped events to match.
+		 */
+		if (job->state == JOB_STOPPING) {
+			state = FALSE;
+			break;
+		}
 
 		/* We don't assume that because the primary process was
 		 * killed or exited with a non-zero status, it failed.
