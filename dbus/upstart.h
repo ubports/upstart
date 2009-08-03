@@ -26,7 +26,9 @@
  *
  * The well-known name used by Upstart on the system bus.
  **/
+#ifndef DBUS_SERVICE_UPSTART
 #define DBUS_SERVICE_UPSTART "com.ubuntu.Upstart"
+#endif
 
 
 /**
@@ -66,7 +68,9 @@
  * The address where the private D-Bus server inside Upstart can be
  * found.
  **/
+#ifndef DBUS_ADDRESS_UPSTART
 #define DBUS_ADDRESS_UPSTART "unix:abstract=/com/ubuntu/upstart"
+#endif
 
 
 #endif /* DBUS_UPSTART_H */
