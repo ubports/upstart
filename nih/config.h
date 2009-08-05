@@ -1,24 +1,41 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_CONFIG_H
 #define NIH_CONFIG_H
+
+/**
+ * Implements a flexible configuration parser based on keyword stanzas and zero
+ * or more arguments, handling such matters as quotation, whitespace and
+ * commands for you.
+ *
+ * You describe the stanzas with an array of NihConfigStanza members,
+ * each is handled by a function that receives a number of arguments
+ * referencing the current position within the file being parsed.
+ *
+ * The function may then call any of the parsing functions to parse its
+ * arguments, consuming as much of the following file as it wishes.  Most
+ * will call nih_config_parse_args() to do the hard work.
+ *
+ * Configuration can be parsed as a file with nih_config_parse_file() or
+ * as a string with nih_config_parse().
+ **/
 
 #include <sys/types.h>
 

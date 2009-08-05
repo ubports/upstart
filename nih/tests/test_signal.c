@@ -2,21 +2,21 @@
  *
  * test_signal.c - test suite for nih/signal.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
@@ -56,24 +56,6 @@ test_set_handler (void)
 	sigaction (SIGUSR1, NULL, &act);
 	TEST_EQ_P (act.sa_handler, my_sig_handler);
 	TEST_TRUE (act.sa_flags & SA_RESTART);
-	TEST_FALSE (act.sa_flags & SA_RESETHAND);
-
-	for (i = 1; i < 32; i++)
-		TEST_FALSE (sigismember (&act.sa_mask, i));
-
-
-	/* Check that the SIGCHLD handler also has the SA_NOCLDSTOP
-	 * flag set.
-	 */
-	TEST_FEATURE ("with child signal");
-	ret = nih_signal_set_handler (SIGCHLD, my_sig_handler);
-
-	TEST_EQ (ret, 0);
-
-	sigaction (SIGCHLD, NULL, &act);
-	TEST_EQ_P (act.sa_handler, my_sig_handler);
-	TEST_TRUE (act.sa_flags & SA_RESTART);
-	TEST_TRUE (act.sa_flags & SA_NOCLDSTOP);
 	TEST_FALSE (act.sa_flags & SA_RESETHAND);
 
 	for (i = 1; i < 32; i++)
@@ -243,7 +225,7 @@ test_add_handler (void)
 		TEST_EQ_P (signal->handler, my_handler);
 		TEST_EQ_P (signal->data, &signal);
 
-		nih_list_free (&signal->entry);
+		nih_free (signal);
 	}
 }
 

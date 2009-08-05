@@ -1,24 +1,42 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_OPTION_H
 #define NIH_OPTION_H
+
+/**
+ * Provides a flexible command-line option and arguments parser that
+ * automatically provides built-in options for adjusting output verbosity
+ * and provides --help output.
+ *
+ * Describe your commands options using an array of NihOption members
+ * and pass this along with the argc and argv variables to
+ * nih_option_parser().
+ *
+ * Options can be set from arguments with helper functions, nih_option_count()
+ * and nih_option_int() are provided for you.
+ *
+ * Help and usage output can be customised with the nih_option_set_usage(),
+ * nih_option_set_usage_stem(), nih_option_set_synopsis(),
+ * nih_option_set_help() and nih_option_set_footer() functions.  Be sure
+ * to call these before the option parser.
+ **/
 
 #include <nih/macros.h>
 
@@ -109,7 +127,7 @@ char **    nih_option_parser         (const void *parent,
 	__attribute__ ((warn_unused_result, malloc));
 
 NihOption *nih_option_join           (const void *parent,
-				      NihOption *a, NihOption *b)
+				      const NihOption *a, const NihOption *b)
 	__attribute__ ((warn_unused_result, malloc));
 
 int        nih_option_count          (NihOption *option, const char *arg);

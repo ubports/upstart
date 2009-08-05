@@ -1,23 +1,22 @@
 /* upstart
  *
- * process.c - job process handling
+ * process.c - process definition handling
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -25,396 +24,95 @@
 #endif /* HAVE_CONFIG_H */
 
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
-#include <nih/string.h>
-#include <nih/signal.h>
-#include <nih/main.h>
 #include <nih/logging.h>
-#include <nih/error.h>
 
-#include "job.h"
 #include "process.h"
-#include "paths.h"
-
-
-/* Prototypes for static functions */
-static int process_setup_limits      (Job *job);
-static int process_setup_environment (Job *job);
 
 
 /**
- * process_spawn:
- * @job: job context for process to be spawned in,
- * @argv: NULL-terminated list of arguments for the process.
+ * process_new:
+ * @parent: parent of new process.
  *
- * This function spawns a new process using the @job details to set up the
- * environment for it; the process is always a session and process group
- * leader as we never want anything in our own group.
+ * Allocates and returns a new empty Process structure.
  *
- * The process to be executed is given in the @argv array which is passed
- * directly to execvp(), so should be in the same NULL-terminated form with
- * the first argument containing the path or filename of the binary.  The
- * PATH environment for the job will be searched.
+ * If @parent is not NULL, it should be a pointer to another allocated
+ * block which will be used as the parent for this block.  When @parent
+ * is freed, the returned block will be freed too.
  *
- * This function only spawns the process, it is up to the caller to ensure
- * that the information is saved into the job and the process is watched, etc.
- *
- * Note that the only error raised within this function is a failure of the
- * fork() syscall as the environment is set up within the child process.
- *
- * Returns: process id of new process on success, -1 on raised error
+ * Returns: newly allocated Process structure or NULL if insufficient memory.
  **/
-pid_t
-process_spawn (Job          *job,
-	       char * const  argv[])
+Process *
+process_new  (const void *parent)
 {
-	NihError *err;
-	sigset_t  child_set, orig_set;
-	pid_t     pid;
-	int       i;
+	Process *process;
 
-	nih_assert (job != NULL);
+	process = nih_new (parent, Process);
+	if (! process)
+		return NULL;
 
-	/* Block SIGCHLD while we fork to avoid surprises */
-	sigemptyset (&child_set);
-	sigaddset (&child_set, SIGCHLD);
-	sigprocmask (SIG_BLOCK, &child_set, &orig_set);
+	process->script = FALSE;
+	process->command = NULL;
 
-	/* Fork the child process, and return either the id or failure
-	 * back to the caller.
-	 */
-	pid = fork ();
-	if (pid > 0) {
-		sigprocmask (SIG_SETMASK, &orig_set, NULL);
-
-		nih_debug ("Spawned process %d for %s", pid, job->name);
-		return pid;
-	} else if (pid < 0) {
-		sigprocmask (SIG_SETMASK, &orig_set, NULL);
-
-		nih_return_system_error (-1);
-	}
-
-
-	/* We're now in the child process.
-	 *
-	 * First we close the standard file descriptors so we don't
-	 * inherit them directly from init but get to pick them ourselves.
-	 *
-	 * Any other open descriptor will have had the FD_CLOEXEC flag set,
-	 * so will get automatically closed when we exec() later.
-	 */
-	for (i = 0; i < 3; i++)
-		close (i);
-
-	/* Reset the signal mask, and put all signal handlers back to their
-	 * default handling so the child isn't unexpectantly ignoring them
-	 */
-	sigprocmask (SIG_SETMASK, &orig_set, NULL);
-	nih_signal_reset ();
-
-	/* Become the leader of a new session and process group */
-	setsid ();
-
-	/* The job defines what the process's standard input, output and
-	 * error file descriptors should look like; set those up.
-	 */
-	if (process_setup_console (job, job->console) < 0)
-		goto error;
-
-	/* The job also gives us a consistent world to run all processes
-	 * in, including resource limits and suchlike.  Set that all up.
-	 */
-	if (process_setup_limits (job) < 0)
-		goto error;
-
-	/* And finally set up the environment variables for the process.
-	 */
-	if (process_setup_environment (job) < 0)
-		goto error;
-
-	/* Execute the process, if we escape from here it failed */
-	if (execvp (argv[0], argv) < 0)
-		nih_error_raise_system ();
-
-error:
-	err = nih_error_get ();
-
-	nih_error (_("Unable to execute \"%s\" for %s: %s"),
-		   argv[0], job->name, err->message);
-	nih_free (err);
-
-	exit (255);
-}
-
-/**
- * process_setup_limits:
- * @job: job details.
- *
- * Set up the boundaries for the current process such as the file creation
- * mask, priority, limits, working directory, etc. from the details stored
- * in the @job given.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-process_setup_limits (Job *job)
-{
-	int i;
-
-	nih_assert (job != NULL);
-
-	umask (job->umask);
-
-	if (setpriority (PRIO_PROCESS, 0, job->nice) < 0)
-		nih_return_system_error (-1);
-
-	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (! job->limits[i])
-			continue;
-
-		if (setrlimit (i, job->limits[i]) < 0)
-			nih_return_system_error (-1);
-	}
-
-	if (job->chroot) {
-		if (chroot (job->chroot) < 0)
-			nih_return_system_error (-1);
-		if (chdir ("/") < 0)
-			nih_return_system_error (-1);
-	}
-
-	if (job->chdir) {
-		if (chdir (job->chdir) < 0)
-			nih_return_system_error (-1);
-	}
-
-	return 0;
-}
-
-/**
- * process_setup_environment:
- * @job: job details.
- *
- * Set up the environment variables for the current process based on the
- * the details in @job.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-static int
-process_setup_environment (Job *job)
-{
-	char **env;
-	char  *path, *term, *jobid;
-
-	nih_assert (job != NULL);
-
-	/* Inherit PATH and TERM from our parent's environment, everything
-	 * else is often just overspill from initramfs.
-	 */
-	NIH_MUST (path = nih_strdup (NULL, getenv ("PATH")));
-	NIH_MUST (term = nih_strdup (NULL, getenv ("TERM")));
-
-	if (clearenv () < 0)
-		nih_return_system_error (-1);
-
-	if (path) {
-		if (setenv ("PATH", path, TRUE) < 0)
-			nih_return_system_error (-1);
-		nih_free (path);
-	}
-
-	if (term) {
-		if (setenv ("TERM", term, TRUE) < 0)
-			nih_return_system_error (-1);
-		nih_free (term);
-	}
-
-	NIH_MUST (jobid = nih_sprintf (NULL, "%u", job->id));
-	if (setenv ("UPSTART_JOB_ID", jobid, TRUE) < 0)
-		nih_return_system_error (-1);
-	nih_free (jobid);
-
-	if (setenv ("UPSTART_JOB", job->name, TRUE) < 0)
-		nih_return_system_error (-1);
-
-	if (job->cause) {
-		if (setenv ("UPSTART_EVENT", job->cause->event.name, TRUE) < 0)
-			nih_return_system_error (-1);
-
-		for (env = job->cause->event.env; env && *env; env++)
-			if (putenv (*env) < 0)
-				nih_return_system_error (-1);
-	}
-
-	for (env = job->env; env && *env; env++)
-		if (putenv (*env) < 0)
-			nih_return_system_error (-1);
-
-	return 0;
+	return process;
 }
 
 
 /**
- * process_kill:
- * @job: job context of process to be killed,
- * @pid: process id of process,
- * @force: force the death.
+ * process_name:
+ * @process: process type to convert.
  *
- * This function only sends the process a TERM signal (KILL if @force is
- * TRUE), it is up to the caller to ensure that the state change is saved
- * into the job and the process is watched; one may also wish to send
- * further signals later.
+ * Converts an enumerated process type into the string used for the status
+ * and for logging purposes.
  *
- * Returns: zero on success, negative value on raised error.
+ * Returns: static string or NULL if action not known.
  **/
-int
-process_kill (Job   *job,
-	      pid_t  pid,
-	      int    force)
+const char *
+process_name (ProcessType process)
 {
-	int signal;
-
-	nih_assert (job != NULL);
-	nih_assert (pid > 0);
-
-	signal = (force ? SIGKILL : SIGTERM);
-
-	if (kill (-pid, signal) < 0)
-		nih_return_system_error (-1);
-
-	return 0;
+	switch (process) {
+	case PROCESS_MAIN:
+		return N_("main");
+	case PROCESS_PRE_START:
+		return N_("pre-start");
+	case PROCESS_POST_START:
+		return N_("post-start");
+	case PROCESS_PRE_STOP:
+		return N_("pre-stop");
+	case PROCESS_POST_STOP:
+		return N_("post-stop");
+	default:
+		return NULL;
+	}
 }
 
-
 /**
- * process_setup_console:
- * @job: job details,
- * @type: console type.
+ * process_from_name:
+ * @process: process string to convert.
  *
- * Set up the standard input, output and error file descriptors for the
- * current process based on the console @type given.
+ * Converts a process type string into the enumeration.
  *
- * Returns: zero on success, negative value on raised error.
+ * Returns: enumerated action or -1 if not known.
  **/
-int
-process_setup_console (Job         *job,
-		       ConsoleType  type)
+ProcessType
+process_from_name (const char *process)
 {
-	int fd = -1;
+	nih_assert (process != NULL);
 
-	switch (type) {
-	case CONSOLE_LOGGED:
-		/* Input from /dev/null, output to the logging process */
-		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
-		if (fd >= 0) {
-			int                 sock;
-			struct sockaddr_un  addr;
-			size_t              addrlen, namelen;
-			const char         *name;
-
-			/* Open a unix stream socket */
-			sock = socket (PF_UNIX, SOCK_STREAM, 0);
-			if (sock < 0) {
-				nih_warn (_("Unable to open logd socket: %s"),
-					  strerror (errno));
-				break;
-			}
-
-			/* Use the abstract namespace */
-			addr.sun_family = AF_UNIX;
-			addr.sun_path[0] = '\0';
-
-			/* Specifically /com/ubuntu/upstart/logd */
-			addrlen = offsetof (struct sockaddr_un, sun_path) + 1;
-			addrlen += snprintf (addr.sun_path + 1,
-					     sizeof (addr.sun_path) - 1,
-					     "/com/ubuntu/upstart/logd");
-
-			/* Connect to the logging daemon (note: this blocks,
-			 * but that's ok, we're in the child)
-			 */
-			if (connect (sock, (struct sockaddr *)&addr,
-				     addrlen) < 0) {
-				if (errno != ECONNREFUSED)
-					nih_warn (_("Unable to connect to "
-						    "logd: %s"),
-						  strerror (errno));
-
-				close (sock);
-				break;
-			}
-
-			/* First send the length of the job name */
-			name = job ? job->name : program_name;
-			namelen = strlen (name);
-			if (write (sock, &namelen, sizeof (namelen)) < 0) {
-				nih_warn (_("Unable to send name to logd: %s"),
-					  strerror (errno));
-				close (sock);
-				break;
-			}
-
-			/* Then send the job name */
-			if (write (sock, name, namelen) < 0) {
-				nih_warn (_("Unable to send name to logd: %s"),
-					  strerror (errno));
-				close (sock);
-				break;
-			}
-
-			/* Socket is ready to be used for output */
-			fd = sock;
-		}
-
-		break;
-
-	case CONSOLE_OUTPUT:
-		/* Ordinary console input and output */
-		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
-		break;
-
-	case CONSOLE_OWNER:
-		/* As CONSOLE_OUTPUT but with ^C, etc. sent */
-		fd = open (CONSOLE, O_RDWR | O_NOCTTY);
-		if (fd >= 0)
-			ioctl (fd, TIOCSCTTY, 1);
-
-		break;
-
-	case CONSOLE_NONE:
-		/* No console really means /dev/null */
-		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);
-		break;
+	if (! strcmp (process, "main")) {
+		return PROCESS_MAIN;
+	} else if (! strcmp (process, "pre-start")) {
+		return PROCESS_PRE_START;
+	} else if (! strcmp (process, "post-start")) {
+		return PROCESS_POST_START;
+	} else if (! strcmp (process, "pre-stop")) {
+		return PROCESS_PRE_STOP;
+	} else if (! strcmp (process, "post-stop")) {
+		return PROCESS_POST_STOP;
+	} else {
+		return -1;
 	}
-
-	/* Failed to open a console?  Use /dev/null */
-	if (fd < 0) {
-		nih_warn (_("Failed to open console: %s"), strerror (errno));
-
-		if ((fd = open (DEV_NULL, O_RDWR | O_NOCTTY)) < 0)
-			nih_return_system_error (-1);
-	}
-
-	/* Copy to standard output and standard error */
-	while (dup (fd) < 2)
-		;
-
-	return 0;
 }

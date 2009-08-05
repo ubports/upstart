@@ -2,35 +2,31 @@
  *
  * test_watch.c - test suite for nih/watch.c
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <nih/test.h>
 
-#ifdef HAVE_SYS_INOTIFY_H
-# include <sys/inotify.h>
-#else
-# include <nih/inotify.h>
-#endif /* HAVE_SYS_INOTIFY_H */
-
+#include <sys/inotify.h>
 #include <sys/select.h>
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -46,7 +42,8 @@
 
 static int
 my_filter (void       *data,
-	   const char *path)
+	   const char *path,
+	   int         is_dir)
 {
 	char *slash;
 
@@ -74,16 +71,14 @@ my_create_handler (void        *data,
 	last_data = data;
 	last_watch = watch;
 
-	TEST_ALLOC_SAFE {
-		if (last_path) {
-			char *old;
+	if (last_path) {
+		char *old;
 
-			old = last_path;
-			last_path = nih_sprintf (NULL, "%s::%s", old, path);
-			nih_free (old);
-		} else {
-			last_path = nih_strdup (NULL, path);
-		}
+		old = last_path;
+		last_path = NIH_MUST (nih_sprintf (NULL, "%s::%s", old, path));
+		nih_free (old);
+	} else {
+		last_path = NIH_MUST (nih_strdup (NULL, path));
 	}
 }
 
@@ -97,12 +92,10 @@ my_modify_handler (void        *data,
 	last_data = data;
 	last_watch = watch;
 
-	TEST_ALLOC_SAFE {
-		if (last_path)
-			nih_free (last_path);
+	if (last_path)
+		nih_free (last_path);
 
-		last_path = nih_strdup (NULL, path);
-	}
+	last_path = NIH_MUST (nih_strdup (NULL, path));
 }
 
 static void
@@ -114,17 +107,15 @@ my_delete_handler (void       *data,
 	last_data = data;
 	last_watch = watch;
 
-	TEST_ALLOC_SAFE {
-		if (last_path)
-			nih_free (last_path);
+	if (last_path)
+		nih_free (last_path);
 
-		if (path) {
-			last_path = nih_strdup (NULL, path);
-			if (! strcmp (path, watch->path))
-				nih_watch_free (watch);
-		} else {
-			last_path = NULL;
-		}
+	if (path) {
+		last_path = NIH_MUST (nih_strdup (NULL, path));
+		if (! strcmp (path, watch->path))
+			nih_free (watch);
+	} else {
+		last_path = NULL;
 	}
 }
 
@@ -144,18 +135,12 @@ test_new (void)
 {
 	FILE           *fd;
 	char            dirname[PATH_MAX], filename[PATH_MAX];
-	fd_set          readfds, writefds, exceptfds;
-	int             nfds;
 	NihWatch       *watch;
 	NihWatchHandle *handle;
 	NihError       *err;
 
 	TEST_FUNCTION ("nih_watch_new");
-	nfds = 0;
-	FD_ZERO (&readfds);
-	FD_ZERO (&writefds);
-	FD_ZERO (&exceptfds);
-	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_init ();
 
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
@@ -226,12 +211,14 @@ test_new (void)
 		TEST_EQ_P (watch->create_handler, my_create_handler);
 		TEST_EQ_P (watch->modify_handler, my_modify_handler);
 		TEST_EQ_P (watch->delete_handler, my_delete_handler);
+		TEST_ALLOC_SIZE (watch->created, sizeof (NihHash));
+		TEST_ALLOC_PARENT (watch->created, watch);
 		TEST_EQ_P (watch->data, &watch);
 
 		TEST_GE (fcntl (watch->fd, F_GETFD), 0);
 
 		TEST_ALLOC_SIZE (watch->io, sizeof (NihIo));
-		TEST_ALLOC_PARENT (watch->io, NULL);
+		TEST_ALLOC_PARENT (watch->io, watch);
 		TEST_EQ (watch->io->type, NIH_IO_STREAM);
 		TEST_EQ (watch->io->watch->fd, watch->fd);
 
@@ -249,7 +236,7 @@ test_new (void)
 
 		TEST_LIST_EMPTY (&watch->watches);
 
-		nih_watch_free (watch);
+		nih_free (watch);
 	}
 	nih_error_pop_context ();
 
@@ -275,12 +262,14 @@ test_new (void)
 		TEST_EQ_P (watch->create_handler, my_create_handler);
 		TEST_EQ_P (watch->modify_handler, my_modify_handler);
 		TEST_EQ_P (watch->delete_handler, my_delete_handler);
+		TEST_ALLOC_SIZE (watch->created, sizeof (NihHash));
+		TEST_ALLOC_PARENT (watch->created, watch);
 		TEST_EQ_P (watch->data, &watch);
 
 		TEST_GE (fcntl (watch->fd, F_GETFD), 0);
 
 		TEST_ALLOC_SIZE (watch->io, sizeof (NihIo));
-		TEST_ALLOC_PARENT (watch->io, NULL);
+		TEST_ALLOC_PARENT (watch->io, watch);
 		TEST_EQ (watch->io->type, NIH_IO_STREAM);
 		TEST_EQ (watch->io->watch->fd, watch->fd);
 
@@ -298,7 +287,7 @@ test_new (void)
 
 		TEST_LIST_EMPTY (&watch->watches);
 
-		nih_watch_free (watch);
+		nih_free (watch);
 	}
 
 
@@ -321,12 +310,14 @@ test_new (void)
 		TEST_EQ_P (watch->create_handler, my_create_handler);
 		TEST_EQ_P (watch->modify_handler, my_modify_handler);
 		TEST_EQ_P (watch->delete_handler, my_delete_handler);
+		TEST_ALLOC_SIZE (watch->created, sizeof (NihHash));
+		TEST_ALLOC_PARENT (watch->created, watch);
 		TEST_EQ_P (watch->data, &watch);
 
 		TEST_GE (fcntl (watch->fd, F_GETFD), 0);
 
 		TEST_ALLOC_SIZE (watch->io, sizeof (NihIo));
-		TEST_ALLOC_PARENT (watch->io, NULL);
+		TEST_ALLOC_PARENT (watch->io, watch);
 		TEST_EQ (watch->io->type, NIH_IO_STREAM);
 		TEST_EQ (watch->io->watch->fd, watch->fd);
 
@@ -370,7 +361,7 @@ test_new (void)
 
 		TEST_LIST_EMPTY (&watch->watches);
 
-		nih_watch_free (watch);
+		nih_free (watch);
 	}
 
 
@@ -397,12 +388,14 @@ test_new (void)
 		TEST_EQ_P (watch->create_handler, my_create_handler);
 		TEST_EQ_P (watch->modify_handler, my_modify_handler);
 		TEST_EQ_P (watch->delete_handler, my_delete_handler);
+		TEST_ALLOC_SIZE (watch->created, sizeof (NihHash));
+		TEST_ALLOC_PARENT (watch->created, watch);
 		TEST_EQ_P (watch->data, &watch);
 
 		TEST_GE (fcntl (watch->fd, F_GETFD), 0);
 
 		TEST_ALLOC_SIZE (watch->io, sizeof (NihIo));
-		TEST_ALLOC_PARENT (watch->io, NULL);
+		TEST_ALLOC_PARENT (watch->io, watch);
 		TEST_EQ (watch->io->type, NIH_IO_STREAM);
 		TEST_EQ (watch->io->watch->fd, watch->fd);
 
@@ -466,7 +459,7 @@ test_new (void)
 		TEST_EQ_STR (last_path, filename);
 		nih_free (last_path);
 
-		nih_watch_free (watch);
+		nih_free (watch);
 	}
 
 
@@ -514,6 +507,8 @@ test_new (void)
 		TEST_ALLOC_SIZE (watch->path, strlen (dirname) + 1);
 		TEST_ALLOC_PARENT (watch->path, watch);
 		TEST_EQ_STR (watch->path, dirname);
+		TEST_ALLOC_SIZE (watch->created, sizeof (NihHash));
+		TEST_ALLOC_PARENT (watch->created, watch);
 
 		TEST_LIST_NOT_EMPTY (&watch->watches);
 
@@ -554,14 +549,13 @@ test_new (void)
 		nih_list_remove (&handle->entry);
 
 		TEST_LIST_EMPTY (&watch->watches);
+
+		nih_free (watch);
 	}
 
 	strcpy (filename, dirname);
 	strcat (filename, "/bar");
 	chmod (filename, 0755);
-
-
-	nih_watch_free (watch);
 
 
 	strcpy (filename, dirname);
@@ -607,6 +601,8 @@ test_add (void)
 	int             ret;
 
 	TEST_FUNCTION ("nih_watch_add");
+	nih_error_init ();
+
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
 
@@ -872,7 +868,7 @@ test_add (void)
 	chmod (filename, 0755);
 
 
-	nih_watch_free (watch);
+	nih_free (watch);
 
 
 	strcpy (filename, dirname);
@@ -907,41 +903,31 @@ test_add (void)
 }
 
 
-static int destructor_called = 0;
-
-static int
-my_destructor (void *ptr)
-{
-	destructor_called++;
-
-	return 100;
-}
-
 void
-test_free (void)
+test_destroy (void)
 {
 	NihWatch *watch;
-	int       ret, fd;
+	int       ret, fd, caught_free;
 
-	/* Check that both the io structure and watch structure are freed,
-	 * and that the inotify descriptor is closed.
+	/* Check that the free flag is set and that the inotify descriptor
+	 * is closed.
 	 */
-	TEST_FUNCTION ("nih_watch_free");
+	TEST_FUNCTION ("nih_watch_destroy");
 	watch = nih_watch_new (NULL, "/", FALSE, FALSE, NULL,
 			       NULL, NULL, NULL, NULL);
 	fd = watch->fd;
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (watch, my_destructor);
-	nih_alloc_set_destructor (watch->io, my_destructor);
+	caught_free = FALSE;
+	watch->free = &caught_free;
 
-	ret = nih_watch_free (watch);
+	ret = nih_free (watch);
 
-	TEST_EQ (ret, 100);
-	TEST_EQ (destructor_called, 2);
+	TEST_EQ (ret, 0);
 
 	TEST_LT (fcntl (fd, F_GETFD), 0);
 	TEST_EQ (errno, EBADF);
+
+	TEST_TRUE (caught_free);
 }
 
 
@@ -957,6 +943,8 @@ test_reader (void)
 	int             nfds = 0;
 
 	TEST_FUNCTION ("nih_watch_reader");
+	nih_error_init ();
+
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
 
@@ -988,6 +976,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (create_called);
@@ -996,6 +985,117 @@ test_reader (void)
 	TEST_EQ_P (last_data, &watch);
 
 	nih_free (last_path);
+
+
+	/* Check that a new file opened on disk doesn't result in the create
+	 * handler being called until the file has been closed.
+	 */
+	TEST_FEATURE ("with new still-open file");
+	strcpy (filename, dirname);
+	strcat (filename, "/meep");
+
+	create_called = 0;
+	last_watch = NULL;
+	last_path = NULL;
+	last_data = NULL;
+
+	fd = fopen (filename, "w");
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_FALSE (create_called);
+
+	TEST_NE_P (nih_hash_lookup (watch->created, filename), NULL);
+
+	fprintf (fd, "test\n");
+	fclose (fd);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_TRUE (create_called);
+	TEST_EQ_P (last_watch, watch);
+	TEST_EQ_STR (last_path, filename);
+	TEST_EQ_P (last_data, &watch);
+
+	nih_free (last_path);
+	last_path = NULL;
+	unlink (filename);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	nih_free (last_path);
+
+
+	/* Check that removing a file that was newly created but then
+	 * immediately removed doesn't get a handler at all.
+	 */
+	TEST_FEATURE ("with removal of still-open file");
+	strcpy (filename, dirname);
+	strcat (filename, "/flep");
+
+	create_called = 0;
+	modify_called = 0;
+	delete_called = 0;
+	last_watch = NULL;
+	last_path = NULL;
+	last_data = NULL;
+
+	fd = fopen (filename, "w");
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_FALSE (create_called);
+	TEST_FALSE (modify_called);
+	TEST_FALSE (delete_called);
+
+	TEST_NE_P (nih_hash_lookup (watch->created, filename), NULL);
+
+	unlink (filename);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_FALSE (create_called);
+	TEST_FALSE (modify_called);
+	TEST_FALSE (delete_called);
+
+	TEST_EQ_P (nih_hash_lookup (watch->created, filename), NULL);
+
+	fclose (fd);
 
 
 	/* Check that modifying that file results in the modify handler
@@ -1020,6 +1120,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (modify_called);
@@ -1054,6 +1155,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	strcpy (filename, dirname);
@@ -1091,6 +1193,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (delete_called);
@@ -1131,6 +1234,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_FALSE (create_called);
@@ -1158,6 +1262,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (create_called);
@@ -1206,6 +1311,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (delete_called);
@@ -1246,6 +1352,7 @@ test_reader (void)
 	nih_log_set_logger (my_logger);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	nih_log_set_logger (nih_logger_printf);
@@ -1306,6 +1413,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (create_called);
@@ -1366,9 +1474,7 @@ test_reader (void)
 	TEST_FEATURE ("with removal of directory");
 	rmdir (dirname);
 
-	destructor_called = 0;
-	nih_alloc_set_destructor (watch, my_destructor);
-	nih_alloc_set_destructor (watch->io, my_destructor);
+	TEST_FREE_TAG (watch);
 
 	delete_called = 0;
 	last_watch = NULL;
@@ -1381,6 +1487,7 @@ test_reader (void)
 	FD_ZERO (&exceptfds);
 
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	select (nfds, &readfds, &writefds, &exceptfds, NULL);
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
 
 	TEST_TRUE (delete_called);
@@ -1388,7 +1495,7 @@ test_reader (void)
 	TEST_EQ_STR (last_path, dirname);
 	TEST_EQ_P (last_data, &watch);
 
-	TEST_EQ (destructor_called, 2);
+	TEST_FREE (watch);
 }
 
 
@@ -1407,7 +1514,7 @@ main (int   argc,
 
 	test_new ();
 	test_add ();
-	test_free ();
+	test_destroy ();
 	test_reader ();
 
 	return 0;

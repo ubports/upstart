@@ -2,21 +2,21 @@
  *
  * command.c - command parser based on nih_option_parser
  *
- * Copyright © 2006 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -56,7 +56,7 @@ static void        nih_command_group_help (NihCommandGroup *group,
  * These default commands are appended to those defined by the user
  * so they can be overriden.
  **/
-static NihCommand default_commands[] = {
+static const NihCommand default_commands[] = {
 	{ "help", NULL,
 	  N_("display list of commands"), NULL, NULL, NULL, NULL },
 
@@ -68,7 +68,7 @@ static NihCommand default_commands[] = {
  *
  * This is used whenever the options member of NihCommand is NULL.
  **/
-static NihOption no_options[] = {
+static const NihOption no_options[] = {
 	NIH_OPTION_LAST
 };
 
@@ -99,11 +99,9 @@ static NihOption no_options[] = {
  * nih_option_set_usage() or nih_option_set_usage_stem() before this
  * function will have no effect.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for arguments arrays.  When all parents
+ * of the array are freed, the array will also be freed.
  *
  * Errors are handled by printing a message to standard error.
  *
@@ -116,8 +114,11 @@ nih_command_parser (const void *parent,
 		    NihOption  *options,
 		    NihCommand *commands)
 {
-	NihCommand  *cmd, *cmds;
-	char       **args, **arg, *str;
+	nih_local NihCommand  *cmds = NULL;
+	NihCommand            *cmd;
+	nih_local char        *footer = NULL, *stem = NULL;
+	nih_local char       **args = NULL;
+	char                 **arg;
 	int          ret;
 
 	nih_assert (argc > 0);
@@ -126,42 +127,37 @@ nih_command_parser (const void *parent,
 	nih_assert (commands != NULL);
 	nih_assert (program_name != NULL);
 
-	cmds = nih_command_join (parent, commands, default_commands);
+	cmds = nih_command_join (NULL, commands, default_commands);
 
 	/* First check the program name for a valid command */
 	cmd = nih_command_get (cmds, program_name);
-	if (cmd) {
-		ret = nih_command_handle (parent, argc, argv,
-					  options, cmds, cmd);
-		nih_free (cmds);
-		return ret;
-	}
+	if (cmd)
+		return nih_command_handle (parent, argc, argv,
+					   options, cmds, cmd);
 
 	/* Set help strings to make ordinary --help look right */
-	NIH_MUST (str = nih_sprintf (NULL, _("For a list of commands, "
-					     "try `%s help'."), program_name));
-	nih_option_set_footer (str);
+	footer = NIH_MUST (nih_sprintf (NULL, _("For a list of commands, "
+						"try `%s help'."),
+					program_name));
+	nih_option_set_footer (footer);
 	nih_option_set_usage (_("COMMAND [OPTION]... [ARG]..."));
 
 	/* Parse options up until the first non-opt argument */
-	args = nih_option_parser (parent, argc, argv, options, TRUE);
+	args = nih_option_parser (NULL, argc, argv, options, TRUE);
 
 	/* Clean up help strings */
 	nih_option_set_footer (NULL);
 	nih_option_set_usage (NULL);
-	nih_free (str);
 
 	/* Check for option parsing errors */
-	if (! args) {
-		nih_free (cmds);
+	if (! args)
 		return -1;
-	}
 
 	/* Check we actually got a command */
 	if (! args[0]) {
 		fprintf (stderr, _("%s: missing command\n"), program_name);
 		nih_main_suggest_help ();
-		goto error;
+		return -1;
 	}
 
 	/* Find that command */
@@ -170,7 +166,7 @@ nih_command_parser (const void *parent,
 		fprintf (stderr, _("%s: invalid command: %s\n"),
 			 program_name, args[0]);
 		nih_main_suggest_help ();
-		goto error;
+		return -1;
 	}
 
 	/* Count the number of arguments in the args array */
@@ -178,9 +174,9 @@ nih_command_parser (const void *parent,
 		;
 
 	/* Set the usage stem to include the command name */
-	NIH_MUST (str = nih_sprintf (parent, _("%s [OPTION]..."),
-				     cmd->command));
-	nih_option_set_usage_stem (str);
+	stem = NIH_MUST (nih_sprintf (NULL, _("%s [OPTION]..."),
+				      cmd->command));
+	nih_option_set_usage_stem (stem);
 
 	/* Handle the command */
 	ret = nih_command_handle (parent, arg - args, args,
@@ -188,22 +184,14 @@ nih_command_parser (const void *parent,
 
 	/* Clean up usage stem */
 	nih_option_set_usage_stem (NULL);
-	nih_free (str);
 
-	nih_free (cmds);
-	nih_free (args);
 	return ret;
-
-error:
-	nih_free (cmds);
-	nih_free (args);
-	return -1;
 }
 
 
 /**
  * nih_command_join:
- * @parent: parent for new allocation,
+ * @parent: parent object for new array,
  * @a: first command array,
  * @b: second command array.
  *
@@ -214,21 +202,21 @@ error:
  * copied in from @a and @b including any pointers therein.  Freeing the
  * new array with nih_free() is entirely safe.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned array.  When all parents
+ * of the returned array are freed, the returned array will also be
+ * freed.
  *
  * Returns: combined command array.
  **/
 NihCommand *
-nih_command_join (const void *parent,
-		  NihCommand *a,
-		  NihCommand *b)
+nih_command_join (const void       *parent,
+		  const NihCommand *a,
+		  const NihCommand *b)
 {
-	NihCommand *cmd, *cmds;
-	size_t      alen = 0, blen = 0;
+	const NihCommand *cmd;
+	NihCommand       *cmds;
+	size_t            alen = 0, blen = 0;
 
 	nih_assert (a != NULL);
 	nih_assert (b != NULL);
@@ -242,7 +230,7 @@ nih_command_join (const void *parent,
 		blen++;
 
 	/* Allocate combined list */
-	NIH_MUST (cmds = nih_alloc (parent,
+	cmds = NIH_MUST (nih_alloc (parent,
 				    sizeof (NihCommand) * (alen + blen + 1)));
 
 	/* Copy options, making sure to copy the last option from b */
@@ -296,11 +284,9 @@ nih_command_get (NihCommand *commands,
  * After parsing the options, remaining arguments are passed to the action
  * function of @command.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the arguments arrays.  When all parents
+ * of the array are freed, the array will also be freed.
  *
  * Errors are handled by printing a message to standard error.
  *
@@ -314,9 +300,10 @@ nih_command_handle (const void *parent,
 		    NihCommand *commands,
 		    NihCommand *command)
 {
-	char       **args;
-	NihOption   *opts, *cmd_opts;
-	int          ret;
+	char                **args;
+	const NihOption      *cmd_opts;
+	nih_local NihOption  *opts = NULL;
+	int                   ret;
 
 	nih_assert (argc > 0);
 	nih_assert (argv != NULL);
@@ -328,7 +315,7 @@ nih_command_handle (const void *parent,
 	 * take precedence
 	 */
 	cmd_opts = command->options ? command->options : no_options;
-	opts = nih_option_join (parent, cmd_opts, options);
+	opts = nih_option_join (NULL, cmd_opts, options);
 
 	/* Set up the option parser from the command information */
 	nih_option_set_usage (_(command->usage));
@@ -345,7 +332,7 @@ nih_command_handle (const void *parent,
 
 	/* Check for option parsing failure */
 	if (! args)
-		goto error;
+		return -1;
 
 	/* Handle the special cased commands first */
 	if (! strcmp (command->command, "help")) {
@@ -357,12 +344,7 @@ nih_command_handle (const void *parent,
 	ret = command->action (command, args);
 
 	nih_free (args);
-	nih_free (opts);
 	return ret;
-
-error:
-	nih_free (opts);
-	return -1;
 }
 
 
@@ -376,10 +358,10 @@ error:
 static void
 nih_command_help (NihCommand  *commands)
 {
-	NihCommand       *cmd;
-	NihCommandGroup **groups;
-	size_t            group, ngroups;
-	int               other = FALSE;
+	NihCommand                 *cmd;
+	nih_local NihCommandGroup **groups = NULL;
+	size_t                      group, ngroups;
+	int                         other = FALSE;
 
 	nih_assert (program_name != NULL);
 
@@ -388,8 +370,6 @@ nih_command_help (NihCommand  *commands)
 
 	/* Count the number of command groups */
 	for (cmd = commands; cmd->command; cmd++) {
-		NihCommandGroup **new_groups;
-
 		if (! cmd->group) {
 			other = TRUE;
 			continue;
@@ -403,10 +383,9 @@ nih_command_help (NihCommand  *commands)
 		if (group < ngroups)
 			continue;
 
-		NIH_MUST (new_groups = nih_realloc (groups, NULL,
+		groups = NIH_MUST (nih_realloc (groups, NULL,
 						    (sizeof (NihCommandGroup *)
 						     * (ngroups + 1))));
-		groups = new_groups;
 		groups[ngroups++] = cmd->group;
 	}
 
@@ -423,9 +402,6 @@ nih_command_help (NihCommand  *commands)
 	/* Say how to find out about a command */
 	printf (_("For more information on a command, "
 		  "try `%s COMMAND --help'.\n"), program_name);
-
-	if (groups)
-		nih_free (groups);
 }
 
 /**
@@ -454,11 +430,12 @@ nih_command_group_help (NihCommandGroup  *group,
 		printf (_("Commands:\n"));
 	}
 
-	width = MAX (nih_str_screen_width (), 50) - 30;
+	width = nih_max (nih_str_screen_width (), 50U) - 30;
 
 	for (cmd = commands; cmd->command; cmd++) {
-		char   *str, *ptr;
-		size_t  len = 0;
+		nih_local char *str = NULL;
+		char           *ptr;
+		size_t          len = 0;
 
 		if (cmd->group != group)
 			continue;
@@ -477,7 +454,7 @@ nih_command_group_help (NihCommandGroup  *group,
 		/* Format the synopsis string to fit in the latter
 		 * half of the screen
 		 */
-		NIH_MUST (str = nih_str_wrap (NULL, cmd->synopsis,
+		str = NIH_MUST (nih_str_wrap (NULL, cmd->synopsis,
 					      width, 0, 2));
 
 		/* Write the description to the screen */
@@ -507,8 +484,6 @@ nih_command_group_help (NihCommandGroup  *group,
 			if (*ptr == '\n')
 				ptr++;
 		}
-
-		nih_free (str);
 	}
 
 	printf ("\n");
