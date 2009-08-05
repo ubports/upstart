@@ -1,3 +1,66 @@
+upstart (0.6.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/patches/10-ptrace_include_cleanup.patch
+    - Removed, merged upstream.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 05 Aug 2009 02:38:44 +0200
+
+upstart (0.6.2-2) unstable; urgency=low
+
+  * debian/patches/10-ptrace_include_cleanup.patch
+    - Cleanup header includes. Only include ptrace.h in files that actually
+      need it. This also fixes a build failure on ia64.
+  * debian/rules
+    - Run dh_install with --list-missing.
+
+ -- Michael Biebl <biebl@debian.org>  Tue, 28 Jul 2009 15:50:20 +0200
+
+upstart (0.6.2-1) unstable; urgency=low
+
+  * New major upstream release. Closes: #530348
+  * Remove patches that have been merged upstream or are obsolete
+    - debian/patches/01-limits.patch
+    - debian/patches/02-telinit-u.patch
+    - debian/patches/03-static-convenience-libs.patch
+  * Add Build-Depends on pkg-config (>= 0.22), libdbus-1-dev (>= 1.2.16) and
+    libexpat1-dev (>= 2.0.0). D-Bus has replaced the home-grown IPC.
+  * Bump Standards-Version to 3.8.2. No further changes.
+  * debian/copyright
+    - Update copyright years.
+    - Clarify license text, Upstart is GPL-2 only.
+    - Refer to the versioned GPL-2 document.
+  * Drop upstart-logd package. The logd daemon has been buggy for quite a
+    while and thus removed completely upstream.
+  * debian/upstart.postinst
+    - Use "telinit u" to tell init to re-exec itself.
+  * debian/rules
+    - Remove obsolete configure flag.
+    - Use dh_install instead of copying the job files around manually.
+  * Merge the upstart-compat-sysv, startup-tasks and system-services package
+    into a single upstart package to avoid any unnecessary diversion between
+    the Debian and Ubuntu packaging.
+  * The location of the job files has changed from /etc/event.d to /etc/init,
+    in addition a *.conf suffix is now mandatory.
+  * Install rc.conf, rc-sysinit.conf, rcS.conf and control-alt-delete.conf as
+    provided by upstream.
+  * debian/conf/*.conf
+    - Update tty job files for the new job syntax. Add a description and
+      author field.
+    - Add dbus-reconnect.conf which tells Upstart to reconnect to the D-Bus
+      system bus when runlevel 2345 has been reached.
+  * Update debian/upstart.install to reflect the changes above.
+  * Drop debian/upstart.dirs, obsolete.
+  * debian/README.Debian
+    - Sync relevant changes from the latest Ubuntu package.
+    - Remove outdated information.
+  * Add initial support for upstart-job.
+    upstart-job is both a virtual package and also small helper utility which
+    allows to execute native upstart jobs while preserving the legacy sysv
+    "/etc/init.d/<service> <action>" interface.
+
+ -- Michael Biebl <biebl@debian.org>  Thu, 23 Jul 2009 00:24:02 +0200
+
 upstart (0.3.9-2) unstable; urgency=low
 
   * debian/control

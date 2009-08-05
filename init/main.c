@@ -1,21 +1,20 @@
 /* upstart
  *
- * Copyright © 2007 Canonical Ltd.
- * Author: Scott James Remnant <scott@ubuntu.com>.
+ * Copyright © 2009 Canonical Ltd.
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -37,7 +36,6 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <termios.h>
 
 #include <linux/kd.h>
 
@@ -52,22 +50,23 @@
 #include <nih/error.h>
 #include <nih/logging.h>
 
-#include "process.h"
-#include "job.h"
-#include "event.h"
-#include "control.h"
-#include "cfgfile.h"
 #include "paths.h"
+#include "events.h"
+#include "system.h"
+#include "job_process.h"
+#include "event.h"
+#include "conf.h"
+#include "control.h"
 
 
 /* Prototypes for static functions */
-static void reset_console   (void);
+#ifndef DEBUG
 static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
-static void stop_handler    (void *data, NihSignal *signal);
-static void term_handler    (void *data, NihSignal *signal);
+static void hup_handler     (void *data, NihSignal *signal);
+#endif /* DEBUG */
 
 
 /**
@@ -86,14 +85,6 @@ static const char *argv0 = NULL;
  **/
 static int restart = FALSE;
 
-/**
- * rescue:
- *
- * This is set to TRUE if we're being re-exec'd by an existing init process
- * that has crashed.
- **/
-static int rescue = FALSE;
-
 
 /**
  * options:
@@ -102,7 +93,6 @@ static int rescue = FALSE;
  **/
 static NihOption options[] = {
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
-	{ 0, "rescue", NULL, NULL, NULL, &rescue, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -131,6 +121,7 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+#ifndef DEBUG
 	/* Check we're root */
 	if (getuid ()) {
 		nih_fatal (_("Need to be root"));
@@ -145,7 +136,6 @@ main (int   argc,
 		nih_fatal (_("Not being executed as init"));
 		exit (1);
 	}
-
 
 	/* Clear our arguments from the command-line, so that we show up in
 	 * ps or top output as /sbin/init, with no extra flags.
@@ -169,118 +159,142 @@ main (int   argc,
 		*arg_end = ' ';
 	}
 
-	/* Become session and process group leader (should be already,
-	 * but you never know what initramfs did
+
+	/* Become the leader of a new session and process group, shedding
+	 * any controlling tty (which we shouldn't have had anyway - but
+	 * you never know what initramfs did).
 	 */
 	setsid ();
 
-	/* Send all logging output to syslog */
-	openlog (program_name, LOG_CONS, LOG_DAEMON);
-	nih_log_set_logger (nih_logger_syslog);
-
-	/* Close any file descriptors we inherited, and open the console
-	 * device instead.  Normally we reset the console, unless we're
-	 * inheriting one from another init process.
+	/* Set the standard file descriptors to the ordinary console device,
+	 * resetting it to sane defaults unless we're inheriting from another
+	 * init process which we know left it in a sane state.
 	 */
-	for (int i = 0; i < 3; i++)
-		close (i);
-
-	if (process_setup_console (NULL, CONSOLE_OUTPUT) < 0)
+	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
-	if (! (restart || rescue))
-		reset_console ();
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);
+
+	/* Switch to the root directory in case we were started from some
+	 * strange place, or worse, some directory in the initramfs that's
+	 * going to go away soon.
+	 */
+	if (chdir ("/"))
+		nih_warn ("%s: %s", _("Unable to set root directory"),
+			  strerror (errno));
+#else /* DEBUG */
+	nih_log_set_priority (NIH_LOG_DEBUG);
+#endif /* DEBUG */
 
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
 	 * can be sent to us, because we're special
 	 */
-	if (! (restart || rescue))
+	if (! restart)
 		nih_signal_reset ();
 
-	nih_signal_set_handler (SIGCHLD,  nih_signal_handler);
-	nih_signal_set_handler (SIGALRM,  nih_signal_handler);
-	nih_signal_set_handler (SIGHUP,   nih_signal_handler);
-	nih_signal_set_handler (SIGTSTP,  nih_signal_handler);
-	nih_signal_set_handler (SIGCONT,  nih_signal_handler);
-	nih_signal_set_handler (SIGTERM,  nih_signal_handler);
-	nih_signal_set_handler (SIGINT,   nih_signal_handler);
-	nih_signal_set_handler (SIGWINCH, nih_signal_handler);
-	nih_signal_set_handler (SIGPWR,   nih_signal_handler);
-	nih_signal_set_handler (SIGSEGV,  crash_handler);
-	nih_signal_set_handler (SIGABRT,  crash_handler);
+#ifndef DEBUG
+	/* Catch fatal errors immediately rather than waiting for a new
+	 * iteration through the main loop.
+	 */
+	nih_signal_set_handler (SIGSEGV, crash_handler);
+	nih_signal_set_handler (SIGABRT, crash_handler);
+#endif /* DEBUG */
 
-	/* Ensure that we don't process events while paused */
-	NIH_MUST (nih_signal_add_handler (NULL, SIGTSTP, stop_handler, NULL));
-	NIH_MUST (nih_signal_add_handler (NULL, SIGCONT, stop_handler, NULL));
+	/* Don't ignore SIGCHLD or SIGALRM, but don't respond to them
+	 * directly; it's enough that they interrupt the main loop and
+	 * get dealt with during it.
+	 */
+	nih_signal_set_handler (SIGCHLD, nih_signal_handler);
+	nih_signal_set_handler (SIGALRM, nih_signal_handler);
 
+#ifndef DEBUG
 	/* Ask the kernel to send us SIGINT when control-alt-delete is
 	 * pressed; generate an event with the same name.
 	 */
 	reboot (RB_DISABLE_CAD);
+	nih_signal_set_handler (SIGINT, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
 
 	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
-	 * generate a kbdrequest event.
+	 * generate a keyboard-request event.
 	 */
-	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0)
+	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0) {
+		nih_signal_set_handler (SIGWINCH, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
 						  kbd_handler, NULL));
+	}
 
 	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
+	nih_signal_set_handler (SIGPWR, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
 
-	/* SIGTERM instructs us to re-exec ourselves */
-	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM,
-					  (NihSignalHandler)term_handler,
-					  NULL));
+	/* SIGHUP instructs us to re-load our configuration */
+	nih_signal_set_handler (SIGHUP, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
+#endif /* DEBUG */
 
-	/* Reap all children that die */
-	NIH_MUST (nih_child_add_watch (NULL, -1, job_child_reaper, NULL));
 
-	/* Process the event queue and check the jobs to make sure we
-	 * haven't stalled, every time through the main loop */
+	/* Watch children for events */
+	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
+				       job_process_handler, NULL));
+
+	/* Process the event queue each time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
 					  NULL));
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_detect_stalled,
-					  NULL));
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)job_free_deleted,
-					  NULL));
 
-
-	/* Open control socket */
-	if (! control_open ()) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Unable to open control socket"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
 
 	/* Read configuration */
-	if (cfg_watch_dir (CFG_DIR, NULL) == (void *)-1) {
+	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
+	NIH_MUST (conf_source_new (NULL, CONFDIR, CONF_JOB_DIR));
+
+	conf_reload ();
+
+	/* Create a listening server for private connections. */
+	while (control_server_open () < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Error parsing configuration"),
-			   err->message);
+		if (err->number != ENOMEM) {
+			nih_warn ("%s: %s", _("Unable to listen for private connections"),
+				  err->message);
+			nih_free (err);
+			break;
+		}
+		nih_free (err);
+	}
+
+	/* Open connection to the system bus; we normally expect this to
+	 * fail and will try again later - don't let ENOMEM stop us though.
+	 */
+	while (control_bus_open () < 0) {
+		NihError *err;
+		int       number;
+
+		err = nih_error_get ();
+		number = err->number;
 		nih_free (err);
 
-		exit (1);
+		if (number != ENOMEM)
+			break;
 	}
+
+#ifndef DEBUG
+	/* Now that the startup is complete, send all further logging output
+	 * to syslog instead of to the console.
+	 */
+	openlog (program_name, LOG_CONS, LOG_DAEMON);
+	nih_log_set_logger (nih_logger_syslog);
+#endif /* DEBUG */
 
 
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! (restart || rescue)) {
-		event_emit (STARTUP_EVENT, NULL, NULL);
+	if (! restart) {
+		NIH_MUST (event_new (NULL, STARTUP_EVENT, NULL));
 	} else {
 		sigset_t mask;
 
@@ -289,7 +303,10 @@ main (int   argc,
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
 
-	/* Run through the loop at least once */
+	/* Run through the loop at least once to deal with signals that were
+	 * delivered to the previous process while the mask was set or to
+	 * process the startup event we emitted.
+	 */
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
@@ -297,66 +314,25 @@ main (int   argc,
 }
 
 
-/**
- * reset_console:
- *
- * Set up the console flags to something sensible.  Cribbed from sysvinit,
- * initng, etc.
- **/
-static void
-reset_console (void)
-{
-	struct termios tty;
-
-	tcgetattr (0, &tty);
-
-	tty.c_cflag &= (CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB | PARODD);
-	tty.c_cflag |= (HUPCL | CLOCAL | CREAD);
-
-	/* Set up usual keys */
-	tty.c_cc[VINTR]  = 3;   /* ^C */
-	tty.c_cc[VQUIT]  = 28;  /* ^\ */
-	tty.c_cc[VERASE] = 127;
-	tty.c_cc[VKILL]  = 24;  /* ^X */
-	tty.c_cc[VEOF]   = 4;   /* ^D */
-	tty.c_cc[VTIME]  = 0;
-	tty.c_cc[VMIN]   = 1;
-	tty.c_cc[VSTART] = 17;  /* ^Q */
-	tty.c_cc[VSTOP]  = 19;  /* ^S */
-	tty.c_cc[VSUSP]  = 26;  /* ^Z */
-
-	/* Pre and post processing */
-	tty.c_iflag = (IGNPAR | ICRNL | IXON | IXANY);
-	tty.c_oflag = (OPOST | ONLCR);
-	tty.c_lflag = (ISIG | ICANON | ECHO | ECHOCTL | ECHOPRT | ECHOKE);
-
-	/* Set the terminal line and flush it */
-	tcsetattr (0, TCSANOW, &tty);
-	tcflush (0, TCIOFLUSH);
-}
-
-
+#ifndef DEBUG
 /**
  * crash_handler:
  * @signum: signal number received.
  *
  * Handle receiving the SEGV or ABRT signal, usually caused by one of
  * our own mistakes.  We deal with it by dumping core in a child process
- * and just carrying on in the parent.
+ * and then killing the parent.
  *
- * This may or may not work, but the only alternative would be sigjmp()ing
- * to somewhere "safe" leaving inconsistent state everywhere (like dangling
- * lists pointers) or exec'ing another process (which we couldn't transfer
- * our state to anyway).  This just hopes that the kernel resumes on the
- * next instruction.
+ * Sadly there's no real alternative to the ensuing kernel panic.  Our
+ * state is likely in tatters, so we can't sigjmp() anywhere "safe" or
+ * re-exec since the system will be suddenly lobotomised.  We definitely
+ * don't want to start a root shell or anything like that.  Best thing is
+ * to just stop the whole thing and hope that bug report comes quickly.
  **/
 static void
 crash_handler (int signum)
 {
-	NihError   *err;
-	const char *loglevel = NULL;
-	sigset_t    mask, oldmask;
-	pid_t       pid;
+	pid_t pid;
 
 	nih_assert (argv0 != NULL);
 
@@ -376,13 +352,15 @@ crash_handler (int signum)
 		sigemptyset (&act.sa_mask);
 		sigaction (signum, &act, NULL);
 
-		/* Dump in the root directory */
-		chdir ("/");
-
 		/* Don't limit the core dump size */
 		limit.rlim_cur = RLIM_INFINITY;
 		limit.rlim_max = RLIM_INFINITY;
 		setrlimit (RLIMIT_CORE, &limit);
+
+		/* Dump in the root directory */
+		if (chdir ("/"))
+			nih_warn ("%s: %s", _("Unable to set root directory"),
+				  strerror (errno));
 
 		/* Raise the signal again */
 		raise (signum);
@@ -407,40 +385,8 @@ crash_handler (int signum)
 			    ? "segmentation fault" : "abort"));
 	}
 
-	/* There's no point carrying on from here; our state is almost
-	 * likely in tatters, so we'd just end up core-dumping again and
-	 * writing over the one that contains the real bug.  We can't
-	 * even re-exec properly, since we'd probably core dump while
-	 * trying to transfer the state.
-	 *
-	 * So we just do the only thing we can, block out all signals
-	 * and try and start again from scratch.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
-	/* Argument list */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		loglevel = NULL;
-	}
-	execl (argv0, argv0, "--rescue", loglevel, NULL);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_fatal (_("Failed to re-execute %s: %s"),
-		   "/sbin/init", err->message);
-	nih_free (err);
-
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-
-	/* Oh Bugger */
-	exit (1);
+	/* Goodbye, cruel world. */
+	exit (signum);
 }
 
 /**
@@ -456,7 +402,7 @@ static void
 cad_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_emit (CTRLALTDEL_EVENT, NULL, NULL);
+	NIH_MUST (event_new (NULL, CTRLALTDEL_EVENT, NULL));
 }
 
 /**
@@ -472,7 +418,7 @@ static void
 kbd_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_emit (KBDREQUEST_EVENT, NULL, NULL);
+	NIH_MUST (event_new (NULL, KBDREQUEST_EVENT, NULL));
 }
 
 /**
@@ -488,80 +434,35 @@ static void
 pwr_handler (void      *data,
 	     NihSignal *signal)
 {
-	event_emit (PWRSTATUS_EVENT, NULL, NULL);
+	NIH_MUST (event_new (NULL, PWRSTATUS_EVENT, NULL));
 }
 
 /**
- * stop_handler:
+ * hup_handler:
  * @data: unused,
- * @signal: signal caught.
+ * @signal: signal that called this handler.
  *
- * This is called when we receive the STOP, TSTP or CONT signals; we
- * adjust the paused variable appropriately so that the event queue and
- * job stalled detection is not run.
+ * Handle having recieved the SIGHUP signal, which we use to instruct us to
+ * reload our configuration.
  **/
 static void
-stop_handler (void      *data,
-	      NihSignal *signal)
+hup_handler (void      *data,
+	     NihSignal *signal)
 {
-	nih_assert (signal != NULL);
+	nih_info (_("Reloading configuration"));
+	conf_reload ();
 
-	if (signal->signum == SIGCONT) {
-		nih_info (_("Event queue resumed"));
-		paused = FALSE;
-	} else {
-		nih_info (_("Event queue paused"));
-		paused = TRUE;
+	if (! control_bus) {
+		nih_info (_("Reconnecting to system bus"));
+
+		if (control_bus_open () < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn ("%s: %s", _("Unable to connect to the system bus"),
+				  err->message);
+			nih_free (err);
+		}
 	}
 }
-
-
-/**
- * term_handler:
- * @data: unused,
- * @signal: signal caught.
- *
- * This is called when we receive the TERM signal, which instructs us
- * to reexec ourselves.
- **/
-static void
-term_handler (void      *data,
-	      NihSignal *signal)
-{
-	NihError   *err;
-	const char *loglevel;
-	sigset_t    mask, oldmask;
-
-	nih_assert (argv0 != NULL);
-	nih_assert (signal != NULL);
-
-	nih_warn (_("Re-executing %s"), argv0);
-
-	/* Block signals while we work.  We're the last signal handler
-	 * installed so this should mean that they're all handled now.
-	 *
-	 * The child must make sure that it unblocks these again when
-	 * it's ready.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
-	/* Argument list */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		loglevel = NULL;
-	}
-	execl (argv0, argv0, "--restart", loglevel, NULL);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
-	nih_free (err);
-
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-}
+#endif /* DEBUG */

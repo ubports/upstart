@@ -2,21 +2,21 @@
  *
  * tree.c - generic binary tree implementation
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -48,7 +48,7 @@ nih_tree_init (NihTree *tree)
 
 /**
  * nih_tree_new:
- * @parent: parent of new node.
+ * @parent: parent object for new node.
  *
  * Allocates a new tree structure, usually used as the root of a new
  * binary tree.  You may prefer to allocate the NihTree structure statically
@@ -57,11 +57,10 @@ nih_tree_init (NihTree *tree)
  * The structure is allocated using nih_alloc() so can be used as a context
  * to other allocations.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned tree node.  When all parents
+ * of the returned tree node are freed, the returned tree node will also be
+ * freed.
  *
  * Returns: the new tree node or NULL if the allocation failed.
  **/
@@ -76,12 +75,14 @@ nih_tree_new (const void *parent)
 
 	nih_tree_init (tree);
 
+	nih_alloc_set_destructor (tree, nih_tree_destroy);
+
 	return tree;
 }
 
 /**
  * nih_tree_entry_new:
- * @parent: parent of new node.
+ * @parent: parent object for new entry.
  *
  * Allocates a new tree entry structure, leaving the caller to set the
  * data of the entry.
@@ -89,13 +90,12 @@ nih_tree_new (const void *parent)
  * The structure is allocated using nih_alloc() so can be used as a context
  * to other allocations.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned tree entry.  When all parents
+ * of the returned tree entry are freed, the returned tree entry will also be
+ * freed.
  *
- * Returns: the new tree node or NULL if the allocation failed.
+ * Returns: the new tree entry or NULL if the allocation failed.
  **/
 NihTreeEntry *
 nih_tree_entry_new (const void *parent)
@@ -107,6 +107,8 @@ nih_tree_entry_new (const void *parent)
 		return NULL;
 
 	nih_tree_init (&tree->node);
+
+	nih_alloc_set_destructor (tree, nih_tree_destroy);
 
 	tree->data = NULL;
 
@@ -228,17 +230,18 @@ nih_tree_unlink (NihTree *node)
 }
 
 /**
- * nih_tree_destructor:
+ * nih_tree_destroy:
  * @node: node to be removed.
  *
- * Removes @node from its containing tree, intended to be used as an
- * nih_alloc() destructor so that the node is automatically removed if
- * it is freed.
+ * Removes @node from its containing tree.
+ *
+ * Normally used or called from an nih_alloc() destructor so that the list
+ * item is automatically removed from its containing list when freed.
  *
  * Returns: zero.
  **/
 int
-nih_tree_destructor (NihTree *node)
+nih_tree_destroy (NihTree *node)
 {
 	nih_assert (node != NULL);
 
@@ -247,47 +250,38 @@ nih_tree_destructor (NihTree *node)
 	return 0;
 }
 
+
 /**
- * nih_tree_free:
- * @node: node to be removed and freed.
+ * VISIT:
+ * @_node: node to check.
  *
- * Removes @node from its containing tree and frees the memory allocated
- * for it.  @node must have been previously allocated using nih_alloc().
- *
- * Children of @node are not automatically freed unless they are allocated
- * as nih_alloc() children of @node.
- *
- * You must also take care of freeing the data attached to the node yourself
- * by either freeing it before calling this function or allocating it using
- * the node as the context.
- *
- * Returns: return value from destructor, or 0.
+ * Macro to expand to check whether a node is set, and whether the filter is
+ * either unset or says not to filter this node.
  **/
-int
-nih_tree_free (NihTree *node)
-{
-	nih_assert (node != NULL);
-
-	nih_tree_unlink (node);
-	return nih_free (node);
-}
-
+#define VISIT(_node) ((_node) && ((! filter) || (! filter (data, (_node)))))
 
 /**
- * nih_tree_next:
+ * nih_tree_next_full:
  * @tree: tree to iterate,
- * @node: node just visited.
+ * @node: node just visited,
+ * @filter: filter function to test each node,
+ * @data: data pointer to pass to @filter.
  *
  * Iterates the @tree in-order non-recursively; to obtain the first node,
  * @tree should be set to the root of the tree and @node should be NULL.
  * Then for subsequent nodes, @node should be the previous return value
  * from this function.
  *
+ * If @filter is given, it will be called for each node visited and must
+ * return FALSE otherwise the node and its children will be ignored.
+ *
  * Returns: next in-order node within @tree or NULL if no further nodes.
  **/
 NihTree *
-nih_tree_next (NihTree *tree,
-	       NihTree *node)
+nih_tree_next_full (NihTree       *tree,
+		    NihTree       *node,
+		    NihTreeFilter  filter,
+		    void          *data)
 {
 	NihTree *prev;
 
@@ -295,7 +289,7 @@ nih_tree_next (NihTree *tree,
 
 	if (node) {
 		prev = node;
-		if (node->right) {
+		if (VISIT (node->right)) {
 			node = node->right;
 		} else {
 			if (node == tree)
@@ -308,41 +302,48 @@ nih_tree_next (NihTree *tree,
 		node = tree;
 	}
 
-	while (node) {
+	for (;;) {
 		NihTree *tmp = node;
 
-		if ((prev == node->parent) && node->left) {
+		if ((prev == node->parent) && VISIT (node->left)) {
 			node = node->left;
-		} else if (node->right && (prev == node->right)) {
+		} else if (VISIT (node->right) && (prev == node->right)) {
 			if (node == tree)
 				return NULL;
 
 			node = node->parent;
-		} else {
+		} else if (VISIT (node)) {
 			return node;
+		} else {
+			return NULL;
 		}
 
 		prev = tmp;
 	}
-
-	return NULL;
 }
 
 /**
- * nih_tree_prev:
+ * nih_tree_prev_full:
  * @tree: tree to iterate,
- * @node: node just visited.
+ * @node: node just visited,
+ * @filter: filter function to test each node,
+ * @data: data pointer to pass to @filter.
  *
  * Reverse-iterates the @tree in-order non-recursively; to obtain the last
  * node, @tree should be set to the root of the tree and @node should be NULL.
  * Then for subsequent nodes, @node should be the previous return value
  * from this function.
  *
+ * If @filter is given, it will be called for each node visited and must
+ * return FALSE otherwise the node and its children will be ignored.
+ *
  * Returns: previous in-order node within @tree or NULL if no further nodes.
  **/
 NihTree *
-nih_tree_prev (NihTree *tree,
-	       NihTree *node)
+nih_tree_prev_full (NihTree       *tree,
+		    NihTree       *node,
+		    NihTreeFilter  filter,
+		    void          *data)
 {
 	NihTree *prev;
 
@@ -350,7 +351,7 @@ nih_tree_prev (NihTree *tree,
 
 	if (node) {
 		prev = node;
-		if (node->left) {
+		if (VISIT (node->left)) {
 			node = node->left;
 		} else {
 			if (node == tree)
@@ -363,18 +364,20 @@ nih_tree_prev (NihTree *tree,
 		node = tree;
 	}
 
-	while (node) {
+	for (;;) {
 		NihTree *tmp = node;
 
-		if ((prev == node->parent) && node->right) {
+		if ((prev == node->parent) && VISIT (node->right)) {
 			node = node->right;
-		} else if (node->left && (prev == node->left)) {
+		} else if (VISIT (node->left) && (prev == node->left)) {
 			if (node == tree)
 				return NULL;
 
 			node = node->parent;
-		} else {
+		} else if (VISIT (node)) {
 			return node;
+		} else {
+			return NULL;
 		}
 
 		prev = tmp;
@@ -385,20 +388,27 @@ nih_tree_prev (NihTree *tree,
 
 
 /**
- * nih_tree_next_pre:
+ * nih_tree_next_pre_full:
  * @tree: tree to iterate,
- * @node: node just visited.
+ * @node: node just visited,
+ * @filter: filter function to test each node,
+ * @data: data pointer to pass to @filter.
  *
  * Iterates the @tree in-order non-recursively; to obtain the first node,
  * @tree should be set to the root of the tree and @node should be NULL.
  * Then for subsequent nodes, @node should be the previous return value
  * from this function.
  *
+ * If @filter is given, it will be called for each node visited and must
+ * return FALSE otherwise the node and its children will be ignored.
+ *
  * Returns: next in-order node within @tree or NULL if no further nodes.
  **/
 NihTree *
-nih_tree_next_pre (NihTree *tree,
-		   NihTree *node)
+nih_tree_next_pre_full (NihTree       *tree,
+			NihTree       *node,
+			NihTreeFilter  filter,
+			void          *data)
 {
 	NihTree *prev;
 
@@ -406,9 +416,9 @@ nih_tree_next_pre (NihTree *tree,
 
 	if (node) {
 		prev = node;
-		if (node->left) {
+		if (VISIT (node->left)) {
 			return node->left;
-		} else if (node->right) {
+		} else if (VISIT (node->right)) {
 			return node->right;
 		} else {
 			if (node == tree)
@@ -416,14 +426,16 @@ nih_tree_next_pre (NihTree *tree,
 
 			node = node->parent;
 		}
-	} else {
+	} else if (VISIT (tree)) {
 		return tree;
+	} else {
+		return NULL;
 	}
 
-	while (node) {
+	for (;;) {
 		NihTree *tmp = node;
 
-		if ((prev != node->right) && node->right) {
+		if ((prev != node->right) && VISIT (node->right)) {
 			return node->right;
 		} else {
 			if (node == tree)
@@ -434,25 +446,30 @@ nih_tree_next_pre (NihTree *tree,
 
 		prev = tmp;
 	}
-
-	return NULL;
 }
 
 /**
- * nih_tree_prev_pre:
+ * nih_tree_prev_pre_full:
  * @tree: tree to iterate,
- * @node: node just visited.
+ * @node: node just visited,
+ * @filter: filter function to test each node,
+ * @data: data pointer to pass to @filter.
  *
  * Reverse-iterates the @tree in-order non-recursively; to obtain the last
  * node, @tree should be set to the root of the tree and @node should be NULL.
  * Then for subsequent nodes, @node should be the previous return value
  * from this function.
  *
+ * If @filter is given, it will be called for each node visited and must
+ * return FALSE otherwise the node and its children will be ignored.
+ *
  * Returns: previous in-order node within @tree or NULL if no further nodes.
  **/
 NihTree *
-nih_tree_prev_pre (NihTree *tree,
-		   NihTree *node)
+nih_tree_prev_pre_full (NihTree       *tree,
+			NihTree       *node,
+			NihTreeFilter  filter,
+			void          *data)
 {
 	NihTree *prev;
 
@@ -469,39 +486,46 @@ nih_tree_prev_pre (NihTree *tree,
 		node = tree;
 	}
 
-	while (node) {
+	for (;;) {
 		NihTree *tmp = node;
 
-		if ((prev == node->parent) && node->right) {
+		if ((prev == node->parent) && VISIT (node->right)) {
 			node = node->right;
-		} else if ((prev != node->left) && node->left) {
+		} else if ((prev != node->left) && VISIT (node->left)) {
 			node = node->left;
-		} else {
+		} else if (VISIT (node)) {
 			return node;
+		} else {
+			return NULL;
 		}
 
 		prev = tmp;
 	}
-
-	return NULL;
 }
 
 
 /**
- * nih_tree_next_post:
+ * nih_tree_next_post_full:
  * @tree: tree to iterate,
- * @node: node just visited.
+ * @node: node just visited,
+ * @filter: filter function to test each node,
+ * @data: data pointer to pass to @filter.
  *
  * Iterates the @tree in-order non-recursively; to obtain the first node,
  * @tree should be set to the root of the tree and @node should be NULL.
  * Then for subsequent nodes, @node should be the previous return value
  * from this function.
  *
+ * If @filter is given, it will be called for each node visited and must
+ * return FALSE otherwise the node and its children will be ignored.
+ *
  * Returns: next in-order node within @tree or NULL if no further nodes.
  **/
 NihTree *
-nih_tree_next_post (NihTree *tree,
-		    NihTree *node)
+nih_tree_next_post_full (NihTree       *tree,
+			 NihTree       *node,
+			 NihTreeFilter  filter,
+			 void          *data)
 {
 	NihTree *prev;
 
@@ -518,38 +542,45 @@ nih_tree_next_post (NihTree *tree,
 		node = tree;
 	}
 
-	while (node) {
+	for (;;) {
 		NihTree *tmp = node;
 
-		if ((prev == node->parent) && node->left) {
+		if ((prev == node->parent) && VISIT (node->left)) {
 			node = node->left;
-		} else if ((prev != node->right) && node->right) {
+		} else if ((prev != node->right) && VISIT (node->right)) {
 			node = node->right;
-		} else {
+		} else if (VISIT (node)) {
 			return node;
+		} else {
+			return NULL;
 		}
 
 		prev = tmp;
 	}
-
-	return NULL;
 }
 
 /**
- * nih_tree_prev_post:
+ * nih_tree_prev_post_full:
  * @tree: tree to iterate,
- * @node: node just visited.
+ * @node: node just visited,
+ * @filter: filter function to test each node,
+ * @data: data pointer to pass to @filter.
  *
  * Reverse-iterates the @tree in-order non-recursively; to obtain the last
  * node, @tree should be set to the root of the tree and @node should be NULL.
  * Then for subsequent nodes, @node should be the previous return value
  * from this function.
  *
+ * If @filter is given, it will be called for each node visited and must
+ * return FALSE otherwise the node and its children will be ignored.
+ *
  * Returns: previous in-order node within @tree or NULL if no further nodes.
  **/
 NihTree *
-nih_tree_prev_post (NihTree *tree,
-		    NihTree *node)
+nih_tree_prev_post_full (NihTree       *tree,
+			 NihTree       *node,
+			 NihTreeFilter  filter,
+			 void          *data)
 {
 	NihTree *prev;
 
@@ -557,9 +588,9 @@ nih_tree_prev_post (NihTree *tree,
 
 	if (node) {
 		prev = node;
-		if (node->right) {
+		if (VISIT (node->right)) {
 			return node->right;
-		} else if (node->left) {
+		} else if (VISIT (node->left)) {
 			return node->left;
 		} else {
 			if (node == tree)
@@ -567,14 +598,16 @@ nih_tree_prev_post (NihTree *tree,
 
 			node = node->parent;
 		}
-	} else {
+	} else if (VISIT (tree)) {
 		return tree;
+	} else {
+		return NULL;
 	}
 
-	while (node) {
+	for (;;) {
 		NihTree *tmp = node;
 
-		if ((prev != node->left) && node->left) {
+		if ((prev != node->left) && VISIT (node->left)) {
 			return node->left;
 		} else {
 			if (node == tree)
@@ -585,6 +618,4 @@ nih_tree_prev_post (NihTree *tree,
 
 		prev = tmp;
 	}
-
-	return NULL;
 }

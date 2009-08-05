@@ -22,7 +22,7 @@ set -e
 # Tell init to re-exec itself
 reexec_init()
 {
-    kill -s TERM 1
+    telinit u || true
 }
 
 

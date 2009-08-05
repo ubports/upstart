@@ -40,8 +40,7 @@ numerical order, followed by the S scripts in numerical order.
 How do I find the current/previous runlevel?
 --------------------------------------------
 
-This has not changed, use the "runlevel" command provided by the
-upstart-compat-sysv package.  See runlevel(8).
+This has not changed, use the "runlevel" command.  See runlevel(8).
 
 
 How do I change the runlevel?
@@ -75,12 +74,10 @@ machine.
 How do I change the behaviour of Control-Alt-Delete?
 ----------------------------------------------------
 
-Edit the /etc/event.d/control-alt-delete file, the line beginning
+Edit the /etc/init/control-alt-delete.conf file, the line beginning
 "exec" is what upstart will run when this key combination is pressed.
 
-To not do anything, you can simply delete this file.  After deleting
-the file, you need to "kill 1" to ensure that the job is removed from
-its memory.
+To not do anything, you can simply delete this file.
 
 
 How do I enter single-user mode?
@@ -96,7 +93,7 @@ How do I reduce the number of gettys?
 
 Also see "How do I change which runlevels gettys are run in?"
 
-In /etc/event.d there is a file named ttyN for each getty that will be
+In /etc/init there is a file named ttyN.conf for each getty that will be
 started, where N is numbered 1 to 6.  Remove any that you do not
 want.
 
@@ -107,7 +104,7 @@ to stop one that is running.
 How do I change getty parameters?
 ---------------------------------
 
-In /etc/event.d there is a file named ttyN for each getty that will be
+In /etc/init there is a file named ttyN.conf for each getty that will be
 started, where N is numbered 1 to 6.  Edit these files, the line
 beginning "respawn" is what upstart will run.
 
@@ -119,12 +116,14 @@ parameters.
 How do I change which runlevels gettys are run in?
 --------------------------------------------------
 
-In /etc/event.d there is a file named ttyN for each getty that will be
-started, where N is numbered 1 to 6.  Edit these files, there are a
-series of lines of either "start on runlevel N" or
-"stop on runlevel N".
+In /etc/init there is a file named ttyN.conf for each getty that will be
+started, where N is numbered 1 to 6.  Edit these files, there are two
+lines:
 
-Change "stop" to "start" or "start" to "stop" to match your taste.
+   start on runlevel [2345]
+   stop on runlevel [!2345]
+
+Change the set of runlevels to match your taste.
 
 This will not take immediate effect, however you can run "stop ttyN"
 to stop one that is running or "start ttyN" to start one that isn't.
@@ -133,7 +132,7 @@ to stop one that is running or "start ttyN" to start one that isn't.
 How do I increase the number of gettys?
 ---------------------------------------
 
-In /etc/event.d there is a file named ttyN for each getty that will be
+In /etc/init there is a file named ttyN.conf for each getty that will be
 started, where N is numbered 1 to 6.
 
 Copy one of these files to a new name, we suggest you simply name it
@@ -153,47 +152,11 @@ How do I add a serial console?
 See "How do I increase the number of gettys?"
 
 
-Where are the boot messages logged?
------------------------------------
-
-Messages output by the rc scripts can be found in /var/log/boot, if
-you have the upstart-logd package installed.
-
-
-How can I log the boot messages?
---------------------------------
-
-The default is to print the boot messages on stdout. If you want to
-log the boot messages to /var/log/boot make sure to install the
-upstart-logd package and change "console output" to "console logged"
-for the relevant jobs in /etc/event.d.
-At the moment, the usage of upstart-logd is discouraged as it can have
-negative side effects.
-
-
-Cryptsetup is not working anymore, why?
----------------------------------------
-
-If you have setup encrypted partitions which require input during
-startup you should either make sure that /etc/event.d/rcS has a
-"console output" line or alternatively add the following lines
-to /lib/cryptsetup/cryptdisks.functions:
-
-    # Always output to console
-    stdin=`readlink /proc/self/fd/0`
-    if [ "${stdin#/dev/null}" != "$stdin" ]; then
-      exec </dev/console >/dev/console 2>&1
-    fi
-
-These lines should be placed at the beginning of the file right after 
-"test -f $TABFILE || exit 0".
-
-
 Upstart isn't working, how do I debug it?
 -----------------------------------------
 
 Add "--debug" to the kernel command-line, and be sure to remove "quiet"
-and "splash" if existent.  You'll now see debugging messages as upstart 
+and "splash" if existent.  You'll now see debugging messages as upstart
 works.
 
 If you are using an initramfs generator other than initramfs-tools you
@@ -203,15 +166,12 @@ init and as a consequence leads to a kernel panic. For more details
 please see bug #416927.
 
 
-Upstart does nothing, what's wrong?
------------------------------------
-
-You probably don't have the upstart-compat-sysv or system-services
-packages installed.
+Upstart isn't working, how can I rescue my system?
+--------------------------------------------------
 
 Here's a quick guide to rescuing your system:
 
- 1. Edit the kernel command-line, remove "quiet" and "splash" if 
+ 1. Edit the kernel command-line, remove "quiet" and "splash" if
     existent, add "init=/bin/bash".
 
     The machine will boot into a root shell.
@@ -221,17 +181,14 @@ Here's a quick guide to rescuing your system:
     The machine will set up the basic necessities such as hardware
     and networking.
 
- 3. Run "aptitude update"
+ 3. Ensure that upstart is properly installed
 
-    The machine will update the package lists against the Debian archive.
+    Check if all files are installed in /etc/init. If not, reinstall the
+    upstart package.
 
- 4. Run "aptitude install upstart-compat-sysv system-services"
+ 5. Check that there are now files in /etc/init
 
-    The machine will now install the missing packages.
-
- 5. Check that there are now files in /etc/event.d
-
- 6. Run "reboot -f"
+ 6. Run "sync" and "reboot -f"
 
     The machine will now reboot.
 
@@ -241,8 +198,7 @@ Hopefully your machine should now boot normally.
 Can I query upstart for a list of jobs?
 ---------------------------------------
 
-Yes, "initctl list" will list the known jobs and their status.  You
-can receive notification of any changes with "initctl jobs".
+Yes, "initctl list" will list the known jobs and their status.
 
 
 How do I manually start or stop a job?
@@ -255,12 +211,6 @@ How do I find the status of a job?
 ----------------------------------
 
 Use "status JOB".
-
-
-Can I receive notification of events?
--------------------------------------
-
-Yes, "initctl events" will display them as they are emitted.
 
 
 Can I emit an event by hand?

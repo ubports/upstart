@@ -2,21 +2,21 @@
  *
  * list.c - generic circular doubly-linked list implementation
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -52,7 +52,7 @@ nih_list_init (NihList *entry)
 
 /**
  * nih_list_new:
- * @parent: parent of new list.
+ * @parent: parent object for new list.
  *
  * Allocates a new list structure, usually used as the start of a new
  * list.  You may prefer to allocate the NihList structure statically and
@@ -61,13 +61,12 @@ nih_list_init (NihList *entry)
  * The structure is allocated using nih_alloc() so can be used as a context
  * to other allocations.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned list.  When all parents
+ * of the returned list are freed, the returned list will also be
+ * freed.
  *
- * Returns: the new list entry or NULL if the allocation failed.
+ * Returns: the new list or NULL if the allocation failed.
  **/
 NihList *
 nih_list_new (const void *parent)
@@ -80,12 +79,14 @@ nih_list_new (const void *parent)
 
 	nih_list_init (list);
 
+	nih_alloc_set_destructor (list, nih_list_destroy);
+
 	return list;
 }
 
 /**
  * nih_list_entry_new:
- * @parent: parent of new list entry.
+ * @parent: parent object for new list entry.
  *
  * Allocates a new list entry structure, leaving the caller to set the
  * data of the entry.
@@ -93,11 +94,10 @@ nih_list_new (const void *parent)
  * The structure is allocated using nih_alloc() so can be used as a context
  * to other allocations.
  *
- * If @parent is not NULL, it should be a pointer to another allocated
- * block which will be used as the parent for this block.  When @parent
- * is freed, the returned string will be freed too.  If you have clean-up
- * that would need to be run, you can assign a destructor function using
- * the nih_alloc_set_destructor() function.
+ * If @parent is not NULL, it should be a pointer to another object which
+ * will be used as a parent for the returned list entry.  When all parents
+ * of the returned list entry are freed, the returned list entry will also be
+ * freed.
  *
  * Returns: the new list entry or NULL if the allocation failed.
  **/
@@ -111,6 +111,8 @@ nih_list_entry_new (const void *parent)
 		return NULL;
 
 	nih_list_init (&list->entry);
+
+	nih_alloc_set_destructor (list, nih_list_destroy);
 
 	list->data = NULL;
 
@@ -228,43 +230,22 @@ nih_list_remove (NihList *entry)
 }
 
 /**
- * nih_list_destructor:
+ * nih_list_destroy:
  * @entry: entry to be removed.
  *
- * Removes @entry from its containing list, intended to be used as an
- * nih_alloc() destructor so that the list item is automatically removed if
- * it is freed.
+ * Removes @entry from its containing list.
+ *
+ * Normally used or called from an nih_alloc() destructor so that the list
+ * item is automatically removed from its containing list when freed.
  *
  * Returns: zero.
  **/
 int
-nih_list_destructor (NihList *entry)
+nih_list_destroy (NihList *entry)
 {
 	nih_assert (entry != NULL);
 
 	nih_list_cut (entry);
 
 	return 0;
-}
-
-/**
- * nih_list_free:
- * @entry: entry to be removed and freed.
- *
- * Removes @entry from its containing list and frees the memory allocated
- * for it.  @entry must have been previously allocated using nih_alloc().
- *
- * You must take care of freeing the data attached to the entry yourself
- * by either freeing it before calling this function or allocating it using
- * the list entry as the context.
- *
- * Returns: return value from destructor, or 0.
- **/
-int
-nih_list_free (NihList *entry)
-{
-	nih_assert (entry != NULL);
-
-	nih_list_cut (entry);
-	return nih_free (entry);
 }

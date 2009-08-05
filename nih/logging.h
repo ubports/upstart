@@ -1,24 +1,35 @@
 /* libnih
  *
- * Copyright © 2007 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
+ * Copyright © 2009 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef NIH_LOGGING_H
 #define NIH_LOGGING_H
+
+/**
+ * These functions provide a logging interface for outputting messages
+ * at different priorities, and filtering based on them.
+ *
+ * The output for the logger can be selected using nih_log_set_logger(),
+ * where nih_logger_printf() is the default and nih_logger_syslog() another
+ * popular alternative.
+ *
+ * Log messages are output with different macros.
+ **/
 
 #include <stdlib.h>
 
@@ -52,8 +63,8 @@ typedef enum {
  * should not discard any messages and instead nih_log_set_priority() used
  * to decide the treshold of logged messages.
  *
- * The logger may return non-zero to indicate that it was not able to
- * output the message.
+ * Returns: zero on success, negative value if the logger was not able
+ * to output the message.
  **/
 typedef int (*NihLogger) (NihLogLevel priority, const char *message);
 
@@ -154,8 +165,10 @@ typedef int (*NihLogger) (NihLogLevel priority, const char *message);
 
 NIH_BEGIN_EXTERN
 
-NihLogLevel nih_log_priority;
+extern NihLogLevel nih_log_priority;
 
+
+void nih_log_init         (void);
 
 void nih_log_set_logger   (NihLogger new_logger);
 void nih_log_set_priority (NihLogLevel new_priority);

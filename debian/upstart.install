@@ -1,10 +1,8 @@
-sbin/init
-sbin/initctl
-sbin/start
-sbin/stop
-sbin/status
-usr/share/man/man8/init.8
-usr/share/man/man8/initctl.8
-usr/share/man/man8/start.8
-usr/share/man/man8/stop.8
-usr/share/man/man8/status.8
+sbin/
+lib/init/upstart-job
+usr/share/man/man5/
+usr/share/man/man7/
+usr/share/man/man8/
+etc/dbus-1/system.d/Upstart.conf
+etc/init/*.conf
+debian/conf/*.conf etc/init/
