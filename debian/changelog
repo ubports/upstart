@@ -1,3 +1,20 @@
+upstart (0.6.3-2) karmic; urgency=low
+
+  FFE LP: #427356.
+
+  * debian/upstart-job:
+    - Remove trailing "s" from file
+    - Support direct invocation better.
+  * udev/upstart-udev-bridge.c:
+    - New tool to capture events from the udev netlink socket and
+      convert into upstart events.
+  * conf/rc-sysinit.conf:
+    - Run once all filesystems are mounted, rather than on startup
+  * debian/control:
+    - Add dependency on mountall for the filesystem event.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 15 Sep 2009 03:19:09 +0100
+
 upstart (0.6.3-1) karmic; urgency=low
 
   * New upstream release:

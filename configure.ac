@@ -19,6 +19,7 @@ AM_GNU_GETTEXT()
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
+PKG_PROG_PKG_CONFIG
 
 # Checks for libraries.
 NIH_INIT([dbus])
@@ -43,10 +44,12 @@ case $upstart_sbindir in
 	;;
 esac
 
+PKG_CHECK_MODULES([UDEV], [libudev >= 146])
+
 
 AC_CONFIG_FILES([ Makefile m4/Makefile intl/Makefile
 		  nih/Makefile nih-dbus/Makefile nih-dbus-tool/Makefile
-		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
+		  dbus/Makefile init/Makefile util/Makefile udev/Makefile conf/Makefile
 		  doc/Makefile contrib/Makefile po/Makefile.in ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
