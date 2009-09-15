@@ -37,10 +37,7 @@ start|stop|restart|status)
     echo "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
     $COMMAND "$JOB"
     ;;
-force-reload)
-    restart "$JOB"
-    ;;
-reload)
+reload|force-reload)
     PID=$(status "$JOB" 2>/dev/null | awk '/[0-9]$/ { print $NF }')
     [ -z "$PID" ] || kill -HUP $PID
     ;;

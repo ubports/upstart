@@ -1,3 +1,11 @@
+upstart (0.6.3-3) UNRELEASED; urgency=low
+
+  * debian/upstart-job:
+    - force-reload should only send a HUP signal, since it may not be wise
+      to actually restart (cf. dbus)
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 16 Sep 2009 00:09:19 +0100
+
 upstart (0.6.3-2) karmic; urgency=low
 
   FFE LP: #427356.
