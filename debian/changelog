@@ -3,6 +3,10 @@ upstart (0.6.3-4) UNRELEASED; urgency=low
   * Look for the "quiet" kernel command-line option, and when set act
     as if "--quiet" was given.  LP: #401333.
 
+  * Add a hack to look for /dev/.initramfs/*.pid files on startup and
+    "fake" start jobs of those names.  Basically this means that "status"
+    and "stop" work for things like bootchart and usplash.
+
  -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 09:14:32 -0700
 
 upstart (0.6.3-3) karmic; urgency=low
