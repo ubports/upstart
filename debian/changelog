@@ -1,29 +1,24 @@
-upstart (0.6.3-4) UNRELEASED; urgency=low
+upstart (0.6.3-4) karmic; urgency=low
 
   [ Scott James Remnant ]
   * Reduce the priority of the stopped by/continued by messages so that
     they are only shown when --verbose on the kernel command-line.
     LP: #401333.
-
   * Add a hack to look for /dev/.initramfs/*.pid files on startup and
     "fake" start jobs of those names.  Basically this means that "status"
     and "stop" work for things like bootchart and usplash.
-
-  [ Steve Langasek ]
-  * give proper policy-compliant behavior of the start command: detect if the
-    job is already running using upstart status, and if so return success.
-
-  * same for the stop command: return success if the job is already stopped.
-
-  * when $DPKG_MAINTSCRIPT_PACKAGE is set, don't spit warnings out because
-    it's not the user's fault - we're being invoked by a maintainer script.
-
-  [ Scott James Remnant ]
   * Implement a "reload" command in initctl that retrieves the current pid
     of the job and sends it the HUP signal.  LP: #433544.
-  * 
 
- -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 09:14:32 -0700
+  [ Steve Langasek ]
+  * debian/upstart-job:
+    - give proper policy-compliant behavior of the start command: detect if
+      the job is already running using upstart status, and if so return success.
+    - same for the stop command: return success if the job is already stopped.
+    - when $DPKG_MAINTSCRIPT_PACKAGE is set, don't spit warnings out because
+      it's not the user's fault - we're being invoked by a maintainer script.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 13:56:48 -0700
 
 upstart (0.6.3-3) karmic; urgency=low
 
