@@ -139,7 +139,7 @@ EXTRA_DIST = util.supp
 
 install-data-hook:
 	src=`echo initctl | sed '$(transform)'`.8; \
-	for symlink in start stop restart status; do \
+	for symlink in start stop restart reload status; do \
 	  inst=`echo $$symlink | sed '$(transform)'`.8; \
           echo " ln -sf '$$src' '$(DESTDIR)$(man8dir)/$$inst'"; \
 	  ln -sf "$$src" "$(DESTDIR)$(man8dir)/$$inst"; \
@@ -154,7 +154,7 @@ install-data-hook:
 
 install-exec-hook:
 	src=`echo initctl | sed '$(transform);s/$$/$(EXEEXT)/'`; \
-	for symlink in start stop restart status; do \
+	for symlink in start stop restart reload status; do \
 	  inst=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
           echo " ln -sf '$$src' '$(DESTDIR)$(sbindir)/$$inst'"; \
 	  ln -sf "$$src" "$(DESTDIR)$(sbindir)/$$inst"; \

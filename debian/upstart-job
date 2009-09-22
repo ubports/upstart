@@ -57,8 +57,10 @@ start|stop)
     $COMMAND "$JOB"
     ;;
 reload|force-reload)
-    PID=$(status "$JOB" 2>/dev/null | awk '/[0-9]$/ { print $NF }')
-    [ -z "$PID" ] || kill -HUP $PID
+    $ECHO
+    $ECHO "Since the script you are attempting to invoke has been converted to an"
+    $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
+    reload "$JOB"
     ;;
 *)
     $ECHO
