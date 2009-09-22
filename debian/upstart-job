@@ -31,11 +31,18 @@ echo "Rather than invoking init scripts through /etc/init.d, use the service(8)"
 echo "utility, e.g. service $INITSCRIPT $COMMAND"
 
 case $COMMAND in
-start|stop|restart|status)
+stop|restart|status)
     echo
     echo "Since the script you are attempting to invoke has been converted to an"
     echo "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
     $COMMAND "$JOB"
+    ;;
+start)
+    echo
+    echo "Since the script you are attempting to invoke has been converted to an"
+    echo "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
+    PID=$(status "$JOB" 2>/dev/null | awk '/[0-9]$/ { print $NF }')
+    [ -z "$PID" ] || $COMMAND "$JOB"
     ;;
 reload|force-reload)
     PID=$(status "$JOB" 2>/dev/null | awk '/[0-9]$/ { print $NF }')
