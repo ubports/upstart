@@ -31,6 +31,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <dirent.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -299,7 +300,67 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
+		DIR *piddir;
+
 		NIH_MUST (event_new (NULL, STARTUP_EVENT, NULL));
+
+		/* Total hack, look for .pid files in /dev/.initramfs -
+		 * if there's a job config for them pretend that we
+		 * started it and it has that pid.
+		 */
+		piddir = opendir ("/dev/.initramfs");
+		if (piddir) {
+			struct dirent *ent;
+
+			while ((ent = readdir (piddir)) != NULL) {
+				char      path[PATH_MAX];
+				char *    ptr;
+				FILE *    pidfile;
+				pid_t     pid;
+				JobClass *class;
+				Job *     job;
+
+				if (ent->d_name[0] == '.')
+					continue;
+
+				strcpy (path, "/dev/.initramfs/");
+				strcat (path, ent->d_name);
+
+				ptr = strrchr (ent->d_name, '.');
+				if ((! ptr) || strcmp (ptr, ".pid"))
+					continue;
+
+				*ptr = '\0';
+				pidfile = fopen (path, "r");
+				if (! pidfile)
+					continue;
+
+				pid = -1;
+				if (fscanf (pidfile, "%d", &pid))
+					;
+				fclose (pidfile);
+
+				if (pid < 0)
+					continue;
+
+				class = (JobClass *)nih_hash_lookup (job_classes, ent->d_name);
+				if (! class)
+					continue;
+				if (! class->process[PROCESS_MAIN])
+					continue;
+				if (strlen (class->instance))
+					continue;
+
+				job = NIH_MUST (job_new (class, ""));
+				job->goal = JOB_START;
+				job->state = JOB_RUNNING;
+				job->pid[PROCESS_MAIN] = pid;
+
+				nih_debug ("%s inherited from initramfs with pid %d", class->name, pid);
+			}
+
+			closedir (piddir);
+		}
 	} else {
 		sigset_t mask;
 
