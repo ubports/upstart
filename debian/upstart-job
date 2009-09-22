@@ -27,20 +27,27 @@ fi
 COMMAND="$1"
 shift
 
-echo "Rather than invoking init scripts through /etc/init.d, use the service(8)"
-echo "utility, e.g. service $INITSCRIPT $COMMAND"
+
+if [ -z "$DPKG_MAINTSCRIPT_PACKAGE" ]; then
+	ECHO=echo
+else
+	ECHO=:
+fi
+
+$ECHO "Rather than invoking init scripts through /etc/init.d, use the service(8)"
+$ECHO "utility, e.g. service $INITSCRIPT $COMMAND"
 
 case $COMMAND in
 stop|restart|status)
-    echo
-    echo "Since the script you are attempting to invoke has been converted to an"
-    echo "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
+    $ECHO
+    $ECHO "Since the script you are attempting to invoke has been converted to an"
+    $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
     $COMMAND "$JOB"
     ;;
 start)
-    echo
-    echo "Since the script you are attempting to invoke has been converted to an"
-    echo "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
+    $ECHO
+    $ECHO "Since the script you are attempting to invoke has been converted to an"
+    $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
     PID=$(status "$JOB" 2>/dev/null | awk '/[0-9]$/ { print $NF }')
     [ -z "$PID" ] || $COMMAND "$JOB"
     ;;
@@ -49,8 +56,8 @@ reload|force-reload)
     [ -z "$PID" ] || kill -HUP $PID
     ;;
 *)
-    echo
-    echo "The script you are attempting to invoke has been converted to an Upstart" 1>&2
-    echo "job, but $COMMAND is not supported for Upstart jobs." 1>&2
+    $ECHO
+    $ECHO "The script you are attempting to invoke has been converted to an Upstart" 1>&2
+    $ECHO "job, but $COMMAND is not supported for Upstart jobs." 1>&2
     exit 1
 esac
