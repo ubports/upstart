@@ -12,6 +12,8 @@ upstart (0.6.3-4) UNRELEASED; urgency=low
   * give proper policy-compliant behavior of the start command: detect if the
     job is already running using upstart status, and if so return success.
 
+  * same for the stop command: return success if the job is already stopped.
+
   * when $DPKG_MAINTSCRIPT_PACKAGE is set, don't spit warnings out because
     it's not the user's fault - we're being invoked by a maintainer script.
 
