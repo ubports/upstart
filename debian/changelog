@@ -1,8 +1,9 @@
 upstart (0.6.3-4) UNRELEASED; urgency=low
 
   [ Scott James Remnant ]
-  * Look for the "quiet" kernel command-line option, and when set act
-    as if "--quiet" was given.  LP: #401333.
+  * Reduce the priority of the stopped by/continued by messages so that
+    they are only shown when --verbose on the kernel command-line.
+    LP: #401333.
 
   * Add a hack to look for /dev/.initramfs/*.pid files on startup and
     "fake" start jobs of those names.  Basically this means that "status"
@@ -20,6 +21,7 @@ upstart (0.6.3-4) UNRELEASED; urgency=low
   [ Scott James Remnant ]
   * Implement a "reload" command in initctl that retrieves the current pid
     of the job and sends it the HUP signal.  LP: #433544.
+  * 
 
  -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 09:14:32 -0700
 

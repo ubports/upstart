@@ -881,11 +881,11 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) stopped by %s signal"),
+			nih_info (_("%s %s process (%d) stopped by %s signal"),
 				  job_name (job), process_name (process),
 				  pid, sig);
 		} else {
-			nih_warn (_("%s %s process (%d) stopped by signal %d"),
+			nih_info (_("%s %s process (%d) stopped by signal %d"),
 				  job_name (job), process_name (process),
 				  pid, status);
 		}
@@ -899,11 +899,11 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) continued by %s signal"),
+			nih_info (_("%s %s process (%d) continued by %s signal"),
 				  job_name (job), process_name (process),
 				  pid, sig);
 		} else {
-			nih_warn (_("%s %s process (%d) continued by signal %d"),
+			nih_info (_("%s %s process (%d) continued by signal %d"),
 				  job_name (job), process_name (process),
 				  pid, status);
 		}

@@ -184,11 +184,6 @@ main (int   argc,
 	if (chdir ("/"))
 		nih_warn ("%s: %s", _("Unable to set root directory"),
 			  strerror (errno));
-
-	for (char **arg = args; arg && *arg; arg++)
-		if (! strcmp (*arg, "quiet"))
-			nih_log_set_priority (NIH_LOG_ERROR);
-
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
 #endif /* DEBUG */
