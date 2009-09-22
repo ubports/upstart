@@ -15,6 +15,10 @@ upstart (0.6.3-4) UNRELEASED; urgency=low
   * when $DPKG_MAINTSCRIPT_PACKAGE is set, don't spit warnings out because
     it's not the user's fault - we're being invoked by a maintainer script.
 
+  [ Scott James Remnant ]
+  * Implement a "reload" command in initctl that retrieves the current pid
+    of the job and sends it the HUP signal.  LP: #433544.
+
  -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 09:14:32 -0700
 
 upstart (0.6.3-3) karmic; urgency=low
