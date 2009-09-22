@@ -1,11 +1,19 @@
 upstart (0.6.3-4) UNRELEASED; urgency=low
 
+  [ Scott James Remnant ]
   * Look for the "quiet" kernel command-line option, and when set act
     as if "--quiet" was given.  LP: #401333.
 
   * Add a hack to look for /dev/.initramfs/*.pid files on startup and
     "fake" start jobs of those names.  Basically this means that "status"
     and "stop" work for things like bootchart and usplash.
+
+  [ Steve Langasek ]
+  * give proper policy-compliant behavior of the start command: detect if the
+    job is already running using upstart status, and if so return success.
+
+  * when $DPKG_MAINTSCRIPT_PACKAGE is set, don't spit warnings out because
+    it's not the user's fault - we're being invoked by a maintainer script.
 
  -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 09:14:32 -0700
 
