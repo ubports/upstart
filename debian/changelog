@@ -1,3 +1,10 @@
+upstart (0.6.3-4) UNRELEASED; urgency=low
+
+  * Look for the "quiet" kernel command-line option, and when set act
+    as if "--quiet" was given.  LP: #401333.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 22 Sep 2009 09:14:32 -0700
+
 upstart (0.6.3-3) karmic; urgency=low
 
   * debian/upstart-job:
