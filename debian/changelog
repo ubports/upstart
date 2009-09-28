@@ -1,3 +1,10 @@
+upstart (0.6.3-6) UNRELEASED; urgency=low
+
+  * upstart-job's restart target must also not fail when the service is not
+    yet started.  LP: #430883.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sun, 27 Sep 2009 20:44:53 -0700
+
 upstart (0.6.3-5) karmic; urgency=low
 
   * Update autoconf and automake files.  LP: #435252.
