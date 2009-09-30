@@ -16,6 +16,18 @@
 #	<postinst> abort-remove in-favour <new-package> <version>
 
 
+# Remove a no-longer used conffile
+rm_conffile()
+{
+    CONFFILE="$1"
+
+    if [ -e "$CONFFILE".dpkg-obsolete ]; then
+	echo "Removing obsolete conffile $CONFFILE"
+	rm -f "$CONFFILE".dpkg-obsolete
+    fi
+}
+
+
 # Tell init to re-exec itself
 reexec_init()
 {
@@ -28,6 +40,11 @@ case "$1" in
 	# On upgrade from a capable upstart version, tell it to re-exec
 	if dpkg --compare-versions "$2" ge "0.2.0-1"; then
 	    reexec_init
+	fi
+
+	# Upgrade from karmic development version
+	if dpkg --compare-versions "$2" lt-nl 0.6.3-5; then
+	    rm_conffile /etc/init/dbus-reconnect.conf
 	fi
 	;;
 
