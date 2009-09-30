@@ -38,13 +38,13 @@ $ECHO "Rather than invoking init scripts through /etc/init.d, use the service(8)
 $ECHO "utility, e.g. service $INITSCRIPT $COMMAND"
 
 case $COMMAND in
-restart|status)
+status)
     $ECHO
     $ECHO "Since the script you are attempting to invoke has been converted to an"
     $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
     $COMMAND "$JOB"
     ;;
-start|stop)
+start|stop|restart)
     $ECHO
     $ECHO "Since the script you are attempting to invoke has been converted to an"
     $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
@@ -52,6 +52,9 @@ start|stop)
     if [ -z "$PID" ] && [ "$COMMAND" = "stop" ]; then
         exit 0
     elif [ -n "$PID" ] && [ "$COMMAND" = "start" ]; then
+        exit 0
+    elif [ -z "$PID" ] && [ "$COMMAND" = "restart" ]; then
+        start "$JOB"
         exit 0
     fi
     $COMMAND "$JOB"
