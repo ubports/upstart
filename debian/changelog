@@ -1,4 +1,4 @@
-upstart (0.6.3-6) UNRELEASED; urgency=low
+upstart (0.6.3-6) karmic; urgency=low
 
   * Don't use "telinit q" to reconnect to D-Bus, since that breaks
     lots of things.  Invent another secret way instead.
@@ -7,7 +7,7 @@ upstart (0.6.3-6) UNRELEASED; urgency=low
   * upstart-job's restart target must also not fail when the service is not
     yet started.  LP: #430883.
 
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 30 Sep 2009 21:17:17 +0100
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 01 Oct 2009 15:26:19 +0100
 
 upstart (0.6.3-5) karmic; urgency=low
 
