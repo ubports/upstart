@@ -36,7 +36,7 @@ prep_rm_conffile()
 case "$1" in
     install|upgrade)
 	# Upgrade from karmic development version
-	if dpkg --compare-versions "$2" lt-nl 0.6.3-5; then
+	if dpkg --compare-versions "$2" lt-nl 0.6.3-7; then
 	    prep_rm_conffile /etc/init/dbus-reconnect.conf
 	fi
 	;;

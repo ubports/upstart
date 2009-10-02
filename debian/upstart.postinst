@@ -43,7 +43,7 @@ case "$1" in
 	fi
 
 	# Upgrade from karmic development version
-	if dpkg --compare-versions "$2" lt-nl 0.6.3-5; then
+	if dpkg --compare-versions "$2" lt-nl 0.6.3-7; then
 	    rm_conffile /etc/init/dbus-reconnect.conf
 	fi
 	;;
