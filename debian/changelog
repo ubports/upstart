@@ -1,4 +1,4 @@
-upstart (0.6.3-7) UNRELEASED; urgency=low
+upstart (0.6.3-7) karmic; urgency=low
 
   * Ignore initramfs pids that don't exist.  LP: #440071.
     - you still need to ensure that the pid's parent is init, there's no
@@ -6,7 +6,7 @@ upstart (0.6.3-7) UNRELEASED; urgency=low
   * Remove "console owner" and "console output" from rc scripts.
   * Try harder to remove dbus-reconnect.conf
 
- -- Scott James Remnant <scott@ubuntu.com>  Fri, 02 Oct 2009 15:22:44 +0100
+ -- Scott James Remnant <scott@ubuntu.com>  Fri, 02 Oct 2009 21:09:03 +0100
 
 upstart (0.6.3-6) karmic; urgency=low
 
