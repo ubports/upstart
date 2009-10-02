@@ -340,7 +340,8 @@ main (int   argc,
 					;
 				fclose (pidfile);
 
-				if (pid < 0)
+				if ((pid < 0)
+				    || (kill (pid, 0) < 0))
 					continue;
 
 				class = (JobClass *)nih_hash_lookup (job_classes, ent->d_name);

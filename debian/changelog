@@ -1,3 +1,11 @@
+upstart (0.6.3-7) UNRELEASED; urgency=low
+
+  * Ignore initramfs pids that don't exist.  LP: #440071.
+    - you still need to ensure that the pid's parent is init, there's no
+      cheap way to test for that. 
+
+ -- Scott James Remnant <scott@ubuntu.com>  Fri, 02 Oct 2009 15:22:44 +0100
+
 upstart (0.6.3-6) karmic; urgency=low
 
   * Don't use "telinit q" to reconnect to D-Bus, since that breaks
