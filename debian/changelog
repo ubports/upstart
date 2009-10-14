@@ -1,4 +1,4 @@
-upstart (0.6.3-7ubuntu1) UNRELEASED; urgency=low
+upstart (0.6.3-8) karmic; urgency=low
 
   * Rather than calling "telinit u" after upgrade, which will lose state,
     have the umountroot initscript take care of it for us by setting a
@@ -15,7 +15,7 @@ upstart (0.6.3-7ubuntu1) UNRELEASED; urgency=low
   * Merge change from libnih to fix compilation issue with eglibc due
     to changed alphasort() prototype.
 
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 14 Oct 2009 05:21:54 +0100
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 14 Oct 2009 05:34:13 +0100
 
 upstart (0.6.3-7) karmic; urgency=low
 
