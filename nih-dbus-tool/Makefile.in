@@ -467,6 +467,7 @@ MKDIR_P = @MKDIR_P@
 MSGFMT = @MSGFMT@
 MSGFMT_015 = @MSGFMT_015@
 MSGMERGE = @MSGMERGE@
+NIH_DBUS_TOOL = @NIH_DBUS_TOOL@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -2019,13 +2020,13 @@ $(com_netsplit_Nih_Test_object_OUTPUTS): $(com_netsplit_Nih_Test_object_XML) $(b
 	$(MKDIR_P) `echo "$@" | \
 		    sed '/\//!d;s,/[^/]*$$,,' | \
                     sort -u`
-	$(builddir)/nih-dbus-tool --mode=object --prefix=my --output=$@ $<
+	$(NIH_DBUS_TOOL) --mode=object --prefix=my --output=$@ $<
 
 $(com_netsplit_Nih_Test_proxy_OUTPUTS): $(com_netsplit_Nih_Test_proxy_XML) $(builddir)/nih-dbus-tool
 	$(MKDIR_P) `echo "$@" | \
 		    sed '/\//!d;s,/[^/]*$$,,' | \
                     sort -u`
-	$(builddir)/nih-dbus-tool --mode=proxy --prefix=proxy --output=$@ $<
+	$(NIH_DBUS_TOOL) --mode=proxy --prefix=proxy --output=$@ $<
 
 tests/marshal_code.c: $(builddir)/marshal_factory
 	$(builddir)/marshal_factory > $@

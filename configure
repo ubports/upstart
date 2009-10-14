@@ -752,6 +752,7 @@ UDEV_CFLAGS
 HAVE_VERSION_SCRIPT_ARG_FALSE
 HAVE_VERSION_SCRIPT_ARG_TRUE
 VERSION_SCRIPT_ARG
+NIH_DBUS_TOOL
 HAVE_DBUS_FALSE
 HAVE_DBUS_TRUE
 EXPAT_LIBS
@@ -942,6 +943,7 @@ CPP
 PKG_CONFIG
 DBUS_CFLAGS
 DBUS_LIBS
+NIH_DBUS_TOOL
 UDEV_CFLAGS
 UDEV_LIBS'
 
@@ -1612,6 +1614,8 @@ Some influential environment variables:
   PKG_CONFIG  path to pkg-config utility
   DBUS_CFLAGS C compiler flags for DBUS, overriding pkg-config
   DBUS_LIBS   linker flags for DBUS, overriding pkg-config
+  NIH_DBUS_TOOL
+              Path to external nih-dbus-tool when cross-compiling
   UDEV_CFLAGS C compiler flags for UDEV, overriding pkg-config
   UDEV_LIBS   linker flags for UDEV, overriding pkg-config
 
@@ -5119,13 +5123,13 @@ if test "${lt_cv_nm_interface+set}" = set; then :
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:5122: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:5126: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:5125: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:5129: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:5128: output\"" >&5)
+  (eval echo "\"\$as_me:5132: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -6330,7 +6334,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 6333 "configure"' > conftest.$ac_ext
+  echo '#line 6337 "configure"' > conftest.$ac_ext
   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -7592,11 +7596,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7595: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7599: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:7599: \$? = $ac_status" >&5
+   echo "$as_me:7603: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -7931,11 +7935,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7934: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7938: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:7938: \$? = $ac_status" >&5
+   echo "$as_me:7942: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -8036,11 +8040,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:8039: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:8043: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:8043: \$? = $ac_status" >&5
+   echo "$as_me:8047: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -8091,11 +8095,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:8094: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:8098: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:8098: \$? = $ac_status" >&5
+   echo "$as_me:8102: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -10474,7 +10478,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10477 "configure"
+#line 10481 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -10570,7 +10574,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10573 "configure"
+#line 10577 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -16610,6 +16614,63 @@ else
   HAVE_DBUS_FALSE=
 fi
 
+
+if test "x$nih_have_dbus" != "xno"; then :
+
+       if test "$cross_compiling" = "yes"; then :
+  for ac_prog in nih-dbus-tool
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_NIH_DBUS_TOOL+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$NIH_DBUS_TOOL"; then
+  ac_cv_prog_NIH_DBUS_TOOL="$NIH_DBUS_TOOL" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_NIH_DBUS_TOOL="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+NIH_DBUS_TOOL=$ac_cv_prog_NIH_DBUS_TOOL
+if test -n "$NIH_DBUS_TOOL"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $NIH_DBUS_TOOL" >&5
+$as_echo "$NIH_DBUS_TOOL" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$NIH_DBUS_TOOL" && break
+done
+
+	      if test -z "$NIH_DBUS_TOOL"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: nih-dbus-tool not found, but you are cross-compiling.  Using built copy, which is probably not what you want.  Set NIH_DBUS_TOOL maybe?" >&5
+$as_echo "$as_me: WARNING: nih-dbus-tool not found, but you are cross-compiling.  Using built copy, which is probably not what you want.  Set NIH_DBUS_TOOL maybe?" >&2;}
+		     NIH_DBUS_TOOL="\${top_builddir}/nih-dbus-tool/nih-dbus-tool"
+
+fi
+else
+  NIH_DBUS_TOOL="\${top_builddir}/nih-dbus-tool/nih-dbus-tool"
+
+fi
+fi
 
 
 # Checks for header files.
