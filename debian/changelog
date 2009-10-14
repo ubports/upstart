@@ -2,7 +2,7 @@ upstart (0.6.3-7ubuntu1) UNRELEASED; urgency=low
 
   * Rather than calling "telinit u" after upgrade, which will lose state,
     have the umountroot initscript take care of it for us by setting a
-    flag.
+    flag.  LP: #441796.
 
  -- Scott James Remnant <scott@ubuntu.com>  Wed, 14 Oct 2009 05:21:54 +0100
 
