@@ -1,5 +1,13 @@
 2009-10-03  Scott James Remnant  <scott@netsplit.com>
 
+	* init/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)):
+	($(com_ubuntu_Upstart_Job_OUTPUTS)):
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)):
+	* util/Makefile.am ($(com_ubuntu_Upstart_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Job_OUTPUTS)): 
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Use pre-built nih-dbus-tool
+	when necessary (e.g. cross-compiling)
+
 	* util/shutdown.c (shutdown_now): Free error before exiting.
 
 	* conf/rc-sysinit.conf: Improve regular expression so that it

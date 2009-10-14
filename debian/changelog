@@ -7,6 +7,9 @@ upstart (0.6.3-7ubuntu1) UNRELEASED; urgency=low
     an initdefault line.  LP: #405847.
   * Fix "unhandled error" in shutdown when unable to change runlevel,
     e.g. due to previous Ubiquity bug.  LP: #426332.
+  * Merge change from trunk that makes it possible to build Upstart using
+    a previously built copy of nih-dbus-tool, especially useful when
+    cross-compiling.  LP: #426740.
 
  -- Scott James Remnant <scott@ubuntu.com>  Wed, 14 Oct 2009 05:21:54 +0100
 
