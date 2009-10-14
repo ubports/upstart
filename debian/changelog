@@ -1,3 +1,11 @@
+upstart (0.6.3-9) UNRELEASED; urgency=low
+
+  * Restore the call to sync() in reboot, have been observing some issues
+    and it looks like ext4 might not be explicitly flushing the disk when
+    remounting read-only.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 14 Oct 2009 16:39:45 +0100
+
 upstart (0.6.3-8) karmic; urgency=low
 
   * Rather than calling "telinit u" after upgrade, which will lose state,
