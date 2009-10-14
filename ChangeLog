@@ -1,3 +1,8 @@
+2009-10-03  Scott James Remnant  <scott@netsplit.com>
+
+	* conf/rc-sysinit.conf: Improve regular expression so that it
+	doesn't match commented-out inittab lines.
+
 2009-08-04  Johan Kiviniemi  <johan@kiviniemi.name>
 
 	* conf/rc-sysinit.conf: Don't replace DEFAULT_RUNLEVEL with an
