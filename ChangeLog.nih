@@ -10,6 +10,14 @@
 	best we can do when cross-compiling (when we probably won't run
 	"make check" anyway)
 
+2009-08-11  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* nih/logging.c: Expose the glibc-internal __abort_msg symbol
+	so that we can set it.
+	(nih_log_message): Save a copy of any fatal or higher log message
+	into this variable; assuming that abort() is the next function call
+	as is the case for nih_assert()
+
 2009-08-02  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: Release 0.3.2

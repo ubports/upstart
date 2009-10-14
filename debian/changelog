@@ -10,6 +10,8 @@ upstart (0.6.3-7ubuntu1) UNRELEASED; urgency=low
   * Merge change from trunk that makes it possible to build Upstart using
     a previously built copy of nih-dbus-tool, especially useful when
     cross-compiling.  LP: #426740.
+  * Merge change from libnih to store our assertion messages in the
+    glibc __abort_msg symbol so apport can pick them up.  LP: #429411.
 
  -- Scott James Remnant <scott@ubuntu.com>  Wed, 14 Oct 2009 05:21:54 +0100
 
