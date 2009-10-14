@@ -28,19 +28,12 @@ rm_conffile()
 }
 
 
-# Tell init to re-exec itself
-reexec_init()
-{
-    telinit u || true
-}
-
-
 case "$1" in
     configure)
-	# On upgrade from a capable upstart version, tell it to re-exec
-	if dpkg --compare-versions "$2" ge "0.2.0-1"; then
-	    reexec_init
-	fi
+    	# Before we shutdown or reboot, we need to re-exec so that we
+	# can safely remount the root filesystem; we can't just do that
+	# here because we lose state.
+	touch /var/run/init.upgraded || :
 
 	# Upgrade from karmic development version
 	if dpkg --compare-versions "$2" lt-nl 0.6.3-7; then
