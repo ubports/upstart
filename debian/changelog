@@ -1,3 +1,10 @@
+upstart (0.6.3-10) UNRELEASED; urgency=low
+
+  * Retain the "telinit u" for the case when we're upgrading from pre-0.6
+    (ie. hardy or jaunty).  Whups.  LP: #451556.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 15 Oct 2009 17:46:00 +0100
+
 upstart (0.6.3-9) karmic; urgency=low
 
   * Restore the call to sync() in reboot, have been observing some issues

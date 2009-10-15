@@ -30,10 +30,18 @@ rm_conffile()
 
 case "$1" in
     configure)
-    	# Before we shutdown or reboot, we need to re-exec so that we
-	# can safely remount the root filesystem; we can't just do that
-	# here because we lose state.
-	touch /var/run/init.upgraded || :
+        if dpkg --compare-versions "$2" lt-nl 0.6.0; then
+	    # We're upgrading from a version of Upstart that doesn't use
+	    # D-Bus for its IPC.  We have to tell it to re-exec into one
+	    # that does.  It'll lose all state, but we didn't keep much
+	    # in those days.
+	    telinit u
+	else
+	    # Before we shutdown or reboot, we need to re-exec so that we
+	    # can safely remount the root filesystem; we can't just do that
+	    # here because we lose state.
+	    touch /var/run/init.upgraded || :
+	fi
 
 	# Upgrade from karmic development version
 	if dpkg --compare-versions "$2" lt-nl 0.6.3-7; then
