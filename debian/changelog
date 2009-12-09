@@ -1,4 +1,4 @@
-upstart (0.6.3-11) UNRELEASED; urgency=low
+upstart (0.6.3-11) karmic-proposed; urgency=low
 
   * Make rc-sysinit.conf wait on the loopback interface, to ensure that the
     interface is up before we process the scripts in /etc/rc?.d.  LP: #461725.
