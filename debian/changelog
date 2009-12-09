@@ -1,3 +1,10 @@
+upstart (0.6.3-11) UNRELEASED; urgency=low
+
+  * Make rc-sysinit.conf wait on the loopback interface, to ensure that the
+    interface is up before we process the scripts in /etc/rc?.d.  LP: #461725.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Tue, 08 Dec 2009 12:58:37 -0800
+
 upstart (0.6.3-10) karmic; urgency=low
 
   * Retain the "telinit u" for the case when we're upgrading from pre-0.6
