@@ -1,3 +1,11 @@
+upstart (0.6.3-11build1) lucid; urgency=low
+
+  * Rebuild to pick up relaxed dependency on libc6, after checking that
+    __abort_msg is available with the same signature in eglibc 2.11.
+   LP: #508702.
+
+ -- Matthias Klose <doko@ubuntu.com>  Mon, 18 Jan 2010 16:10:11 +0100
+
 upstart (0.6.3-11) karmic-proposed; urgency=low
 
   * Make rc-sysinit.conf wait on the loopback interface, to ensure that the
