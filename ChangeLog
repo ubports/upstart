@@ -1,5 +1,11 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/event_operator.c (event_operator_match): Support operator
+	negation using !=
+	* init/tests/test_event_operator.c (test_operator_update): Add
+	test cases for negation.
+	* init/man/init.5: Add negation to documentation
+
 	* init/man/init.8: Improve reference to init(5) to make it more
 	obvious that this is where documentation can be found.
 	* init/man/init.5: Add Upstart to the title to make it show up

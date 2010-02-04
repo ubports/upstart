@@ -584,6 +584,44 @@ test_operator_match (void)
 	TEST_FALSE (event_operator_match (oper, event, NULL));
 
 
+ 	/* Check that negation permits matching against a value other than
+	 * the one given.
+	 */
+	TEST_FEATURE ("with environment lists and wrong values negated");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO!=baz";
+	oper->env[2] = "MERRY=baz";
+	oper->env[3] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event, NULL));
+
+
+	/* Check that negation means that a matching value is not considered
+	 * a match.
+	 */
+	TEST_FEATURE ("with environment lists and correct values negated");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO!=bar";
+	oper->env[2] = "MERRY=baz";
+	oper->env[3] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event, NULL));
+
+
 	/* Check that the environment list in the operator may be shorter. */
 	TEST_FEATURE ("with shorter environment list in operator");
 	event->env = env1;

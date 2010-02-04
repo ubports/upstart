@@ -228,10 +228,19 @@ and may expand the value of any variable defined with the
 .B env
 stanza.
 
+Negation is permitted by using
+.I !=
+between the
+.I KEY
+and
+.IR VALUE .
+
 .nf
 start on started gdm or started kdm
 
 start on device-added SUBSYSTEM=tty DEVPATH=ttyS*
+
+start on net-device-added INTERFACE!=lo
 .fi
 .\"
 .TP

@@ -15,6 +15,11 @@
 	  /sbin/reload symlink.  This sends the SIGHUP signal to the running
 	  main process of the named job instance.
 
+	* Event operator matches in jobs now support "!=" in addition to the
+	  usual "=", e.g.:
+
+		start on net-device-added INTERFACE!=eth*
+
 	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,
 	  since SIGHUP is already used for a forced configuration reload and
 	  causes Upstart to "forget" state.
