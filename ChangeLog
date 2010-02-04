@@ -1,5 +1,15 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* util/initctl.c (reload_action): Add a reload command, this obtains
+	the pid of the main process of the given job instance and sends
+	SIGHUP to it.  It might not be in its final form, but it's damned
+	useful for now.
+	* util/tests/test_initctl.c (test_reload_action): Add test cases.
+	* util/man/initctl.8: Add documentation for the reload command,
+	and missing documentation for restart.
+	* util/Makefile.am (install-data-hook, install-exec-hook): Create
+	additional reload symlinks.
+
 	* util/reboot.c (main): Restore the sync() system call before
 	calling reboot(); the Linux kernel says we have to do this, and I
 	suspect that ext4 is no longer forcing this before power off.

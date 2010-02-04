@@ -2,7 +2,7 @@
  *
  * test_initctl.c - test suite for util/initctl.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,7 @@ extern char *        job_status   (const void *parent,
 extern int start_action                (NihCommand *command, char * const *args);
 extern int stop_action                 (NihCommand *command, char * const *args);
 extern int restart_action              (NihCommand *command, char * const *args);
+extern int reload_action               (NihCommand *command, char * const *args);
 extern int status_action               (NihCommand *command, char * const *args);
 extern int list_action                 (NihCommand *command, char * const *args);
 extern int emit_action                 (NihCommand *command, char * const *args);
@@ -8317,6 +8318,890 @@ test_restart_action (void)
 
 
 void
+test_reload_action (void)
+{
+	pid_t           dbus_pid;
+	DBusConnection *server_conn;
+	FILE *          output;
+	FILE *          errors;
+	pid_t           server_pid;
+	pid_t           proc_pid;
+	DBusMessage *   method_call;
+	DBusMessage *   reply = NULL;
+	const char *    name_value;
+	char **         args_value;
+	int             args_elements;
+	const char *    str_value;
+	const char *    interface;
+	const char *    property;
+	DBusMessageIter iter;
+	DBusMessageIter subiter;
+	DBusMessageIter arrayiter;
+	DBusMessageIter structiter;
+	int32_t         int32_value;
+	NihCommand      command;
+	char *          args[4];
+	int             ret = 0;
+	int             status;
+
+	TEST_FUNCTION ("reload_action");
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (server_conn);
+
+	assert (dbus_bus_request_name (server_conn, DBUS_SERVICE_UPSTART,
+				       0, NULL)
+			== DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER);
+
+	TEST_DBUS_MESSAGE (server_conn, method_call);
+	assert (dbus_message_is_signal (method_call, DBUS_INTERFACE_DBUS,
+					"NameAcquired"));
+	dbus_message_unref (method_call);
+
+	system_bus = TRUE;
+	dest_name = DBUS_SERVICE_UPSTART;
+	dest_address = DBUS_ADDRESS_UPSTART;
+
+	output = tmpfile ();
+	errors = tmpfile ();
+
+
+	/* Check that the reload action with a single argument given looks
+	 * up a job with that name, then requests the list of processes
+	 * sending a SIGHUP signal to the main process.
+	 */
+	TEST_FEATURE ("with single argument");
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (proc_pid) {
+			pause ();
+		}
+
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the GetInstance method call on the
+			 * job object, make sure the environment args are
+			 * passed and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_JOB,
+								"GetInstance"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &args_value, &args_elements,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ (args_elements, 0);
+			dbus_free_string_array (args_value);
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test/_";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Get call for the processes, reply with
+			 * a main process pid.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_PROPERTIES,
+								"Get"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test/_");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &interface,
+							  DBUS_TYPE_STRING, &property,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
+			TEST_EQ_STR (property, "processes");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				dbus_message_iter_init_append (reply, &iter);
+
+				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
+								  (DBUS_TYPE_ARRAY_AS_STRING
+								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &subiter);
+
+				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
+								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &arrayiter);
+
+				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
+								  NULL,
+								  &structiter);
+
+				str_value = "main";
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
+								&str_value);
+
+				int32_value = proc_pid;
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
+								&int32_value);
+
+				dbus_message_iter_close_container (&arrayiter, &structiter);
+
+				dbus_message_iter_close_container (&subiter, &arrayiter);
+
+				dbus_message_iter_close_container (&iter, &subiter);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = "test";
+		args[1] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		if (test_alloc_failed
+		    && (ret != 0)) {
+			TEST_FILE_END (output);
+			TEST_FILE_RESET (output);
+
+			TEST_FILE_EQ (errors, "test: Cannot allocate memory\n");
+			TEST_FILE_END (errors);
+			TEST_FILE_RESET (errors);
+
+			kill (server_pid, SIGTERM);
+			waitpid (server_pid, NULL, 0);
+
+			kill (proc_pid, SIGTERM);
+			waitpid (proc_pid, NULL, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		kill (server_pid, SIGHUP);
+		waitpid (server_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		waitpid (proc_pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGHUP);
+	}
+
+
+	/* Check that additional arguments to the restart action are passed
+	 * as entries in the environment argument of the command.
+	 */
+	TEST_FEATURE ("with multiple arguments");
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (proc_pid) {
+			pause ();
+		}
+
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the GetInstance method call on the
+			 * job object, make sure the environment args are
+			 * passed and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_JOB,
+								"GetInstance"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &args_value, &args_elements,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ (args_elements, 2);
+			TEST_EQ_STR (args_value[0], "FOO=foo");
+			TEST_EQ_STR (args_value[1], "BAR=bar");
+			dbus_free_string_array (args_value);
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test/_";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Get call for the processes, reply with
+			 * a main process pid.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_PROPERTIES,
+								"Get"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test/_");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &interface,
+							  DBUS_TYPE_STRING, &property,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
+			TEST_EQ_STR (property, "processes");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				dbus_message_iter_init_append (reply, &iter);
+
+				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
+								  (DBUS_TYPE_ARRAY_AS_STRING
+								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &subiter);
+
+				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
+								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &arrayiter);
+
+				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
+								  NULL,
+								  &structiter);
+
+				str_value = "main";
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
+								&str_value);
+
+				int32_value = proc_pid;
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
+								&int32_value);
+
+				dbus_message_iter_close_container (&arrayiter, &structiter);
+
+				dbus_message_iter_close_container (&subiter, &arrayiter);
+
+				dbus_message_iter_close_container (&iter, &subiter);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = "test";
+		args[1] = "FOO=foo";
+		args[2] = "BAR=bar";
+		args[3] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		if (test_alloc_failed
+		    && (ret != 0)) {
+			TEST_FILE_END (output);
+			TEST_FILE_RESET (output);
+
+			TEST_FILE_EQ (errors, "test: Cannot allocate memory\n");
+			TEST_FILE_END (errors);
+			TEST_FILE_RESET (errors);
+
+			kill (server_pid, SIGTERM);
+			waitpid (server_pid, NULL, 0);
+
+			kill (proc_pid, SIGTERM);
+			waitpid (proc_pid, NULL, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		kill (server_pid, SIGHUP);
+		waitpid (server_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		waitpid (proc_pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGHUP);
+	}
+
+
+	/* Check that the reload action may be called without arguments
+	 * when inside an instance process, due to the environment variables
+	 * set there.  The job should be stilled looked up, but then the
+	 * instance should be looked up via GetInstanceByName instead.
+	 */
+	TEST_FEATURE ("with no arguments when called from job process");
+	setenv ("UPSTART_JOB", "test", TRUE);
+	setenv ("UPSTART_INSTANCE", "foo", TRUE);
+
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (proc_pid) {
+			pause ();
+		}
+
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the GetInstanceByName method call on the
+			 * job object, make sure the instance name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_JOB,
+								"GetInstanceByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "foo");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test/foo";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Get call for the processes, reply with
+			 * a main process pid.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_PROPERTIES,
+								"Get"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test/foo");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &interface,
+							  DBUS_TYPE_STRING, &property,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
+			TEST_EQ_STR (property, "processes");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				dbus_message_iter_init_append (reply, &iter);
+
+				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
+								  (DBUS_TYPE_ARRAY_AS_STRING
+								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &subiter);
+
+				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
+								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &arrayiter);
+
+				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
+								  NULL,
+								  &structiter);
+
+				str_value = "main";
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
+								&str_value);
+
+				int32_value = proc_pid;
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
+								&int32_value);
+
+				dbus_message_iter_close_container (&arrayiter, &structiter);
+
+				dbus_message_iter_close_container (&subiter, &arrayiter);
+
+				dbus_message_iter_close_container (&iter, &subiter);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		if (test_alloc_failed
+		    && (ret != 0)) {
+			TEST_FILE_END (output);
+			TEST_FILE_RESET (output);
+
+			TEST_FILE_EQ (errors, "test: Cannot allocate memory\n");
+			TEST_FILE_END (errors);
+			TEST_FILE_RESET (errors);
+
+			kill (server_pid, SIGTERM);
+			waitpid (server_pid, NULL, 0);
+
+			kill (proc_pid, SIGTERM);
+			waitpid (proc_pid, NULL, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		kill (server_pid, SIGHUP);
+		waitpid (server_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		waitpid (proc_pid, &status, 0);
+		TEST_TRUE (WIFSIGNALED (status));
+		TEST_EQ (WTERMSIG (status), SIGHUP);
+	}
+
+	unsetenv ("UPSTART_JOB");
+	unsetenv ("UPSTART_INSTANCE");
+
+
+	/* Check that if an error is received from the GetJobByName call,
+	 * the message attached is printed to standard error and the
+	 * command exits.
+	 */
+	TEST_FEATURE ("with error reply to GetJobByName");
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with an error.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_error (method_call,
+								DBUS_ERROR_UNKNOWN_METHOD,
+								"Unknown method");
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = "test";
+		args[1] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		TEST_GT (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_MATCH (errors, "test: *\n");
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		kill (server_pid, SIGTERM);
+		waitpid (server_pid, NULL, 0);
+	}
+
+
+	/* Check that if an error is received from the GetInstance call,
+	 * the message attached is printed to standard error and the
+	 * command exits.
+	 */
+	TEST_FEATURE ("with error reply to GetInstance");
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the GetInstance method call on the
+			 * job object, make sure the environment args are
+			 * passed and reply with an error.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_JOB,
+								"GetInstance"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &args_value, &args_elements,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ (args_elements, 0);
+			dbus_free_string_array (args_value);
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_error (method_call,
+								DBUS_ERROR_UNKNOWN_METHOD,
+								"Unknown method");
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = "test";
+		args[1] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		TEST_GT (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_MATCH (errors, "test: *\n");
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		kill (server_pid, SIGTERM);
+		waitpid (server_pid, NULL, 0);
+	}
+
+
+	/* Check that a missing argument results in an error being output
+	 * to stderr along with a suggestion of help.
+	 */
+	TEST_FEATURE ("with missing argument");
+	TEST_ALLOC_FAIL {
+		memset (&command, 0, sizeof command);
+
+		args[0] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		TEST_GT (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_EQ (errors, "test: missing job name\n");
+		TEST_FILE_EQ (errors, "Try `test --help' for more information.\n");
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+	}
+
+
+	fclose (errors);
+	fclose (output);
+
+	TEST_DBUS_CLOSE (server_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
+}
+
+
+void
 test_status_action (void)
 {
 	pid_t           dbus_pid;
@@ -12418,6 +13303,7 @@ main (int   argc,
 	test_start_action ();
 	test_stop_action ();
 	test_restart_action ();
+	test_reload_action ();
 	test_status_action ();
 	test_list_action ();
 	test_emit_action ();

@@ -11,6 +11,10 @@
 	* Developers may still build against a local libnih source tree by
 	  passing --with-local-libnih=/path/to/libnih to configure.
 
+	* There is a new initctl "reload" command, with matching
+	  /sbin/reload symlink.  This sends the SIGHUP signal to the running
+	  main process of the named job instance.
+
 	* Fixed bug where the default runlevel would be lost when an
 	  /etc/inittab file exists without an initdefault line.  (Bug: #405847)
 
