@@ -79,7 +79,7 @@
 #line 1 "plural.y"
 
 /* Expression parsing for plural form selection.
-   Copyright (C) 2000-2001, 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000-2001, 2003, 2005-2006 Free Software Foundation, Inc.
    Written by Ulrich Drepper <drepper@cygnus.com>, 2000.
 
    This program is free software; you can redistribute it and/or modify it
@@ -178,7 +178,7 @@ typedef union YYSTYPE
 #line 51 "plural.y"
 
   unsigned long int num;
-  enum operator op;
+  enum expression_operator op;
   struct expression *exp;
 
 
@@ -204,7 +204,8 @@ static void yyerror (const char *str);
 /* Allocation of expressions.  */
 
 static struct expression *
-new_exp (int nargs, enum operator op, struct expression * const *args)
+new_exp (int nargs, enum expression_operator op,
+	 struct expression * const *args)
 {
   int i;
   struct expression *newp;
@@ -233,13 +234,13 @@ new_exp (int nargs, enum operator op, struct expression * const *args)
 }
 
 static inline struct expression *
-new_exp_0 (enum operator op)
+new_exp_0 (enum expression_operator op)
 {
   return new_exp (0, op, NULL);
 }
 
 static inline struct expression *
-new_exp_1 (enum operator op, struct expression *right)
+new_exp_1 (enum expression_operator op, struct expression *right)
 {
   struct expression *args[1];
 
@@ -248,7 +249,8 @@ new_exp_1 (enum operator op, struct expression *right)
 }
 
 static struct expression *
-new_exp_2 (enum operator op, struct expression *left, struct expression *right)
+new_exp_2 (enum expression_operator op, struct expression *left,
+	   struct expression *right)
 {
   struct expression *args[2];
 
@@ -258,7 +260,7 @@ new_exp_2 (enum operator op, struct expression *left, struct expression *right)
 }
 
 static inline struct expression *
-new_exp_3 (enum operator op, struct expression *bexp,
+new_exp_3 (enum expression_operator op, struct expression *bexp,
 	   struct expression *tbranch, struct expression *fbranch)
 {
   struct expression *args[3];
@@ -272,7 +274,7 @@ new_exp_3 (enum operator op, struct expression *bexp,
 
 
 /* Line 264 of yacc.c  */
-#line 276 "plural.c"
+#line 278 "plural.c"
 
 #ifdef short
 # undef short
@@ -559,8 +561,8 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,   152,   152,   160,   164,   168,   172,   176,   180,   184,
-     188,   192,   196,   201
+       0,   154,   154,   162,   166,   170,   174,   178,   182,   186,
+     190,   194,   198,   203
 };
 #endif
 
@@ -1475,7 +1477,7 @@ yyreduce:
         case 2:
 
 /* Line 1455 of yacc.c  */
-#line 153 "plural.y"
+#line 155 "plural.y"
     {
 	    if ((yyvsp[(1) - (1)].exp) == NULL)
 	      YYABORT;
@@ -1486,7 +1488,7 @@ yyreduce:
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 161 "plural.y"
+#line 163 "plural.y"
     {
 	    (yyval.exp) = new_exp_3 (qmop, (yyvsp[(1) - (5)].exp), (yyvsp[(3) - (5)].exp), (yyvsp[(5) - (5)].exp));
 	  }
@@ -1495,7 +1497,7 @@ yyreduce:
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 165 "plural.y"
+#line 167 "plural.y"
     {
 	    (yyval.exp) = new_exp_2 (lor, (yyvsp[(1) - (3)].exp), (yyvsp[(3) - (3)].exp));
 	  }
@@ -1504,7 +1506,7 @@ yyreduce:
   case 5:
 
 /* Line 1455 of yacc.c  */
-#line 169 "plural.y"
+#line 171 "plural.y"
     {
 	    (yyval.exp) = new_exp_2 (land, (yyvsp[(1) - (3)].exp), (yyvsp[(3) - (3)].exp));
 	  }
@@ -1513,7 +1515,7 @@ yyreduce:
   case 6:
 
 /* Line 1455 of yacc.c  */
-#line 173 "plural.y"
+#line 175 "plural.y"
     {
 	    (yyval.exp) = new_exp_2 ((yyvsp[(2) - (3)].op), (yyvsp[(1) - (3)].exp), (yyvsp[(3) - (3)].exp));
 	  }
@@ -1522,7 +1524,7 @@ yyreduce:
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 177 "plural.y"
+#line 179 "plural.y"
     {
 	    (yyval.exp) = new_exp_2 ((yyvsp[(2) - (3)].op), (yyvsp[(1) - (3)].exp), (yyvsp[(3) - (3)].exp));
 	  }
@@ -1531,7 +1533,7 @@ yyreduce:
   case 8:
 
 /* Line 1455 of yacc.c  */
-#line 181 "plural.y"
+#line 183 "plural.y"
     {
 	    (yyval.exp) = new_exp_2 ((yyvsp[(2) - (3)].op), (yyvsp[(1) - (3)].exp), (yyvsp[(3) - (3)].exp));
 	  }
@@ -1540,7 +1542,7 @@ yyreduce:
   case 9:
 
 /* Line 1455 of yacc.c  */
-#line 185 "plural.y"
+#line 187 "plural.y"
     {
 	    (yyval.exp) = new_exp_2 ((yyvsp[(2) - (3)].op), (yyvsp[(1) - (3)].exp), (yyvsp[(3) - (3)].exp));
 	  }
@@ -1549,7 +1551,7 @@ yyreduce:
   case 10:
 
 /* Line 1455 of yacc.c  */
-#line 189 "plural.y"
+#line 191 "plural.y"
     {
 	    (yyval.exp) = new_exp_1 (lnot, (yyvsp[(2) - (2)].exp));
 	  }
@@ -1558,7 +1560,7 @@ yyreduce:
   case 11:
 
 /* Line 1455 of yacc.c  */
-#line 193 "plural.y"
+#line 195 "plural.y"
     {
 	    (yyval.exp) = new_exp_0 (var);
 	  }
@@ -1567,7 +1569,7 @@ yyreduce:
   case 12:
 
 /* Line 1455 of yacc.c  */
-#line 197 "plural.y"
+#line 199 "plural.y"
     {
 	    if (((yyval.exp) = new_exp_0 (num)) != NULL)
 	      (yyval.exp)->val.num = (yyvsp[(1) - (1)].num);
@@ -1577,7 +1579,7 @@ yyreduce:
   case 13:
 
 /* Line 1455 of yacc.c  */
-#line 202 "plural.y"
+#line 204 "plural.y"
     {
 	    (yyval.exp) = (yyvsp[(2) - (3)].exp);
 	  }
@@ -1586,7 +1588,7 @@ yyreduce:
 
 
 /* Line 1455 of yacc.c  */
-#line 1590 "plural.c"
+#line 1592 "plural.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1798,7 +1800,7 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 207 "plural.y"
+#line 209 "plural.y"
 
 
 void

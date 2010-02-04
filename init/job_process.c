@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -567,6 +567,8 @@ job_process_error_abort (int                 fd,
 	while (write (fd, &wire_err, sizeof (wire_err)) < 0)
 		;
 
+	nih_free (err);
+
 	exit (255);
 }
 
@@ -881,11 +883,11 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) stopped by %s signal"),
+			nih_info (_("%s %s process (%d) stopped by %s signal"),
 				  job_name (job), process_name (process),
 				  pid, sig);
 		} else {
-			nih_warn (_("%s %s process (%d) stopped by signal %d"),
+			nih_info (_("%s %s process (%d) stopped by signal %d"),
 				  job_name (job), process_name (process),
 				  pid, status);
 		}
@@ -899,11 +901,11 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) continued by %s signal"),
+			nih_info (_("%s %s process (%d) continued by %s signal"),
 				  job_name (job), process_name (process),
 				  pid, sig);
 		} else {
-			nih_warn (_("%s %s process (%d) continued by signal %d"),
+			nih_info (_("%s %s process (%d) continued by signal %d"),
 				  job_name (job), process_name (process),
 				  pid, status);
 		}

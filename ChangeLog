@@ -1,3 +1,130 @@
+2010-02-04  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Release 0.6.5
+
+	* util/tests/test_initctl.c (test_reload_action): Don't send
+	SIGHUP to the server process, it'll be terminated anyway since
+	reload doesn't loop.
+
+	* init/event_operator.c (event_operator_match): Support operator
+	negation using !=
+	* init/tests/test_event_operator.c (test_operator_update): Add
+	test cases for negation.
+	* init/man/init.5: Add negation to documentation
+
+	* init/man/init.8: Improve reference to init(5) to make it more
+	obvious that this is where documentation can be found.
+	* init/man/init.5: Add Upstart to the title to make it show up
+	with man -k upstart
+
+	* init/man/init.8: Add missing OPTIONS section, documenting the
+	--verbose option.
+
+	* init/main.c (main): After resetting the system console, close it
+	again and reopen /dev/null for ourselves so we don't hold the
+	system console open.
+
+	* init/job_process.c (job_process_error_abort): Free the error
+	before exiting.
+
+	* util/initctl.c (reload_action): Add a reload command, this obtains
+	the pid of the main process of the given job instance and sends
+	SIGHUP to it.  It might not be in its final form, but it's damned
+	useful for now.
+	* util/tests/test_initctl.c (test_reload_action): Add test cases.
+	* util/man/initctl.8: Add documentation for the reload command,
+	and missing documentation for restart.
+	* util/Makefile.am (install-data-hook, install-exec-hook): Create
+	additional reload symlinks.
+
+	* util/reboot.c (main): Restore the sync() system call before
+	calling reboot(); the Linux kernel says we have to do this, and I
+	suspect that ext4 is no longer forcing this before power off.
+
+	* init/main.c (hup_handler): Move call to reconnect to D-Bus system
+	bus into new function
+	(usr1_handler): This is because a config reload "forgets" existing
+	state, such as events that were pending.
+	(main): Add SIGUSR1 signal handler.
+
+	* init/job_process.c (job_process_handler): Reduce priority of the
+	stopped/continued by signal messages to informational.
+
+2010-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c (shutdown_now): Free error before exiting.
+
+2010-02-03  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* conf/rc-sysinit.conf: Don't replace DEFAULT_RUNLEVEL with an
+	empty string when there is no "initdefault" line in /etc/inittab
+
+2010-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	Update code to work with libnih 1.0.1
+
+	* init/tests/test_event.c (test_new): Replace TEST_ALLOC_ORPHAN(env)
+	with TEST_ALLOC_PARENT(env, NULL); discard environment after creating
+	event from it
+	* init/tests/test_event_operator.c (test_operator_new): Replace
+	TEST_ALLOC_ORPHAN(env) with TEST_ALLOC_PARENT(env, NULL); discard
+	environment after creating event from it
+	* init/tests/test_control.c (test_emit_event): Discard event
+	environment after emission
+	* init/init.supp: Add nih_alloc_ref_new() to init functions
+
+	libnih is now released as its own project, so rather than expecting
+	to include it with the source we depend on it being outside of it.
+
+	* Makefile.am (SUBDIRS): Remove m4 directory along with the nih bits.
+	(EXTRA_DIST): Remove ChangeLog.nih
+	* configure.ac (AM_INIT_AUTOMAKE): Remove dist-bzip2, since we don't
+	actually use it; add color-tests and silent-rules.
+	(AM_SILENT_RULES): Use silent rules by default
+	(AM_MAINTAINER_MODE): Enable maintainer mode by default (as before),
+	but allow it to be disabled
+	(AM_GNU_GETTEXT_VERSION): Bump to 0.17
+	(NIH_INIT): Replace with the expanded out calls that we actually need.
+	(AC_CONFIG_FILES): Remove nih directories
+	Add magic to allow use of a local libnih source tree.
+	* init/Makefile.am (AM_CFLAGS): Add NIH_CFLAGS and NIH_DBUS_CFLAGS
+	(init_LDADD, test_system_LDADD, test_environ_LDADD, test_process_LDADD)
+	(test_job_class_LDADD, test_job_process_LDADD, test_job_LDADD)
+	(test_event_LDADD, test_event_operator_LDADD)
+	(test_blocked_LDADD, test_parse_job_LDADD)
+	(test_parse_conf_LDADD, test_conf_LDADD, test_control_LDADD):
+	Replace library paths with NIH_LIBS and NIH_DBUS_LIBS
+	($(com_ubuntu_Upstart_OUTPUTS)),
+	($(com_ubuntu_Upstart_Job_OUTPUTS)),
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Use external nih-dbus-tool
+	and obey silent rules.
+	(test_system_LDFLAGS, test_environ_LDFLAGS)
+	(test_process_LDFLAGS, test_job_class_LDFLAGS)
+	(test_job_process_LDFLAGS, test_job_LDFLAGS, test_event_LDFLAGS)
+	(test_event_operator_LDFLAGS, test_blocked_LDFLAGS)
+	(test_parse_job_LDFLAGS, test_parse_conf_LDFLAGS)
+	(test_conf_LDFLAGS, test_control_LDFLAGS): Drop -static
+	* util/Makefile.am (AM_CFLAGS): Add NIH_CFLAGS and NIH_DBUS_CFLAGS
+	(initctl_LDADD, reboot_LDADD, runlevel_LDADD, shutdown_LDADD)
+	(test_initctl_LDADD, test_utmp_LDADD, test_sysv_LDADD)
+	(test_telinit_LDADD): Replace library paths with NIH_LIBS and
+	NIH_DBUS_LIBS
+	($(com_ubuntu_Upstart_OUTPUTS)):
+	($(com_ubuntu_Upstart_Job_OUTPUTS)):
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Use external nih-dbus-tool
+	and obey silent rules.
+	(initctl_LDFLAGS, reboot_LDFLAGS, runlevel_LDFLAGS)
+	(shutdown_LDFLAGS, telinit_LDFLAGS, test_initctl_LDFLAGS)
+	(test_utmp_LDFLAGS, test_sysv_LDFLAGS, test_telinit_LDFLAGS): Drop
+	-static
+	* README: Add libnih to the dependencies.
+	* HACKING: Remove the instructions for checking out libnih, replace
+	with a description about how to use a libnih source tree instead of
+	the installed one.
+
+	* configure.ac: Bump version to 0.6.5, bump copyright year to 2010.
+	* NEWS: Begin new release.
+
 2009-08-02  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: Release 0.6.3

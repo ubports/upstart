@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = m4 intl nih nih-dbus nih-dbus-tool dbus init util conf doc contrib po
+SUBDIRS = intl dbus init util conf doc contrib po
 
-EXTRA_DIST = HACKING ChangeLog.nih
+EXTRA_DIST = HACKING
 
 ACLOCAL_AMFLAGS = --install -I m4

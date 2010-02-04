@@ -3,6 +3,8 @@
 initconfdir = $(sysconfdir)/init
 
 AM_CFLAGS = \
+	$(NIH_CFLAGS) \
+	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS)
 
 AM_CPPFLAGS = \
@@ -54,9 +56,9 @@ nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 init_LDADD = \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
 	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	-lrt
 
@@ -68,9 +70,11 @@ com_ubuntu_Upstart_OUTPUTS = \
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
-$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=object --prefix=control --default-interface=com.ubuntu.Upstart0_6 \
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=object --prefix=control \
+		--default-interface=com.ubuntu.Upstart0_6 \
 		--output=$@ $<
 
 
@@ -81,9 +85,11 @@ com_ubuntu_Upstart_Job_OUTPUTS = \
 com_ubuntu_Upstart_Job_XML = \
 	../dbus/com.ubuntu.Upstart.Job.xml
 
-$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)  $(top_builddir)/nih-dbus-tool/nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=object --prefix=job_class --default-interface=com.ubuntu.Upstart0_6.Job \
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=object --prefix=job_class \
+		--default-interface=com.ubuntu.Upstart0_6.Job \
 		--output=$@ $<
 
 
@@ -94,9 +100,11 @@ com_ubuntu_Upstart_Instance_OUTPUTS = \
 com_ubuntu_Upstart_Instance_XML = \
 	../dbus/com.ubuntu.Upstart.Instance.xml
 
-$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=object --prefix=job --default-interface=com.ubuntu.Upstart0_6.Instance \
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=object --prefix=job \
+		--default-interface=com.ubuntu.Upstart0_6.Instance \
 		--output=$@ $<
 
 
@@ -136,147 +144,134 @@ check_PROGRAMS = $(TESTS)
 tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 
 test_system_SOURCES = tests/test_system.c
-test_system_LDFLAGS = -static
 test_system_LDADD = \
 	system.o \
-	../nih/libnih.la
+	$(NIH_LIBS)
 
 test_environ_SOURCES = tests/test_environ.c
-test_environ_LDFLAGS = -static
 test_environ_LDADD = \
 	environ.o \
-	../nih/libnih.la
+	$(NIH_LIBS)
 
 test_process_SOURCES = tests/test_process.c
-test_process_LDFLAGS = -static
 test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_job_class_SOURCES = tests/test_job_class.c
-test_job_class_LDFLAGS = -static
 test_job_class_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_job_process_SOURCES = tests/test_job_process.c
-test_job_process_LDFLAGS = -static
 test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_job_SOURCES = tests/test_job.c
-test_job_LDFLAGS = -static
 test_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_event_SOURCES = tests/test_event.c
-test_event_LDFLAGS = -static
 test_event_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_event_operator_SOURCES = tests/test_event_operator.c
-test_event_operator_LDFLAGS = -static
 test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_blocked_SOURCES = tests/test_blocked.c
-test_blocked_LDFLAGS = -static
 test_blocked_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_parse_job_SOURCES = tests/test_parse_job.c
-test_parse_job_LDFLAGS = -static
 test_parse_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
-test_parse_conf_LDFLAGS = -static
 test_parse_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_conf_SOURCES = tests/test_conf.c
-test_conf_LDFLAGS = -static
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 test_control_SOURCES = tests/test_control.c
-test_control_LDFLAGS = -static
 test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
 

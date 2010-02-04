@@ -2,7 +2,7 @@
  *
  * test_dbus.c - test suite for init/dbus.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1506,6 +1506,7 @@ test_emit_event (void)
 	env = nih_str_array_new (NULL);
 
 	ret = control_emit_event (NULL, message, "test", env, TRUE);
+	nih_discard (env);
 
 	TEST_EQ (ret, 0);
 

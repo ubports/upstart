@@ -1,3 +1,46 @@
+0.6.5  2010-02-04  "Our last, best hope for victory"
+
+	* Since libnih has been separated out into its own project, Upstart
+	  no longer includes its source and now uses the installed version by
+	  default.
+
+	* The external nih-dbus-tool means that cross-compilation is trivial,
+	  the path to it may be overriden with NIH_DBUS_TOOL=... as an
+	  argument to configure.  (Bug: #426740)
+
+	* Developers may still build against a local libnih source tree by
+	  passing --with-local-libnih=/path/to/libnih to configure.
+
+	* There is a new initctl "reload" command, with matching
+	  /sbin/reload symlink.  This sends the SIGHUP signal to the running
+	  main process of the named job instance.
+
+	* Event operator matches in jobs now support "!=" in addition to the
+	  usual "=", e.g.:
+
+		start on net-device-added INTERFACE!=eth*
+
+	  (Bug: #513035)
+
+	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,
+	  since SIGHUP is already used for a forced configuration reload and
+	  causes Upstart to "forget" state.
+
+	* Fixed bug where the default runlevel would be lost when an
+	  /etc/inittab file exists without an initdefault line.  (Bug: #405847)
+
+	* Fixed "Unhandled error" message from shutdown.  (Bug: #426332)
+
+	* Fixed "Unhandled error" assertion crash from Upstart child
+	  processes when failing to spawn a job.  (Bug: #451917)
+
+	* No longer holds /dev/console open, so the SAK SysRq key will not
+	  kill Upstart.  (Bug: #486005)
+
+	* Restored sync() call before reboot().
+
+	* Added missing OPTIONS section to init(8) manpage.  (Bug: #449883)
+
 0.6.3  2009-08-02  "Our last, best hope for peace"
 
 	* Fixed an assertion when a job's main process is terminated
