@@ -15,6 +15,10 @@
 	  /sbin/reload symlink.  This sends the SIGHUP signal to the running
 	  main process of the named job instance.
 
+	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,
+	  since SIGHUP is already used for a forced configuration reload and
+	  causes Upstart to "forget" state.
+
 	* Fixed bug where the default runlevel would be lost when an
 	  /etc/inittab file exists without an initdefault line.  (Bug: #405847)
 
@@ -27,10 +31,6 @@
 	  kill Upstart.  (Bug: #486005)
 
 	* Restored sync() call before reboot().
-
-	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,
-	  since SIGHUP is already used for a forced configuration reload and
-	  causes Upstart to "forget" state.
 
 	* Added missing OPTIONS section to init(8) manpage.  (Bug: #449883)
 
