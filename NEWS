@@ -20,6 +20,9 @@
 
 	* Fixed "Unhandled error" message from shutdown.  (Bug: #426332)
 
+	* Fixed "Unhandled error" assertion crash from Upstart child
+	  processes when failing to spawn a job.  (Bug: #451917)
+
 	* Restored sync() call before reboot().
 
 	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,

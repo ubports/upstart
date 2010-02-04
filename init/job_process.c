@@ -567,6 +567,8 @@ job_process_error_abort (int                 fd,
 	while (write (fd, &wire_err, sizeof (wire_err)) < 0)
 		;
 
+	nih_free (err);
+
 	exit (255);
 }
 

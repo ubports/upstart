@@ -1,5 +1,8 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/job_process.c (job_process_error_abort): Free the error
+	before exiting.
+
 	* util/initctl.c (reload_action): Add a reload command, this obtains
 	the pid of the main process of the given job instance and sends
 	SIGHUP to it.  It might not be in its final form, but it's damned
