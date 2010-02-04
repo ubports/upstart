@@ -14,6 +14,15 @@
    fun:nih_list_new
    fun:event_init
 }
+{
+   event-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc_ref_new
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:event_init
+}
 
 {
    job-class-init
@@ -41,6 +50,15 @@
    fun:nih_list_new
    fun:notify_init
 }
+{
+   notify-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc_ref_new
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:notify_init
+}
 
 {
    conf-init
@@ -50,11 +68,29 @@
    fun:nih_list_new
    fun:conf_init
 }
+{
+   conf-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc_ref_new
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:conf_init
+}
 
 {
    control-init
    Memcheck:Leak
    fun:malloc
+   fun:nih_alloc
+   fun:nih_list_new
+   fun:control_init
+}
+{
+   control-init
+   Memcheck:Leak
+   fun:malloc
+   fun:nih_alloc_ref_new
    fun:nih_alloc
    fun:nih_list_new
    fun:control_init

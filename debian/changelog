@@ -1,3 +1,14 @@
+upstart (0.6.5-1) UNRELEASED; urgency=low
+
+  * New upstream release:
+    - libnih has been separated out into its own project.
+    - "start on" and "stop on" now support != matches.  LP: #513035.
+    - Fixed crash in child when unable to spawn job.  LP: #451917.
+    - No longer holds /dev/console open so SAK won't kill init.  LP: #486005.
+    - Added missing OPTIONS section to init(8).  LP: #449883.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 04 Feb 2010 15:40:08 -0800
+
 upstart (0.6.3-11build1) lucid; urgency=low
 
   * Rebuild to pick up relaxed dependency on libc6, after checking that

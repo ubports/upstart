@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -566,6 +566,8 @@ job_process_error_abort (int                 fd,
 	 */
 	while (write (fd, &wire_err, sizeof (wire_err)) < 0)
 		;
+
+	nih_free (err);
 
 	exit (255);
 }
