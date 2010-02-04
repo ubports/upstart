@@ -1,3 +1,7 @@
+2010-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	* util/shutdown.c (shutdown_now): Free error before exiting.
+
 2010-02-03  Johan Kiviniemi  <johan@kiviniemi.name>
 
 	* conf/rc-sysinit.conf: Don't replace DEFAULT_RUNLEVEL with an

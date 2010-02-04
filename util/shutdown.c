@@ -475,6 +475,7 @@ shutdown_now (void)
 		if ((dbus_err->number != NIH_DBUS_ERROR)
 		    || strcmp (dbus_err->name, DBUS_ERROR_NO_SERVER)) {
 			nih_fatal ("%s", dbus_err->message);
+			nih_free (dbus_err);
 			exit (1);
 		}
 
