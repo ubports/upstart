@@ -1,5 +1,17 @@
 2010-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	Update code to work with libnih 1.0.1
+
+	* init/tests/test_event.c (test_new): Replace TEST_ALLOC_ORPHAN(env)
+	with TEST_ALLOC_PARENT(env, NULL); discard environment after creating
+	event from it
+	* init/tests/test_event_operator.c (test_operator_new): Replace
+	TEST_ALLOC_ORPHAN(env) with TEST_ALLOC_PARENT(env, NULL); discard
+	environment after creating event from it
+	* init/tests/test_control.c (test_emit_event): Discard event
+	environment after emission
+	* init/init.supp: Add nih_alloc_ref_new() to init functions
+
 	libnih is now released as its own project, so rather than expecting
 	to include it with the source we depend on it being outside of it.
 

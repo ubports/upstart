@@ -1506,6 +1506,7 @@ test_emit_event (void)
 	env = nih_str_array_new (NULL);
 
 	ret = control_emit_event (NULL, message, "test", env, TRUE);
+	nih_discard (env);
 
 	TEST_EQ (ret, 0);
 

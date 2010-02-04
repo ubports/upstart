@@ -65,10 +65,12 @@ test_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (event, NULL);
-			TEST_ALLOC_ORPHAN (env);
+			TEST_ALLOC_PARENT (env, NULL);
 			nih_free (env);
 			continue;
 		}
+
+		nih_discard (env);
 
 		TEST_ALLOC_SIZE (event, sizeof (Event));
 		TEST_LIST_NOT_EMPTY (&event->entry);

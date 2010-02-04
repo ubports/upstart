@@ -84,10 +84,12 @@ test_operator_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (oper, NULL);
-			TEST_ALLOC_ORPHAN (env);
+			TEST_ALLOC_PARENT (env, NULL);
 			nih_free (env);
 			continue;
 		}
+
+		nih_discard (env);
 
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ_P (oper->node.parent, NULL);
