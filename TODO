@@ -1,3 +1,12 @@
+Merge 1216.1.1 from Ubuntu (reload command), add test case.
+Maybe merge 1219 (reduce priority of stopped by/continued by messages)/
+Merge 1224 (USR1 to reload d-bus)
+Merge 1243, sync() in reboot
+
+__abort_msg should be weak or changed
+
+
+
 0.6.x series:
 
  * going into runlevel S from !S, need to stty console
