@@ -1,3 +1,8 @@
+2010-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.6.5, bump copyright year to 2010.
+	* NEWS: Begin new release.
+
 2009-08-02  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: Release 0.6.3
