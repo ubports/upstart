@@ -1,5 +1,7 @@
 2010-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	* upstart.pot: Actually include the pot file
+
 	* POTFILES.in: Remove files that come from libnih.
 
 2009-06-17  Scott James Remnant  <scott@netsplit.com>

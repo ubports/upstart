@@ -1,0 +1,783 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Canonical Ltd.
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: upstart 0.6.5\n"
+"Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
+"POT-Creation-Date: 2010-02-03 17:06-0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: init/conf.c:237
+msgid "Unable to load configuration"
+msgstr ""
+
+#: init/conf.c:270
+#, c-format
+msgid "Loading configuration from %s"
+msgstr ""
+
+#: init/conf.c:307
+#, c-format
+msgid "Handling deletion of %s"
+msgstr ""
+
+#: init/conf.c:378
+msgid "Unable to watch configuration file"
+msgstr ""
+
+#: init/conf.c:456
+msgid "Unable to watch configuration directory"
+msgstr ""
+
+#: init/conf.c:568 init/conf.c:652
+msgid "Error while loading configuration file"
+msgstr ""
+
+#: init/conf.c:608
+msgid "Configuration directory deleted"
+msgstr ""
+
+#: init/control.c:155
+msgid "Connection from private client"
+msgstr ""
+
+#: init/control.c:290
+msgid "Disconnected from system bus"
+msgstr ""
+
+#: init/control.c:356 init/main.c:452
+msgid "Reloading configuration"
+msgstr ""
+
+#: init/control.c:396 init/control.c:507
+msgid "Name may not be empty string"
+msgstr ""
+
+#: init/control.c:405
+#, c-format
+msgid "Unknown job: %s"
+msgstr ""
+
+#: init/control.c:514 init/job_class.c:520 init/job_class.c:708
+#: init/job_class.c:827 init/job_class.c:951
+msgid "Env must be KEY=VALUE pairs"
+msgstr ""
+
+#: init/control.c:666
+msgid "The log priority given was not recognised"
+msgstr ""
+
+#: init/event.c:273
+#, c-format
+msgid "Handling %s event"
+msgstr ""
+
+#: init/event.c:373
+#, c-format
+msgid "Failed to obtain %s instance: %s"
+msgstr ""
+
+#: init/event.c:448
+msgid "Event failed"
+msgstr ""
+
+#: init/job.c:223
+#, c-format
+msgid "%s goal changed from %s to %s"
+msgstr ""
+
+#: init/job.c:285
+#, c-format
+msgid "%s state changed from %s to %s"
+msgstr ""
+
+#: init/job.c:688 init/job.c:726
+msgid "Job failed to start"
+msgstr ""
+
+#: init/job.c:701 init/job.c:737
+msgid "Job failed while stopping"
+msgstr ""
+
+#: init/job.c:713 init/job.c:748
+msgid "Job failed to restart"
+msgstr ""
+
+#: init/job.c:941
+msgid "stop"
+msgstr ""
+
+#: init/job.c:943
+msgid "start"
+msgstr ""
+
+#: init/job.c:945
+msgid "respawn"
+msgstr ""
+
+#: init/job.c:990
+msgid "waiting"
+msgstr ""
+
+#: init/job.c:992
+msgid "starting"
+msgstr ""
+
+#: init/job.c:994 init/process.c:80
+msgid "pre-start"
+msgstr ""
+
+#: init/job.c:996
+msgid "spawned"
+msgstr ""
+
+#: init/job.c:998 init/process.c:82
+msgid "post-start"
+msgstr ""
+
+#: init/job.c:1000
+msgid "running"
+msgstr ""
+
+#: init/job.c:1002 init/process.c:84
+msgid "pre-stop"
+msgstr ""
+
+#: init/job.c:1004
+msgid "stopping"
+msgstr ""
+
+#: init/job.c:1006
+msgid "killed"
+msgstr ""
+
+#: init/job.c:1008 init/process.c:86
+msgid "post-stop"
+msgstr ""
+
+#: init/job.c:1088 init/job_class.c:754
+#, c-format
+msgid "Job is already running: %s"
+msgstr ""
+
+#: init/job.c:1152 init/job.c:1217 init/job_class.c:873 init/job_class.c:996
+#, c-format
+msgid "Job has already been stopped: %s"
+msgstr ""
+
+#: init/job_class.c:557 init/job_class.c:602 init/job_class.c:865
+#: init/job_class.c:988
+#, c-format
+msgid "Unknown instance: %s"
+msgstr ""
+
+#: init/job_process.c:278
+#, c-format
+msgid "Failed to spawn %s %s process: %s"
+msgstr ""
+
+#: init/job_process.c:284
+msgid "Temporary process spawn error"
+msgstr ""
+
+#: init/job_process.c:291
+#, c-format
+msgid "%s %s process (%d)"
+msgstr ""
+
+#: init/job_process.c:625
+#, c-format
+msgid "unable to open console: %s"
+msgstr ""
+
+#: init/job_process.c:680
+#, c-format
+msgid "unable to set \"%s\" resource limit: %s"
+msgstr ""
+
+#: init/job_process.c:685
+#, c-format
+msgid "unable to set priority: %s"
+msgstr ""
+
+#: init/job_process.c:690
+#, c-format
+msgid "unable to set oom adjustment: %s"
+msgstr ""
+
+#: init/job_process.c:695
+#, c-format
+msgid "unable to change root directory: %s"
+msgstr ""
+
+#: init/job_process.c:700
+#, c-format
+msgid "unable to change working directory: %s"
+msgstr ""
+
+#: init/job_process.c:705
+#, c-format
+msgid "unable to set trace: %s"
+msgstr ""
+
+#: init/job_process.c:710
+#, c-format
+msgid "unable to execute: %s"
+msgstr ""
+
+#: init/job_process.c:741
+#, c-format
+msgid "Sending TERM signal to %s %s process (%d)"
+msgstr ""
+
+#: init/job_process.c:749
+#, c-format
+msgid "Failed to send TERM signal to %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:789
+#, c-format
+msgid "Sending KILL signal to %s %s process (%d)"
+msgstr ""
+
+#: init/job_process.c:797
+#, c-format
+msgid "Failed to send KILL signal to %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:846
+#, c-format
+msgid "%s %s process (%d) terminated with status %d"
+msgstr ""
+
+#: init/job_process.c:851
+#, c-format
+msgid "%s %s process (%d) exited normally"
+msgstr ""
+
+#: init/job_process.c:866
+#, c-format
+msgid "%s %s process (%d) killed by %s signal"
+msgstr ""
+
+#: init/job_process.c:870
+#, c-format
+msgid "%s %s process (%d) killed by signal %d"
+msgstr ""
+
+#: init/job_process.c:884
+#, c-format
+msgid "%s %s process (%d) stopped by %s signal"
+msgstr ""
+
+#: init/job_process.c:888
+#, c-format
+msgid "%s %s process (%d) stopped by signal %d"
+msgstr ""
+
+#: init/job_process.c:902
+#, c-format
+msgid "%s %s process (%d) continued by %s signal"
+msgstr ""
+
+#: init/job_process.c:906
+#, c-format
+msgid "%s %s process (%d) continued by signal %d"
+msgstr ""
+
+#: init/job_process.c:1039
+#, c-format
+msgid "%s respawning too fast, stopped"
+msgstr ""
+
+#: init/job_process.c:1045
+#, c-format
+msgid "%s %s process ended, respawning"
+msgstr ""
+
+#: init/job_process.c:1259
+#, c-format
+msgid "Failed to set ptrace options for %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1272 init/job_process.c:1467
+#, c-format
+msgid "Failed to continue traced %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1312 init/job_process.c:1403 init/job_process.c:1458
+#, c-format
+msgid "Failed to detach traced %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1352
+#, c-format
+msgid "Failed to deliver signal to traced %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1387
+#, c-format
+msgid "Failed to obtain child process id for %s %s process (%d): %s"
+msgstr ""
+
+#: init/job_process.c:1394
+#, c-format
+msgid "%s %s process (%d) became new process (%d)"
+msgstr ""
+
+#: init/job_process.c:1453
+#, c-format
+msgid "%s %s process (%d) executable changed"
+msgstr ""
+
+#: init/main.c:114
+msgid "Process management daemon."
+msgstr ""
+
+#: init/main.c:116
+msgid ""
+"This daemon is normally executed by the kernel and given process id 1 to "
+"denote its special status.  When executed by a user process, it will "
+"actually run /sbin/telinit."
+msgstr ""
+
+#: init/main.c:127 util/reboot.c:158 util/shutdown.c:363 util/telinit.c:148
+msgid "Need to be root"
+msgstr ""
+
+#: init/main.c:136
+msgid "Not being executed as init"
+msgstr ""
+
+#: init/main.c:184 init/main.c:362
+msgid "Unable to set root directory"
+msgstr ""
+
+#: init/main.c:261
+msgid "Unable to listen for private connections"
+msgstr ""
+
+#: init/main.c:379
+#, c-format
+msgid "Caught %s, core dumped"
+msgstr ""
+
+#: init/main.c:383
+#, c-format
+msgid "Caught %s, unable to dump core"
+msgstr ""
+
+#: init/main.c:456
+msgid "Reconnecting to system bus"
+msgstr ""
+
+#: init/main.c:462
+msgid "Unable to connect to the system bus"
+msgstr ""
+
+#: init/process.c:78
+msgid "main"
+msgstr ""
+
+#: util/initctl.c:144
+msgid "Unable to connect to system bus"
+msgstr ""
+
+#: util/initctl.c:153
+#, c-format
+msgid "%s: --dest given without --system\n"
+msgstr ""
+
+#: util/initctl.c:161
+msgid "Unable to connect to Upstart"
+msgstr ""
+
+#: util/initctl.c:347 util/initctl.c:482 util/initctl.c:610 util/initctl.c:745
+#, c-format
+msgid "%s: missing job name\n"
+msgstr ""
+
+#: util/initctl.c:960
+#, c-format
+msgid "%s: missing event name\n"
+msgstr ""
+
+#: util/initctl.c:1156
+msgid "use D-Bus system bus to connect to init daemon"
+msgstr ""
+
+#: util/initctl.c:1158
+msgid "destination well-known name on system bus"
+msgstr ""
+
+#: util/initctl.c:1171
+msgid "do not wait for job to start before exiting"
+msgstr ""
+
+#: util/initctl.c:1183
+msgid "do not wait for job to stop before exiting"
+msgstr ""
+
+#: util/initctl.c:1195
+msgid "do not wait for job to restart before exiting"
+msgstr ""
+
+#: util/initctl.c:1225
+msgid "do not wait for event to finish before exiting"
+msgstr ""
+
+#: util/initctl.c:1264
+msgid "Job"
+msgstr ""
+
+#: util/initctl.c:1271
+msgid "Event"
+msgstr ""
+
+#: util/initctl.c:1279 util/initctl.c:1291 util/initctl.c:1302
+#: util/initctl.c:1313
+msgid "JOB [KEY=VALUE]..."
+msgstr ""
+
+#: util/initctl.c:1280
+msgid "Start job."
+msgstr ""
+
+#: util/initctl.c:1281
+msgid ""
+"JOB is the name of the job that is to be started, this may be followed by "
+"zero or more environment variables to be defined in the new job.\n"
+"\n"
+"The environment may also serve to distinguish between job instances, and "
+"thus decide whether a new instance will be started or an error returned if "
+"an existing instance is already running."
+msgstr ""
+
+#: util/initctl.c:1292
+msgid "Stop job."
+msgstr ""
+
+#: util/initctl.c:1293
+msgid ""
+"JOB is the name of the job that is to be stopped, this may be followed by "
+"zero or more environment variables to be passed to the job's pre-stop and "
+"post-stop processes.\n"
+"\n"
+"The environment also serves to distinguish between job instances, and thus "
+"decide which of multiple instances will be stopped."
+msgstr ""
+
+#: util/initctl.c:1303
+msgid "Restart job."
+msgstr ""
+
+#: util/initctl.c:1304
+msgid ""
+"JOB is the name of the job that is to be restarted, this may be followed by "
+"zero or more environment variables to be defined in the job after "
+"restarting.\n"
+"\n"
+"The environment also serves to distinguish between job instances, and thus "
+"decide which of multiple instances will be restarted."
+msgstr ""
+
+#: util/initctl.c:1314
+msgid "Query status of job."
+msgstr ""
+
+#: util/initctl.c:1315
+msgid ""
+"JOB is the name of the job that is to be queried, this may be followed by "
+"zero or more environment variables to distguish between job instances.\n"
+msgstr ""
+
+#: util/initctl.c:1321
+msgid "List known jobs."
+msgstr ""
+
+#: util/initctl.c:1322
+msgid "The known jobs and their current status will be output."
+msgstr ""
+
+#: util/initctl.c:1325
+msgid "EVENT [KEY=VALUE]..."
+msgstr ""
+
+#: util/initctl.c:1326
+msgid "Emit an event."
+msgstr ""
+
+#: util/initctl.c:1327
+msgid ""
+"EVENT is the name of an event the init daemon should emit, this may be "
+"followed by zero or more environment variables to be included in the event.\n"
+msgstr ""
+
+#: util/initctl.c:1333
+msgid "Reload the configuration of the init daemon."
+msgstr ""
+
+#: util/initctl.c:1337
+msgid "Request the version of the init daemon."
+msgstr ""
+
+#: util/initctl.c:1340
+msgid "[PRIORITY]"
+msgstr ""
+
+#: util/initctl.c:1341
+msgid "Change the minimum priority of log messages from the init daemon"
+msgstr ""
+
+#: util/initctl.c:1343
+msgid ""
+"PRIORITY may be one of:\n"
+"  `debug' (messages useful for debugging upstart are logged, equivalent to --"
+"debug on kernel command-line);\n"
+"  `info' (messages about job goal and state changes, as well as event "
+"emissions are logged, equivalent to --verbose on the kernel command-line);\n"
+"  `message' (informational and debugging messages are suppressed, the "
+"default);   `warn' (ordinary messages are suppressed whilst still logging "
+"warnings and errors);\n"
+"  `error' (only errors are logged, equivalent to --quiet on the kernel "
+"command-line) or\n"
+"  `fatal' (only fatal errors are logged).\n"
+"\n"
+"Without arguments, this outputs the current log priority."
+msgstr ""
+
+#: util/reboot.c:106
+msgid "force reboot or halt, don't call shutdown(8)"
+msgstr ""
+
+#: util/reboot.c:108
+msgid "switch off the power when called as halt"
+msgstr ""
+
+#: util/reboot.c:110
+msgid "don't actually reboot or halt, just write wtmp record"
+msgstr ""
+
+#: util/reboot.c:136
+msgid "Halt the system."
+msgstr ""
+
+#: util/reboot.c:139
+msgid "Power off the system."
+msgstr ""
+
+#: util/reboot.c:142
+msgid "Reboot the system."
+msgstr ""
+
+#: util/reboot.c:146
+msgid ""
+"This command is intended to instruct the kernel to reboot or halt the "
+"system; when run without the -f option, or when in a system runlevel other "
+"than 0 or 6, it will actually execute /sbin/shutdown.\n"
+msgstr ""
+
+#: util/reboot.c:201
+msgid "Calling shutdown"
+msgstr ""
+
+#: util/reboot.c:204
+#, c-format
+msgid "Unable to execute shutdown: %s"
+msgstr ""
+
+#: util/reboot.c:222
+msgid "Rebooting"
+msgstr ""
+
+#: util/reboot.c:226
+msgid "Halting"
+msgstr ""
+
+#: util/reboot.c:230
+msgid "Powering off"
+msgstr ""
+
+#: util/runlevel.c:59
+msgid "[UTMP]"
+msgstr ""
+
+#: util/runlevel.c:60
+msgid "Output previous and current runlevel."
+msgstr ""
+
+#: util/runlevel.c:62
+msgid ""
+"The system /var/run/utmp file is used unless the alternate file UTMP is "
+"given.\n"
+msgstr ""
+
+#: util/shutdown.c:193
+msgid "reboot after shutdown"
+msgstr ""
+
+#: util/shutdown.c:195
+msgid "halt or power off after shutdown"
+msgstr ""
+
+#: util/shutdown.c:197
+msgid "halt after shutdown (implies -h)"
+msgstr ""
+
+#: util/shutdown.c:199
+msgid "power off after shutdown (implies -h)"
+msgstr ""
+
+#: util/shutdown.c:201
+msgid "cancel a running shutdown"
+msgstr ""
+
+#: util/shutdown.c:203
+msgid "only send warnings, don't shutdown"
+msgstr ""
+
+#: util/shutdown.c:235
+msgid "TIME [MESSAGE]"
+msgstr ""
+
+#: util/shutdown.c:236
+msgid "Bring the system down."
+msgstr ""
+
+#: util/shutdown.c:238
+msgid ""
+"TIME may have different formats, the most common is simply the word 'now' "
+"which will bring the system down immediately.  Other valid formats are +m, "
+"where m is the number of minutes to wait until shutting down and hh:mm which "
+"specifies the time on the 24hr clock.\n"
+"\n"
+"Logged in users are warned by a message sent to their terminal, you may "
+"include an optional MESSAGE included with this.  Messages can be sent "
+"without actually bringing the system down by using the -k option.\n"
+"\n"
+"If TIME is given, the command will remain in the foreground until the "
+"shutdown occurs.  It can be cancelled by Control-C, or by another user using "
+"the -c option.\n"
+"\n"
+"The system is brought down into maintenance (single-user) mode by default, "
+"you can change this with either the -r or -h option which specify a reboot "
+"or system halt respectively.  The -h option can be further modified with -H "
+"or -P to specify whether to halt the system, or to power it off afterwards.  "
+"The default is left up to the shutdown scripts."
+msgstr ""
+
+#: util/shutdown.c:276
+#, c-format
+msgid "%s: time expected\n"
+msgstr ""
+
+#: util/shutdown.c:300
+#, c-format
+msgid "%s: illegal hour value\n"
+msgstr ""
+
+#: util/shutdown.c:309
+#, c-format
+msgid "%s: illegal minute value\n"
+msgstr ""
+
+#: util/shutdown.c:329
+#, c-format
+msgid "%s: illegal time value\n"
+msgstr ""
+
+#: util/shutdown.c:374
+msgid "Shutdown is not running"
+msgstr ""
+
+#: util/shutdown.c:383
+msgid "Another shutdown is already running"
+msgstr ""
+
+#: util/shutdown.c:387
+msgid "Cannot find pid of running shutdown"
+msgstr ""
+
+#: util/shutdown.c:401
+msgid "Unable to change directory"
+msgstr ""
+
+#: util/shutdown.c:415
+msgid "Unable to write pid file"
+msgstr ""
+
+#: util/shutdown.c:510
+msgid "Shutdown cancelled"
+msgstr ""
+
+#: util/shutdown.c:595
+msgid "The system is going down for power off NOW!"
+msgstr ""
+
+#: util/shutdown.c:608
+msgid "The system is going down for halt NOW!"
+msgstr ""
+
+#: util/shutdown.c:621
+msgid "The system is going down for maintenance NOW!"
+msgstr ""
+
+#: util/shutdown.c:634
+msgid "The system is going down for reboot NOW!"
+msgstr ""
+
+#: util/shutdown.c:681
+#, c-format
+msgid "Unable to fork child-process to warn users: %s"
+msgstr ""
+
+#: util/shutdown.c:726
+#, c-format
+msgid "Broadcast message from %s@%s"
+msgstr ""
+
+#: util/shutdown.c:728
+#, c-format
+msgid "(%s) at %d:%02d ..."
+msgstr ""
+
+#: util/telinit.c:94
+msgid "set environment variable in the runlevel event"
+msgstr ""
+
+#: util/telinit.c:115
+msgid "Change runlevel."
+msgstr ""
+
+#: util/telinit.c:117
+msgid ""
+"RUNLEVEL should be one of 0123456sS, where s and S are considered "
+"identical.\n"
+"\n"
+"RUNLEVEL may also be Q or q to instruct the init daemon to reload its "
+"configuration, this is rarely necessary since the daemon watches its "
+"configuration for changes.\n"
+"\n"
+"RUNLEVEL may be U or u to instruct the init daemon to re-execute itself, "
+"this is not recommended since Upstart does not currently preserve its "
+"state.\n"
+msgstr ""
+
+#: util/telinit.c:134
+#, c-format
+msgid "%s: missing runlevel\n"
+msgstr ""
+
+#: util/telinit.c:139
+#, c-format
+msgid "%s: illegal runlevel: %s\n"
+msgstr ""

@@ -43,7 +43,6 @@ po/en@quot.po
 po/en@boldquot.insert-header
 po/en@boldquot.po
 po/stamp-po
-po/upstart.pot
 po/*.gmo
 init/com.ubuntu.Upstart.[ch]
 init/com.ubuntu.Upstart.Job.[ch]
