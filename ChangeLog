@@ -1,5 +1,7 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Release 0.6.5
+
 	* util/tests/test_initctl.c (test_reload_action): Don't send
 	SIGHUP to the server process, it'll be terminated anyway since
 	reload doesn't loop.

@@ -1,4 +1,4 @@
-0.6.5  ????-??-??
+0.6.5  2010-02-04  "Our last, best hope for victory"
 
 	* Since libnih has been separated out into its own project, Upstart
 	  no longer includes its source and now uses the installed version by
