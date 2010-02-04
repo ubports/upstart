@@ -1,5 +1,9 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* util/tests/test_initctl.c (test_reload_action): Don't send
+	SIGHUP to the server process, it'll be terminated anyway since
+	reload doesn't loop.
+
 	* init/event_operator.c (event_operator_match): Support operator
 	negation using !=
 	* init/tests/test_event_operator.c (test_operator_update): Add

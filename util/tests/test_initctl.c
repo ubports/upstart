@@ -8557,7 +8557,6 @@ test_reload_action (void)
 		TEST_FILE_END (errors);
 		TEST_FILE_RESET (errors);
 
-		kill (server_pid, SIGHUP);
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
@@ -8763,7 +8762,6 @@ test_reload_action (void)
 		TEST_FILE_END (errors);
 		TEST_FILE_RESET (errors);
 
-		kill (server_pid, SIGHUP);
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
@@ -8968,7 +8966,6 @@ test_reload_action (void)
 		TEST_FILE_END (errors);
 		TEST_FILE_RESET (errors);
 
-		kill (server_pid, SIGHUP);
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
