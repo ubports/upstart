@@ -1,5 +1,11 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (hup_handler): Move call to reconnect to D-Bus system
+	bus into new function
+	(usr1_handler): This is because a config reload "forgets" existing
+	state, such as events that were pending.
+	(main): Add SIGUSR1 signal handler.
+
 	* init/job_process.c (job_process_handler): Reduce priority of the
 	stopped/continued by signal messages to informational.
 
