@@ -12,6 +12,8 @@
 
 	* Fixed "Unhandled error" message from shutdown.  (Bug: #426332)
 
+	* Restored sync() call before reboot().
+
 0.6.3  2009-08-02  "Our last, best hope for peace"
 
 	* Fixed an assertion when a job's main process is terminated
