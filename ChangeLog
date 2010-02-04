@@ -1,3 +1,8 @@
+2010-02-03  Johan Kiviniemi  <johan@kiviniemi.name>
+
+	* conf/rc-sysinit.conf: Don't replace DEFAULT_RUNLEVEL with an
+	empty string when there is no "initdefault" line in /etc/inittab
+
 2010-02-03  Scott James Remnant  <scott@netsplit.com>
 
 	Update code to work with libnih 1.0.1

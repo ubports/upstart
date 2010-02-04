@@ -7,6 +7,9 @@
 	* Developers may still build against a local libnih source tree by
 	  passing --with-local-libnih=/path/to/libnih to configure.
 
+	* Fixed bug where the default runlevel would be lost when an
+	  /etc/inittab file exists without an initdefault line.  (Bug: #405847)
+
 0.6.3  2009-08-02  "Our last, best hope for peace"
 
 	* Fixed an assertion when a job's main process is terminated
