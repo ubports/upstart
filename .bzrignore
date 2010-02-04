@@ -5,7 +5,6 @@
 .deps
 .libs
 core
-ChangeLog.nih
 Makefile
 Makefile.in
 Makefile.in.in
@@ -32,8 +31,7 @@ Makefile.in.in
 ./missing
 ./mkinstalldirs
 ./stamp-h1
-m4/Makefile.am
-m4/*.m4
+m4
 po/Makevars.template
 po/POTFILES
 po/*.sed
@@ -47,9 +45,6 @@ po/en@boldquot.po
 po/stamp-po
 po/upstart.pot
 po/*.gmo
-nih
-nih-dbus
-nih-dbus-tool
 init/com.ubuntu.Upstart.[ch]
 init/com.ubuntu.Upstart.Job.[ch]
 init/com.ubuntu.Upstart.Instance.[ch]

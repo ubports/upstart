@@ -1,5 +1,12 @@
 0.6.5  ????-??-??
 
+	* Since libnih has been separated out into its own project, Upstart
+	  no longer includes its source and now uses the installed version by
+	  default.
+
+	* Developers may still build against a local libnih source tree by
+	  passing --with-local-libnih=/path/to/libnih to configure.
+
 0.6.3  2009-08-02  "Our last, best hope for peace"
 
 	* Fixed an assertion when a job's main process is terminated

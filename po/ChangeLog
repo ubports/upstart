@@ -1,3 +1,7 @@
+2010-02-03  Scott James Remnant  <scott@netsplit.com>
+
+	* POTFILES.in: Remove files that come from libnih.
+
 2009-06-17  Scott James Remnant  <scott@netsplit.com>
 
 	* POTFILES.in: Update from libnih, don't include generated output

@@ -1,5 +1,54 @@
 2010-02-03  Scott James Remnant  <scott@netsplit.com>
 
+	libnih is now released as its own project, so rather than expecting
+	to include it with the source we depend on it being outside of it.
+
+	* Makefile.am (SUBDIRS): Remove m4 directory along with the nih bits.
+	(EXTRA_DIST): Remove ChangeLog.nih
+	* configure.ac (AM_INIT_AUTOMAKE): Remove dist-bzip2, since we don't
+	actually use it; add color-tests and silent-rules.
+	(AM_SILENT_RULES): Use silent rules by default
+	(AM_MAINTAINER_MODE): Enable maintainer mode by default (as before),
+	but allow it to be disabled
+	(AM_GNU_GETTEXT_VERSION): Bump to 0.17
+	(NIH_INIT): Replace with the expanded out calls that we actually need.
+	(AC_CONFIG_FILES): Remove nih directories
+	Add magic to allow use of a local libnih source tree.
+	* init/Makefile.am (AM_CFLAGS): Add NIH_CFLAGS and NIH_DBUS_CFLAGS
+	(init_LDADD, test_system_LDADD, test_environ_LDADD, test_process_LDADD)
+	(test_job_class_LDADD, test_job_process_LDADD, test_job_LDADD)
+	(test_event_LDADD, test_event_operator_LDADD)
+	(test_blocked_LDADD, test_parse_job_LDADD)
+	(test_parse_conf_LDADD, test_conf_LDADD, test_control_LDADD):
+	Replace library paths with NIH_LIBS and NIH_DBUS_LIBS
+	($(com_ubuntu_Upstart_OUTPUTS)),
+	($(com_ubuntu_Upstart_Job_OUTPUTS)),
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Use external nih-dbus-tool
+	and obey silent rules.
+	(test_system_LDFLAGS, test_environ_LDFLAGS)
+	(test_process_LDFLAGS, test_job_class_LDFLAGS)
+	(test_job_process_LDFLAGS, test_job_LDFLAGS, test_event_LDFLAGS)
+	(test_event_operator_LDFLAGS, test_blocked_LDFLAGS)
+	(test_parse_job_LDFLAGS, test_parse_conf_LDFLAGS)
+	(test_conf_LDFLAGS, test_control_LDFLAGS): Drop -static
+	* util/Makefile.am (AM_CFLAGS): Add NIH_CFLAGS and NIH_DBUS_CFLAGS
+	(initctl_LDADD, reboot_LDADD, runlevel_LDADD, shutdown_LDADD)
+	(test_initctl_LDADD, test_utmp_LDADD, test_sysv_LDADD)
+	(test_telinit_LDADD): Replace library paths with NIH_LIBS and
+	NIH_DBUS_LIBS
+	($(com_ubuntu_Upstart_OUTPUTS)):
+	($(com_ubuntu_Upstart_Job_OUTPUTS)):
+	($(com_ubuntu_Upstart_Instance_OUTPUTS)): Use external nih-dbus-tool
+	and obey silent rules.
+	(initctl_LDFLAGS, reboot_LDFLAGS, runlevel_LDFLAGS)
+	(shutdown_LDFLAGS, telinit_LDFLAGS, test_initctl_LDFLAGS)
+	(test_utmp_LDFLAGS, test_sysv_LDFLAGS, test_telinit_LDFLAGS): Drop
+	-static
+	* README: Add libnih to the dependencies.
+	* HACKING: Remove the instructions for checking out libnih, replace
+	with a description about how to use a libnih source tree instead of
+	the installed one.
+
 	* configure.ac: Bump version to 0.6.5, bump copyright year to 2010.
 	* NEWS: Begin new release.
 
