@@ -23,6 +23,9 @@
 	* Fixed "Unhandled error" assertion crash from Upstart child
 	  processes when failing to spawn a job.  (Bug: #451917)
 
+	* No longer holds /dev/console open, so the SAK SysRq key will not
+	  kill Upstart.  (Bug: #486005)
+
 	* Restored sync() call before reboot().
 
 	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,

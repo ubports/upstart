@@ -173,6 +173,8 @@ main (int   argc,
 	 */
 	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
+	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+		nih_free (nih_error_get ());
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);

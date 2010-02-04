@@ -1,5 +1,9 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c (main): After resetting the system console, close it
+	again and reopen /dev/null for ourselves so we don't hold the
+	system console open.
+
 	* init/job_process.c (job_process_error_abort): Free the error
 	before exiting.
 
