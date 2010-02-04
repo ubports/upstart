@@ -1,4 +1,4 @@
-.TH init 8 2009-07-09 "Upstart"
+.TH init 8 2010-02-04 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -57,6 +57,16 @@ entirely by its userspace tools.  The event emitted to signify a change
 of runlevel is the
 .BR runlevel (7)
 event.  For more information see its manual page.
+.\"
+.SH OPTIONS
+Options are passed to
+.BR init (8)
+by placing them on the kernel command-line.
+.\"
+.TP
+.B --verbose
+Outputs verbose messages about job state changes and event emissions to the
+system console or log, useful for debugging boot.
 .\"
 .SH NOTES
 .B init

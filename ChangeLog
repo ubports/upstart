@@ -1,5 +1,8 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/man/init.8: Add missing OPTIONS section, documenting the
+	--verbose option.
+
 	* init/main.c (main): After resetting the system console, close it
 	again and reopen /dev/null for ourselves so we don't hold the
 	system console open.
