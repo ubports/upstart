@@ -14,6 +14,10 @@
 
 	* Restored sync() call before reboot().
 
+	* Moved D-Bus system bus reconnection trigger from SIGHUP to SIGUSR1,
+	  since SIGHUP is already used for a forced configuration reload and
+	  causes Upstart to "forget" state.
+
 0.6.3  2009-08-02  "Our last, best hope for peace"
 
 	* Fixed an assertion when a job's main process is terminated
