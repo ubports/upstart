@@ -4,6 +4,10 @@
 	  no longer includes its source and now uses the installed version by
 	  default.
 
+	* The external nih-dbus-tool means that cross-compilation is trivial,
+	  the path to it may be overriden with NIH_DBUS_TOOL=... as an
+	  argument to configure.  (Bug: #426740)
+
 	* Developers may still build against a local libnih source tree by
 	  passing --with-local-libnih=/path/to/libnih to configure.
 
