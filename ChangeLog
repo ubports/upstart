@@ -1,5 +1,10 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* init/man/init.8: Improve reference to init(5) to make it more
+	obvious that this is where documentation can be found.
+	* init/man/init.5: Add Upstart to the title to make it show up
+	with man -k upstart
+
 	* init/man/init.8: Add missing OPTIONS section, documenting the
 	--verbose option.
 
