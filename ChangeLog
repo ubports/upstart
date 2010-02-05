@@ -1,5 +1,8 @@
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.6.6
+	* NEWS: Begin new release
+
 	* NEWS: Release 0.6.5
 
 	* util/tests/test_initctl.c (test_reload_action): Don't send
