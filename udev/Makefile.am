@@ -1,6 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
 AM_CFLAGS = \
+	$(NIH_CFLAGS) \
+	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(UDEV_CFLAGS)
 
@@ -27,9 +29,9 @@ upstart_udev_bridge_SOURCES = \
 nodist_upstart_udev_bridge_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS)
 upstart_udev_bridge_LDADD = \
-	../nih/libnih.la \
-	../nih-dbus/libnih-dbus.la \
 	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS)
 
@@ -41,9 +43,11 @@ com_ubuntu_Upstart_OUTPUTS = \
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
-$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) $(top_builddir)/nih-dbus-tool/nih-dbus-tool
-	$(top_builddir)/nih-dbus-tool/nih-dbus-tool \
-		--mode=proxy --prefix=upstart --default-interface=com.ubuntu.Upstart0_6 \
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=proxy --prefix=upstart \
+		--default-interface=com.ubuntu.Upstart0_6 \
 		--output=$@ $<
 
 
