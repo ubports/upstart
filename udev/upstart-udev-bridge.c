@@ -205,7 +205,7 @@ udev_monitor_watcher (struct udev_monitor *udev_monitor,
 		name = NIH_MUST (nih_sprintf (NULL, "%s-device-changed",
 					      subsystem));
 	} else if (! strcmp (action, "remove")) {
-		name = NIH_MUST (nih_sprintf (NULL, "%s-device-remove",
+		name = NIH_MUST (nih_sprintf (NULL, "%s-device-removed",
 					      subsystem));
 	} else {
 		name = NIH_MUST (nih_sprintf (NULL, "%s-device-%s",
