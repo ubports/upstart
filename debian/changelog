@@ -1,4 +1,4 @@
-upstart (0.6.5-1) UNRELEASED; urgency=low
+upstart (0.6.5-1) lucid; urgency=low
 
   * New upstream release:
     - libnih has been separated out into its own project.
@@ -19,7 +19,7 @@ upstart (0.6.5-1) UNRELEASED; urgency=low
   * udev/upstart-udev-bridge.c: Change -device-remove to -device-removed to
     match -device-added and -device-changed.  LP: #516698.
 
- -- Scott James Remnant <scott@ubuntu.com>  Thu, 04 Feb 2010 15:40:08 -0800
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 04 Feb 2010 16:30:10 -0800
 
 upstart (0.6.3-11build1) lucid; urgency=low
 
