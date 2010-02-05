@@ -7,6 +7,10 @@ upstart (0.6.5-1) UNRELEASED; urgency=low
     - No longer holds /dev/console open so SAK won't kill init.  LP: #486005.
     - Added missing OPTIONS section to init(8).  LP: #449883.
 
+  * Build-depend on libnih-dev, libnih-dbus-dev and nih-dbus-tool to use
+    the separated out libnih.
+    - This has the fix for LP: #436758.
+
  -- Scott James Remnant <scott@ubuntu.com>  Thu, 04 Feb 2010 15:40:08 -0800
 
 upstart (0.6.3-11build1) lucid; urgency=low
