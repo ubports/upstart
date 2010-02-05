@@ -11,6 +11,7 @@ upstart (0.6.5-1) UNRELEASED; urgency=low
   * Build-depend on libnih-dev, libnih-dbus-dev and nih-dbus-tool to use
     the separated out libnih.
     - This has the fix for LP: #436758.
+    - Remove changelog.nih from the doc directory.
   * udev/Makefile.am: Update to use external libnih
 
   [ Johan Kiviniemi ]
