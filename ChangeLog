@@ -1,3 +1,7 @@
+2010-02-09  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Use NIH_COPYRIGHT instead of AC_COPYRIGHT
+
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.6.6

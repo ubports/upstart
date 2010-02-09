@@ -2,7 +2,7 @@
 
 AC_PREREQ(2.61)
 AC_INIT([upstart], [0.6.6], [upstart-devel@lists.ubuntu.com])
-AC_COPYRIGHT([[Copyright © 2010 Canonical Ltd.]])
+NIH_COPYRIGHT([[Copyright © 2010 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
