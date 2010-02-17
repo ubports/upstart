@@ -1,10 +1,10 @@
-upstart (0.6.5-2) UNRELEASED; urgency=low
+upstart (0.6.5-2) lucid; urgency=low
 
   * udev/upstart-udev-bridge.c:
     - Increase receiving buffer size for uevents so we don't miss any.
       LP: #504883.
 
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 17 Feb 2010 15:50:05 +0000
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 17 Feb 2010 15:50:40 +0000
 
 upstart (0.6.5-1) lucid; urgency=low
 
