@@ -1,3 +1,9 @@
+upstart (0.6.5-3) lucid; urgency=low
+
+  * fix build break. (LP: #524484)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 19 Feb 2010 10:21:33 -0500
+
 upstart (0.6.5-2) lucid; urgency=low
 
   * udev/upstart-udev-bridge.c:
