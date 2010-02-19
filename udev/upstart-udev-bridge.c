@@ -133,7 +133,7 @@ main (int   argc,
 	nih_assert (udev = udev_new ());
 	nih_assert (udev_monitor = udev_monitor_new_from_netlink (udev, "udev"));
 	nih_assert (udev_monitor_enable_receiving (udev_monitor) == 0);
-	udev_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
+	udev_monitor_set_receive_buffer_size(udev_monitor, 128*1024*1024);
 
 	NIH_MUST (nih_io_add_watch (NULL, udev_monitor_get_fd (udev_monitor),
 				    NIH_IO_READ,

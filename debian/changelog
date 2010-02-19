@@ -1,3 +1,10 @@
+upstart (0.6.5-3) lucid; urgency=low
+
+  * udev/upstart-udev-bridge.c: use right variable name, fixing a build
+    failure. (LP: #524484)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 19 Feb 2010 10:21:33 -0500
+
 upstart (0.6.5-2) lucid; urgency=low
 
   * udev/upstart-udev-bridge.c:
