@@ -1,3 +1,13 @@
+upstart (0.6.5-4) UNRELEASED; urgency=low
+
+  * debian/control:
+    - change Pre-Depends back to Depends, this was a holdover from when we
+      attempted to make Upstart Essential to solve early sysvinit→upstart
+      upgrade issues, we backed out the Essential bit but never the use of
+      Pre-Depends.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 25 Feb 2010 15:19:20 +0000
+
 upstart (0.6.5-3) lucid; urgency=low
 
   * udev/upstart-udev-bridge.c: use right variable name, fixing a build
