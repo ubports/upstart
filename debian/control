@@ -8,7 +8,7 @@ Homepage: http://upstart.ubuntu.com/
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, sysvinit-utils, sysv-rc, initscripts, mountall
+Depends: ${shlibs:Depends}, sysvinit-utils, sysv-rc, initscripts, mountall, ifupdown (>= 0.6.8ubuntu29)
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services

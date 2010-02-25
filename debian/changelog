@@ -5,6 +5,8 @@ upstart (0.6.5-4) UNRELEASED; urgency=low
       attempted to make Upstart Essential to solve early sysvinit→upstart
       upgrade issues, we backed out the Essential bit but never the use of
       Pre-Depends.
+    - add versioned-dependencies on ifupdown for loopback fix that can
+      prevent initscripts from being run.  LP: #527830.
 
  -- Scott James Remnant <scott@ubuntu.com>  Thu, 25 Feb 2010 15:19:20 +0000
 
