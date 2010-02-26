@@ -2,6 +2,7 @@
 
 	* Upstart will automatically mount /proc and /sys on boot if they
 	  have not already been mounted by the kernel or initramfs.
+	  (Bug: #426263)
 
 0.6.5  2010-02-04  "Our last, best hope for victory"
 
