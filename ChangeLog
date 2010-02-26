@@ -1,5 +1,7 @@
 2010-02-26  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Update.
+
 	* init/job_process.c (job_process_run): Since /proc is always mounted,
 	guaranteed because we mount it ourselves if it isn't, we don't need
 	to check for it and can always use /proc/self/fd/NNN when we want.
