@@ -1,3 +1,11 @@
+2010-02-26  Scott James Remnant  <scott@netsplit.com>
+
+	* init/paths.h (DEV_FD): Drop this definition, it's needless.
+	* init/job_process.c (job_process_run): Rather than using /dev/fd,
+	use /proc/self/fd which is more Linuxish and is always guaranteed to
+	exist when /proc is mounted - needing no symlinks.
+	* init/tests/test_job_process.c (test_run): Adjust test to match.
+
 2010-02-09  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Use NIH_COPYRIGHT instead of AC_COPYRIGHT

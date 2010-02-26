@@ -117,7 +117,7 @@ static void job_process_trace_exec      (Job *job, ProcessType process);
  * When exectued with the shell, if the command (which may be an entire
  * script) is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
- * to read commands from one of the special /dev/fd/NN devices and NihIo
+ * to read commands from one of the special /proc/self/fd/NN devices and NihIo
  * used to feed the script into that device.  A pointer to the NihIo object
  * is not kept or stored because it will automatically clean itself up should
  * the script go away as the other end of the pipe will be closed.
@@ -176,15 +176,15 @@ job_process_run (Job         *job,
 		}
 
 		/* We can pass scripts over the command-line instead of
-		 * piping using /dev/fd/NNN.  Do it for single line scripts
-		 * and when /dev/fd doesn't exist.
+		 * piping using /proc/self/fd/NNN.  Do it for single line
+		 * scripts and when /proc/self/fd doesn't exist.
 		 */
 		p = nl = strchr (script, '\n');
 		while (p && (*p == '\n'))
 			p++;
 
 		if ((! nl) || (! *p)
-		    || (stat (DEV_FD, &statbuf) < 0)
+		    || (stat ("/proc/self/fd", &statbuf) < 0)
 		    || (! S_ISDIR (statbuf.st_mode))) {
 			/* Strip off the newline(s) */
 			if (nl && (! *p))
@@ -207,12 +207,12 @@ job_process_run (Job         *job,
 
 			shell = TRUE;
 
-			/* FIXME actually always want it to be /dev/fd/3 and
+			/* FIXME actually always want it to be /proc/self/fd/3 and
 			 * dup2() in the child to make it that way ... no way
 			 * of passing that yet
 			 */
 			cmd = NIH_MUST (nih_sprintf (argv, "%s/%d",
-						     DEV_FD, fds[0]));
+						     "/proc/self/fd", fds[0]));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}

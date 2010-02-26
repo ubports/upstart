@@ -2,7 +2,7 @@
  *
  * test_job_process.c - test suite for init/job_process.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -519,13 +519,13 @@ test_run (void)
 	}
 
 
-	if (stat ("/dev/fd", &statbuf) < 0) {
-		printf ("SKIP: no /dev/fd\n");
+	if (stat ("/proc/self/fd", &statbuf) < 0) {
+		printf ("SKIP: no /proc/self/fd\n");
 		goto no_devfd;
 	}
 
 	/* Check that a particularly long script is instead invoked by
-	 * using the /dev/fd feature, with the shell script fed to the
+	 * using the /proc/self/fd feature, with the shell script fed to the
 	 * child process by an NihIo structure.
 	 */
 	TEST_FEATURE ("with long script");
@@ -580,7 +580,7 @@ test_run (void)
 		TEST_EQ (WEXITSTATUS (status), 0);
 
 		output = fopen (filename, "r");
-		TEST_FILE_EQ_N (output, "/dev/fd/");
+		TEST_FILE_EQ_N (output, "/proc/self/fd/");
 		TEST_FILE_EQ (output, "\n");
 		TEST_FILE_END (output);
 		fclose (output);
