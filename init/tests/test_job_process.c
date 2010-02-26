@@ -519,11 +519,6 @@ test_run (void)
 	}
 
 
-	if (stat ("/proc/self/fd", &statbuf) < 0) {
-		printf ("SKIP: no /proc/self/fd\n");
-		goto no_devfd;
-	}
-
 	/* Check that a particularly long script is instead invoked by
 	 * using the /proc/self/fd feature, with the shell script fed to the
 	 * child process by an NihIo structure.
@@ -590,7 +585,6 @@ test_run (void)
 	}
 
 
-no_devfd:
 	/* Check that if we're running a non-daemon job, the trace state
 	 * is reset and no process trace is established.
 	 */

@@ -155,8 +155,7 @@ job_process_run (Job         *job,
 	 * the best way to deal with things like variables.
 	 */
 	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
-		struct stat  statbuf;
-		char        *nl, *p;
+		char *nl, *p;
 
 		argc = 0;
 		argv = NIH_MUST (nih_str_array_new (NULL));
@@ -175,19 +174,18 @@ job_process_run (Job         *job,
 							proc->command));
 		}
 
-		/* We can pass scripts over the command-line instead of
-		 * piping using /proc/self/fd/NNN.  Do it for single line
-		 * scripts and when /proc/self/fd doesn't exist.
+		/* Don't pipe single-line scripts into the shell using
+		 * /proc/self/fd/NNN, instead just pass them over the
+		 * command-line (taking care to strip off the trailing
+		 * newlines).
 		 */
 		p = nl = strchr (script, '\n');
 		while (p && (*p == '\n'))
 			p++;
 
-		if ((! nl) || (! *p)
-		    || (stat ("/proc/self/fd", &statbuf) < 0)
-		    || (! S_ISDIR (statbuf.st_mode))) {
+		if ((! nl) || (! *p)) {
 			/* Strip off the newline(s) */
-			if (nl && (! *p))
+			if (nl)
 				*nl = '\0';
 
 			NIH_MUST (nih_str_array_add (&argv, NULL,
