@@ -1,4 +1,4 @@
-upstart (0.6.5-4) UNRELEASED; urgency=low
+upstart (0.6.5-4) lucid; urgency=low
 
   * debian/control:
     - change Pre-Depends back to Depends, this was a holdover from when we
@@ -11,7 +11,7 @@ upstart (0.6.5-4) UNRELEASED; urgency=low
   * Merge patches from trunk to use /proc/self/fd instead of /dev/fd, and
     to always mount /proc and /sys on boot.
 
- -- Scott James Remnant <scott@ubuntu.com>  Thu, 25 Feb 2010 15:19:20 +0000
+ -- Scott James Remnant <scott@ubuntu.com>  Fri, 26 Feb 2010 15:40:58 +0000
 
 upstart (0.6.5-3) lucid; urgency=low
 
