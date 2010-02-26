@@ -1,5 +1,10 @@
 2010-02-26  Scott James Remnant  <scott@netsplit.com>
 
+	* init/system.c (system_mount): Add function to mount a kernel
+	filesystem (ie. /proc and /sys)
+	* init/system.h: Add header.
+	* init/main.c: Mount /proc and /sys on initialisation.
+
 	* init/paths.h (DEV_FD): Drop this definition, it's needless.
 	* init/job_process.c (job_process_run): Rather than using /dev/fd,
 	use /proc/self/fd which is more Linuxish and is always guaranteed to
