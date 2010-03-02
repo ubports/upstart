@@ -1,3 +1,8 @@
+2010-03-02  Michael Biebl  <mbiebl@gmail.com>
+
+	* configure.ac: Remove double-quoting from NIH_CFLAGS and
+	NIH_DBUS_CFLAGS when using --with-local-libnih
+
 2010-02-26  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: Update.

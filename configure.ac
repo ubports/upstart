@@ -34,9 +34,9 @@ AC_ARG_WITH(local-libnih,
 
 	nih_dir="`cd $withval && pwd`"
 
-        NIH_CFLAGS="-I\"\\\"$nih_dir\\\"\""
+        NIH_CFLAGS="-I\"$nih_dir\""
         NIH_LIBS="\"$nih_dir/nih/libnih.la\""
-        NIH_DBUS_CFLAGS="-I\"\\\"$nih_dir\\\"\""
+        NIH_DBUS_CFLAGS="-I\"$nih_dir\""
 	NIH_DBUS_LIBS="\"$nih_dir/nih-dbus/libnih-dbus.la\""
 	NIH_DBUS_TOOL="\"$nih_dir/nih-dbus-tool/nih-dbus-tool\""])
 ])

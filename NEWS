@@ -4,6 +4,9 @@
 	  have not already been mounted by the kernel or initramfs.
 	  (Bug: #426263)
 
+	* Fixed double-quoting issue with the --with-local-libnih configure
+	  option.  (Bug: #530385)
+
 0.6.5  2010-02-04  "Our last, best hope for victory"
 
 	* Since libnih has been separated out into its own project, Upstart
