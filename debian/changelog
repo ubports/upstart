@@ -1,4 +1,4 @@
-upstart (0.6.5-5) UNRELEASED; urgency=low
+upstart (0.6.5-5) lucid; urgency=low
 
   * init/main.c:
     - Don't change the settings of the foreground console, this is often
@@ -6,7 +6,7 @@ upstart (0.6.5-5) UNRELEASED; urgency=low
       paths have stty sane settings anyway (which these are not), so there
       really isn't need for init to do this.  LP: #540256.
 
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 17 Mar 2010 21:51:23 +0000
+ -- Scott James Remnant <scott@ubuntu.com>  Wed, 17 Mar 2010 22:34:55 +0000
 
 upstart (0.6.5-4) lucid; urgency=low
 
