@@ -168,12 +168,7 @@ main (int   argc,
 	 */
 	setsid ();
 
-	/* Set the standard file descriptors to the ordinary console device,
-	 * resetting it to sane defaults unless we're inheriting from another
-	 * init process which we know left it in a sane state.
-	 */
-	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
-		nih_free (nih_error_get ());
+	/* Set the standard file descriptors. */
 	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
 		nih_free (nih_error_get ());
 
