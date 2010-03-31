@@ -1,3 +1,10 @@
+2010-03-31  Colin Watson  <cjwatson@ubuntu.com>
+
+	* init/man/init.5 (env): Document behaviour when the environment
+	variable's value is omitted.
+	* init/parse_job.c (stanza_env): Document that arguments may be
+	simply VAR as well as VAR=VALUE.
+
 2010-03-02  Michael Biebl  <mbiebl@gmail.com>
 
 	* configure.ac: Remove double-quoting from NIH_CFLAGS and
