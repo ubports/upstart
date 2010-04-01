@@ -3,6 +3,9 @@ upstart (0.6.5-6) UNRELEASED; urgency=low
   * Merge fixes from trunk:
     - double-quoting of NIH_CFLAGS and NIH_DBUS_CFLAGS on --with-local-libnih
     - document "env KEY" behaviour
+  * conf/rc.conf, conf/rc-sysinit.conf:
+    - enable console output.  LP: #548954.
+    - pass value of INIT_VERBOSE from kernel command-line. 
 
  -- Scott James Remnant <scott@ubuntu.com>  Thu, 01 Apr 2010 19:21:37 +0100
 
