@@ -1,3 +1,9 @@
+2010-04-24  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Replace the --with-local-libnih code with an
+	expansion of the NIH_WITH_LOCAL_LIBNIH macro that now contains it.
+	* README: Bump libnih version.
+
 2010-03-31  Colin Watson  <cjwatson@ubuntu.com>
 
 	* init/man/init.5 (env): Document behaviour when the environment
