@@ -3,6 +3,10 @@ upstart (0.6.6-1) UNRELEASED; urgency=low
   * New upstream release:
     - All changes were previously merged into this package.
 
+  * debian/upstart-job:
+    - Fix output for the force-reload command to only refer to reload(8).
+      LP: #532862.
+
   * Add debian/source/format with "1.0" to be future compatible.
   * Bump standards version.
   * Convert rules to dh7 format.

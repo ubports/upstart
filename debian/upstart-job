@@ -62,7 +62,7 @@ start|stop|restart)
 reload|force-reload)
     $ECHO
     $ECHO "Since the script you are attempting to invoke has been converted to an"
-    $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
+    $ECHO "Upstart job, you may also use the reload(8) utility, e.g. reload $JOB"
     reload "$JOB"
     ;;
 *)
