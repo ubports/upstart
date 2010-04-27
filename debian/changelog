@@ -3,6 +3,8 @@ upstart (0.6.6-1) UNRELEASED; urgency=low
   * New upstream release:
     - All changes were previously merged into this package.
 
+  * Add debian/source/format with "1.0" to be future compatible.
+
  -- Scott James Remnant <scott@ubuntu.com>  Tue, 27 Apr 2010 12:50:43 -0700
 
 upstart (0.6.5-6) lucid; urgency=low
