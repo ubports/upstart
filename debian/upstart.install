@@ -1,7 +1,3 @@
-etc/dbus-1/system.d/Upstart.conf
-etc/init/*.conf
-lib/init
-sbin
-usr/lib/upstart/migrate-inittab.pl
-usr/share/locale
-usr/share/man
+debian/conf/*.conf etc/init/
+debian/upstart-job lib/init/
+debian/migrate-inittab.pl usr/lib/upstart/

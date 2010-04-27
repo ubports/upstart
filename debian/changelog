@@ -5,6 +5,7 @@ upstart (0.6.6-1) UNRELEASED; urgency=low
 
   * Add debian/source/format with "1.0" to be future compatible.
   * Bump standards version.
+  * Convert rules to dh7 format.
 
  -- Scott James Remnant <scott@ubuntu.com>  Tue, 27 Apr 2010 12:50:43 -0700
 

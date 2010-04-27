@@ -1,14 +1,17 @@
 #!/usr/bin/make -f
-# debian/rules for the upstart package.
-# Author: Scott James Remnant <scott@ubuntu.com>
+%:
+	dh $@
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-export DH_OPTIONS
 
 CFLAGS = -Wall -g -fstack-protector -fPIE
-LDFLAGS = -Wl,-z,relro -Wl,-z,now -pie
+LDFLAGS = -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -pie
+
+# Disable PIE on armel
+DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
+ifeq ($(DEB_HOST_ARCH),armel)
+CFLAGS="$(filter-out -fPIE,$(CFLAGS))"
+LDFLAGS="$(filter-out -pie,$(LDFLAGS))"
+endif
 
 # Disable optimisations if noopt found in $DEB_BUILD_OPTIONS
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
@@ -19,101 +22,11 @@ else
 	LDFLAGS += -Wl,-O1
 endif
 
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+override_dh_auto_configure:
+	dh_auto_configure -- CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+		--exec-prefix=
 
-ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
-	confflags += --build=$(DEB_HOST_GNU_TYPE)
-else
-	confflags += --build=$(DEB_BUILD_GNU_TYPE) --host=$(DEB_HOST_GNU_TYPE)
-endif
-
-DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
-CHECK_VARS =
-ifeq ($(DEB_HOST_ARCH),armel)
-CHECK_VARS += CFLAGS="$(filter-out -fPIE,$(CFLAGS))"
-endif
-
-
-# Run the package configure script
-config.status: configure
-	./configure $(confflags) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
-		--prefix=/usr \
-		--exec-prefix= \
-		--sysconfdir=/etc \
-		--localstatedir=/var/lib
-
-
-# Build the package
-build: build-stamp
-build-stamp: config.status
-	dh_testdir
-
-	$(MAKE)
-	$(MAKE) check $(CHECK_VARS) || true
-	touch $@
-
-# Install the package underneath debian/tmp
-install: build
-	dh_testdir
-	dh_testroot
-	dh_clean -k 
-	dh_installdirs
-
-	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
-
-	# Copy across the default jobs
-	install -D -d debian/tmp/etc/init
-	@set -x; for job in debian/conf/*; do \
-		install -m 644 -o root -g root $$job \
-			debian/tmp/etc/init || exit 1; \
-	done
-
-	# Copy the compat script
-	install -D -d debian/tmp/lib/init
-	install -m 755 -o root -g root debian/upstart-job \
-		debian/tmp/lib/init
-
-	# Copy the migration script
-	install -D -d debian/tmp/usr/lib/upstart
-	install -m 755 -o root -g root debian/migrate-inittab.pl \
-		debian/tmp/usr/lib/upstart
-
-
-binary: binary-indep binary-arch
-
-# Build architecture-independent files here.
-binary-indep:
-# We have nothing to do by default.
-
-# Build architecture-dependent files here.
-binary-arch: DH_OPTIONS=-a
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installchangelogs ChangeLog
-	dh_installdocs
-	dh_install
-	dh_link
-	dh_strip
-	dh_compress
+override_dh_fixperms:
 	dh_fixperms
-	dh_installdeb
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-
-# Clean up the mess we made
-clean:
-	dh_testdir
-	rm -f build-stamp
-
-	-$(MAKE) clean distclean
-	dh_clean 
-
-
-.PHONY: build install binary-indep binary-arch binary clean
+	chmod 755 debian/upstart/lib/init/upstart-job
+	chmod 755 debian/upstart/usr/lib/upstart/migrate-inittab.pl
