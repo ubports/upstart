@@ -1,4 +1,58 @@
+2010-04-27  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Release 0.6.6
+
+	* configure.ac: Bump the requirement of libnih to 1.0.2 after
+	verifying that building using --with-local-libnih and an earlier
+	version installed still works.
+
+2010-04-24  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Replace the --with-local-libnih code with an
+	expansion of the NIH_WITH_LOCAL_LIBNIH macro that now contains it.
+	* README: Bump libnih version.
+
+2010-03-31  Colin Watson  <cjwatson@ubuntu.com>
+
+	* init/man/init.5 (env): Document behaviour when the environment
+	variable's value is omitted.
+	* init/parse_job.c (stanza_env): Document that arguments may be
+	simply VAR as well as VAR=VALUE.
+
+2010-03-02  Michael Biebl  <mbiebl@gmail.com>
+
+	* configure.ac: Remove double-quoting from NIH_CFLAGS and
+	NIH_DBUS_CFLAGS when using --with-local-libnih
+
+2010-02-26  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: Update.
+
+	* init/job_process.c (job_process_run): Since /proc is always mounted,
+	guaranteed because we mount it ourselves if it isn't, we don't need
+	to check for it and can always use /proc/self/fd/NNN when we want.
+	* init/tests/test_job_process.c (test_run): Since /proc is always
+	mounted, we don't need to check for it and skip tests.
+
+	* init/system.c (system_mount): Add function to mount a kernel
+	filesystem (ie. /proc and /sys)
+	* init/system.h: Add header.
+	* init/main.c: Mount /proc and /sys on initialisation.
+
+	* init/paths.h (DEV_FD): Drop this definition, it's needless.
+	* init/job_process.c (job_process_run): Rather than using /dev/fd,
+	use /proc/self/fd which is more Linuxish and is always guaranteed to
+	exist when /proc is mounted - needing no symlinks.
+	* init/tests/test_job_process.c (test_run): Adjust test to match.
+
+2010-02-09  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Use NIH_COPYRIGHT instead of AC_COPYRIGHT
+
 2010-02-04  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.6.6
+	* NEWS: Begin new release
 
 	* NEWS: Release 0.6.5
 
