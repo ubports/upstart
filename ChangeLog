@@ -1,5 +1,8 @@
 2010-04-27  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.6.7
+	* NEWS: Begin new release
+
 	* NEWS: Release 0.6.6
 
 	* configure.ac: Bump the requirement of libnih to 1.0.2 after
