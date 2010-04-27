@@ -1129,8 +1129,8 @@ stanza_version (JobClass        *class,
  * @lineno: line number.
  *
  * Parse an env stanza from @file, extracting a single argument of the form
- * VAR=VALUE.  These are stored in the env array, which is increased in
- * size to accomodate the new value.
+ * VAR or VAR=VALUE.  These are stored in the env array, which is increased
+ * in size to accomodate the new value.
  *
  * Returns: zero on success, negative value on error.
  **/

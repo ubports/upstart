@@ -2,12 +2,19 @@
 #
 # libnih.m4 - autoconf macros
 #
-# Copyright © 2009 Scott James Remnant <scott@netsplit.com>.
-# Copyright © 2009 Canonical Ltd.
+# Copyright © 2010 Scott James Remnant <scott@netsplit.com>.
+# Copyright © 2010 Canonical Ltd.
 #
 # This file is free software; the author gives unlimited permission to
 # copy and/or distribute it, with or without modifications, as long as
 # this notice is preserved.
+
+
+# This MUST be incremented for any changes to this file, otherwise aclocal
+# may overwrite the local copy in the libnih source tree with any installed
+# version.
+
+# serial 2 libnih.m4
 
 
 # NIH_COMPILER_WARNINGS
@@ -204,13 +211,12 @@ AS_IF([test "x$nih_cv_c_thread" = "xno"],
 ])# NIH_C_THREAD
 
 
-# AC_COPYRIGHT
-# -------------
+# NIH_COPYRIGHT
+# --------------
 # Wraps the Autoconf AC_COPYRIGHT but also defines PACKAGE_COPYRIGHT,
 # required for nih_main_init
-m4_rename([AC_COPYRIGHT], [_NIH_AC_COPYRIGHT])
-AC_DEFUN([AC_COPYRIGHT],
-[_NIH_AC_COPYRIGHT([$1])
+AC_DEFUN([NIH_COPYRIGHT],
+[AC_COPYRIGHT([$1])
 m4_ifndef([NIH_PACKAGE_COPYRIGHT], [m4_bmatch([$1], [
 ], [], [
 	m4_define([NIH_PACKAGE_COPYRIGHT],
@@ -219,3 +225,24 @@ m4_ifndef([NIH_PACKAGE_COPYRIGHT], [m4_bmatch([$1], [
 		  [Define to the copyright message of this package.])])])dnl
 	AC_SUBST([PACKAGE_COPYRIGHT], ["$1"])
 ])# AC_COPYRIGHT
+
+
+# NIH_WITH_LOCAL_LIBNIH
+# ---------------------
+# Adds a configure option to build with a local libnih.
+AC_DEFUN([NIH_WITH_LOCAL_LIBNIH],
+[AC_ARG_WITH(local-libnih,
+	AS_HELP_STRING([[[--with-local-libnih[=DIR]]]],
+		       [Use libnih from source tree DIR]),
+[AS_IF([test "x$with_local_libnih" != "xno"],
+       [AS_IF([! test -f "$withval/nih/alloc.c"],
+       	      [AC_MSG_ERROR([$withval doesn't look like a libnih source tree])])
+
+	nih_dir="`cd $withval && pwd`"
+
+        NIH_CFLAGS="-I\"$nih_dir\""
+        NIH_LIBS="\"$nih_dir/nih/libnih.la\""
+        NIH_DBUS_CFLAGS="-I\"$nih_dir\""
+	NIH_DBUS_LIBS="\"$nih_dir/nih-dbus/libnih-dbus.la\""
+	NIH_DBUS_TOOL="\"$nih_dir/nih-dbus-tool/nih-dbus-tool\""])])
+])# NIH_WITH_LOCAL_LIBNIH

@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [0.6.5], [upstart-devel@lists.ubuntu.com])
-AC_COPYRIGHT([[Copyright © 2010 Canonical Ltd.]])
+AC_INIT([upstart], [0.6.6], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2010 Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -25,23 +25,9 @@ PKG_PROG_PKG_CONFIG([0.22])
 AC_PATH_PROG([NIH_DBUS_TOOL], [nih-dbus-tool])
 
 # Checks for libraries.
-AC_ARG_WITH(local-libnih,
-	AS_HELP_STRING([[[--with-local-libnih[=DIR]]]],
-		       [Use libnih from source tree DIR]),
-[AS_IF([test "x$with_local_libnih" != "xno"],
-       [AS_IF([! test -f "$withval/nih/alloc.c"],
-       	      [AC_MSG_ERROR([$withval doesn't look like a libnih source tree])])
+NIH_WITH_LOCAL_LIBNIH
 
-	nih_dir="`cd $withval && pwd`"
-
-        NIH_CFLAGS="-I\"\\\"$nih_dir\\\"\""
-        NIH_LIBS="\"$nih_dir/nih/libnih.la\""
-        NIH_DBUS_CFLAGS="-I\"\\\"$nih_dir\\\"\""
-	NIH_DBUS_LIBS="\"$nih_dir/nih-dbus/libnih-dbus.la\""
-	NIH_DBUS_TOOL="\"$nih_dir/nih-dbus-tool/nih-dbus-tool\""])
-])
-
-PKG_CHECK_MODULES([NIH], [libnih >= 1.0.0])
+PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
 

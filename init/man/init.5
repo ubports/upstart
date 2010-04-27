@@ -292,9 +292,12 @@ are mostly used by the
 utility to default to acting on the job the commands are called from.
 
 .TP
-.B env \fIKEY\fR=\fIVALUE\fR
+.B env \fIKEY\fR[=\fIVALUE\fR]
 Defines a default environment variable, the value of which may be overriden
 by the event or command that starts the job.
+If no value is given, then the value is taken from the
+.BR init (8)
+daemon's own environment.
 .\"
 .TP
 .B export \fIKEY\fR

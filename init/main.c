@@ -186,6 +186,28 @@ main (int   argc,
 	if (chdir ("/"))
 		nih_warn ("%s: %s", _("Unable to set root directory"),
 			  strerror (errno));
+
+	/* Mount the /proc and /sys filesystems, which are pretty much
+	 * essential for any Linux system; not to mention used by
+	 * ourselves.
+	 */
+	if (system_mount ("proc", "/proc") < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn ("%s: %s", _("Unable to mount /proc filesystem"),
+			  err->message);
+		nih_free (err);
+	}
+
+	if (system_mount ("sysfs", "/sys") < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn ("%s: %s", _("Unable to mount /sys filesystem"),
+			  err->message);
+		nih_free (err);
+	}
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
 #endif /* DEBUG */
