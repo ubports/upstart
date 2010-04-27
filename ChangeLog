@@ -1,3 +1,9 @@
+2010-04-27  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump the requirement of libnih to 1.0.2 after
+	verifying that building using --with-local-libnih and an earlier
+	version installed still works.
+
 2010-04-24  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Replace the --with-local-libnih code with an

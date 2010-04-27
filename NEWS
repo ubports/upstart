@@ -7,6 +7,8 @@
 	* Fixed double-quoting issue with the --with-local-libnih configure
 	  option.  (Bug: #530385)
 
+	* libnih 1.0.2 is now required.
+
 0.6.5  2010-02-04  "Our last, best hope for victory"
 
 	* Since libnih has been separated out into its own project, Upstart
