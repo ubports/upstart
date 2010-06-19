@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -117,7 +117,7 @@ static void job_process_trace_exec      (Job *job, ProcessType process);
  * When exectued with the shell, if the command (which may be an entire
  * script) is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
- * to read commands from one of the special /dev/fd/NN devices and NihIo
+ * to read commands from one of the special /proc/self/fd/NN devices and NihIo
  * used to feed the script into that device.  A pointer to the NihIo object
  * is not kept or stored because it will automatically clean itself up should
  * the script go away as the other end of the pipe will be closed.
@@ -155,8 +155,7 @@ job_process_run (Job         *job,
 	 * the best way to deal with things like variables.
 	 */
 	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
-		struct stat  statbuf;
-		char        *nl, *p;
+		char *nl, *p;
 
 		argc = 0;
 		argv = NIH_MUST (nih_str_array_new (NULL));
@@ -175,19 +174,18 @@ job_process_run (Job         *job,
 							proc->command));
 		}
 
-		/* We can pass scripts over the command-line instead of
-		 * piping using /dev/fd/NNN.  Do it for single line scripts
-		 * and when /dev/fd doesn't exist.
+		/* Don't pipe single-line scripts into the shell using
+		 * /proc/self/fd/NNN, instead just pass them over the
+		 * command-line (taking care to strip off the trailing
+		 * newlines).
 		 */
 		p = nl = strchr (script, '\n');
 		while (p && (*p == '\n'))
 			p++;
 
-		if ((! nl) || (! *p)
-		    || (stat (DEV_FD, &statbuf) < 0)
-		    || (! S_ISDIR (statbuf.st_mode))) {
+		if ((! nl) || (! *p)) {
 			/* Strip off the newline(s) */
-			if (nl && (! *p))
+			if (nl)
 				*nl = '\0';
 
 			NIH_MUST (nih_str_array_add (&argv, NULL,
@@ -207,12 +205,12 @@ job_process_run (Job         *job,
 
 			shell = TRUE;
 
-			/* FIXME actually always want it to be /dev/fd/3 and
+			/* FIXME actually always want it to be /proc/self/fd/3 and
 			 * dup2() in the child to make it that way ... no way
 			 * of passing that yet
 			 */
 			cmd = NIH_MUST (nih_sprintf (argv, "%s/%d",
-						     DEV_FD, fds[0]));
+						     "/proc/self/fd", fds[0]));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}
@@ -567,6 +565,8 @@ job_process_error_abort (int                 fd,
 	while (write (fd, &wire_err, sizeof (wire_err)) < 0)
 		;
 
+	nih_free (err);
+
 	exit (255);
 }
 
@@ -881,11 +881,11 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) stopped by %s signal"),
+			nih_info (_("%s %s process (%d) stopped by %s signal"),
 				  job_name (job), process_name (process),
 				  pid, sig);
 		} else {
-			nih_warn (_("%s %s process (%d) stopped by signal %d"),
+			nih_info (_("%s %s process (%d) stopped by signal %d"),
 				  job_name (job), process_name (process),
 				  pid, status);
 		}
@@ -899,11 +899,11 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) continued by %s signal"),
+			nih_info (_("%s %s process (%d) continued by %s signal"),
 				  job_name (job), process_name (process),
 				  pid, sig);
 		} else {
-			nih_warn (_("%s %s process (%d) continued by signal %d"),
+			nih_info (_("%s %s process (%d) continued by signal %d"),
 				  job_name (job), process_name (process),
 				  pid, status);
 		}

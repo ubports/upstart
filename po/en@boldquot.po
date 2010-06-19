@@ -1,7 +1,7 @@
 # English translations for upstart package.
-# Copyright (C) 2009 Canonical Ltd.
+# Copyright (C) 2010 Canonical Ltd.
 # This file is distributed under the same license as the upstart package.
-# Automatically generated, 2009.
+# Automatically generated, 2010.
 #
 # All this catalog "translates" are quotation characters.
 # The msgids must be ASCII and therefore cannot contain real quotation
@@ -30,574 +30,16 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.6.3\n"
+"Project-Id-Version: upstart 0.6.6\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2009-08-02 17:27+0100\n"
-"PO-Revision-Date: 2009-08-02 17:27+0100\n"
+"POT-Creation-Date: 2010-04-27 12:24-0700\n"
+"PO-Revision-Date: 2010-04-27 12:24-0700\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-
-#: nih/command.c:61
-msgid "display list of commands"
-msgstr "display list of commands"
-
-#: nih/command.c:139
-#, c-format
-msgid "For a list of commands, try `%s help'."
-msgstr "For a list of commands, try ‘[1m%s help[0m’."
-
-#: nih/command.c:143
-msgid "COMMAND [OPTION]... [ARG]..."
-msgstr "COMMAND [OPTION]... [ARG]..."
-
-#: nih/command.c:158
-#, c-format
-msgid "%s: missing command\n"
-msgstr "%s: missing command\n"
-
-#: nih/command.c:166
-#, c-format
-msgid "%s: invalid command: %s\n"
-msgstr "%s: invalid command: %s\n"
-
-#: nih/command.c:177
-#, c-format
-msgid "%s [OPTION]..."
-msgstr "%s [OPTION]..."
-
-#: nih/command.c:403
-#, c-format
-msgid "For more information on a command, try `%s COMMAND --help'.\n"
-msgstr "For more information on a command, try ‘[1m%s COMMAND --help[0m’.\n"
-
-#: nih/command.c:426
-#, c-format
-msgid "%s commands:\n"
-msgstr "%s commands:\n"
-
-#: nih/command.c:428
-#, c-format
-msgid "Other commands:\n"
-msgstr "Other commands:\n"
-
-#: nih/command.c:430
-#, c-format
-msgid "Commands:\n"
-msgstr "Commands:\n"
-
-#: nih/io.c:1199
-msgid "Error while reading from descriptor"
-msgstr "Error while reading from descriptor"
-
-#: nih/main.c:233
-#, c-format
-msgid "Try `%s --help' for more information.\n"
-msgstr "Try ‘[1m%s --help[0m’ for more information.\n"
-
-#: nih/main.c:255
-msgid ""
-"This is free software; see the source for copying conditions.  There is NO "
-"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
-msgstr ""
-"This is free software; see the source for copying conditions.  There is NO "
-"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
-
-#: nih/main.c:318 util/shutdown.c:415
-msgid "Unable to write pid file"
-msgstr "Unable to write pid file"
-
-#: nih/option.c:95
-msgid "reduce output to errors only"
-msgstr "reduce output to errors only"
-
-#: nih/option.c:98
-msgid "increase output to include informational messages"
-msgstr "increase output to include informational messages"
-
-#: nih/option.c:102
-msgid "display this help and exit"
-msgstr "display this help and exit"
-
-#: nih/option.c:105
-msgid "output version information and exit"
-msgstr "output version information and exit"
-
-#: nih/option.c:299
-#, c-format
-msgid "%s: invalid option: -%c\n"
-msgstr "%s: invalid option: -%c\n"
-
-#: nih/option.c:392
-#, c-format
-msgid "%s: invalid option: --%s\n"
-msgstr "%s: invalid option: --%s\n"
-
-#: nih/option.c:408
-#, c-format
-msgid "%s: unexpected argument: --%s\n"
-msgstr "%s: unexpected argument: --%s\n"
-
-#: nih/option.c:464
-#, c-format
-msgid "%s: missing argument: %s\n"
-msgstr "%s: missing argument: %s\n"
-
-#: nih/option.c:664
-#, c-format
-msgid "%s: illegal argument: %s\n"
-msgstr "%s: illegal argument: %s\n"
-
-#: nih/option.c:857
-msgid "Usage"
-msgstr "Usage"
-
-#: nih/option.c:861
-msgid "[OPTION]..."
-msgstr "[OPTION]..."
-
-#: nih/option.c:909
-#, c-format
-msgid "Report bugs to <%s>\n"
-msgstr "Report bugs to <%s>\n"
-
-#: nih/option.c:911
-#, c-format
-msgid "Report bugs at <%s>\n"
-msgstr "Report bugs at <%s>\n"
-
-#: nih/option.c:936
-#, c-format
-msgid "%s options:\n"
-msgstr "%s options:\n"
-
-#: nih/option.c:938
-#, c-format
-msgid "Other options:\n"
-msgstr "Other options:\n"
-
-#: nih/option.c:940
-#, c-format
-msgid "Options:\n"
-msgstr "Options:\n"
-
-#: nih/watch.c:550
-msgid "Unable to watch directory"
-msgstr "Unable to watch directory"
-
-#: nih/errors.h:56
-msgid "Expected token"
-msgstr "Expected token"
-
-#: nih/errors.h:57
-msgid "Unexpected token"
-msgstr "Unexpected token"
-
-#: nih/errors.h:58
-msgid "Trailing slash in file"
-msgstr "Trailing slash in file"
-
-#: nih/errors.h:59
-msgid "Unterminated quoted string"
-msgstr "Unterminated quoted string"
-
-#: nih/errors.h:60
-msgid "Unterminated block"
-msgstr "Unterminated block"
-
-#: nih/errors.h:61
-msgid "Unknown stanza"
-msgstr "Unknown stanza"
-
-#: nih/errors.h:63
-msgid "Directory loop detected"
-msgstr "Directory loop detected"
-
-#: nih-dbus/dbus_object.c:311
-msgid "Invalid arguments to Introspect method"
-msgstr "Invalid arguments to Introspect method"
-
-#: nih-dbus/dbus_object.c:547
-msgid "Invalid arguments to Get method"
-msgstr "Invalid arguments to Get method"
-
-#: nih-dbus/dbus_object.c:632
-#, c-format
-msgid "The %s property is write-only"
-msgstr "The %s property is write-only"
-
-#: nih-dbus/dbus_object.c:688
-msgid "Invalid arguments to GetAll method"
-msgstr "Invalid arguments to GetAll method"
-
-#: nih-dbus/dbus_object.c:889
-msgid "Invalid arguments to Set method"
-msgstr "Invalid arguments to Set method"
-
-#: nih-dbus/dbus_object.c:969
-#, c-format
-msgid "The %s property is read-only"
-msgstr "The %s property is read-only"
-
-#: nih-dbus/errors.h:38
-msgid "Invalid arguments received in reply"
-msgstr "Invalid arguments received in reply"
-
-#: nih-dbus-tool/annotation.c:94
-msgid "Ignored unexpected <annotation> tag"
-msgstr "Ignored unexpected <annotation> tag"
-
-#: nih-dbus-tool/annotation.c:116
-msgid "Ignored unknown <annotation> attribute"
-msgstr "Ignored unknown <annotation> attribute"
-
-#: nih-dbus-tool/annotation.c:159
-msgid "Ignored unknown interface annotation"
-msgstr "Ignored unknown interface annotation"
-
-#: nih-dbus-tool/annotation.c:166
-msgid "Ignored unknown method annotation"
-msgstr "Ignored unknown method annotation"
-
-#: nih-dbus-tool/annotation.c:173
-msgid "Ignored unknown signal annotation"
-msgstr "Ignored unknown signal annotation"
-
-#: nih-dbus-tool/annotation.c:180
-msgid "Ignored unknown property annotation"
-msgstr "Ignored unknown property annotation"
-
-#: nih-dbus-tool/annotation.c:187
-msgid "Ignored unknown argument annotation"
-msgstr "Ignored unknown argument annotation"
-
-#: nih-dbus-tool/argument.c:201
-msgid "Ignored unexpected <arg> tag"
-msgstr "Ignored unexpected <arg> tag"
-
-#: nih-dbus-tool/argument.c:225
-msgid "Ignored unknown <arg> attribute"
-msgstr "Ignored unknown <arg> attribute"
-
-#: nih-dbus-tool/interface.c:214
-msgid "Ignored unexpected <interface> tag"
-msgstr "Ignored unexpected <interface> tag"
-
-#: nih-dbus-tool/interface.c:234
-msgid "Ignored unknown <interface> attribute"
-msgstr "Ignored unknown <interface> attribute"
-
-#: nih-dbus-tool/main.c:88
-#, c-format
-msgid "%s: illegal output mode: %s\n"
-msgstr "%s: illegal output mode: %s\n"
-
-#: nih-dbus-tool/main.c:307
-msgid "output mode: object, or proxy [default: proxy]"
-msgstr "output mode: object, or proxy [default: proxy]"
-
-#: nih-dbus-tool/main.c:309
-msgid "prefix for C functions [default: dbus]"
-msgstr "prefix for C functions [default: dbus]"
-
-#: nih-dbus-tool/main.c:311
-msgid "interface name not included in symbols"
-msgstr "interface name not included in symbols"
-
-#: nih-dbus-tool/main.c:313
-msgid "write C source to FILENAME, header alongside"
-msgstr "write C source to FILENAME, header alongside"
-
-#: nih-dbus-tool/main.c:334
-msgid "[XMLFILE]"
-msgstr "[XMLFILE]"
-
-#: nih-dbus-tool/main.c:335
-msgid "Generate C bindings for D-Bus objects"
-msgstr "Generate C bindings for D-Bus objects"
-
-#: nih-dbus-tool/main.c:336
-msgid "Fill this in later"
-msgstr "Fill this in later"
-
-#: nih-dbus-tool/main.c:351
-#, c-format
-msgid "%s: --output must be specified when using standard input\n"
-msgstr "%s: --output must be specified when using standard input\n"
-
-#: nih-dbus-tool/main.c:414
-msgid "No such interface"
-msgstr "No such interface"
-
-#: nih-dbus-tool/method.c:185
-msgid "Ignored unexpected <method> tag"
-msgstr "Ignored unexpected <method> tag"
-
-#: nih-dbus-tool/method.c:205
-msgid "Ignored unknown <method> attribute"
-msgstr "Ignored unknown <method> attribute"
-
-#: nih-dbus-tool/method.c:303
-msgid "Ignored NoReply annotation for method with output arguments"
-msgstr "Ignored NoReply annotation for method with output arguments"
-
-#: nih-dbus-tool/method.c:315
-msgid "Ignored Async annotation for NoReply method"
-msgstr "Ignored Async annotation for NoReply method"
-
-#: nih-dbus-tool/node.c:185
-msgid "Ignored unexpected <node> tag"
-msgstr "Ignored unexpected <node> tag"
-
-#: nih-dbus-tool/node.c:206
-msgid "Ignored unknown <node> attribute"
-msgstr "Ignored unknown <node> attribute"
-
-#: nih-dbus-tool/parse.c:206
-msgid "Ignored unknown tag"
-msgstr "Ignored unknown tag"
-
-#: nih-dbus-tool/parse.c:335
-msgid "Unable to create XML Parser"
-msgstr "Unable to create XML Parser"
-
-#: nih-dbus-tool/parse.c:354
-msgid "Unable to allocate parsing buffer"
-msgstr "Unable to allocate parsing buffer"
-
-#: nih-dbus-tool/parse.c:362
-msgid "Read error"
-msgstr "Read error"
-
-#: nih-dbus-tool/parse.c:384
-msgid "XML parse error"
-msgstr "XML parse error"
-
-#: nih-dbus-tool/parse.c:396
-msgid "No node present"
-msgstr "No node present"
-
-#: nih-dbus-tool/property.c:202
-msgid "Ignored unexpected <property> tag"
-msgstr "Ignored unexpected <property> tag"
-
-#: nih-dbus-tool/property.c:226
-msgid "Ignored unknown <property> attribute"
-msgstr "Ignored unknown <property> attribute"
-
-#: nih-dbus-tool/signal.c:183
-msgid "Ignored unexpected <signal> tag"
-msgstr "Ignored unexpected <signal> tag"
-
-#: nih-dbus-tool/signal.c:203
-msgid "Ignored unknown <signal> attribute"
-msgstr "Ignored unknown <signal> attribute"
-
-#: nih-dbus-tool/errors.h:81
-msgid "Unable to generate unique name for symbol"
-msgstr "Unable to generate unique name for symbol"
-
-#: nih-dbus-tool/errors.h:83
-msgid "Invalid object path in <node> name attribute"
-msgstr "Invalid object path in <node> name attribute"
-
-#: nih-dbus-tool/errors.h:85
-msgid "<interface> missing required name attribute"
-msgstr "<interface> missing required name attribute"
-
-#: nih-dbus-tool/errors.h:86
-msgid "Invalid interface name in <interface> name attribute"
-msgstr "Invalid interface name in <interface> name attribute"
-
-#: nih-dbus-tool/errors.h:87
-msgid ""
-"Illegal value for org.freedesktop.DBus.Deprecated interface annotation, "
-"expected 'true' or 'false'"
-msgstr ""
-"Illegal value for org.freedesktop.DBus.Deprecated interface annotation, "
-"expected ‘[1mtrue[0m’ or ‘[1mfalse[0m’"
-
-#: nih-dbus-tool/errors.h:88
-msgid "Invalid C symbol for interface"
-msgstr "Invalid C symbol for interface"
-
-#: nih-dbus-tool/errors.h:89
-msgid "Unknown annotation for interface"
-msgstr "Unknown annotation for interface"
-
-#: nih-dbus-tool/errors.h:90
-#, c-format
-msgid "Symbol '%s' already assigned to %s interface"
-msgstr "Symbol ‘[1m%s[0m’ already assigned to %s interface"
-
-#: nih-dbus-tool/errors.h:92
-msgid "<method> missing required name attribute"
-msgstr "<method> missing required name attribute"
-
-#: nih-dbus-tool/errors.h:93
-msgid "Invalid method name in <method> name attribute"
-msgstr "Invalid method name in <method> name attribute"
-
-#: nih-dbus-tool/errors.h:94
-msgid ""
-"Illegal value for org.freedesktop.DBus.Deprecated method annotation, "
-"expected 'true' or 'false'"
-msgstr ""
-"Illegal value for org.freedesktop.DBus.Deprecated method annotation, "
-"expected ‘[1mtrue[0m’ or ‘[1mfalse[0m’"
-
-#: nih-dbus-tool/errors.h:95
-msgid ""
-"Illegal value for org.freedesktop.DBus.Method.NoReply method annotation, "
-"expected 'true' or 'false'"
-msgstr ""
-"Illegal value for org.freedesktop.DBus.Method.NoReply method annotation, "
-"expected ‘[1mtrue[0m’ or ‘[1mfalse[0m’"
-
-#: nih-dbus-tool/errors.h:96
-msgid "Invalid C symbol for method"
-msgstr "Invalid C symbol for method"
-
-#: nih-dbus-tool/errors.h:97
-msgid ""
-"Illegal value for com.netsplit.Nih.Method.Async method annotation, expected "
-"'true' or 'false'"
-msgstr ""
-"Illegal value for com.netsplit.Nih.Method.Async method annotation, expected "
-"‘[1mtrue[0m’ or ‘[1mfalse[0m’"
-
-#: nih-dbus-tool/errors.h:98
-msgid "Unknown annotation for method"
-msgstr "Unknown annotation for method"
-
-#: nih-dbus-tool/errors.h:99
-#, c-format
-msgid "Symbol '%s' already assigned to %s method"
-msgstr "Symbol ‘[1m%s[0m’ already assigned to %s method"
-
-#: nih-dbus-tool/errors.h:101
-msgid "<signal> missing required name attribute"
-msgstr "<signal> missing required name attribute"
-
-#: nih-dbus-tool/errors.h:102
-msgid "Invalid signal name in <signal> name attribute"
-msgstr "Invalid signal name in <signal> name attribute"
-
-#: nih-dbus-tool/errors.h:103
-msgid ""
-"Illegal value for org.freedesktop.DBus.Deprecated signal annotation, "
-"expected 'true' or 'false'"
-msgstr ""
-"Illegal value for org.freedesktop.DBus.Deprecated signal annotation, "
-"expected ‘[1mtrue[0m’ or ‘[1mfalse[0m’"
-
-#: nih-dbus-tool/errors.h:104
-msgid "Invalid C symbol for signal"
-msgstr "Invalid C symbol for signal"
-
-#: nih-dbus-tool/errors.h:105
-msgid "Unknown annotation for signal"
-msgstr "Unknown annotation for signal"
-
-#: nih-dbus-tool/errors.h:106
-#, c-format
-msgid "Symbol '%s' already assigned to %s signal"
-msgstr "Symbol ‘[1m%s[0m’ already assigned to %s signal"
-
-#: nih-dbus-tool/errors.h:108
-msgid "<property> missing required name attribute"
-msgstr "<property> missing required name attribute"
-
-#: nih-dbus-tool/errors.h:109
-msgid "Invalid property name in <property> name attribute"
-msgstr "Invalid property name in <property> name attribute"
-
-#: nih-dbus-tool/errors.h:110
-msgid "<property> missing required type attribute"
-msgstr "<property> missing required type attribute"
-
-#: nih-dbus-tool/errors.h:111
-msgid "Invalid D-Bus type in <property> type attribute"
-msgstr "Invalid D-Bus type in <property> type attribute"
-
-#: nih-dbus-tool/errors.h:112
-msgid "<property> missing required access attribute"
-msgstr "<property> missing required access attribute"
-
-#: nih-dbus-tool/errors.h:113
-msgid ""
-"Illegal value for <property> access attribute, expected 'read', 'write' or "
-"'readwrite'"
-msgstr ""
-"Illegal value for <property> access attribute, expected 'read', ‘[1mwrite"
-"[0m’ or ‘[1mreadwrite[0m’"
-
-#: nih-dbus-tool/errors.h:114
-msgid ""
-"Illegal value for org.freedesktop.DBus.Deprecated property annotation, "
-"expected 'true' or 'false'"
-msgstr ""
-"Illegal value for org.freedesktop.DBus.Deprecated property annotation, "
-"expected ‘[1mtrue[0m’ or ‘[1mfalse[0m’"
-
-#: nih-dbus-tool/errors.h:115
-msgid "Invalid C symbol for property"
-msgstr "Invalid C symbol for property"
-
-#: nih-dbus-tool/errors.h:116
-msgid "Unknown annotation for property"
-msgstr "Unknown annotation for property"
-
-#: nih-dbus-tool/errors.h:117
-#, c-format
-msgid "Symbol '%s' already assigned to %s property"
-msgstr "Symbol ‘[1m%s[0m’ already assigned to %s property"
-
-#: nih-dbus-tool/errors.h:119
-msgid "Invalid C symbol for argument"
-msgstr "Invalid C symbol for argument"
-
-#: nih-dbus-tool/errors.h:120
-msgid "Unknown annotation for argument"
-msgstr "Unknown annotation for argument"
-
-#: nih-dbus-tool/errors.h:121
-msgid "Invalid argument name in <arg> name attribute"
-msgstr "Invalid argument name in <arg> name attribute"
-
-#: nih-dbus-tool/errors.h:122
-msgid "<arg> missing required type attribute"
-msgstr "<arg> missing required type attribute"
-
-#: nih-dbus-tool/errors.h:123
-msgid "Invalid D-Bus type in <arg> type attribute"
-msgstr "Invalid D-Bus type in <arg> type attribute"
-
-#: nih-dbus-tool/errors.h:124
-msgid "Illegal value for <arg> direction attribute, expected 'in' or 'out'"
-msgstr ""
-"Illegal value for <arg> direction attribute, expected ‘[1min[0m’ or ‘[1mout"
-"[0m’"
-
-#: nih-dbus-tool/errors.h:125
-msgid "Illegal value for <arg> direction attribute, expected 'out'"
-msgstr "Illegal value for <arg> direction attribute, expected ‘[1mout[0m’"
-
-#: nih-dbus-tool/errors.h:126
-#, c-format
-msgid "Symbol '%s' already assigned to %s argument"
-msgstr "Symbol ‘[1m%s[0m’ already assigned to %s argument"
-
-#: nih-dbus-tool/errors.h:128
-msgid "<annotation> missing required name attribute"
-msgstr "<annotation> missing required name attribute"
-
-#: nih-dbus-tool/errors.h:129
-msgid "<annotation> missing required value attribute"
-msgstr "<annotation> missing required value attribute"
 
 #: init/conf.c:237
 msgid "Unable to load configuration"
@@ -637,7 +79,7 @@ msgstr "Connection from private client"
 msgid "Disconnected from system bus"
 msgstr "Disconnected from system bus"
 
-#: init/control.c:356 init/main.c:452
+#: init/control.c:356 init/main.c:481
 msgid "Reloading configuration"
 msgstr "Reloading configuration"
 
@@ -763,16 +205,16 @@ msgstr "Job has already been stopped: %s"
 msgid "Unknown instance: %s"
 msgstr "Unknown instance: %s"
 
-#: init/job_process.c:278
+#: init/job_process.c:276
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr "Failed to spawn %s %s process: %s"
 
-#: init/job_process.c:284
+#: init/job_process.c:282
 msgid "Temporary process spawn error"
 msgstr "Temporary process spawn error"
 
-#: init/job_process.c:291
+#: init/job_process.c:289
 #, c-format
 msgid "%s %s process (%d)"
 msgstr "%s %s process (%d)"
@@ -922,11 +364,11 @@ msgstr "%s %s process (%d) became new process (%d)"
 msgid "%s %s process (%d) executable changed"
 msgstr "%s %s process (%d) executable changed"
 
-#: init/main.c:114
+#: init/main.c:115
 msgid "Process management daemon."
 msgstr "Process management daemon."
 
-#: init/main.c:116
+#: init/main.c:117
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
@@ -936,37 +378,45 @@ msgstr ""
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 
-#: init/main.c:127 util/reboot.c:158 util/shutdown.c:363 util/telinit.c:148
+#: init/main.c:128 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr "Need to be root"
 
-#: init/main.c:136
+#: init/main.c:137
 msgid "Not being executed as init"
 msgstr "Not being executed as init"
 
-#: init/main.c:184 init/main.c:362
+#: init/main.c:187 init/main.c:391
 msgid "Unable to set root directory"
 msgstr "Unable to set root directory"
 
-#: init/main.c:261
+#: init/main.c:198
+msgid "Unable to mount /proc filesystem"
+msgstr "Unable to mount /proc filesystem"
+
+#: init/main.c:207
+msgid "Unable to mount /sys filesystem"
+msgstr "Unable to mount /sys filesystem"
+
+#: init/main.c:290
 msgid "Unable to listen for private connections"
 msgstr "Unable to listen for private connections"
 
-#: init/main.c:379
+#: init/main.c:408
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr "Caught %s, core dumped"
 
-#: init/main.c:383
+#: init/main.c:412
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr "Caught %s, unable to dump core"
 
-#: init/main.c:456
+#: init/main.c:498
 msgid "Reconnecting to system bus"
 msgstr "Reconnecting to system bus"
 
-#: init/main.c:462
+#: init/main.c:504
 msgid "Unable to connect to the system bus"
 msgstr "Unable to connect to the system bus"
 
@@ -974,71 +424,76 @@ msgstr "Unable to connect to the system bus"
 msgid "main"
 msgstr "main"
 
-#: util/initctl.c:144
+#: util/initctl.c:145
 msgid "Unable to connect to system bus"
 msgstr "Unable to connect to system bus"
 
-#: util/initctl.c:153
+#: util/initctl.c:154
 #, c-format
 msgid "%s: --dest given without --system\n"
 msgstr "%s: --dest given without --system\n"
 
-#: util/initctl.c:161
+#: util/initctl.c:162
 msgid "Unable to connect to Upstart"
 msgstr "Unable to connect to Upstart"
 
-#: util/initctl.c:347 util/initctl.c:482 util/initctl.c:610 util/initctl.c:745
+#: util/initctl.c:348 util/initctl.c:483 util/initctl.c:611 util/initctl.c:745
+#: util/initctl.c:850
 #, c-format
 msgid "%s: missing job name\n"
 msgstr "%s: missing job name\n"
 
-#: util/initctl.c:960
+#: util/initctl.c:796
+msgid "Not running"
+msgstr "Not running"
+
+#: util/initctl.c:1065
 #, c-format
 msgid "%s: missing event name\n"
 msgstr "%s: missing event name\n"
 
-#: util/initctl.c:1156
+#: util/initctl.c:1261
 msgid "use D-Bus system bus to connect to init daemon"
 msgstr "use D-Bus system bus to connect to init daemon"
 
-#: util/initctl.c:1158
+#: util/initctl.c:1263
 msgid "destination well-known name on system bus"
 msgstr "destination well-known name on system bus"
 
-#: util/initctl.c:1171
+#: util/initctl.c:1276
 msgid "do not wait for job to start before exiting"
 msgstr "do not wait for job to start before exiting"
 
-#: util/initctl.c:1183
+#: util/initctl.c:1288
 msgid "do not wait for job to stop before exiting"
 msgstr "do not wait for job to stop before exiting"
 
-#: util/initctl.c:1195
+#: util/initctl.c:1300
 msgid "do not wait for job to restart before exiting"
 msgstr "do not wait for job to restart before exiting"
 
-#: util/initctl.c:1225
+#: util/initctl.c:1339
 msgid "do not wait for event to finish before exiting"
 msgstr "do not wait for event to finish before exiting"
 
-#: util/initctl.c:1264
+#: util/initctl.c:1378
 msgid "Job"
 msgstr "Job"
 
-#: util/initctl.c:1271
+#: util/initctl.c:1385
 msgid "Event"
 msgstr "Event"
 
-#: util/initctl.c:1279 util/initctl.c:1291 util/initctl.c:1302
-#: util/initctl.c:1313
+#: util/initctl.c:1393 util/initctl.c:1405 util/initctl.c:1416
+#: util/initctl.c:1427 util/initctl.c:1434
 msgid "JOB [KEY=VALUE]..."
 msgstr "JOB [KEY=VALUE]..."
 
-#: util/initctl.c:1280
+#: util/initctl.c:1394
 msgid "Start job."
 msgstr "Start job."
 
-#: util/initctl.c:1281
+#: util/initctl.c:1395
 msgid ""
 "JOB is the name of the job that is to be started, this may be followed by "
 "zero or more environment variables to be defined in the new job.\n"
@@ -1054,11 +509,11 @@ msgstr ""
 "thus decide whether a new instance will be started or an error returned if "
 "an existing instance is already running."
 
-#: util/initctl.c:1292
+#: util/initctl.c:1406
 msgid "Stop job."
 msgstr "Stop job."
 
-#: util/initctl.c:1293
+#: util/initctl.c:1407
 msgid ""
 "JOB is the name of the job that is to be stopped, this may be followed by "
 "zero or more environment variables to be passed to the job's pre-stop and "
@@ -1074,11 +529,11 @@ msgstr ""
 "The environment also serves to distinguish between job instances, and thus "
 "decide which of multiple instances will be stopped."
 
-#: util/initctl.c:1303
+#: util/initctl.c:1417
 msgid "Restart job."
 msgstr "Restart job."
 
-#: util/initctl.c:1304
+#: util/initctl.c:1418
 msgid ""
 "JOB is the name of the job that is to be restarted, this may be followed by "
 "zero or more environment variables to be defined in the job after "
@@ -1094,11 +549,25 @@ msgstr ""
 "The environment also serves to distinguish between job instances, and thus "
 "decide which of multiple instances will be restarted."
 
-#: util/initctl.c:1314
+#: util/initctl.c:1428
+msgid "Send HUP signal to job."
+msgstr "Send HUP signal to job."
+
+#: util/initctl.c:1429
+msgid ""
+"JOB is the name of the job that is to be sent the signal, this may be "
+"followed by zero or more environment variables to distinguish between job "
+"instances.\n"
+msgstr ""
+"JOB is the name of the job that is to be sent the signal, this may be "
+"followed by zero or more environment variables to distinguish between job "
+"instances.\n"
+
+#: util/initctl.c:1435
 msgid "Query status of job."
 msgstr "Query status of job."
 
-#: util/initctl.c:1315
+#: util/initctl.c:1436
 msgid ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
@@ -1106,23 +575,23 @@ msgstr ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
 
-#: util/initctl.c:1321
+#: util/initctl.c:1442
 msgid "List known jobs."
 msgstr "List known jobs."
 
-#: util/initctl.c:1322
+#: util/initctl.c:1443
 msgid "The known jobs and their current status will be output."
 msgstr "The known jobs and their current status will be output."
 
-#: util/initctl.c:1325
+#: util/initctl.c:1446
 msgid "EVENT [KEY=VALUE]..."
 msgstr "EVENT [KEY=VALUE]..."
 
-#: util/initctl.c:1326
+#: util/initctl.c:1447
 msgid "Emit an event."
 msgstr "Emit an event."
 
-#: util/initctl.c:1327
+#: util/initctl.c:1448
 msgid ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
@@ -1130,23 +599,23 @@ msgstr ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
 
-#: util/initctl.c:1333
+#: util/initctl.c:1454
 msgid "Reload the configuration of the init daemon."
 msgstr "Reload the configuration of the init daemon."
 
-#: util/initctl.c:1337
+#: util/initctl.c:1458
 msgid "Request the version of the init daemon."
 msgstr "Request the version of the init daemon."
 
-#: util/initctl.c:1340
+#: util/initctl.c:1461
 msgid "[PRIORITY]"
 msgstr "[PRIORITY]"
 
-#: util/initctl.c:1341
+#: util/initctl.c:1462
 msgid "Change the minimum priority of log messages from the init daemon"
 msgstr "Change the minimum priority of log messages from the init daemon"
 
-#: util/initctl.c:1343
+#: util/initctl.c:1464
 msgid ""
 "PRIORITY may be one of:\n"
 "  `debug' (messages useful for debugging upstart are logged, equivalent to --"
@@ -1176,31 +645,35 @@ msgstr ""
 "\n"
 "Without arguments, this outputs the current log priority."
 
-#: util/reboot.c:106
+#: util/reboot.c:113
+msgid "don't sync before reboot or halt"
+msgstr "don't sync before reboot or halt"
+
+#: util/reboot.c:115
 msgid "force reboot or halt, don't call shutdown(8)"
 msgstr "force reboot or halt, don't call shutdown(8)"
 
-#: util/reboot.c:108
+#: util/reboot.c:117
 msgid "switch off the power when called as halt"
 msgstr "switch off the power when called as halt"
 
-#: util/reboot.c:110
+#: util/reboot.c:119
 msgid "don't actually reboot or halt, just write wtmp record"
 msgstr "don't actually reboot or halt, just write wtmp record"
 
-#: util/reboot.c:136
+#: util/reboot.c:144
 msgid "Halt the system."
 msgstr "Halt the system."
 
-#: util/reboot.c:139
+#: util/reboot.c:147
 msgid "Power off the system."
 msgstr "Power off the system."
 
-#: util/reboot.c:142
+#: util/reboot.c:150
 msgid "Reboot the system."
 msgstr "Reboot the system."
 
-#: util/reboot.c:146
+#: util/reboot.c:154
 msgid ""
 "This command is intended to instruct the kernel to reboot or halt the "
 "system; when run without the -f option, or when in a system runlevel other "
@@ -1210,24 +683,24 @@ msgstr ""
 "system; when run without the -f option, or when in a system runlevel other "
 "than 0 or 6, it will actually execute /sbin/shutdown.\n"
 
-#: util/reboot.c:201
+#: util/reboot.c:209
 msgid "Calling shutdown"
 msgstr "Calling shutdown"
 
-#: util/reboot.c:204
+#: util/reboot.c:212
 #, c-format
 msgid "Unable to execute shutdown: %s"
 msgstr "Unable to execute shutdown: %s"
 
-#: util/reboot.c:222
+#: util/reboot.c:233
 msgid "Rebooting"
 msgstr "Rebooting"
 
-#: util/reboot.c:226
+#: util/reboot.c:237
 msgid "Halting"
 msgstr "Halting"
 
-#: util/reboot.c:230
+#: util/reboot.c:241
 msgid "Powering off"
 msgstr "Powering off"
 
@@ -1355,37 +828,41 @@ msgstr "Cannot find pid of running shutdown"
 msgid "Unable to change directory"
 msgstr "Unable to change directory"
 
-#: util/shutdown.c:510
+#: util/shutdown.c:415
+msgid "Unable to write pid file"
+msgstr "Unable to write pid file"
+
+#: util/shutdown.c:511
 msgid "Shutdown cancelled"
 msgstr "Shutdown cancelled"
 
-#: util/shutdown.c:595
+#: util/shutdown.c:596
 msgid "The system is going down for power off NOW!"
 msgstr "The system is going down for power off NOW!"
 
-#: util/shutdown.c:608
+#: util/shutdown.c:609
 msgid "The system is going down for halt NOW!"
 msgstr "The system is going down for halt NOW!"
 
-#: util/shutdown.c:621
+#: util/shutdown.c:622
 msgid "The system is going down for maintenance NOW!"
 msgstr "The system is going down for maintenance NOW!"
 
-#: util/shutdown.c:634
+#: util/shutdown.c:635
 msgid "The system is going down for reboot NOW!"
 msgstr "The system is going down for reboot NOW!"
 
-#: util/shutdown.c:681
+#: util/shutdown.c:682
 #, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr "Unable to fork child-process to warn users: %s"
 
-#: util/shutdown.c:726
+#: util/shutdown.c:727
 #, c-format
 msgid "Broadcast message from %s@%s"
 msgstr "Broadcast message from %s@%s"
 
-#: util/shutdown.c:728
+#: util/shutdown.c:729
 #, c-format
 msgid "(%s) at %d:%02d ..."
 msgstr "(%s) at %d:%02d ..."

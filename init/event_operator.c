@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -295,14 +295,24 @@ event_operator_match (EventOperator *oper,
 	     oenv++, eenv++) {
 		nih_local char *expoval = NULL;
 		char           *oval, *eval;
+		int             negate = FALSE;
 		int             ret;
 
-		oval = strchr (*oenv, '=');
+		oval = strstr (*oenv, "!=");
+		if (! oval)
+			oval = strchr (*oenv, '=');
+
 		if (oval) {
 			/* Hunt through the event environment to find the
 			 * equivalent entry */
 			eenv = environ_lookup (event->env, *oenv,
 					       oval - *oenv);
+
+			/* != means we negate the result (and skip the !) */
+			if (*oval == '!') {
+				negate = TRUE;
+				oval++;
+			}
 
 			/* Value to match against follows the equals. */
 			oval++;
@@ -343,7 +353,7 @@ event_operator_match (EventOperator *oper,
 
 		ret = fnmatch (expoval, eval, 0);
 
-		if (ret)
+		if (negate ? (! ret) : ret)
 			return FALSE;
 	}
 

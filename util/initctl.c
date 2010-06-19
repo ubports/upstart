@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -68,6 +68,7 @@ static void   error_handler       (void *data, NihDBusMessage *message);
 int start_action                (NihCommand *command, char * const *args);
 int stop_action                 (NihCommand *command, char * const *args);
 int restart_action              (NihCommand *command, char * const *args);
+int reload_action               (NihCommand *command, char * const *args);
 int status_action               (NihCommand *command, char * const *args);
 int list_action                 (NihCommand *command, char * const *args);
 int emit_action                 (NihCommand *command, char * const *args);
@@ -709,6 +710,110 @@ error:
 
 
 /**
+ * reload_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "reload" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+reload_action (NihCommand *  command,
+	       char * const *args)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	const char *            upstart_job = NULL;
+	const char *            upstart_instance = NULL;
+	nih_local char *        job_class_path = NULL;
+	nih_local NihDBusProxy *job_class = NULL;
+	nih_local char *        job_path = NULL;
+	nih_local NihDBusProxy *job = NULL;
+	nih_local JobProcessesElement **processes = NULL;
+	NihError *              err;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (args[0]) {
+		upstart_job = args[0];
+	} else {
+		upstart_job = getenv ("UPSTART_JOB");
+		upstart_instance = getenv ("UPSTART_INSTANCE");
+
+		if (! (upstart_job && upstart_instance)) {
+			fprintf (stderr, _("%s: missing job name\n"), program_name);
+			nih_main_suggest_help ();
+			return 1;
+		}
+	}
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	/* Obtain a proxy to the job */
+	if (upstart_get_job_by_name_sync (NULL, upstart, upstart_job,
+					  &job_class_path) < 0)
+		goto error;
+
+	job_class = nih_dbus_proxy_new (NULL, upstart->connection,
+					upstart->name, job_class_path,
+					NULL, NULL);
+	if (! job_class)
+		goto error;
+
+	job_class->auto_start = FALSE;
+
+	/* Obtain a proxy to the specific instance.  Catch the case where
+	 * we were just given a job name, and there was no single instance
+	 * running.
+	 */
+	if (upstart_instance) {
+		if (job_class_get_instance_by_name_sync (NULL, job_class,
+							 upstart_instance,
+							 &job_path) < 0)
+			goto error;
+	} else {
+		if (job_class_get_instance_sync (NULL, job_class,
+						 &args[1], &job_path) < 0)
+			goto error;
+	}
+
+	job = nih_dbus_proxy_new (NULL, upstart->connection,
+				  upstart->name, job_path,
+				  NULL, NULL);
+	if (! job)
+		goto error;
+
+	job->auto_start = FALSE;
+
+	/* Get the process list */
+	if (job_get_processes_sync (NULL, job, &processes) < 0)
+		goto error;
+
+	if ((! processes[0]) || strcmp (processes[0]->item0, "main")) {
+		nih_error (_("Not running"));
+		return 1;
+	}
+
+	if (kill (processes[0]->item1, SIGHUP) < 0) {
+		nih_error_raise_system ();
+		goto error;
+	}
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+
+/**
  * status_action:
  * @command: NihCommand invoked,
  * @args: command-line arguments.
@@ -1199,6 +1304,15 @@ NihOption restart_options[] = {
 };
 
 /**
+ * reload_options:
+ *
+ * Command-line options accepted for the reload command.
+ **/
+NihOption reload_options[] = {
+	NIH_OPTION_LAST
+};
+
+/**
  * status_options:
  *
  * Command-line options accepted for the status command.
@@ -1309,6 +1423,13 @@ static NihCommand commands[] = {
 	     "instances, and thus decide which of multiple instances will "
 	     "be restarted."),
 	  &job_commands, restart_options, restart_action },
+
+	{ "reload", N_("JOB [KEY=VALUE]..."),
+	  N_("Send HUP signal to job."),
+	  N_("JOB is the name of the job that is to be sent the signal, "
+	     "this may be followed by zero or more environment variables "
+	     "to distinguish between job instances.\n"),
+	  &job_commands, reload_options, reload_action },
 
 	{ "status", N_("JOB [KEY=VALUE]..."),
 	  N_("Query status of job."),
