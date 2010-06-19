@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -52,16 +52,6 @@
  **/
 #ifndef DEV_NULL
 #define DEV_NULL "/dev/null"
-#endif
-
-/**
- * DEV_FD:
- *
- * Directory containing the special file descriptor nodes for the running
- * process.
- **/
-#ifndef DEV_FD
-#define DEV_FD "/dev/fd"
 #endif
 
 

@@ -1,7 +1,7 @@
-.TH init 5 2009-07-09 "Upstart"
+.TH init 5 2010-02-04 "Upstart"
 .\"
 .SH NAME
-init \- init daemon job configuration
+init \- Upstart init daemon job configuration
 .\"
 .SH SYNOPSIS
 .B /etc/init
@@ -228,10 +228,19 @@ and may expand the value of any variable defined with the
 .B env
 stanza.
 
+Negation is permitted by using
+.I !=
+between the
+.I KEY
+and
+.IR VALUE .
+
 .nf
 start on started gdm or started kdm
 
 start on device-added SUBSYSTEM=tty DEVPATH=ttyS*
+
+start on net-device-added INTERFACE!=lo
 .fi
 .\"
 .TP
@@ -283,9 +292,12 @@ are mostly used by the
 utility to default to acting on the job the commands are called from.
 
 .TP
-.B env \fIKEY\fR=\fIVALUE\fR
+.B env \fIKEY\fR[=\fIVALUE\fR]
 Defines a default environment variable, the value of which may be overriden
 by the event or command that starts the job.
+If no value is given, then the value is taken from the
+.BR init (8)
+daemon's own environment.
 .\"
 .TP
 .B export \fIKEY\fR

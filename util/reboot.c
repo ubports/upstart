@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -76,6 +76,13 @@ enum {
 
 
 /**
+ * no_sync:
+ *
+ * TRUE to suppress the call to sync() before reboot().
+ **/
+static int no_sync = FALSE;
+
+/**
  * force:
  *
  * TRUE to behave as if we're called by shutdown.
@@ -103,6 +110,8 @@ static int exit_only = FALSE;
  * Command-line options accepted.
  **/
 static NihOption options[] = {
+	{ 'n', "no-sync", N_("don't sync before reboot or halt"),
+	  NULL, NULL, &no_sync, NULL },
 	{ 'f', "force", N_("force reboot or halt, don't call shutdown(8)"),
 	  NULL, NULL, &force, NULL },
 	{ 'p', "poweroff", N_("switch off the power when called as halt"),
@@ -112,7 +121,6 @@ static NihOption options[] = {
 
 	/* Compatibility options, all ignored */
 	{ 'd', NULL, NULL, NULL, NULL, NULL, NULL },
-	{ 'n', NULL, NULL, NULL, NULL, NULL, NULL },
 	{ 'i', NULL, NULL, NULL, NULL, NULL, NULL },
 	{ 'h', NULL, NULL, NULL, NULL, NULL, NULL },
 
@@ -212,6 +220,9 @@ main (int   argc,
 
 	if (exit_only)
 		exit (0);
+
+	if (! no_sync)
+		sync ();
 
 	/* Re-enable Control-Alt-Delete in case it breaks */
 	reboot (RB_ENABLE_CAD);

@@ -1,3 +1,36 @@
+upstart (0.6.6-1) unstable; urgency=low
+
+  * New upstream release.
+    - Mount /proc and /sys on initialisation. Closes: #577710
+    - Since version 0.6.5 upstart no longer includes a internal copy of libnih
+      but instead depends on it being installed system wide.
+    - Provide a separate function to reconnect to the D-Bus system bus which
+      can be triggered by the SIGUSR1 signal as a config reload has the
+      negative side effect of losing state.
+  * debian/control
+    - Add Build-Depends on libnih-dev (>= 1.0.2), libnih-dbus-dev (>= 1.0.2)
+      and nih-dbus-tool.
+    - Bump Standards-Version to 3.8.4. No further changes.
+    - Add ${misc:Depends}.
+  * debian/conf/dbus-reconnect.conf
+    - Use SIGUSR1 to tell upstart to reconnect to the D-Bus system bus.
+  * debian/upstart.docs
+    - Remove ChangeLog.nih which is no longer included in the source.
+  * debian/conf/tty*.conf
+    - Run getty in 8-bit clean mode to better handle UTF-8 environments.
+  * Switch to source format 3.0 (quilt).
+    - Drop Build-Depends on quilt.
+    - Remove quilt.make include and patch/unpatch targets from debian/rules.
+    - Add debian/source/format.
+  * Add SELinux support. Closes: #543420
+    - Add debian/patches/01-selinux.patch to make upstart load the policy if
+      SELinux is enabled. Patch by Russell Coker with some minor changes and
+      build system integration.
+    - Add debian/patches/99-autoreconf.patch.
+    - Add Build-Depends on libselinux-dev.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 19 Jun 2010 21:15:12 +0200
+
 upstart (0.6.3-1) unstable; urgency=low
 
   * New upstream release.

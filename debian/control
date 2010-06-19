@@ -3,15 +3,15 @@ Section: admin
 Priority: extra
 Maintainer: Michael Biebl <biebl@debian.org>
 Uploaders: martin f. krafft <madduck@debian.org>
-Standards-Version: 3.8.2
-Build-Depends: debhelper (>= 7), quilt, pkg-config (>= 0.22), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0)
+Standards-Version: 3.8.4
+Build-Depends: debhelper (>= 7), pkg-config (>= 0.22), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libnih-dev (>= 1.0.2), libnih-dbus-dev (>= 1.0.2), nih-dbus-tool, libselinux1-dev [!hurd-i386 !kfreebsd-i386 !kfreebsd-amd64]
 Vcs-Git: git://git.debian.org/git/collab-maint/upstart.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/upstart.git;a=summary
 Homepage: http://upstart.ubuntu.com/
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts
+Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Provides: upstart-job

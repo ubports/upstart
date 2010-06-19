@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,6 +33,9 @@ int system_kill          (pid_t pid, int force)
 	__attribute__ ((warn_unused_result));
 
 int system_setup_console (ConsoleType type, int reset)
+	__attribute__ ((warn_unused_result));
+
+int system_mount         (const char *type, const char *dir)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

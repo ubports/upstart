@@ -2,7 +2,7 @@
  *
  * test_event_operator.c - test suite for init/event_operator.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -84,10 +84,12 @@ test_operator_new (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (oper, NULL);
-			TEST_ALLOC_ORPHAN (env);
+			TEST_ALLOC_PARENT (env, NULL);
 			nih_free (env);
 			continue;
 		}
+
+		nih_discard (env);
 
 		TEST_ALLOC_SIZE (oper, sizeof (EventOperator));
 		TEST_EQ_P (oper->node.parent, NULL);
@@ -577,6 +579,44 @@ test_operator_match (void)
 	oper->env[0] = "FRODO=foo";
 	oper->env[1] = "BILBO=baz";
 	oper->env[2] = "MERRY=bar";
+	oper->env[3] = NULL;
+
+	TEST_FALSE (event_operator_match (oper, event, NULL));
+
+
+ 	/* Check that negation permits matching against a value other than
+	 * the one given.
+	 */
+	TEST_FEATURE ("with environment lists and wrong values negated");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO!=baz";
+	oper->env[2] = "MERRY=baz";
+	oper->env[3] = NULL;
+
+	TEST_TRUE (event_operator_match (oper, event, NULL));
+
+
+	/* Check that negation means that a matching value is not considered
+	 * a match.
+	 */
+	TEST_FEATURE ("with environment lists and correct values negated");
+	event->env = env1;
+	event->env[0] = "FRODO=foo";
+	event->env[1] = "BILBO=bar";
+	event->env[2] = "MERRY=baz";
+	event->env[3] = NULL;
+
+	oper->env = env2;
+	oper->env[0] = "FRODO=foo";
+	oper->env[1] = "BILBO!=bar";
+	oper->env[2] = "MERRY=baz";
 	oper->env[3] = NULL;
 
 	TEST_FALSE (event_operator_match (oper, event, NULL));

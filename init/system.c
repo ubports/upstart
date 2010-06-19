@@ -2,7 +2,7 @@
  *
  * system.c - core system functions
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,13 +26,17 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 
 #include <fcntl.h>
 #include <signal.h>
+#include <string.h>
 #include <unistd.h>
 #include <termios.h>
 
 #include <nih/macros.h>
+#include <nih/alloc.h>
+#include <nih/string.h>
 #include <nih/error.h>
 #include <nih/logging.h>
 
@@ -156,6 +160,59 @@ system_setup_console (ConsoleType type,
 	/* Copy to standard output and standard error */
 	while (dup (fd) < 2)
 		;
+
+	return 0;
+}
+
+
+/**
+ * system_mount:
+ * @type: filesystem type,
+ * @dir: mountpoint.
+ *
+ * Mount the kernel filesystem @type at @dir, if not already mounted.  This
+ * is used to ensure that the proc and sysfs filesystems are always
+ * available.
+ *
+ * Filesystems are always mounted with the MS_NODEV, MS_NOEXEC and MS_NOSUID
+ * mount options, which are sensible for /proc and /sys.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+system_mount (const char *type,
+	      const char *dir)
+{
+	nih_local char *parent = NULL;
+	char *          ptr;
+	struct stat     parent_stat;
+	struct stat     dir_stat;
+
+	nih_assert (type != NULL);
+	nih_assert (dir != NULL);
+
+	/* Stat the parent directory of the mountpoint to obtain the dev_t */
+	ptr = strrchr (dir, '/');
+	nih_assert (ptr != NULL);
+
+	parent = NIH_MUST (nih_strndup (NULL, dir, ptr == dir ? 1 : ptr - dir));
+	if (stat (parent, &parent_stat) < 0)
+		nih_return_system_error (-1);
+
+	/* Also stat the mountpoint to obtain the dev_t */
+	if (stat (dir, &dir_stat) < 0)
+		nih_return_system_error (-1);
+
+	/* If the two dev_ts do not match, then there is already a filesystem
+	 * mounted and we needn't do anything.
+	 */
+	if (parent_stat.st_dev != dir_stat.st_dev)
+		return 0;
+
+	/* Mount the filesystem */
+	if (mount ("none", dir, type,
+		   MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0)
+		nih_return_system_error (-1);
 
 	return 0;
 }

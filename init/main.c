@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,6 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -36,6 +35,10 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
 
 #include <linux/kd.h>
 
@@ -66,6 +69,7 @@ static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
 static void hup_handler     (void *data, NihSignal *signal);
+static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
 
 
@@ -107,6 +111,25 @@ main (int   argc,
 {
 	char **args;
 	int    ret;
+#ifdef HAVE_SELINUX
+	int    enforce = 0;
+
+	if (getenv ("SELINUX_INIT") == NULL) {
+		putenv ("SELINUX_INIT=YES");
+		if (selinux_init_load_policy (&enforce) == 0 ) {
+			execv (argv[0], argv);
+		} else {
+			if (enforce > 0) {
+				/* SELinux in enforcing mode but load_policy
+				 * failed. At this point, we probably can't
+				 * open /dev/console, so log() won't work.
+				 */
+				fprintf (stderr, "Unable to load SELinux Policy. Machine is in enforcing mode. Halting now.\n");
+				exit (1);
+			}
+		}
+	}
+#endif /* HAVE_SELINUX */
 
 	argv0 = argv[0];
 	nih_main_init (argv0);
@@ -172,6 +195,8 @@ main (int   argc,
 	 */
 	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
+	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+		nih_free (nih_error_get ());
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);
@@ -183,6 +208,28 @@ main (int   argc,
 	if (chdir ("/"))
 		nih_warn ("%s: %s", _("Unable to set root directory"),
 			  strerror (errno));
+
+	/* Mount the /proc and /sys filesystems, which are pretty much
+	 * essential for any Linux system; not to mention used by
+	 * ourselves.
+	 */
+	if (system_mount ("proc", "/proc") < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn ("%s: %s", _("Unable to mount /proc filesystem"),
+			  err->message);
+		nih_free (err);
+	}
+
+	if (system_mount ("sysfs", "/sys") < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn ("%s: %s", _("Unable to mount /sys filesystem"),
+			  err->message);
+		nih_free (err);
+	}
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
 #endif /* DEBUG */
@@ -234,6 +281,10 @@ main (int   argc,
 	/* SIGHUP instructs us to re-load our configuration */
 	nih_signal_set_handler (SIGHUP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
+
+	/* SIGUSR1 instructs us to reconnect to D-Bus */
+	nih_signal_set_handler (SIGUSR1, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
 #endif /* DEBUG */
 
 
@@ -451,7 +502,20 @@ hup_handler (void      *data,
 {
 	nih_info (_("Reloading configuration"));
 	conf_reload ();
+}
 
+/**
+ * usr1_handler:
+ * @data: unused,
+ * @signal: signal that called this handler.
+ *
+ * Handle having recieved the SIGUSR signal, which we use to instruct us to
+ * reconnect to D-Bus.
+ **/
+static void
+usr1_handler (void      *data,
+	      NihSignal *signal)
+{
 	if (! control_bus) {
 		nih_info (_("Reconnecting to system bus"));
 
