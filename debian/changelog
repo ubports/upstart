@@ -1,3 +1,10 @@
+upstart (0.6.6-1ubuntu1) maverick; urgency=low
+
+  * Try buying with -fPIE/-pie on armel again; we have a shiny new armel
+    toolchain and this part of the rules was broken in 0.6.6-1 anyway.
+
+ -- Loïc Minier <loic.minier@ubuntu.com>  Fri, 23 Jul 2010 14:54:11 +0200
+
 upstart (0.6.6-1) maverick; urgency=low
 
   * New upstream release:

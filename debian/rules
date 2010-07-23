@@ -6,13 +6,6 @@
 CFLAGS = -Wall -g -fstack-protector -fPIE
 LDFLAGS = -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -pie
 
-# Disable PIE on armel
-DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
-ifeq ($(DEB_HOST_ARCH),armel)
-CFLAGS="$(filter-out -fPIE,$(CFLAGS))"
-LDFLAGS="$(filter-out -pie,$(LDFLAGS))"
-endif
-
 # Disable optimisations if noopt found in $DEB_BUILD_OPTIONS
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0
