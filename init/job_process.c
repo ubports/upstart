@@ -430,8 +430,20 @@ job_process_spawn (JobClass     *class,
 	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
 	 * later.
 	 */
-	if (system_setup_console (class->console, FALSE) < 0)
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+	if (system_setup_console (class->console, FALSE) < 0) {
+		if (class->console == CONSOLE_OUTPUT) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn (_("Failed to open system console: %s"),
+				  err->message);
+			nih_free (err);
+
+			if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+		} else
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+	}
 
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job class such that they inherit from

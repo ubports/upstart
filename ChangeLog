@@ -1,3 +1,11 @@
+2010-08-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_spawn): We can fail to open the
+	system console for various reasons, sometimes because there isn't
+	a console (ENXIO or ENODEV) but worse due to kernel race conditions
+	on SMP/multi-core systems (EIO).  If "console output" is used, and
+	these happen, fall back to /dev/null.
+
 2010-04-27  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.6.7
