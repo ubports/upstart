@@ -1,3 +1,10 @@
+upstart (0.6.6-3) maverick; urgency=low
+
+  * Ubuntu seems to have stopped installing Recommends of Build-Depends,
+    add a Build-Depend on dbus.  LP: #602130.
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 12 Aug 2010 16:38:05 -0400
+
 upstart (0.6.6-2) maverick; urgency=low
 
   * Apply patch from trunk to use /dev/null when /dev/console is unavailable
