@@ -1,3 +1,9 @@
+upstart (0.6.6-2) UNRELEASED; urgency=low
+
+  * 
+
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 12 Aug 2010 09:50:09 -0400
+
 upstart (0.6.6-1ubuntu1) maverick; urgency=low
 
   * Try buying with -fPIE/-pie on armel again; we have a shiny new armel
