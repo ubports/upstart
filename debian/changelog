@@ -1,10 +1,10 @@
-upstart (0.6.6-2) UNRELEASED; urgency=low
+upstart (0.6.6-2) maverick; urgency=low
 
   * Apply patch from trunk to use /dev/null when /dev/console is unavailable
     due to kernel bugs.  This isn't a fix for those bugs, but it does work
     around it for now.  LP: #554172.
 
- -- Scott James Remnant <scott@ubuntu.com>  Thu, 12 Aug 2010 09:50:09 -0400
+ -- Scott James Remnant <scott@ubuntu.com>  Thu, 12 Aug 2010 09:52:07 -0400
 
 upstart (0.6.6-1ubuntu1) maverick; urgency=low
 
