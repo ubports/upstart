@@ -36,6 +36,10 @@
       <arg name="wait" type="b" direction="in" />
     </method>
 
+    <signal name="StateChanged">
+      <arg name="state" type="s" />
+    </signal>
+
     <!-- Basic information about an Instance -->
     <property name="name" type="s" access="read" />
     <property name="goal" type="s" access="read" />

@@ -615,7 +615,7 @@ test_change_state (void)
 	DBusError        dbus_error;
 	DBusConnection  *conn, *client_conn;
 	DBusMessage     *message;
-	char            *path, *job_path = NULL;
+	char            *path, *job_path = NULL, *state;
 	int              status;
 
 	TEST_FUNCTION ("job_change_state");
@@ -653,9 +653,25 @@ test_change_state (void)
 	 * environment from start_env.
 	 */
 	TEST_FEATURE ("waiting to starting");
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
+			job_path = nih_strdup (NULL, job->path);
 
 			assert (nih_str_array_add (&(job->start_env), job,
 						   NULL, "FOO=BAR"));
@@ -666,6 +682,14 @@ test_change_state (void)
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
 		}
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
+						   "InstanceAdded"));
+
+		dbus_message_unref (message);
 
 		job->goal = JOB_START;
 		job->state = JOB_WAITING;
@@ -685,6 +709,22 @@ test_change_state (void)
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_INSTANCE,
+						   "StateChanged"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), job_path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_STRING, &state,
+						  DBUS_TYPE_INVALID));
+
+		TEST_EQ_STR (state, "starting");
+
+		dbus_message_unref (message);
 
 		TEST_EQ (cause->blockers, 1);
 		TEST_EQ (cause->failed, FALSE);
@@ -727,6 +767,14 @@ test_change_state (void)
 
 		nih_free (job);
 	}
+
+	nih_free (entry);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 
 
 	/* Check that a named instance of a job can move from waiting to
@@ -3370,6 +3418,18 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_INSTANCE,
+						   "StateChanged"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), job_path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_STRING, &state,
+						  DBUS_TYPE_INVALID));
+
+		TEST_EQ_STR (state, "waiting");
 
 		TEST_DBUS_MESSAGE (client_conn, message);
 		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,

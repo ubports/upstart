@@ -1,3 +1,11 @@
+2010-11-10  Colin Watson  <cjwatson@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.Instance.xml (StateChanged): New signal.
+	* init/job.c (job_change_state): Emit StateChanged signal after
+	changing state.
+	* init/tests/test_job.c (test_change_state): Test for this.
+	* NEWS: Update.
+
 2010-08-12  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_process.c (job_process_spawn): We can fail to open the

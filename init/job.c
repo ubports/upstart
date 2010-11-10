@@ -288,6 +288,15 @@ job_change_state (Job      *job,
 		old_state = job->state;
 		job->state = state;
 
+		NIH_LIST_FOREACH (control_conns, iter) {
+			NihListEntry   *entry = (NihListEntry *)iter;
+			DBusConnection *conn = (DBusConnection *)entry->data;
+
+			NIH_ZERO (job_emit_state_changed (
+					conn, job->path,
+					job_state_name (job->state)));
+		}
+
 		/* Perform whatever action is necessary to enter the new
 		 * state, such as executing a process or emitting an event.
 		 */

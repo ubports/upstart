@@ -1,5 +1,8 @@
 0.6.7  xxxx-xx-xx
 
+	* Upstart now emits a "StateChanged" D-Bus signal immediately after
+	  changing the "state" property of an instance.
+
 0.6.6  2010-04-27  "No, she's dead, this is her son"
 
 	* Upstart will automatically mount /proc and /sys on boot if they
