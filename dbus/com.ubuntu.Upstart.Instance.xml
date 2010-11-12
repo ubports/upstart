@@ -38,6 +38,7 @@
 
     <signal name="StateChanged">
       <arg name="state" type="s" />
+      <arg name="env" type="as" />
     </signal>
 
     <!-- Basic information about an Instance -->

@@ -609,7 +609,8 @@ test_change_state (void)
 	Event           *cause, *event;
 	struct stat      statbuf;
 	char             dirname[PATH_MAX], filename[PATH_MAX];
-	char           **env1, **env2, **env3;
+	char           **env1, **env2, **env3, **dbus_env;
+	int              n_dbus_env;
 	Process         *tmp, *fail;
 	pid_t            pid, dbus_pid;
 	DBusError        dbus_error;
@@ -720,10 +721,15 @@ test_change_state (void)
 
 		TEST_TRUE (dbus_message_get_args (message, NULL,
 						  DBUS_TYPE_STRING, &state,
+						  DBUS_TYPE_ARRAY,
+						  DBUS_TYPE_STRING,
+						  &dbus_env, &n_dbus_env,
 						  DBUS_TYPE_INVALID));
 
 		TEST_EQ_STR (state, "starting");
+		TEST_EQ (n_dbus_env, 0);
 
+		dbus_free_string_array (dbus_env);
 		dbus_message_unref (message);
 
 		TEST_EQ (cause->blockers, 1);
@@ -3427,9 +3433,17 @@ test_change_state (void)
 
 		TEST_TRUE (dbus_message_get_args (message, NULL,
 						  DBUS_TYPE_STRING, &state,
+						  DBUS_TYPE_ARRAY,
+						  DBUS_TYPE_STRING,
+						  &dbus_env, &n_dbus_env,
 						  DBUS_TYPE_INVALID));
+		TEST_EQ (n_dbus_env, 1);
+		TEST_EQ_STR (dbus_env[0], "RESULT=failed");
 
 		TEST_EQ_STR (state, "waiting");
+
+		dbus_free_string_array (dbus_env);
+		dbus_message_unref (message);
 
 		TEST_DBUS_MESSAGE (client_conn, message);
 		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,

@@ -277,8 +277,10 @@ job_change_state (Job      *job,
 	nih_assert (job != NULL);
 
 	while (job->state != state) {
-		JobState old_state;
-		int      unused;
+		JobState         old_state;
+		size_t           len;
+		nih_local char **env = NULL;
+		int              unused;
 
 		nih_assert (job->blocker == NULL);
 
@@ -288,13 +290,34 @@ job_change_state (Job      *job,
 		old_state = job->state;
 		job->state = state;
 
+		/* Only bother to construct the D-Bus StateChanged signal
+		 * environment if somebody's listening on the bus.
+		 */
+		if (! NIH_LIST_EMPTY (control_conns)) {
+			int stop = FALSE;
+
+			if (job->state == JOB_STOPPING ||
+			    job->state == JOB_WAITING)
+				stop = TRUE;
+
+			len = 0;
+			env = NIH_MUST (nih_str_array_new (NULL));
+
+			if (stop && job->failed)
+				NIH_MUST (environ_add (&env, NULL, &len, TRUE,
+						       "RESULT=failed"));
+			else if (stop)
+				NIH_MUST (environ_add (&env, NULL, &len, TRUE,
+						       "RESULT=ok"));
+		}
+
 		NIH_LIST_FOREACH (control_conns, iter) {
 			NihListEntry   *entry = (NihListEntry *)iter;
 			DBusConnection *conn = (DBusConnection *)entry->data;
 
 			NIH_ZERO (job_emit_state_changed (
 					conn, job->path,
-					job_state_name (job->state)));
+					job_state_name (job->state), env));
 		}
 
 		/* Perform whatever action is necessary to enter the new
