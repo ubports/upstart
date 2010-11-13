@@ -36,6 +36,9 @@
       <arg name="wait" type="b" direction="in" />
     </method>
 
+    <signal name="GoalChanged">
+      <arg name="goal" type="s" />
+    </signal>
     <signal name="StateChanged">
       <arg name="state" type="s" />
     </signal>

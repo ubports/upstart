@@ -225,6 +225,15 @@ job_change_goal (Job     *job,
 
 	job->goal = goal;
 
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (job_emit_goal_changed (
+				conn, job->path,
+				job_goal_name (job->goal)));
+	}
+
 
 	/* Normally whatever process or event is associated with the state
 	 * will finish naturally, so all we need do is change the goal and

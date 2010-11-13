@@ -371,9 +371,15 @@ test_register (void)
 void
 test_change_goal (void)
 {
-	JobClass *class;
-	Job      *job = NULL;
-	Blocked  *blocked;
+	JobClass        *class;
+	Job             *job = NULL;
+	Blocked         *blocked;
+	DBusError        dbus_error;
+	pid_t            dbus_pid;
+	DBusConnection  *conn, *client_conn;
+	NihListEntry    *entry = NULL;
+	DBusMessage     *message;
+	char            *job_path = NULL, *goal, *state;
 
 	TEST_FUNCTION ("job_change_goal");
 	event_init ();
@@ -388,6 +394,21 @@ test_change_goal (void)
 	class->process[PROCESS_POST_STOP] = process_new (class);
 	class->process[PROCESS_POST_STOP]->command = "echo";
 
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+
 
 	/* Check that an attempt to start a waiting job results in the
 	 * goal being changed to start, and the state transitioned to
@@ -397,12 +418,49 @@ test_change_goal (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
+			job_path = nih_strdup (NULL, job->path);
 		}
 
 		job->goal = JOB_STOP;
 		job->state = JOB_WAITING;
 
 		job_change_goal (job, JOB_START);
+
+		dbus_connection_flush (conn);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_JOB,
+						   "InstanceAdded"));
+
+		dbus_message_unref (message);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_INSTANCE,
+						   "GoalChanged"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), job_path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_STRING, &goal,
+						  DBUS_TYPE_INVALID));
+
+		TEST_EQ_STR (goal, "start");
+
+		dbus_message_unref (message);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_INSTANCE,
+						   "StateChanged"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), job_path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_STRING, &state,
+						  DBUS_TYPE_INVALID));
+
+		TEST_EQ_STR (state, "starting");
+
+		dbus_message_unref (message);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);
@@ -422,6 +480,14 @@ test_change_goal (void)
 
 		nih_free (job);
 	}
+
+	nih_free (entry);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 
 
 	/* Check that an attempt to start a job that's in the process of
