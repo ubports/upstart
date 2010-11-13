@@ -609,8 +609,7 @@ test_change_state (void)
 	Event           *cause, *event;
 	struct stat      statbuf;
 	char             dirname[PATH_MAX], filename[PATH_MAX];
-	char           **env1, **env2, **env3, **dbus_env;
-	int              n_dbus_env;
+	char           **env1, **env2, **env3;
 	Process         *tmp, *fail;
 	pid_t            pid, dbus_pid;
 	DBusError        dbus_error;
@@ -721,15 +720,10 @@ test_change_state (void)
 
 		TEST_TRUE (dbus_message_get_args (message, NULL,
 						  DBUS_TYPE_STRING, &state,
-						  DBUS_TYPE_ARRAY,
-						  DBUS_TYPE_STRING,
-						  &dbus_env, &n_dbus_env,
 						  DBUS_TYPE_INVALID));
 
 		TEST_EQ_STR (state, "starting");
-		TEST_EQ (n_dbus_env, 0);
 
-		dbus_free_string_array (dbus_env);
 		dbus_message_unref (message);
 
 		TEST_EQ (cause->blockers, 1);
@@ -3394,9 +3388,7 @@ test_change_state (void)
 
 		TEST_FREE_TAG (blocked);
 
-		job->failed = TRUE;
-		job->failed_process = PROCESS_MAIN;
-		job->exit_status = 1;
+		job_failed (job, PROCESS_MAIN, 1);
 
 		TEST_FREE_TAG (job);
 
@@ -3405,7 +3397,7 @@ test_change_state (void)
 		TEST_FREE (job);
 
 		TEST_EQ (cause->blockers, 0);
-		TEST_EQ (cause->failed, FALSE);
+		TEST_EQ (cause->failed, TRUE);
 
 		TEST_FREE (blocked);
 
@@ -3427,22 +3419,29 @@ test_change_state (void)
 
 		TEST_DBUS_MESSAGE (client_conn, message);
 		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_INSTANCE,
+						   "Failed"));
+
+		TEST_EQ_STR (dbus_message_get_path (message), job_path);
+
+		TEST_TRUE (dbus_message_get_args (message, NULL,
+						  DBUS_TYPE_INT32, &status));
+
+		TEST_EQ (status, 1);
+
+		dbus_message_unref (message);
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART_INSTANCE,
 						   "StateChanged"));
 
 		TEST_EQ_STR (dbus_message_get_path (message), job_path);
 
 		TEST_TRUE (dbus_message_get_args (message, NULL,
 						  DBUS_TYPE_STRING, &state,
-						  DBUS_TYPE_ARRAY,
-						  DBUS_TYPE_STRING,
-						  &dbus_env, &n_dbus_env,
 						  DBUS_TYPE_INVALID));
-		TEST_EQ (n_dbus_env, 1);
-		TEST_EQ_STR (dbus_env[0], "RESULT=failed");
 
 		TEST_EQ_STR (state, "waiting");
 
-		dbus_free_string_array (dbus_env);
 		dbus_message_unref (message);
 
 		TEST_DBUS_MESSAGE (client_conn, message);
