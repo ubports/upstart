@@ -97,7 +97,7 @@ end script
 .fi
 
 .PP
-There an additional four processes that may be run as part of the job's
+There are an additional four processes that may be run as part of the job's
 lifecycle.  These are specified as the process name, followed by an
 .B exec
 or
@@ -144,7 +144,7 @@ event is emitted.  It is typically used to clean up the environment,
 such as removing temporary directories.
 
 .PP
-All of these process, including the main process, are optional.  Services
+All of these processes, including the main process, are optional.  Services
 without a main process will appear to be running until they are stopped,
 this is commonly used to define states such as runlevels.  It's quite
 permissable to have no main process, but to have
@@ -162,7 +162,7 @@ post-stop exec ifdown -a
 .\"
 .SS Event definition
 Jobs can be manually started and stopped at any time by a system adminstrator
-using the.
+using the
 .BR start (8)
 and
 .BR stop (8)
@@ -307,7 +307,11 @@ Exports the value of an environment variable into the
 .BR stopping (7)
 and
 .BR stopped (7)
-events for this job.
+events for this job
+.ft B
+and to all resultant events
+.ft
+(not just those relating to the current job).
 .\"
 .SS Services, tasks and respawning
 Jobs are
