@@ -1,3 +1,7 @@
+2010-12-08  Clint Byrum  <clint@ubuntu.com>
+
+	* init/man/init.5: Typo existing -> exiting
+
 2010-08-12  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_process.c (job_process_spawn): We can fail to open the
