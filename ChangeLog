@@ -1,3 +1,9 @@
+2010-12-08  James Hunt  <jhunt@ubuntu.com>
+
+	* init/event.c, init/event_operator.c: Fix grammar and factual errors
+	in comments.
+	* init/man/init.5: Fix grammar errors and clarify export behaviour.
+
 2010-12-08  Clint Byrum  <clint@ubuntu.com>
 
 	* init/man/init.5: Typo existing -> exiting

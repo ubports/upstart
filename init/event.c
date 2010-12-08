@@ -87,11 +87,11 @@ event_init (void)
  * array of environment variables in KEY=VALUE form.  @env will be referenced
  * by the new event.  After calling this function, you should never use
  * nih_free() to free @env and instead use nih_unref() or nih_discard() if
- * you longer need to use it.
+ * you no longer need to use it.
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
- * are no longer anything referencing it.
+ * are no remaining references to it.
  *
  * The event is created with nothing blocking it.  Be sure to call
  * event_block() otherwise it will be automatically freed next time
@@ -156,7 +156,7 @@ event_new (const void  *parent,
 
 /**
  * event_block:
- * @emission: event to block.
+ * @event: event to block.
  *
  * This function should be called by jobs that wish to hold a reference on
  * the event and block it from finishing.
