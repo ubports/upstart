@@ -225,6 +225,15 @@ job_change_goal (Job     *job,
 
 	job->goal = goal;
 
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (job_emit_goal_changed (
+				conn, job->path,
+				job_goal_name (job->goal)));
+	}
+
 
 	/* Normally whatever process or event is associated with the state
 	 * will finish naturally, so all we need do is change the goal and
@@ -287,6 +296,15 @@ job_change_state (Job      *job,
 
 		old_state = job->state;
 		job->state = state;
+
+		NIH_LIST_FOREACH (control_conns, iter) {
+			NihListEntry   *entry = (NihListEntry *)iter;
+			DBusConnection *conn = (DBusConnection *)entry->data;
+
+			NIH_ZERO (job_emit_state_changed (
+					conn, job->path,
+					job_state_name (job->state)));
+		}
 
 		/* Perform whatever action is necessary to enter the new
 		 * state, such as executing a process or emitting an event.
@@ -647,6 +665,13 @@ job_failed (Job         *job,
 	job->failed = TRUE;
 	job->failed_process = process;
 	job->exit_status = status;
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (job_emit_failed (conn, job->path, status));
+	}
 
 	job_finished (job, TRUE);
 }

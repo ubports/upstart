@@ -1,5 +1,10 @@
 0.6.7  xxxx-xx-xx
 
+	* Upstart now emits a "GoalChanged" D-Bus signal immediately after
+	  changing the "goal" property of an instance, a "StateChanged"
+	  signal after changing the "state" property, and a "Failed" signal
+	  after marking an instance as failed.
+
 	* Manpage fixes.  (Bugs: #677392, #686734)
 
 0.6.6  2010-04-27  "No, she's dead, this is her son"

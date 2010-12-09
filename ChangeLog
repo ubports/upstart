@@ -1,3 +1,14 @@
+2010-12-08  Colin Watson  <cjwatson@debian.org>
+
+	* dbus/com.ubuntu.Upstart.Instance.xml (GoalChanged, StateChanged)
+	(Failed): New signals.
+	* init/job.c (job_change_goal): Emit GoalChanged signal after
+	(job_change_state): Emit StateChanged signal after changing state.
+	(job_failed): Emit Failed signal after marking job as failed.
+	* init/tests/test_job.c (test_change_goal): Test for this.
+	(test_change_state): Test for this.
+	* NEWS: Update.
+
 2010-12-08  James Hunt  <jhunt@ubuntu.com>
 
 	* init/event.c, init/event_operator.c: Fix grammar and factual errors
