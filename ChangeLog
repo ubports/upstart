@@ -1,3 +1,8 @@
+2010-12-09  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_job.c (test_change_state): Add missing
+	DBUS_TYPE_INVALID to dbus_message_get_args() call.
+
 2010-12-08  Colin Watson  <cjwatson@debian.org>
 
 	* dbus/com.ubuntu.Upstart.Instance.xml (GoalChanged, StateChanged)

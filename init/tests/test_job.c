@@ -3490,7 +3490,8 @@ test_change_state (void)
 		TEST_EQ_STR (dbus_message_get_path (message), job_path);
 
 		TEST_TRUE (dbus_message_get_args (message, NULL,
-						  DBUS_TYPE_INT32, &status));
+						  DBUS_TYPE_INT32, &status,
+						  DBUS_TYPE_INVALID));
 
 		TEST_EQ (status, 1);
 
