@@ -19,3 +19,5 @@ util/reboot.c
 util/runlevel.c
 util/shutdown.c
 util/telinit.c
+
+extra/upstart-udev-bridge.c
