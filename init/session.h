@@ -17,22 +17,46 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef INIT_PARSE_JOB_H
-#define INIT_PARSE_JOB_H
+#ifndef INIT_SESSION_H
+#define INIT_SESSION_H
+
+#include <sys/types.h>
 
 #include <nih/macros.h>
+#include <nih/list.h>
 
-#include "session.h"
-#include "job_class.h"
+#include <nih-dbus/dbus_message.h>
+
+
+/**
+ * Session:
+ * @entry: list header,
+ * @chroot: path all jobs are chrooted to,
+ * @user: uid all jobs are switched to.
+ *
+ * This structure is used to identify collections of jobs that share either
+ * a common @chroot and/or common @user.
+ **/
+typedef struct session {
+	NihList entry;
+	char *  chroot;
+	uid_t   user;
+} Session;
 
 
 NIH_BEGIN_EXTERN
 
-JobClass *parse_job (const void *parent, Session *session,
-		     const char *name, const char *file, size_t len,
-		     size_t *pos, size_t *lineno)
-	__attribute__ ((warn_unused_result, malloc));
+extern NihList *sessions;
+
+void     session_init      (void);
+
+Session *session_new       (const void *parent, const char *chroot, uid_t user)
+	__attribute__ ((malloc, warn_unused_result));
+
+Session *session_from_dbus (const void *parent, NihDBusMessage *message);
+
+void     session_create_conf_source (Session *session);
 
 NIH_END_EXTERN
 
-#endif /* INIT_PARSE_JOB_H */
+#endif /* INIT_SESSION_H */

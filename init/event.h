@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,6 +23,8 @@
 #include <nih/macros.h>
 #include <nih/list.h>
 
+#include "session.h"
+
 
 /**
  * EventProgress:
@@ -40,6 +42,7 @@ typedef enum event_progress {
 /**
  * Event:
  * @entry: list header,
+ * @session: session the event is attached to,
  * @name: string name of the event,
  * @env: NULL-terminated array of environment variables,
  * @progress: progress of event,
@@ -61,6 +64,7 @@ typedef enum event_progress {
 typedef struct event {
 	NihList          entry;
 
+	Session *        session;
  	char            *name;
 	char           **env;
 

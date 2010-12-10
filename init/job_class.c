@@ -144,7 +144,8 @@ job_class_init (void)
  **/
 JobClass *
 job_class_new (const void *parent,
-	       const char *name)
+	       const char *name,
+	       Session *   session)
 {
 	JobClass *class;
 	int       i;
@@ -164,8 +165,20 @@ job_class_new (const void *parent,
 	if (! class->name)
 		goto error;
 
-	class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-				     class->name, NULL);
+	class->session = session;
+	if (class->session) {
+		nih_local char *session_name = NULL;
+
+		session_name = nih_sprintf (NULL, "%p", class->session);
+		if (! session_name)
+			goto error;
+
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     session_name, class->name, NULL);
+	} else {
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     class->name, NULL);
+	}
 	if (! class->path)
 		goto error;
 

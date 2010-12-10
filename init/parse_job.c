@@ -2,7 +2,7 @@
  *
  * parse_job.c - job definition parsing
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -272,6 +272,7 @@ static NihConfigStanza stanzas[] = {
  **/
 JobClass *
 parse_job (const void *parent,
+	   Session *   session,
 	   const char *name,
 	   const char *file,
 	   size_t      len,
@@ -284,7 +285,7 @@ parse_job (const void *parent,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	class = job_class_new (parent, name);
+	class = job_class_new (parent, name, session);
 	if (! class)
 		nih_return_system_error (NULL);
 

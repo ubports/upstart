@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -122,6 +122,8 @@ event_new (const void  *parent,
 		return NULL;
 
 	nih_list_init (&event->entry);
+
+	event->session = NULL;
 
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
@@ -292,6 +294,13 @@ event_pending_handle_jobs (Event *event)
 
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
+
+		/* Only affect jobs within the same session as the event
+		 * unless the event has no session, in which case do them
+		 * all.
+		 */
+		if (event->session && (class->session != event->session))
+			continue;
 
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
@@ -470,6 +479,7 @@ event_finished (Event *event)
 			failed = NIH_MUST (nih_sprintf (NULL, "%s/failed",
 							event->name));
 			new_event = NIH_MUST (event_new (NULL, failed, NULL));
+			new_event->session = event->session;
 
 			if (event->env)
 				new_event->env = NIH_MUST (nih_str_array_copy (

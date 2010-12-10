@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,7 @@
 #include "dbus/upstart.h"
 
 #include "environ.h"
+#include "session.h"
 #include "job_class.h"
 #include "blocked.h"
 #include "conf.h"
@@ -382,6 +383,7 @@ control_get_job_by_name (void            *data,
 			 const char      *name,
 			 char           **job)
 {
+	Session * session;
 	JobClass *class;
 
 	nih_assert (message != NULL);
@@ -397,8 +399,15 @@ control_get_job_by_name (void            *data,
 		return -1;
 	}
 
-	/* Lookup the job and copy its path into the reply */
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Lookup the job */
 	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	while (class && (class->session != session))
+		class = (JobClass *)nih_hash_search (job_classes, name,
+						     &class->entry);
+
 	if (! class) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.UnknownJob",
@@ -406,6 +415,7 @@ control_get_job_by_name (void            *data,
 		return -1;
 	}
 
+	/* Copy the path */
 	*job = nih_strdup (message, class->path);
 	if (! *job)
 		nih_return_system_error (-1);
@@ -432,6 +442,7 @@ control_get_all_jobs (void             *data,
 		      NihDBusMessage   *message,
 		      char           ***jobs)
 {
+	Session *session;
 	char   **list;
 	size_t   len;
 
@@ -445,8 +456,14 @@ control_get_all_jobs (void             *data,
 	if (! list)
 		nih_return_system_error (-1);
 
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
+
+		if (class->session != session)
+			continue;
 
 		if (! nih_str_array_add (&list, message, &len,
 					 class->path)) {
@@ -519,6 +536,9 @@ control_emit_event (void            *data,
 	event = event_new (NULL, name, (char **)env);
 	if (! event)
 		nih_return_system_error (-1);
+
+	/* Obtain the session */
+	event->session = session_from_dbus (NULL, message);
 
 	if (wait) {
 		blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
