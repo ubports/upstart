@@ -32,7 +32,8 @@
  * Session:
  * @entry: list header,
  * @chroot: path all jobs are chrooted to,
- * @user: uid all jobs are switched to.
+ * @user: uid all jobs are switched to,
+ * @conf_path: configuration path.
  *
  * This structure is used to identify collections of jobs that share either
  * a common @chroot and/or common @user.
@@ -41,6 +42,7 @@ typedef struct session {
 	NihList entry;
 	char *  chroot;
 	uid_t   user;
+	char *  conf_path;
 } Session;
 
 
@@ -54,8 +56,6 @@ Session *session_new       (const void *parent, const char *chroot, uid_t user)
 	__attribute__ ((malloc, warn_unused_result));
 
 Session *session_from_dbus (const void *parent, NihDBusMessage *message);
-
-void     session_create_conf_source (Session *session);
 
 NIH_END_EXTERN
 

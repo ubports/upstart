@@ -57,6 +57,10 @@
 NihList *sessions = NULL;
 
 
+/* Prototypes for static functions */
+static void session_create_conf_source (Session *sesson);
+
+
 /**
  * session_init:
  *
@@ -98,6 +102,8 @@ session_new (const void *parent,
 	}
 
 	session->user = user;
+
+	session->conf_path = NULL;
 
 	nih_alloc_set_destructor (session, nih_list_destroy);
 
@@ -181,6 +187,8 @@ session_from_dbus (const void *    parent,
 		if (unix_user != session->user)
 			continue;
 
+		if (! session->conf_path)
+			session_create_conf_source (session);
 		return session;
 	}
 
@@ -192,16 +200,16 @@ session_from_dbus (const void *    parent,
 	return session;
 }
 
-void
+static void
 session_create_conf_source (Session *session)
 {
-	nih_local char *path = NULL;
-	ConfSource *source ;
+	ConfSource *source;
 
 	nih_assert (session != NULL);
+	nih_assert (session->conf_path == NULL);
 
 	if (session->chroot)
-		path = NIH_MUST (nih_strdup (NULL, session->chroot));
+		session->conf_path = NIH_MUST (nih_strdup (NULL, session->chroot));
 	if (session->user) {
 		struct passwd *pwd;
 
@@ -210,17 +218,20 @@ session_create_conf_source (Session *session)
 			nih_error ("%d: %s: %s", session->user,
 				   _("Unable to lookup home directory"),
 				   strerror (errno));
+
+			nih_free (session->conf_path);
+			session->conf_path = NULL;
 			return;
 		}
 
-		path = NIH_MUST (nih_strcat_sprintf (&path, NULL, "%s/%s",
-						     pwd->pw_dir,
-						     USERCONFDIR));
+		NIH_MUST (nih_strcat_sprintf (&session->conf_path, NULL, "%s/%s",
+					      pwd->pw_dir, USERCONFDIR));
 	} else {
-		path = NIH_MUST (nih_strcat (&path, NULL, CONFDIR));
+		NIH_MUST (nih_strcat (&session->conf_path, NULL, CONFDIR));
 	}
 
-	source = NIH_MUST (conf_source_new (session, path, CONF_JOB_DIR));
+	source = NIH_MUST (conf_source_new (session, session->conf_path,
+					    CONF_JOB_DIR));
 	source->session = session;
 
 	if (conf_source_reload (source) < 0) {
@@ -234,5 +245,8 @@ session_create_conf_source (Session *session)
 		nih_free (err);
 
 		nih_free (source);
+		nih_free (session->conf_path);
+		session->conf_path = NULL;
+		return;
 	}
 }
