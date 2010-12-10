@@ -47,6 +47,7 @@
 #include "events.h"
 #include "environ.h"
 #include "process.h"
+#include "session.h"
 #include "job_class.h"
 #include "job.h"
 #include "job_process.h"
@@ -1103,10 +1104,21 @@ job_start (Job             *job,
 	   NihDBusMessage  *message,
 	   int              wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_START) {
 		nih_dbus_error_raise_printf (
@@ -1167,10 +1179,21 @@ job_stop (Job            *job,
 	  NihDBusMessage *message,
 	  int             wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
@@ -1232,10 +1255,21 @@ job_restart (Job            *job,
 	     NihDBusMessage *message,
 	     int             wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (

@@ -44,6 +44,7 @@
 
 #include "environ.h"
 #include "process.h"
+#include "session.h"
 #include "job_class.h"
 #include "job.h"
 #include "event_operator.h"
@@ -706,6 +707,7 @@ job_class_start (JobClass        *class,
 		 char * const    *env,
 		 int              wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **start_env = NULL;
@@ -715,6 +717,16 @@ job_class_start (JobClass        *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -825,6 +837,7 @@ job_class_stop (JobClass       *class,
 		char * const   *env,
 		int             wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **stop_env = NULL;
@@ -834,6 +847,16 @@ job_class_stop (JobClass       *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -949,6 +972,7 @@ job_class_restart (JobClass        *class,
 		   char * const    *env,
 		   int              wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **restart_env = NULL;
@@ -958,6 +982,16 @@ job_class_restart (JobClass        *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
