@@ -1,3 +1,10 @@
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/upstart.h (DBUS_SERVICE_UPSTART, DBUS_ADDRESS_UPSTART):
+	For debugging purposes, when -DDEBUG is given, change the values of
+	these constants.  You'll need to modify your own D-Bus configuration
+	of course.
+
 2010-12-09  Scott James Remnant  <scott@netsplit.com>
 
 	* init/tests/test_job.c (test_change_state): Add missing

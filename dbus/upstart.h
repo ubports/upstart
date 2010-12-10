@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,11 @@
  * The well-known name used by Upstart on the system bus.
  **/
 #ifndef DBUS_SERVICE_UPSTART
-#define DBUS_SERVICE_UPSTART "com.ubuntu.Upstart"
+# ifdef DEBUG
+#  define DBUS_SERVICE_UPSTART "com.ubuntu.TestUpstart"
+# else
+#  define DBUS_SERVICE_UPSTART "com.ubuntu.Upstart"
+#endif
 #endif
 
 
@@ -69,7 +73,11 @@
  * found.
  **/
 #ifndef DBUS_ADDRESS_UPSTART
-#define DBUS_ADDRESS_UPSTART "unix:abstract=/com/ubuntu/upstart"
+# ifdef DEBUG
+#  define DBUS_ADDRESS_UPSTART "unix:abstract=/com/ubuntu/test_upstart"
+# else
+#  define DBUS_ADDRESS_UPSTART "unix:abstract=/com/ubuntu/upstart"
+# endif
 #endif
 
 
