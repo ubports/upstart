@@ -154,7 +154,9 @@ session_from_dbus (const void *    parent,
 			unix_process_id = 0;
 	}
 
-	/* If we retrieved a process id, look up the root path for it. */
+	/* If we retrieved a process id, look up the root path for it;
+	 * if it's just / don't worry so much about it.
+	 */
 	if (unix_process_id) {
 		nih_local char *symlink = NULL;
 		ssize_t len;
@@ -166,6 +168,12 @@ session_from_dbus (const void *    parent,
 			return NULL;
 
 		root[len] = '\0';
+
+		if (! strcmp (root, "/")) {
+			unix_process_id = 0;
+			if (! unix_user)
+				return NULL;
+		}
 
 	} else if (! unix_user) {
 		/* No process id or user id found, return the NULL session */
