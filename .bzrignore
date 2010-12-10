@@ -8,6 +8,7 @@ core
 Makefile
 Makefile.in
 Makefile.in.in
+TAGS
 ./ABOUT-NLS
 ./INSTALL
 ./aclocal.m4
