@@ -85,6 +85,7 @@ static void upstart_job_added    (void *data, NihDBusMessage *message,
 static void upstart_job_removed  (void *data, NihDBusMessage *message,
 				  const char *job);
 static void job_add_socket       (Job *job, char **socket_info);
+static void socket_destroy       (Socket *socket);
 static void upstart_disconnected (DBusConnection *connection);
 static void emit_event_reply     (Socket *sock, NihDBusMessage *message);
 static void emit_event_error     (Socket *sock, NihDBusMessage *message);
@@ -586,7 +587,7 @@ job_add_socket (Job *  job,
 	}
 
 	/* Okay then, add to the job */
-	nih_alloc_set_destructor (sock, nih_list_destroy);
+	nih_alloc_set_destructor (sock, socket_destroy);
 	nih_list_add (&job->sockets, &sock->entry);
 
 	return;
@@ -595,6 +596,15 @@ error:
 	if (sock->sock != -1)
 		close (sock->sock);
 	nih_free (sock);
+}
+
+static void
+socket_destroy (Socket *sock)
+{
+	epoll_ctl (epoll_fd, EPOLL_CTL_DEL, sock->sock, NULL);
+	close (sock->sock);
+
+	nih_list_destroy (&sock->entry);
 }
 
 
