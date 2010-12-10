@@ -60,4 +60,5 @@ util/telinit
 util/test_*
 extra/com.ubuntu.Upstart.[ch]
 extra/com.ubuntu.Upstart.Job.[ch]
-extra/upstart_udev_bridge
+extra/upstart-socket-bridge
+extra/upstart-udev-bridge

@@ -15,6 +15,22 @@ AM_CPPFLAGS = \
 
 initdir = $(sysconfdir)/init
 
+
+sbin_PROGRAMS = \
+	upstart-socket-bridge
+
+upstart_socket_bridge_SOURCES = \
+	upstart-socket-bridge.c
+nodist_upstart_socket_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
+upstart_socket_bridge_LDADD = \
+	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS)
+
+
 if HAVE_UDEV
 dist_init_DATA = \
 	conf/upstart-udev-bridge.conf
@@ -23,7 +39,7 @@ dist_man_MANS = \
 	man/upstart-udev-bridge.8
 
 
-sbin_PROGRAMS = \
+sbin_PROGRAMS += \
 	upstart-udev-bridge
 
 upstart_udev_bridge_SOURCES = \
