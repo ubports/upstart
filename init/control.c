@@ -385,6 +385,7 @@ control_get_job_by_name (void            *data,
 {
 	Session * session;
 	JobClass *class;
+	JobClass *global_class = NULL;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
@@ -404,9 +405,15 @@ control_get_job_by_name (void            *data,
 
 	/* Lookup the job */
 	class = (JobClass *)nih_hash_lookup (job_classes, name);
-	while (class && (class->session != session))
+	while (class && (class->session != session)) {
+		if ((! class->session) && (! session->chroot))
+			global_class = class;
 		class = (JobClass *)nih_hash_search (job_classes, name,
 						     &class->entry);
+	}
+
+	if (! class)
+		class = global_class;
 
 	if (! class) {
 		nih_dbus_error_raise_printf (
@@ -462,7 +469,8 @@ control_get_all_jobs (void             *data,
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		if (class->session != session)
+		if ((class->session || session->chroot)
+		    && (class->session != session))
 			continue;
 
 		if (! nih_str_array_add (&list, message, &len,
