@@ -529,6 +529,10 @@ job_add_socket (Job *  job,
 			   && (sock->sun_addr.sun_family == AF_UNIX)) {
 			strncpy (sock->sun_addr.sun_path, val,
 				 sizeof sock->sun_addr.sun_path);
+
+			if (sock->sun_addr.sun_path[0] == '@')
+				sock->sun_addr.sun_path[0] = '\0';
+
 			components--;
 
 		} else {
