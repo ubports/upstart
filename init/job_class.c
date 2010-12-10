@@ -167,15 +167,36 @@ job_class_new (const void *parent,
 		goto error;
 
 	class->session = session;
-	if (class->session) {
-		nih_local char *session_name = NULL;
+	if (class->session
+	    && class->session->chroot
+	    && class->session->user) {
+		nih_local char *uid = NULL;
 
-		session_name = nih_sprintf (NULL, "%p", class->session);
-		if (! session_name)
+		uid = nih_sprintf (NULL, "%d", class->session->user);
+		if (! uid)
 			goto error;
 
 		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-					     session_name, class->name, NULL);
+					     session->chroot, uid,
+					     class->name, NULL);
+
+	} else if (class->session
+		   && class->session->chroot) {
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     session->chroot,
+					     class->name, NULL);
+
+	} else if (class->session
+		   && class->session->user) {
+		nih_local char *uid = NULL;
+
+		uid = nih_sprintf (NULL, "%d", class->session->user);
+		if (! uid)
+			goto error;
+
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     uid, class->name, NULL);
+
 	} else {
 		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
 					     class->name, NULL);
