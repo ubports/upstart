@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -218,6 +218,16 @@ int         job_class_get_version          (JobClass *class,
 					    NihDBusMessage *message,
 					    char **version)
 	__attribute__ ((warn_unused_result));
+
+int         job_class_get_start_on         (JobClass *class,
+					    NihDBusMessage *message,
+					    char ****start_on);
+int         job_class_get_stop_on          (JobClass *class,
+					    NihDBusMessage *message,
+					    char ****stop_on);
+int         job_class_get_emits	           (JobClass *class,
+					    NihDBusMessage *message,
+					    char ***emits);
 
 NIH_END_EXTERN
 

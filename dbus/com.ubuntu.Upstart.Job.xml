@@ -3,7 +3,7 @@
 
      com.ubuntu.Upstart.Job.xml - interface definition for job objects
 
-     Copyright © 2009 Canonical Ltd.
+     Copyright © 2010 Canonical Ltd.
      Author: Scott James Remnant <scott@netsplit.com>.
 
      This file is free software; Canonical Ltd gives unlimited permission
@@ -67,5 +67,10 @@
     <property name="description" type="s" access="read" />
     <property name="author" type="s" access="read" />
     <property name="version" type="s" access="read" />
+
+    <!-- Information about a job's relationship with Events -->
+    <property name="start_on" type="aas" access="read" />
+    <property name="stop_on" type="aas" access="read" />
+    <property name="emits" type="as" access="read" />
   </interface>
 </node>
