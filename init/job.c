@@ -118,6 +118,9 @@ job_new (JobClass   *class,
 			goto error;
 	}
 
+	job->fds = NULL;
+	job->num_fds = 0;
+
 	job->pid = nih_alloc (job, sizeof (pid_t) * PROCESS_LAST);
 	if (! job->pid)
 		goto error;

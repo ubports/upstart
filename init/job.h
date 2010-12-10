@@ -134,6 +134,9 @@ typedef struct job {
 	char          **stop_env;
 	EventOperator  *stop_on;
 
+	int *fds;
+	size_t num_fds;
+
 	pid_t          *pid;
 	Event          *blocker;
 	NihList         blocking;

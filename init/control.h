@@ -60,6 +60,10 @@ int  control_emit_event           (void *data, NihDBusMessage *message,
 				   const char *name, char * const *env,
 				   int wait)
 	__attribute__ ((warn_unused_result));
+int  control_emit_event_with_file (void *data, NihDBusMessage *message,
+				   const char *name, char * const *env,
+				   int wait, int file)
+	__attribute__ ((warn_unused_result));
 
 int  control_get_version          (void *data, NihDBusMessage *message,
 				   char **version)

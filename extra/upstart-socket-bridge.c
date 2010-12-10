@@ -336,12 +336,13 @@ epoll_watcher (void *      data,
 			nih_assert_not_reached ();
 		}
 
-		pending_call = NIH_SHOULD (upstart_emit_event (upstart,
-							       "socket", env, TRUE,
-							       (UpstartEmitEventReply)emit_event_reply,
-							       (NihDBusErrorHandler)emit_event_error,
-							       sock,
-							       NIH_DBUS_TIMEOUT_NEVER));
+		pending_call = NIH_SHOULD (upstart_emit_event_with_file (
+						   upstart, "socket", env, TRUE,
+						   sock->sock,
+						   (UpstartEmitEventWithFileReply)emit_event_reply,
+						   (NihDBusErrorHandler)emit_event_error,
+						   sock,
+						   NIH_DBUS_TIMEOUT_NEVER));
 		if (! pending_call) {
 			NihError *err;
 
@@ -554,6 +555,14 @@ job_add_socket (Job *  job,
 	sock->sock = socket (sock->addr.sa_family, SOCK_STREAM, 0);
 	if (sock->sock < 0) {
 		nih_warn ("Failed to create socket in %s: %s",
+			  job->path, strerror (errno));
+		goto error;
+	}
+
+	int opt = 1;
+	if (setsockopt (sock->sock, SOL_SOCKET, SO_REUSEADDR,
+			&opt, sizeof opt) < 0) {
+		nih_warn ("Failed to set socket reuse in %s: %s",
 			  job->path, strerror (errno));
 		goto error;
 	}

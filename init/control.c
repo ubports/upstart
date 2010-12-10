@@ -25,8 +25,10 @@
 
 #include <dbus/dbus.h>
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -462,13 +464,24 @@ control_get_all_jobs (void             *data,
 }
 
 
+int
+control_emit_event (void            *data,
+		    NihDBusMessage  *message,
+		    const char      *name,
+		    char * const    *env,
+		    int              wait)
+{
+	return control_emit_event_with_file (data, message, name, env, wait, -1);
+}
+
 /**
- * control_emit_event:
+ * control_emit_event_with_file:
  * @data: not used,
  * @message: D-Bus connection and message received,
  * @name: name of event to emit,
  * @env: environment of environment,
- * @wait: whether to wait for event completion before returning.
+ * @wait: whether to wait for event completion before returning,
+ * @file: file descriptor.
  *
  * Implements the top half of the EmitEvent method of the com.ubuntu.Upstart
  * interface, the bottom half may be found in event_finished().
@@ -488,11 +501,12 @@ control_get_all_jobs (void             *data,
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_emit_event (void            *data,
-		    NihDBusMessage  *message,
-		    const char      *name,
-		    char * const    *env,
-		    int              wait)
+control_emit_event_with_file (void            *data,
+			      NihDBusMessage  *message,
+			      const char      *name,
+			      char * const    *env,
+			      int              wait,
+			      int              file)
 {
 	Event   *event;
 	Blocked *blocked;
@@ -505,6 +519,7 @@ control_emit_event (void            *data,
 	if (! strlen (name)) {
 		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
 					     _("Name may not be empty string"));
+		close (file);
 		return -1;
 	}
 
@@ -512,19 +527,33 @@ control_emit_event (void            *data,
 	if (! environ_all_valid (env)) {
 		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
 					     _("Env must be KEY=VALUE pairs"));
+		close (file);
 		return -1;
 	}
 
 	/* Make the event and block the message on it */
 	event = event_new (NULL, name, (char **)env);
-	if (! event)
-		nih_return_system_error (-1);
+	if (! event) {
+		nih_error_raise_system ();
+		close (file);
+		return -1;
+	}
+
+	event->fd = file;
+	if (event->fd >= 0) {
+		long flags;
+
+		flags = fcntl (event->fd, F_GETFD);
+		flags &= ~FD_CLOEXEC;
+		fcntl (event->fd, F_SETFD, flags);
+	}
 
 	if (wait) {
 		blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
 		if (! blocked) {
 			nih_error_raise_system ();
 			nih_free (event);
+			close (file);
 			return -1;
 		}
 
