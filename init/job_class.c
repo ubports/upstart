@@ -219,6 +219,7 @@ job_class_new (const void *parent,
 	class->chdir = NULL;
 
 	class->deleted = FALSE;
+	class->debug   = FALSE;
 
 	return class;
 
