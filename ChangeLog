@@ -1,5 +1,8 @@
 2010-12-14  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 0.6.8
+	* NEWS: Begin new release
+
 	* NEWS: Release 0.6.7
 
 	* dbus/com.ubuntu.Upstart.Job.xml (start_on, stop_on, emits): Add new
