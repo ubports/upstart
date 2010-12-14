@@ -209,6 +209,10 @@ static int stanza_chdir       (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_debug       (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -245,6 +249,7 @@ static NihConfigStanza stanzas[] = {
 	{ "limit",       (NihConfigHandler)stanza_limit       },
 	{ "chroot",      (NihConfigHandler)stanza_chroot      },
 	{ "chdir",       (NihConfigHandler)stanza_chdir       },
+	{ "debug",       (NihConfigHandler)stanza_debug       },
 
 	NIH_CONFIG_LAST
 };
@@ -963,6 +968,37 @@ parse_on_collect (JobClass       *class,
 	return 0;
 }
 
+
+/**
+ * stanza_debug:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a debug stanza from @file. No parameters are supported.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_debug (JobClass           *class,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	class->debug = TRUE;
+
+	return 0;
+}
 
 /**
  * stanza_instance:

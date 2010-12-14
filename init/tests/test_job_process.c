@@ -800,6 +800,7 @@ test_spawn (void)
 	siginfo_t         info;
 	NihError         *err;
 	JobProcessError  *perr;
+	int               status;
 
 	TEST_FUNCTION ("job_process_spawn");
 	TEST_FILENAME (filename);
@@ -996,6 +997,38 @@ test_spawn (void)
 	TEST_EQ (perr->arg, 0);
 	TEST_EQ (perr->errnum, ENOENT);
 	nih_free (perr);
+
+	/* Check that we can spawn a job and pause it
+	 */
+	TEST_FEATURE ("with debug enabled");
+
+	class = job_class_new (NULL, "test");
+	class->debug = TRUE;
+
+	sprintf (function, "%s", "/bin/true");
+	args[0] = function;
+	args[1] = function;
+	args[2] = NULL;
+
+	pid = job_process_spawn (class, args, NULL, FALSE);
+	TEST_GT (pid, 0);
+
+	/* Ensure process is still running after some period of time.
+	 *
+	 * If it hasn't stopped as we expect it will certainly have finished by now,
+	 * thanks to the sleep.
+	 */
+	sleep (1);
+	assert0 (kill(pid, 0));
+
+	TEST_GE (waitid (P_PID, pid, &info, WNOHANG | WUNTRACED), 0);
+	TEST_EQ (info.si_code, CLD_STOPPED);
+	TEST_EQ (info.si_status, SIGSTOP);
+
+	assert0 (kill(pid, SIGCONT));
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
 	nih_free (class);
 }

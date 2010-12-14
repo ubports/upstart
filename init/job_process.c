@@ -385,6 +385,11 @@ job_process_spawn (JobClass     *class,
 	 */
 	pid = fork ();
 	if (pid > 0) {
+		if (class->debug) {
+			nih_info (_("Pausing %s (%d) [pre-exec] for debug"),
+			  class->name, pid);
+		}
+
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
@@ -524,6 +529,23 @@ job_process_spawn (JobClass     *class,
 	 */
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
+
+	/* Notes:
+	 *
+	 * - we can't use pause() here since there would then be no way to
+	 *   resume the process without killing it.
+	 *
+	 * - we have to close the pipe back to the parent since if we don't,
+	 *   the parent hangs until the STOP is cleared. Although this may be
+	 *   acceptable for normal operation, this causes the test suite to
+	 *   fail. Note that closing the pipe means from this point onwards,
+	 *   the parent cannot know the true outcome of the spawn: that
+	 *   responsibility lies with the debugger.
+	 */
+	if (class->debug) {
+		close (fds[1]);
+		raise (SIGSTOP);
+	}
 
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {

@@ -1,3 +1,12 @@
+2010-12-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.h: Added debug member.
+	* init/job_class.c: Initialized debug member.
+	* init/job_process.c: Pause child using raise(3).
+	* init/main.c: Display PID+PPID for debug builds.
+	* init/parse_job.c: Added new function stanza_debug.
+	* init/tests/test_job_process.c (test_spawn): Added test for debug stanza.
+
 2010-12-10  Scott James Remnant  <scott@netsplit.com>
 
 	* dbus/upstart.h (DBUS_SERVICE_UPSTART, DBUS_ADDRESS_UPSTART):
@@ -21,7 +30,7 @@
 	(test_change_state): Test for this.
 	* NEWS: Update.
 
-2010-12-08  James Hunt  <jhunt@ubuntu.com>
+2010-12-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/event.c, init/event_operator.c: Fix grammar and factual errors
 	in comments.

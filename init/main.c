@@ -210,6 +210,8 @@ main (int   argc,
 	}
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
+	nih_debug ("Running as PID %d (PPID %d)",
+		(int)getpid (), (int)getppid ());
 #endif /* DEBUG */
 
 
