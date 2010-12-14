@@ -2529,6 +2529,74 @@ test_stanza_start (void)
 }
 
 void
+test_stanza_manual (void)
+{
+	char           buf[1024];
+	size_t         pos, lineno;
+	JobClass      *job;
+	NihError      *err;
+	EventOperator *oper;
+
+	TEST_FUNCTION ("stanza_manual");
+
+	/* manual only ignores *previously specified* start on
+	 * events.
+	 */
+	TEST_FEATURE ("manual_stanza before start on");
+	strcpy (buf, "manual\nstart on wibble\n");
+
+	/* ensure we haven't broken a basic start on event by introducing the
+	 * manual stanza into a config
+	 */
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->env, NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("manual stanza after start on");
+	strcpy (buf, "start on wibble\nmanual\n");
+
+	job = parse_job (NULL, "test", buf, strlen (buf),
+			&pos, &lineno);
+
+	TEST_NE_P (job, NULL);
+	TEST_ALLOC_SIZE (job, sizeof (JobClass));
+	TEST_EQ_P (job->start_on, NULL);
+
+	nih_free (job);
+}
+
+void
 test_stanza_stop (void)
 {
 	JobClass     *job;
@@ -7443,6 +7511,7 @@ main (int   argc,
 	test_stanza_start ();
 	test_stanza_stop ();
 	test_stanza_emits ();
+	test_stanza_manual ();
 
 	test_stanza_exec ();
 	test_stanza_script ();
