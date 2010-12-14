@@ -1,3 +1,13 @@
+2010-12-14  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/com.ubuntu.Upstart.Job.xml (start_on, stop_on, emits): Add new
+	properties to return the job's relationship to events.
+	* init/job_class.c (job_class_get_start_on)
+	(job_class_get_stop_on, job_class_get_emits): Implement the properties
+	* init/job_class.h: Add prototypes.
+	* init/tests/test_job_class.c (test_get_start_on)
+	(test_get_stop_on, test_get_emits): Test the new properties too
+
 2010-12-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.h: Added debug member.

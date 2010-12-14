@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -32,6 +32,7 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/hash.h>
+#include <nih/tree.h>
 #include <nih/logging.h>
 
 #include <nih-dbus/dbus_error.h>
@@ -1156,6 +1157,201 @@ job_class_get_version (JobClass        *class,
 	} else {
 		*version = nih_strdup (message, "");
 		if (! *version)
+			nih_return_no_memory_error (-1);
+	}
+
+	return 0;
+}
+
+
+/**
+ * job_class_get_start_on:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @start_on: pointer for reply array.
+ *
+ * Implements the get method for the start_on property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the set of events that will start jobs of the given
+ * @class, this is returned as an array of the event tree flattened into
+ * reverse polish form.
+ *
+ * Each array element is an array of strings representing the events,
+ * or a single element containing "/OR" or "/AND" to represent the
+ * operators.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_start_on (JobClass *      class,
+			NihDBusMessage *message,
+			char ****       start_on)
+{
+	size_t len = 0;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (start_on != NULL);
+
+	*start_on = nih_alloc (message, sizeof (char ***));
+	if (! *start_on)
+		nih_return_no_memory_error (-1);
+
+	len = 0;
+	(*start_on)[len] = NULL;
+
+	if (class->start_on) {
+		NIH_TREE_FOREACH_POST (&class->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			*start_on = nih_realloc (*start_on, message,
+						 sizeof (char ***) * (len + 2));
+			if (! *start_on)
+				nih_return_no_memory_error (-1);
+
+			(*start_on)[len] = nih_str_array_new (*start_on);
+			if (! (*start_on)[len])
+				nih_return_no_memory_error (-1);
+
+			switch (oper->type) {
+			case EVENT_OR:
+				if (! nih_str_array_add (&(*start_on)[len], *start_on,
+							 NULL, "/OR"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_AND:
+				if (! nih_str_array_add (&(*start_on)[len], *start_on,
+							 NULL, "/AND"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_MATCH:
+				if (! nih_str_array_add (&(*start_on)[len], *start_on,
+							 NULL, oper->name))
+					nih_return_no_memory_error (-1);
+				if (oper->env)
+					if (! nih_str_array_append (&(*start_on)[len], *start_on,
+								    NULL, oper->env))
+						nih_return_no_memory_error (-1);
+				break;
+			}
+
+			(*start_on)[++len] = NULL;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_get_stop_on:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @stop_on: pointer for reply array.
+ *
+ * Implements the get method for the stop_on property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the set of events that will stop jobs of the given
+ * @class, this is returned as an array of the event tree flattened into
+ * reverse polish form.
+ *
+ * Each array element is an array of strings representing the events,
+ * or a single element containing "/OR" or "/AND" to represent the
+ * operators.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_stop_on (JobClass *      class,
+		       NihDBusMessage *message,
+		       char ****       stop_on)
+{
+	size_t len = 0;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (stop_on != NULL);
+
+	*stop_on = nih_alloc (message, sizeof (char ***));
+	if (! *stop_on)
+		nih_return_no_memory_error (-1);
+
+	len = 0;
+	(*stop_on)[len] = NULL;
+
+	if (class->stop_on) {
+		NIH_TREE_FOREACH_POST (&class->stop_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			*stop_on = nih_realloc (*stop_on, message,
+						 sizeof (char ***) * (len + 2));
+			if (! *stop_on)
+				nih_return_no_memory_error (-1);
+
+			(*stop_on)[len] = nih_str_array_new (*stop_on);
+			if (! (*stop_on)[len])
+				nih_return_no_memory_error (-1);
+
+			switch (oper->type) {
+			case EVENT_OR:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, "/OR"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_AND:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, "/AND"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_MATCH:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, oper->name))
+					nih_return_no_memory_error (-1);
+				if (oper->env)
+					if (! nih_str_array_append (&(*stop_on)[len], *stop_on,
+								    NULL, oper->env))
+						nih_return_no_memory_error (-1);
+				break;
+			}
+
+			(*stop_on)[++len] = NULL;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_get_emits:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @emits: pointer for reply array.
+ *
+ * Implements the get method for the emits property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the list of additional events of the given @class
+ * which will be stored as an array in @emits.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_emits (JobClass *      class,
+		     NihDBusMessage *message,
+		     char ***        emits)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (emits != NULL);
+
+	if (class->emits) {
+		*emits = nih_str_array_copy (message, NULL, class->emits);
+		if (! *emits)
+			nih_return_no_memory_error (-1);
+	} else {
+		*emits = nih_str_array_new (message);
+		if (! *emits)
 			nih_return_no_memory_error (-1);
 	}
 
