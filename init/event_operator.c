@@ -368,7 +368,7 @@ event_operator_match (EventOperator *oper,
  * @env: NULL-terminated array of environment variables for expansion.
  *
  * Handles the emission of @event, matching it against EVENT_MATCH nodes in
- * the EventOperator tree rooted at @oper, and updating the values of other
+ * the EventOperator tree rooted at @root, and updating the values of other
  * nodes to match.
  *
  * @env is optional, and may be NULL; if given it should be a NULL-terminated
@@ -380,10 +380,10 @@ event_operator_match (EventOperator *oper,
  * using event_operator_reset().
  *
  * Note that this returns to indicate whether a successful match was made;
- * you should also check the value of @oper to make sure you react to this,
+ * you should also check the value of @root to make sure you react to this,
  * as that still may be FALSE.
  *
- * Returns: TRUE if @event matched an entry in the tree under @oper, FALSE
+ * Returns: TRUE if @event matched an entry in the tree under @root, FALSE
  * otherwise.
  **/
 int

@@ -1,3 +1,16 @@
+upstart (0.6.7-1) natty; urgency=low
+
+  * New upstream release:
+    - Added manual stanza.
+    - Added debug stanza.
+    - Added start_on, stop_on and emits properties.
+    - Added GoalChanged, StateChanged and Failed signals.
+    - Documentation updates.
+
+  * Added myself as a maintainer. 
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 14 Dec 2010 17:15:57 +0000
+
 upstart (0.6.6-3) maverick; urgency=low
 
   * Ubuntu seems to have stopped installing Recommends of Build-Depends,

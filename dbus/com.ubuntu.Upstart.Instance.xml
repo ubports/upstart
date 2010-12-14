@@ -4,7 +4,7 @@
      com.ubuntu.Upstart.Instance.xml - interface definition for interface
      objects
 
-     Copyright © 2009 Canonical Ltd.
+     Copyright © 2010 Canonical Ltd.
      Author: Scott James Remnant <scott@netsplit.com>.
 
      This file is free software; Canonical Ltd gives unlimited permission
@@ -35,6 +35,16 @@
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="wait" type="b" direction="in" />
     </method>
+
+    <signal name="GoalChanged">
+      <arg name="goal" type="s" />
+    </signal>
+    <signal name="StateChanged">
+      <arg name="state" type="s" />
+    </signal>
+    <signal name="Failed">
+      <arg name="status" type="i" />
+    </signal>
 
     <!-- Basic information about an Instance -->
     <property name="name" type="s" access="read" />
