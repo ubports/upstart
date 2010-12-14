@@ -1041,7 +1041,6 @@ stanza_manual (JobClass           *class,
 		nih_unref (class->start_on, class);
 
 	class->start_on = NULL;
->>>>>>> MERGE-SOURCE
 
 	return 0;
 }
