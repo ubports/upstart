@@ -1,4 +1,4 @@
-.TH init 5 2010-12-08 "Upstart"
+.TH init 5 2010-12-14 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -242,10 +242,10 @@ start on device-added SUBSYSTEM=tty DEVPATH=ttyS*
 
 start on net-device-added INTERFACE!=lo
 .fi
-.\"
 .TP
 .B stop on \fIEVENT \fR[[\fIKEY=\fR]\fIVALUE\fR]... [\fBand\fR|\fBor\fR...]
 The
+.\"
 .B stop on
 stanza defines the set of events that will cause the job to be automatically
 stopped.  It has the same syntax as
@@ -260,7 +260,18 @@ stop on stopping gdm or stopping kdm
 
 stop on device-removed DEVPATH=$DEVPATH
 .fi
-.\"
+
+.TP
+.B manual
+This stanza will disregard any
+.I previously seen
+.B start on
+definition.  By adding this stanza on any line below the
+.B start on
+definition, it provides the ability to stop a job from being
+automatically started.  When specified, the only way to start such a job
+is via \fBstart\fP (8).
+
 .SS Job environment
 Each job is run with the environment from the events or commands that
 started it.  In addition, you may define defaults in the job which may

@@ -10,6 +10,14 @@
 
 2010-12-14  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/parse_job.c (stanza_manual): New function to handle manual
+	stanza.
+	* init/tests/test_parse_job.c (test_stanza_manual): New function to
+	test manual stanza.
+	* init/man/init.5: Update for manual stanza.
+
+2010-12-14  James Hunt <james.hunt@ubuntu.com>
+
 	* init/job_class.h: Added debug member.
 	* init/job_class.c: Initialized debug member.
 	* init/job_process.c: Pause child using raise(3).
