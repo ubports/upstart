@@ -385,6 +385,11 @@ job_process_spawn (JobClass     *class,
 	 */
 	pid = fork ();
 	if (pid > 0) {
+		if (class->debug) {
+			nih_info (_("Pausing %s (%d) [pre-exec] for debug"),
+			  class->name, pid);
+		}
+
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
@@ -430,8 +435,20 @@ job_process_spawn (JobClass     *class,
 	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
 	 * later.
 	 */
-	if (system_setup_console (class->console, FALSE) < 0)
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+	if (system_setup_console (class->console, FALSE) < 0) {
+		if (class->console == CONSOLE_OUTPUT) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn (_("Failed to open system console: %s"),
+				  err->message);
+			nih_free (err);
+
+			if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+		} else
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+	}
 
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job class such that they inherit from
@@ -512,6 +529,23 @@ job_process_spawn (JobClass     *class,
 	 */
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
+
+	/* Notes:
+	 *
+	 * - we can't use pause() here since there would then be no way to
+	 *   resume the process without killing it.
+	 *
+	 * - we have to close the pipe back to the parent since if we don't,
+	 *   the parent hangs until the STOP is cleared. Although this may be
+	 *   acceptable for normal operation, this causes the test suite to
+	 *   fail. Note that closing the pipe means from this point onwards,
+	 *   the parent cannot know the true outcome of the spawn: that
+	 *   responsibility lies with the debugger.
+	 */
+	if (class->debug) {
+		close (fds[1]);
+		raise (SIGSTOP);
+	}
 
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {

@@ -30,12 +30,13 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.6.6\n"
+"Project-Id-Version: upstart 0.6.7\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2010-04-27 12:24-0700\n"
-"PO-Revision-Date: 2010-04-27 12:24-0700\n"
+"POT-Creation-Date: 2010-12-14 16:34+0000\n"
+"PO-Revision-Date: 2010-12-14 16:34+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
+"Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -79,7 +80,7 @@ msgstr "Connection from private client"
 msgid "Disconnected from system bus"
 msgstr "Disconnected from system bus"
 
-#: init/control.c:356 init/main.c:481
+#: init/control.c:356 init/main.c:483
 msgid "Reloading configuration"
 msgstr "Reloading configuration"
 
@@ -92,8 +93,8 @@ msgstr "Name may not be empty string"
 msgid "Unknown job: %s"
 msgstr "Unknown job: %s"
 
-#: init/control.c:514 init/job_class.c:520 init/job_class.c:708
-#: init/job_class.c:827 init/job_class.c:951
+#: init/control.c:514 init/job_class.c:522 init/job_class.c:710
+#: init/job_class.c:829 init/job_class.c:953
 msgid "Env must be KEY=VALUE pairs"
 msgstr "Env must be KEY=VALUE pairs"
 
@@ -120,87 +121,87 @@ msgstr "Event failed"
 msgid "%s goal changed from %s to %s"
 msgstr "%s goal changed from %s to %s"
 
-#: init/job.c:285
+#: init/job.c:294
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr "%s state changed from %s to %s"
 
-#: init/job.c:688 init/job.c:726
+#: init/job.c:713 init/job.c:751
 msgid "Job failed to start"
 msgstr "Job failed to start"
 
-#: init/job.c:701 init/job.c:737
+#: init/job.c:726 init/job.c:762
 msgid "Job failed while stopping"
 msgstr "Job failed while stopping"
 
-#: init/job.c:713 init/job.c:748
+#: init/job.c:738 init/job.c:773
 msgid "Job failed to restart"
 msgstr "Job failed to restart"
 
-#: init/job.c:941
+#: init/job.c:966
 msgid "stop"
 msgstr "stop"
 
-#: init/job.c:943
+#: init/job.c:968
 msgid "start"
 msgstr "start"
 
-#: init/job.c:945
+#: init/job.c:970
 msgid "respawn"
 msgstr "respawn"
 
-#: init/job.c:990
+#: init/job.c:1015
 msgid "waiting"
 msgstr "waiting"
 
-#: init/job.c:992
+#: init/job.c:1017
 msgid "starting"
 msgstr "starting"
 
-#: init/job.c:994 init/process.c:80
+#: init/job.c:1019 init/process.c:80
 msgid "pre-start"
 msgstr "pre-start"
 
-#: init/job.c:996
+#: init/job.c:1021
 msgid "spawned"
 msgstr "spawned"
 
-#: init/job.c:998 init/process.c:82
+#: init/job.c:1023 init/process.c:82
 msgid "post-start"
 msgstr "post-start"
 
-#: init/job.c:1000
+#: init/job.c:1025
 msgid "running"
 msgstr "running"
 
-#: init/job.c:1002 init/process.c:84
+#: init/job.c:1027 init/process.c:84
 msgid "pre-stop"
 msgstr "pre-stop"
 
-#: init/job.c:1004
+#: init/job.c:1029
 msgid "stopping"
 msgstr "stopping"
 
-#: init/job.c:1006
+#: init/job.c:1031
 msgid "killed"
 msgstr "killed"
 
-#: init/job.c:1008 init/process.c:86
+#: init/job.c:1033 init/process.c:86
 msgid "post-stop"
 msgstr "post-stop"
 
-#: init/job.c:1088 init/job_class.c:754
+#: init/job.c:1113 init/job_class.c:756
 #, c-format
 msgid "Job is already running: %s"
 msgstr "Job is already running: %s"
 
-#: init/job.c:1152 init/job.c:1217 init/job_class.c:873 init/job_class.c:996
+#: init/job.c:1177 init/job.c:1242 init/job_class.c:875 init/job_class.c:998
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr "Job has already been stopped: %s"
 
-#: init/job_class.c:557 init/job_class.c:602 init/job_class.c:865
-#: init/job_class.c:988
+#: init/job_class.c:559 init/job_class.c:604 init/job_class.c:867
+#: init/job_class.c:990
 #, c-format
 msgid "Unknown instance: %s"
 msgstr "Unknown instance: %s"
@@ -219,147 +220,157 @@ msgstr "Temporary process spawn error"
 msgid "%s %s process (%d)"
 msgstr "%s %s process (%d)"
 
-#: init/job_process.c:625
+#: init/job_process.c:389
+#, c-format
+msgid "Pausing %s (%d) [pre-exec] for debug"
+msgstr "Pausing %s (%d) [pre-exec] for debug"
+
+#: init/job_process.c:443
+#, c-format
+msgid "Failed to open system console: %s"
+msgstr "Failed to open system console: %s"
+
+#: init/job_process.c:659
 #, c-format
 msgid "unable to open console: %s"
 msgstr "unable to open console: %s"
 
-#: init/job_process.c:680
+#: init/job_process.c:714
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr "unable to set “[1m%s[0m” resource limit: %s"
 
-#: init/job_process.c:685
+#: init/job_process.c:719
 #, c-format
 msgid "unable to set priority: %s"
 msgstr "unable to set priority: %s"
 
-#: init/job_process.c:690
+#: init/job_process.c:724
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr "unable to set oom adjustment: %s"
 
-#: init/job_process.c:695
+#: init/job_process.c:729
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr "unable to change root directory: %s"
 
-#: init/job_process.c:700
+#: init/job_process.c:734
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr "unable to change working directory: %s"
 
-#: init/job_process.c:705
+#: init/job_process.c:739
 #, c-format
 msgid "unable to set trace: %s"
 msgstr "unable to set trace: %s"
 
-#: init/job_process.c:710
+#: init/job_process.c:744
 #, c-format
 msgid "unable to execute: %s"
 msgstr "unable to execute: %s"
 
-#: init/job_process.c:741
+#: init/job_process.c:775
 #, c-format
 msgid "Sending TERM signal to %s %s process (%d)"
 msgstr "Sending TERM signal to %s %s process (%d)"
 
-#: init/job_process.c:749
+#: init/job_process.c:783
 #, c-format
 msgid "Failed to send TERM signal to %s %s process (%d): %s"
 msgstr "Failed to send TERM signal to %s %s process (%d): %s"
 
-#: init/job_process.c:789
+#: init/job_process.c:823
 #, c-format
 msgid "Sending KILL signal to %s %s process (%d)"
 msgstr "Sending KILL signal to %s %s process (%d)"
 
-#: init/job_process.c:797
+#: init/job_process.c:831
 #, c-format
 msgid "Failed to send KILL signal to %s %s process (%d): %s"
 msgstr "Failed to send KILL signal to %s %s process (%d): %s"
 
-#: init/job_process.c:846
+#: init/job_process.c:880
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr "%s %s process (%d) terminated with status %d"
 
-#: init/job_process.c:851
+#: init/job_process.c:885
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr "%s %s process (%d) exited normally"
 
-#: init/job_process.c:866
+#: init/job_process.c:900
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr "%s %s process (%d) killed by %s signal"
 
-#: init/job_process.c:870
+#: init/job_process.c:904
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr "%s %s process (%d) killed by signal %d"
 
-#: init/job_process.c:884
+#: init/job_process.c:918
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr "%s %s process (%d) stopped by %s signal"
 
-#: init/job_process.c:888
+#: init/job_process.c:922
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr "%s %s process (%d) stopped by signal %d"
 
-#: init/job_process.c:902
+#: init/job_process.c:936
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr "%s %s process (%d) continued by %s signal"
 
-#: init/job_process.c:906
+#: init/job_process.c:940
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr "%s %s process (%d) continued by signal %d"
 
-#: init/job_process.c:1039
+#: init/job_process.c:1073
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr "%s respawning too fast, stopped"
 
-#: init/job_process.c:1045
+#: init/job_process.c:1079
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr "%s %s process ended, respawning"
 
-#: init/job_process.c:1259
+#: init/job_process.c:1293
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr "Failed to set ptrace options for %s %s process (%d): %s"
 
-#: init/job_process.c:1272 init/job_process.c:1467
+#: init/job_process.c:1306 init/job_process.c:1501
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr "Failed to continue traced %s %s process (%d): %s"
 
-#: init/job_process.c:1312 init/job_process.c:1403 init/job_process.c:1458
+#: init/job_process.c:1346 init/job_process.c:1437 init/job_process.c:1492
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr "Failed to detach traced %s %s process (%d): %s"
 
-#: init/job_process.c:1352
+#: init/job_process.c:1386
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr "Failed to deliver signal to traced %s %s process (%d): %s"
 
-#: init/job_process.c:1387
+#: init/job_process.c:1421
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr "Failed to obtain child process id for %s %s process (%d): %s"
 
-#: init/job_process.c:1394
+#: init/job_process.c:1428
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr "%s %s process (%d) became new process (%d)"
 
-#: init/job_process.c:1453
+#: init/job_process.c:1487
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr "%s %s process (%d) executable changed"
@@ -386,7 +397,7 @@ msgstr "Need to be root"
 msgid "Not being executed as init"
 msgstr "Not being executed as init"
 
-#: init/main.c:187 init/main.c:391
+#: init/main.c:187 init/main.c:393
 msgid "Unable to set root directory"
 msgstr "Unable to set root directory"
 
@@ -398,25 +409,25 @@ msgstr "Unable to mount /proc filesystem"
 msgid "Unable to mount /sys filesystem"
 msgstr "Unable to mount /sys filesystem"
 
-#: init/main.c:290
+#: init/main.c:292
 msgid "Unable to listen for private connections"
 msgstr "Unable to listen for private connections"
 
-#: init/main.c:408
+#: init/main.c:410
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr "Caught %s, core dumped"
 
-#: init/main.c:412
+#: init/main.c:414
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr "Caught %s, unable to dump core"
 
-#: init/main.c:498
+#: init/main.c:500
 msgid "Reconnecting to system bus"
 msgstr "Reconnecting to system bus"
 
-#: init/main.c:504
+#: init/main.c:506
 msgid "Unable to connect to the system bus"
 msgstr "Unable to connect to the system bus"
 
