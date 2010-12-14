@@ -1,9 +1,24 @@
-0.6.7  xxxx-xx-xx
+0.6.7  2010-12-14  "Return of the Mole"
+
+	* A new "manual" stanza has been added to the configuration, this
+	  removes any previously defined "start on" stanza for job so that
+	  the job can only be started with initctl "start".  This allows
+	  quick disabling of a job with:
+
+		echo "manual" >> /etc/init/jobname.conf
 
 	* Upstart now emits a "GoalChanged" D-Bus signal immediately after
 	  changing the "goal" property of an instance, a "StateChanged"
 	  signal after changing the "state" property, and a "Failed" signal
 	  after marking an instance as failed.
+
+	* Job objects now include "start_on", "stop_on" and "emits"
+	  properties containing the appropriate information from the
+	  configuration.
+
+	* For developers, a "debug" stanza has been added; if present in a
+	  job, the job will wait before the exec call and can be attached
+	  to by gdb to examine Upstart's state.
 
 	* Manpage fixes.  (Bugs: #677392, #686734)
 

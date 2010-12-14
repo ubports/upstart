@@ -1,5 +1,7 @@
 2010-12-14  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Release 0.6.7
+
 	* dbus/com.ubuntu.Upstart.Job.xml (start_on, stop_on, emits): Add new
 	properties to return the job's relationship to events.
 	* init/job_class.c (job_class_get_start_on)
