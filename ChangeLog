@@ -1,3 +1,7 @@
+2010-12-20  Petr Lautrbach  <plautrba@redhat.com>
+
+	* util/shutdown.c: Exit non-zero if unable to shutdown the system.
+
 2010-12-14  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 0.6.8
