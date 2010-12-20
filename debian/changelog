@@ -1,3 +1,11 @@
+upstart (0.6.7-2) natty; urgency=low
+
+  * debian/apparmor-profile-load: common AppArmor profile loading helper
+    which can be used by any upstart services, regardless of the state
+    of AppArmor (LP: #692801).
+
+ -- Kees Cook <kees@ubuntu.com>  Mon, 20 Dec 2010 16:03:33 -0800
+
 upstart (0.6.7-1) natty; urgency=low
 
   * New upstream release:

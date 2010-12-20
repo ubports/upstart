@@ -1,3 +1,4 @@
 debian/conf/*.conf etc/init/
 debian/upstart-job lib/init/
+debian/apparmor-profile-load lib/init/
 debian/migrate-inittab.pl usr/lib/upstart/
