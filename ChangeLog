@@ -1,3 +1,7 @@
+2010-12-20  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: update.
+
 2010-12-20  Petr Lautrbach  <plautrba@redhat.com>
 
 	* init/job_process.c (job_process_terminated): On termination of

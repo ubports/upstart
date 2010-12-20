@@ -1,5 +1,11 @@
 0.6.8  xxxx-xx-xx
 
+	* utmp entries will be replaced with DEAD_PROCESS ones when a
+	  pid supervised by Upstart terminates.  (Bug: #183729)
+
+	* shutdown now correctly returns error code if it fails to shutdown
+	  the system.
+
 0.6.7  2010-12-14  "Return of the Mole"
 
 	* A new "manual" stanza has been added to the configuration, this
