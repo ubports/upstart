@@ -1,5 +1,10 @@
 2010-12-20  Petr Lautrbach  <plautrba@redhat.com>
 
+	* init/job_process.c (job_process_terminated): On termination of
+	a job, update the utmp file replacing any existing entry for that
+	pid with a DEAD_PROCESS entry; likewise append an entry to wtmp.
+	* init/tests/test_job_process.c (test_utmp): Test utmp handling.
+
 	* util/shutdown.c: Exit non-zero if unable to shutdown the system.
 
 2010-12-14  Scott James Remnant  <scott@netsplit.com>

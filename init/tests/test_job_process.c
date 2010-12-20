@@ -36,6 +36,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <utmp.h>
+#include <utmpx.h>
 
 #include <nih/macros.h>
 #include <nih/string.h>
@@ -4501,6 +4503,171 @@ test_find (void)
 }
 
 
+void
+test_utmp (void)
+{
+	JobClass *      class;
+	Job *           job = NULL;
+	Blocked *       blocked = NULL;
+	Event *         event;
+	FILE *          output;
+	char            utmpname[PATH_MAX];
+	struct utmpx    utmp, *utmptr;
+	struct timeval  tv;
+
+	TEST_FUNCTION ("job_process_handler");
+	program_name = "test";
+
+	class = job_class_new (NULL, "test");
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = "echo";
+
+	class->start_on = event_operator_new (class, EVENT_MATCH,
+					       "foo", NULL);
+	class->stop_on = event_operator_new (class, EVENT_MATCH,
+					      "foo", NULL);
+	nih_hash_add (job_classes, &class->entry);
+
+	event = event_new (NULL, "foo", NULL);
+
+	TEST_FILENAME(utmpname);
+
+	/* Check that utmp record for the running task of the job terminating
+	 * is properly changed to DEAD_PROCESS
+	 */
+	TEST_FEATURE ("with LOGIN_PROCESS utmp entry");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		output = fopen (utmpname, "w");
+		fclose (output);
+
+		/* set utmp file */
+		utmpxname(utmpname);
+
+		/* set up utmp entries */
+		memset (&utmp, 0, sizeof utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = LOGIN_PROCESS;
+		utmp.ut_pid = 2;
+
+		gettimeofday(&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		setutxent();
+		pututxline(&utmp);
+
+		strcpy(utmp.ut_id, "1");
+		utmp.ut_pid = 1;
+		pututxline(&utmp);
+
+		endutxent();
+
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+
+		setutxent();
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 2);
+		TEST_EQ(utmptr->ut_type, LOGIN_PROCESS);
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 1);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		nih_free (job);
+	}
+	TEST_FEATURE ("with USER_PROCESS utmp entry");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		output = fopen (utmpname, "w");
+		fclose (output);
+
+		/* set utmp file */
+		utmpxname(utmpname);
+
+		/* set up utmp entries */
+		memset (&utmp, 0, sizeof utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = USER_PROCESS;
+		utmp.ut_pid = 2;
+
+		gettimeofday(&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		setutxent();
+		pututxline(&utmp);
+
+		strcpy(utmp.ut_id, "1");
+		utmp.ut_pid = 1;
+		pututxline(&utmp);
+
+		endutxent();
+
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+
+		setutxent();
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 2);
+		TEST_EQ(utmptr->ut_type, USER_PROCESS);
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 1);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		nih_free (job);
+	}
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -4532,6 +4699,7 @@ main (int   argc,
 	test_spawn ();
 	test_kill ();
 	test_handler ();
+	test_utmp ();
 
 	test_find ();
 
