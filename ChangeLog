@@ -1,3 +1,9 @@
+2010-12-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Add bash completion script.
+	* contrib/Makefile.am (EXTRA_DIST): Include in tarball.
+	* NEWS: Update.
+
 2010-12-20  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: update.
