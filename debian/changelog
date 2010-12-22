@@ -1,3 +1,9 @@
+upstart (0.6.7-3) natty; urgency=low
+
+  * debian/rules: make sure apparmor-profile-load is executable.
+
+ -- Kees Cook <kees@ubuntu.com>  Wed, 22 Dec 2010 10:55:09 -0800
+
 upstart (0.6.7-2) natty; urgency=low
 
   * debian/apparmor-profile-load: common AppArmor profile loading helper
