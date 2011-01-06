@@ -2,7 +2,7 @@
  *
  * test_job_process.c - test suite for init/job_process.c
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -4662,6 +4662,77 @@ test_utmp (void)
 		TEST_NE_P(utmptr, NULL);
 		TEST_EQ(utmptr->ut_pid, 1);
 		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		nih_free (job);
+	}
+
+	/* new mingetty doesn't use entries with DEAD_PROCESS until it's last entry so
+	 * we need to check if upstart sets DEAD_PROCESS for correct entry */
+	TEST_FEATURE ("with multiple entries with same ut_id");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 2;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		output = fopen (utmpname, "w");
+		fclose (output);
+
+		/* set utmp file */
+		utmpxname(utmpname);
+
+		/* set up utmp entries */
+		memset (&utmp, 0, sizeof utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = DEAD_PROCESS;
+		utmp.ut_pid = 1;
+
+		gettimeofday(&tv, NULL);
+		utmp.ut_time = 0;
+
+		setutxent();
+		pututxline(&utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = USER_PROCESS;
+		utmp.ut_pid = 2;
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+		pututxline(&utmp);
+
+		endutxent();
+
+		job_process_handler (NULL, 2, NIH_CHILD_EXITED, 0);
+
+		setutxent();
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 1);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 2);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+		TEST_EQ(utmptr->ut_time, 0);
 
 		nih_free (job);
 	}

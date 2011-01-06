@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1177,7 +1177,6 @@ job_process_terminated (Job         *job,
 			memset(utmptr->ut_host, 0, UT_HOSTSIZE);
 			utmptr->ut_time = 0;
 			/* Update existing utmp file. */
-			setutxent();
 			pututxline(utmptr);
 
 			/* set ut_time for log */
