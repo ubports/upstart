@@ -1,3 +1,10 @@
+upstart (0.6.7-4) natty; urgency=low
+
+  * debian/apparmor-profile-load: allow profiles to be missing for saner
+    packaging integration.
+
+ -- Kees Cook <kees@ubuntu.com>  Fri, 14 Jan 2011 13:46:12 -0800
+
 upstart (0.6.7-3) natty; urgency=low
 
   * debian/rules: make sure apparmor-profile-load is executable.
