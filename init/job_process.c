@@ -116,7 +116,7 @@ static void job_process_trace_exec      (Job *job, ProcessType process);
  * characters within the command member, in which case it is executed
  * directly using exec after splitting on whitespace.
  *
- * When exectued with the shell, if the command (which may be an entire
+ * When executed with the shell, if the command (which may be an entire
  * script) is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
  * to read commands from one of the special /proc/self/fd/NN devices and NihIo
