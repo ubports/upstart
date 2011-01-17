@@ -263,6 +263,7 @@ static NihConfigStanza stanzas[] = {
 /**
  * parse_job:
  * @parent: parent object for new job,
+ * @update: If not NULL, update the existing specified JobClass,
  * @name: name of new job,
  * @file: file or string to parse,
  * @len: length of @file,
@@ -278,10 +279,12 @@ static NihConfigStanza stanzas[] = {
  * of the returned job are freed, the returned job will also be
  * freed.
  *
- * Returns: new JobClass structure on success, NULL on raised error.
+ * Returns: if @update is NULL, returns new JobClass structure on success, NULL on raised error.
+ * If @update is not NULL, returns @update or NULL on error.
  **/
 JobClass *
 parse_job (const void *parent,
+	   JobClass   *update,
 	   const char *name,
 	   const char *file,
 	   size_t      len,
@@ -294,13 +297,22 @@ parse_job (const void *parent,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	class = job_class_new (parent, name);
-	if (! class)
-		nih_return_system_error (NULL);
+	if (update) {
+		class = update;
+		nih_debug ("Reusing JobClass %s (%s)",
+				class->name, class->path);
+	} else {
+	  nih_debug ("Creating new JobClass %s",
+			  name);
+	  class = job_class_new (parent, name);
+	  if (! class)
+		  nih_return_system_error (NULL);
+	}
 
 	if (nih_config_parse_file (file, len, pos, lineno,
-				   stanzas, class) < 0) {
-		nih_free (class);
+				stanzas, class) < 0) {
+		if (!update)
+			nih_free (class);
 		return NULL;
 	}
 

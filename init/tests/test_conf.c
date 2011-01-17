@@ -46,6 +46,50 @@
 #include "job.h"
 #include "conf.h"
 
+/* macro to try and ensure the environment is as pristine as possible
+ * (to avoid follow-on errors caused by not freeing objects in a
+ * previous test, say)
+ */
+#define TEST_ENSURE_CLEAN_ENV()                                      \
+{                                                                    \
+	setvbuf(stdout, NULL, _IONBF, 0);                            \
+                                                                     \
+	if (job_classes) {                                           \
+		TEST_HASH_EMPTY (job_classes);                       \
+	}                                                            \
+                                                                     \
+	if (conf_sources) {                                          \
+		TEST_LIST_EMPTY (conf_sources);                      \
+	}                                                            \
+                                                                     \
+	if (nih_io_watches) {                                        \
+		TEST_LIST_EMPTY (nih_io_watches);                    \
+	}                                                            \
+                                                                     \
+	if (nih_timers) {                                            \
+		TEST_LIST_EMPTY (nih_timers);                        \
+	}                                                            \
+                                                                     \
+	if (events) {                                                \
+		TEST_LIST_EMPTY (events);                            \
+	}                                                            \
+}
+
+/* Force an inotify watch update */
+#define TEST_FORCE_WATCH_UPDATE()                                    \
+{                                                                    \
+	int         nfds = 0;                                        \
+	fd_set      readfds, writefds, exceptfds;                    \
+	                                                             \
+	FD_ZERO (&readfds);                                          \
+	FD_ZERO (&writefds);                                         \
+	FD_ZERO (&exceptfds);                                        \
+	                                                             \
+	nih_debug("calling nih_io_select_fds");                      \
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
+	nih_debug("calling nih_io_handle_fds");                      \
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);         \
+}
 
 void
 test_source_new (void)
@@ -2270,6 +2314,1255 @@ no_inotify:
 	}
 }
 
+void
+test_toggle_conf_name (void)
+{
+	char override_ext[] = ".override";
+	char dirname[PATH_MAX];
+	char filename[PATH_MAX];
+	JobClass *job;
+	char *f;
+	char *p;
+
+	TEST_FUNCTION_FEATURE ("toggle_conf_name",
+			"changing conf to override");
+
+	TEST_FILENAME (dirname);
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = toggle_conf_name (NULL, filename);
+	TEST_NE_P (f, NULL);
+
+	p = strstr (f, ".override");
+	TEST_NE_P (p, NULL);
+	TEST_EQ_P (p, f+strlen (f) - strlen (override_ext));
+	nih_free (f);
+
+	TEST_FEATURE ("changing override to conf");
+	strcpy (filename, dirname);
+	strcat (filename, "/bar.override");
+	f = toggle_conf_name (NULL, filename);
+	TEST_NE_P (f, NULL);
+
+	p = strstr (f, ".conf");
+	TEST_NE_P (p, NULL);
+	TEST_EQ_P (p, f+strlen (f) - strlen (".conf"));
+	nih_free (f);
+
+	/* test parent param */
+	job = job_class_new (NULL, "foo");
+	TEST_NE_P (job, NULL);
+
+	f = toggle_conf_name (job, filename);
+	TEST_NE_P (f, NULL);
+
+	TEST_EQ (TRUE, nih_alloc_parent (f, job));
+
+	nih_free (job);
+}
+
+void
+test_override (void)
+{
+	ConfSource *source;
+	ConfFile   *file;
+	FILE       *f;
+	int         ret, fd[4096], i = 0;
+	char        dirname[PATH_MAX];
+	char        filename[PATH_MAX], override[PATH_MAX];
+	JobClass   *job;
+	NihError   *err;
+
+	program_name = "test";
+	nih_log_set_priority (NIH_LOG_FATAL);
+
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_GROUP ("override files");
+
+	/* Make sure that we have inotify before performing some tests... */
+	if ((fd[0] = inotify_init ()) < 0) {
+		printf ("SKIP: inotify not available\n");
+		goto no_inotify;
+	}
+	close (fd[0]);
+
+
+	/* Explicit test of behaviour prior to introduction of override files.
+	 * 
+	 * conf with no override before watch:
+	 *   create conf
+	 *   create watch
+	 *   ensure conf loaded
+	 *   update conf
+	 *   ensure conf updated
+	 *   delete conf
+	 *   ensure conf deleted
+	 */
+	TEST_FEATURE ("with pre-override environment (conf with no override before watch)");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_NE_P (job->start_on, NULL);
+
+	/* update conf */
+	f = fopen (filename, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->start_on, NULL);
+
+	/* delete conf */
+	unlink (filename);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_HASH_EMPTY (source->files);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf deleted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	/* Explicit test of behaviour prior to introduction of override files.
+	 * 
+	 * conf with no override after watch:
+	 *   create watch
+	 *   create conf
+	 *   ensure conf loaded
+	 *   update conf
+	 *   ensure conf updated
+	 *   delete conf
+	 *   ensure conf deleted
+	 */
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FEATURE ("with pre-override environment (conf with no override after watch)");
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* update conf */
+	f = fopen (filename, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->start_on, NULL);
+
+	/* delete conf */
+	unlink (filename);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf deleted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("ensure lone override ignored before watch");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create override */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.override");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure no conf object created */
+	TEST_HASH_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+
+	/* update override */
+	f = fopen (filename, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "author \"me\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure no conf object created */
+	TEST_HASH_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+
+	/* delete override */
+	unlink (filename);
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("ensure lone override ignored after watch");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/bar.override");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure no conf object created */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
+	TEST_EQ_P (job, NULL);
+
+	/* delete override */
+	unlink (filename);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure override still not present */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "bar");
+	TEST_EQ_P (job, NULL);
+
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create conf, watch, then create/modify/delete override");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	/* ensure conf loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_P ((job->emits)[1], NULL);
+	TEST_NE_P (job->start_on, NULL);
+
+	/* create override */
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_HASH_NOT_EMPTY (source->files);
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->start_on, NULL);
+
+	/* ensure no override in hash */
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	/* modify override */
+	f = fopen (override, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "emits world\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_STR ((job->emits)[1], "world");
+
+	/* delete override */
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reverted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_P ((job->emits)[1], NULL);
+
+	nih_free (source);
+	unlink (filename);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create watch, conf, then create/modify/delete override");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_P ((job->emits)[1], NULL);
+	TEST_NE_P (job->start_on, NULL);
+
+	/* create override */
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_HASH_NOT_EMPTY (source->files);
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->start_on, NULL);
+
+	/* ensure no override in hash */
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	/* modify override */
+	f = fopen (override, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "emits world\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_STR ((job->emits)[1], "world");
+
+	/* delete override */
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reverted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_P ((job->emits)[1], NULL);
+
+	nih_free (source);
+	unlink (filename);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create override, watch, then create/modify/delete conf");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+
+	/* create override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"bar\"\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure no conf object created */
+	TEST_HASH_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+
+	/* create conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fprintf (f, "author \"foo\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "bar");
+
+	/* modify conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on wibble\n");
+	fprintf (f, "emits moo\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reloaded and updated with override */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "moo");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "bar");
+
+	/* delete conf */
+	unlink (filename);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf object deleted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	TEST_HASH_EMPTY (source->files);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	unlink (override);
+
+	/* ensure no conf object still */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	TEST_HASH_EMPTY (source->files);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create watch, override, then create/modify/delete conf");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+
+	/* create override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"bar\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure no conf object created */
+	TEST_HASH_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+
+	/* create conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fprintf (f, "author \"foo\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "bar");
+
+	/* modify conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on wibble\n");
+	fprintf (f, "emits moo\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reloaded and updated with override */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "moo");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "bar");
+
+	/* delete conf */
+	unlink (filename);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf object deleted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	TEST_HASH_EMPTY (source->files);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	unlink (override);
+
+	/* ensure no conf object still */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	TEST_HASH_EMPTY (source->files);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create override, watch, conf, then modify/delete override");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+
+	/* create override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"bar\"\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure no conf object created */
+	TEST_HASH_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+
+	/* create conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fprintf (f, "author \"foo\"\n");
+	fclose (f);
+
+	/* FIXME: crashes here */
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "bar");
+
+	/* modify override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "author \"meh\"\n");
+	fprintf (f, "env wibble=wobble\n");
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reloaded and updated with override */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "meh");
+	TEST_EQ_STR ((job->env)[0], "wibble=wobble");
+
+	/* delete override */
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf object reverted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "foo");
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	unlink (filename);
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create watch, override, conf, then modify/delete override");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* create override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"bar\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* create conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fprintf (f, "author \"foo\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "bar");
+
+	/* update override */
+	f = fopen (override, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "author \"me\"\n");
+	fprintf (f, "env wibble=wobble\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reloaded and updated with override */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "me");
+	TEST_EQ_STR ((job->env)[0], "wibble=wobble");
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* delete override */
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR (job->author, "foo");
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_P (job->env, NULL);
+
+	unlink (filename);
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create both conf+override files, watch, then modify/delete conf");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "author \"me\"\n");
+	fprintf (f, "env foo=bar\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	/* create override */
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"you\"\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_STR (job->author, "you");
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->env)[0], "foo=bar");
+	TEST_EQ_P (job->export, NULL);
+
+	/* modify conf */
+	f = fopen (filename, "a");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "export foo\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_STR ((job->env)[0], "foo=bar");
+	TEST_NE_P (job->export, NULL);
+	TEST_EQ_STR ((job->export)[0], "foo");
+
+	/* delete conf */
+	unlink (filename);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf object deleted */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_EQ_P (file, NULL);
+	TEST_HASH_EMPTY (source->files);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_EQ_P (job, NULL);
+	file = (ConfFile *)nih_hash_lookup (source->files, override);
+	TEST_EQ_P (file, NULL);
+
+	unlink (override);
+	nih_free (source);
+	TEST_EQ (rmdir (dirname), 0);
+
+	TEST_FEATURE ("create both conf+override files, watch, then modify/delete override");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "author \"me\"\n");
+	fprintf (f, "env foo=bar\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	/* create override */
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"you\"\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_STR (job->author, "you");
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->env)[0], "foo=bar");
+	TEST_EQ_P (job->export, NULL);
+
+	/* modify override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "description \"hello world\"\n");
+	fprintf (f, "author \"ubuntu\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR (job->author, "ubuntu");
+	TEST_NE_P (job->description, NULL);
+	TEST_EQ_STR (job->description, "hello world");
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_NE_P (job->start_on, NULL);
+
+	/* delete override */
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf updated */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->env)[0], "foo=bar");
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_STR (job->author, "me");
+	TEST_EQ_P (job->description, NULL);
+
+	nih_free (source);
+	unlink (filename);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	TEST_FEATURE ("create conf, watch, then create invalid override, delete override");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "author \"wibble\"\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_NE_P (job->start_on, NULL);
+
+	/* create (partially) invalid override (which should be
+	 * fully ignored)
+	 */
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "bleaugh!\n");
+	fprintf (f, "wha...?\n");
+	fprintf (f, "author \"moo\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf still loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "wibble");
+
+	nih_free (source);
+	unlink (filename);
+	TEST_EQ (rmdir (dirname), 0);
+
+	TEST_FEATURE ("ensure override ignored for CONF_FILE");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create empty conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/init.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_FILE);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+
+	/* We expect conf_source_reload to fail in this situation since
+	 * although "init.conf" is a supported config file, it is not
+	 * allowed to contain any stanzas, implying that it can only
+	 * contain comments. In fact, if the file exists but is zero
+	 * size that is currently an error since upstart blindly calls
+	 * nih_file_read(), which will fail since there are no bytes to
+	 * read.
+	 */
+	TEST_NE (ret, 0);
+	err = nih_error_steal ();
+	TEST_EQ (err->number, EILSEQ);
+	nih_free (err);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf NOT loaded */
+	TEST_HASH_EMPTY (source->files);
+
+	/* create override */
+	strcpy (override, dirname);
+	strcat (override, "/init.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf still NOT loaded */
+	TEST_HASH_EMPTY (source->files);
+
+	nih_free (source);
+	unlink (filename);
+	unlink (override);
+	TEST_EQ (rmdir (dirname), 0);
+
+	/* Consume all available inotify instances so that the following
+	 * tests run without inotify.
+	 */
+	for (i = 0; i < 4096; i++)
+		if ((fd[i] = inotify_init ()) < 0)
+			break;
+
+no_inotify:
+	/* If you don't have inotify, any override file must exist
+	 * before the system boots.
+	 */ 
+
+	TEST_FEATURE ("both conf+override files with no inotify support");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* create conf */
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "author \"me\"\n");
+	fprintf (f, "env foo=bar\n");
+	fprintf (f, "emits hello\n");
+	fclose (f);
+
+	/* create override */
+	strcpy (override, dirname);
+	strcat (override, "/foo.override");
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"you\"\n");
+	fclose (f);
+
+	/* create watch */
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+	ret = conf_source_reload (source);
+	TEST_EQ (ret, 0);
+
+	/* ensure conf loaded */
+	TEST_HASH_NOT_EMPTY (source->files);
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_EQ_STR (job->author, "you");
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR ((job->env)[0], "foo=bar");
+	TEST_EQ_P (job->export, NULL);
+
+	nih_free (source);
+	unlink (filename);
+	unlink (override);
+	TEST_EQ (rmdir (dirname), 0);
+
+
+	nih_log_set_priority (NIH_LOG_MESSAGE);
+
+	/* Release consumed instances */
+	for (i = 0; i < 4096; i++) {
+		if (fd[i] < 0)
+			break;
+
+		close (fd[i]);
+	}
+}
 
 void
 test_source_reload_file (void)
@@ -2822,8 +4115,6 @@ test_source_reload_file (void)
 	TEST_HASH_EMPTY (source->files);
 
 	nih_free (source);
-
-
 	/* Consume all available inotify instances so that the following
 	 * tests run without inotify.
 	 */
@@ -3309,6 +4600,8 @@ main (int   argc,
 	test_source_reload_conf_dir ();
 	test_source_reload_file ();
 	test_source_reload ();
+	test_toggle_conf_name ();
+	test_override ();
 	test_file_destroy ();
 	test_select_job ();
 

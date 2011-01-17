@@ -124,6 +124,46 @@ int         conf_file_destroy  (ConfFile *file);
 
 JobClass *  conf_select_job    (const char *name);
 
+char *toggle_conf_name         (const void *parent, const char *path)
+	__attribute__ ((warn_unused_result, malloc));
+
+#ifdef DEBUG
+
+/* used for debugging only */
+
+size_t
+debug_count_hash_entries       (const NihHash *hash);
+
+size_t
+debug_count_list_entries       (const NihList *list)
+	__attribute__ ((unused));
+
+void
+debug_show_job_class           (const JobClass *job)
+	__attribute__ ((unused));
+
+void
+debug_show_job_classes         (void)
+	__attribute__ ((unused));
+
+void
+debug_show_event               (const Event *event)
+	__attribute__ ((unused));
+
+void
+debug_show_conf_file(const ConfFile *file)
+	__attribute__ ((unused));
+
+void
+debug_show_conf_source(const ConfSource *source)
+	__attribute__ ((unused));
+
+void
+debug_show_conf_sources(void)
+	__attribute__ ((unused));
+
+#endif
+
 NIH_END_EXTERN
 
 #endif /* INIT_CONF_H */

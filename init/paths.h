@@ -103,5 +103,55 @@
 #define TELINIT SBINDIR "/telinit"
 #endif
 
+/**
+ * File extension for standard configuration files.
+ **/
+#define CONF_EXT_STD ".conf"
+
+/**
+ * File extension for override files.
+ *
+ * Note that override files are not stored in the ConfSource 'files' hash:
+ * all JobClass information from override files is added to the JobClass for
+ * the corresponding (CONF_EXT_STD) object.
+ **/
+#define CONF_EXT_OVERRIDE ".override"
+
+/**
+ * Determine if specified path extension representes a standard
+ * configuration file.
+ *
+ * @period: pointer to last period in path to check.
+ *
+ * Returns 1 if specified path extension matches that for a
+ * standard configuration file, else return 0.
+ **/
+#define IS_CONF_EXT_STD(period) \
+	(!strcmp (period, CONF_EXT_STD))
+
+/**
+ * Determine if specified path extension representes an
+ * override file.
+ *
+ * @period: pointer to last period in path to check.
+ *
+ * Returns 1 if specified path extension matches that for
+ * an override file, else return 0.
+ **/
+#define IS_CONF_EXT_OVERRIDE(period) \
+	(!strcmp (period, CONF_EXT_OVERRIDE))
+
+/**
+ * Determine if specified filename has a valid configuration
+ * file name extension.
+ *
+ * @period: pointer to last period in filename.
+ *
+ * Returns: TRUE if extension beyond @period is one of the
+ * recognized types, else FALSE.
+ **/
+#define IS_CONF_EXT(period) \
+	(IS_CONF_EXT_STD(period) || \
+	 IS_CONF_EXT_OVERRIDE(period))
 
 #endif /* INIT_PATHS_H */
