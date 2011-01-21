@@ -1182,7 +1182,7 @@ size_t
 debug_count_list_entries (const NihList *list)
 {
 	size_t i = 0;
-	NIH_LIST_FOREACH (conf_sources, iter) {
+	NIH_LIST_FOREACH (list, iter) {
 		i++;
 	}
 	return i;
