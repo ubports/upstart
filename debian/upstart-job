@@ -48,7 +48,7 @@ start|stop|restart)
     $ECHO
     $ECHO "Since the script you are attempting to invoke has been converted to an"
     $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
-    if status "$JOB" 2>/dev/null | grep -q '^start/'; then
+    if status "$JOB" 2>/dev/null | grep -q ' start/'; then
         RUNNING=1
     fi
     if [ -z "$RUNNING" ] && [ "$COMMAND" = "stop" ]; then
