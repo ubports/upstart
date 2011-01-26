@@ -48,12 +48,14 @@ start|stop|restart)
     $ECHO
     $ECHO "Since the script you are attempting to invoke has been converted to an"
     $ECHO "Upstart job, you may also use the $COMMAND(8) utility, e.g. $COMMAND $JOB"
-    PID=$(status "$JOB" 2>/dev/null | awk '/[0-9]$/ { print $NF }')
-    if [ -z "$PID" ] && [ "$COMMAND" = "stop" ]; then
+    if status "$JOB" 2>/dev/null | grep -q '^start/'; then
+        RUNNING=1
+    fi
+    if [ -z "$RUNNING" ] && [ "$COMMAND" = "stop" ]; then
         exit 0
-    elif [ -n "$PID" ] && [ "$COMMAND" = "start" ]; then
+    elif [ -n "$RUNNING" ] && [ "$COMMAND" = "start" ]; then
         exit 0
-    elif [ -z "$PID" ] && [ "$COMMAND" = "restart" ]; then
+    elif [ -z "$RUNNING" ] && [ "$COMMAND" = "restart" ]; then
         start "$JOB"
         exit 0
     fi
