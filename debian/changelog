@@ -1,7 +1,8 @@
 upstart (0.6.7-5) UNRELEASED; urgency=low
 
   * debian/upstart-job: properly handle jobs that are in state 'start/running'
-    with no PID, by checking only if the goal is 'start'.  LP: #603934.
+    with no PID, by checking only if the goal is 'start'.  LP: #603934,
+    #707971.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 26 Jan 2011 09:10:29 -0800
 
