@@ -20,6 +20,12 @@ upstart (0.6.7-4) natty; urgency=low
 
  -- Kees Cook <kees@ubuntu.com>  Fri, 14 Jan 2011 13:46:12 -0800
 
+upstart (0.6.7-4~test1) UNRELEASED; urgency=low
+
+  * Re-add upstream r977 to allow proper re-exec on shutdown (LP: #672177)
+
+ -- Clint Byrum <clint@ubuntu.com>  Wed, 29 Dec 2010 12:08:36 -0800
+
 upstart (0.6.7-3) natty; urgency=low
 
   * debian/rules: make sure apparmor-profile-load is executable.
