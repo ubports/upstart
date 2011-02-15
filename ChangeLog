@@ -1,6 +1,9 @@
 2011-02-15  James Hunt <james.hunt@ubuntu.com>
 
-	* contrib/utils/initctl2dot.py: Simply Python script to convert new initctl
+	* contrib/utils/init-check.sh: Script to determine if the
+	  specified job configuration file (located outside of /etc/init/)
+	  is valid or not.
+	* contrib/utils/initctl2dot.py: Simple Python script to convert new initctl
 	  output to GraphViz dot format. Example usage:
 	    initctl2dot.py > upstart.dot && dot -Tpng -o upstart.png upstart.dot
 	* dbus/upstart.h: Whitespace fix.

@@ -4,4 +4,5 @@ EXTRA_DIST = \
 	vim/syntax/upstart.vim \
 	vim/ftdetect/upstart.vim \
 	bash_completion/upstart \
-	contrib/utils/initctl2dot.py
+	contrib/utils/initctl2dot.py \
+	contrib/utils/init-check.sh
