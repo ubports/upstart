@@ -26,6 +26,7 @@ _upstart_stoppable_events()
 _upstart_initctl()
 {
   _get_comp_words_by_ref cur prev
+  vis_opts="-d --detail -e --enumerate"
 
   COMPREPLY=()
 
@@ -46,8 +47,37 @@ _upstart_initctl()
       return 0
     ;;
 
-    reload|restart|status)
+    list)
+      COMPREPLY=( $(compgen -W "${vis_opts}" -- ${cur}) )
+      return 0
+    ;;
+
+    -d|--detail|-e|--enumerate)
+      # allow visualisation options after status/list commands
+      for cmd in status list
+      do
+        cwords=${COMP_WORDS[@]##}
+        filtered_cwords=${COMP_WORDS[@]##${cmd}}
+        if [ "$filtered_cwords" != "$cwords" ]
+        then
+          if [ "$cmd" = list ]
+          then
+            COMPREPLY=( $(compgen -W "${vis_opts}" -- ${cur}) )
+            return 0
+          fi
+          COMPREPLY=( $(compgen -W "${vis_opts} $(_upstart_conf_events)" -- ${cur}) )
+          return 0
+        fi
+      done
+    ;;
+
+    reload|restart)
       COMPREPLY=( $(compgen -W "$(_upstart_conf_events)" -- ${cur}) )
+      return 0
+    ;;
+
+    status)
+      COMPREPLY=( $(compgen -W "${vis_opts} $(_upstart_conf_events)" -- ${cur}) )
       return 0
     ;;
 
@@ -71,7 +101,7 @@ _upstart_initctl()
     ;;
   esac
 
-  opts="--help --version -q --quiet -v --verbose --system --dest="
+  opts="--help --version -q --quiet -v --verbose --session --system --dest="
   cmds=$(initctl help|grep "^  [^ ]"|awk '{print $1}')
 
   COMPREPLY=( $(compgen -W "${opts} ${cmds}" -- ${cur}) )
@@ -84,7 +114,7 @@ _upstart_start()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest= \
+  opts="--help --version -q --quiet -v --verbose --session --system --dest= \
         -n --no-wait"
 
   case "$prev" in
@@ -104,7 +134,7 @@ _upstart_stop()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest= \
+  opts="--help --version -q --quiet -v --verbose --session --system --dest= \
         -n --no-wait"
 
   case "$prev" in
@@ -124,7 +154,7 @@ _upstart_restart()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest= \
+  opts="--help --version -q --quiet -v --verbose --session --system --dest= \
         -n --no-wait"
 
   case "$prev" in
@@ -159,33 +189,13 @@ _upstart_status()
 
 } && complete -F _upstart_status status
 
-have list &&
-_upstart_list()
-{
-  COMPREPLY=()
-  _get_comp_words_by_ref cur prev
-
-  opts="--help --version -q -d --detail -e --enumerate --quiet -v --verbose --session --system --dest="
-
-  case "$prev" in
-    --help|--version)
-      COMPREPLY=()
-      return 0
-    ;;
-  esac
-
-  COMPREPLY=( $(compgen -W "$opts" -- ${cur}) )
-  return 0
-
-} && complete -F _upstart_list list
-
 have reload &&
 _upstart_reload()
 {
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest="
+  opts="--help --version -q --quiet -v --verbose --session --system --dest="
 
   case "$prev" in
     --help|--version)

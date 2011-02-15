@@ -1,5 +1,6 @@
 2011-02-15  James Hunt <james.hunt@ubuntu.com>
 
+	* contrib/bash_completion/upstart: Update for job visualisation.
 	* contrib/utils/init-check.sh: Script to determine if the
 	  specified job configuration file (located outside of /etc/init/)
 	  is valid or not.
