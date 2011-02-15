@@ -56,23 +56,35 @@
 
 
 /**
- * CONFFILE:
+ * DEFAULT_CONFFILE:
  *
  * Init daemon configuration file.
  **/
-#ifndef CONFFILE
-#define CONFFILE "/etc/init.conf"
+#ifndef DEFAULT_CONFFILE
+#define DEFAULT_CONFFILE "/etc/init.conf"
 #endif
 
 /**
- * CONFDIR:
+ * DEFAULT_CONFDIR:
  *
  * Top-level directory of the system configuration files.
  **/
-#ifndef CONFDIR
-#define CONFDIR "/etc/init"
+#ifndef DEFAULT_CONFDIR
+#define DEFAULT_CONFDIR "/etc/init"
 #endif
 
+/**
+ * CONFDIR_ENV:
+ *
+ * If this environment variable is set, read configuration files
+ * from the location specified, rather than DEFAULT_CONFDIR.
+ *
+ * Value is expected to be the full path to an alternative job
+ * configuration directory.
+ **/
+#ifndef CONFDIR_ENV
+#define CONFDIR_ENV "UPSTART_CONFDIR"
+#endif
 
 /**
  * SHELL:
@@ -102,6 +114,5 @@
 #ifndef TELINIT
 #define TELINIT SBINDIR "/telinit"
 #endif
-
 
 #endif /* INIT_PATHS_H */

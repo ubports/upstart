@@ -1,4 +1,4 @@
-.TH initctl 8 2010-02-04 "Upstart"
+.TH initctl 8 2011-02-15 "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control tool
@@ -32,6 +32,10 @@ for the
 commands.
 .\"
 .SH OPTIONS
+.TP
+.B --session
+Connect to daemon using the D-Bus session bus (for testing purposes only).
+.\"
 .TP
 .B --system
 Communication with the
@@ -187,10 +191,74 @@ for a discussion on instances.
 .\"
 .TP
 .B status
-.I JOB
-.RI [ KEY=VALUE ]...
+.RI [ OPTIONS "] JOB [" KEY=VALUE ]...
 
-Requests the status an instance of the named
+.B OPTIONS
+.RS
+.IP "\fB\-d\fP, \fB\-\-detail\fP"
+Display additional information:
+.BR emits , " start on " and " stop on " conditions.
+
+For each event emitted, a separate line is displayed beginning with two
+space characters followed by, \'emits \fIevent\fP\' where \'\fIevent\fP\'
+denotes a single emitted event.
+
+The \fBstart on\fP and \fBstop on\fP conditions
+are listed on separate lines beginning with two space characters and
+followed by \'start on\' and \'stop on\' respectively and ending with
+the appropriate condition.
+
+Note that the \fBstart on\fP and \fBstop on\fP conditions will be fully
+bracketed, regardless of whether they appear like this in the job
+configuration file. This is useful to see how the
+.BR init (8)
+daemon perceives the condition. Note too that this information is purely
+static information parsed from the job configuration files.
+
+Example output:
+
+.nf
+foo stop/waiting
+  emits boing
+  emits blip
+  start on (starting A and (B or C var=2)) 
+  stop on (bar HELLO=world testing=123 or stopping wibble)
+.fi
+.\"
+.IP "\fB\-e\fP, \fB\-\-enumerate\fP"
+Similar to the \fB--detail\fP option and requiring that this too be
+specified. However, rather than listing the precise \fBstart on\fP and
+\fBstop on\fP conditions, outputs the emits lines along with one line
+for each event or job the job in question \fImay\fP be started or
+stopped by. If a job starts on a non-job event, this will be listed
+verbatim, whereas if a job starts on a job event, the name of the
+\fIjob\fP as opposed to the event the job emits will be listed.
+
+To avoid confusion, the type of entity, its triggering event (if
+appropriate) and its full environment is displayed in brackets following
+its name.
+
+This option is useful for tools which might wish to parse the output to
+generate graphs of relationships between jobs and events. It is also
+instructive since it shows how the
+.BR init (8)
+daemon has parsed the job configuration file.
+
+Example output, which is an analog to the \fB--detail\fP example above:
+
+.nf
+foo stop/waiting
+  emits boing
+  emits blip
+  start on A (type: job, event: starting, env:)
+  start on B (type: event, env:)
+  start on C (type: event, env: var=2)
+  stop on bar (type: event, env: HELLO=world testing=123)
+  stop on wibble (type: job, event: stopping, env:)
+.fi
+
+.P
+With no options, requests the status an instance of the named
 .IR JOB ,
 outputting to standard output.
 
@@ -246,16 +314,18 @@ name follows the job name in parentheses:
   job (tty1) start/post-start, process 1234
           post-start process 1357
 .fi
+.RE
 .\"
 .TP
 .B list
+.RI [ OPTIONS ]
 
 Requests a list of the known jobs and instances, outputs the status of
 each to standard output.
 
 See
 .B status
-for a description of the output format and
+for a description of the output format and options and
 .B start
 for a discussion on instances.
 
@@ -290,7 +360,7 @@ There is no limitation on the event names that may be emitted with this
 command, you are free to invent new events and use them in your job
 configurations.
 
-The most well known event used by the default Upstart configuration is
+The most well-known event used by the default Upstart configuration is
 the
 .BR runlevel (7)
 event.  This is normally emitted by the

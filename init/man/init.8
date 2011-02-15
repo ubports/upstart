@@ -1,4 +1,4 @@
-.TH init 8 2010-02-04 "Upstart"
+.TH init 8 2011-02-15 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -18,7 +18,7 @@ Processes managed by
 .B init
 are known as jobs and are defined by files in the
 .I /etc/init
-directory.  See
+directory, unless overriden (see below).  See
 .BR init (5)
 for more details on configuring Upstart.
 .\"
@@ -62,6 +62,15 @@ event.  For more information see its manual page.
 Options are passed to
 .BR init (8)
 by placing them on the kernel command-line.
+.\"
+.TP
+.B --confdir \fIdirectory\fP
+Read job configuration files from a directory other than
+\fI/etc/init\fP.
+.\"
+.TP
+.B --session
+Connect to the D-Bus session bus. This should only be used for testing.
 .\"
 .TP
 .B --verbose

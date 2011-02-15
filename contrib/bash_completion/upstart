@@ -145,7 +145,7 @@ _upstart_status()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest="
+  opts="--help --version -q -d --detail -e --enumerate --quiet -v --verbose --session --system --dest="
 
   case "$prev" in
     --help|--version)
@@ -158,6 +158,26 @@ _upstart_status()
   return 0
 
 } && complete -F _upstart_status status
+
+have list &&
+_upstart_list()
+{
+  COMPREPLY=()
+  _get_comp_words_by_ref cur prev
+
+  opts="--help --version -q -d --detail -e --enumerate --quiet -v --verbose --session --system --dest="
+
+  case "$prev" in
+    --help|--version)
+      COMPREPLY=()
+      return 0
+    ;;
+  esac
+
+  COMPREPLY=( $(compgen -W "$opts" -- ${cur}) )
+  return 0
+
+} && complete -F _upstart_list list
 
 have reload &&
 _upstart_reload()
