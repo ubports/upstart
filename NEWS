@@ -1,4 +1,4 @@
-0.6.8  xxxx-xx-xx
+1.0  xxxx-xx-xx
 
 	* Fixed an assertion when a file named /etc/init/.conf is created.
 	  Discovered by Коренберг Марк (Bug: #720573)

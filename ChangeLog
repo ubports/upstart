@@ -1,5 +1,8 @@
 2011-02-17  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac, NEWS: Bump version to 1.0
+	* TODO: Update.
+
 	* init/tests/test_conf.c (test_source_reload_job_dir): Add tests for
 	a crasher bug when a file is created called ".conf"
 	* init/conf.c (conf_dir_filter): Apply fix for the crasher; check that
