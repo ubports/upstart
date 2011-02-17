@@ -2,6 +2,7 @@
  *
  * conf.c - configuration management
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
