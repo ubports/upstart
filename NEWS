@@ -1,5 +1,8 @@
 0.6.8  xxxx-xx-xx
 
+	* Fixed an assertion when a file named /etc/init/.conf is created.
+	  Discovered by Коренберг Марк (Bug: #720573)
+
 	* utmp entries will be replaced with DEAD_PROCESS ones when a
 	  pid supervised by Upstart terminates.  (Bug: #183729)
 

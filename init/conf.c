@@ -523,7 +523,7 @@ conf_dir_filter (ConfSource *source,
 		return nih_file_ignore (NULL, path);
 
 	ptr = strrchr (path, '.');
-	if (ptr && (! strcmp (ptr, ".conf")))
+	if (ptr && (ptr > path) && (ptr[-1] != '/') && (! strcmp (ptr, ".conf")))
 		return FALSE;
 
 	return TRUE;

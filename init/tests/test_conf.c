@@ -1008,6 +1008,82 @@ test_source_reload_job_dir (void)
 	nih_free (source);
 
 
+	/* Check that a file without the ".conf" extension is ignored.
+	 */
+	TEST_FEATURE ("without .conf extension only");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/munchkin");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
+
+
+	/* Check that a file named just ".conf" is ignored.
+	 */
+	TEST_FEATURE ("with literal .conf file");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
+
+
 	/* Consume all available inotify instances so that the following
 	 * tests run without inotify.
 	 */
@@ -1462,6 +1538,76 @@ no_inotify:
 	TEST_EQ (job, NULL);
 
 	nih_free (source);
+
+
+	/* Check that a file without the ".conf" extension is ignored
+	 * when it exists at reload time.
+	 */
+	TEST_FEATURE ("without .conf extension only");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/munchkin");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
+
+
+	/* Check that a file named just ".conf" is ignored when it exists
+	 * at reload time.
+	 */
+	TEST_FEATURE ("with literal .conf file");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
 
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);

@@ -1,3 +1,11 @@
+2011-02-17  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_conf.c (test_source_reload_job_dir): Add tests for
+	a crasher bug when a file is created called ".conf"
+	* init/conf.c (conf_dir_filter): Apply fix for the crasher; check that
+	the character before the ".conf" extension is not "/"
+	* NEWS: Update.
+
 2011-01-06  Petr Lautrbach  <plautrba@redhat.com>
 
 	* init/job_process.c (job_process_termianted): Don't rewind the
