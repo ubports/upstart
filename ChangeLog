@@ -1,3 +1,38 @@
+2011-02-17  James Hunt <james.hunt@ubuntu.com>
+
+	* contrib/utils/init-check.sh renamed to init-checkconf.sh.
+	* contrib/utils/initct2dot.py:
+	  - updated to call "initctl show-config" 
+	  - Added options to allow specification of all colo(u)rs.
+	  - Added a '--restrict-to-jobs' option to allow a sub-set of all jobs
+	    to be viewed (along with their associated jobs and events).
+	  - Code refactored.
+	* init/main.c:
+	  - Added new options '--startup-event' and '--no-startup-event'.
+	* init/man/init.8: Updated for "initctl show-status".
+	* util/initctl.c:
+	  - Reworked code so that rather than utilizing existing 'list' and
+	    'status' commands, we now have a new command: 'show-status'. This is
+	    more logical since it is obvious what it is doing and it also
+	    doesn't pollute the dynamic data returned by 'status' and 'list' with
+	    purely static info.
+	  - upstart_open(): Improved dbus_bus_type usage (now only default to
+	    system bus).
+	  - show_config_action(): New function to handle 'show-config' command.
+	  - job_class_parse_events(): Fixed uninitialized variable issue and
+	    removed IS_JOB() macro in favour of the ultimately reliable
+	    IS_JOB_EVENT() macro.
+	* util/initctl.h: Only enable stack debugging if DEBUG_STACK defined.
+	  This ensures that "make check" doesn't fail due to stack DEBUG output.
+	* util/man/initctl.8: Updated for new 'show-config' command.
+	* util/tests/test_initctl.c:
+	  - Improved START_UPSTART() and STOP_UPSTART() macros.
+	  - Renamed test_status_and_list_action_detail() to
+	    test_show_config_action() to reflect the new command under test.
+	  - test_show_config_action(): Removed all (now-redundant) tests calling
+	    "initctl status" and "initctl list" and updated for new 'show-config'
+	    command.
+
 2011-02-15  James Hunt <james.hunt@ubuntu.com>
 
 	* contrib/bash_completion/upstart: Update for job visualisation.

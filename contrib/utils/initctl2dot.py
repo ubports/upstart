@@ -3,6 +3,7 @@
 #---------------------------------------------------------------------
 #
 # Copyright © 2011 Canonical Ltd.
+#
 # Author: James Hunt <james.hunt@canonical.com>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -20,8 +21,8 @@
 #---------------------------------------------------------------------
 
 #---------------------------------------------------------------------
-# Script to take output of "initctl list -de" and convert it into
-# a Graphviz DOT language (".dot") file for procesing with "dot", etc.
+# Script to take output of "initctl show-config -e" and convert it into
+# a Graphviz DOT language (".dot") file for procesing with dot(1), etc.
 #
 # Notes:
 #
@@ -30,7 +31,7 @@
 #
 # Usage:
 #
-#   initctl list -de > initctl.out
+#   initctl show-config -e > initctl.out
 #   initctl2dot.py -f initctl.out > upstart.dot
 #   dot -Tpng -o upstart.png upstart.dot
 #
@@ -54,26 +55,33 @@ from optparse import OptionParser
 
 jobs   = {}
 events = {}
-cmd = "initctl --system list -de"
+cmd = "initctl --system show-config -e"
 script_name =  os.path.basename(sys.argv[0])
+
+# list of jobs to restict output to
+restrictions_list = []
 
 default_color_emits    = 'green'
 default_color_start_on = 'blue'
 default_color_stop_on  = 'red'
 default_color_event    = 'thistle'
 default_color_job      = '#DCDCDC' # "Gainsboro"
-
+default_color_text     = 'black'
+default_color_bg       = 'white'
 default_outfile = 'upstart.dot'
 
+
 def header(ofh):
-  ofh.write("""
-    digraph upstart {
+  global options
 
-       node [shape=record];
-       rankdir=LR;
-       overlap=false;
+  str  = "digraph upstart {"
+  str += "  node [shape=record];"
+  str += "  rankdir=LR;"
+  str += "  overlap=false;"
+  str += "  bgcolor=\"%s\";" % options.color_bg
+  str += "  fontcolor=\"%s\";" % options.color_text
 
-  """)
+  ofh.write(str)
 
 
 def footer(ofh):
@@ -103,69 +111,227 @@ def footer(ofh):
 # contain dashes. Also remove dollars and colons
 def sanitise(s):
   return s.replace('-', '_').replace('$', 'dollar_').replace('[', \
-  'lbracket').replace(']', 'rbracket').replace('!', 'bang').replace(':', '_')
+  'lbracket').replace(']', 'rbracket').replace('!', \
+  'bang').replace(':', '_')
 
 
 # Convert a dollar in @name to a unique-ish new name, based on @job and
-# return it.
+# return it. Used for very rudimentary instance handling.
 def encode_dollar(job, name):
   if name[0] == '$':
     name = job + ':' + name
   return name
 
 
+def mk_node_name(name):
+  return sanitise(name)
+
+
+# Jobs and events can have identical names, so prefix them to namespace
+# them off.
+def mk_job_node_name(name):
+  return mk_node_name('job_' + name)
+
+
+def mk_event_node_name(name):
+  return mk_node_name('event_' + name)
+
+
+def show_event(ofh, name):
+    global options
+    ofh.write("""
+    %s [label=\"%s\", shape=diamond, fontcolor=\"%s\", fillcolor=\"%s\", style=\"filled\"];
+    """ % (mk_event_node_name(name), name, options.color_event_text, options.color_event))
+
+
 def show_events(ofh):
   global events
   global options
+  global restrictions_list
 
-  for e in events:
-    sane_event = sanitise(e)
-    ofh.write("""
-    %s [label=\"%s\", shape=diamond, fillcolor=\"%s\", style=\"filled\"];
-    """ % (sane_event, e, options.color_event))
+  events_to_show = []
+
+  if restrictions_list:
+    for job in restrictions_list:
+
+      # We want all events emitted by the jobs in the restrictions_list.
+      events_to_show += jobs[job]['emits']
+
+      # We also want all events that jobs in restrictions_list start/stop
+      # on.
+      events_to_show += jobs[job]['start on']['event']
+      events_to_show += jobs[job]['stop on']['event']
+
+      # We also want all events emitted by all jobs that jobs in the
+      # restrictions_list start/stop on. Finally, we want all events
+      # emmitted by those jobs in the restrictions_list that we
+      # start/stop on.
+      for j in jobs[job]['start on']['job']:
+        if jobs.has_key(j) and jobs[j].has_key('emits'):
+          events_to_show += jobs[j]['emits']
+
+      for j in jobs[job]['stop on']['job']:
+        if jobs.has_key(j) and jobs[j].has_key('emits'):
+          events_to_show += jobs[j]['emits']
+  else:
+    events_to_show = events
+
+  for e in events_to_show:
+    show_event(ofh, e)
+
+
+def show_job(ofh, name):
+  global options
+
+  ofh.write("""
+    %s [label=\"<job> %s | { <start> start on | <stop> stop on }\", fontcolor=\"%s\", style=\"filled\", fillcolor=\"%s\"];
+    """ % (mk_job_node_name(name), name, options.color_job_text, options.color_job))
 
 
 def show_jobs(ofh):
   global jobs
   global options
+  global restrictions_list
 
-  for j in jobs:
-    sane_job = sanitise(j)
-    ofh.write("""
-    %s [label=\"<job> %s | { <start> start on | <stop> stop on }\", style=\"filled\", fillcolor=\"%s\"];
-    """ % (sane_job, j, options.color_job))
+  if restrictions_list:
+    jobs_to_show = restrictions_list
+  else:
+    jobs_to_show = jobs
+
+  for j in jobs_to_show:
+    show_job(ofh, j)
+    # add those jobs which are references by existing jobs, but which
+    # might not be available as .conf files. For example, plymouth.conf
+    # references gdm *or* kdm, but you are unlikely to have both
+    # installed.
+    for s in jobs[j]['start on']['job']:
+      if s not in jobs_to_show:
+        show_job(ofh, s)
+
+    for s in jobs[j]['stop on']['job']:
+      if s not in jobs_to_show:
+        show_job(ofh, s)
+
+  if not restrictions_list:
+    return
+
+  # Having displayed the jobs in restrictions_list,
+  # we now need to display all jobs that *those* jobs
+  # start on/stop on.
+  for j in restrictions_list:
+    for job in jobs[j]['start on']['job']:
+      show_job(ofh, job)
+    for job in jobs[j]['stop on']['job']:
+      show_job(ofh, job)
+
+  # Finally, show all jobs which emit events that jobs in the
+  # restrictions_list care about.
+  for j in restrictions_list:
+
+    for e in jobs[j]['start on']['event']:
+      for k in jobs:
+        if e in jobs[k]['emits']:
+          show_job(ofh, k)
+
+    for e in jobs[j]['stop on']['event']:
+      for k in jobs:
+        if e in jobs[k]['emits']:
+          show_job(ofh, k)
+
+
+def show_edge(ofh, from_node, to_node, color):
+  ofh.write("%s -> %s [color=\"%s\"];\n" % (from_node, to_node, color))
+
+
+def show_start_on_job_edge(ofh, from_job, to_job):
+  global options
+  show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
+    "%s:job" % mk_job_node_name(to_job), options.color_start_on)
+
+
+def show_start_on_event_edge(ofh, from_job, to_event):
+  global options
+  show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
+    mk_event_node_name(to_event), options.color_start_on)
+
+
+def show_stop_on_job_edge(ofh, from_job, to_job):
+  global options
+  show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
+    "%s:job" % mk_job_node_name(to_job), options.color_stop_on)
+
+
+def show_stop_on_event_edge(ofh, from_job, to_event):
+  global options
+  show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
+    mk_event_node_name(to_event), options.color_stop_on)
+
+
+def show_job_emits_edge(ofh, from_job, to_event):
+  global options
+  show_edge(ofh, "%s:job" % mk_job_node_name(from_job),
+    mk_event_node_name(to_event), options.color_emits)
 
 
 def show_edges(ofh):
   global events
   global jobs
   global options
+  global restrictions_list
 
-  for job in jobs:
-    sane_job = sanitise(job)
-    for s in jobs[job]['start on'] :
-      sane_s = sanitise(s)
-      if s in jobs:
-        _str = "%s:job" % sane_s
-      else:
-        _str = sane_s
-      ofh.write("%s:start -> %s [color=\"%s\"];\n" %
-        (sane_job, _str, options.color_start_on))
+  if restrictions_list:
+    jobs_list = restrictions_list
+  else:
+    jobs_list = jobs
 
-    for s in jobs[job]['stop on']:
-      sane_s = sanitise(s)
-      if s in jobs:
-        _str = "%s:job" % sane_s
-      else:
-        _str = sane_s
-      ofh.write("%s:stop -> %s [color=\"%s\"];\n" %
-        (sane_job, _str, options.color_stop_on))
+  for job in jobs_list:
+
+    for s in jobs[job]['start on']['job']:
+      show_start_on_job_edge(ofh, job, s)
+
+    for s in jobs[job]['start on']['event']:
+      show_start_on_event_edge(ofh, job, s)
+
+    for s in jobs[job]['stop on']['job']:
+      show_stop_on_job_edge(ofh, job, s)
+
+    for s in jobs[job]['stop on']['event']:
+      show_stop_on_event_edge(ofh, job, s)
 
     for e in jobs[job]['emits']:
-      sane_e = sanitise(e)
-      sane_job = sanitise(job)
-      ofh.write("%s:job -> %s [color=\"%s\"];\n" %
-        (sane_job, sane_e, options.color_emits))
+      show_job_emits_edge(ofh, job, e)
+
+    if not restrictions_list:
+      continue
+
+    # Add links to events emitted by all jobs which current job
+    # start/stops on
+    for j in jobs[job]['start on']['job']:
+      if not jobs.has_key(j):
+        continue
+      for e in jobs[j]['emits']:
+        show_job_emits_edge(ofh, j, e)
+
+    for j in jobs[job]['stop on']['job']:
+      for e in jobs[j]['emits']:
+        show_job_emits_edge(ofh, j, e)
+
+  if not restrictions_list:
+    return
+
+  # Add jobs->event links to jobs which emit events that current job
+  # start/stops on.
+  for j in restrictions_list:
+
+    for e in jobs[j]['start on']['event']:
+      for k in jobs:
+        if e in jobs[k]['emits'] and e not in restrictions_list:
+          show_job_emits_edge(ofh, k, e)
+
+    for e in jobs[j]['stop on']['event']:
+      for k in jobs:
+        if e in jobs[k]['emits'] and e not in restrictions_list:
+          show_job_emits_edge(ofh, k, e)
 
 
 def read_data():
@@ -189,24 +355,48 @@ def read_data():
       record = {}
       line = line.rstrip()
 
-      if re.match('^\s+start on', line):
-        name = (line.lstrip().split())[2]
-        name = encode_dollar(job, name)
-        jobs[job]['start on'][name] = 1
-      elif re.match('^\s+stop on', line):
-        name = (line.lstrip().split())[2]
-        name = encode_dollar(job, name)
-        jobs[job]['stop on'][name] = 1
-      elif re.match('^\s+emits', line):
+      result = re.match('^\s+start on ([^,]+) \(type: ([^,]+),', line)
+      if result:
+        _name = encode_dollar(job, result.group(1))
+        _type = result.group(2)
+        jobs[job]['start on'][_type][_name] = 1
+        if _type == 'event':
+          events[_name] = 1
+        continue
+
+      result = re.match('^\s+stop on ([^,]+) \(type: ([^,]+),', line)
+      if result:
+        _name = encode_dollar(job, result.group(1))
+        _type = result.group(2)
+        jobs[job]['stop on'][_type][_name] = 1
+        if _type == 'event':
+          events[_name] = 1
+        continue
+
+      if re.match('^\s+emits', line):
         event = (line.lstrip().split())[1]
         event = encode_dollar(job, event)
         events[event] = 1
         jobs[job]['emits'][event] = 1
       else:
-        job_record = {}
-        start_on   = {}
-        stop_on    = {}
-        emits      = {}
+        job_record      = {}
+
+        start_on        = {}
+        start_on_jobs   = {}
+        start_on_events = {}
+
+        stop_on         = {}
+        stop_on_jobs    = {}
+        stop_on_events  = {}
+
+        emits           = {}
+
+        start_on['job']    = start_on_jobs
+        start_on['event']  = start_on_events
+
+        stop_on['job']     = stop_on_jobs
+        stop_on['event']   = stop_on_events
+
         job_record['start on'] = start_on
         job_record['stop on']  = stop_on
         job_record['emits']    = emits
@@ -221,9 +411,9 @@ def read_data():
   total_stop_on  = {}
 
   for job in jobs:
-    for name in jobs[job]['start on']:
+    for name in jobs[job]['start on']['job']:
       total_start_on[name] = 1
-    for name in jobs[job]['stop on']:
+    for name in jobs[job]['stop on']['job']:
       total_stop_on[name] = 1
 
   if options.check_mode == 1:
@@ -233,24 +423,24 @@ def read_data():
 
     for name in all_names:
       if not name in jobs.keys() and not name in events.keys():
-        print "WARNING: job or event '%s' not emitted by any job" % name
-    sys.exit(0)
+        print >>sys.stderr, "WARNING: job or event '%s' not emitted by any job" % name
 
   # Iterate through all "start on" and "stop on" conditions. If they are
   # jobs, we'll already have recorded them. If they are events, add them
   # if we haven't already done so.
   for name in total_start_on:
     if not name in jobs.keys() and not name in events.keys():
-      # must have an event
+      # Must have an event.
       events[name] = 1
 
   for name in total_stop_on:
     if not name in jobs.keys() and not name in events.keys():
-      # must have an event
+      # Must have an event.
       events[name] = 1
 
 
 def main():
+  global jobs
   global options
   global cmd
   global default_color_emits
@@ -258,8 +448,11 @@ def main():
   global default_color_stop_on
   global default_color_event
   global default_color_job
+  global default_color_text
+  global default_color_bg
+  global restrictions_list
 
-  description = "Convert initctl(8) output to a GraphViz dot diagram."
+  description = "Convert initctl(8) output to a GraphViz dot(1) diagram."
   epilog = \
     "See http://www.graphviz.org/doc/info/colors.html for available colours."
 
@@ -269,6 +462,10 @@ def main():
     dest="check_mode",
     action="store_true",
     help="Look for missing jobs/events then exit (this may not be reliable).")
+
+  parser.add_option("-r", "--restrict-to-jobs",
+      dest="restrictions",
+      help="Limit display of 'start on' and 'stop on' to specified jobs.")
 
   parser.add_option("-f", "--infile",
       dest="infile",
@@ -299,6 +496,26 @@ def main():
       help="Specify color for event boxes (default=%s)." %
       default_color_event)
 
+  parser.add_option("--color-text",
+      dest="color_text",
+      help="Specify color for summary text (default=%s)." %
+      default_color_text)
+
+  parser.add_option("--color-bg",
+      dest="color_bg",
+      help="Specify background color for diagram (default=%s)." %
+      default_color_bg)
+
+  parser.add_option("--color-event-text",
+      dest="color_event_text",
+      help="Specify color for text in event boxes (default=%s)." %
+      default_color_text)
+
+  parser.add_option("--color-job-text",
+      dest="color_job_text",
+      help="Specify color for text in job boxes (default=%s)." %
+      default_color_text)
+
   parser.add_option("--color-job",
       dest="color_job",
       help="Specify color for job boxes (default=%s)." %
@@ -309,6 +526,10 @@ def main():
   color_stop_on=default_color_stop_on,
   color_event=default_color_event,
   color_job=default_color_job,
+  color_job_text=default_color_text,
+  color_event_text=default_color_text,
+  color_text=default_color_text,
+  color_bg=default_color_bg,
   outfile=default_outfile)
 
   (options, args) = parser.parse_args()
@@ -321,7 +542,15 @@ def main():
     except:
       sys.exit("ERROR: cannot open file %s for writing" % options.outfile)
 
+  if options.restrictions:
+    restrictions_list = options.restrictions.split(",")
+
   read_data()
+
+  for job in restrictions_list:
+    if not job in jobs:
+      sys.exit("ERROR: unknown job %s" % job)
+
   header(ofh)
   show_events(ofh)
   show_jobs(ofh)

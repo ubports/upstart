@@ -104,12 +104,12 @@
  *
  * Does nothing if debug build not enabled.
  **/
-#ifdef DEBUG
+#ifdef DEBUG_STACK
 #define STACK_SHOW_POP(stack, str) \
 	STACK_SHOW_CHANGE(stack, "popped", str)
-#else /* !DEBUG */
+#else
 #define STACK_SHOW_POP(stack, str)
-#endif /* DEBUG */
+#endif
 
 /**
  * STACK_SHOW_PUSH:
@@ -120,13 +120,13 @@
  *
  * Does nothing if debug build not enabled.
  **/
-#ifdef DEBUG
+#ifdef DEBUG_STACK
 #define STACK_SHOW_PUSH(stack, str)             \
 	STACK_SHOW_CHANGE(stack, "pushed", str) \
 	nih_assert (! STACK_EMPTY(stack))
-#else /* !DEBUG */
+#else
 #define STACK_SHOW_PUSH(stack, str)
-#endif /* DEBUG */
+#endif
 
 /**
  * STACK_SHOW:
@@ -136,7 +136,7 @@
  *
  * Does nothing if debug build not enabled.
  **/
-#ifdef DEBUG
+#ifdef DEBUG_STACK
 #define STACK_SHOW(stack)				      \
 {                                                             \
 	size_t depth = 0;                                     \
@@ -161,9 +161,9 @@
 		}                                             \
 	}                                                     \
 }
-#else /* !DEBUG */
+#else
 #define STACK_SHOW(stack)
-#endif /* DEBUG */
+#endif
 
 /**
  * STACK_SHOW_CHANGE:
@@ -175,7 +175,7 @@
  *
  * Does nothing if debug build not enabled.
  **/
-#ifdef DEBUG
+#ifdef DEBUG_STACK
 #define STACK_SHOW_CHANGE(stack, msg, element_str) \
 	nih_assert (msg);                          \
 	nih_assert (element_str);                  \
@@ -183,9 +183,9 @@
 		(void *)stack, msg, element_str);  \
 	STACK_SHOW(stack);                         \
 	nih_message (" "); /* spacer */
-#else /* !DEBUG */
+#else
 #define STACK_SHOW_CHANGE(stack, msg, element_str)
-#endif /* DEBUG */
+#endif
 
 /**
  * STACK_PUSH:

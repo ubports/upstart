@@ -1,4 +1,4 @@
-.TH initctl 8 2011-02-15 "Upstart"
+.TH initctl 8 2011-02-17 "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control tool
@@ -191,74 +191,10 @@ for a discussion on instances.
 .\"
 .TP
 .B status
-.RI [ OPTIONS "] JOB [" KEY=VALUE ]...
+.I JOB
+.RI [ KEY=VALUE ]...
 
-.B OPTIONS
-.RS
-.IP "\fB\-d\fP, \fB\-\-detail\fP"
-Display additional information:
-.BR emits , " start on " and " stop on " conditions.
-
-For each event emitted, a separate line is displayed beginning with two
-space characters followed by, \'emits \fIevent\fP\' where \'\fIevent\fP\'
-denotes a single emitted event.
-
-The \fBstart on\fP and \fBstop on\fP conditions
-are listed on separate lines beginning with two space characters and
-followed by \'start on\' and \'stop on\' respectively and ending with
-the appropriate condition.
-
-Note that the \fBstart on\fP and \fBstop on\fP conditions will be fully
-bracketed, regardless of whether they appear like this in the job
-configuration file. This is useful to see how the
-.BR init (8)
-daemon perceives the condition. Note too that this information is purely
-static information parsed from the job configuration files.
-
-Example output:
-
-.nf
-foo stop/waiting
-  emits boing
-  emits blip
-  start on (starting A and (B or C var=2)) 
-  stop on (bar HELLO=world testing=123 or stopping wibble)
-.fi
-.\"
-.IP "\fB\-e\fP, \fB\-\-enumerate\fP"
-Similar to the \fB--detail\fP option and requiring that this too be
-specified. However, rather than listing the precise \fBstart on\fP and
-\fBstop on\fP conditions, outputs the emits lines along with one line
-for each event or job the job in question \fImay\fP be started or
-stopped by. If a job starts on a non-job event, this will be listed
-verbatim, whereas if a job starts on a job event, the name of the
-\fIjob\fP as opposed to the event the job emits will be listed.
-
-To avoid confusion, the type of entity, its triggering event (if
-appropriate) and its full environment is displayed in brackets following
-its name.
-
-This option is useful for tools which might wish to parse the output to
-generate graphs of relationships between jobs and events. It is also
-instructive since it shows how the
-.BR init (8)
-daemon has parsed the job configuration file.
-
-Example output, which is an analog to the \fB--detail\fP example above:
-
-.nf
-foo stop/waiting
-  emits boing
-  emits blip
-  start on A (type: job, event: starting, env:)
-  start on B (type: event, env:)
-  start on C (type: event, env: var=2)
-  stop on bar (type: event, env: HELLO=world testing=123)
-  stop on wibble (type: job, event: stopping, env:)
-.fi
-
-.P
-With no options, requests the status an instance of the named
+Requests the status an instance of the named
 .IR JOB ,
 outputting to standard output.
 
@@ -314,18 +250,16 @@ name follows the job name in parentheses:
   job (tty1) start/post-start, process 1234
           post-start process 1357
 .fi
-.RE
 .\"
 .TP
 .B list
-.RI [ OPTIONS ]
 
 Requests a list of the known jobs and instances, outputs the status of
 each to standard output.
 
 See
 .B status
-for a description of the output format and options and
+for a description of the output format and
 .B start
 for a discussion on instances.
 
@@ -409,6 +343,77 @@ priority that the
 .BR init (8)
 daemon will log and ouputs to standard output.
 .\"
+.TP
+.B show-config
+.RI [ OPTIONS "] [" CONF "]"
+
+Display emits, start on and stop on job configuration details (in that
+order) for specified job configuration, \fICONF\fP. If \fICONF\fP is not
+specified, list information for all valid job configurations.
+
+Note that a job configuration is the name of a job configuration file,
+without the extension. Note too that this information is static: it
+does not refer to any running job.
+
+For each event emitted, a separate line is displayed beginning with two
+space characters followed by, \'emits \fIevent\fP\' where \'\fIevent\fP\'
+denotes a single emitted event.
+
+The \fBstart on\fP and \fBstop on\fP conditions
+are listed on separate lines beginning with two space characters and
+followed by \'start on\' and \'stop on\' respectively and ending with
+the appropriate condition.
+
+Note that the \fBstart on\fP and \fBstop on\fP conditions will be fully
+bracketed, regardless of whether they appear like this in the job
+configuration file. This is useful to see how the
+.BR init (8)
+daemon perceives the condition.
+
+Example output:
+
+.nf
+foo
+  emits boing
+  emits blip
+  start on (starting A and (B or C var=2)) 
+  stop on (bar HELLO=world testing=123 or stopping wibble)
+.fi
+
+.B OPTIONS
+.RS
+.IP "\fB\-e\fP, \fB\-\-enumerate\fP"
+
+If specified, rather than listing the precise \fBstart on\fP and \fBstop
+on\fP conditions, outputs the emits lines along with one line for each
+event or job the \fICONF\fP in question \fImay\fP be started or stopped
+by if it were to become a job. If the start on condition specifies a
+non-job event, this will be listed verbatim, whereas for a job event,
+the name of the \fIjob\fP as opposed to the event the job emits will be
+listed.
+
+The type of entity, its triggering event (if appropriate) and its full
+environment is displayed in brackets following its name for clarity.
+
+This option is useful for tools which generate graphs of relationships
+between jobs and events. It is also instructive since it shows how the
+.BR init (8)
+daemon has parsed the job configuration file.
+
+Example output (an analog of the default output format above):
+
+.nf
+foo
+  emits boing
+  emits blip
+  start on A (type: job, event: starting, env:)
+  start on B (type: event, env:)
+  start on C (type: event, env: var=2)
+  stop on bar (type: event, env: HELLO=world testing=123)
+  stop on wibble (type: job, event: stopping, env:)
+.fi
+
+.\"
 .SH AUTHOR
 Written by Scott James Remnant
 .RB < scott@netsplit.com >
@@ -418,7 +423,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2010 Canonical Ltd.
+Copyright \(co 2010, 2011 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

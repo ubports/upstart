@@ -70,8 +70,8 @@
 	                                                             \
 	do {                                                         \
 		sleep (1);                                           \
-		conn = dbus_connection_open (DBUS_ADDRESS_UPSTART,   \
-				&error);                             \
+	                                                             \
+		conn = dbus_bus_get (DBUS_BUS_SYSTEM, &error);       \
 		if (! conn)                                          \
 			dbus_error_free (&error);                    \
 	} while (!conn);                                             \
@@ -83,7 +83,7 @@
 {                                                                    \
 	assert (pid);                                                \
 	                                                             \
-	kill (pid, SIGTERM);                                         \
+	TEST_EQ (kill (pid, SIGTERM), 0);                            \
 }
 
 /**
@@ -10880,17 +10880,16 @@ test_status_action (void)
 }
 
 void
-test_status_and_list_action_detail (void)
+test_show_config_action (void)
 {
 	char             dirname[PATH_MAX];
 	nih_local char  *cmd;
 	pid_t            upstart_pid;
 	char           **output;
 	size_t           lines;
-	char             expected_status[] = "foo stop/waiting";
+	char             expected_output[] = "foo";
 
-
-	TEST_GROUP ("job status and list action detail");
+	TEST_FUNCTION ("show_config");
 
         TEST_FILENAME (dirname);
         TEST_EQ (mkdir (dirname, 0755), 0);
@@ -10907,46 +10906,18 @@ test_status_and_list_action_detail (void)
 			"description \"wibble\"");
 
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	nih_free (output);
 
 	DELETE_FILE (dirname, "foo.conf");
@@ -10960,49 +10931,19 @@ test_status_and_list_action_detail (void)
 			"emits \"thing\"\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits thing");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits thing");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits thing");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits thing");
 	nih_free (output);
 
@@ -11018,52 +10959,20 @@ test_status_and_list_action_detail (void)
 			"emits \"thong\"\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits thing");
 	TEST_EQ_STR (output[2], "  emits thong");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits thing");
-	TEST_EQ_STR (output[2], "  emits thong");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits thing");
-	TEST_EQ_STR (output[2], "  emits thong");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits thing");
 	TEST_EQ_STR (output[2], "  emits thong");
 	nih_free (output);
@@ -11079,50 +10988,19 @@ test_status_and_list_action_detail (void)
 			"start on (A and B)\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  start on (A and B)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  start on A (type: event, env:)");
-	TEST_EQ_STR (output[2], "  start on B (type: event, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  start on (A and B)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  start on A (type: event, env:)");
 	TEST_EQ_STR (output[2], "  start on B (type: event, env:)");
 	nih_free (output);
@@ -11139,53 +11017,20 @@ test_status_and_list_action_detail (void)
 			"start on (A and B)\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  start on (A and B)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  start on A (type: event, env:)");
-	TEST_EQ_STR (output[3], "  start on B (type: event, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  start on (A and B)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  start on A (type: event, env:)");
 	TEST_EQ_STR (output[3], "  start on B (type: event, env:)");
@@ -11204,56 +11049,21 @@ test_status_and_list_action_detail (void)
 			"emits \"stime\"\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits stime");
 	TEST_EQ_STR (output[3], "  start on (A and B)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 5);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits stime");
-	TEST_EQ_STR (output[3], "  start on A (type: event, env:)");
-	TEST_EQ_STR (output[4], "  start on B (type: event, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits stime");
-	TEST_EQ_STR (output[3], "  start on (A and B)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 5);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits stime");
 	TEST_EQ_STR (output[3], "  start on A (type: event, env:)");
@@ -11271,50 +11081,19 @@ test_status_and_list_action_detail (void)
 			"stop on (A or B)\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  stop on (A or B)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  stop on A (type: event, env:)");
-	TEST_EQ_STR (output[2], "  stop on B (type: event, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 2);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  stop on (A or B)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  stop on A (type: event, env:)");
 	TEST_EQ_STR (output[2], "  stop on B (type: event, env:)");
 	nih_free (output);
@@ -11331,53 +11110,20 @@ test_status_and_list_action_detail (void)
 			"stop on (A or B)\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  stop on (A or B)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  stop on A (type: event, env:)");
-	TEST_EQ_STR (output[3], "  stop on B (type: event, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 3);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  stop on (A or B)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  stop on A (type: event, env:)");
 	TEST_EQ_STR (output[3], "  stop on B (type: event, env:)");
@@ -11396,56 +11142,21 @@ test_status_and_list_action_detail (void)
 			"emits \"stime\"\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits stime");
 	TEST_EQ_STR (output[3], "  stop on (A or B)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 5);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits stime");
-	TEST_EQ_STR (output[3], "  stop on A (type: event, env:)");
-	TEST_EQ_STR (output[4], "  stop on B (type: event, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 4);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits stime");
-	TEST_EQ_STR (output[3], "  stop on (A or B)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 5);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits stime");
 	TEST_EQ_STR (output[3], "  stop on A (type: event, env:)");
@@ -11467,18 +11178,11 @@ test_status_and_list_action_detail (void)
 			"start on A and (B FOO=BAR or starting C x=y)\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 6);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits bar");
 	TEST_EQ_STR (output[3], "  emits stime");
@@ -11488,48 +11192,11 @@ test_status_and_list_action_detail (void)
 	TEST_EQ_STR (output[5], "  stop on (starting D and (stopping E or F hello=world))");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 10);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits bar");
-	TEST_EQ_STR (output[3], "  emits stime");
-	TEST_EQ_STR (output[4], "  start on A (type: event, env:)");
-	TEST_EQ_STR (output[5], "  start on B (type: event, env: FOO=BAR)");
-	TEST_EQ_STR (output[6], "  start on C (type: job, event: starting, env: x=y)");
-	TEST_EQ_STR (output[7], "  stop on D (type: job, event: starting, env:)");
-	TEST_EQ_STR (output[8], "  stop on E (type: job, event: stopping, env:)");
-	TEST_EQ_STR (output[9], "  stop on F (type: event, env: hello=world)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 6);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits bar");
-	TEST_EQ_STR (output[3], "  emits stime");
-	/* note the extra brackets! */
-	TEST_EQ_STR (output[4], "  start on (A and (B FOO=BAR or starting C x=y))");
-	/* note the extra brackets! */
-	TEST_EQ_STR (output[5], "  stop on (starting D and (stopping E or F hello=world))");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 10);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits bar");
 	TEST_EQ_STR (output[3], "  emits stime");
@@ -11557,18 +11224,11 @@ test_status_and_list_action_detail (void)
 			"(stopped gdm or stopped kdm or stopped xdm A=B or stopped lxdm)))\n"
 			"description \"wibble\"");
 
-	cmd = nih_sprintf (NULL, "%s status foo 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s status -d foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 6);
-	TEST_EQ_STR (output[0], expected_status);
+	TEST_EQ_STR (output[0], expected_output);
 	TEST_EQ_STR (output[1], "  emits bong");
 	TEST_EQ_STR (output[2], "  emits bar");
 	TEST_EQ_STR (output[3], "  emits stime");
@@ -11579,51 +11239,11 @@ test_status_and_list_action_detail (void)
 	TEST_EQ_STR (output[5], "  stop on (runlevel [!2345] colour=blue or starting rocket)");
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s status -de foo 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 12);
-	TEST_EQ_STR (output[0],  expected_status);
-	TEST_EQ_STR (output[1],  "  emits bong");
-	TEST_EQ_STR (output[2],  "  emits bar");
-	TEST_EQ_STR (output[3],  "  emits stime");
-	TEST_EQ_STR (output[4],  "  start on mountall (type: job, event: starting, env:)");
-	TEST_EQ_STR (output[5],  "  start on runlevel (type: event, env: [016])");
-	TEST_EQ_STR (output[6],  "  start on gdm (type: job, event: stopped, env:)");
-	TEST_EQ_STR (output[7],  "  start on kdm (type: job, event: stopped, env:)");
-	TEST_EQ_STR (output[8],  "  start on xdm (type: job, event: stopped, env: A=B)");
-	TEST_EQ_STR (output[9],  "  start on lxdm (type: job, event: stopped, env:)");
-	TEST_EQ_STR (output[10], "  stop on runlevel (type: event, env: [!2345] colour=blue)");
-	TEST_EQ_STR (output[11], "  stop on rocket (type: job, event: starting, env:)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 1);
-	TEST_EQ_STR (output[0], expected_status);
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -d 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 6);
-	TEST_EQ_STR (output[0], expected_status);
-	TEST_EQ_STR (output[1], "  emits bong");
-	TEST_EQ_STR (output[2], "  emits bar");
-	TEST_EQ_STR (output[3], "  emits stime");
-	/* note the extra brackets! */
-	TEST_EQ_STR (output[4], "  start on (starting mountall or (runlevel [016] and "
-			"(((stopped gdm or stopped kdm) or stopped xdm A=B) or stopped lxdm)))");
-	/* note the extra brackets! */
-	TEST_EQ_STR (output[5], "  stop on (runlevel [!2345] colour=blue or starting rocket)");
-	nih_free (output);
-
-	cmd = nih_sprintf (NULL, "%s list -de 2>&1", INITCTL_BINARY);
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	TEST_EQ (lines, 12);
-	TEST_EQ_STR (output[0],  expected_status);
+	TEST_EQ_STR (output[0],  expected_output);
 	TEST_EQ_STR (output[1],  "  emits bong");
 	TEST_EQ_STR (output[2],  "  emits bar");
 	TEST_EQ_STR (output[3],  "  emits stime");
@@ -14220,8 +13840,7 @@ main (int   argc,
 	test_reload_configuration_action ();
 	test_version_action ();
 	test_log_priority_action ();
-
-	test_status_and_list_action_detail ();
+	test_show_config_action ();
 
 	return 0;
 }

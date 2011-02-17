@@ -92,6 +92,7 @@ int emit_action                 (NihCommand *command, char * const *args);
 int reload_configuration_action (NihCommand *command, char * const *args);
 int version_action              (NihCommand *command, char * const *args);
 int log_priority_action         (NihCommand *command, char * const *args);
+int show_config_action          (NihCommand *command, char * const *args);
 
 
 /**
@@ -107,7 +108,7 @@ int use_dbus = -1;
  * dbus_bus_type:
  *
  * D-Bus bus to connect to (DBUS_BUS_SYSTEM or DBUS_BUS_SESSION), or -1
- * which will determine an appropriate bus based on UID.
+ * to have an appropriate bus selected.
  */
 int dbus_bus_type = -1;
 
@@ -204,8 +205,8 @@ upstart_open (const void *parent)
 
 	if (use_dbus < 0)
 		use_dbus = getuid () ? TRUE : FALSE;
-	if (use_dbus > 0 && dbus_bus_type < 0)
-		dbus_bus_type = getuid () ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM;
+	if (use_dbus >= 0 && dbus_bus_type < 0)
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 
 	dbus_error_init (&dbus_error);
 	if (use_dbus) {
@@ -991,12 +992,6 @@ status_action (NihCommand *  command,
 
 	nih_message ("%s", status);
 
-	if (! verbose_detail)
-		return 0;
-
-	job_class_show_emits (NULL, job_class);
-	job_class_show_conditions (job_class);
-
 	return 0;
 
 error:
@@ -1083,12 +1078,6 @@ list_action (NihCommand *  command,
 			}
 
 			nih_message ("%s", status);
-
-			if (! verbose_detail)
-				continue;
-
-			job_class_show_emits (NULL, job_class);
-			job_class_show_conditions (job_class);
 		}
 
 		/* Otherwise iterate the instances and output the status
@@ -1119,12 +1108,6 @@ list_action (NihCommand *  command,
 			}
 
 			nih_message ("%s", status);
-
-			if (! verbose_detail)
-				continue;
-
-			job_class_show_emits (NULL, job_class);
-			job_class_show_conditions (job_class);
 		}
 	}
 
@@ -1138,6 +1121,77 @@ error:
 	return 1;
 }
 
+/**
+ * show_config_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "show-config" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+show_config_action (NihCommand *  command,
+	     char * const *args)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	nih_local char **       job_class_paths = NULL;
+	NihError *              err;
+	const char *            upstart_job_class = NULL;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (args[0]) {
+		upstart_job_class = args[0];
+		job_class_paths = NIH_MUST (nih_alloc (NULL, 2*sizeof (char *)));
+		job_class_paths[1] = NULL;
+
+		if (upstart_get_job_by_name_sync (NULL, upstart, upstart_job_class,
+					job_class_paths) < 0)
+			goto error;
+	} else {
+
+		/* Obtain a list of jobs */
+		if (upstart_get_all_jobs_sync (NULL, upstart, &job_class_paths) < 0)
+			goto error;
+	}
+
+	for (char **job_class_path = job_class_paths;
+	     job_class_path && *job_class_path; job_class_path++) {
+		nih_local NihDBusProxy *job_class = NULL;
+		nih_local char         *job_class_name = NULL;
+
+		job_class = nih_dbus_proxy_new (NULL, upstart->connection,
+						upstart->name, *job_class_path,
+						NULL, NULL);
+		if (! job_class)
+			goto error;
+
+		job_class->auto_start = FALSE;
+
+		if (job_class_get_name_sync (NULL, job_class, &job_class_name) < 0)
+			goto error;
+
+		nih_message ("%s", job_class_name);
+
+		job_class_show_emits (NULL, job_class);
+		job_class_show_conditions (job_class);
+	}
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
 
 /**
  * emit_action:
@@ -1383,7 +1437,7 @@ job_class_parse_events(const char *stanza_name, char ** const *variant_array)
 	char                  **arg;
 	char                   *token;
 	nih_local NihList      *rpn_stack = NULL;
-	char                   *name;
+	char                   *name = NULL;
 
 
 	nih_assert (stanza_name);
@@ -1394,10 +1448,8 @@ job_class_parse_events(const char *stanza_name, char ** const *variant_array)
 	STACK_CREATE (rpn_stack);
 	STACK_SHOW (rpn_stack);
 
-	for (variant = variant_array; variant && *variant && **variant; variant++) {
+	for (variant = variant_array; variant && *variant && **variant; variant++, name=NULL) {
 		int i;
-
-		name = NULL;
 
 		/* token is either the first token beyond the stanza name (ie the event name),
 		 * or an operator.
@@ -1453,7 +1505,7 @@ job_class_parse_events(const char *stanza_name, char ** const *variant_array)
 
 			for (i=0; arg[i] && *arg[i]; i++) {
 				if (enumerate_events && i==0) {
-					if (IS_JOB (arg[i])) {
+					if (IS_JOB_EVENT (**variant)) {
 						name = arg[i];
 						continue;
 					}
@@ -1677,11 +1729,6 @@ NihOption reload_options[] = {
  * Command-line options accepted for the status command.
  **/
 NihOption status_options[] = {
-	{ 'd', "detail", N_("display start on, stop on and emits details"),
-	  NULL, NULL, &verbose_detail, NULL },
-	{ 'e', "enumerate", N_("enumerate list of events and jobs causing specified job to start/stop (requires '-d')"),
-	  NULL, NULL, &enumerate_events, NULL },
-
 	NIH_OPTION_LAST
 };
 
@@ -1691,11 +1738,6 @@ NihOption status_options[] = {
  * Command-line options accepted for the list command.
  **/
 NihOption list_options[] = {
-	{ 'd', "detail", N_("display start on, stop on and emits details"),
-	  NULL, NULL, &verbose_detail, NULL },
-	{ 'e', "enumerate", N_("enumerate list of events and jobs causing specified job to start/stop (requires '-d')"),
-	  NULL, NULL, &enumerate_events, NULL },
-
 	NIH_OPTION_LAST
 };
 
@@ -1738,6 +1780,20 @@ NihOption log_priority_options[] = {
 	NIH_OPTION_LAST
 };
 
+
+/**
+ * show_config_options:
+ *
+ * Command-line options accepted for the show-config command.
+ **/
+NihOption show_config_options[] = {
+	{ 'e', "enumerate",
+		N_("enumerate list of events and jobs causing job "
+		   "created from job config to start/stop"),
+	  NULL, NULL, &enumerate_events, NULL },
+
+	NIH_OPTION_LAST
+};
 
 /**
  * job_group:
@@ -1846,6 +1902,12 @@ static NihCommand commands[] = {
 	     "\n"
 	     "Without arguments, this outputs the current log priority."),
 	  NULL, log_priority_options, log_priority_action },
+
+	{ "show-config", N_("[CONF]"),
+	  N_("Show emits, start on and stop on details for job configurations."),
+	  N_("If CONF specified, show configuration details for single job "
+	     "configuration, else show details for all jobs configurations.\n"),
+	  NULL, show_config_options, show_config_action },
 
 	NIH_COMMAND_LAST
 };

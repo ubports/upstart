@@ -101,6 +101,9 @@ do
   esac
 done
 
+# safety first
+[ "$(id -u)" -eq 0 ] && die "cannot run as root"
+
 debug "upstart_path=$upstart_path"
 debug "initctl_path=$initctl_path"
 
@@ -113,6 +116,9 @@ do
   [ -z "$($cmd --help|grep -- --session 2>/dev/null)" ] && \
     die "version of $cmd too old"
 done
+
+# this is the only safe way to run another instance of Upstart
+$upstart_path --help|grep -q -- --no-startup-event || die "$upstart_path too old"
 
 debug "confdir=$confdir"
 debug "file=$file"
@@ -128,7 +134,8 @@ debug "job=$job"
 upstart_out=$(mktemp /tmp/${script_name}-upstart-output.XXXXXXXXXX)
 debug "upstart_out=$upstart_out"
 
-upstart_cmd=$(printf "%s --session --verbose --confdir %s" \
+upstart_cmd=$(printf \
+   "%s --session --no-startup-event --verbose --confdir %s" \
   "$upstart_path" \
   "$confdir")
 debug "upstart_cmd=$upstart_cmd"
