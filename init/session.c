@@ -125,6 +125,11 @@ session_from_dbus (const void *    parent,
 
 	nih_assert (message != NULL);
 
+#ifdef TEST
+	/* Return "NULL session" for testing framework. */
+	return NULL;
+#endif
+
 	session_init ();
 
 	/* Ask D-Bus nicely for the origin uid and/or pid of the caller;
@@ -199,6 +204,7 @@ session_from_dbus (const void *    parent,
 			session_create_conf_source (session);
 		return session;
 	}
+
 
 	/* Didn't find one, make a new one */
 	session = NIH_MUST (session_new (parent, unix_process_id ? root : NULL,

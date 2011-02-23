@@ -383,8 +383,8 @@ control_get_job_by_name (void            *data,
 			 const char      *name,
 			 char           **job)
 {
-	Session * session;
-	JobClass *class;
+	Session  *session;
+	JobClass *class = NULL;
 	JobClass *global_class = NULL;
 
 	nih_assert (message != NULL);
@@ -405,6 +405,10 @@ control_get_job_by_name (void            *data,
 
 	/* Lookup the job */
 	class = (JobClass *)nih_hash_lookup (job_classes, name);
+
+	if (class && ! session)
+		class->session = session;
+
 	while (class && (class->session != session)) {
 		if ((! class->session) && (! session->chroot))
 			global_class = class;
@@ -469,7 +473,7 @@ control_get_all_jobs (void             *data,
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		if ((class->session || session->chroot)
+		if ((class->session || (session && session->chroot))
 		    && (class->session != session))
 			continue;
 

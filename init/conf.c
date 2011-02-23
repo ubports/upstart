@@ -146,6 +146,7 @@ conf_source_new (const void     *parent,
 
 	source->type = type;
 	source->watch = NULL;
+	source->session = NULL;
 
 	source->flag = FALSE;
 	source->files = nih_hash_string_new (source, 0);

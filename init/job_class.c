@@ -128,13 +128,15 @@ job_class_init (void)
 
 /**
  * job_class_new:
- * @parent: parent for new job class,
- * @name: name of new job class.
  *
- * Allocates and returns a new JobClass structure with the @name given.
- * It will not be automatically added to the job classes table, it is up
- * to the caller to ensure this is done using job_class_register() once
- * the class has been set up.
+ * @parent: parent for new job class,
+ * @name: name of new job class,
+ * @session: session.
+ *
+ * Allocates and returns a new JobClass structure with the given @name
+ * and @session. It will not be automatically added to the job classes
+ * table, it is up to the caller to ensure this is done using
+ * job_class_register() once the class has been set up.
  *
  * If @parent is not NULL, it should be a pointer to another object which
  * will be used as a parent for the returned job class.  When all parents
