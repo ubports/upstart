@@ -1,0 +1,35 @@
+.TH upstart-udev-bridge 8 2009-09-07 upstart
+.\"
+.SH NAME
+upstart-udev-bridge \- Bridge between Upstart and udev
+.\"
+.SH SYNOPSIS
+.B upstart-udev-bridge
+.RI [ OPTIONS ]...
+.\"
+.SH DESCRIPTION
+.B upstart-udev-bridge
+receives information about kernel uevents that
+.BR udev (8)
+has completed and creates
+.BR init (8)
+events for them.
+
+This is a temporary tool until
+.BR init (8)
+itself gains the functionality to read them directly; you should not
+rely on its behaviour.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant
+.RB < scott@netsplit.com >
+.\"
+.SH BUGS
+Report bugs at 
+.RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2009 Canonical Ltd.
+.PP
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

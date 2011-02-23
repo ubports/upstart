@@ -49,6 +49,13 @@
       <arg name="env" type="as" direction="in" />
       <arg name="wait" type="b" direction="in" />
     </method>
+    <method name="EmitEventWithFile">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
+      <arg name="name" type="s" direction="in" />
+      <arg name="env" type="as" direction="in" />
+      <arg name="wait" type="b" direction="in" />
+      <arg name="file" type="h" direction="in" />
+    </method>
 
     <!-- Basic information about Upstart -->
     <property name="version" type="s" access="read" />

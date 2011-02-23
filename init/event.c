@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2009, 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 
 
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -124,7 +125,7 @@ event_new (const void  *parent,
 	nih_list_init (&event->entry);
 
 	event->session = NULL;
-
+	event->fd = -1;
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
 
@@ -402,7 +403,15 @@ event_pending_handle_jobs (Event *event)
 				job->start_env = env;
 				nih_ref (job->start_env, job);
 
+				nih_discard (env);
+				env = NULL;
+
 				job_finished (job, FALSE);
+
+				NIH_MUST (event_operator_fds (class->start_on, job,
+							      &job->fds, &job->num_fds,
+							      &job->start_env, &len,
+							      "UPSTART_FDS"));
 
 				event_operator_events (job->class->start_on,
 						       job, &job->blocking);
@@ -467,6 +476,8 @@ event_finished (Event *event)
 
 		nih_free  (blocked);
 	}
+
+	close (event->fd);
 
 	if (event->failed) {
 		char *name;
