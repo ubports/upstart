@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -146,6 +146,7 @@ conf_source_new (const void     *parent,
 
 	source->type = type;
 	source->watch = NULL;
+	source->session = NULL;
 
 	source->flag = FALSE;
 	source->files = nih_hash_string_new (source, 0);
@@ -744,7 +745,8 @@ conf_reload_path (ConfSource *source,
 		 * the job definition.
 		 */
 		nih_debug ("Loading %s from %s", name, path);
-		file->job = parse_job (NULL, name, buf, len, &pos, &lineno);
+		file->job = parse_job (NULL, source->session,
+				       name, buf, len, &pos, &lineno);
 		if (file->job) {
 			job_class_consider (file->job);
 		} else {

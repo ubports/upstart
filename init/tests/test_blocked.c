@@ -38,6 +38,10 @@ test_new (void)
 	Job            *job;
 	Event          *event;
 	NihDBusMessage *message = NULL;
+	Session        *session;
+
+	session = session_new (NULL, NULL, getuid ());
+	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("blocked_new");
 
@@ -46,7 +50,7 @@ test_new (void)
 	 * in a list.
 	 */
 	TEST_FEATURE ("with job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", session);
 	job = job_new (class, "");
 
 	TEST_ALLOC_FAIL {
@@ -357,6 +361,7 @@ test_new (void)
 		nih_free (blocked);
 		TEST_FREE (message);
 	}
+	nih_free (session);
 }
 
 
