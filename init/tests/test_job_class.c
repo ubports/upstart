@@ -64,17 +64,8 @@ void
 test_new (void)
 {
 	JobClass *class;
-	Session  *session;
 	int       i;
-	nih_local char *dbus_path = NULL;
 	       
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
-
-	dbus_path = NIH_MUST (nih_sprintf (NULL, "%s/jobs/%d/test",
-				DBUS_PATH_UPSTART,
-				getuid ()));
-
 	/* Check that we can create a new JobClass structure; the structure
 	 * should be allocated with nih_alloc but not placed in the jobs
 	 * hash.
@@ -83,7 +74,7 @@ test_new (void)
 	job_class_init ();
 
 	TEST_ALLOC_FAIL {
-		class = job_class_new (NULL, "test", session);
+		class = job_class_new (NULL, "test", NULL);
 		if (test_alloc_failed) {
 			TEST_EQ_P (class, NULL);
 			continue;
@@ -96,7 +87,7 @@ test_new (void)
 		TEST_EQ_STR (class->name, "test");
 
 		TEST_ALLOC_PARENT (class->path, class);
-		TEST_EQ_STR (class->path, dbus_path);
+		TEST_EQ_STR (class->path, DBUS_PATH_UPSTART "/jobs/test");
 
 		TEST_ALLOC_PARENT (class->instance, class);
 		TEST_EQ_STR (class->instance, "");
@@ -151,7 +142,6 @@ test_new (void)
 
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 
