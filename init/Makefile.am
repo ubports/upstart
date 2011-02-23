@@ -40,6 +40,7 @@ init_SOURCES = \
 	system.c system.h \
 	environ.c environ.h \
 	process.c process.h \
+	session.c session.h \
 	job_class.c job_class.h \
 	job_process.c job_process.h \
 	job.c job.h \

@@ -73,6 +73,15 @@
 #define CONFDIR "/etc/init"
 #endif
 
+/**
+ * USERCONFDIR:
+ *
+ * Sub-directory of user's home directory for their jobs.
+ **/
+#ifndef USERCONFDIR
+#define USERCONFDIR ".init"
+#endif
+
 
 /**
  * SHELL:

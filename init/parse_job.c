@@ -282,6 +282,7 @@ static NihConfigStanza stanzas[] = {
  **/
 JobClass *
 parse_job (const void *parent,
+	   Session *   session,
 	   const char *name,
 	   const char *file,
 	   size_t      len,
@@ -294,7 +295,7 @@ parse_job (const void *parent,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	class = job_class_new (parent, name);
+	class = job_class_new (parent, name, session);
 	if (! class)
 		nih_return_system_error (NULL);
 
