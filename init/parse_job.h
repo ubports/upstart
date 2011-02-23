@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2009, 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,8 @@
 NIH_BEGIN_EXTERN
 
 JobClass *parse_job (const void *parent, Session *session,
-		     const char *name, const char *file, size_t len,
+		     JobClass *update, const char *name,
+		     const char *file, size_t len,
 		     size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result, malloc));
 
