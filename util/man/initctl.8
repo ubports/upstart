@@ -1,4 +1,4 @@
-.TH initctl 8 2010-02-04 "Upstart"
+.TH initctl 8 2011-01-12 "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control tool
@@ -157,8 +157,8 @@ for a discussion on instances.
 
 Requests that an instance of the named
 .I JOB
-be restarted, outputting the status of the job to standard output when the
-command completes.
+be restarted (stopped and then started), outputting the status of the
+job to standard output when the command completes.
 
 See
 .B status
@@ -249,9 +249,13 @@ name follows the job name in parentheses:
 .\"
 .TP
 .B list
-
 Requests a list of the known jobs and instances, outputs the status of
 each to standard output.
+
+Note that this command enumerates as-yet-to-run jobs (in other words
+configuration files for which no job instances have yet been created) in
+the output with status "stop/waiting". In effect such entries denote
+configuration files which represent potential future jobs.
 
 See
 .B status

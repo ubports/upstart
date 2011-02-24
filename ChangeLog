@@ -1,3 +1,37 @@
+2011-02-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* Fixes to allow "make check" to pass with Session support.
+
+2011-01-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* Override file support.
+
+2011-01-06  Petr Lautrbach  <plautrba@redhat.com>
+
+	* init/job_process.c (job_process_termianted): Don't rewind the
+	utmp file between updates.
+	* init/tests/test_job_process.c (test_utmp): Add test case for
+	newer mingetty behaviour.
+
+2010-12-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Add bash completion script.
+	* contrib/Makefile.am (EXTRA_DIST): Include in tarball.
+	* NEWS: Update.
+
+2010-12-20  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: update.
+
+2010-12-20  Petr Lautrbach  <plautrba@redhat.com>
+
+	* init/job_process.c (job_process_terminated): On termination of
+	a job, update the utmp file replacing any existing entry for that
+	pid with a DEAD_PROCESS entry; likewise append an entry to wtmp.
+	* init/tests/test_job_process.c (test_utmp): Test utmp handling.
+
+	* util/shutdown.c: Exit non-zero if unable to shutdown the system.
+
 2010-12-14  Scott James Remnant  <scott@netsplit.com>
 
 	* NEWS: Release 0.6.7
@@ -26,6 +60,14 @@
 	* init/main.c: Display PID+PPID for debug builds.
 	* init/parse_job.c: Added new function stanza_debug.
 	* init/tests/test_job_process.c (test_spawn): Added test for debug stanza.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* Socket bridge and udev bridge support.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* Session support (chroots, sessions and user-session).
 
 2010-12-10  Scott James Remnant  <scott@netsplit.com>
 

@@ -1,3 +1,12 @@
+upstart (0.9.0-1) natty; urgency=low
+
+  * New upstream release:
+    - Session support (chroots, sessions and user-session).
+    - Socket bridge.
+    - Override file support.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 24 Feb 2011 14:22:14 +0000
+
 upstart (0.6.7-7) natty; urgency=low
 
   * Re-add upstream r977 to allow proper re-exec on shutdown (LP: #672177)

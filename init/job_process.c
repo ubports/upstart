@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,6 +38,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <utmp.h>
+#include <utmpx.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -999,6 +1001,8 @@ job_process_terminated (Job         *job,
 			int          status)
 {
 	int failed = FALSE, stop = FALSE, state = TRUE;
+	struct utmpx *utmptr;
+	struct timeval tv;
 
 	nih_assert (job != NULL);
 
@@ -1160,6 +1164,32 @@ job_process_terminated (Job         *job,
 		job->kill_timer = NULL;
 		job->kill_process = -1;
 	}
+
+	/* Find existing utmp entry for the process pid */
+	setutxent();
+	while ((utmptr = getutxent()) != NULL) {
+		if (utmptr->ut_pid == job->pid[process]) {
+			/* set type and clean ut_user, ut_host,
+			 * ut_time as described in utmp(5)
+			 */
+			utmptr->ut_type = DEAD_PROCESS;
+			memset(utmptr->ut_user, 0, UT_NAMESIZE);
+			memset(utmptr->ut_host, 0, UT_HOSTSIZE);
+			utmptr->ut_time = 0;
+			/* Update existing utmp file. */
+			pututxline(utmptr);
+
+			/* set ut_time for log */
+			gettimeofday(&tv, NULL);
+			utmptr->ut_tv.tv_sec = tv.tv_sec;
+			utmptr->ut_tv.tv_usec = tv.tv_usec;
+			/* Write wtmp entry */
+			updwtmpx (_PATH_WTMP, utmptr);
+
+			break;
+		}
+	}
+	endutxent();
 
 	/* Clear the process pid field */
 	job->pid[process] = 0;
