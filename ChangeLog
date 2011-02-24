@@ -1,3 +1,11 @@
+2011-02-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* Fixes to allow "make check" to pass with Session support.
+
+2011-01-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* Override file support.
+
 2011-01-06  Petr Lautrbach  <plautrba@redhat.com>
 
 	* init/job_process.c (job_process_termianted): Don't rewind the
@@ -55,6 +63,14 @@
 	* init/main.c: Display PID+PPID for debug builds.
 	* init/parse_job.c: Added new function stanza_debug.
 	* init/tests/test_job_process.c (test_spawn): Added test for debug stanza.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* Socket bridge and udev bridge support.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* Session support (chroots, sessions and user-session).
 
 2010-12-10  Scott James Remnant  <scott@netsplit.com>
 
