@@ -35,10 +35,13 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = upstart-udev-bridge$(EXEEXT)
-subdir = udev
-DIST_COMMON = $(dist_init_DATA) $(dist_man_MANS) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in
+sbin_PROGRAMS = upstart-socket-bridge$(EXEEXT) $(am__EXEEXT_1)
+@HAVE_UDEV_TRUE@am__append_1 = \
+@HAVE_UDEV_TRUE@	upstart-udev-bridge
+
+subdir = extra
+DIST_COMMON = $(am__dist_init_DATA_DIST) $(dist_man_MANS) \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/codeset.m4 \
 	$(top_srcdir)/m4/gettext.m4 $(top_srcdir)/m4/glibc2.m4 \
@@ -65,21 +68,34 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
+@HAVE_UDEV_TRUE@am__EXEEXT_1 = upstart-udev-bridge$(EXEEXT)
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man8dir)" \
 	"$(DESTDIR)$(initdir)"
 PROGRAMS = $(sbin_PROGRAMS)
-am_upstart_udev_bridge_OBJECTS = upstart-udev-bridge.$(OBJEXT)
+am_upstart_socket_bridge_OBJECTS = upstart-socket-bridge.$(OBJEXT)
 am__objects_1 = com.ubuntu.Upstart.$(OBJEXT)
-nodist_upstart_udev_bridge_OBJECTS = $(am__objects_1)
-upstart_udev_bridge_OBJECTS = $(am_upstart_udev_bridge_OBJECTS) \
-	$(nodist_upstart_udev_bridge_OBJECTS)
+am__objects_2 = com.ubuntu.Upstart.Job.$(OBJEXT)
+nodist_upstart_socket_bridge_OBJECTS = $(am__objects_1) \
+	$(am__objects_2)
+upstart_socket_bridge_OBJECTS = $(am_upstart_socket_bridge_OBJECTS) \
+	$(nodist_upstart_socket_bridge_OBJECTS)
 am__DEPENDENCIES_1 =
-upstart_udev_bridge_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+upstart_socket_bridge_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+	$(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
+am__upstart_udev_bridge_SOURCES_DIST = upstart-udev-bridge.c
+@HAVE_UDEV_TRUE@am_upstart_udev_bridge_OBJECTS =  \
+@HAVE_UDEV_TRUE@	upstart-udev-bridge.$(OBJEXT)
+@HAVE_UDEV_TRUE@nodist_upstart_udev_bridge_OBJECTS = $(am__objects_1)
+upstart_udev_bridge_OBJECTS = $(am_upstart_udev_bridge_OBJECTS) \
+	$(nodist_upstart_udev_bridge_OBJECTS)
+@HAVE_UDEV_TRUE@upstart_udev_bridge_DEPENDENCIES =  \
+@HAVE_UDEV_TRUE@	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+@HAVE_UDEV_TRUE@	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+@HAVE_UDEV_TRUE@	$(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -106,9 +122,12 @@ am__v_CCLD_0 = @echo "  CCLD  " $@;
 AM_V_GEN = $(am__v_GEN_$(V))
 am__v_GEN_ = $(am__v_GEN_$(AM_DEFAULT_VERBOSITY))
 am__v_GEN_0 = @echo "  GEN   " $@;
-SOURCES = $(upstart_udev_bridge_SOURCES) \
+SOURCES = $(upstart_socket_bridge_SOURCES) \
+	$(nodist_upstart_socket_bridge_SOURCES) \
+	$(upstart_udev_bridge_SOURCES) \
 	$(nodist_upstart_udev_bridge_SOURCES)
-DIST_SOURCES = $(upstart_udev_bridge_SOURCES)
+DIST_SOURCES = $(upstart_socket_bridge_SOURCES) \
+	$(am__upstart_udev_bridge_SOURCES_DIST)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -133,6 +152,7 @@ am__base_list = \
 man8dir = $(mandir)/man8
 NROFF = nroff
 MANS = $(dist_man_MANS)
+am__dist_init_DATA_DIST = conf/upstart-udev-bridge.conf
 DATA = $(dist_init_DATA)
 ETAGS = etags
 CTAGS = ctags
@@ -318,28 +338,45 @@ AM_CFLAGS = \
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
+	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
 
 initdir = $(sysconfdir)/init
-dist_init_DATA = \
-	conf/upstart-udev-bridge.conf
+upstart_socket_bridge_SOURCES = \
+	upstart-socket-bridge.c
 
-dist_man_MANS = \
-	man/upstart-udev-bridge.8
+nodist_upstart_socket_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
 
-upstart_udev_bridge_SOURCES = \
-	upstart-udev-bridge.c
-
-nodist_upstart_udev_bridge_SOURCES = \
-	$(com_ubuntu_Upstart_OUTPUTS)
-
-upstart_udev_bridge_LDADD = \
+upstart_socket_bridge_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
-	$(DBUS_LIBS) \
-	$(UDEV_LIBS)
+	$(DBUS_LIBS)
+
+@HAVE_UDEV_TRUE@dist_init_DATA = \
+@HAVE_UDEV_TRUE@	conf/upstart-udev-bridge.conf
+
+@HAVE_UDEV_TRUE@dist_man_MANS = \
+@HAVE_UDEV_TRUE@	man/upstart-udev-bridge.8
+
+@HAVE_UDEV_TRUE@upstart_udev_bridge_SOURCES = \
+@HAVE_UDEV_TRUE@	upstart-udev-bridge.c
+
+@HAVE_UDEV_TRUE@nodist_upstart_udev_bridge_SOURCES = \
+@HAVE_UDEV_TRUE@	$(com_ubuntu_Upstart_OUTPUTS)
+
+@HAVE_UDEV_TRUE@upstart_udev_bridge_LDADD = \
+@HAVE_UDEV_TRUE@	$(LTLIBINTL) \
+@HAVE_UDEV_TRUE@	$(NIH_LIBS) \
+@HAVE_UDEV_TRUE@	$(NIH_DBUS_LIBS) \
+@HAVE_UDEV_TRUE@	$(DBUS_LIBS) \
+@HAVE_UDEV_TRUE@	$(UDEV_LIBS)
+
+@HAVE_UDEV_FALSE@EXTRA_DIST = \
+@HAVE_UDEV_FALSE@	man/upstart-udev-bridge.8
 
 com_ubuntu_Upstart_OUTPUTS = \
 	com.ubuntu.Upstart.c \
@@ -348,14 +385,23 @@ com_ubuntu_Upstart_OUTPUTS = \
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
+com_ubuntu_Upstart_Job_OUTPUTS = \
+	com.ubuntu.Upstart.Job.c \
+	com.ubuntu.Upstart.Job.h
+
+com_ubuntu_Upstart_Job_XML = \
+	../dbus/com.ubuntu.Upstart.Job.xml
+
 
 # These have to be built sources because we can't compile object files
 # without the header file existing first
 BUILT_SOURCES = \
-	$(com_ubuntu_Upstart_OUTPUTS)
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
 
 CLEANFILES = \
-	$(com_ubuntu_Upstart_OUTPUTS)
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
 
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -371,9 +417,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu udev/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu extra/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu udev/Makefile
+	  $(AUTOMAKE) --gnu extra/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -435,6 +481,9 @@ clean-sbinPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+upstart-socket-bridge$(EXEEXT): $(upstart_socket_bridge_OBJECTS) $(upstart_socket_bridge_DEPENDENCIES) 
+	@rm -f upstart-socket-bridge$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(upstart_socket_bridge_OBJECTS) $(upstart_socket_bridge_LDADD) $(LIBS)
 upstart-udev-bridge$(EXEEXT): $(upstart_udev_bridge_OBJECTS) $(upstart_udev_bridge_DEPENDENCIES) 
 	@rm -f upstart-udev-bridge$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(upstart_udev_bridge_OBJECTS) $(upstart_udev_bridge_LDADD) $(LIBS)
@@ -445,7 +494,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/com.ubuntu.Upstart.Job.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/com.ubuntu.Upstart.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upstart-socket-bridge.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upstart-udev-bridge.Po@am__quote@
 
 .c.o:
@@ -766,6 +817,13 @@ $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
 		--package=$(PACKAGE) \
 		--mode=proxy --prefix=upstart \
 		--default-interface=com.ubuntu.Upstart0_6 \
+		--output=$@ $<
+
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=proxy --prefix=job_class \
+		--default-interface=com.ubuntu.Upstart0_6.Job \
 		--output=$@ $<
 
 clean-local:

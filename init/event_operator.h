@@ -95,6 +95,14 @@ int            event_operator_handle      (EventOperator *root, Event *event,
 char **        event_operator_environment (EventOperator *root, char ***env,
 					   const void *parent, size_t *len,
 					   const char *key);
+int *
+event_operator_fds (EventOperator *root,
+		    const void *parent,
+		    int **fds,
+		    size_t *num_fds,
+		    char          ***env,
+		    size_t          *len,
+		    const char      *key);
 void           event_operator_events      (EventOperator *root,
 					   const void *parent, NihList *list);
 

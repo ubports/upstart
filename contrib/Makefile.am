@@ -2,4 +2,5 @@
 
 EXTRA_DIST = \
 	vim/syntax/upstart.vim \
-	vim/ftdetect/upstart.vim
+	vim/ftdetect/upstart.vim \
+	bash_completion/upstart

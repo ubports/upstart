@@ -40,6 +40,7 @@ init_SOURCES = \
 	system.c system.h \
 	environ.c environ.h \
 	process.c process.h \
+	session.c session.h \
 	job_class.c job_class.h \
 	job_process.c job_process.h \
 	job.c job.h \
@@ -144,20 +145,24 @@ check_PROGRAMS = $(TESTS)
 tests: $(BUILT_SOURCES) $(check_PROGRAMS)
 
 test_system_SOURCES = tests/test_system.c
+test_system_CFLAGS = $(AM_CFLAGS) -DTEST
 test_system_LDADD = \
 	system.o \
 	$(NIH_LIBS)
 
 test_environ_SOURCES = tests/test_environ.c
+test_environ_CFLAGS = $(AM_CFLAGS) -DTEST
 test_environ_LDADD = \
 	environ.o \
 	$(NIH_LIBS)
 
 test_process_SOURCES = tests/test_process.c
+test_process_CFLAGS = $(AM_CFLAGS) -DTEST
 test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -165,10 +170,12 @@ test_process_LDADD = \
 	$(DBUS_LIBS)
 
 test_job_class_SOURCES = tests/test_job_class.c
+test_job_class_CFLAGS = $(AM_CFLAGS) -DTEST
 test_job_class_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -176,10 +183,12 @@ test_job_class_LDADD = \
 	$(DBUS_LIBS)
 
 test_job_process_SOURCES = tests/test_job_process.c
+test_job_process_CFLAGS = $(AM_CFLAGS) -DTEST
 test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -187,10 +196,12 @@ test_job_process_LDADD = \
 	$(DBUS_LIBS)
 
 test_job_SOURCES = tests/test_job.c
+test_job_CFLAGS = $(AM_CFLAGS) -DTEST
 test_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -198,10 +209,12 @@ test_job_LDADD = \
 	$(DBUS_LIBS)
 
 test_event_SOURCES = tests/test_event.c
+test_event_CFLAGS = $(AM_CFLAGS) -DTEST
 test_event_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -209,10 +222,12 @@ test_event_LDADD = \
 	$(DBUS_LIBS)
 
 test_event_operator_SOURCES = tests/test_event_operator.c
+test_event_operator_CFLAGS = $(AM_CFLAGS) -DTEST
 test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -220,10 +235,12 @@ test_event_operator_LDADD = \
 	$(DBUS_LIBS)
 
 test_blocked_SOURCES = tests/test_blocked.c
+test_blocked_CFLAGS = $(AM_CFLAGS) -DTEST
 test_blocked_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -231,10 +248,12 @@ test_blocked_LDADD = \
 	$(DBUS_LIBS)
 
 test_parse_job_SOURCES = tests/test_parse_job.c
+test_parse_job_CFLAGS = $(AM_CFLAGS) -DTEST
 test_parse_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -242,17 +261,20 @@ test_parse_job_LDADD = \
 	$(DBUS_LIBS)
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
+test_parse_conf_CFLAGS = $(AM_CFLAGS) -DTEST
 test_parse_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-test_conf_SOURCES = tests/test_conf.c
+test_conf_SOURCES = tests/test_conf.c session.c
+test_conf_CFLAGS = $(AM_CFLAGS) -DTEST
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -263,7 +285,8 @@ test_conf_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-test_control_SOURCES = tests/test_control.c
+test_control_SOURCES = tests/test_control.c session.c
+test_control_CFLAGS = $(AM_CFLAGS) -DTEST
 test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
