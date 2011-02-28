@@ -1,9 +1,9 @@
-upstart (0.9.0-1ubuntu3) UNRELEASED; urgency=low
+upstart (0.9.0-1ubuntu3) natty; urgency=low
 
   * Revert dbus/Upstart.conf to the version in 0.6.7, disabling user session
     support until such time as it has comprehensive test suite coverage.
 
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 28 Feb 2011 20:27:06 +0000
+ -- Colin Watson <cjwatson@ubuntu.com>  Mon, 28 Feb 2011 20:29:01 +0000
 
 upstart (0.9.0-1ubuntu2) natty; urgency=low
 
