@@ -1,3 +1,9 @@
+upstart (0.9.1-1) natty; urgency=low
+
+  * Merge of upstream lp:~upstart-devel/upstart/0.9.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 03 Mar 2011 20:52:16 +0000
+
 upstart (0.9.0-1ubuntu3) natty; urgency=low
 
   * Revert dbus/Upstart.conf to the version in 0.6.7, disabling user session
