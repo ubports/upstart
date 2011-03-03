@@ -368,7 +368,6 @@ def read_data():
       if result:
         _event = encode_dollar(job, result.group(1))
         _job   = result.group(2)
-        print >>sys.stderr, "DEBUG: start on: job='%s': _event='%s', _job='%s'" % (job, _event, _job)
 	if _job:
           jobs[job]['start on']['job'][_job] = 1
 	else:
