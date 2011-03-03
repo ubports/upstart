@@ -46,21 +46,58 @@
  * else FALSE.
  **/
 #define IS_OPERATOR(token) \
-	IS_OP_AND(token) || IS_OP_OR(token)
+	IS_OP_AND (token) || IS_OP_OR (token)
+
 
 /**
- * IS_JOB:
+ * GET_JOB_NAME:
+ *
+ * @var: char pointer variable which will be set to the name
+ * of a job, or NULL,
+ * @index: zero-based index of tokens where zero represents
+ * the first token after the initial token,
  * @token: string to check.
  *
- * Determine if specified token represents a job name. @token is
- * expected to be the _second_ token seen after "start on" or "stop on"
- * in a start/stop condition.
+ * Determine name of job considering the specified token and its
+ * index. If not a job, sets @name to NULL.
  *
- * Return TRUE if @token represents a job name, else FALSE.
+ * Handles the following cases:
+ *
+ *   [start|stop] on <job_event> foo
+ *     (index==0, job="foo" => name="foo")
+ *
+ *   [start|stop] on <job_event> JOB=foo
+ *     (index==0, job="JOB=foo" => name="foo")
+ *
+ *   [start|stop] on <job_event> A=B JOB=foo
+ *     (index==1, job="JOB=foo" => name="foo")
+ *
+ *   [start|stop] on <job_event> A=B c=hello JOB=foo
+ *     (index==2, job="JOB=foo" => name="foo")
+ *
+ *   [start|stop] on <job_event> $JOB A=B c=hello
+ *     (index==0, job="$JOB" => name="$JOB")
+ *
  **/
-#define IS_JOB(token) \
-  ((!strstr((token), "=") && token[0] != '[') || \
-   (strstr((token), "JOB=") == token))
+#define GET_JOB_NAME(var, index, token)                              \
+{                                                                    \
+	char *_##var;                                                \
+                                                                     \
+	nih_assert (index >= 0);                                     \
+	nih_assert (token);                                          \
+                                                                     \
+	var = NULL;                                                  \
+                                                                     \
+	_##var = strstr (token, "JOB=");                             \
+                                                                     \
+	if (_##var && _##var == token)                               \
+		var = _##var + strlen ("JOB=");                      \
+	else if (index == 0 ) {                                      \
+		if (!strstr (token, "="))                            \
+			var = token;                                 \
+	}                                                            \
+}
+
 
 /**
  * IS_JOB_EVENT:
@@ -69,11 +106,31 @@
  * Return TRUE if specified token refers to a standard job event, else
  * FALSE.
  **/
-#define IS_JOB_EVENT(token) \
-   (!strcmp(token, JOB_STARTING_EVENT) || \
-    !strcmp(token, JOB_STARTED_EVENT)  || \
-    !strcmp(token, JOB_STOPPING_EVENT) || \
-    !strcmp(token, JOB_STOPPED_EVENT))
+#define IS_JOB_EVENT(token)                     \
+	(!strcmp (token, JOB_STARTING_EVENT) || \
+	 !strcmp (token, JOB_STARTED_EVENT)  || \
+	 !strcmp (token, JOB_STOPPING_EVENT) || \
+	 !strcmp (token, JOB_STOPPED_EVENT))
+
+/**
+ * IS_INIT_EVENT:
+ * @token: string to check.
+ *
+ * Return TRUE if specified token refers to an event emitted internally,
+ * else FALSE.
+ *
+ * Note: the raw string entries below are required to accommodate
+ * production versus debug builds (STARTUP_EVENT changes name depending
+ * on build type).
+ **/
+#define IS_INIT_EVENT(token)                  \
+	(!strcmp (token, STARTUP_EVENT)    || \
+	 !strcmp (token, "debug")          || \
+	 !strcmp (token, "startup")        || \
+	 !strcmp (token, CTRLALTDEL_EVENT) || \
+	 !strcmp (token, KBDREQUEST_EVENT) || \
+	 !strcmp (token, PWRSTATUS_EVENT)  || \
+	 IS_JOB_EVENT (token))
 
 /**
  * STACK_EMPTY:
@@ -82,7 +139,7 @@
  * Return TRUE if @stack is empty, else FALSE.
  **/
 #define STACK_EMPTY(stack) \
-	(NIH_LIST_EMPTY(stack))
+	(NIH_LIST_EMPTY (stack))
 
 /**
  * STACK_CREATE:
@@ -106,7 +163,7 @@
  **/
 #ifdef DEBUG_STACK
 #define STACK_SHOW_POP(stack, str) \
-	STACK_SHOW_CHANGE(stack, "popped", str)
+	STACK_SHOW_CHANGE (stack, "popped", str)
 #else
 #define STACK_SHOW_POP(stack, str)
 #endif
@@ -121,9 +178,10 @@
  * Does nothing if debug build not enabled.
  **/
 #ifdef DEBUG_STACK
-#define STACK_SHOW_PUSH(stack, str)             \
-	STACK_SHOW_CHANGE(stack, "pushed", str) \
-	nih_assert (! STACK_EMPTY(stack))
+#define STACK_SHOW_PUSH(stack, str)              \
+	STACK_SHOW_CHANGE (stack, "pushed", str) \
+	                                         \
+	nih_assert (! STACK_EMPTY (stack))
 #else
 #define STACK_SHOW_PUSH(stack, str)
 #endif
@@ -137,7 +195,7 @@
  * Does nothing if debug build not enabled.
  **/
 #ifdef DEBUG_STACK
-#define STACK_SHOW(stack)				      \
+#define STACK_SHOW(stack)                                     \
 {                                                             \
 	size_t depth = 0;                                     \
                                                               \
@@ -147,7 +205,7 @@
 		depth++;                                      \
 	}                                                     \
                                                               \
-	if (STACK_EMPTY(stack)) {                             \
+	if (STACK_EMPTY (stack)) {                            \
 		nih_message ("STACK@%p: empty", stack);       \
 	} else {                                              \
 		for (NihList *iter = (stack)->next;           \
@@ -179,9 +237,12 @@
 #define STACK_SHOW_CHANGE(stack, msg, element_str) \
 	nih_assert (msg);                          \
 	nih_assert (element_str);                  \
+	                                           \
 	nih_message ("STACK@%p: %s '%s'",          \
 		(void *)stack, msg, element_str);  \
-	STACK_SHOW(stack);                         \
+	                                           \
+	STACK_SHOW (stack);                        \
+	                                           \
 	nih_message (" "); /* spacer */
 #else
 #define STACK_SHOW_CHANGE(stack, msg, element_str)
@@ -196,9 +257,11 @@
  **/
 #define STACK_PUSH(stack, elem)                     \
 	nih_list_add_after (stack, &(elem)->entry); \
-	STACK_SHOW_PUSH(stack,                      \
+	                                            \
+	STACK_SHOW_PUSH (stack,                     \
 		((NihListEntry *)(elem))->str);     \
-	nih_assert (! STACK_EMPTY(stack))
+	                                            \
+	nih_assert (! STACK_EMPTY (stack))
 
 /**
  * STACK_PUSH_NEW_ELEM:
@@ -212,12 +275,14 @@
 #define STACK_PUSH_NEW_ELEM(stack, string)            \
 {                                                     \
 	NihListEntry *e;                              \
+	                                              \
 	nih_assert (stack);                           \
 	nih_assert (string);                          \
+	                                              \
 	e = NIH_MUST (nih_new (stack, NihListEntry)); \
 	nih_list_init (&e->entry);                    \
 	e->str = NIH_MUST (nih_strdup (e, string));   \
-        STACK_PUSH(stack, e);                         \
+        STACK_PUSH (stack, e);                        \
 }
 
 /**
@@ -234,8 +299,9 @@
 #define STACK_POP(stack, list)                     \
 	nih_assert (stack);                        \
 	nih_assert ((stack)->next);                \
+	                                           \
 	list = nih_list_add (list, (stack)->next); \
-	STACK_SHOW_POP(stack,                      \
+	STACK_SHOW_POP (stack,                     \
 		((NihListEntry *)(list))->str)
 
 /**
@@ -248,19 +314,141 @@
 	(((NihListEntry *)(stack)->next)->str)
 
 /**
- * ENSURE_ROOT:
+ * JobCondition:
  *
- * Return 1 if user is not a super-user for non-test
- * build.
+ * @list: list that @list lives on,
+ * @job_class: name of job class,
+ * @start_on: start on conditions,
+ * @stop_on: stop on conditions.
+ *
+ * Structure used to represent a job classes start on and stop on
+ * conditions.
+ *
+ * Note that @start_on and @stop_on are lists of NihListEntry
+ * objects containing string data.
+ *
+ *
  **/
-#ifdef TEST
-#define ENSURE_ROOT()
-#else
-#define ENSURE_ROOT()                                \
-	if (getuid ()) {                             \
-		nih_error ("%s", _("Must be root")); \
-		return 1;                            \
-	}
-#endif
+typedef struct condition {
+	NihList      list;
+
+	const char  *job_class;
+	NihList     *start_on;
+	NihList     *stop_on;
+} JobCondition;
+
+/**
+ * CheckConfigData:
+ *
+ * @job_class_hash: List of all job class (.conf files)
+ *   currently installed,
+ * @event_hash: List of all events that are documented
+ *   as being emitted.
+ *
+ * Notes:
+ *
+ * Keys for @job_class_hash are job class names and values
+ * are of type JobCondition.
+ *
+ * Keys of @event_hash are event names and values are of type
+ * NihListEntry holding the event name as a string.
+ **/
+typedef struct check_config_data {
+	NihHash *job_class_hash;
+	NihHash *event_hash;
+	NihHash *ignored_events_hash;
+} CheckConfigData;
+
+
+/**
+ * ConditionHandlerData:
+ *
+ * @condition_name: "start on" or "stop on",
+ * @job_class_name: name of *.conf file less the extension.
+ *
+ * Used to pass multiple values to job_class_get_start_on() /
+ * job_class_get_stop_on() handlers.
+ *
+ **/
+typedef struct condition_handler_data {
+	const char *condition_name;
+	const char *job_class_name;
+} ConditionHandlerData;
+
+
+/**
+ * ExprNode:
+ *
+ * @node: tree which node lives in,
+ * @expr: string representing the expression,
+ * @job_in_error: if not NULL, points to the appropriate portion of
+ *   @expr where the erroneous job is,
+ * @event_in_error: if not NULL, points to the appropriate portion of
+ *   @expr where the erroneous event is,
+ * @value: Truth value of this node (and its children, if any).
+ *
+ * Node representing an expression.
+ *
+ * Notes:
+ *
+ * @expr can be one of:
+ *
+ * - operator:
+ *   - IS_OP_AND()
+ *   - IS_OP_OR()
+ * - operand:
+ *   - "<event>"
+ *   - "<event> <job>"
+ *
+ * @value can be:
+ *
+ *  -  0 denoting node (and its children) are in error.
+ *  -  1 denoting no errors in this node or its children.
+ *  - -1 denoting an uninitialized value.
+ */
+typedef struct expression_node {
+	NihTree       node;
+
+	char         *expr;
+	const char   *job_in_error;
+	const char   *event_in_error;
+	int           value;
+} ExprNode;
+
+
+/**
+ * MAKE_EXPR_NODE:
+ *
+ * @parent: parent object,
+ * @entry: pointer to ExprNode to initialize,
+ * @str: string expression which will be copied into @entry.
+ *
+ * Allocate storage for an ExprNode pointer and initialize.
+ **/
+#define MAKE_EXPR_NODE(parent, entry, str)                                 \
+	entry = NIH_MUST (nih_new (parent, ExprNode));                     \
+	nih_tree_init (&(entry)->node);                                    \
+	(entry)->expr  = (str)                                             \
+		? NIH_MUST (nih_strdup (entry, (str)))                     \
+		: NULL;                                                    \
+	(entry)->job_in_error   = NULL;                                    \
+	(entry)->event_in_error = NULL;                                    \
+	(entry)->value          = -1
+
+/**
+ * MAKE_JOB_CONDITION:
+ *
+ * @parent: parent object,
+ * @entry: pointer to JobCondition to initialize,
+ * @str: string expression which will be copied into @entry.
+ *
+ * Allocate storage for an JobCondition pointer and initialize.
+ **/
+#define MAKE_JOB_CONDITION(parent, entry, str)                             \
+	entry = NIH_MUST (nih_new (parent, JobCondition));                 \
+	nih_list_init (&(entry)->list);                                    \
+	(entry)->job_class  = NIH_MUST (nih_strdup (entry, str));          \
+	(entry)->start_on   = NIH_MUST (nih_list_new (entry));             \
+	(entry)->stop_on    = NIH_MUST (nih_list_new (entry))
 
 #endif /* INITCTL_H */

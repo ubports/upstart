@@ -32,7 +32,7 @@
 # Usage:
 #
 #   initctl show-config -e > initctl.out
-#   initctl2dot.py -f initctl.out > upstart.dot
+#   initctl2dot.py -f initctl.out -o upstart.dot
 #   dot -Tpng -o upstart.png upstart.dot
 #
 # Or more simply:
@@ -58,6 +58,8 @@ events = {}
 cmd = "initctl --system show-config -e"
 script_name =  os.path.basename(sys.argv[0])
 
+job_events = [ 'starting', 'started', 'stopping', 'stopped' ]
+
 # list of jobs to restict output to
 restrictions_list = []
 
@@ -68,7 +70,8 @@ default_color_event    = 'thistle'
 default_color_job      = '#DCDCDC' # "Gainsboro"
 default_color_text     = 'black'
 default_color_bg       = 'white'
-default_outfile = 'upstart.dot'
+
+default_outfile        = 'upstart.dot'
 
 
 def header(ofh):
@@ -91,10 +94,15 @@ def footer(ofh):
   epilog += "label=\"Generated on %s by %s\\n" % \
     (str(datetime.datetime.now()), script_name)
 
-  if options.infile:
-    epilog += "(from file data).\\n"
+  if options.restrictions:
+    epilog += "(subset, "
   else:
-    epilog += "(from '%s' on host %s).\\n" % \
+    epilog += "("
+
+  if options.infile:
+    epilog += "from file data).\\n"
+  else:
+    epilog += "from '%s' on host %s).\\n" % \
       (cmd, os.uname()[1])
 
   epilog += "Boxes of color %s denote jobs.\\n" % options.color_job
@@ -339,6 +347,7 @@ def read_data():
   global events
   global options
   global cmd
+  global job_events
 
   if options.infile:
     try:
@@ -355,22 +364,27 @@ def read_data():
       record = {}
       line = line.rstrip()
 
-      result = re.match('^\s+start on ([^,]+) \(type: ([^,]+),', line)
+      result = re.match('^\s+start on ([^,]+) \(job:\s*([^,]*), env:', line)
       if result:
-        _name = encode_dollar(job, result.group(1))
-        _type = result.group(2)
-        jobs[job]['start on'][_type][_name] = 1
-        if _type == 'event':
-          events[_name] = 1
+        _event = encode_dollar(job, result.group(1))
+        _job   = result.group(2)
+        print >>sys.stderr, "DEBUG: start on: job='%s': _event='%s', _job='%s'" % (job, _event, _job)
+	if _job:
+          jobs[job]['start on']['job'][_job] = 1
+	else:
+          jobs[job]['start on']['event'][_event] = 1
+          events[_event] = 1
         continue
 
-      result = re.match('^\s+stop on ([^,]+) \(type: ([^,]+),', line)
+      result = re.match('^\s+stop on ([^,]+) \(job:\s*([^,]*), env:', line)
       if result:
-        _name = encode_dollar(job, result.group(1))
-        _type = result.group(2)
-        jobs[job]['stop on'][_type][_name] = 1
-        if _type == 'event':
-          events[_name] = 1
+        _event = encode_dollar(job, result.group(1))
+        _job   = result.group(2)
+	if _job:
+          jobs[job]['stop on']['job'][_job] = 1
+	else:
+          jobs[job]['stop on']['event'][_event] = 1
+          events[_event] = 1
         continue
 
       if re.match('^\s+emits', line):
@@ -379,6 +393,11 @@ def read_data():
         events[event] = 1
         jobs[job]['emits'][event] = 1
       else:
+        tokens = (line.lstrip().split())
+
+	if len(tokens) != 1:
+          sys.exit("ERROR: invalid line: %s" % line.lstrip())
+
         job_record      = {}
 
         start_on        = {}
@@ -401,42 +420,8 @@ def read_data():
         job_record['stop on']  = stop_on
         job_record['emits']    = emits
 
-        job = (line.lstrip().split())[0]
+        job = (tokens)[0]
         jobs[job] = job_record
-
-  # Having loaded all the data, we now categorize "start on" and
-  # "stop on" into events and jobs.
-
-  total_start_on = {}
-  total_stop_on  = {}
-
-  for job in jobs:
-    for name in jobs[job]['start on']['job']:
-      total_start_on[name] = 1
-    for name in jobs[job]['stop on']['job']:
-      total_stop_on[name] = 1
-
-  if options.check_mode == 1:
-    missing_events = []
-    all_names = dict(total_start_on)
-    all_names.update(total_stop_on)
-
-    for name in all_names:
-      if not name in jobs.keys() and not name in events.keys():
-        print >>sys.stderr, "WARNING: job or event '%s' not emitted by any job" % name
-
-  # Iterate through all "start on" and "stop on" conditions. If they are
-  # jobs, we'll already have recorded them. If they are events, add them
-  # if we haven't already done so.
-  for name in total_start_on:
-    if not name in jobs.keys() and not name in events.keys():
-      # Must have an event.
-      events[name] = 1
-
-  for name in total_stop_on:
-    if not name in jobs.keys() and not name in events.keys():
-      # Must have an event.
-      events[name] = 1
 
 
 def main():

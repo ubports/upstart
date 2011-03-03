@@ -1,3 +1,49 @@
+2011-03-03  James Hunt <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Updated for new initctl show-config
+	  command. 
+	* contrib/utils/init-checkconf.sh: Added '-i' option to specify path to
+	  init daemon (for test builds). Ensure conf file exists.
+	* contrib/utils/initctl2dot.py: Updated for changed initctl show-config
+	  output.
+	* util/Makefile.am: Added missing initctl.h to initctl_SOURCES.
+	* util/initctl.c:
+	  - New functions to handle new check-config command.
+	    - check_config_action: Handler for new check-config command-line
+	      option.
+	    - ignored_events_setter(): handler for '--ignore-events' command-line
+	      option for check-config command.
+	    - eval_expr_tree(): Evaluate expression tree.
+	    - check_condition(): High-level function to handle checking start
+	      on/stop on conditions.
+	    - tree_filter(): Used for filtering expression tree nodes.
+	    - display_check_errors():
+	  - Removed ENSURE_ROOT() macros since this would conflict with user
+	    sessions.
+	* util/initctl.h:
+	  - New macros:
+	    - GET_JOB_NAME(): Determine if specified token refers to a job and
+	      return it if true.
+	    - IS_INIT_EVEN(): Determine if specified event is an internally
+	      generated event.
+	    - MAKE_EXPR_NODE(): Create an ExprNode object.
+	    - MAKE_JOB_CONDITION(): Create a JobCondition object.
+	  - New types required for check-config command:
+	    - CheckConfigData
+	    - JobCondition
+	    - ConditionHandlerData
+	    - ExprNode
+	* util/man/initctl.8:
+	  - Updated for show-config section showing new "--enumerate" format output.
+	  - Added section for check-config command.
+	* util/tests/test_initctl.c:
+	  - START_UPSTART(): Improved test to ensure Upstart has actually
+	    started.
+	  - STOP_UPSTART(): Improved test to ensure Upstart has actually
+	    stopped.
+	  - test_show_config(): Updated for new show-config --enumerate syntax.
+	  - test_check_config(): New function to test check-config command.
+
 2011-02-17  James Hunt <james.hunt@ubuntu.com>
 
 	* contrib/utils/init-check.sh renamed to init-checkconf.sh.

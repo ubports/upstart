@@ -1,7 +1,7 @@
 #!/bin/bash
 #---------------------------------------------------------------------
-# Script to determine if specified config file is valid or not (whether
-# upstart can parse it successfully).
+# Script to determine if specified config file is valid or not
+# (whether upstart can parse it successfully).
 #---------------------------------------------------------------------
 #
 # Copyright (C) 2011 Canonical Ltd.
@@ -44,12 +44,16 @@ Description: Determine if specified Upstart (init(8)) job configuration
              file is valid.
 
 Usage: $script_name [options] -f <conf_file>
+       $script_name [options]    <conf_file>
 
 Options:
 
   -d        : Show some debug output.
-  -f <file> : Job configuration file (.conf) to check.
-  -x <path> : Specify path to init daemon binary (for testing).
+  -f <file> : Job configuration file to check.
+  -i <path> : Specify path to initctl binary
+              (default=$initctl_path).
+  -x <path> : Specify path to init daemon binary
+              (default=$upstart_path).
   -h        : Show this help.
 
 EOT
@@ -101,13 +105,18 @@ do
   esac
 done
 
+shift $[$OPTIND-1]
+
+[ ! -z "$@" ] && file="$1"
+
 # safety first
 [ "$(id -u)" -eq 0 ] && die "cannot run as root"
 
+[   -z "$file" ] && die "must specify configuration file"
+[ ! -f "$file" ] && die "file $file does not exist"
+
 debug "upstart_path=$upstart_path"
 debug "initctl_path=$initctl_path"
-
-[ -z "$file" ] && die "must specify .conf file"
 
 for cmd in $upstart_path $initctl_path
 do
@@ -125,9 +134,10 @@ debug "file=$file"
 
 filename=$(basename $file)
 
-echo $filename | grep -q '\.conf$' || die "file must end in .conf"
+echo $filename | egrep -q '\.conf$' || die "file must end in .conf"
 
 job=${filename%.conf}
+
 cp $file $confdir
 debug "job=$job"
 
@@ -144,7 +154,7 @@ nohup $upstart_cmd >$upstart_out 2>&1 &
 upstart_pid=$!
 
 # wait for upstart to initialize
-for i in $(seq 1 3)
+for i in $(seq 1 5)
 do
   dbus-send --session --print-reply \
     --dest='com.ubuntu.Upstart' /com/ubuntu/Upstart \

@@ -3,7 +3,7 @@
 #
 # We don't provide completion for 'init' itself for obvious reasons.
 have initctl &&
-_upstart_conf_events()
+_upstart_conf_jobs()
 {
   initctl list|awk '{print $1}'
 } &&
@@ -13,7 +13,7 @@ _upstart_named_events()
 } &&
 _upstart_events()
 {
-  (_upstart_conf_events;_upstart_named_events)|tr ' ' '\n'|sort -u
+  (_upstart_conf_jobs;_upstart_named_events)|tr ' ' '\n'|sort -u
 } &&
 _upstart_startable_events()
 {
@@ -26,7 +26,6 @@ _upstart_stoppable_events()
 _upstart_initctl()
 {
   _get_comp_words_by_ref cur prev
-  vis_opts="-d --detail -e --enumerate"
 
   COMPREPLY=()
 
@@ -47,37 +46,32 @@ _upstart_initctl()
       return 0
     ;;
 
-    list)
-      COMPREPLY=( $(compgen -W "${vis_opts}" -- ${cur}) )
-      return 0
-    ;;
-
-    -d|--detail|-e|--enumerate)
-      # allow visualisation options after status/list commands
-      for cmd in status list
+    -e|--enumerate)
+      # handle visualisation options after show-config command
+      for cmd in show-config
       do
         cwords=${COMP_WORDS[@]##}
         filtered_cwords=${COMP_WORDS[@]##${cmd}}
         if [ "$filtered_cwords" != "$cwords" ]
         then
-          if [ "$cmd" = list ]
-          then
-            COMPREPLY=( $(compgen -W "${vis_opts}" -- ${cur}) )
-            return 0
-          fi
-          COMPREPLY=( $(compgen -W "${vis_opts} $(_upstart_conf_events)" -- ${cur}) )
+          COMPREPLY=( $(compgen -W "${vis_opts} $(_upstart_conf_jobs)" -- ${cur}) )
           return 0
         fi
       done
     ;;
 
     reload|restart)
-      COMPREPLY=( $(compgen -W "$(_upstart_conf_events)" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "$(_upstart_conf_jobs)" -- ${cur}) )
       return 0
     ;;
 
     status)
-      COMPREPLY=( $(compgen -W "${vis_opts} $(_upstart_conf_events)" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "${vis_opts} $(_upstart_conf_jobs)" -- ${cur}) )
+      return 0
+    ;;
+
+    show-config)
+      COMPREPLY=( $(compgen -W "-e --enumerate $(_upstart_conf_jobs)" -- ${cur}) )
       return 0
     ;;
 
