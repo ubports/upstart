@@ -1,5 +1,9 @@
 2011-03-03  James Hunt  <james.hunt@ubuntu.com>
 
+	* extra/man/socket-event.7: Man page for new socket event.
+	* extra/man/upstart-socket-bridge.8: Man page for socket bridge.
+	* upstart-socket-bridge.conf: configuration file for socket
+	  bridge.
 	* contrib/bash_completion/upstart: Updated for new initctl commands
 	 "show-config" and "check-config".
 	* contrib/utils/init-check.sh: Script to determine if the

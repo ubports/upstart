@@ -1,5 +1,10 @@
 0.9.1  2011-03-03
 
+	* Added supporting documentation for upstart-socket-bridge and
+	  sessions and chroot support.
+
+	* Added job configuration file for upstart-socket-bridge.
+
 	* Added job/event visualisation support. This comprises a new
 	  initctl command, "show-config" which generates human-readable
 	  (and machine parseable) output showing start on, stop on and
