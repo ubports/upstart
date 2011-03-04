@@ -1,3 +1,14 @@
+upstart (0.9.1-1ubuntu2) natty; urgency=low
+
+  * debian/control: Added Suggests for python, graphviz and
+    bash-completion.
+  * debian/rules: Invoke bash-completion add-on explicitly.
+  * debian/manpages/upstart-events.7: New man page.
+  * debian/upstart.bash-completion: Install bash completion.
+  * debian/upstart.manpages: Install upstart-events.7.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 04 Mar 2011 17:16:26 +0000
+
 upstart (0.9.1-1ubuntu1) natty; urgency=low
 
   * Merge of upstream lp:~upstart-devel/upstart/0.9.
