@@ -67,6 +67,7 @@ NIH_LINKER_OPTIMISATIONS
 
 AC_CONFIG_FILES([ Makefile intl/Makefile
 		  dbus/Makefile init/Makefile util/Makefile extra/Makefile
-		  conf/Makefile doc/Makefile contrib/Makefile po/Makefile.in ])
+		  conf/Makefile doc/Makefile contrib/Makefile po/Makefile.in
+		  scripts/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
