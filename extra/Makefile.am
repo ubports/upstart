@@ -19,6 +19,13 @@ initdir = $(sysconfdir)/init
 sbin_PROGRAMS = \
 	upstart-socket-bridge
 
+dist_init_DATA = \
+	conf/upstart-socket-bridge.conf
+
+dist_man_MANS = \
+	man/upstart-socket-bridge.8 \
+	man/socket-event.7
+
 upstart_socket_bridge_SOURCES = \
 	upstart-socket-bridge.c
 nodist_upstart_socket_bridge_SOURCES = \
@@ -32,10 +39,10 @@ upstart_socket_bridge_LDADD = \
 
 
 if HAVE_UDEV
-dist_init_DATA = \
+dist_init_DATA += \
 	conf/upstart-udev-bridge.conf
 
-dist_man_MANS = \
+dist_man_MANS += \
 	man/upstart-udev-bridge.8
 
 

@@ -1,3 +1,20 @@
+2011-03-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/Makefile.am: Fixed paths and names for scripts.
+	* extra/Makefile.am: Update for upstart-socket-bridge.
+	* util/tests/test_initctl.c:
+	    - in_chroot(): New function to detect if in chroot environment.
+	    - main(): Call in_chroot() to work around bug lp:728988.
+	    - START_UPSTART(): Only try to connect 10 times. Don't use
+	      upstart_open() since this uses the system bus whereas we care
+	      about the session bus. Removed "--debug" as this confuses the
+	      log output.
+	* Moved scripts from "contrib/utils/" to "scripts/" and ensured they
+	  now install on "make install".
+	* Makefile.am: Added scripts directory.
+	* configure.ac: Added scripts/Makefile.   
+	* Packaging changes for socket bridge.
+
 2011-03-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/socket-event.7: Man page for new socket event.

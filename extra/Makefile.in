@@ -37,6 +37,12 @@ build_triplet = @build@
 host_triplet = @host@
 sbin_PROGRAMS = upstart-socket-bridge$(EXEEXT) $(am__EXEEXT_1)
 @HAVE_UDEV_TRUE@am__append_1 = \
+@HAVE_UDEV_TRUE@	conf/upstart-udev-bridge.conf
+
+@HAVE_UDEV_TRUE@am__append_2 = \
+@HAVE_UDEV_TRUE@	man/upstart-udev-bridge.8
+
+@HAVE_UDEV_TRUE@am__append_3 = \
 @HAVE_UDEV_TRUE@	upstart-udev-bridge
 
 subdir = extra
@@ -69,8 +75,8 @@ CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 @HAVE_UDEV_TRUE@am__EXEEXT_1 = upstart-udev-bridge$(EXEEXT)
-am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man8dir)" \
-	"$(DESTDIR)$(initdir)"
+am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man7dir)" \
+	"$(DESTDIR)$(man8dir)" "$(DESTDIR)$(initdir)"
 PROGRAMS = $(sbin_PROGRAMS)
 am_upstart_socket_bridge_OBJECTS = upstart-socket-bridge.$(OBJEXT)
 am__objects_1 = com.ubuntu.Upstart.$(OBJEXT)
@@ -149,10 +155,12 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 NROFF = nroff
 MANS = $(dist_man_MANS)
-am__dist_init_DATA_DIST = conf/upstart-udev-bridge.conf
+am__dist_init_DATA_DIST = conf/upstart-socket-bridge.conf \
+	conf/upstart-udev-bridge.conf
 DATA = $(dist_init_DATA)
 ETAGS = etags
 CTAGS = ctags
@@ -343,6 +351,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/intl
 
 initdir = $(sysconfdir)/init
+dist_init_DATA = conf/upstart-socket-bridge.conf $(am__append_1)
+dist_man_MANS = man/upstart-socket-bridge.8 man/socket-event.7 \
+	$(am__append_2)
 upstart_socket_bridge_SOURCES = \
 	upstart-socket-bridge.c
 
@@ -355,12 +366,6 @@ upstart_socket_bridge_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
-
-@HAVE_UDEV_TRUE@dist_init_DATA = \
-@HAVE_UDEV_TRUE@	conf/upstart-udev-bridge.conf
-
-@HAVE_UDEV_TRUE@dist_man_MANS = \
-@HAVE_UDEV_TRUE@	man/upstart-udev-bridge.8
 
 @HAVE_UDEV_TRUE@upstart_udev_bridge_SOURCES = \
 @HAVE_UDEV_TRUE@	upstart-udev-bridge.c
@@ -528,6 +533,44 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+install-man7: $(dist_man_MANS)
+	@$(NORMAL_INSTALL)
+	test -z "$(man7dir)" || $(MKDIR_P) "$(DESTDIR)$(man7dir)"
+	@list=''; test -n "$(man7dir)" || exit 0; \
+	{ for i in $$list; do echo "$$i"; done; \
+	l2='$(dist_man_MANS)'; for i in $$l2; do echo "$$i"; done | \
+	  sed -n '/\.7[a-z]*$$/p'; \
+	} | while read p; do \
+	  if test -f $$p; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; echo "$$p"; \
+	done | \
+	sed -e 'n;s,.*/,,;p;h;s,.*\.,,;s,^[^7][0-9a-z]*$$,7,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,' | \
+	sed 'N;N;s,\n, ,g' | { \
+	list=; while read file base inst; do \
+	  if test "$$base" = "$$inst"; then list="$$list $$file"; else \
+	    echo " $(INSTALL_DATA) '$$file' '$(DESTDIR)$(man7dir)/$$inst'"; \
+	    $(INSTALL_DATA) "$$file" "$(DESTDIR)$(man7dir)/$$inst" || exit $$?; \
+	  fi; \
+	done; \
+	for i in $$list; do echo "$$i"; done | $(am__base_list) | \
+	while read files; do \
+	  test -z "$$files" || { \
+	    echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(man7dir)'"; \
+	    $(INSTALL_DATA) $$files "$(DESTDIR)$(man7dir)" || exit $$?; }; \
+	done; }
+
+uninstall-man7:
+	@$(NORMAL_UNINSTALL)
+	@list=''; test -n "$(man7dir)" || exit 0; \
+	files=`{ for i in $$list; do echo "$$i"; done; \
+	l2='$(dist_man_MANS)'; for i in $$l2; do echo "$$i"; done | \
+	  sed -n '/\.7[a-z]*$$/p'; \
+	} | sed -e 's,.*/,,;h;s,.*\.,,;s,^[^7][0-9a-z]*$$,7,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,'`; \
+	test -z "$$files" || { \
+	  echo " ( cd '$(DESTDIR)$(man7dir)' && rm -f" $$files ")"; \
+	  cd "$(DESTDIR)$(man7dir)" && rm -f $$files; }
 install-man8: $(dist_man_MANS)
 	@$(NORMAL_INSTALL)
 	test -z "$(man8dir)" || $(MKDIR_P) "$(DESTDIR)$(man8dir)"
@@ -687,7 +730,7 @@ check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
 all-am: Makefile $(PROGRAMS) $(MANS) $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(initdir)"; do \
+	for dir in "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man7dir)" "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(initdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: $(BUILT_SOURCES)
@@ -757,7 +800,7 @@ install-info: install-info-am
 
 install-info-am:
 
-install-man: install-man8
+install-man: install-man7 install-man8
 
 install-pdf: install-pdf-am
 
@@ -791,7 +834,7 @@ ps-am:
 uninstall-am: uninstall-dist_initDATA uninstall-man \
 	uninstall-sbinPROGRAMS
 
-uninstall-man: uninstall-man8
+uninstall-man: uninstall-man7 uninstall-man8
 
 .MAKE: all check install install-am install-strip
 
@@ -802,14 +845,15 @@ uninstall-man: uninstall-man8
 	install install-am install-data install-data-am \
 	install-dist_initDATA install-dvi install-dvi-am install-exec \
 	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-man8 install-pdf \
-	install-pdf-am install-ps install-ps-am install-sbinPROGRAMS \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic \
-	maintainer-clean-local mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-dist_initDATA \
-	uninstall-man uninstall-man8 uninstall-sbinPROGRAMS
+	install-info-am install-man install-man7 install-man8 \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-sbinPROGRAMS install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic maintainer-clean-local mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags uninstall uninstall-am \
+	uninstall-dist_initDATA uninstall-man uninstall-man7 \
+	uninstall-man8 uninstall-sbinPROGRAMS
 
 
 $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)

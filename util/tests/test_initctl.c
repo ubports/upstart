@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/types.h>        
+#include <sys/stat.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_connection.h>
@@ -54,25 +56,51 @@
  *
  * @pid: pid_t that will contain pid of running instance on success.
  *
- * Start an instance of upstart in debug mode. Fork errors are fatal,
- * but after a successful fork, waits forever for upstart to initialize.
+ * Start an instance of Upstart. Fork errors are fatal, but after
+ * a successful fork, waits forever for upstart to initialize.
  **/
 #define START_UPSTART(pid)                                           \
 {                                                                    \
 	nih_local NihDBusProxy *upstart = NULL;                      \
+	DBusConnection         *connection;                          \
+	DBusError               dbus_error;                          \
+	int                     attempt = 0;                         \
 	                                                             \
 	TEST_NE (pid = fork (), -1);                                 \
 	                                                             \
 	if (pid == 0)                                                \
 		execlp (UPSTART_BINARY, UPSTART_BINARY,              \
-				"--debug", "--session",              \
-				"--no-startup-event", NULL);         \
+				"--session", "--no-startup-event",   \
+				NULL);                               \
 	                                                             \
-	while (1) {                                                  \
+	/* XXX: arbitrary value */                                   \
+	while (attempt < 10) {                                       \
+		attempt++;                                           \
 		sleep (1);                                           \
+	        dbus_error_init (&dbus_error);                       \
+		connection = dbus_bus_get (DBUS_BUS_SESSION,         \
+				&dbus_error);                        \
                                                                      \
-		if (upstart_open (NULL))                             \
+		if (! connection) {                                  \
+			dbus_error_free (&dbus_error);               \
+			continue;                                    \
+		}                                                    \
+		dbus_error_free (&dbus_error);                       \
+		                                                     \
+		upstart = nih_dbus_proxy_new (NULL, connection,      \
+				      DBUS_SERVICE_UPSTART,          \
+				      DBUS_PATH_UPSTART,             \
+				      NULL, NULL);                   \
+		                                                     \
+		if (! upstart) {                                     \
+			NihError *err;                               \
+			err = nih_error_get ();                      \
+			nih_free (err);                              \
+			dbus_connection_unref (connection);          \
+		}                                                    \
+		else {                                               \
 			break;                                       \
+		}                                                    \
 	}                                                            \
 }
 
@@ -14317,6 +14345,35 @@ test_log_priority_action (void)
 }
 
 
+/**
+ * in_chroot:
+ *
+ * Determine if running inside a chroot environment.
+ *
+ * Failures are fatal.
+ *
+ * Returns TRUE if within a chroot, else FALSE.
+ **/
+int
+in_chroot (void)
+{
+	struct stat st;
+	int i;
+	char dir[] = "/";
+
+	i = stat(dir, &st);
+	    
+	if ( i != 0 ) { 
+		fprintf (stderr, "ERROR: cannot stat '%s'\n", dir);
+		exit (EXIT_FAILURE);
+	}
+
+	if ( st.st_ino == 2 )
+		return FALSE;
+
+	return TRUE;
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -14342,8 +14399,17 @@ main (int   argc,
 	test_version_action ();
 	test_log_priority_action ();
 
-	test_show_config ();
-	test_check_config ();
+	/* D-Bus doesn't like chroots :( */
+	if (in_chroot ()) {
+		fprintf(stderr, "\n\n"
+				"WARNING: not running show-config "
+				"and check-config tests within chroot "
+				"due to D-Bus issues (lp:#728988)"
+				"\n\n");
+	} else {
+		test_show_config ();
+		test_check_config ();
+	}
 
 	return 0;
 }
