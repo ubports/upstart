@@ -340,10 +340,11 @@ typedef struct condition {
 /**
  * CheckConfigData:
  *
- * @job_class_hash: List of all job class (.conf files)
+ * @job_class_hash: Job classes (.conf files)
  *   currently installed,
- * @event_hash: List of all events that are documented
- *   as being emitted.
+ * @event_hash: Events that are documented
+ *   as being emitted,
+ * @ignored_events_hash: Rvents we wish to ignore.
  *
  * Notes:
  *
@@ -351,6 +352,9 @@ typedef struct condition {
  * are of type JobCondition.
  *
  * Keys of @event_hash are event names and values are of type
+ * NihListEntry holding the event name as a string.
+ *
+ * Keys of @ignored_events_hash are event names and values are of type
  * NihListEntry holding the event name as a string.
  **/
 typedef struct check_config_data {

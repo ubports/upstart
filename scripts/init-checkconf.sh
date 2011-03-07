@@ -31,7 +31,8 @@ file_valid=n
 
 cleanup()
 {
-  kill -0 %1 >/dev/null 2>&1 && kill -9 %1
+  kill -0 $upstart_pid >/dev/null 2>&1 && \
+  kill -9 $upstart_pid >/dev/null 2>&1
   [ -d $confdir ] && rm -rf $confdir
   [ $file_valid = y ] && exit 0
   exit 1
@@ -152,6 +153,10 @@ debug "upstart_cmd=$upstart_cmd"
 
 nohup $upstart_cmd >$upstart_out 2>&1 &
 upstart_pid=$!
+
+# Stop the shell outputting a message when Upstart is killed.
+# We handle this ourselves in cleanup().
+disown 
 
 # wait for upstart to initialize
 for i in $(seq 1 5)

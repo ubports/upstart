@@ -1,3 +1,11 @@
+2011-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/init-checkconf.sh:
+	  - cleanup(): Make use of $upstart_pid.
+	  - main(): disown $upstart_pid to stop newer bash versions
+	    displaying changed child process status.
+	* util/initctl.h: Improved comments for CheckConfigData.
+
 2011-03-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* contrib/Makefile.am: Fixed paths and names for scripts.
