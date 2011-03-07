@@ -15,6 +15,24 @@ has completed and creates
 .BR init (8)
 events for them.
 
+It emits events which match the pattern, "\fIS\fP-device-\fIA\fP" where
+\'S\' is the udev \fIsubsystem\fP and \'A\' is the udev \fIaction\fP.
+See \fBudev\fP(7) and for further details.
+
+Assuming \fI/sys\fP is mounted, possible values for \fIsubsystem\fP for
+your system are viewable via \fI/sys/class/\fP.
+
+.\"
+.SH EXAMPLES
+
+.IP net-device-added
+Event emitted when a network device is added.
+.IP net-device-removed
+Event emitted when a network device is removed.
+.IP graphics-card-added
+Event emitted when a graphics device is available to the system.
+.\"
+.SH NOTES
 This is a temporary tool until
 .BR init (8)
 itself gains the functionality to read them directly; you should not
@@ -29,7 +47,11 @@ Report bugs at
 .RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2009 Canonical Ltd.
+Copyright \(co 2009,2010,2011 Canonical Ltd.
 .PP
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH SEE ALSO
+.BR init (5)
+.BR init (8)
+.BR udev (7)

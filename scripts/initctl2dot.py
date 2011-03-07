@@ -436,20 +436,16 @@ def main():
   global default_color_bg
   global restrictions_list
 
-  description = "Convert initctl(8) output to a GraphViz dot(1) diagram."
+  description = "Convert initctl(8) output to GraphViz dot(1) format."
   epilog = \
     "See http://www.graphviz.org/doc/info/colors.html for available colours."
 
   parser = OptionParser(description=description, epilog=epilog)
 
-  parser.add_option("-c", "--check",
-    dest="check_mode",
-    action="store_true",
-    help="Look for missing jobs/events then exit (this may not be reliable).")
-
   parser.add_option("-r", "--restrict-to-jobs",
       dest="restrictions",
-      help="Limit display of 'start on' and 'stop on' to specified jobs.")
+      help="Limit display of 'start on' and 'stop on' conditions to " +
+      "specified jobs (comma-separated list).")
 
   parser.add_option("-f", "--infile",
       dest="infile",

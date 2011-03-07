@@ -1,3 +1,20 @@
+2011-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8: Added examples.
+	* extra/Makefile.am: Create links to upstart-udev-bridge
+          man page for well-known Upstart udev events.
+	* util/initctl.h: Improved comments for CheckConfigData.
+	* scripts/init-checkconf.sh:
+	  - cleanup(): Make use of $upstart_pid.
+	  - main(): disown $upstart_pid to stop newer bash versions
+	    displaying changed child process status.
+	* scripts/init2dot.py:
+	  - Removed erroneous check option.
+	  - Improved exaplanation of '-r' option.
+	* scripts/Makefile.am: Added manual pages.
+	* scripts/man/init-checkconf.8: New manual page.
+	* scripts/man/initctl2dot.8: New manual page.
+
 2011-03-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* contrib/Makefile.am: Fixed paths and names for scripts.

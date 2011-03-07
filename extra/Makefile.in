@@ -761,6 +761,7 @@ maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
+@HAVE_UDEV_FALSE@install-data-hook:
 clean: clean-am
 
 clean-am: clean-generic clean-libtool clean-local clean-sbinPROGRAMS \
@@ -785,7 +786,8 @@ info: info-am
 info-am:
 
 install-data-am: install-dist_initDATA install-man
-
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 install-dvi: install-dvi-am
 
 install-dvi-am:
@@ -836,25 +838,37 @@ uninstall-am: uninstall-dist_initDATA uninstall-man \
 
 uninstall-man: uninstall-man7 uninstall-man8
 
-.MAKE: all check install install-am install-strip
+.MAKE: all check install install-am install-data-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
 	clean-libtool clean-local clean-sbinPROGRAMS ctags distclean \
 	distclean-compile distclean-generic distclean-libtool \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am \
-	install-dist_initDATA install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-man7 install-man8 \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-sbinPROGRAMS install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	install-data-hook install-dist_initDATA install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-man7 install-man8 install-pdf install-pdf-am \
+	install-ps install-ps-am install-sbinPROGRAMS install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic maintainer-clean-local mostlyclean \
 	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-dist_initDATA uninstall-man uninstall-man7 \
 	uninstall-man8 uninstall-sbinPROGRAMS
 
+
+@HAVE_UDEV_TRUE@install-data-hook:
+@HAVE_UDEV_TRUE@	src=`echo upstart-udev-bridge| sed '$(transform)'`.8; \
+@HAVE_UDEV_TRUE@	for symlink in \
+@HAVE_UDEV_TRUE@		net-device-added \
+@HAVE_UDEV_TRUE@		net-device-removed \
+@HAVE_UDEV_TRUE@		graphics-device-added \
+@HAVE_UDEV_TRUE@		drm-device-added; do \
+@HAVE_UDEV_TRUE@	  inst=`echo $$symlink | sed '$(transform)'`.7; \
+@HAVE_UDEV_TRUE@          echo " ln -sf '$(man8dir)/$$src' '$(DESTDIR)$(man7dir)/$$inst'"; \
+@HAVE_UDEV_TRUE@	  ln -sf "$(man8dir)/$$src" "$(DESTDIR)$(man7dir)/$$inst"; \
+@HAVE_UDEV_TRUE@	done
 
 $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
 	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
