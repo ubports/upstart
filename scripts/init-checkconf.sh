@@ -28,12 +28,13 @@ upstart_path=/sbin/init
 initctl_path=/sbin/initctl
 debug_enabled=n
 file_valid=n
+running=n
 
 cleanup()
 {
-  kill -0 $upstart_pid >/dev/null 2>&1 && \
-  kill -9 $upstart_pid >/dev/null 2>&1
-  [ -d $confdir ] && rm -rf $confdir
+  kill -0 "$upstart_pid" >/dev/null 2>&1 && \
+  kill -9 "$upstart_pid" >/dev/null 2>&1
+  [ -d "$confdir" ] && rm -rf "$confdir"
   [ $file_valid = y ] && exit 0
   exit 1
 }
@@ -49,13 +50,14 @@ Usage: $script_name [options] -f <conf_file>
 
 Options:
 
-  -d        : Show some debug output.
-  -f <file> : Job configuration file to check.
-  -i <path> : Specify path to initctl binary
-              (default=$initctl_path).
-  -x <path> : Specify path to init daemon binary
-              (default=$upstart_path).
-  -h        : Show this help.
+ -d, --debug           : Show some debug output.
+ -f <file>,            : Job configuration file to check.
+ --file=<file>           (no default).
+ -i <path>,            : Specify path to initctl binary
+ --initctl-path=<path>   (default=$initctl_path).
+ -x <path>             : Specify path to init daemon binary
+ --upstart-path=<path>   (default=$upstart_path).
+ -h, --help            : Show this help.
 
 EOT
 }
@@ -69,7 +71,7 @@ debug()
 error()
 {
   msg="$*"
-  echo -e "ERROR: $msg" >&2
+  printf "ERROR: %s\n" "$msg" >&2
 }
 
 die()
@@ -78,37 +80,55 @@ die()
   exit 1
 }
 
-trap cleanup EXIT SIGINT SIGTERM
+trap cleanup EXIT INT TERM
 
-while getopts "dhf:i:x:" opt
+args=$(getopt \
+  -n "$script_name" \
+  -a \
+  --options="df:hi:x:" \
+  --longoptions="debug file: help initctl-path: upstart-path:" \
+  -- "$@")
+
+eval set -- "$args"
+[ $? -ne 0 ] && { usage; exit 1; }
+[ $# -eq 0 ] && { usage; exit 0; }
+
+while [ $# -gt 0 ]
 do
-  case "$opt" in
-    d)
-      debug_enabled=y
-    ;;
+    case "$1" in
+      -d|--debug)
+        debug_enabled=y
+        ;;
 
-    f)
-      file=$OPTARG
-    ;;
+      -f|--file)
+        file="$2"
+        shift
+        ;;
 
-    h)
-      usage
-      exit 0
-    ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
 
-    i)
-      initctl_path=$OPTARG
-    ;;
+      -i|--initctl-path)
+        initctl_path="$2"
+        shift
+        ;;
 
-    x)
-      upstart_path=$OPTARG
-    ;;
-  esac
+      -x|--upstart-path)
+        upstart_path="$2"
+        shift
+        ;;
+
+      --)
+        shift
+        break
+        ;;
+    esac
+    shift
 done
 
-shift $[$OPTIND-1]
-
-[ ! -z "$@" ] && file="$1"
+[ -z "$file" ] && file="$1"
 
 # safety first
 [ "$(id -u)" -eq 0 ] && die "cannot run as root"
@@ -119,30 +139,29 @@ shift $[$OPTIND-1]
 debug "upstart_path=$upstart_path"
 debug "initctl_path=$initctl_path"
 
-for cmd in $upstart_path $initctl_path
+for cmd in "$upstart_path" "$initctl_path"
 do
-  [ -f $cmd ] || die "Path $cmd does not exist"
-  [ -x $cmd ] || die "File $cmd not executable"
-  [ -z "$($cmd --help|grep -- --session 2>/dev/null)" ] && \
-    die "version of $cmd too old"
+  [ -f "$cmd" ] || die "Path $cmd does not exist"
+  [ -x "$cmd" ] || die "File $cmd not executable"
+  "$cmd" --help | grep -q -- --session || die "version of $cmd too old"
 done
 
 # this is the only safe way to run another instance of Upstart
-$upstart_path --help|grep -q -- --no-startup-event || die "$upstart_path too old"
+"$upstart_path" --help|grep -q -- --no-startup-event || die "$upstart_path too old"
 
 debug "confdir=$confdir"
 debug "file=$file"
 
 filename=$(basename $file)
 
-echo $filename | egrep -q '\.conf$' || die "file must end in .conf"
+echo "$filename" | egrep -q '\.conf$' || die "file must end in .conf"
 
-job=${filename%.conf}
+job="${filename%.conf}"
 
-cp $file $confdir
+cp "$file" "$confdir"
 debug "job=$job"
 
-upstart_out=$(mktemp /tmp/${script_name}-upstart-output.XXXXXXXXXX)
+upstart_out="$(mktemp --tmpdir "${script_name}-upstart-output.XXXXXXXXXX")"
 debug "upstart_out=$upstart_out"
 
 upstart_cmd=$(printf \
@@ -151,7 +170,7 @@ upstart_cmd=$(printf \
   "$confdir")
 debug "upstart_cmd=$upstart_cmd"
 
-nohup $upstart_cmd >$upstart_out 2>&1 &
+nohup $upstart_cmd >"$upstart_out" 2>&1 &
 upstart_pid=$!
 
 # Stop the shell outputting a message when Upstart is killed.
@@ -161,6 +180,7 @@ disown
 # wait for upstart to initialize
 for i in $(seq 1 5)
 do
+  debug "Waiting for Upstart to reply over D-Bus (attempt $i)"
   dbus-send --session --print-reply \
     --dest='com.ubuntu.Upstart' /com/ubuntu/Upstart \
     org.freedesktop.DBus.Properties.GetAll \
@@ -177,12 +197,12 @@ done
 
 debug "upstart ($upstart_cmd) running with PID $upstart_pid"
 
-if $initctl_path --session status $job >/dev/null 2>&1
+if "$initctl_path" --session status "$job" >/dev/null 2>&1
 then
   file_valid=y
   echo "File $file: syntax ok"
   exit 0
 fi
 
-errors=$(grep $job $upstart_out|sed "s,${confdir}/,,g")
-error "File $file: syntax invalid:\n$errors"
+errors=$(grep "$job" "$upstart_out"|sed "s,${confdir}/,,g")
+error "File $file: syntax invalid ($errors)"

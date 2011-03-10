@@ -49,8 +49,9 @@
 import sys
 import re
 import os
+from string import split
 import datetime
-from os import popen
+from subprocess import (Popen, PIPE)
 from optparse import OptionParser
 
 jobs   = {}
@@ -208,7 +209,7 @@ def show_jobs(ofh):
 
   for j in jobs_to_show:
     show_job(ofh, j)
-    # add those jobs which are references by existing jobs, but which
+    # add those jobs which are referenced by existing jobs, but which
     # might not be available as .conf files. For example, plymouth.conf
     # references gdm *or* kdm, but you are unlikely to have both
     # installed.
@@ -356,7 +357,7 @@ def read_data():
       sys.exit("ERROR: cannot read file '%s'" % options.infile)
   else:
     try:
-      ifh = popen(cmd, 'r')
+      ifh = Popen(split(cmd), stdout=PIPE).stdout
     except:
       sys.exit("ERROR: cannot run '%s'" % cmd)
 
@@ -368,9 +369,9 @@ def read_data():
       if result:
         _event = encode_dollar(job, result.group(1))
         _job   = result.group(2)
-	if _job:
+        if _job:
           jobs[job]['start on']['job'][_job] = 1
-	else:
+        else:
           jobs[job]['start on']['event'][_event] = 1
           events[_event] = 1
         continue
@@ -379,9 +380,9 @@ def read_data():
       if result:
         _event = encode_dollar(job, result.group(1))
         _job   = result.group(2)
-	if _job:
+        if _job:
           jobs[job]['stop on']['job'][_job] = 1
-	else:
+        else:
           jobs[job]['stop on']['event'][_event] = 1
           events[_event] = 1
         continue
@@ -394,7 +395,7 @@ def read_data():
       else:
         tokens = (line.lstrip().split())
 
-	if len(tokens) != 1:
+        if len(tokens) != 1:
           sys.exit("ERROR: invalid line: %s" % line.lstrip())
 
         job_record      = {}

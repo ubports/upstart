@@ -1,4 +1,4 @@
-.TH upstart-socket-bridge 8 2011-03-01 upstart
+.TH upstart-socket-bridge 8 2011-03-08 upstart
 .\"
 .SH NAME
 upstart-socket-bridge \- Bridge between Upstart and sockets
@@ -19,9 +19,8 @@ or
 the socket event. It then waits for an incoming connection on each
 specified
 .BR socket (7)
-and when detected emits the 
-.BR socket (8)
-event, setting a number of environment variables for the job to query.
+and when detected emits the socket event (\fBsocket\-event\fP (7)),
+setting a number of environment variables for the job to query.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant
@@ -45,5 +44,4 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .BR init (8)
 .BR socket (2)
 .BR socket (7)
-.BR socket-event (7)
-.BR socket (8)
+.BR socket\-event (7)

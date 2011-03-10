@@ -387,10 +387,10 @@ main (int   argc,
 			nih_debug ("Startup event disabled");
 		} else {
 			NIH_MUST (event_new (NULL,
-						initial_event
-						? initial_event
-						: STARTUP_EVENT,
-						NULL));
+				initial_event
+				? initial_event
+				: STARTUP_EVENT,
+				NULL));
                 }
 
 		/* Total hack, look for .pid files in /dev/.initramfs -
