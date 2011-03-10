@@ -1,3 +1,44 @@
+2011-03-10  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/conf/upstart-socket-bridge.conf: Start as soon as networking is
+	  available.
+	* extra/man/socket-event.7: Minor typo fixes and troff quoting for
+	  dashes.
+	* extra/man/upstart-socket-bridge.8: Removed reference to socket(8) and
+	  replaced with socket-event(7).
+	* extra/man/upstart-udev-bridge.8: Minor typo fixes, troff quoting for
+	  dashes, and replaced literal quotes with troff quotes.
+	* init/control.c: Typo.
+	* init/main.c: Corrected indentation.
+	* init/man/init.5: Minor typo fixes, troff quoting for
+	  dashes, and replaced literal quotes with troff quotes.
+	* init/man/init.8: Typo.
+	* scripts/init-checkconf.sh: Fixed to ensure safety and portability:
+	    - Quoted all variables.
+	    - Removed non-portable syntax.
+	    - Changed to using getopt(1) rather than getopts(1), and added
+	      long-options.
+	* scripts/initctl2dot.py:
+	    - Changed from os.popen() to (safer)
+	      subprocess.Popen()
+	    - Formatting and typos.
+	* util/initctl.c: Typo.
+	* util/man/initctl.8: Minor typo fixes, troff quoting for
+	  dashes, and replaced literal quotes with troff quotes.
+	* util/tests/test_initctl.c:
+	  - START_UPSTART: improved comments and minor tidyup.
+	  - test_show_config(): Placed tests for expected number of lines of
+	    output *after* checking expected line values. This ensures that if
+	    problems are encountered (for example D-Bus issues), the person
+	    viewing the log has a hope of working out what went wrong :-)
+	  - test_check_config(): As test_show_config().
+	  - dbus_configured(): New function that performs a highly rudimentary
+	    check to see if D-Bus appears to be configured for the environment
+	    the tests run in.
+	  - main(): Improved test for running tests within a chroot: we do now
+	    run all tests assuming that D-Bus is found to be working within a
+	    chroot environment.
+
 2011-03-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/upstart-udev-bridge.8: Added examples.

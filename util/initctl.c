@@ -174,7 +174,7 @@ int verbose_detail = FALSE;
  * enumerate_events:
  *
  * If TRUE, list out all events/jobs that a particular job *may require* to
- * be run: essentially any event/job mentioned in a job cnofiguration files
+ * be run: essentially any event/job mentioned in a job configuration files
  * "start on" / "stop on" condition. Used for showing dependencies
  * between jobs and events.
  **/
