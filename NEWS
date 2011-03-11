@@ -1,3 +1,13 @@
+0.9.2  2011-03-11
+
+	* Improvements to existing documentation.
+	* scripts/man/init-checkconf.8: New manual page.
+	* scripts/man/initctl2dot.8: New manual page.
+	* packaging improvements (including "make distcheck" fix).
+	* extra/man/upstart-udev-bridge.8: Added examples.
+	* extra/Makefile.am: Create links to upstart-udev-bridge
+          man page for well-known Upstart udev events.
+
 0.9.1  2011-03-03
 
 	* Added supporting documentation for upstart-socket-bridge and
