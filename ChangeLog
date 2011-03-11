@@ -1,3 +1,8 @@
+2011-03-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Install improvements for
+	  "make distcheck". Added uninstall for scripts.
+
 2011-03-10  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/conf/upstart-socket-bridge.conf: Start as soon as networking is

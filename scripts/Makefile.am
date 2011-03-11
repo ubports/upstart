@@ -8,9 +8,18 @@ dist_man_MANS = \
   man/init-checkconf.8 \
   man/initctl2dot.8
 
-install-exec-local: $(EXTRA_DIST)
+install-exec-hook: $(EXTRA_DIST)
 	[ ! -d "$(DESTDIR)/$(bindir)" ] && mkdir -p "$(DESTDIR)/$(bindir)"; \
 	for file in $(EXTRA_DIST); do \
-		cp "$$file" "$(DESTDIR)$(bindir)/`basename $$file|cut -d. -f1`"; \
+		from=`echo "$$file" | sed '$(transform)'`; \
+		to=`basename $$from | cut -d. -f1`; \
+		echo "  cp '$(srcdir)/$$from' '$(DESTDIR)$(bindir)/$$to'"; \
+		cp "$(srcdir)/$$from" "$(DESTDIR)$(bindir)/$$to"; \
 	done
 
+uninstall-hook:
+	for file in $(EXTRA_DIST); do \
+		inst=`basename $$file | cut -d. -f1`; \
+		echo "  rm -f '$(DESTDIR)$(bindir)/$$inst'"; \
+		rm -f "$(DESTDIR)$(bindir)/$$inst"; \
+	done
