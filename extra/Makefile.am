@@ -19,6 +19,13 @@ initdir = $(sysconfdir)/init
 sbin_PROGRAMS = \
 	upstart-socket-bridge
 
+dist_init_DATA = \
+	conf/upstart-socket-bridge.conf
+
+dist_man_MANS = \
+	man/upstart-socket-bridge.8 \
+	man/socket-event.7
+
 upstart_socket_bridge_SOURCES = \
 	upstart-socket-bridge.c
 nodist_upstart_socket_bridge_SOURCES = \
@@ -32,12 +39,11 @@ upstart_socket_bridge_LDADD = \
 
 
 if HAVE_UDEV
-dist_init_DATA = \
+dist_init_DATA += \
 	conf/upstart-udev-bridge.conf
 
-dist_man_MANS = \
+dist_man_MANS += \
 	man/upstart-udev-bridge.8
-
 
 sbin_PROGRAMS += \
 	upstart-udev-bridge
@@ -52,9 +58,23 @@ upstart_udev_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS)
+
+install-data-hook:
+	src=`echo upstart-udev-bridge| sed '$(transform)'`.8; \
+	for symlink in \
+		net-device-added \
+		net-device-removed \
+		graphics-device-added \
+		drm-device-added; do \
+	  inst=`echo $$symlink | sed '$(transform)'`.7; \
+          echo " ln -sf '$(man8dir)/$$src' '$(DESTDIR)$(man7dir)/$$inst'"; \
+	  ln -sf "$(man8dir)/$$src" "$(DESTDIR)$(man7dir)/$$inst"; \
+	done
+
 else
 EXTRA_DIST = \
 	man/upstart-udev-bridge.8
+
 endif
 
 

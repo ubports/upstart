@@ -44,6 +44,7 @@
 #define CONSOLE "/dev/console"
 #endif
 
+
 /**
  * DEV_NULL:
  *
@@ -56,22 +57,24 @@
 
 
 /**
- * CONFFILE:
+ * DEFAULT_CONFFILE:
  *
  * Init daemon configuration file.
  **/
-#ifndef CONFFILE
-#define CONFFILE "/etc/init.conf"
+#ifndef DEFAULT_CONFFILE
+#define DEFAULT_CONFFILE "/etc/init.conf"
 #endif
 
+
 /**
- * CONFDIR:
+ * DEFAULT_CONFDIR:
  *
  * Top-level directory of the system configuration files.
  **/
-#ifndef CONFDIR
-#define CONFDIR "/etc/init"
+#ifndef DEFAULT_CONFDIR
+#define DEFAULT_CONFDIR "/etc/init"
 #endif
+
 
 /**
  * USERCONFDIR:
@@ -80,6 +83,20 @@
  **/
 #ifndef USERCONFDIR
 #define USERCONFDIR ".init"
+#endif
+
+
+/**
+ * CONFDIR_ENV:
+ *
+ * If this environment variable is set, read configuration files
+ * from the location specified, rather than DEFAULT_CONFDIR.
+ *
+ * Value is expected to be the full path to an alternative job
+ * configuration directory.
+ **/
+#ifndef CONFDIR_ENV
+#define CONFDIR_ENV "UPSTART_CONFDIR"
 #endif
 
 
@@ -93,6 +110,7 @@
 #define SHELL "/bin/sh"
 #endif
 
+
 /**
  * SBINDIR:
  *
@@ -101,6 +119,7 @@
 #ifndef SBINDIR
 #define SBINDIR "/sbin"
 #endif
+
 
 /**
  * TELINIT:
@@ -112,10 +131,12 @@
 #define TELINIT SBINDIR "/telinit"
 #endif
 
+
 /**
  * File extension for standard configuration files.
  **/
 #define CONF_EXT_STD ".conf"
+
 
 /**
  * File extension for override files.
@@ -125,6 +146,7 @@
  * the corresponding (CONF_EXT_STD) object.
  **/
 #define CONF_EXT_OVERRIDE ".override"
+
 
 /**
  * Determine if specified path extension representes a standard
@@ -138,6 +160,7 @@
 #define IS_CONF_EXT_STD(period) \
 	(!strcmp (period, CONF_EXT_STD))
 
+
 /**
  * Determine if specified path extension representes an
  * override file.
@@ -149,6 +172,7 @@
  **/
 #define IS_CONF_EXT_OVERRIDE(period) \
 	(!strcmp (period, CONF_EXT_OVERRIDE))
+
 
 /**
  * Determine if specified filename has a valid configuration
@@ -162,5 +186,6 @@
 #define IS_CONF_EXT(period) \
 	(IS_CONF_EXT_STD(period) || \
 	 IS_CONF_EXT_OVERRIDE(period))
+
 
 #endif /* INIT_PATHS_H */

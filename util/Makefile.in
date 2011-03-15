@@ -404,7 +404,7 @@ dist_man_MANS = \
 	man/runlevel.7
 
 initctl_SOURCES = \
-	initctl.c
+	initctl.c initctl.h
 
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \

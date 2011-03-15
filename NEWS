@@ -1,3 +1,45 @@
+0.9.3  2011-03-15
+
+	* Added missing emits stanzas for supplied .conf files.
+
+	* Added wildcard/globbing facility to initctl.c (for check-config
+	  command).
+
+	* Updated man page on emits stanza syntax.
+
+0.9.2  2011-03-11
+
+	* Improvements to existing documentation.
+	* scripts/man/init-checkconf.8: New manual page.
+	* scripts/man/initctl2dot.8: New manual page.
+	* packaging improvements (including "make distcheck" fix).
+	* extra/man/upstart-udev-bridge.8: Added examples.
+	* extra/Makefile.am: Create links to upstart-udev-bridge
+          man page for well-known Upstart udev events.
+
+0.9.1  2011-03-03
+
+	* Added supporting documentation for upstart-socket-bridge and
+	  sessions and chroot support.
+
+	* Added job configuration file for upstart-socket-bridge.
+
+	* Added job/event visualisation support. This comprises a new
+	  initctl command, "show-config" which generates human-readable
+	  (and machine parseable) output showing start on, stop on and
+	  emits details for each job. See initctl.8 for further details.
+	  The output from show-config is used by the new script
+	  contrib/utils/initctl2dot.py which graphs the data in GraphViz
+	  format.
+
+	* Added new initctl command check-config allowing unreachable
+	  job conditions to be detected. See initctl.8 for further
+	  details.
+
+	* Added script contrib/utils/init-checkconf.sh which allows
+	  non-privileged users to check job configuration files for syntax
+	  errors prior to installing in /etc/init/.
+
 0.9.0  2011-02-24
 
 	* utmp entries will be replaced with DEAD_PROCESS ones when a
