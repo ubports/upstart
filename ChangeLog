@@ -1,3 +1,7 @@
+2011-03-15  Jacek Konieczny  <jajcus@jajcus.net>
+
+	* contrib/vim/syntax/upstart.vim: Further improve syntax hilighting
+
 2011-03-01  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 1.1

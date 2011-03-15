@@ -14,6 +14,8 @@ if version < 600
 elseif exists("b:current_syntax")
 	finish
 endif
+ 
+setlocal iskeyword=@,48-57,-,.
 
 let is_bash = 1
 "unlet! b:current_syntax
@@ -33,6 +35,7 @@ syn cluster upstartShellCluster contains=@Shell
 " one argument
 syn keyword upstartStatement description author version
 syn keyword upstartStatement pid kill normal console env umask nice limit chroot chdir exec
+syn keyword upstartStatement expect export
 
 " one or more arguments (events)
 syn keyword upstartStatement emits
@@ -40,19 +43,21 @@ syn keyword upstartStatement emits
 syn keyword upstartStatement on start stop
 
 " flag, no parameter
-syn keyword upstartStatement daemon respawn service instance
+syn keyword upstartStatement daemon respawn service instance task
 
-" prefix for exec or script 
+" prefix for exec or script
 syn keyword upstartOption pre-start post-start pre-stop post-stop
 
 " options for pid
 syn keyword upstartOption file binary timeout
-" option for 
+" option for
 syn keyword upstartOption timeout
 " option for respawn
 syn keyword upstartOption limit
 " options for console
 syn keyword upstartOption logged output owner none
+" options for expect
+syn keyword upstartOption daemon fork stop
 
 syn keyword upstartEvent startup stalled control-alt-delete kbdrequest starting started stopping stopped runlevel
 
