@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.9.1\n"
+"Project-Id-Version: upstart 0.9.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-03-03 19:56+0000\n"
+"POT-Creation-Date: 2011-03-15 11:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -437,98 +437,98 @@ msgstr ""
 msgid "main"
 msgstr ""
 
-#: util/initctl.c:305
+#: util/initctl.c:310
 msgid "Unable to connect to system bus"
 msgstr ""
 
-#: util/initctl.c:306
+#: util/initctl.c:311
 msgid "Unable to connect to session bus"
 msgstr ""
 
-#: util/initctl.c:315
+#: util/initctl.c:320
 #, c-format
 msgid "%s: --dest given without --system\n"
 msgstr ""
 
-#: util/initctl.c:323
+#: util/initctl.c:328
 msgid "Unable to connect to Upstart"
 msgstr ""
 
-#: util/initctl.c:509 util/initctl.c:644 util/initctl.c:772 util/initctl.c:907
-#: util/initctl.c:1012
+#: util/initctl.c:514 util/initctl.c:649 util/initctl.c:777 util/initctl.c:912
+#: util/initctl.c:1017
 #, c-format
 msgid "%s: missing job name\n"
 msgstr ""
 
-#: util/initctl.c:958
+#: util/initctl.c:963
 msgid "Not running"
 msgstr ""
 
-#: util/initctl.c:1314
+#: util/initctl.c:1319
 #, c-format
 msgid "%s: missing event name\n"
 msgstr ""
 
-#: util/initctl.c:1512
+#: util/initctl.c:1517
 msgid "Invalid job class"
 msgstr ""
 
-#: util/initctl.c:2157
+#: util/initctl.c:2218
 msgid "use D-Bus session bus to connect to init daemon (for testing)"
 msgstr ""
 
-#: util/initctl.c:2159
+#: util/initctl.c:2220
 msgid "use D-Bus system bus to connect to init daemon"
 msgstr ""
 
-#: util/initctl.c:2161
+#: util/initctl.c:2222
 msgid "destination well-known name on D-Bus bus"
 msgstr ""
 
-#: util/initctl.c:2174
+#: util/initctl.c:2235
 msgid "do not wait for job to start before exiting"
 msgstr ""
 
-#: util/initctl.c:2186
+#: util/initctl.c:2247
 msgid "do not wait for job to stop before exiting"
 msgstr ""
 
-#: util/initctl.c:2198
+#: util/initctl.c:2259
 msgid "do not wait for job to restart before exiting"
 msgstr ""
 
-#: util/initctl.c:2237
+#: util/initctl.c:2298
 msgid "do not wait for event to finish before exiting"
 msgstr ""
 
-#: util/initctl.c:2278
+#: util/initctl.c:2339
 msgid ""
 "enumerate list of events and jobs causing job created from job config to "
 "start/stop"
 msgstr ""
 
-#: util/initctl.c:2291
+#: util/initctl.c:2352
 msgid "ignore specified list of events (comma-separated)"
 msgstr ""
 
-#: util/initctl.c:2300
+#: util/initctl.c:2361
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:2307
+#: util/initctl.c:2368
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:2315 util/initctl.c:2327 util/initctl.c:2338
-#: util/initctl.c:2349 util/initctl.c:2356
+#: util/initctl.c:2376 util/initctl.c:2388 util/initctl.c:2399
+#: util/initctl.c:2410 util/initctl.c:2417
 msgid "JOB [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:2316
+#: util/initctl.c:2377
 msgid "Start job."
 msgstr ""
 
-#: util/initctl.c:2317
+#: util/initctl.c:2378
 msgid ""
 "JOB is the name of the job that is to be started, this may be followed by "
 "zero or more environment variables to be defined in the new job.\n"
@@ -538,11 +538,11 @@ msgid ""
 "an existing instance is already running."
 msgstr ""
 
-#: util/initctl.c:2328
+#: util/initctl.c:2389
 msgid "Stop job."
 msgstr ""
 
-#: util/initctl.c:2329
+#: util/initctl.c:2390
 msgid ""
 "JOB is the name of the job that is to be stopped, this may be followed by "
 "zero or more environment variables to be passed to the job's pre-stop and "
@@ -552,11 +552,11 @@ msgid ""
 "decide which of multiple instances will be stopped."
 msgstr ""
 
-#: util/initctl.c:2339
+#: util/initctl.c:2400
 msgid "Restart job."
 msgstr ""
 
-#: util/initctl.c:2340
+#: util/initctl.c:2401
 msgid ""
 "JOB is the name of the job that is to be restarted, this may be followed by "
 "zero or more environment variables to be defined in the job after "
@@ -566,66 +566,66 @@ msgid ""
 "decide which of multiple instances will be restarted."
 msgstr ""
 
-#: util/initctl.c:2350
+#: util/initctl.c:2411
 msgid "Send HUP signal to job."
 msgstr ""
 
-#: util/initctl.c:2351
+#: util/initctl.c:2412
 msgid ""
 "JOB is the name of the job that is to be sent the signal, this may be "
 "followed by zero or more environment variables to distinguish between job "
 "instances.\n"
 msgstr ""
 
-#: util/initctl.c:2357
+#: util/initctl.c:2418
 msgid "Query status of job."
 msgstr ""
 
-#: util/initctl.c:2358
+#: util/initctl.c:2419
 msgid ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
 msgstr ""
 
-#: util/initctl.c:2364
+#: util/initctl.c:2425
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:2365
+#: util/initctl.c:2426
 msgid "The known jobs and their current status will be output."
 msgstr ""
 
-#: util/initctl.c:2368
+#: util/initctl.c:2429
 msgid "EVENT [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:2369
+#: util/initctl.c:2430
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:2370
+#: util/initctl.c:2431
 msgid ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
 msgstr ""
 
-#: util/initctl.c:2376
+#: util/initctl.c:2437
 msgid "Reload the configuration of the init daemon."
 msgstr ""
 
-#: util/initctl.c:2380
+#: util/initctl.c:2441
 msgid "Request the version of the init daemon."
 msgstr ""
 
-#: util/initctl.c:2383
+#: util/initctl.c:2444
 msgid "[PRIORITY]"
 msgstr ""
 
-#: util/initctl.c:2384
+#: util/initctl.c:2445
 msgid "Change the minimum priority of log messages from the init daemon"
 msgstr ""
 
-#: util/initctl.c:2386
+#: util/initctl.c:2447
 msgid ""
 "PRIORITY may be one of:\n"
 "  `debug' (messages useful for debugging upstart are logged, equivalent to --"
@@ -642,25 +642,25 @@ msgid ""
 "Without arguments, this outputs the current log priority."
 msgstr ""
 
-#: util/initctl.c:2403 util/initctl.c:2409
+#: util/initctl.c:2464 util/initctl.c:2470
 msgid "[CONF]"
 msgstr ""
 
-#: util/initctl.c:2404
+#: util/initctl.c:2465
 msgid "Show emits, start on and stop on details for job configurations."
 msgstr ""
 
-#: util/initctl.c:2405
+#: util/initctl.c:2466
 msgid ""
 "If CONF specified, show configuration details for single job configuration, "
 "else show details for all jobs configurations.\n"
 msgstr ""
 
-#: util/initctl.c:2410
+#: util/initctl.c:2471
 msgid "Check for unreachable jobs/event conditions."
 msgstr ""
 
-#: util/initctl.c:2411
+#: util/initctl.c:2472
 msgid ""
 "List all jobs and events which cannot be satisfied by currently available "
 "job configuration files"

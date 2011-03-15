@@ -1,7 +1,7 @@
 # English translations for upstart package.
-# Copyright (C) 2010 Canonical Ltd.
+# Copyright (C) 2011 Canonical Ltd.
 # This file is distributed under the same license as the upstart package.
-# Automatically generated, 2010.
+# Automatically generated, 2011.
 #
 # All this catalog "translates" are quotation characters.
 # The msgids must be ASCII and therefore cannot contain real quotation
@@ -30,10 +30,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.6.7\n"
+"Project-Id-Version: upstart 0.9.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-03-03 19:56+0000\n"
-"PO-Revision-Date: 2010-12-14 16:34+0000\n"
+"POT-Creation-Date: 2011-03-15 11:41+0000\n"
+"PO-Revision-Date: 2011-03-15 11:41+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -61,9 +61,8 @@ msgid "Unable to watch configuration file"
 msgstr "Unable to watch configuration file"
 
 #: init/conf.c:524 init/conf.c:924
-#, fuzzy
 msgid "Error while reloading configuration file"
-msgstr "Error while loading configuration file"
+msgstr "Error while reloading configuration file"
 
 #: init/conf.c:601
 msgid "Unable to watch configuration directory"
@@ -78,9 +77,8 @@ msgid "Configuration directory deleted"
 msgstr "Configuration directory deleted"
 
 #: init/conf.c:848
-#, fuzzy
 msgid "Unable to reload configuration after override deletion"
-msgstr "Unable to load configuration"
+msgstr "Unable to reload configuration after override deletion"
 
 #: init/control.c:165
 msgid "Connection from private client"
@@ -204,7 +202,7 @@ msgstr "post-stop"
 #: init/job_class.c:880 init/job_class.c:1015
 #, c-format
 msgid "You do not have permission to modify job: %s"
-msgstr ""
+msgstr "You do not have permission to modify job: %s"
 
 #: init/job.c:1129 init/job_class.c:804
 #, c-format
@@ -393,20 +391,19 @@ msgstr "%s %s process (%d) executable changed"
 
 #: init/main.c:122
 msgid "specify alternative directory to load configuration files from"
-msgstr ""
+msgstr "specify alternative directory to load configuration files from"
 
 #: init/main.c:125
 msgid "specify an alternative initial event (for testing)"
-msgstr ""
+msgstr "specify an alternative initial event (for testing)"
 
 #: init/main.c:128
-#, fuzzy
 msgid "do not emit any startup event (for testing)"
-msgstr "do not wait for job to start before exiting"
+msgstr "do not emit any startup event (for testing)"
 
 #: init/main.c:133
 msgid "use D-Bus session bus rather than system bus (for testing)"
-msgstr ""
+msgstr "use D-Bus session bus rather than system bus (for testing)"
 
 #: init/main.c:153
 msgid "Process management daemon."
@@ -468,101 +465,100 @@ msgstr "Unable to connect to the system bus"
 msgid "main"
 msgstr "main"
 
-#: util/initctl.c:305
+#: util/initctl.c:310
 msgid "Unable to connect to system bus"
 msgstr "Unable to connect to system bus"
 
-#: util/initctl.c:306
-#, fuzzy
+#: util/initctl.c:311
 msgid "Unable to connect to session bus"
-msgstr "Unable to connect to system bus"
+msgstr "Unable to connect to session bus"
 
-#: util/initctl.c:315
+#: util/initctl.c:320
 #, c-format
 msgid "%s: --dest given without --system\n"
 msgstr "%s: --dest given without --system\n"
 
-#: util/initctl.c:323
+#: util/initctl.c:328
 msgid "Unable to connect to Upstart"
 msgstr "Unable to connect to Upstart"
 
-#: util/initctl.c:509 util/initctl.c:644 util/initctl.c:772 util/initctl.c:907
-#: util/initctl.c:1012
+#: util/initctl.c:514 util/initctl.c:649 util/initctl.c:777 util/initctl.c:912
+#: util/initctl.c:1017
 #, c-format
 msgid "%s: missing job name\n"
 msgstr "%s: missing job name\n"
 
-#: util/initctl.c:958
+#: util/initctl.c:963
 msgid "Not running"
 msgstr "Not running"
 
-#: util/initctl.c:1314
+#: util/initctl.c:1319
 #, c-format
 msgid "%s: missing event name\n"
 msgstr "%s: missing event name\n"
 
-#: util/initctl.c:1512
+#: util/initctl.c:1517
 msgid "Invalid job class"
-msgstr ""
+msgstr "Invalid job class"
 
-#: util/initctl.c:2157
-#, fuzzy
+#: util/initctl.c:2218
 msgid "use D-Bus session bus to connect to init daemon (for testing)"
-msgstr "use D-Bus system bus to connect to init daemon"
+msgstr "use D-Bus session bus to connect to init daemon (for testing)"
 
-#: util/initctl.c:2159
+#: util/initctl.c:2220
 msgid "use D-Bus system bus to connect to init daemon"
 msgstr "use D-Bus system bus to connect to init daemon"
 
-#: util/initctl.c:2161
-#, fuzzy
+#: util/initctl.c:2222
 msgid "destination well-known name on D-Bus bus"
-msgstr "destination well-known name on system bus"
+msgstr "destination well-known name on D-Bus bus"
 
-#: util/initctl.c:2174
+#: util/initctl.c:2235
 msgid "do not wait for job to start before exiting"
 msgstr "do not wait for job to start before exiting"
 
-#: util/initctl.c:2186
+#: util/initctl.c:2247
 msgid "do not wait for job to stop before exiting"
 msgstr "do not wait for job to stop before exiting"
 
-#: util/initctl.c:2198
+#: util/initctl.c:2259
 msgid "do not wait for job to restart before exiting"
 msgstr "do not wait for job to restart before exiting"
 
-#: util/initctl.c:2237
+#: util/initctl.c:2298
 msgid "do not wait for event to finish before exiting"
 msgstr "do not wait for event to finish before exiting"
 
-#: util/initctl.c:2278
+#: util/initctl.c:2339
 msgid ""
 "enumerate list of events and jobs causing job created from job config to "
 "start/stop"
 msgstr ""
+"enumerate list of events and jobs causing job created from job config to "
+"start/stop"
 
-#: util/initctl.c:2291
+#: util/initctl.c:2352
 msgid "ignore specified list of events (comma-separated)"
-msgstr ""
+msgstr "ignore specified list of events (comma-separated)"
 
-#: util/initctl.c:2300
+#: util/initctl.c:2361
 msgid "Job"
 msgstr "Job"
 
-#: util/initctl.c:2307
+#: util/initctl.c:2368
 msgid "Event"
 msgstr "Event"
 
-#: util/initctl.c:2315 util/initctl.c:2327 util/initctl.c:2338
-#: util/initctl.c:2349 util/initctl.c:2356
+#: util/initctl.c:2376 util/initctl.c:2388 util/initctl.c:2399
+#: util/initctl.c:2410 util/initctl.c:2417
 msgid "JOB [KEY=VALUE]..."
 msgstr "JOB [KEY=VALUE]..."
 
-#: util/initctl.c:2316
+#: util/initctl.c:2377
 msgid "Start job."
 msgstr "Start job."
 
-#: util/initctl.c:2317
+#: util/initctl.c:2378
 msgid ""
 "JOB is the name of the job that is to be started, this may be followed by "
 "zero or more environment variables to be defined in the new job.\n"
@@ -578,11 +574,11 @@ msgstr ""
 "thus decide whether a new instance will be started or an error returned if "
 "an existing instance is already running."
 
-#: util/initctl.c:2328
+#: util/initctl.c:2389
 msgid "Stop job."
 msgstr "Stop job."
 
-#: util/initctl.c:2329
+#: util/initctl.c:2390
 msgid ""
 "JOB is the name of the job that is to be stopped, this may be followed by "
 "zero or more environment variables to be passed to the job's pre-stop and "
@@ -598,11 +594,11 @@ msgstr ""
 "The environment also serves to distinguish between job instances, and thus "
 "decide which of multiple instances will be stopped."
 
-#: util/initctl.c:2339
+#: util/initctl.c:2400
 msgid "Restart job."
 msgstr "Restart job."
 
-#: util/initctl.c:2340
+#: util/initctl.c:2401
 msgid ""
 "JOB is the name of the job that is to be restarted, this may be followed by "
 "zero or more environment variables to be defined in the job after "
@@ -618,11 +614,11 @@ msgstr ""
 "The environment also serves to distinguish between job instances, and thus "
 "decide which of multiple instances will be restarted."
 
-#: util/initctl.c:2350
+#: util/initctl.c:2411
 msgid "Send HUP signal to job."
 msgstr "Send HUP signal to job."
 
-#: util/initctl.c:2351
+#: util/initctl.c:2412
 msgid ""
 "JOB is the name of the job that is to be sent the signal, this may be "
 "followed by zero or more environment variables to distinguish between job "
@@ -632,11 +628,11 @@ msgstr ""
 "followed by zero or more environment variables to distinguish between job "
 "instances.\n"
 
-#: util/initctl.c:2357
+#: util/initctl.c:2418
 msgid "Query status of job."
 msgstr "Query status of job."
 
-#: util/initctl.c:2358
+#: util/initctl.c:2419
 msgid ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
@@ -644,23 +640,23 @@ msgstr ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
 
-#: util/initctl.c:2364
+#: util/initctl.c:2425
 msgid "List known jobs."
 msgstr "List known jobs."
 
-#: util/initctl.c:2365
+#: util/initctl.c:2426
 msgid "The known jobs and their current status will be output."
 msgstr "The known jobs and their current status will be output."
 
-#: util/initctl.c:2368
+#: util/initctl.c:2429
 msgid "EVENT [KEY=VALUE]..."
 msgstr "EVENT [KEY=VALUE]..."
 
-#: util/initctl.c:2369
+#: util/initctl.c:2430
 msgid "Emit an event."
 msgstr "Emit an event."
 
-#: util/initctl.c:2370
+#: util/initctl.c:2431
 msgid ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
@@ -668,23 +664,23 @@ msgstr ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
 
-#: util/initctl.c:2376
+#: util/initctl.c:2437
 msgid "Reload the configuration of the init daemon."
 msgstr "Reload the configuration of the init daemon."
 
-#: util/initctl.c:2380
+#: util/initctl.c:2441
 msgid "Request the version of the init daemon."
 msgstr "Request the version of the init daemon."
 
-#: util/initctl.c:2383
+#: util/initctl.c:2444
 msgid "[PRIORITY]"
 msgstr "[PRIORITY]"
 
-#: util/initctl.c:2384
+#: util/initctl.c:2445
 msgid "Change the minimum priority of log messages from the init daemon"
 msgstr "Change the minimum priority of log messages from the init daemon"
 
-#: util/initctl.c:2386
+#: util/initctl.c:2447
 msgid ""
 "PRIORITY may be one of:\n"
 "  `debug' (messages useful for debugging upstart are logged, equivalent to --"
@@ -714,29 +710,33 @@ msgstr ""
 "\n"
 "Without arguments, this outputs the current log priority."
 
-#: util/initctl.c:2403 util/initctl.c:2409
+#: util/initctl.c:2464 util/initctl.c:2470
 msgid "[CONF]"
-msgstr ""
+msgstr "[CONF]"
 
-#: util/initctl.c:2404
+#: util/initctl.c:2465
 msgid "Show emits, start on and stop on details for job configurations."
-msgstr ""
+msgstr "Show emits, start on and stop on details for job configurations."
 
-#: util/initctl.c:2405
+#: util/initctl.c:2466
 msgid ""
 "If CONF specified, show configuration details for single job configuration, "
 "else show details for all jobs configurations.\n"
 msgstr ""
+"If CONF specified, show configuration details for single job configuration, "
+"else show details for all jobs configurations.\n"
 
-#: util/initctl.c:2410
+#: util/initctl.c:2471
 msgid "Check for unreachable jobs/event conditions."
-msgstr ""
+msgstr "Check for unreachable jobs/event conditions."
 
-#: util/initctl.c:2411
+#: util/initctl.c:2472
 msgid ""
 "List all jobs and events which cannot be satisfied by currently available "
 "job configuration files"
 msgstr ""
+"List all jobs and events which cannot be satisfied by currently available "
+"job configuration files"
 
 #: util/reboot.c:113
 msgid "don't sync before reboot or halt"
@@ -1004,33 +1004,32 @@ msgstr "%s: illegal runlevel: %s\n"
 
 #: extra/upstart-udev-bridge.c:76
 msgid "Detach and run in the background"
-msgstr ""
+msgstr "Detach and run in the background"
 
 #: extra/upstart-udev-bridge.c:95
 msgid "Bridge udev events into upstart"
-msgstr ""
+msgstr "Bridge udev events into upstart"
 
 #: extra/upstart-udev-bridge.c:97
 msgid ""
 "By default, upstart-udev-bridge does not detach from the console and remains "
 "in the foreground.  Use the --daemon option to have it detach."
 msgstr ""
+"By default, upstart-udev-bridge does not detach from the console and remains "
+"in the foreground.  Use the --daemon option to have it detach."
 
 #: extra/upstart-udev-bridge.c:111
-#, fuzzy
 msgid "Could not connect to Upstart"
-msgstr "Unable to connect to Upstart"
+msgstr "Could not connect to Upstart"
 
 #: extra/upstart-udev-bridge.c:125
 msgid "Could not create Upstart proxy"
-msgstr ""
+msgstr "Could not create Upstart proxy"
 
 #: extra/upstart-udev-bridge.c:149
-#, fuzzy
 msgid "Unable to become daemon"
-msgstr "Unable to change directory"
+msgstr "Unable to become daemon"
 
 #: extra/upstart-udev-bridge.c:297
-#, fuzzy
 msgid "Disconnected from Upstart"
-msgstr "Disconnected from system bus"
+msgstr "Disconnected from Upstart"
