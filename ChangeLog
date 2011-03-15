@@ -1,5 +1,7 @@
 2011-03-15  James Hunt  <james.hunt@ubuntu.com>
 
+	* configure.ac: Bump version to 0.9.3.
+	* NEWS: Entry for version 0.9.3.
 	* conf/rc-sysinit.conf: Added emits stanza for runlevel event.
 	* extra/conf/upstart-socket-bridge.conf: Added emits stanza for socket
 	  event.
