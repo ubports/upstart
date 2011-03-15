@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <unistd.h>
+#include <fnmatch.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -96,6 +98,9 @@ static int    tree_filter (void *data, NihTree *node);
 
 static void   display_check_errors (const char *job_class,
 		const char *condition, NihTree *node);
+
+static int    allow_job (const char *job);
+static int    allow_event (const char *event);
 
 #ifndef TEST
 
@@ -1970,13 +1975,11 @@ eval_expr_tree (const char *expr, NihList **stack)
 		nih_list_add_after (s, &le->entry);
 
 	} else {
-		char *p;
 		char *event = NULL;
 		char *job   = NULL;
 		NihListEntry *le;
 		ExprNode *en;
 		int errors = 0;
-		NihList *found;
 
 		le = NIH_MUST (nih_new (s, NihListEntry));
 		nih_list_init (&le->entry);
@@ -1989,15 +1992,14 @@ eval_expr_tree (const char *expr, NihList **stack)
 		/* Determine the type of operand node we
 		 * have.
 		 */
-		p = strchr (en->expr, ' ');
+		job = strchr (en->expr, ' ');
 
-		if (p) {
-			job = p+1;
-			*p = '\0';
+		/* found a job */
+		if (job) {
+			job++;
+			*(job-1) = '\0';
 
-			found = nih_hash_lookup (check_config_data.job_class_hash, job);
-
-			if (!found) {
+			if (! allow_job (job)) {
 				errors++;
 
 				/* remember the error for later */
@@ -2005,10 +2007,8 @@ eval_expr_tree (const char *expr, NihList **stack)
 			}
 		}
 
-		found = nih_hash_lookup (check_config_data.event_hash, event);
-
-		if (!found && !IS_INIT_EVENT (event) &&
-				!nih_hash_lookup (check_config_data.ignored_events_hash, event)) {
+		/* handle event */
+		if (! allow_event (event)) {
 			errors++;
 			/* remember the error for later */
 			en->event_in_error = en->expr;
@@ -2146,6 +2146,67 @@ tree_filter (void *data, NihTree *node)
 	/* ignore */
 	return TRUE;
 }
+
+
+/**
+ * allow_job:
+ *
+ * @job: name of job to check.
+ *
+ * Returns TRUE if @job is recognized or can be ignored,
+ * else FALSE.
+ **/
+int
+allow_job (const char *job)
+{
+	NihList *found;
+
+	nih_assert (job);
+
+	found = nih_hash_lookup (check_config_data.job_class_hash, job);
+
+	/* The second part of this test ensures we ignore the (unusual)
+	 * situation whereby the condition references a
+	 * variable (for example an instance).
+	 */
+	if (!found && job[0] != '$')
+		return FALSE;
+
+	return TRUE;
+}
+
+
+/**
+ * allow_event:
+ *
+ * @event: name of event to check.
+ *
+ * Returns TRUE if @event is recognized or can be ignored,
+ * else FALSE.
+ **/
+int
+allow_event (const char *event)
+{
+	nih_assert (event);
+
+	NIH_HASH_FOREACH (check_config_data.event_hash, iter) {
+		NihListEntry *entry = (NihListEntry *)iter;
+
+		/* handles expansion of any globs */
+		if (fnmatch (entry->str, event, 0) == 0)
+			goto out;
+	}
+
+	if (IS_INIT_EVENT (event) ||
+		nih_hash_lookup (check_config_data.ignored_events_hash, event))
+		goto out;
+
+	return FALSE;
+
+out:
+	return TRUE;
+}
+
 
 #ifndef TEST
 /**

@@ -1,3 +1,23 @@
+2011-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* conf/rc-sysinit.conf: Added emits stanza for runlevel event.
+	* extra/conf/upstart-socket-bridge.conf: Added emits stanza for socket
+	  event.
+	* extra/conf/upstart-udev-bridge.conf: Added emits stanza for udev class
+	  of events (using globs).
+	* init/man/init.5: Updated emits stanza section to explain use of
+	  wildcard characters.
+	* util/initctl.c:
+	  - New functions:
+	    - allow_job(): Determine if specified job is erroneous or not.
+	      Handles variables (such as instance variables).
+	    - allow_event(): Determine if specified event is erroneous or not.
+	      Handles globbing.
+	  - eval_expr_tree():
+	    - Added calls to allow_job() and allow_event().
+	    - Slight simplification of operand-handling code.
+	* util/tests/test_initctl.c: Simplification of dbus_configured().
+
 2011-03-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/Makefile.am: Install improvements for

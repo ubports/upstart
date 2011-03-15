@@ -14390,7 +14390,7 @@ dbus_configured (void)
 	struct stat st;
 	char path[] = "/var/lib/dbus/machine-id";
 
-	return !!! stat (path, &st);
+	return !stat (path, &st);
 }
 
 int
