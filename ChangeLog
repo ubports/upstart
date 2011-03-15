@@ -1,3 +1,7 @@
+2011-03-15  Patty Langasek  <harmoney@dodds.net>
+
+	* init/man/init.5: Grammar fixes
+
 2011-03-15  Jacek Konieczny  <jajcus@jajcus.net>
 
 	* contrib/vim/syntax/upstart.vim: Further improve syntax hilighting
