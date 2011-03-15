@@ -254,7 +254,7 @@ conf_reload (void)
  * out for editors that rename over the top, etc.
  *
  * We then parse the current state of the source.  The flag member is
- * toggled first, and this is propogated to all new and modified files and
+ * toggled first, and this is propagated to all new and modified files and
  * items that we find as a result of parsing.  Once done, we scan for
  * anything with the wrong flag, and delete them.
  *
@@ -397,7 +397,7 @@ conf_source_reload_file (ConfSource *source)
  * tree.
  *
  * Otherwise we walk the tree ourselves and parse all files that we find,
- * propogating the value of the flag member to all files so that deletion
+ * propagating the value of the flag member to all files so that deletion
  * can be detected by the calling function.
  *
  * Returns: zero on success, negative value on raised error.

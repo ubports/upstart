@@ -1,3 +1,10 @@
+2011-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c (conf_source_reload, conf_source_reload_dir): Fix typos
+	in doc-strings
+	* init/job_process.c (job_process_run): Fix typo in doc-string
+	* init/parse_job.c (stanza_env): Fix typo in doc-string
+
 2011-03-15  Patty Langasek  <harmoney@dodds.net>
 
 	* init/man/init.5: Grammar fixes
