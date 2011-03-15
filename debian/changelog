@@ -1,3 +1,13 @@
+upstart (0.9.3-1) natty; urgency=low
+
+  * New upstream release 0.9.3:
+    - Added missing emits stanzas for supplied .conf files.
+    - Added wildcard/globbing facility to initctl.c (for check-config
+      command).
+    - Updated man page on emits stanza syntax.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 15 Mar 2011 11:57:11 +0000
+
 upstart (0.9.2-1) natty; urgency=low
 
   * Merge of upstream lp:~upstart-devel/upstart/0.9.
