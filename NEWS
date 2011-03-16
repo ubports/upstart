@@ -1,5 +1,8 @@
 1.1  xxxx-xx-xx
 
+	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
+	  executed by Upstart.  (Bug: #619269)
+
 1.0  2011-03-01  "This is a fertile land, and we will thrive"
 
 	* Fixed an assertion when a file named /etc/init/.conf is created.

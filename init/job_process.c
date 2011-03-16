@@ -315,6 +315,13 @@ job_process_run (Job         *job,
 			nih_free (err);
 		}
 
+		/* We're feeding using a pipe, which has a file descriptor
+		 * on the child end even though it open()s it again using
+		 * a path. Instruct the shell to close this extra fd and
+		 * not to leak it.
+		 */
+		NIH_ZERO (nih_io_printf (io, "exec <&%d-\n", fds[0]));
+
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
 	}

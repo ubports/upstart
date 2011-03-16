@@ -1,3 +1,10 @@
+2011-03-16  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_run): Prepend a shell command to the
+	pasted script to force the shell to close the file descriptor being
+	used to paste the script. The shell will already have a new copy when
+	it opened the path.
+
 2011-03-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/conf.c (conf_source_reload, conf_source_reload_dir): Fix typos
