@@ -2,6 +2,7 @@
  *
  * test_dbus.c - test suite for init/dbus.c
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -1600,44 +1601,6 @@ test_emit_event (void)
 
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO_BAR"));
-
-	ret = control_emit_event (NULL, message, "test", env, TRUE);
-
-	TEST_LT (ret, 0);
-
-	dbus_error = (NihDBusError *)nih_error_get ();
-	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
-	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
-	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
-	nih_free (dbus_error);
-
-	nih_free (message);
-	dbus_message_unref (method);
-
-
-	/* Check that if an entry in the environment list has an invalid name,
-	 * an error is returned immediately.
-	 */
-	TEST_FEATURE ("with invalid name in environment list");
-	method = dbus_message_new_method_call (
-		dbus_bus_get_unique_name (conn),
-		DBUS_PATH_UPSTART,
-		DBUS_INTERFACE_UPSTART,
-		"EmitEvent");
-
-	dbus_connection_send (client_conn, method, &serial);
-	dbus_connection_flush (client_conn);
-	dbus_message_unref (method);
-
-	TEST_DBUS_MESSAGE (conn, method);
-	assert (dbus_message_get_serial (method) == serial);
-
-	message = nih_new (NULL, NihDBusMessage);
-	message->connection = conn;
-	message->message = method;
-
-	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=BAZ"));
 
 	ret = control_emit_event (NULL, message, "test", env, TRUE);
 

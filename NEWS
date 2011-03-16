@@ -3,6 +3,9 @@
 	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
 	  executed by Upstart.  (Bug: #619269)
 
+	* Fixed bug where environment variables containing unusual characters
+	  were not accepted due to a mis-reading of POSIX.  (Bug: #567068).
+
 	* Reduced priority of job termination messages from warn to info
 	  if the exit status or signal is listed in "normal exit".
 	  (Bug: #522197)

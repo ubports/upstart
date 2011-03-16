@@ -1,5 +1,21 @@
 2011-03-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/environ.c (environ_all_valid): Only verify that an = is present
+	(environ_valid): Drop this function, the part of POSIX I read about
+	valid environment variable names only applies to other things defined
+	by POSIX, elsewhere it explicitly says Applications may do whatever
+	they like (and even encourages to avoid conflict)
+	(environ_expand_until): Remove validity check for name.
+	* init/environ.h: Update header.
+	* init/tests/test_environ.c (test_valid): Drop tests.
+	(test_all_valid): Drop name tests.
+	(test_expand): Remove illegal expansion test.
+	* init/tests/test_control.c (test_emit_event): Remove the test case for
+	an invalid name in the environment.
+	* init/tests/test_job_class.c (test_start, test_stop)
+	(test_restart): Change the invalid argument tests to use an entry
+	without an = as the invalid test.
+
 	* util/reboot.c: pass '-H' to shutdown when called as 'halt'
 
 	* init/job_process.c (job_process_handler): Check the job's normal exit

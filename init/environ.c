@@ -2,6 +2,7 @@
  *
  * environ.c - environment table utilities
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -354,50 +355,11 @@ environ_getn (char * const *env,
 
 
 /**
- * environ_valid:
- * @key: string to check,
- * @len: length of @key.
- *
- * Check whether the environment key @key, that is @len characters long,
- * is valid according to the usual rules.  Names may begin with an alpha or
- * an underscore, and then consist of any number of alphanumerics and
- * underscores.
- *
- * Returns: TRUE if @key is a valid variable name, FALSE otherwise.
- **/
-int
-environ_valid (const char *key,
-	       size_t      len)
-{
-	nih_assert (key != NULL);
-
-	if (! len)
-		return FALSE;
-
-	if ((*key != '_')
-	    && ((*key < 'A') || (*key > 'Z'))
-	    && ((*key < 'a') || (*key > 'z')))
-		return FALSE;
-
-	while (--len) {
-		++key;
-		if ((*key != '_')
-		    && ((*key < 'A') || (*key > 'Z'))
-		    && ((*key < 'a') || (*key > 'z'))
-		    && ((*key < '0') || (*key > '9')))
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
-/**
  * environ_all_valid:
  * @env: NULL-terminated array of variables to check.
  *
  * Checks each of the environment variables in @env for validity; that is
- * each must be of KEY=VALUE form, and KEY must be a valid name for a
- * variable.
+ * each must be of KEY=VALUE form.
  *
  * This is intended for checking external data such as that in control
  * messages; environment lists defined in job definitions are actually
@@ -417,9 +379,6 @@ environ_all_valid (char * const *env)
 
 		value = strchr (*e, '=');
 		if (! value)
-			return FALSE;
-
-		if (! environ_valid (*e, value - *e))
 			return FALSE;
 	}
 
@@ -589,20 +548,6 @@ environ_expand_until (char        **str,
 				return NULL;
 
 			name_end = (*pos);
-
-			/* Check the environment variable name is
-			 * actually valid
-			 */
-			if (! environ_valid (*str + name_start,
-					     name_end - name_start)) {
-				nih_error_raise_printf (
-					ENVIRON_ILLEGAL_PARAM,
-					"%s: %.*s", _(ENVIRON_ILLEGAL_PARAM_STR),
-					(int)(name_end - name_start),
-					*str + name_start);
-
-				goto error;
-			}
 
 			/* Check for an expression operator; if we find one,
 			 * step over it and evalulate the rest of the bracketed

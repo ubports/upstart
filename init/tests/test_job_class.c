@@ -2,6 +2,7 @@
  *
  * test_job_class.c - test suite for init/job_class.c
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -1948,7 +1949,7 @@ test_start (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_start (class, message, env, TRUE);
 
@@ -2386,7 +2387,7 @@ test_stop (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_stop (class, message, env, TRUE);
 
@@ -2872,7 +2873,7 @@ test_restart (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_restart (class, message, env, TRUE);
 
