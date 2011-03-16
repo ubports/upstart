@@ -1,5 +1,7 @@
 2011-03-16  Scott James Remnant  <scott@netsplit.com>
 
+	* util/reboot.c: pass '-H' to shutdown when called as 'halt'
+
 	* init/job_process.c (job_process_handler): Check the job's normal exit
 	list, decrease log priority of messages from warning to information if
 	the exit status or signal is in the list.

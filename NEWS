@@ -7,6 +7,10 @@
 	  if the exit status or signal is listed in "normal exit".
 	  (Bug: #522197)
 
+	* When /sbin/halt is called (without -p), this now results in the
+	  system being halted and not powered down. If you meant it to be
+	  powered down, use /sbin/poweroff.  (Bug: #532366)
+
 1.0  2011-03-01  "This is a fertile land, and we will thrive"
 
 	* Fixed an assertion when a file named /etc/init/.conf is created.
