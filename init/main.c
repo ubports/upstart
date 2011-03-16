@@ -1,5 +1,6 @@
 /* upstart
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -174,8 +175,6 @@ main (int   argc,
 	 */
 	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
-	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
-		nih_free (nih_error_get ());
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);
@@ -317,6 +316,9 @@ main (int   argc,
 	/* Now that the startup is complete, send all further logging output
 	 * to kmsg instead of to the console.
 	 */
+	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+		nih_free (nih_error_get ());
+
 	nih_log_set_logger (logger_kmsg);
 #endif /* DEBUG */
 

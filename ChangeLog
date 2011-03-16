@@ -1,5 +1,8 @@
 2011-03-16  Scott James Remnant  <scott@netsplit.com>
 
+	* init/main.c: Don't close the console until initialization is
+	complete.
+
 	* util/Makefile.am (uninstall-hook): Clean up symlinks on uninstall
 
 	* init/environ.c (environ_all_valid): Only verify that an = is present

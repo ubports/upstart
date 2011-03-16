@@ -7,6 +7,10 @@
 	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
 	  executed by Upstart.  (Bug: #619269)
 
+	* Fixed bug where console was closed too early, causing loss of error
+	  messages and non-functioning keyboard-request event,
+	  (Bug: #707151)
+
 	* Fixed bug where environment variables containing unusual characters
 	  were not accepted due to a mis-reading of POSIX.  (Bug: #567068).
 
