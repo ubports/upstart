@@ -2,6 +2,7 @@
  *
  * job_process.c - job process handling
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
