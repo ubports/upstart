@@ -1952,10 +1952,7 @@ test_handler (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		TEST_DIVERT_STDERR (output) {
-			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
-		}
-		rewind (output);
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -1985,11 +1982,6 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}
@@ -2298,10 +2290,7 @@ test_handler (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		TEST_DIVERT_STDERR (output) {
-			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
-		}
-		rewind (output);
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -2331,11 +2320,6 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}

@@ -867,6 +867,7 @@ job_process_handler (void           *data,
 {
 	Job         *job;
 	ProcessType  process;
+	NihLogLevel  priority;
 	const char  *sig;
 
 	nih_assert (pid > 0);
@@ -875,10 +876,20 @@ job_process_handler (void           *data,
 	 * job's process it was.  If we don't know about it, then we simply
 	 * ignore the event.
 	 */
-	nih_debug ("Ignored event %x (%d) for process %d", event, status, pid);
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
+
+	/* Check the job's normal exit clauses to see whether this is a failure
+	 * worth warning about.
+	 */
+	priority = NIH_LOG_WARN;
+	for (size_t i = 0; i < job->class->normalexit_len; i++) {
+		if (job->class->normalexit[i] == status) {
+			priority = NIH_LOG_INFO;
+			break;
+		}
+	}
 
 	switch (event) {
 	case NIH_CHILD_EXITED:
@@ -886,10 +897,10 @@ job_process_handler (void           *data,
 		 * normally (zero) or with a non-zero status.
 		 */
 		if (status) {
-			nih_warn (_("%s %s process (%d) "
-				    "terminated with status %d"),
-				  job_name (job), process_name (process),
-				  pid, status);
+			nih_log_message (priority, _("%s %s process (%d) "
+						     "terminated with status %d"),
+					 job_name (job), process_name (process),
+					 pid, status);
 		} else {
 			nih_info (_("%s %s process (%d) exited normally"),
 				  job_name (job), process_name (process), pid);
@@ -906,9 +917,9 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) killed by %s signal"),
-				  job_name (job), process_name (process),
-				  pid, sig);
+			nih_log_message (priority, _("%s %s process (%d) killed by %s signal"),
+					 job_name (job), process_name (process),
+					 pid, sig);
 		} else {
 			nih_warn (_("%s %s process (%d) killed by signal %d"),
 				  job_name (job), process_name (process),

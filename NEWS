@@ -3,6 +3,10 @@
 	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
 	  executed by Upstart.  (Bug: #619269)
 
+	* Reduced priority of job termination messages from warn to info
+	  if the exit status or signal is listed in "normal exit".
+	  (Bug: #522197)
+
 1.0  2011-03-01  "This is a fertile land, and we will thrive"
 
 	* Fixed an assertion when a file named /etc/init/.conf is created.
