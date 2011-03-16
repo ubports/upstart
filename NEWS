@@ -1,18 +1,20 @@
 1.1  xxxx-xx-xx
 
+	* When /sbin/halt is called (without -p), this now results in the
+	  system being halted and not powered down. If you meant it to be
+	  powered down, use /sbin/poweroff.  (Bug: #532366)
+
 	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
 	  executed by Upstart.  (Bug: #619269)
 
 	* Fixed bug where environment variables containing unusual characters
 	  were not accepted due to a mis-reading of POSIX.  (Bug: #567068).
 
+	* Fixed non-removal of symlinks on "make uninstall".  (Bug: #604227)
+
 	* Reduced priority of job termination messages from warn to info
 	  if the exit status or signal is listed in "normal exit".
 	  (Bug: #522197)
-
-	* When /sbin/halt is called (without -p), this now results in the
-	  system being halted and not powered down. If you meant it to be
-	  powered down, use /sbin/poweroff.  (Bug: #532366)
 
 1.0  2011-03-01  "This is a fertile land, and we will thrive"
 

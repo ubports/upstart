@@ -1,5 +1,7 @@
 2011-03-16  Scott James Remnant  <scott@netsplit.com>
 
+	* util/Makefile.am (uninstall-hook): Clean up symlinks on uninstall
+
 	* init/environ.c (environ_all_valid): Only verify that an = is present
 	(environ_valid): Drop this function, the part of POSIX I read about
 	valid environment variable names only applies to other things defined

@@ -170,6 +170,16 @@ install-exec-hook:
 	  ln -sf "$$src" "$(DESTDIR)$(sbindir)/$$inst"; \
 	done
 
+uninstall-hook:
+	for symlink in start stop restart reload status halt poweroff; do \
+	  file=`echo $$symlink | sed '$(transform)'`.8; \
+          echo " rm -f '$(DESTDIR)$(man8dir)/$$file'"; \
+	  rm -f "$(DESTDIR)$(man8dir)/$$file"; \
+	  file=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
+          echo " rm -f '$(DESTDIR)$(sbindir)/$$file'"; \
+	  rm -f "$(DESTDIR)$(sbindir)/$$file"; \
+	done
+
 
 TESTS = \
 	test_initctl \
