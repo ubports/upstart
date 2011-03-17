@@ -1,5 +1,8 @@
 2011-03-16  Scott James Remnant  <scott@netsplit.com>
 
+	* configure.ac: Bump version to 1.2
+	* NEWS: Begin new release
+
 	* NEWS: Release 1.1
 
 	* configure.ac (NIH_COPYRIGHT): Update

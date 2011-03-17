@@ -1,3 +1,5 @@
+1.2  xxxx-xx-xx
+
 1.1  2011-03-16  "It's probably 'cause you think you're cooler than me"
 
 	* When /sbin/halt is called (without -p), this now results in the
