@@ -6,13 +6,12 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.0\n"
+"Project-Id-Version: upstart 1.1\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-02-28 20:59-0800\n"
+"POT-Creation-Date: 2011-03-16 15:58-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -55,7 +54,7 @@ msgstr ""
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:356 init/main.c:544
+#: init/control.c:356 init/main.c:546
 msgid "Reloading configuration"
 msgstr ""
 
@@ -181,225 +180,225 @@ msgstr ""
 msgid "Unknown instance: %s"
 msgstr ""
 
-#: init/job_process.c:278
+#: init/job_process.c:279
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr ""
 
-#: init/job_process.c:284
+#: init/job_process.c:285
 msgid "Temporary process spawn error"
 msgstr ""
 
-#: init/job_process.c:291
+#: init/job_process.c:292
 #, c-format
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:391
+#: init/job_process.c:399
 #, c-format
 msgid "Pausing %s (%d) [pre-exec] for debug"
 msgstr ""
 
-#: init/job_process.c:445
+#: init/job_process.c:453
 #, c-format
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:661
+#: init/job_process.c:669
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:716
+#: init/job_process.c:724
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:721
+#: init/job_process.c:729
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:726
+#: init/job_process.c:734
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:731
+#: init/job_process.c:739
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:736
+#: init/job_process.c:744
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:741
+#: init/job_process.c:749
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:746
+#: init/job_process.c:754
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:777
+#: init/job_process.c:785
 #, c-format
 msgid "Sending TERM signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:785
+#: init/job_process.c:793
 #, c-format
 msgid "Failed to send TERM signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:825
+#: init/job_process.c:833
 #, c-format
 msgid "Sending KILL signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:833
+#: init/job_process.c:841
 #, c-format
 msgid "Failed to send KILL signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:882
+#: init/job_process.c:901
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:887
+#: init/job_process.c:906
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:902
+#: init/job_process.c:921
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:906
+#: init/job_process.c:925
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:920
+#: init/job_process.c:939
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:924
+#: init/job_process.c:943
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:938
+#: init/job_process.c:957
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:942
+#: init/job_process.c:961
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1077
+#: init/job_process.c:1096
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1083
+#: init/job_process.c:1102
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1323
+#: init/job_process.c:1342
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1336 init/job_process.c:1531
+#: init/job_process.c:1355 init/job_process.c:1550
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1376 init/job_process.c:1467 init/job_process.c:1522
+#: init/job_process.c:1395 init/job_process.c:1486 init/job_process.c:1541
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1416
+#: init/job_process.c:1435
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1451
+#: init/job_process.c:1470
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1458
+#: init/job_process.c:1477
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1517
+#: init/job_process.c:1536
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
 
-#: init/main.c:116
+#: init/main.c:117
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:118
+#: init/main.c:119
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:129 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
+#: init/main.c:130 util/reboot.c:167 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:138
+#: init/main.c:139
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:188 init/main.c:454
+#: init/main.c:187 init/main.c:456
 msgid "Unable to set root directory"
 msgstr ""
 
-#: init/main.c:199
+#: init/main.c:198
 msgid "Unable to mount /proc filesystem"
 msgstr ""
 
-#: init/main.c:208
+#: init/main.c:207
 msgid "Unable to mount /sys filesystem"
 msgstr ""
 
-#: init/main.c:293
+#: init/main.c:292
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:471
+#: init/main.c:473
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:475
+#: init/main.c:477
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:561
+#: init/main.c:563
 msgid "Reconnecting to system bus"
 msgstr ""
 
-#: init/main.c:567
+#: init/main.c:569
 msgid "Unable to connect to the system bus"
 msgstr ""
 
@@ -590,59 +589,59 @@ msgid ""
 "Without arguments, this outputs the current log priority."
 msgstr ""
 
-#: util/reboot.c:113
+#: util/reboot.c:114
 msgid "don't sync before reboot or halt"
 msgstr ""
 
-#: util/reboot.c:115
+#: util/reboot.c:116
 msgid "force reboot or halt, don't call shutdown(8)"
 msgstr ""
 
-#: util/reboot.c:117
+#: util/reboot.c:118
 msgid "switch off the power when called as halt"
 msgstr ""
 
-#: util/reboot.c:119
+#: util/reboot.c:120
 msgid "don't actually reboot or halt, just write wtmp record"
 msgstr ""
 
-#: util/reboot.c:144
+#: util/reboot.c:145
 msgid "Halt the system."
 msgstr ""
 
-#: util/reboot.c:147
+#: util/reboot.c:148
 msgid "Power off the system."
 msgstr ""
 
-#: util/reboot.c:150
+#: util/reboot.c:151
 msgid "Reboot the system."
 msgstr ""
 
-#: util/reboot.c:154
+#: util/reboot.c:155
 msgid ""
 "This command is intended to instruct the kernel to reboot or halt the "
 "system; when run without the -f option, or when in a system runlevel other "
 "than 0 or 6, it will actually execute /sbin/shutdown.\n"
 msgstr ""
 
-#: util/reboot.c:209
+#: util/reboot.c:211
 msgid "Calling shutdown"
 msgstr ""
 
-#: util/reboot.c:212
+#: util/reboot.c:214
 #, c-format
 msgid "Unable to execute shutdown: %s"
 msgstr ""
 
-#: util/reboot.c:233
+#: util/reboot.c:235
 msgid "Rebooting"
 msgstr ""
 
-#: util/reboot.c:237
+#: util/reboot.c:239
 msgid "Halting"
 msgstr ""
 
-#: util/reboot.c:241
+#: util/reboot.c:243
 msgid "Powering off"
 msgstr ""
 
