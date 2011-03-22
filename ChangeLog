@@ -1,3 +1,8 @@
+2011-3-22  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_run): Correct shell redirection;
+	the form we used dosen't work with at least pdksh
+
 2011-03-16  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 1.2
