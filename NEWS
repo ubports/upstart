@@ -1,4 +1,4 @@
-1.2  xxxx-xx-xx
+1.2  2011-03-22  "This sort of thing is my bag, baby"
 
 	* Fixed incorrect shell redirection syntax that broke at least
 	  pdksh.  (Bug: #739984)

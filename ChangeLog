@@ -1,5 +1,7 @@
 2011-3-22  Scott James Remnant  <scott@netsplit.com>
 
+	* NEWS: Release 1.2
+
 	* init/job_process.c (job_process_run): Correct shell redirection;
 	the form we used dosen't work with at least pdksh
 
