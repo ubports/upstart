@@ -30,10 +30,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.9.3\n"
+"Project-Id-Version: upstart 0.9.4\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-03-15 14:08+0000\n"
-"PO-Revision-Date: 2011-03-15 14:08+0000\n"
+"POT-Creation-Date: 2011-03-24 11:26+0000\n"
+"PO-Revision-Date: 2011-03-24 11:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
