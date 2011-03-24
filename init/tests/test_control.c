@@ -933,8 +933,11 @@ test_reload_configuration (void)
 
 	strcpy (filename, dirname);
 	strcat (filename, "/baz");
-	source3 = conf_source_new (NULL, filename, CONF_DIR);
 
+	/* XXX: note that this will generate an error message when this
+	 * test runs sine "/baz" does not exist as a directory.
+	 */
+	source3 = conf_source_new (NULL, filename, CONF_DIR);
 
 	message = nih_new (NULL, NihDBusMessage);
 	message->connection = NULL;

@@ -32,12 +32,12 @@
 # Usage:
 #
 #   initctl show-config -e > initctl.out
-#   initctl2dot.py -f initctl.out -o upstart.dot
+#   initctl2dot -f initctl.out -o upstart.dot
 #   dot -Tpng -o upstart.png upstart.dot
 #
 # Or more simply:
 #
-#  initctl2dot.py -o - | dot -Tpng -o upstart.png
+#  initctl2dot -o - | dot -Tpng -o upstart.png
 #
 # See also:
 #
@@ -48,6 +48,7 @@
 
 import sys
 import re
+import fnmatch
 import os
 from string import split
 import datetime
@@ -78,12 +79,15 @@ default_outfile        = 'upstart.dot'
 def header(ofh):
   global options
 
-  str  = "digraph upstart {"
-  str += "  node [shape=record];"
-  str += "  rankdir=LR;"
-  str += "  overlap=false;"
-  str += "  bgcolor=\"%s\";" % options.color_bg
-  str += "  fontcolor=\"%s\";" % options.color_text
+  str  = "digraph upstart {\n"
+
+  # make the default node an event to simplify glob code
+  str += "  node [shape=\"diamond\", fontcolor=\"%s\", fillcolor=\"%s\", style=\"filled\"];\n" \
+    % (options.color_event_text, options.color_event)
+  str += "  rankdir=LR;\n"
+  str += "  overlap=false;\n"
+  str += "  bgcolor=\"%s\";\n" % options.color_bg
+  str += "  fontcolor=\"%s\";\n" % options.color_text
 
   ofh.write(str)
 
@@ -107,11 +111,12 @@ def footer(ofh):
       (cmd, os.uname()[1])
 
   epilog += "Boxes of color %s denote jobs.\\n" % options.color_job
-  epilog += "Diamonds of color %s denote events.\\n" % options.color_event
+  epilog += "Solid diamonds of color %s denote events.\\n" % options.color_event
+  epilog += "Dotted diamonds denote 'glob' events.\\n"
   epilog += "Emits denoted by %s lines.\\n" % options.color_emits
   epilog += "Start on denoted by %s lines.\\n" % options.color_start_on
   epilog += "Stop on denoted by %s lines.\\n" % options.color_stop_on
-  epilog += "\";"
+  epilog += "\";\n"
   epilog += "}\n"
   ofh.write(epilog)
 
@@ -121,7 +126,7 @@ def footer(ofh):
 def sanitise(s):
   return s.replace('-', '_').replace('$', 'dollar_').replace('[', \
   'lbracket').replace(']', 'rbracket').replace('!', \
-  'bang').replace(':', '_')
+  'bang').replace(':', '_').replace('*', 'star').replace('?', 'question')
 
 
 # Convert a dollar in @name to a unique-ish new name, based on @job and
@@ -148,10 +153,17 @@ def mk_event_node_name(name):
 
 def show_event(ofh, name):
     global options
-    ofh.write("""
-    %s [label=\"%s\", shape=diamond, fontcolor=\"%s\", fillcolor=\"%s\", style=\"filled\"];
-    """ % (mk_event_node_name(name), name, options.color_event_text, options.color_event))
+    str = "%s [label=\"%s\", shape=diamond, fontcolor=\"%s\", fillcolor=\"%s\"," % \
+      (mk_event_node_name(name), name, options.color_event_text, options.color_event)
 
+    if '*' in name:
+      str += " style=\"dotted\""
+    else:
+      str += " style=\"filled\""
+
+    str += "];\n"
+
+    ofh.write(str)
 
 def show_events(ofh):
   global events
@@ -193,7 +205,7 @@ def show_job(ofh, name):
   global options
 
   ofh.write("""
-    %s [label=\"<job> %s | { <start> start on | <stop> stop on }\", fontcolor=\"%s\", style=\"filled\", fillcolor=\"%s\"];
+    %s [shape=\"record\", label=\"<job> %s | { <start> start on | <stop> stop on }\", fontcolor=\"%s\", style=\"filled\", fillcolor=\"%s\"];
     """ % (mk_job_node_name(name), name, options.color_job_text, options.color_job))
 
 
@@ -288,6 +300,8 @@ def show_edges(ofh):
   global options
   global restrictions_list
 
+  glob_jobs = {}
+
   if restrictions_list:
     jobs_list = restrictions_list
   else:
@@ -308,6 +322,14 @@ def show_edges(ofh):
       show_stop_on_event_edge(ofh, job, s)
 
     for e in jobs[job]['emits']:
+      if '*' in e:
+        # handle glob patterns in 'emits'
+        glob_events = []
+        for _e in events:
+          if e != _e and fnmatch.fnmatch(_e, e):
+            glob_events.append(_e)
+        glob_jobs[job] = glob_events
+
       show_job_emits_edge(ofh, job, e)
 
     if not restrictions_list:
@@ -324,6 +346,12 @@ def show_edges(ofh):
     for j in jobs[job]['stop on']['job']:
       for e in jobs[j]['emits']:
         show_job_emits_edge(ofh, j, e)
+
+  # Create links from jobs (which advertise they emits a class of
+  # events, via the glob syntax) to all the events they create.
+  for g in glob_jobs:
+    for ge in glob_jobs[g]:
+      show_job_emits_edge(ofh, g, ge)
 
   if not restrictions_list:
     return
