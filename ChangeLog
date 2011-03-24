@@ -1,3 +1,15 @@
+2011-03-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_control.c: Added comment.
+	* scripts/initctl2dot.py: Fixes to handle 'emits' glob syntax:
+	  - header(): Change default node to be an event to simplify handling
+	    globs in 'emits' stanzas.
+	  - footer(): Updated for glob event nodes.
+	  - sanitize(): Protect against glob syntax.
+	  - show_event(): Update for glob event nodes.
+	  - show_job(): Explicit specification of record node.
+	  - show_edges(): Handle 'emits' glob syntax.
+
 2011-03-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* configure.ac: Bump version to 0.9.3.
