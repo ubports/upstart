@@ -1,3 +1,17 @@
+upstart (0.9.4-1ubuntu1) natty; urgency=low
+
+  * debian/manpages/upstart-events.7:
+    - Corrected reference to Upstart man page (actually init).
+    - Changed to using proper troff quotes.
+    - Escaped dashes in event names.
+    - Updated date.
+    - Table 1:
+      - Improved name.
+      - Sorted columns: Events, References, and Notes.
+      - Added unmounted-remote-filesystems event. 
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 24 Mar 2011 14:34:12 +0000
+
 upstart (0.9.4-1) natty; urgency=low
 
   * New upstream release 0.9.4:
