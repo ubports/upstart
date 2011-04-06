@@ -1,3 +1,9 @@
+upstart (0.9.5-1) natty; urgency=low
+
+  * New upstream release 0.9.5.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 06 Apr 2011 17:45:38 +0100
+
 upstart (0.9.4-1ubuntu1) natty; urgency=low
 
   * debian/manpages/upstart-events.7:

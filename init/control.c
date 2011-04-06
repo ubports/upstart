@@ -417,7 +417,11 @@ control_get_job_by_name (void            *data,
 	session = session_from_dbus (NULL, message);
 
 	/* Lookup the job */
-	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	class = (JobClass *)nih_hash_search (job_classes, name, NULL);
+
+	while (class && class->session != session) {
+		class = (JobClass *)nih_hash_search (job_classes, name, &class->entry);
+	}
 
 	if (class && ! session)
 		class->session = session;

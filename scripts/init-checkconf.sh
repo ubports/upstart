@@ -1,7 +1,11 @@
 #!/bin/bash
 #---------------------------------------------------------------------
-# Script to determine if specified config file is valid or not
-# (whether upstart can parse it successfully).
+# Script to determine if specified config file is valid or not.
+# By default, two checks are performed:
+#
+#   - Ensure Upstart can parse overall file successfully
+#   - Ensure all script sections are parseable by shell
+#
 #---------------------------------------------------------------------
 #
 # Copyright (C) 2011 Canonical Ltd.
@@ -29,6 +33,7 @@ initctl_path=/sbin/initctl
 debug_enabled=n
 file_valid=n
 running=n
+check_scripts=y
 
 cleanup()
 {
@@ -55,6 +60,7 @@ Options:
  --file=<file>           (no default).
  -i <path>,            : Specify path to initctl binary
  --initctl-path=<path>   (default=$initctl_path).
+ -s, --noscript        : Do not check script sections.
  -x <path>             : Specify path to init daemon binary
  --upstart-path=<path>   (default=$upstart_path).
  -h, --help            : Show this help.
@@ -85,8 +91,8 @@ trap cleanup EXIT INT TERM
 args=$(getopt \
   -n "$script_name" \
   -a \
-  --options="df:hi:x:" \
-  --longoptions="debug file: help initctl-path: upstart-path:" \
+  --options="df:hi:sx:" \
+  --longoptions="debug file: help initctl-path: noscript upstart-path:" \
   -- "$@")
 
 eval set -- "$args"
@@ -113,6 +119,10 @@ do
       -i|--initctl-path)
         initctl_path="$2"
         shift
+        ;;
+
+      -s|--noscript)
+        check_scripts=n
         ;;
 
       -x|--upstart-path)
@@ -165,7 +175,7 @@ upstart_out="$(mktemp --tmpdir "${script_name}-upstart-output.XXXXXXXXXX")"
 debug "upstart_out=$upstart_out"
 
 upstart_cmd=$(printf \
-   "%s --session --no-startup-event --verbose --confdir %s" \
+   "%s --session --no-sessions --no-startup-event --verbose --confdir %s" \
   "$upstart_path" \
   "$confdir")
 debug "upstart_cmd=$upstart_cmd"
@@ -177,7 +187,7 @@ upstart_pid=$!
 # We handle this ourselves in cleanup().
 disown 
 
-# wait for upstart to initialize
+# wait for Upstart to initialize
 for i in $(seq 1 5)
 do
   debug "Waiting for Upstart to reply over D-Bus (attempt $i)"
@@ -193,9 +203,23 @@ do
   sleep 1
 done
 
-[ $running = n ] && die "failed to start upstart"
+[ $running = n ] && die "failed to ask Upstart to check conf file"
 
-debug "upstart ($upstart_cmd) running with PID $upstart_pid"
+debug "Secondary Upstart ($upstart_cmd) running with PID $upstart_pid"
+
+if [ "$check_scripts" = y ]
+then
+  for section in pre-start post-start script pre-stop post-stop
+  do
+    if egrep -q "\<${section}\>" "$file"
+    then
+      cmd='sed -n "/^ *${section}/,/^ *end script/p" $file | /bin/sh -n 2>&1'
+      errors=$(eval "$cmd")
+      [ $? -ne 0 ] && \
+        die "$(printf "File $file: shell syntax invalid in $section section:\n${errors}")"
+    fi
+  done
+fi
 
 if "$initctl_path" --session status "$job" >/dev/null 2>&1
 then
@@ -205,4 +229,4 @@ then
 fi
 
 errors=$(grep "$job" "$upstart_out"|sed "s,${confdir}/,,g")
-error "File $file: syntax invalid ($errors)"
+die "$(printf "File $file: syntax invalid:\n${errors}")"

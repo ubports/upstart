@@ -157,6 +157,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_new ();
 
 	test_name ();

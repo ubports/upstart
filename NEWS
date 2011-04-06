@@ -1,3 +1,10 @@
+0.9.5  2011-04-06
+
+	* Important fixes for user and chroot sessions.
+	* scripts/init-checkconf.sh: Now checks script sections too.
+	* util/initctl.c: Added "--warn" option for check-config command
+	  to warn if any events or jobs are not known.
+
 0.9.4  2011-03-24
 
 	* scripts/initctl2dot.py: Fix to handle 'emits' glob syntax

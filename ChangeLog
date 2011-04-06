@@ -1,3 +1,45 @@
+2011-04-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c: conf_select_job(): Added Session parameter.
+	* init/control.c: control_get_job_by_name(): Handle multiple jobs with same
+	  name (but different session) in job_classes hash.
+	* init/job_class.c:
+	  - job_class_remove(): Added Session parameter.
+	  - job_class_consider(): Handle multiple jobs with same name
+	    (but different session) in job_classes hash.
+	  - job_class_reconsider(): Handle multiple jobs with same name
+	    (but different session) in job_classes hash.
+	  - job_class_remove(): Handle incorrect session.
+	* init/job_process.c: job_process_spawn(): Updated for sessions and
+	  chroots.
+	* init/job_process.h: New enums for: 
+	  - JOB_PROCESS_ERROR_SETUID
+	  - JOB_PROCESS_ERROR_SETGID
+	* init/session.c:
+	  - session_from_dbus(): Added ability to disable sessions.
+	  - Added disable_sessions variable, set via main().
+	* init/session.h: Added tabular comment summarising Session object
+	  contents for different environments.
+	* init/Makefile.am: Reverted special-casing for session.c.
+	* init/main.c: Addition of new command-line option "--no-sessions" to
+	  disable chroot+user sessions (providing a "traditional" Upstart
+	  environment. The primary use for this option is the test suite.
+	* init/man/init.8: Updates for "--no-sessions".
+	* init/tests/test_*.c: Replaced explicit Sessions with NULL
+	  session since tests are not yet session-aware (with the exception of
+	  test_job_process.c, all main() functions now set the
+	  UPSTART_NO_SESSIONS variable to disable sessions).
+	* util/tests/test_initctl.c:
+	  - START_UPSTART now specifies "--no-sessions"
+	  - test_check_config(): Added test for "--warn".
+	* scripts/init-checkconf.sh: Script now also checks any script
+	  sections found unless the new "--noscript" option is specified.
+	  Added required "--no-sessions" option to upstart_cmd to ensure Upstart
+	  treats clients requests in traditional manner.
+	* scripts/man/init-checkconf.8: Update for "--noscript".
+	* util/initctl.c: Added "--warn" option for check-config command to
+	  warn if any events or jobs are not known.
+
 2011-03-24  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_control.c: Added comment.

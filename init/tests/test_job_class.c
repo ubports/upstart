@@ -160,10 +160,6 @@ test_consider (void)
 	Job            *job;
 	char           *path;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_consider");
 	dbus_error_init (&dbus_error);
@@ -181,15 +177,15 @@ test_consider (void)
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
-	class1 = file1->job = job_class_new (NULL, "frodo", session);
+	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
-	class2 = file2->job = job_class_new (NULL, "bilbo", session);
+	class2 = file2->job = job_class_new (NULL, "bilbo", NULL);
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
-	class3 = file3->job = job_class_new (NULL, "frodo", session);
+	class3 = file3->job = job_class_new (NULL, "frodo", NULL);
 
 
 	control_init ();
@@ -382,7 +378,7 @@ test_consider (void)
 	 * becomes the hash table member.
 	 */
 	TEST_FEATURE ("with replacable registered class and not best class");
-	class4 = job_class_new (NULL, "frodo", session);
+	class4 = job_class_new (NULL, "frodo", NULL);
 	nih_hash_add (job_classes, &class4->entry);
 	job_class_register (class4, conn, FALSE);
 
@@ -440,7 +436,6 @@ test_consider (void)
 
 
 	nih_free (entry);
-	nih_free (session);
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -464,10 +459,6 @@ test_reconsider (void)
 	Job            *job;
 	char           *path;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_reconsider");
 	dbus_error_init (&dbus_error);
@@ -485,15 +476,15 @@ test_reconsider (void)
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
-	class1 = file1->job = job_class_new (NULL, "frodo", session);
+	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
-	class2 = file2->job = job_class_new (NULL, "bilbo", session);
+	class2 = file2->job = job_class_new (NULL, "bilbo", NULL);
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
-	class3 = file3->job = job_class_new (NULL, "frodo", session);
+	class3 = file3->job = job_class_new (NULL, "frodo", NULL);
 
 
 	control_init ();
@@ -726,7 +717,7 @@ test_reconsider (void)
 	nih_free (source2);
 	nih_free (source1);
 
-	class4 = job_class_new (NULL, "frodo", session);
+	class4 = job_class_new (NULL, "frodo", NULL);
 	nih_hash_add (job_classes, &class4->entry);
 	job_class_register (class4, conn, FALSE);
 
@@ -759,7 +750,6 @@ test_reconsider (void)
 
 
 	nih_free (entry);
-	nih_free (session);
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -779,10 +769,6 @@ test_register (void)
 	JobClass       *class;
 	NihDBusObject  *object;
 	char           *path;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_register");
 	dbus_error_init (&dbus_error);
@@ -800,7 +786,7 @@ test_register (void)
 	 * announce it.
 	 */
 	TEST_FEATURE ("with signal emission");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -837,7 +823,7 @@ test_register (void)
 	 * by emitting a signal immediately afterwards.
 	 */
 	TEST_FEATURE ("without signal emission");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -870,7 +856,6 @@ test_register (void)
 	dbus_message_unref (message);
 
 	nih_free (class);
-	nih_free (session);
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -889,10 +874,6 @@ test_unregister (void)
 	JobClass       *class;
 	NihDBusObject  *object;
 	char           *path;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	/* Check that we can unregister an object for a job class from
 	 * the bus and that the JobRemoved signal is emitted as a result.
@@ -910,7 +891,7 @@ test_unregister (void)
 	assert (! dbus_error_is_set (&dbus_error));
 
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -945,7 +926,6 @@ test_unregister (void)
 	dbus_message_unref (message);
 
 	nih_free (class);
-	nih_free (session);
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -961,10 +941,6 @@ test_environment (void)
 	JobClass  *class;
 	char     **env;
 	size_t     len;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_environment");
 
@@ -972,7 +948,7 @@ test_environment (void)
 	 * just have the built-ins in the returned environment.
 	 */
 	TEST_FEATURE ("with no configured environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	TEST_ALLOC_FAIL {
 		env = job_class_environment (NULL, class, &len);
@@ -1002,7 +978,7 @@ test_environment (void)
 	 * will have those appended to the environment as well as the builtins.
 	 */
 	TEST_FEATURE ("with configured environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	class->env = nih_str_array_new (class);
 	assert (nih_str_array_add (&(class->env), class, NULL, "FOO=BAR"));
@@ -1039,7 +1015,7 @@ test_environment (void)
 	/* Check that configured environment override built-ins.
 	 */
 	TEST_FEATURE ("with configuration overriding built-ins");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	class->env = nih_str_array_new (class);
 	assert (nih_str_array_add (&(class->env), class, NULL, "FOO=BAR"));
@@ -1072,7 +1048,6 @@ test_environment (void)
 	}
 
 	nih_free (class);
-	nih_free (session);
 }
 
 
@@ -1087,11 +1062,6 @@ test_get_instance (void)
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
-
 
 	TEST_FUNCTION ("job_class_get_instance");
 	nih_error_init ();
@@ -1103,7 +1073,7 @@ test_get_instance (void)
 	TEST_FEATURE ("with running job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			job = job_new (class, "");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -1140,7 +1110,7 @@ test_get_instance (void)
 	/* Check that if there's no such instance, a D-Bus error is raised.
 	 */
 	TEST_FEATURE ("with unknown job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	message = nih_new (NULL, NihDBusMessage);
 	message->connection = NULL;
@@ -1171,7 +1141,7 @@ test_get_instance (void)
 	TEST_FEATURE ("with environment");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->instance = "$FOO";
 
 			job = job_new (class, "wibble");
@@ -1215,7 +1185,7 @@ test_get_instance (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -1242,7 +1212,6 @@ test_get_instance (void)
 
 	nih_free (message);
 	nih_free (class);
-	nih_free (session);
 }
 
 void
@@ -1255,15 +1224,11 @@ test_get_instance_by_name (void)
 	NihError       *error;
 	NihDBusError   *dbus_error;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_instance_by_name");
 	nih_error_init ();
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 
 	/* Check that when given a known instance name, the path to that
@@ -1377,7 +1342,6 @@ test_get_instance_by_name (void)
 
 
 	nih_free (class);
-	nih_free (session);
 }
 
 void
@@ -1389,16 +1353,12 @@ test_get_all_instances (void)
 	NihError        *error;
 	char           **paths;
 	int              ret;
-	Session         *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_all_instances");
 	nih_error_init ();
 	job_class_init ();
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 
 	/* Check that paths for each of the active instances are returned
@@ -1496,7 +1456,6 @@ test_get_all_instances (void)
 	}
 
 	nih_free (class);
-	nih_free (session);
 }
 
 
@@ -1516,10 +1475,6 @@ test_start (void)
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
-	Session         *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_start");
 	nih_error_init ();
@@ -1536,7 +1491,7 @@ test_start (void)
 	 * the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with new job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1627,7 +1582,7 @@ test_start (void)
 	 * immediately and the job not blocked.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1707,7 +1662,7 @@ test_start (void)
 	 * it through to running, the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -1808,7 +1763,7 @@ test_start (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with starting job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -1864,7 +1819,7 @@ test_start (void)
 	 * when it's starting.
 	 */
 	TEST_FEATURE ("with environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	method = dbus_message_new_method_call (
@@ -1965,7 +1920,7 @@ test_start (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2010,8 +1965,6 @@ test_start (void)
 	TEST_HASH_EMPTY (class->instances);
 
 	nih_free (class);
-	nih_free (session);
-
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -2037,11 +1990,6 @@ test_stop (void)
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
-
 
 	TEST_FUNCTION ("job_class_stop");
 	nih_error_init ();
@@ -2058,7 +2006,7 @@ test_stop (void)
 	 * will be sent to the sender.
 	 */
 	TEST_FEATURE ("with running job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2141,7 +2089,7 @@ test_stop (void)
 	 * and no blocking entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2211,7 +2159,7 @@ test_stop (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -2266,7 +2214,7 @@ test_stop (void)
 	 * immediately.
 	 */
 	TEST_FEATURE ("with unknown job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2315,7 +2263,7 @@ test_stop (void)
 	 * for the pre-stop script.
 	 */
 	TEST_FEATURE ("with environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -2404,7 +2352,7 @@ test_stop (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2451,7 +2399,6 @@ test_stop (void)
 	nih_free (dbus_error);
 
 	nih_free (class);
-	nih_free (session);
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -2478,11 +2425,6 @@ test_restart (void)
 	int              ret;
 	NihError        *error;
 	NihDBusError    *dbus_error;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
-
 
 	TEST_FUNCTION ("job_class_restart");
 	nih_error_init ();
@@ -2499,7 +2441,7 @@ test_restart (void)
 	 * through to waiting, the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with running job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2596,7 +2538,7 @@ test_restart (void)
 	 * entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2677,7 +2619,7 @@ test_restart (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -2732,7 +2674,7 @@ test_restart (void)
 	 * immediately.
 	 */
 	TEST_FEATURE ("with unknown job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2781,7 +2723,7 @@ test_restart (void)
 	 * when it's starting again.
 	 */
 	TEST_FEATURE ("with environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -2894,7 +2836,7 @@ test_restart (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2941,7 +2883,6 @@ test_restart (void)
 	nih_free (dbus_error);
 
 	nih_free (class);
-	nih_free (session);
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -2961,10 +2902,6 @@ test_get_name (void)
 	NihError       *error;
 	char           *name;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	/* Check that the name of the job class is returned from the
 	 * property, as a child of the message.
@@ -2975,7 +2912,7 @@ test_get_name (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3006,7 +2943,6 @@ test_get_name (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 void
@@ -3017,10 +2953,6 @@ test_get_description (void)
 	NihError       *error;
 	char           *description;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_description");
 	nih_error_init ();
@@ -3032,7 +2964,7 @@ test_get_description (void)
 	TEST_FEATURE ("with description");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->description = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3072,7 +3004,7 @@ test_get_description (void)
 	TEST_FEATURE ("with no description");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3103,7 +3035,6 @@ test_get_description (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 void
@@ -3114,10 +3045,6 @@ test_get_author (void)
 	NihError       *error;
 	char           *author;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_author");
 	nih_error_init ();
@@ -3129,7 +3056,7 @@ test_get_author (void)
 	TEST_FEATURE ("with author");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->author = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3169,7 +3096,7 @@ test_get_author (void)
 	TEST_FEATURE ("with no author");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3200,7 +3127,6 @@ test_get_author (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 void
@@ -3211,10 +3137,6 @@ test_get_version (void)
 	NihError       *error;
 	char           *version;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_version");
 	nih_error_init ();
@@ -3226,7 +3148,7 @@ test_get_version (void)
 	TEST_FEATURE ("with version");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->version = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3266,7 +3188,7 @@ test_get_version (void)
 	TEST_FEATURE ("with no version");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3297,7 +3219,6 @@ test_get_version (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 void
@@ -3310,10 +3231,6 @@ test_get_start_on (void)
 	NihError       *error;
 	char         ***start_on;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_start_on");
 
@@ -3326,7 +3243,7 @@ test_get_start_on (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			class->start_on = event_operator_new (
 				class, EVENT_OR, NULL, NULL);
@@ -3421,7 +3338,7 @@ test_get_start_on (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3453,7 +3370,6 @@ test_get_start_on (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 void
@@ -3466,10 +3382,6 @@ test_get_stop_on (void)
 	NihError       *error;
 	char         ***stop_on;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_stop_on");
 
@@ -3482,7 +3394,7 @@ test_get_stop_on (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			class->stop_on = event_operator_new (
 				class, EVENT_OR, NULL, NULL);
@@ -3577,7 +3489,7 @@ test_get_stop_on (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3609,7 +3521,6 @@ test_get_stop_on (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 void
@@ -3620,10 +3531,6 @@ test_get_emits (void)
 	NihError       *error;
 	char          **emits;
 	int             ret;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_class_get_emits");
 
@@ -3637,7 +3544,7 @@ test_get_emits (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->emits = nih_str_array_new (class);
 
 			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "foo"));
@@ -3689,7 +3596,7 @@ test_get_emits (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3721,7 +3628,6 @@ test_get_emits (void)
 		nih_free (message);
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 
@@ -3729,6 +3635,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_new ();
 	test_consider ();
 	test_reconsider ();
