@@ -1144,7 +1144,8 @@ conf_file_destroy (ConfFile *file)
 
 /**
  * conf_select_job:
- * @name: name of job class to locate.
+ * @name: name of job class to locate,
+ * @session: session class name belongs to.
  *
  * Select the best available class of a job named @name from the registered
  * configuration sources.
@@ -1152,7 +1153,7 @@ conf_file_destroy (ConfFile *file)
  * Returns: Best available job class or NULL if none available.
  **/
 JobClass *
-conf_select_job (const char *name)
+conf_select_job (const char *name, const Session *session)
 {
 	nih_assert (name != NULL);
 
@@ -1162,6 +1163,9 @@ conf_select_job (const char *name)
 		ConfSource *source = (ConfSource *)iter;
 
 		if (source->type != CONF_JOB_DIR)
+			continue;
+
+		if (source->session != session)
 			continue;
 
 		NIH_HASH_FOREACH (source->files, file_iter) {

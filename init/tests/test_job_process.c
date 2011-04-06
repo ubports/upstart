@@ -131,10 +131,6 @@ test_run (void)
 	char         filename[PATH_MAX], buf[80];
 	int          ret = -1, status, first;
 	siginfo_t    info;
-	Session     *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_process_run");
 	job_class_init ();
@@ -151,7 +147,7 @@ test_run (void)
 	TEST_FEATURE ("with simple command");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -183,7 +179,7 @@ test_run (void)
 	TEST_FEATURE ("with shell command");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -220,7 +216,7 @@ test_run (void)
 	TEST_FEATURE ("with small script");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -257,7 +253,7 @@ test_run (void)
 	TEST_FEATURE ("with small script and trailing newlines");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -294,7 +290,7 @@ test_run (void)
 	TEST_FEATURE ("with script that will fail");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -331,7 +327,7 @@ test_run (void)
 	TEST_FEATURE ("with environment of unnamed instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -380,7 +376,7 @@ test_run (void)
 	TEST_FEATURE ("with environment of named instance");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -430,7 +426,7 @@ test_run (void)
 	TEST_FEATURE ("with environment for pre-stop");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_PRE_STOP] = process_new (class);
 			class->process[PROCESS_PRE_STOP]->command = nih_sprintf (
 				class->process[PROCESS_PRE_STOP],
@@ -481,7 +477,7 @@ test_run (void)
 	TEST_FEATURE ("with environment for post-stop");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_POST_STOP] = process_new (class);
 			class->process[PROCESS_POST_STOP]->command = nih_sprintf (
 				class->process[PROCESS_POST_STOP],
@@ -532,7 +528,7 @@ test_run (void)
 	TEST_FEATURE ("with long script");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_alloc (
@@ -597,7 +593,7 @@ test_run (void)
 	TEST_FEATURE ("with non-daemon job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
 
@@ -633,7 +629,7 @@ test_run (void)
 	TEST_FEATURE ("with script for daemon job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "true";
 
@@ -670,7 +666,7 @@ test_run (void)
 	TEST_FEATURE ("with daemon job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->expect = EXPECT_DAEMON;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
@@ -717,7 +713,7 @@ test_run (void)
 	TEST_FEATURE ("with forking job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->expect = EXPECT_FORK;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
@@ -766,7 +762,7 @@ test_run (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", session);
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = filename;
 
@@ -791,7 +787,6 @@ test_run (void)
 
 		nih_free (class);
 	}
-	nih_free (session);
 }
 
 
@@ -808,10 +803,6 @@ test_spawn (void)
 	NihError         *err;
 	JobProcessError  *perr;
 	int               status;
-	Session          *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_process_spawn");
 	TEST_FILENAME (filename);
@@ -828,7 +819,7 @@ test_spawn (void)
 	TEST_FEATURE ("with simple job");
 	sprintf (function, "%d", TEST_PIDS);
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
@@ -865,7 +856,7 @@ test_spawn (void)
 	TEST_FEATURE ("with no console");
 	sprintf (function, "%d", TEST_CONSOLE);
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
@@ -891,7 +882,7 @@ test_spawn (void)
 	TEST_FEATURE ("with working directory");
 	sprintf (function, "%d", TEST_PWD);
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->chdir = "/tmp";
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
@@ -920,7 +911,7 @@ test_spawn (void)
 	env[1] = "FOO=bar";
 	env[2] = NULL;
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	pid = job_process_spawn (class, args, env, FALSE);
 	TEST_GT (pid, 0);
@@ -945,7 +936,7 @@ test_spawn (void)
 	TEST_FEATURE ("with non-daemon job");
 	sprintf (function, "%d", TEST_SIMPLE);
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_GT (pid, 0);
@@ -965,7 +956,7 @@ test_spawn (void)
 	TEST_FEATURE ("with daemon job");
 	sprintf (function, "%d", TEST_SIMPLE);
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	pid = job_process_spawn (class, args, NULL, TRUE);
 	TEST_GT (pid, 0);
@@ -994,7 +985,7 @@ test_spawn (void)
 	args[1] = filename;
 	args[2] = NULL;
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 
 	pid = job_process_spawn (class, args, NULL, FALSE);
 	TEST_LT (pid, 0);
@@ -1013,7 +1004,7 @@ test_spawn (void)
 	 */
 	TEST_FEATURE ("with debug enabled");
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->debug = TRUE;
 
 	sprintf (function, "%s", "/bin/true");
@@ -1042,7 +1033,6 @@ test_spawn (void)
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	nih_free (class);
-	nih_free (session);
 }
 
 
@@ -1055,16 +1045,12 @@ test_kill (void)
 	struct timespec now;
 	pid_t           pid;
 	int             status;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_process_kill");
 	nih_timer_init ();
 	event_init ();
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->kill_timeout = 1000;
 
 	class->process[PROCESS_MAIN] = process_new (class);
@@ -1191,7 +1177,6 @@ test_kill (void)
 	}
 
 	nih_free (class);
-	nih_free (session);
 }
 
 
@@ -1212,10 +1197,6 @@ test_handler (void)
 	siginfo_t       info;
 	unsigned long   data;
 	struct timespec now;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_process_handler");
 	program_name = "test";
@@ -1223,7 +1204,7 @@ test_handler (void)
 
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 	file = conf_file_new (source, "/tmp/test");
-	file->job = class = job_class_new (NULL, "test", session);
+	file->job = class = job_class_new (NULL, "test", NULL);
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 
@@ -4387,7 +4368,6 @@ test_handler (void)
 	nih_free (source);
 
 	nih_free (event);
-	nih_free (session);
 	event_poll ();
 }
 
@@ -4398,26 +4378,22 @@ test_find (void)
 	JobClass    *class1, *class2, *class3;
 	Job         *job1, *job2, *job3, *job4, *job5, *ptr;
 	ProcessType  process;
-	Session     *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_process_find");
-	class1 = job_class_new (NULL, "foo", session);
+	class1 = job_class_new (NULL, "foo", NULL);
 	class1->process[PROCESS_MAIN] = process_new (class1);
 	class1->process[PROCESS_POST_START] = process_new (class1);
 	class1->instance = "$FOO";
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bar", session);
+	class2 = job_class_new (NULL, "bar", NULL);
 	class2->process[PROCESS_PRE_START] = process_new (class2);
 	class2->process[PROCESS_MAIN] = process_new (class2);
 	class2->process[PROCESS_PRE_STOP] = process_new (class2);
 	class2->instance = "$FOO";
 	nih_hash_add (job_classes, &class2->entry);
 
-	class3 = job_class_new (NULL, "baz", session);
+	class3 = job_class_new (NULL, "baz", NULL);
 	class3->process[PROCESS_POST_STOP] = process_new (class3);
 	nih_hash_add (job_classes, &class3->entry);
 
@@ -4521,7 +4497,6 @@ test_find (void)
 	nih_free (class1);
 	nih_free (class2);
 	nih_free (class3);
-	nih_free (session);
 	ptr = job_process_find (20, NULL);
 
 	TEST_EQ_P (ptr, NULL);
@@ -4539,15 +4514,11 @@ test_utmp (void)
 	char            utmpname[PATH_MAX];
 	struct utmpx    utmp, *utmptr;
 	struct timeval  tv;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("job_process_handler");
 	program_name = "test";
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 
@@ -4765,7 +4736,6 @@ test_utmp (void)
 
 		nih_free (job);
 	}
-	nih_free (session);
 }
 
 
@@ -4773,6 +4743,11 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* Note we do not set the UPSTART_NO_SESSIONS variable since this
+	 * would cause these tests to fail (as they scrutinize the job
+	 * environment).
+	 */
+
 	/* We re-exec this binary to test various children features.  To
 	 * do that, we need to know the full path to the program.
 	 */

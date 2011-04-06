@@ -273,24 +273,26 @@ test_parse_conf_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-test_conf_SOURCES = tests/test_conf.c session.c
+test_conf_SOURCES = tests/test_conf.c
 test_conf_CFLAGS = $(AM_CFLAGS) -DTEST
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-test_control_SOURCES = tests/test_control.c session.c
+test_control_SOURCES = tests/test_control.c
 test_control_CFLAGS = $(AM_CFLAGS) -DTEST
 test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \

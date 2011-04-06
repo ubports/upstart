@@ -194,6 +194,14 @@ int enumerate_events = FALSE;
 int check_config_mode = FALSE;
 
 /**
+ * check_config_warn:
+ *
+ * If TRUE, check-config will generate a warning for *any* unreachable
+ * events/jobs.
+ **/
+int check_config_warn = FALSE;
+
+/**
  * check_config_data:
  *
  * Used to record details of all known jobs and events.
@@ -1959,7 +1967,7 @@ eval_expr_tree (const char *expr, NihList **stack)
 		 * this node based on children
 		 * and type of operator.
 		 */
-		if (IS_OP_AND (expr))
+		if (IS_OP_AND (expr) || check_config_warn)
 			node->value = first->value && second->value;
 		else
 			node->value = first->value || second->value;
@@ -2110,12 +2118,13 @@ display_check_errors (const char *job_class, const char *condition, NihTree *nod
 		const char *job   = expr->job_in_error;
 
 		if (event)
-			nih_message ("  %s: unknown event %s", condition, event);
+			nih_message ("  %s: %s %s", condition,
+				_("unknown event"), event);
 
 		if (job)
-			nih_message ("  %s: unknown job %s", condition, job);
+			nih_message ("  %s: %s %s", condition,
+				_("unknown job"), job);
 	}
-
 }
 
 
@@ -2349,8 +2358,10 @@ NihOption show_config_options[] = {
  * Command-line options accepted for the check-config command.
  **/
 NihOption check_config_options[] = {
-	{ 0, "ignore-events", N_("ignore specified list of events (comma-separated)"),
+	{ 'i', "ignore-events", N_("ignore specified list of events (comma-separated)"),
 	  NULL, "EVENT_LIST", NULL, ignored_events_setter },
+	{ 'w', "warn", N_("Generate warning for any unreachable events/jobs"),
+	  NULL, NULL, &check_config_warn, NULL },
 	NIH_OPTION_LAST
 };
 /**

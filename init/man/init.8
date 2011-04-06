@@ -1,4 +1,4 @@
-.TH init 8 2011-03-03 "Upstart"
+.TH init 8 2011-04-06 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -64,28 +64,32 @@ Options are passed to
 by placing them on the kernel command-line.
 .\"
 .TP
-.B --confdir \fIdirectory\fP
+.B \-\-confdir \fIdirectory\fP
 Read job configuration files from a directory other than
 \fI/etc/init\fP.
 .\"
 .TP
-.B --no-startup-event
+.B \-\-no\-sessions
+Disable user and chroot sessions.
+.\"
+.TP
+.B \-\-no\-startup\-event
 Suppress emission of the initial startup event. This option should only
 be used for testing since it will stop the 
 .BR init (8)
 daemon from starting \fBany\fP jobs automatically.
 .\"
 .TP
-.B --session
+.B \-\-session
 Connect to the D-Bus session bus. This should only be used for testing.
 .\"
 .TP
-.B --startup-event \fIevent\fP
+.B \-\-startup-event \fIevent\fP
 Specify a different initial startup event from the standard
 .BR startup (7) .
 .\"
 .TP
-.B --verbose
+.B \-\-verbose
 Outputs verbose messages about job state changes and event emissions to the
 system console or log, useful for debugging boot.
 .\"
@@ -119,7 +123,7 @@ This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
-.BR control-alt-delete (7)
+.BR control\-alt\-delete (7)
 .BR init (5)
 .BR initctl (8)
 .BR runlevel (7)

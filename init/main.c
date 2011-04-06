@@ -113,6 +113,8 @@ static int disable_startup_event = FALSE;
 
 extern int use_session_bus;
 
+extern int disable_sessions;
+
 /**
  * options:
  *
@@ -127,6 +129,9 @@ static NihOption options[] = {
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
+
+	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
 	
@@ -399,6 +404,9 @@ main (int   argc,
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
+
+	if (disable_sessions)
+		nih_debug ("Sessions disabled");
 
 	/* Run through the loop at least once to deal with signals that were
 	 * delivered to the previous process while the mask was set or to

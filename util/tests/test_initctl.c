@@ -49,6 +49,7 @@
 /* remember we run from the 'util' directory */
 #define UPSTART_BINARY "../init/init"
 #define INITCTL_BINARY "./initctl --session"
+
 #define BUFFER_SIZE 1024
 
 /**
@@ -74,7 +75,9 @@
 	                                                             \
 	if (pid == 0)                                                \
 		execlp (UPSTART_BINARY, UPSTART_BINARY,              \
-				"--session", "--no-startup-event",   \
+				"--session",                         \
+				"--no-startup-event",                \
+				"--no-sessions",                     \
 				NULL);                               \
 	                                                             \
 	while (attempts) {                                           \
@@ -10946,7 +10949,6 @@ test_show_config (void)
 			"author \"foo\"\n"
 			"description \"wibble\"");
 
-
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -11780,6 +11782,47 @@ test_check_config (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 
 	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "lxdm.conf");
+	DELETE_FILE (dirname, "beano.conf");
+	DELETE_FILE (dirname, "wibble.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE (
+		"satisfiable complex start on, satisfiable complex stop on with warnings");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or (stopped kdm\n"
+			"              or (stopped xdm\n"
+                   	"              or stopped lxdm)))))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true\n");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "lxdm.conf", "exec true");
+	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --warn 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job gdm");
+	TEST_EQ (lines, 4);
 
 	DELETE_FILE (dirname, "plymouth.conf");
 	DELETE_FILE (dirname, "mountall.conf");

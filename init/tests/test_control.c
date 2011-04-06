@@ -154,7 +154,6 @@ test_server_connect (void)
 	Job            *job1, *job2;
 	pid_t           pid;
 	int             fd, wait_fd, status;
-	Session        *session = NULL;
 
 	TEST_FUNCTION ("control_server_connect");
 	program_name = "test";
@@ -234,10 +233,10 @@ test_server_connect (void)
 	 * new connection has them automatically registered.
 	 */
 	TEST_FEATURE ("with existing jobs");
-	class1 = job_class_new (NULL, "foo", session);
+	class1 = job_class_new (NULL, "foo", NULL);
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bar", session);
+	class2 = job_class_new (NULL, "bar", NULL);
 	job1 = job_new (class2, "test1");
 	job2 = job_new (class2, "test2");
 	nih_hash_add (job_classes, &class2->entry);
@@ -439,7 +438,6 @@ test_bus_open (void)
 	NihDBusObject *object;
 	pid_t          pid;
 	int            ret, wait_fd, fd, status;
-	Session       *session = NULL;
 
 	TEST_FUNCTION ("control_bus_open");
 	program_name = "test";
@@ -535,10 +533,10 @@ test_bus_open (void)
 	refuse_registration = FALSE;
 	server_conn = NULL;
 
-	class1 = job_class_new (NULL, "foo", session);
+	class1 = job_class_new (NULL, "foo", NULL);
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bar", session);
+	class2 = job_class_new (NULL, "bar", NULL);
 	job1 = job_new (class2, "test1");
 	job2 = job_new (class2, "test2");
 	nih_hash_add (job_classes, &class2->entry);
@@ -985,13 +983,12 @@ test_get_job_by_name (void)
 	NihError       *error;
 	NihDBusError   *dbus_error;
 	int             ret;
-	Session        *session = NULL;
 
 	TEST_FUNCTION ("control_get_job_by_name");
 	nih_error_init ();
 	job_class_init ();
 
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	nih_hash_add (job_classes, &class->entry);
 
 
@@ -1096,7 +1093,6 @@ test_get_all_jobs (void)
 	NihError        *error;
 	char           **paths;
 	int              ret;
-	Session         *session = NULL;
 
 	TEST_FUNCTION ("control_get_all_jobs");
 	nih_error_init ();
@@ -1107,13 +1103,13 @@ test_get_all_jobs (void)
 	 * in an array allocated as a child of the message structure.
 	 */
 	TEST_FEATURE ("with registered jobs");
-	class1 = job_class_new (NULL, "frodo", session);
+	class1 = job_class_new (NULL, "frodo", NULL);
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bilbo", session);
+	class2 = job_class_new (NULL, "bilbo", NULL);
 	nih_hash_add (job_classes, &class2->entry);
 
-	class3 = job_class_new (NULL, "sauron", session);
+	class3 = job_class_new (NULL, "sauron", NULL);
 	nih_hash_add (job_classes, &class3->entry);
 
 	TEST_ALLOC_FAIL {
@@ -2223,6 +2219,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_server_open ();
 	test_server_connect ();
 	test_server_close ();

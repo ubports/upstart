@@ -56,6 +56,14 @@
  **/
 NihList *sessions = NULL;
 
+/**
+ * disable_sessions:
+ *
+ * If TRUE, disable user and chroot sessions, resulting in a
+ * "traditional" (pre-session support) system.
+ **/
+int disable_sessions = FALSE;
+
 
 /* Prototypes for static functions */
 static void session_create_conf_source (Session *sesson);
@@ -113,22 +121,23 @@ session_new (const void *parent,
 }
 
 Session *
-session_from_dbus (const void *    parent,
+session_from_dbus (const void     *parent,
 		   NihDBusMessage *message)
 {
-	const char *  sender;
+	const char   *sender;
 	DBusError     dbus_error;
 	unsigned long unix_user;
 	unsigned long unix_process_id;
 	char          root[PATH_MAX];
-	Session *     session;
+	Session      *session;
 
 	nih_assert (message != NULL);
 
-#ifdef TEST
-	/* Return "NULL session" for testing framework. */
-	return NULL;
-#endif
+	/* Handle explicit command-line request and alternative request
+	 * method (primarily for test framework) to disable session support.
+	 */
+	if (disable_sessions || getenv ("UPSTART_NO_SESSIONS"))
+		return NULL;
 
 	session_init ();
 
@@ -160,7 +169,7 @@ session_from_dbus (const void *    parent,
 	}
 
 	/* If we retrieved a process id, look up the root path for it;
-	 * if it's just / don't worry so much about it.
+	 * if it's just '/' don't worry so much about it.
 	 */
 	if (unix_process_id) {
 		nih_local char *symlink = NULL;
@@ -193,15 +202,19 @@ session_from_dbus (const void *    parent,
 		if (unix_process_id) {
 			if (! session->chroot)
 				continue;
+
+			/* ignore sessions relating to other chroots */
 			if (strcmp (session->chroot, root))
 				continue;
 		}
 
+		/* ignore sessions relating to other users */
 		if (unix_user != session->user)
 			continue;
 
 		if (! session->conf_path)
 			session_create_conf_source (session);
+
 		return session;
 	}
 

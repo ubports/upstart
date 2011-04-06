@@ -38,10 +38,6 @@ test_new (void)
 	Job            *job;
 	Event          *event;
 	NihDBusMessage *message = NULL;
-	Session        *session;
-
-	session = session_new (NULL, NULL, getuid ());
-	TEST_NE_P (session, NULL);
 
 	TEST_FUNCTION ("blocked_new");
 
@@ -50,7 +46,7 @@ test_new (void)
 	 * in a list.
 	 */
 	TEST_FEATURE ("with job");
-	class = job_class_new (NULL, "test", session);
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	TEST_ALLOC_FAIL {
@@ -361,7 +357,6 @@ test_new (void)
 		nih_free (blocked);
 		TEST_FREE (message);
 	}
-	nih_free (session);
 }
 
 
@@ -369,6 +364,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_new ();
 
 	return 0;
