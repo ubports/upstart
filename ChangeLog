@@ -1,3 +1,23 @@
+2011-04-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_source_reload_file(): Added missing error return if override
+	    doesn't parse (code path currently unused).
+	  - Documentation updates.
+	* init/job.c: job_new(): Fix for nasty OOM scenario when an attempt is made
+	  to start a chroot job with same name as running single-instance non-chroot
+	  job. Previously, the path for a chrooted Job was set from the (nul) instance
+	  name of its parent JobClass. However, since that job instance name already
+	  existed outside the chroot and was already D-Bus registered,
+	  nih_dbus_object_new() (which allocates storage and is called by
+	  job_register()) returned NULL and kept doing so due to being called
+	  within NIH_MUST(). This resulted in OOM due to an as-yet unidentified
+	  D-Bus bug (possibly a leak in find_subtree_recurse()).
+	* init/session.h: Documentation updates.
+	* util/test_initctl.c: Cleaned up variable names
+	  in RUN_COMMAND macro.
+	* init/parse_job.c: Documentation updates.
+
 2011-04-06  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/conf.c: conf_select_job(): Added Session parameter.

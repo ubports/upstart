@@ -280,8 +280,8 @@ static NihConfigStanza stanzas[] = {
  * of the returned job are freed, the returned job will also be
  * freed.
  *
- * Returns: if @update is NULL, returns new JobClass structure on success, NULL on raised error.
- * If @update is not NULL, returns @update or NULL on error.
+ * Returns: If @update is NULL, returns new JobClass structure on success, NULL on raised error.
+ * If @update is not NULL, returns @update on success, or NULL on error.
  **/
 JobClass *
 parse_job (const void *parent,

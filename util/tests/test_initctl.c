@@ -141,11 +141,11 @@
  * @len: size_t pointer which will be set to length of @result.
  *
  * Run a command and return its standard output. It is the callers
- * responsibility to free @result.
+ * responsibility to free @result. Errors from running @cmd are fatal.
  **/
 #define RUN_COMMAND(parent, cmd, result, len)                        \
 {                                                                    \
-	FILE    *initctl;                                            \
+	FILE    *f;                                                  \
 	char     buffer[BUFFER_SIZE];                                \
 	char   **ret;                                                \
 	                                                             \
@@ -155,20 +155,20 @@
 	TEST_NE_P (*result, NULL);                                   \
 	*(len) = 0;                                                  \
 	                                                             \
-	initctl = popen (cmd, "r");                                  \
-	TEST_NE_P (initctl, NULL);                                   \
+	f = popen (cmd, "r");                                        \
+	TEST_NE_P (f, NULL);                                         \
 	                                                             \
-	while (fgets (buffer, BUFFER_SIZE, initctl)) {               \
-		size_t l = strlen(buffer)-1;                         \
+	while (fgets (buffer, BUFFER_SIZE, f)) {                     \
+		size_t l = strlen (buffer)-1;                        \
 	                                                             \
 		if ( buffer[l] == '\n')                              \
 			buffer[l] = '\0';                            \
 		ret = nih_str_array_add (result, parent, len,        \
-				buffer);                             \
+			buffer);                                     \
 		TEST_NE_P (ret, NULL);                               \
 	}                                                            \
-                                                                     \
-	TEST_NE (pclose(initctl), -1);                               \
+	                                                             \
+	TEST_NE ( pclose (f), -1);                                   \
 }
 
 /**

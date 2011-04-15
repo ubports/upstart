@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.9.4\n"
+"Project-Id-Version: upstart 0.9.5\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-04-06 17:23+0100\n"
+"POT-Creation-Date: 2011-04-15 12:11+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -35,24 +35,24 @@ msgstr ""
 msgid "Unable to watch configuration file"
 msgstr ""
 
-#: init/conf.c:524 init/conf.c:924
-msgid "Error while reloading configuration file"
-msgstr ""
-
-#: init/conf.c:601
+#: init/conf.c:598
 msgid "Unable to watch configuration directory"
 msgstr ""
 
-#: init/conf.c:772 init/conf.c:904
+#: init/conf.c:769 init/conf.c:901
 msgid "Error while loading configuration file"
 msgstr ""
 
-#: init/conf.c:819
+#: init/conf.c:816
 msgid "Configuration directory deleted"
 msgstr ""
 
-#: init/conf.c:848
+#: init/conf.c:845
 msgid "Unable to reload configuration after override deletion"
+msgstr ""
+
+#: init/conf.c:921
+msgid "Error while reloading configuration file"
 msgstr ""
 
 #: init/control.c:165
@@ -99,92 +99,92 @@ msgstr ""
 msgid "Event failed"
 msgstr ""
 
-#: init/job.c:227
+#: init/job.c:233
 #, c-format
 msgid "%s goal changed from %s to %s"
 msgstr ""
 
-#: init/job.c:298
+#: init/job.c:304
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:717 init/job.c:755
+#: init/job.c:723 init/job.c:761
 msgid "Job failed to start"
 msgstr ""
 
-#: init/job.c:730 init/job.c:766
+#: init/job.c:736 init/job.c:772
 msgid "Job failed while stopping"
 msgstr ""
 
-#: init/job.c:742 init/job.c:777
+#: init/job.c:748 init/job.c:783
 msgid "Job failed to restart"
 msgstr ""
 
-#: init/job.c:971
+#: init/job.c:977
 msgid "stop"
 msgstr ""
 
-#: init/job.c:973
+#: init/job.c:979
 msgid "start"
 msgstr ""
 
-#: init/job.c:975
+#: init/job.c:981
 msgid "respawn"
 msgstr ""
 
-#: init/job.c:1020
+#: init/job.c:1026
 msgid "waiting"
 msgstr ""
 
-#: init/job.c:1022
+#: init/job.c:1028
 msgid "starting"
 msgstr ""
 
-#: init/job.c:1024 init/process.c:80
+#: init/job.c:1030 init/process.c:80
 msgid "pre-start"
 msgstr ""
 
-#: init/job.c:1026
+#: init/job.c:1032
 msgid "spawned"
 msgstr ""
 
-#: init/job.c:1028 init/process.c:82
+#: init/job.c:1034 init/process.c:82
 msgid "post-start"
 msgstr ""
 
-#: init/job.c:1030
+#: init/job.c:1036
 msgid "running"
 msgstr ""
 
-#: init/job.c:1032 init/process.c:84
+#: init/job.c:1038 init/process.c:84
 msgid "pre-stop"
 msgstr ""
 
-#: init/job.c:1034
+#: init/job.c:1040
 msgid "stopping"
 msgstr ""
 
-#: init/job.c:1036
+#: init/job.c:1042
 msgid "killed"
 msgstr ""
 
-#: init/job.c:1038 init/process.c:86
+#: init/job.c:1044 init/process.c:86
 msgid "post-stop"
 msgstr ""
 
-#: init/job.c:1121 init/job.c:1196 init/job.c:1272 init/job_class.c:770
+#: init/job.c:1127 init/job.c:1202 init/job.c:1278 init/job_class.c:770
 #: init/job_class.c:900 init/job_class.c:1035
 #, c-format
 msgid "You do not have permission to modify job: %s"
 msgstr ""
 
-#: init/job.c:1129 init/job_class.c:824
+#: init/job.c:1135 init/job_class.c:824
 #, c-format
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1204 init/job.c:1280 init/job_class.c:954 init/job_class.c:1088
+#: init/job.c:1210 init/job.c:1286 init/job_class.c:954 init/job_class.c:1088
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
