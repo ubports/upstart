@@ -5,8 +5,6 @@ init \- Upstart init daemon job configuration
 .\"
 .SH SYNOPSIS
 .B /etc/init/
-
-.B $HOME/.init/
 .\"
 .SH DESCRIPTION
 On startup, the Upstart
@@ -15,11 +13,6 @@ daemon reads its job configuration from files in the
 .I /etc/init/
 directory, and watches for future changes to these files using
 .BR inotify (7).
-
-If D\-Bus has been configured to allow non\-privileged users to invoke all
-Upstart D\-Bus methods, Upstart is also able to manage User Jobs. See
-.B User Jobs
-for further details.
 
 To be considered by Upstart, files in this directory must have a
 recognized suffix and may also be present in sub\-directories.  There are
@@ -71,37 +64,6 @@ Since override files only modify the way a configuration file is
 interpreted, they are not named.
 
 Configuration files are plain text and should not be executable.
-.\"
-.SS User Jobs
-
-A User Job is a job configuration file created by a non\-privileged user
-in the
-.B $HOME/.init/
-directory. Job configuration files in this directory have
-the same syntax as system job configuration files.
-
-Any user can create user jobs, but that user can control
-.I only
-jobs they create.
-
-Users are able to manage their jobs using the standard
-.BR initctl (8)
-facility.
-
-Note that a user job configuration file cannot have the same name as a
-system job configuration file.
-
-.\"
-.SS Chroot Support
-
-Upstart is able to manage jobs within a \fBchroot\fP(2). To control jobs
-within the chroot environment, use the standard
-.BR initctl (8)
-facility. Note that it is not necessary to install D\-Bus within the
-chroot (in fact it is not recommended).
-
-Note that User Jobs can be created within a chroot environment.
-
 .\"
 .SS Configuration File Format
 Each line begins with a configuration stanza and continues until either
