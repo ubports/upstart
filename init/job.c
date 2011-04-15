@@ -100,8 +100,14 @@ job_new (JobClass   *class,
 
 	job->class = class;
 
-	job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
-				   class->name, job->name, NULL);
+	if (job->class->session && job->class->session->chroot) {
+		/* JobClass already contains a valid D-Bus path prefix for the job */
+		job->path = nih_dbus_path (job, class->path, job->name, NULL);
+	} else {
+		job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
+				class->name, job->name, NULL);
+	}
+
 	if (! job->path)
 		goto error;
 
