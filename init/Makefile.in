@@ -110,27 +110,25 @@ test_blocked_DEPENDENCIES = system.o environ.o process.o job_class.o \
 test_blocked_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_blocked_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-am_test_conf_OBJECTS = test_conf-test_conf.$(OBJEXT) \
-	test_conf-session.$(OBJEXT)
+am_test_conf_OBJECTS = test_conf-test_conf.$(OBJEXT)
 test_conf_OBJECTS = $(am_test_conf_OBJECTS)
 test_conf_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o com.ubuntu.Upstart.o \
-	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+	parse_job.o parse_conf.o conf.o control.o session.o \
+	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
+	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 test_conf_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_conf_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-am_test_control_OBJECTS = test_control-test_control.$(OBJEXT) \
-	test_control-session.$(OBJEXT)
+am_test_control_OBJECTS = test_control-test_control.$(OBJEXT)
 test_control_OBJECTS = $(am_test_control_OBJECTS)
 test_control_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o com.ubuntu.Upstart.o \
-	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+	parse_job.o parse_conf.o conf.o control.o session.o \
+	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
+	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 test_control_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_control_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -724,24 +722,26 @@ test_parse_conf_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-test_conf_SOURCES = tests/test_conf.c session.c
+test_conf_SOURCES = tests/test_conf.c
 test_conf_CFLAGS = $(AM_CFLAGS) -DTEST
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-test_control_SOURCES = tests/test_control.c session.c
+test_control_SOURCES = tests/test_control.c
 test_control_CFLAGS = $(AM_CFLAGS) -DTEST
 test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -903,9 +903,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/session.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/system.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_blocked-test_blocked.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_conf-session.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_conf-test_conf.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_control-session.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_control-test_control.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_environ-test_environ.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_event-test_event.Po@am__quote@
@@ -974,22 +972,6 @@ test_conf-test_conf.obj: tests/test_conf.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_conf_CFLAGS) $(CFLAGS) -c -o test_conf-test_conf.obj `if test -f 'tests/test_conf.c'; then $(CYGPATH_W) 'tests/test_conf.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_conf.c'; fi`
 
-test_conf-session.o: session.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_conf_CFLAGS) $(CFLAGS) -MT test_conf-session.o -MD -MP -MF $(DEPDIR)/test_conf-session.Tpo -c -o test_conf-session.o `test -f 'session.c' || echo '$(srcdir)/'`session.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_conf-session.Tpo $(DEPDIR)/test_conf-session.Po
-@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='session.c' object='test_conf-session.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_conf_CFLAGS) $(CFLAGS) -c -o test_conf-session.o `test -f 'session.c' || echo '$(srcdir)/'`session.c
-
-test_conf-session.obj: session.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_conf_CFLAGS) $(CFLAGS) -MT test_conf-session.obj -MD -MP -MF $(DEPDIR)/test_conf-session.Tpo -c -o test_conf-session.obj `if test -f 'session.c'; then $(CYGPATH_W) 'session.c'; else $(CYGPATH_W) '$(srcdir)/session.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_conf-session.Tpo $(DEPDIR)/test_conf-session.Po
-@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='session.c' object='test_conf-session.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_conf_CFLAGS) $(CFLAGS) -c -o test_conf-session.obj `if test -f 'session.c'; then $(CYGPATH_W) 'session.c'; else $(CYGPATH_W) '$(srcdir)/session.c'; fi`
-
 test_control-test_control.o: tests/test_control.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_control_CFLAGS) $(CFLAGS) -MT test_control-test_control.o -MD -MP -MF $(DEPDIR)/test_control-test_control.Tpo -c -o test_control-test_control.o `test -f 'tests/test_control.c' || echo '$(srcdir)/'`tests/test_control.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_control-test_control.Tpo $(DEPDIR)/test_control-test_control.Po
@@ -1005,22 +987,6 @@ test_control-test_control.obj: tests/test_control.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_control.c' object='test_control-test_control.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_control_CFLAGS) $(CFLAGS) -c -o test_control-test_control.obj `if test -f 'tests/test_control.c'; then $(CYGPATH_W) 'tests/test_control.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_control.c'; fi`
-
-test_control-session.o: session.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_control_CFLAGS) $(CFLAGS) -MT test_control-session.o -MD -MP -MF $(DEPDIR)/test_control-session.Tpo -c -o test_control-session.o `test -f 'session.c' || echo '$(srcdir)/'`session.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_control-session.Tpo $(DEPDIR)/test_control-session.Po
-@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='session.c' object='test_control-session.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_control_CFLAGS) $(CFLAGS) -c -o test_control-session.o `test -f 'session.c' || echo '$(srcdir)/'`session.c
-
-test_control-session.obj: session.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_control_CFLAGS) $(CFLAGS) -MT test_control-session.obj -MD -MP -MF $(DEPDIR)/test_control-session.Tpo -c -o test_control-session.obj `if test -f 'session.c'; then $(CYGPATH_W) 'session.c'; else $(CYGPATH_W) '$(srcdir)/session.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_control-session.Tpo $(DEPDIR)/test_control-session.Po
-@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='session.c' object='test_control-session.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_control_CFLAGS) $(CFLAGS) -c -o test_control-session.obj `if test -f 'session.c'; then $(CYGPATH_W) 'session.c'; else $(CYGPATH_W) '$(srcdir)/session.c'; fi`
 
 test_environ-test_environ.o: tests/test_environ.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_environ_CFLAGS) $(CFLAGS) -MT test_environ-test_environ.o -MD -MP -MF $(DEPDIR)/test_environ-test_environ.Tpo -c -o test_environ-test_environ.o `test -f 'tests/test_environ.c' || echo '$(srcdir)/'`tests/test_environ.c
