@@ -419,20 +419,21 @@ control_get_job_by_name (void            *data,
 	/* Lookup the job */
 	class = (JobClass *)nih_hash_search (job_classes, name, NULL);
 
-	while (class && class->session != session) {
-		class = (JobClass *)nih_hash_search (job_classes, name, &class->entry);
-	}
-
-	if (class && ! session)
-		class->session = session;
-
 	while (class && (class->session != session)) {
-		if ((! class->session) && (! session->chroot))
+
+		/* Found a match in the global session which may be used
+		 * later if no matching user session job exists.
+		 */
+		if ((! class->session) && (session && ! session->chroot))
 			global_class = class;
+
 		class = (JobClass *)nih_hash_search (job_classes, name,
-						     &class->entry);
+				&class->entry);
 	}
 
+	/* If no job with the given name exists in the appropriate
+	 * session, look in the global namespace (aka the NULL session).
+	 */ 
 	if (! class)
 		class = global_class;
 

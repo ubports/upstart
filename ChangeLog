@@ -1,3 +1,9 @@
+2011-04-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* control_get_job_by_name: Fix to relax session rigidity for user
+	  sessions (allow user sessions to see into the global
+	  namespace for backwards compatability) (LP: #767053).
+
 2011-04-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/conf.c:

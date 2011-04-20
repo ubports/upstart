@@ -1,3 +1,9 @@
+upstart (0.9.7-1) natty; urgency=low
+
+  * New upstream release 0.9.7: Important session fix (LP: #767053).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 20 Apr 2011 17:44:41 +0100
+
 upstart (0.9.6-1ubuntu1) natty; urgency=low
 
   [ James Hunt ]
