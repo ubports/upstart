@@ -1,9 +1,13 @@
 upstart (0.9.6-1ubuntu1) natty; urgency=low
 
+  [ James Hunt ]
   * init/man/init.5: Remove mention of user jobs since facility is
   disabled.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 15 Apr 2011 15:37:57 +0100
+  [ Clint Byrum ]
+  * Noting bugs fixed by 0.9.6 release of upstart: (LP: #728531 , LP: #766206)
+
+ -- Clint Byrum <clint@ubuntu.com>  Tue, 19 Apr 2011 13:16:46 -0700
 
 upstart (0.9.6-1) natty; urgency=low
 
