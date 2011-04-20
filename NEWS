@@ -1,3 +1,9 @@
+0.9.7  2011-04-20
+
+	* Fix for user sessions to retain backwards compatibility behaviour
+	  where a non-privileged user can enquire on jobs owned by the
+	  global namespace.
+
 0.9.6  2011-04-15
 
 	* Fix for nasty OOM scenario when an attempt is made to start

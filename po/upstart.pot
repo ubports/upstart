@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.9.5\n"
+"Project-Id-Version: upstart 0.9.6\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-04-15 12:11+0100\n"
+"POT-Creation-Date: 2011-04-20 17:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -67,21 +67,21 @@ msgstr ""
 msgid "Reloading configuration"
 msgstr ""
 
-#: init/control.c:412 init/control.c:565
+#: init/control.c:412 init/control.c:566
 msgid "Name may not be empty string"
 msgstr ""
 
-#: init/control.c:442
+#: init/control.c:443
 #, c-format
 msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:573 init/job_class.c:579 init/job_class.c:778
+#: init/control.c:574 init/job_class.c:579 init/job_class.c:778
 #: init/job_class.c:908 init/job_class.c:1043
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
-#: init/control.c:742
+#: init/control.c:743
 msgid "The log priority given was not recognised"
 msgstr ""
 
