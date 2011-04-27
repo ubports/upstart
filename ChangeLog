@@ -1,3 +1,13 @@
+2011-04-27  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/init-checkconf.sh:
+	  - New function upstart_running.
+	  - We now check to ensure no other instance running.
+	  - Use list command rather than status since the latter requires an
+	    instance variable to be specified (LP: #770532).
+	  - Improve cleanup safety.
+	* scripts/man/init-checkconf.8: Added limitations section.
+
 2011-04-20  James Hunt  <james.hunt@ubuntu.com>
 
 	* control_get_job_by_name: Fix to relax session rigidity for user
