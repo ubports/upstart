@@ -1,3 +1,9 @@
+upstart (0.9.7-2) oneiric; urgency=low
+
+  * Add wait-for-state generic "wait job".
+
+ -- Clint Byrum <clint@ubuntu.com>  Wed, 04 May 2011 08:32:04 -0700
+
 upstart (0.9.7-1) natty; urgency=low
 
   * New upstream release 0.9.7: Important session fix (LP: #767053).
