@@ -121,6 +121,7 @@ test_new (void)
 		TEST_EQ (class->task, FALSE);
 
 		TEST_EQ (class->kill_timeout, 5);
+		TEST_EQ (class->kill_signal, SIGTERM);
 
 		TEST_EQ (class->respawn, FALSE);
 		TEST_EQ (class->respawn_limit, 10);
