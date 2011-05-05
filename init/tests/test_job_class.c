@@ -133,7 +133,7 @@ test_new (void)
 
 		TEST_EQ (class->umask, 022);
 		TEST_EQ (class->nice, 0);
-		TEST_EQ (class->oom_adj, 0);
+		TEST_EQ (class->oom_score_adj, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)
 			TEST_EQ_P (class->limits[i], NULL);

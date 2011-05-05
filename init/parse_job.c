@@ -2233,6 +2233,7 @@ stanza_oom (JobClass        *class,
 	nih_local char *arg = NULL;
 	char           *endptr;
 	size_t          a_pos, a_lineno;
+	int		oom_adj;
 	int             ret = -1;
 
 	nih_assert (class != NULL);
@@ -2247,12 +2248,37 @@ stanza_oom (JobClass        *class,
 	if (! arg)
 		goto finish;
 
-	if (! strcmp (arg, "never")) {
-		class->oom_adj = -17;
+	if (! strcmp (arg, "score")) {
+		nih_local char *scorearg = NULL;
+
+		/* Update error position to the score value */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
+		scorearg = nih_config_next_arg (NULL, file, len,
+						&a_pos, &a_lineno);
+		if (! scorearg)
+			goto finish;
+
+		if (! strcmp (scorearg, "never")) {
+			class->oom_score_adj = -1000;
+		} else {
+			errno = 0;
+			class->oom_score_adj = (int)strtol (scorearg, &endptr, 10);
+			if (errno || *endptr ||
+			    (class->oom_score_adj < -1000) ||
+			    (class->oom_score_adj > 1000))
+				nih_return_error (-1, PARSE_ILLEGAL_OOM,
+						  _(PARSE_ILLEGAL_OOM_SCORE_STR));
+		}
+	} else if (! strcmp (arg, "never")) {
+		class->oom_score_adj = -1000;
 	} else {
 		errno = 0;
-		class->oom_adj = (int)strtol (arg, &endptr, 10);
-		if (errno || *endptr || (class->oom_adj < -17) || (class->oom_adj > 15))
+		oom_adj = (int)strtol (arg, &endptr, 10);
+		class->oom_score_adj = ADJ_TO_SCORE(oom_adj);
+		if (errno || *endptr || (oom_adj < -17) || (oom_adj > 15))
 			nih_return_error (-1, PARSE_ILLEGAL_OOM,
 					  _(PARSE_ILLEGAL_OOM_STR));
 	}
