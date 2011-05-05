@@ -29,7 +29,7 @@
 
 NIH_BEGIN_EXTERN
 
-int system_kill          (pid_t pid, int force)
+int system_send_signal   (pid_t pid, int signal)
 	__attribute__ ((warn_unused_result));
 
 int system_setup_console (ConsoleType type, int reset)

@@ -35,7 +35,7 @@ test_kill (void)
 	pid_t pid1, pid2, pid3;
 	int   ret, status;
 
-	TEST_FUNCTION ("system_kill");
+	TEST_FUNCTION ("system_send_signal");
 
 	/* Check that when we normally kill the process, the TERM signal
 	 * is sent to all processes in its process group.
@@ -51,7 +51,7 @@ test_kill (void)
 	setpgid (pid1, pid1);
 	setpgid (pid2, pid1);
 
-	ret = system_kill (pid1, FALSE);
+	ret = system_send_signal (pid1, SIGTERM);
 	waitpid (pid1, &status, 0);
 
 	TEST_EQ (ret, 0);
@@ -79,7 +79,7 @@ test_kill (void)
 	setpgid (pid1, pid1);
 	setpgid (pid2, pid1);
 
-	ret = system_kill (pid1, TRUE);
+	ret = system_send_signal (pid1, SIGKILL);
 	waitpid (pid1, &status, 0);
 
 	TEST_EQ (ret, 0);
@@ -114,7 +114,7 @@ test_kill (void)
 	kill (pid1, SIGTERM);
 	waitpid (pid1, &status, 0);
 
-	ret = system_kill (pid2, FALSE);
+	ret = system_send_signal (pid2, SIGTERM);
 	waitpid (pid2, &status, 0);
 
 	TEST_EQ (ret, 0);

@@ -1782,6 +1782,7 @@ stanza_kill (JobClass        *class,
 {
 	size_t          a_pos, a_lineno;
 	int             ret = -1;
+	char           *endptr;
 	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
@@ -1799,7 +1800,6 @@ stanza_kill (JobClass        *class,
 
 	if (! strcmp (arg, "timeout")) {
 		nih_local char *timearg = NULL;
-		char           *endptr;
 
 		/* Update error position to the timeout value */
 		*pos = a_pos;
@@ -1816,13 +1816,39 @@ stanza_kill (JobClass        *class,
 		if (errno || *endptr || (class->kill_timeout < 0))
 			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
 					  _(PARSE_ILLEGAL_INTERVAL_STR));
+	} else if (! strcmp (arg, "signal")) {
+		unsigned long   status;
+		nih_local char *sigarg = NULL;
+		int		signal;
 
-		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+		/* Update error position to the exit status */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
 
+		sigarg = nih_config_next_arg (NULL, file, len, &a_pos,
+					      &a_lineno);
+
+		if (! sigarg)
+			goto finish;
+
+		signal = nih_signal_from_name (sigarg);
+		if (signal < 0) {
+			errno = 0;
+			status = strtoul (sigarg, &endptr, 10);
+			if (errno || *endptr || (status > INT_MAX))
+				nih_return_error (-1, PARSE_ILLEGAL_SIGNAL,
+						  _(PARSE_ILLEGAL_SIGNAL_STR));
+		}
+
+		/* Set the signal */
+		class->kill_signal = signal;
 	} else {
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 finish:
 	*pos = a_pos;
