@@ -1,3 +1,17 @@
+2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
+
+	* init/job_class.h (JobClass): Replace oom_adj with oom_score_adj
+	* init/job_class.c (job_class_new): Replace oom_adj with oom_score_adj.
+	* init/job_process.c (job_process_spawn): Write the new score
+	adjustment, falling back to calculating and writing the old value if
+	necessary.
+	* init/parse_job.c (stanza_oom): Parse both the new and old values,
+	converting the old value to the new value if present.
+	* init/errors.h: Add new error string.
+	* init/man/init.5: Documentation update.
+	* init/tests/test_job_class.c (test_new): Update check.
+	* init/tests/test_parse_job.c (test_stanza_oom): Update tests.
+
 2011-05-12  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_process.c (job_process_run): Always make the shell script

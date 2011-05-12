@@ -1,4 +1,4 @@
-.TH init 5 2010-12-14 "Upstart"
+.TH init 5 2011-05-12 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -500,15 +500,15 @@ see
 for more details.
 .\"
 .TP
-.B oom \fIADJUSTMENT\fR|\fBnever
+.B oom score \fIADJUSTMENT\fR|\fBnever
 Normally the OOM killer regards all processes equally, this stanza
 advises the kernel to treat this job differently.
 
 .I ADJUSTMENT
 may be an integer value from
-.I -16
+.I -999
 (very unlikely to be killed by the OOM killer) up to
-.I 14
+.I 1000
 (very likely to be killed by the OOM killer).  It may also be the special
 value
 .B never

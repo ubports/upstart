@@ -211,7 +211,7 @@ job_class_new (const void *parent,
 
 	class->umask = JOB_DEFAULT_UMASK;
 	class->nice = 0;
-	class->oom_adj = 0;
+	class->oom_score_adj = 0;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		class->limits[i] = NULL;

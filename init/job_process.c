@@ -513,16 +513,24 @@ job_process_spawn (JobClass     *class,
 
 	/* Adjust the process OOM killer priority.
 	 */
-	if (class->oom_adj) {
+	if (class->oom_score_adj) {
+		int oom_value;
 		snprintf (filename, sizeof (filename),
-			  "/proc/%d/oom_adj", getpid ());
-
+			  "/proc/%d/oom_score_adj", getpid ());
+		oom_value = class->oom_score_adj;
 		fd = fopen (filename, "w");
+		if ((! fd) && (errno == EACCES)) {
+			snprintf (filename, sizeof (filename),
+				  "/proc/%d/oom_adj", getpid ());
+			oom_value = (class->oom_score_adj
+				     * ((class->oom_score_adj < 0) ? 17 : 15)) / 1000;
+			fd = fopen (filename, "w");
+		}
 		if (! fd) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
 		} else {
-			fprintf (fd, "%d\n", class->oom_adj);
+			fprintf (fd, "%d\n", oom_value);
 
 			if (fclose (fd)) {
 				nih_error_raise_system ();
