@@ -2,6 +2,7 @@
  *
  * test_environ.c - test suite for init/environ.c
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -904,83 +905,6 @@ test_getn (void)
 
 
 void
-test_valid (void)
-{
-	int valid;
-
-	TEST_FUNCTION ("environ_valid");
-
-	/* Check that an all-uppercase key is valid. */
-	TEST_FEATURE ("with uppercase key");
-	valid = environ_valid ("FOO", 3);
-
-	TEST_TRUE (valid);
-
-
-	/* Check that an all-lowercase key is valid. */
-	TEST_FEATURE ("with lowercase key");
-	valid = environ_valid ("foo", 3);
-
-	TEST_TRUE (valid);
-
-
-	/* Check that an all-alphanumeric key is valid. */
-	TEST_FEATURE ("with alphanumeric key");
-	valid = environ_valid ("Foo45", 5);
-
-	TEST_TRUE (valid);
-
-
-	/* Check that an underscores in the key are valid. */
-	TEST_FEATURE ("with underscores in key");
-	valid = environ_valid ("FOO_45", 6);
-
-	TEST_TRUE (valid);
-
-
-	/* Check that a key may begin with an underscore. */
-	TEST_FEATURE ("with initial underscore");
-	valid = environ_valid ("_FOO", 4);
-
-	TEST_TRUE (valid);
-
-
-	/* Check that a key may not begin with a number. */
-	TEST_FEATURE ("with initial number");
-	valid = environ_valid ("9FOO", 4);
-
-	TEST_FALSE (valid);
-
-
-	/* Check that a key may not begin with any other character. */
-	TEST_FEATURE ("with initial dash");
-	valid = environ_valid ("-FOO", 4);
-
-	TEST_FALSE (valid);
-
-
-	/* Check that a key may not contain dashes. */
-	TEST_FEATURE ("with dash");
-	valid = environ_valid ("FOO-BAR", 7);
-
-	TEST_FALSE (valid);
-
-
-	/* Check that a key may not contain spaces. */
-	TEST_FEATURE ("with space");
-	valid = environ_valid ("FOO BAR", 7);
-
-	TEST_FALSE (valid);
-
-
-	/* Check that the length is honoured. */
-	TEST_FEATURE ("with longer string then key");
-	valid = environ_valid ("FOO BAR", 3);
-
-	TEST_TRUE (valid);
-}
-
-void
 test_all_valid (void)
 {
 	char **env;
@@ -1019,22 +943,6 @@ test_all_valid (void)
 	env = nih_str_array_new (NULL);
 	assert (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
 	assert (nih_str_array_add (&env, NULL, NULL, "BAR"));
-	assert (nih_str_array_add (&env, NULL, NULL, "WIBBLE=woo"));
-
-	valid = environ_all_valid (env);
-
-	TEST_FALSE (valid);
-
-	nih_free (env);
-
-
-	/* Check that an entry with an invalid key name means the table
-	 * is also not valid.
-	 */
-	TEST_FEATURE ("with invalid key");
-	env = nih_str_array_new (NULL);
-	assert (nih_str_array_add (&env, NULL, NULL, "FOO=BAR"));
-	assert (nih_str_array_add (&env, NULL, NULL, "BAR BEE=FOO"));
 	assert (nih_str_array_add (&env, NULL, NULL, "WIBBLE=woo"));
 
 	valid = environ_all_valid (env);
@@ -1648,19 +1556,6 @@ test_expand (void)
 	nih_free (error);
 
 
-	/* Check that attempting to expand an illegal variable name results in
-	 * an error being raised.
-	 */
-	TEST_FEATURE ("with expansion of illegal variable");
-	str = environ_expand (NULL, "this is a ${WIB WOB} test", env);
-
-	TEST_EQ_P (str, NULL);
-
-	error = nih_error_get ();
-	TEST_EQ (error->number, ENVIRON_ILLEGAL_PARAM);
-	nih_free (error);
-
-
 	/* Check that inventing a new operator results in an error
 	 * being raised.
 	 */
@@ -1698,7 +1593,6 @@ main (int   argc,
 	test_lookup ();
 	test_get ();
 	test_getn ();
-	test_valid ();
 	test_all_valid ();
 	test_expand ();
 

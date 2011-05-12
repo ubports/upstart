@@ -209,6 +209,14 @@ static int stanza_chdir       (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_debug       (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
+static int stanza_manual      (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -245,6 +253,8 @@ static NihConfigStanza stanzas[] = {
 	{ "limit",       (NihConfigHandler)stanza_limit       },
 	{ "chroot",      (NihConfigHandler)stanza_chroot      },
 	{ "chdir",       (NihConfigHandler)stanza_chdir       },
+	{ "debug",       (NihConfigHandler)stanza_debug       },
+	{ "manual",      (NihConfigHandler)stanza_manual      },
 
 	NIH_CONFIG_LAST
 };
@@ -966,6 +976,77 @@ parse_on_collect (JobClass       *class,
 
 
 /**
+ * stanza_debug:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a debug stanza from @file. No parameters are supported.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_debug (JobClass           *class,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	class->debug = TRUE;
+
+	return 0;
+}
+
+
+/**
+ * stanza_manual:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a manual stanza from @file. No parameters are supported.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_manual (JobClass           *class,
+		 NihConfigStanza *stanza,
+		 const char      *file,
+		 size_t           len,
+		 size_t          *pos,
+		 size_t          *lineno)
+{
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	/* manual simply disregards any start on events seen previously */
+
+	nih_debug ("disregarding start on events for %s",
+			class->name);
+
+	if (class->start_on)
+		nih_unref (class->start_on, class);
+
+	class->start_on = NULL;
+
+	return 0;
+}
+
+/**
  * stanza_instance:
  * @class: job class being parsed,
  * @stanza: stanza found,
@@ -1131,7 +1212,7 @@ stanza_version (JobClass        *class,
  *
  * Parse an env stanza from @file, extracting a single argument of the form
  * VAR or VAR=VALUE.  These are stored in the env array, which is increased
- * in size to accomodate the new value.
+ * in size to accommodate the new value.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1217,8 +1298,8 @@ stanza_export (JobClass        *class,
  * @lineno: line number.
  *
  * Parse a start stanza from @file.  This stanza expects a second "on"
- * argument, followed by an event which is allocated as an EventInfo structure
- * and stored in the start events list of the class.
+ * argument, followed by an event which is allocated as an EventOperator
+ * structure and stored in the start events list of the class.
  *
  * Returns: zero on success, negative value on error.
  **/

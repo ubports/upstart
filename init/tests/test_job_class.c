@@ -2,7 +2,8 @@
  *
  * test_job_class.c - test suite for init/job_class.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2011 Google Inc.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1948,7 +1949,7 @@ test_start (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_start (class, message, env, TRUE);
 
@@ -2386,7 +2387,7 @@ test_stop (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_stop (class, message, env, TRUE);
 
@@ -2872,7 +2873,7 @@ test_restart (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_restart (class, message, env, TRUE);
 
@@ -3232,6 +3233,415 @@ test_get_version (void)
 	}
 }
 
+void
+test_get_start_on (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	EventOperator  *oper = NULL;
+	EventOperator  *and_oper = NULL;
+	NihError       *error;
+	char         ***start_on;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_start_on");
+
+	/* Check that the job's start_on tree is returned as a flattened
+	 * array of string arrays, as a child of the message.
+	 */
+	TEST_FEATURE ("with event tree");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			class->start_on = event_operator_new (
+				class, EVENT_OR, NULL, NULL);
+
+			and_oper = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+			nih_tree_add (&class->start_on->node, &and_oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "foo", NULL);
+			oper->env = nih_str_array_new (oper);
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "omnomnom"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "ABER=crombie"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "HOBBIT=frodo"));
+
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		start_on = NULL;
+
+		ret = job_class_get_start_on (class, message, &start_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (start_on, message);
+		TEST_ALLOC_SIZE (start_on, sizeof (char **) * 6);
+
+		TEST_ALLOC_SIZE (start_on[0], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[0][0], "wibble");
+		TEST_EQ_P (start_on[0][1], NULL);
+
+		TEST_ALLOC_SIZE (start_on[1], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[1][0], "wobble");
+		TEST_EQ_P (start_on[1][1], NULL);
+
+		TEST_ALLOC_SIZE (start_on[2], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[2][0], "/AND");
+		TEST_EQ_P (start_on[2][1], NULL);
+
+		TEST_ALLOC_SIZE (start_on[3], sizeof (char *) * 5);
+		TEST_EQ_STR (start_on[3][0], "foo");
+		TEST_EQ_STR (start_on[3][1], "omnomnom");
+		TEST_EQ_STR (start_on[3][2], "ABER=crombie");
+		TEST_EQ_STR (start_on[3][3], "HOBBIT=frodo");
+		TEST_EQ_P (start_on[3][4], NULL);
+
+		TEST_ALLOC_SIZE (start_on[4], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[4][0], "/OR");
+		TEST_EQ_P (start_on[4][1], NULL);
+
+		TEST_EQ_P (start_on[5], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an empty array is returned when the job has no
+	 * start_on operator tree.
+	 */
+	TEST_FEATURE ("with no events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		start_on = NULL;
+
+		ret = job_class_get_start_on (class, message, &start_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (start_on, message);
+		TEST_ALLOC_SIZE (start_on, sizeof (char **));
+		TEST_EQ_P (start_on[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_stop_on (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	EventOperator  *oper = NULL;
+	EventOperator  *and_oper = NULL;
+	NihError       *error;
+	char         ***stop_on;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_stop_on");
+
+	/* Check that the job's stop_on tree is returned as a flattened
+	 * array of string arrays, as a child of the message.
+	 */
+	TEST_FEATURE ("with event tree");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			class->stop_on = event_operator_new (
+				class, EVENT_OR, NULL, NULL);
+
+			and_oper = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+			nih_tree_add (&class->stop_on->node, &and_oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->stop_on, EVENT_MATCH, "foo", NULL);
+			oper->env = nih_str_array_new (oper);
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "omnomnom"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "ABER=crombie"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "HOBBIT=frodo"));
+
+			nih_tree_add (&class->stop_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			oper = event_operator_new (
+				class->stop_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->stop_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		stop_on = NULL;
+
+		ret = job_class_get_stop_on (class, message, &stop_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (stop_on, message);
+		TEST_ALLOC_SIZE (stop_on, sizeof (char **) * 6);
+
+		TEST_ALLOC_SIZE (stop_on[0], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[0][0], "wibble");
+		TEST_EQ_P (stop_on[0][1], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[1], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[1][0], "wobble");
+		TEST_EQ_P (stop_on[1][1], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[2], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[2][0], "/AND");
+		TEST_EQ_P (stop_on[2][1], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[3], sizeof (char *) * 5);
+		TEST_EQ_STR (stop_on[3][0], "foo");
+		TEST_EQ_STR (stop_on[3][1], "omnomnom");
+		TEST_EQ_STR (stop_on[3][2], "ABER=crombie");
+		TEST_EQ_STR (stop_on[3][3], "HOBBIT=frodo");
+		TEST_EQ_P (stop_on[3][4], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[4], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[4][0], "/OR");
+		TEST_EQ_P (stop_on[4][1], NULL);
+
+		TEST_EQ_P (stop_on[5], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an empty array is returned when the job has no
+	 * stop_on operator tree.
+	 */
+	TEST_FEATURE ("with no events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		stop_on = NULL;
+
+		ret = job_class_get_stop_on (class, message, &stop_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (stop_on, message);
+		TEST_ALLOC_SIZE (stop_on, sizeof (char **));
+		TEST_EQ_P (stop_on[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_emits (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	NihError       *error;
+	char          **emits;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_emits");
+
+	/* Check that an array of strings is returned from the property
+	 * as a child of the message when the job declares that it emits
+	 * extra events.
+	 */
+	TEST_FEATURE ("with events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+			class->emits = nih_str_array_new (class);
+
+			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "foo"));
+			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "bar"));
+			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "baz"));
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		emits = NULL;
+
+		ret = job_class_get_emits (class, message, &emits);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (emits, message);
+		TEST_ALLOC_SIZE (emits, sizeof (char *) * 4);
+		TEST_EQ_STR (emits[0], "foo");
+		TEST_EQ_STR (emits[1], "bar");
+		TEST_EQ_STR (emits[2], "baz");
+		TEST_EQ_P (emits[3], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an empty array is returned from the property
+	 * as a child of the message when the job doesn't declare
+	 * any particular emitted events.
+	 */
+	TEST_FEATURE ("with no events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test");
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		emits = NULL;
+
+		ret = job_class_get_emits (class, message, &emits);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (emits, message);
+		TEST_ALLOC_SIZE (emits, sizeof (char *));
+		TEST_EQ_P (emits[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
 
 int
 main (int   argc,
@@ -3256,6 +3666,9 @@ main (int   argc,
 	test_get_description ();
 	test_get_author ();
 	test_get_version ();
+	test_get_start_on ();
+	test_get_stop_on ();
+	test_get_emits ();
 
 	return 0;
 }

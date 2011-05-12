@@ -1,5 +1,6 @@
 /* upstart
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -196,6 +197,7 @@ main (int   argc,
 			break;
 		case HALT:
 			args[i++] = "-h";
+			args[i++] = "-H";
 			break;
 		case POWEROFF:
 			args[i++] = "-h";

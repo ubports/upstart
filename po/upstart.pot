@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 0.6.6\n"
+"Project-Id-Version: upstart 1.2\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2010-04-27 12:24-0700\n"
+"POT-Creation-Date: 2011-03-22 10:52-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,33 +16,33 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: init/conf.c:237
+#: init/conf.c:238
 msgid "Unable to load configuration"
 msgstr ""
 
-#: init/conf.c:270
+#: init/conf.c:271
 #, c-format
 msgid "Loading configuration from %s"
 msgstr ""
 
-#: init/conf.c:307
+#: init/conf.c:308
 #, c-format
 msgid "Handling deletion of %s"
 msgstr ""
 
-#: init/conf.c:378
+#: init/conf.c:379
 msgid "Unable to watch configuration file"
 msgstr ""
 
-#: init/conf.c:456
+#: init/conf.c:457
 msgid "Unable to watch configuration directory"
 msgstr ""
 
-#: init/conf.c:568 init/conf.c:652
+#: init/conf.c:569 init/conf.c:653
 msgid "Error while loading configuration file"
 msgstr ""
 
-#: init/conf.c:608
+#: init/conf.c:609
 msgid "Configuration directory deleted"
 msgstr ""
 
@@ -54,7 +54,7 @@ msgstr ""
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:356 init/main.c:481
+#: init/control.c:356 init/main.c:546
 msgid "Reloading configuration"
 msgstr ""
 
@@ -67,8 +67,8 @@ msgstr ""
 msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:514 init/job_class.c:520 init/job_class.c:708
-#: init/job_class.c:827 init/job_class.c:951
+#: init/control.c:514 init/job_class.c:522 init/job_class.c:710
+#: init/job_class.c:829 init/job_class.c:953
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
@@ -95,270 +95,280 @@ msgstr ""
 msgid "%s goal changed from %s to %s"
 msgstr ""
 
-#: init/job.c:285
+#: init/job.c:294
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:688 init/job.c:726
+#: init/job.c:713 init/job.c:751
 msgid "Job failed to start"
 msgstr ""
 
-#: init/job.c:701 init/job.c:737
+#: init/job.c:726 init/job.c:762
 msgid "Job failed while stopping"
 msgstr ""
 
-#: init/job.c:713 init/job.c:748
+#: init/job.c:738 init/job.c:773
 msgid "Job failed to restart"
 msgstr ""
 
-#: init/job.c:941
+#: init/job.c:966
 msgid "stop"
 msgstr ""
 
-#: init/job.c:943
+#: init/job.c:968
 msgid "start"
 msgstr ""
 
-#: init/job.c:945
+#: init/job.c:970
 msgid "respawn"
 msgstr ""
 
-#: init/job.c:990
+#: init/job.c:1015
 msgid "waiting"
 msgstr ""
 
-#: init/job.c:992
+#: init/job.c:1017
 msgid "starting"
 msgstr ""
 
-#: init/job.c:994 init/process.c:80
+#: init/job.c:1019 init/process.c:80
 msgid "pre-start"
 msgstr ""
 
-#: init/job.c:996
+#: init/job.c:1021
 msgid "spawned"
 msgstr ""
 
-#: init/job.c:998 init/process.c:82
+#: init/job.c:1023 init/process.c:82
 msgid "post-start"
 msgstr ""
 
-#: init/job.c:1000
+#: init/job.c:1025
 msgid "running"
 msgstr ""
 
-#: init/job.c:1002 init/process.c:84
+#: init/job.c:1027 init/process.c:84
 msgid "pre-stop"
 msgstr ""
 
-#: init/job.c:1004
+#: init/job.c:1029
 msgid "stopping"
 msgstr ""
 
-#: init/job.c:1006
+#: init/job.c:1031
 msgid "killed"
 msgstr ""
 
-#: init/job.c:1008 init/process.c:86
+#: init/job.c:1033 init/process.c:86
 msgid "post-stop"
 msgstr ""
 
-#: init/job.c:1088 init/job_class.c:754
+#: init/job.c:1113 init/job_class.c:756
 #, c-format
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1152 init/job.c:1217 init/job_class.c:873 init/job_class.c:996
+#: init/job.c:1177 init/job.c:1242 init/job_class.c:875 init/job_class.c:998
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
 
-#: init/job_class.c:557 init/job_class.c:602 init/job_class.c:865
-#: init/job_class.c:988
+#: init/job_class.c:559 init/job_class.c:604 init/job_class.c:867
+#: init/job_class.c:990
 #, c-format
 msgid "Unknown instance: %s"
 msgstr ""
 
-#: init/job_process.c:276
+#: init/job_process.c:279
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr ""
 
-#: init/job_process.c:282
+#: init/job_process.c:285
 msgid "Temporary process spawn error"
 msgstr ""
 
-#: init/job_process.c:289
+#: init/job_process.c:292
 #, c-format
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:625
+#: init/job_process.c:399
+#, c-format
+msgid "Pausing %s (%d) [pre-exec] for debug"
+msgstr ""
+
+#: init/job_process.c:453
+#, c-format
+msgid "Failed to open system console: %s"
+msgstr ""
+
+#: init/job_process.c:669
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:680
+#: init/job_process.c:724
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:685
+#: init/job_process.c:729
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:690
+#: init/job_process.c:734
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:695
+#: init/job_process.c:739
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:700
+#: init/job_process.c:744
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:705
+#: init/job_process.c:749
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:710
+#: init/job_process.c:754
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:741
+#: init/job_process.c:785
 #, c-format
 msgid "Sending TERM signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:749
+#: init/job_process.c:793
 #, c-format
 msgid "Failed to send TERM signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:789
+#: init/job_process.c:833
 #, c-format
 msgid "Sending KILL signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:797
+#: init/job_process.c:841
 #, c-format
 msgid "Failed to send KILL signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:846
+#: init/job_process.c:901
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:851
+#: init/job_process.c:906
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:866
+#: init/job_process.c:921
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:870
+#: init/job_process.c:925
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:884
+#: init/job_process.c:939
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:888
+#: init/job_process.c:943
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:902
+#: init/job_process.c:957
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:906
+#: init/job_process.c:961
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1039
+#: init/job_process.c:1096
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1045
+#: init/job_process.c:1102
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1259
+#: init/job_process.c:1342
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1272 init/job_process.c:1467
+#: init/job_process.c:1355 init/job_process.c:1550
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1312 init/job_process.c:1403 init/job_process.c:1458
+#: init/job_process.c:1395 init/job_process.c:1486 init/job_process.c:1541
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1352
+#: init/job_process.c:1435
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1387
+#: init/job_process.c:1470
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1394
+#: init/job_process.c:1477
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1453
+#: init/job_process.c:1536
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
 
-#: init/main.c:115
+#: init/main.c:117
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:117
+#: init/main.c:119
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:128 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
+#: init/main.c:130 util/reboot.c:167 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:137
+#: init/main.c:139
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:187 init/main.c:391
+#: init/main.c:187 init/main.c:456
 msgid "Unable to set root directory"
 msgstr ""
 
@@ -370,25 +380,25 @@ msgstr ""
 msgid "Unable to mount /sys filesystem"
 msgstr ""
 
-#: init/main.c:290
+#: init/main.c:292
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:408
+#: init/main.c:473
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:412
+#: init/main.c:477
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:498
+#: init/main.c:563
 msgid "Reconnecting to system bus"
 msgstr ""
 
-#: init/main.c:504
+#: init/main.c:569
 msgid "Unable to connect to the system bus"
 msgstr ""
 
@@ -579,59 +589,59 @@ msgid ""
 "Without arguments, this outputs the current log priority."
 msgstr ""
 
-#: util/reboot.c:113
+#: util/reboot.c:114
 msgid "don't sync before reboot or halt"
 msgstr ""
 
-#: util/reboot.c:115
+#: util/reboot.c:116
 msgid "force reboot or halt, don't call shutdown(8)"
 msgstr ""
 
-#: util/reboot.c:117
+#: util/reboot.c:118
 msgid "switch off the power when called as halt"
 msgstr ""
 
-#: util/reboot.c:119
+#: util/reboot.c:120
 msgid "don't actually reboot or halt, just write wtmp record"
 msgstr ""
 
-#: util/reboot.c:144
+#: util/reboot.c:145
 msgid "Halt the system."
 msgstr ""
 
-#: util/reboot.c:147
+#: util/reboot.c:148
 msgid "Power off the system."
 msgstr ""
 
-#: util/reboot.c:150
+#: util/reboot.c:151
 msgid "Reboot the system."
 msgstr ""
 
-#: util/reboot.c:154
+#: util/reboot.c:155
 msgid ""
 "This command is intended to instruct the kernel to reboot or halt the "
 "system; when run without the -f option, or when in a system runlevel other "
 "than 0 or 6, it will actually execute /sbin/shutdown.\n"
 msgstr ""
 
-#: util/reboot.c:209
+#: util/reboot.c:211
 msgid "Calling shutdown"
 msgstr ""
 
-#: util/reboot.c:212
+#: util/reboot.c:214
 #, c-format
 msgid "Unable to execute shutdown: %s"
 msgstr ""
 
-#: util/reboot.c:233
+#: util/reboot.c:235
 msgid "Rebooting"
 msgstr ""
 
-#: util/reboot.c:237
+#: util/reboot.c:239
 msgid "Halting"
 msgstr ""
 
-#: util/reboot.c:241
+#: util/reboot.c:243
 msgid "Powering off"
 msgstr ""
 
@@ -743,37 +753,37 @@ msgstr ""
 msgid "Unable to write pid file"
 msgstr ""
 
-#: util/shutdown.c:511
+#: util/shutdown.c:514
 msgid "Shutdown cancelled"
 msgstr ""
 
-#: util/shutdown.c:596
+#: util/shutdown.c:599
 msgid "The system is going down for power off NOW!"
 msgstr ""
 
-#: util/shutdown.c:609
+#: util/shutdown.c:612
 msgid "The system is going down for halt NOW!"
 msgstr ""
 
-#: util/shutdown.c:622
+#: util/shutdown.c:625
 msgid "The system is going down for maintenance NOW!"
 msgstr ""
 
-#: util/shutdown.c:635
+#: util/shutdown.c:638
 msgid "The system is going down for reboot NOW!"
 msgstr ""
 
-#: util/shutdown.c:682
+#: util/shutdown.c:685
 #, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr ""
 
-#: util/shutdown.c:727
+#: util/shutdown.c:730
 #, c-format
 msgid "Broadcast message from %s@%s"
 msgstr ""
 
-#: util/shutdown.c:729
+#: util/shutdown.c:732
 #, c-format
 msgid "(%s) at %d:%02d ..."
 msgstr ""

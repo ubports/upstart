@@ -150,6 +150,7 @@ typedef struct job_class {
 	char           *chdir;
 
 	int             deleted;
+	int             debug;
 } JobClass;
 
 
