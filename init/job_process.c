@@ -145,7 +145,8 @@ job_process_run (Job         *job,
 	nih_local char  *script = NULL;
 	char           **e;
 	size_t           argc, envc;
-	int              error = FALSE, fds[2], trace = FALSE, shell = FALSE;
+	int              fds[2] = { -1, -1 };
+	int              error = FALSE, trace = FALSE, shell = FALSE;
 
 	nih_assert (job != NULL);
 
@@ -208,12 +209,9 @@ job_process_run (Job         *job,
 
 			shell = TRUE;
 
-			/* FIXME actually always want it to be /proc/self/fd/3 and
-			 * dup2() in the child to make it that way ... no way
-			 * of passing that yet
-			 */
 			cmd = NIH_MUST (nih_sprintf (argv, "%s/%d",
-						     "/proc/self/fd", fds[0]));
+						     "/proc/self/fd",
+						     JOB_PROCESS_SCRIPT_FD));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}
@@ -259,7 +257,7 @@ job_process_run (Job         *job,
 
 	/* Spawn the process, repeat until fork() works */
 	while ((job->pid[process] = job_process_spawn (job->class, argv,
-						       env, trace)) < 0) {
+						       env, trace, fds[0])) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -321,7 +319,8 @@ job_process_run (Job         *job,
 		 * a path. Instruct the shell to close this extra fd and
 		 * not to leak it.
 		 */
-		NIH_ZERO (nih_io_printf (io, "exec %d<&-\n", fds[0]));
+		NIH_ZERO (nih_io_printf (io, "exec %d<&-\n",
+					 JOB_PROCESS_SCRIPT_FD));
 
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
@@ -336,7 +335,8 @@ job_process_run (Job         *job,
  * @class: job class of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
- * @trace: whether to trace this process.
+ * @trace: whether to trace this process,
+ * @script_fd: script file descriptor.
  *
  * This function spawns a new process using the @class details to set up the
  * environment for it; the process is always a session and process group
@@ -351,6 +351,9 @@ job_process_run (Job         *job,
  * cause the process to be stopped when the exec() call is made.  You must
  * wait for this and then may use it to set options before continuing the
  * process.
+ *
+ * If @script_fd is not -1, this file descriptor is dup()d to the special fd 9
+ * (moving any other out of the way if necessary).
  *
  * This function only spawns the process, it is up to the caller to ensure
  * that the information is saved into the job and that the process is watched,
@@ -367,7 +370,8 @@ pid_t
 job_process_spawn (JobClass     *class,
 		   char * const  argv[],
 		   char * const *env,
-		   int           trace)
+		   int           trace,
+		   int           script_fd)
 {
 	sigset_t  child_set, orig_set;
 	pid_t     pid;
@@ -433,7 +437,23 @@ job_process_spawn (JobClass     *class,
 	 * far because read() returned zero.
 	 */
 	close (fds[0]);
+	if (fds[1] == JOB_PROCESS_SCRIPT_FD) {
+		int tmp = dup2 (fds[1], fds[0]);
+		close (fds[1]);
+		fds[1] = tmp;
+	}
 	nih_io_set_cloexec (fds[1]);
+
+	/* Move the script fd to special fd 9; the only gotcha is if that
+	 * would be our error descriptor, but that's handled above.
+	 */
+	if (script_fd != -1) {
+		int tmp = dup2 (script_fd, JOB_PROCESS_SCRIPT_FD);
+		if (tmp < 0)
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		close (script_fd);
+		script_fd = tmp;
+	}
 
 	/* Become the leader of a new session and process group, shedding
 	 * any controlling tty (which we shouldn't have had anyway).
@@ -664,6 +684,11 @@ job_process_error_read (int fd)
 	err->error.number = JOB_PROCESS_ERROR;
 
 	switch (err->type) {
+	case JOB_PROCESS_ERROR_DUP:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to move script fd: %s"),
+				  strerror (err->errnum)));
+		break;
 	case JOB_PROCESS_ERROR_CONSOLE:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to open console: %s"),

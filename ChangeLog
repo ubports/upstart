@@ -1,3 +1,14 @@
+2011-05-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_run): Always make the shell script
+	fd 9, since that's the highest that shells are required by POSIX to
+	support.  Pass the file descriptor to job_process_spawn()
+	(job_process_run): Accept the extra file descriptor, moving it to fd 9.
+	(job_process_error_read): Add handling for error condition.
+	* init/job_process.h: Adjust prototypes, add constant
+	* init/tests/test_job_process.c (test_spawn): Add argument to call in
+	tests
+
 2011-03-22  Scott James Remnant  <scott@netsplit.com>
 
 	* configure.ac: Bump version to 1.3
