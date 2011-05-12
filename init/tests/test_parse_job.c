@@ -4799,6 +4799,39 @@ test_stanza_kill (void)
 	}
 
 
+	/* Check that a kill stanza with the signal argument and signal,
+	 * sets the right signal on the jobs class.
+	 */
+	TEST_FEATURE ("with signal and single argument");
+	strcpy (buf, "kill signal INT\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->kill_signal, SIGINT);
+
+		nih_free (job);
+	}
+
+
 	/* Check that the last of multiple kill stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple timeout and single argument stanzas");
@@ -4827,6 +4860,37 @@ test_stanza_kill (void)
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
 		TEST_EQ (job->kill_timeout, 10);
+
+		nih_free (job);
+	}
+
+
+	TEST_FEATURE ("with multiple signal and single argument stanzas");
+	strcpy (buf, "kill signal INT\n");
+	strcat (buf, "kill signal TERM\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->kill_signal, SIGTERM);
 
 		nih_free (job);
 	}
@@ -4885,6 +4949,25 @@ test_stanza_kill (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill stanza with the timeout argument but no timeout
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with signal and missing argument");
+	strcpy (buf, "kill signal\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 11);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -4965,12 +5048,51 @@ test_stanza_kill (void)
 	nih_free (err);
 
 
+	/* Check that a kill signal stanza with an unknown signal argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with signal and unknown signal argument");
+	strcpy (buf, "kill signal foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_SIGNAL);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
 	/* Check that a kill stanza with the timeout argument and timeout,
 	 * but with an extra argument afterwards results in a syntax
 	 * error.
 	 */
 	TEST_FEATURE ("with timeout and extra argument");
 	strcpy (buf, "kill timeout 99 foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill stanza with the signal argument and signal,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with signal and extra argument");
+	strcpy (buf, "kill signal INT foo\n");
 
 	pos = 0;
 	lineno = 1;

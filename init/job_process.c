@@ -802,9 +802,9 @@ job_process_error_read (int fd)
  * @process: process to be killed.
  *
  * This function forces a @job to leave its current state by sending
- * @process the TERM signal, and maybe later the KILL signal.  The actual
- * state changes are performed by job_child_reaper when the process
- * has actually terminated.
+ * @process the "kill signal" defined signal (TERM by default), and maybe
+ * later the KILL signal.  The actual state changes are performed by
+ * job_child_reaper when the process has actually terminated.
  **/
 void
 job_process_kill (Job         *job,
@@ -815,15 +815,17 @@ job_process_kill (Job         *job,
 	nih_assert (job->kill_timer == NULL);
 	nih_assert (job->kill_process = -1);
 
-	nih_info (_("Sending TERM signal to %s %s process (%d)"),
+	nih_info (_("Sending %s signal to %s %s process (%d)"),
+		  nih_signal_to_name (job->class->kill_signal),
 		  job_name (job), process_name (process), job->pid[process]);
 
-	if (system_kill (job->pid[process], FALSE) < 0) {
+	if (system_kill (job->pid[process], job->class->kill_signal) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
+			nih_warn (_("Failed to send %s signal to %s %s process (%d): %s"),
+				  nih_signal_to_name (job->class->kill_signal),
 				  job_name (job), process_name (process),
 				  job->pid[process], err->message);
 		nih_free (err);
@@ -863,15 +865,17 @@ job_process_kill_timer (Job      *job,
 	job->kill_timer = NULL;
 	job->kill_process = -1;
 
-	nih_info (_("Sending KILL signal to %s %s process (%d)"),
+	nih_info (_("Sending %s signal to %s %s process (%d)"),
+		  "KILL",
 		  job_name (job), process_name (process), job->pid[process]);
 
-	if (system_kill (job->pid[process], TRUE) < 0) {
+	if (system_kill (job->pid[process], SIGKILL) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
+			nih_warn (_("Failed to send %s signal to %s %s process (%d): %s"),
+				  "KILL",
 				  job_name (job), process_name (process),
 				  job->pid[process], err->message);
 		nih_free (err);

@@ -563,10 +563,20 @@ may be specified for either.
 .\"
 .SS Miscellaneous
 .TP
+.B kill signal \fISIGNAL
+Specifies the stopping signal, 
+.I SIGTERM
+by default, a job's main process will receive when stopping the
+running job.
+
+.nf
+kill signal INT
+.fi
+.\"
+.TP
 .B kill timeout \fIINTERVAL
 Specifies the interval between sending the job's main process the
-.I SIGTERM
-and
+"stopping" (see above) and
 .I SIGKILL
 signals when stopping the running job.
 .\"

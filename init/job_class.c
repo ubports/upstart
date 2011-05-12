@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -199,6 +200,7 @@ job_class_new (const void *parent,
 	class->task = FALSE;
 
 	class->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
+	class->kill_signal = SIGTERM;
 
 	class->respawn = FALSE;
 	class->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;

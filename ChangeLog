@@ -1,5 +1,22 @@
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
 
+	* init/job_class.h (JobClass): Add kill signal member
+	* init/job_class.c (job_class_new): Initialise kill signal
+	* init/tests/test_job_class.c (test_new): Check kill signal initialised
+	correctly.
+	* init/system.c (system_kill): Change to accept a signal rather than
+	a boolean.
+	* init/system.h: Update prototype
+	* init/tests/test_system.c (test_kill): Update tests to pass signals
+	by value.
+	* init/job_process.c (job_process_kill, job_process_kill_timer): Pass
+	the configured kill signal, or SIGKILL, to the function rather than
+	TRUE/FALSE.
+	* init/parse_job.c (stanza_kill): Add parsing for kill signal.
+	* init/tests/test_parse_job.c (test_stanza_kill): Check parsing works
+	* init/errors.h: Add illegal signal error and string.
+	* init/man/init.5: Update documentation
+
 	* init/job_class.h (JobClass): Replace oom_adj with oom_score_adj
 	* init/job_class.c (job_class_new): Replace oom_adj with oom_score_adj.
 	* init/job_process.c (job_process_spawn): Write the new score
