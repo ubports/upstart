@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-05-15 13:20+0100\n"
+"POT-Creation-Date: 2011-05-15 13:57+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -68,13 +68,77 @@ msgstr ""
 msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:548 init/job_class.c:579 init/job_class.c:778
-#: init/job_class.c:908 init/job_class.c:1043
+#: init/control.c:548 init/job_class.c:581 init/job_class.c:780
+#: init/job_class.c:910 init/job_class.c:1045
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
 #: init/control.c:703
 msgid "The log priority given was not recognised"
+msgstr ""
+
+#: init/errors.h:58
+msgid "Illegal parameter"
+msgstr ""
+
+#: init/errors.h:59
+msgid "Unknown parameter"
+msgstr ""
+
+#: init/errors.h:60 init/errors.h:71
+msgid "Expected operator"
+msgstr ""
+
+#: init/errors.h:61
+msgid "Mismatched braces"
+msgstr ""
+
+#: init/errors.h:62
+msgid "Illegal interval, expected number of seconds"
+msgstr ""
+
+#: init/errors.h:63
+msgid "Illegal exit status, expected integer"
+msgstr ""
+
+#: init/errors.h:64
+msgid "Illegal signal status, expected integer"
+msgstr ""
+
+#: init/errors.h:65
+msgid "Illegal file creation mask, expected octal integer"
+msgstr ""
+
+#: init/errors.h:66
+msgid "Illegal nice value, expected -20 to 19"
+msgstr ""
+
+#: init/errors.h:67
+msgid "Illegal oom adjustment, expected -16 to 15 or 'never'"
+msgstr ""
+
+#: init/errors.h:68
+msgid "Illegal oom score adjustment, expected -999 to 1000 or 'never'"
+msgstr ""
+
+#: init/errors.h:69
+msgid "Illegal limit, expected 'unlimited' or integer"
+msgstr ""
+
+#: init/errors.h:70
+msgid "Expected event"
+msgstr ""
+
+#: init/errors.h:72
+msgid "Expected variable name before value"
+msgstr ""
+
+#: init/errors.h:73
+msgid "Mismatched parentheses"
+msgstr ""
+
+#: init/errors.h:74
+msgid "Name already taken"
 msgstr ""
 
 #: init/event.c:275
@@ -165,193 +229,188 @@ msgstr ""
 msgid "post-stop"
 msgstr ""
 
-#: init/job.c:1124 init/job.c:1199 init/job.c:1275 init/job_class.c:770
-#: init/job_class.c:900 init/job_class.c:1035
+#: init/job.c:1124 init/job.c:1199 init/job.c:1275 init/job_class.c:772
+#: init/job_class.c:902 init/job_class.c:1037
 #, c-format
 msgid "You do not have permission to modify job: %s"
 msgstr ""
 
-#: init/job.c:1132 init/job_class.c:824
+#: init/job.c:1132 init/job_class.c:826
 #, c-format
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1207 init/job.c:1283 init/job_class.c:954 init/job_class.c:1088
+#: init/job.c:1207 init/job.c:1283 init/job_class.c:956 init/job_class.c:1090
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
 
-#: init/job_class.c:616 init/job_class.c:661 init/job_class.c:946
-#: init/job_class.c:1080
+#: init/job_class.c:618 init/job_class.c:663 init/job_class.c:948
+#: init/job_class.c:1082
 #, c-format
 msgid "Unknown instance: %s"
 msgstr ""
 
-#: init/job_process.c:280
+#: init/job_process.c:278
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr ""
 
-#: init/job_process.c:286
+#: init/job_process.c:284
 msgid "Temporary process spawn error"
 msgstr ""
 
-#: init/job_process.c:293
+#: init/job_process.c:291
 #, c-format
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:400
+#: init/job_process.c:404
 #, c-format
 msgid "Pausing %s (%d) [pre-exec] for debug"
 msgstr ""
 
-#: init/job_process.c:454
+#: init/job_process.c:474
 #, c-format
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:728
+#: init/job_process.c:756
+#, c-format
+msgid "unable to move script fd: %s"
+msgstr ""
+
+#: init/job_process.c:761
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:783
+#: init/job_process.c:816
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:788
+#: init/job_process.c:821
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:793
+#: init/job_process.c:826
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:798
+#: init/job_process.c:831
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:803
+#: init/job_process.c:836
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:808
+#: init/job_process.c:841
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:813
+#: init/job_process.c:846
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:844
+#: init/job_process.c:877 init/job_process.c:927
 #, c-format
-msgid "Sending TERM signal to %s %s process (%d)"
+msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:852
+#: init/job_process.c:886 init/job_process.c:936
 #, c-format
-msgid "Failed to send TERM signal to %s %s process (%d): %s"
+msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:892
-#, c-format
-msgid "Sending KILL signal to %s %s process (%d)"
-msgstr ""
-
-#: init/job_process.c:900
-#, c-format
-msgid "Failed to send KILL signal to %s %s process (%d): %s"
-msgstr ""
-
-#: init/job_process.c:960
+#: init/job_process.c:997
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:965
+#: init/job_process.c:1002
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:980
+#: init/job_process.c:1017
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:984
+#: init/job_process.c:1021
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:998
+#: init/job_process.c:1035
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1002
+#: init/job_process.c:1039
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1016
+#: init/job_process.c:1053
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1020
+#: init/job_process.c:1057
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1155
+#: init/job_process.c:1192
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1161
+#: init/job_process.c:1198
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1401
+#: init/job_process.c:1438
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1414 init/job_process.c:1609
+#: init/job_process.c:1451 init/job_process.c:1646
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1454 init/job_process.c:1545 init/job_process.c:1600
+#: init/job_process.c:1491 init/job_process.c:1582 init/job_process.c:1637
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1494
+#: init/job_process.c:1531
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1529
+#: init/job_process.c:1566
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1536
+#: init/job_process.c:1573
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1595
+#: init/job_process.c:1632
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
