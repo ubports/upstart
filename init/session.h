@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,8 +35,33 @@
  * @user: uid all jobs are switched to,
  * @conf_path: configuration path.
  *
- * This structure is used to identify collections of jobs that share either
- * a common @chroot and/or common @user.
+ * This structure is used to identify collections of jobs
+ * that share either a common @chroot and/or common @user.
+ *
+ * Summary of Session values for different environments:
+ *
+ * +-------------+---------------------------------------+
+ * |    D-Bus    |             Session                   |
+ * +------+------+--------+-----+------------------------+
+ * | user | PID  | chroot | uid | Object contents        |
+ * +------+------+--------+-----+------------------------+
+ * | 0    | >0   | no     | 0   | NULL (*1)              |
+ * | >0   | "0"  | no     | >0  | only uid set.          |
+ * | 0    | >0   | yes    | 0   | chroot + conf_path set |
+ * | >0   | ??   | yes    | >0  | XXX: fails (*2)        |
+ * +------+------+--------+-----+------------------------+
+ *
+ * Notes:
+ *
+ * (*1) - The "NULL session" represents the "traditional" environment
+ * before sessions were introduced (namely a non-chroot environment
+ * where all job and event operations were handled by uid 0 (root)).
+ *
+ * (*2) - error is:
+ *
+ *   initctl: Unable to connect to system bus: Failed to connect to socket
+ *   /var/run/dbus/system_bus_socket: No such file or directory
+ * 
  **/
 typedef struct session {
 	NihList entry;

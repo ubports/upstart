@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009,2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,7 +45,9 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_CHROOT,
 	JOB_PROCESS_ERROR_CHDIR,
 	JOB_PROCESS_ERROR_PTRACE,
-	JOB_PROCESS_ERROR_EXEC
+	JOB_PROCESS_ERROR_EXEC,
+	JOB_PROCESS_ERROR_SETUID,
+	JOB_PROCESS_ERROR_SETGID,
 } JobProcessErrorType;
 
 /**

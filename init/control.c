@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -383,8 +383,8 @@ control_get_job_by_name (void            *data,
 			 const char      *name,
 			 char           **job)
 {
-	Session * session;
-	JobClass *class;
+	Session  *session;
+	JobClass *class = NULL;
 	JobClass *global_class = NULL;
 
 	nih_assert (message != NULL);
@@ -404,14 +404,23 @@ control_get_job_by_name (void            *data,
 	session = session_from_dbus (NULL, message);
 
 	/* Lookup the job */
-	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	class = (JobClass *)nih_hash_search (job_classes, name, NULL);
+
 	while (class && (class->session != session)) {
-		if ((! class->session) && (! session->chroot))
+
+		/* Found a match in the global session which may be used
+		 * later if no matching user session job exists.
+		 */
+		if ((! class->session) && (session && ! session->chroot))
 			global_class = class;
+
 		class = (JobClass *)nih_hash_search (job_classes, name,
-						     &class->entry);
+				&class->entry);
 	}
 
+	/* If no job with the given name exists in the appropriate
+	 * session, look in the global namespace (aka the NULL session).
+	 */ 
 	if (! class)
 		class = global_class;
 
@@ -469,7 +478,7 @@ control_get_all_jobs (void             *data,
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		if ((class->session || session->chroot)
+		if ((class->session || (session && session->chroot))
 		    && (class->session != session))
 			continue;
 

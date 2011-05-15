@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -100,7 +100,7 @@
 
 /* Prototypes for static functions */
 static void job_class_add    (JobClass *class);
-static int  job_class_remove (JobClass *class);
+static int  job_class_remove (JobClass *class, const Session *session);
 
 
 /**
@@ -128,13 +128,15 @@ job_class_init (void)
 
 /**
  * job_class_new:
- * @parent: parent for new job class,
- * @name: name of new job class.
  *
- * Allocates and returns a new JobClass structure with the @name given.
- * It will not be automatically added to the job classes table, it is up
- * to the caller to ensure this is done using job_class_register() once
- * the class has been set up.
+ * @parent: parent for new job class,
+ * @name: name of new job class,
+ * @session: session.
+ *
+ * Allocates and returns a new JobClass structure with the given @name
+ * and @session. It will not be automatically added to the job classes
+ * table, it is up to the caller to ensure this is done using
+ * job_class_register() once the class has been set up.
  *
  * If @parent is not NULL, it should be a pointer to another object which
  * will be used as a parent for the returned job class.  When all parents
@@ -278,19 +280,27 @@ error:
 int
 job_class_consider (JobClass *class)
 {
-	JobClass *registered, *best;
+	JobClass *registered = NULL, *best = NULL;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
-	best = conf_select_job (class->name);
+	best = conf_select_job (class->name, class->session);
 	nih_assert (best != NULL);
+	nih_assert (best->session == class->session);
 
-	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
+	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != class->session)
+	{
+		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	}
+
 	if (registered != best) {
 		if (registered)
-			if (! job_class_remove (registered))
+			if (! job_class_remove (registered, class->session))
 				return FALSE;
 
 		job_class_add (best);
@@ -315,18 +325,25 @@ job_class_consider (JobClass *class)
 int
 job_class_reconsider (JobClass *class)
 {
-	JobClass *registered, *best;
+	JobClass *registered = NULL, *best = NULL;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
-	best = conf_select_job (class->name);
+	best = conf_select_job (class->name, class->session);
 
-	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
+	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != class->session)
+	{
+		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	}
+
 	if (registered == class) {
 		if (class != best) {
-			if (! job_class_remove (class))
+			if (! job_class_remove (class, class->session))
 				return FALSE;
 
 			job_class_add (best);
@@ -367,18 +384,23 @@ job_class_add (JobClass *class)
 
 /**
  * job_class_remove:
- * @class: class to remove.
+ * @class: class to remove,
+ * @session: Session of @class.
  *
  * Removes @class from the hash table and unregisters it from all current
  * D-Bus connections.
  *
  * Returns: TRUE if class could be unregistered, FALSE if there are
- * active instances that prevent unregistration.
+ * active instances that prevent unregistration, or if @session
+ * does not match the session associated with @class.
  **/
 static int
-job_class_remove (JobClass *class)
+job_class_remove (JobClass *class, const Session *session)
 {
 	nih_assert (class != NULL);
+
+	if (class->session != session)
+		return FALSE;
 
 	control_init ();
 

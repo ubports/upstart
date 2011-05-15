@@ -2,7 +2,7 @@
  *
  * job.c - core state machine of tasks and services
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -100,8 +100,14 @@ job_new (JobClass   *class,
 
 	job->class = class;
 
-	job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
-				   class->name, job->name, NULL);
+	if (job->class->session && job->class->session->chroot) {
+		/* JobClass already contains a valid D-Bus path prefix for the job */
+		job->path = nih_dbus_path (job, class->path, job->name, NULL);
+	} else {
+		job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
+				class->name, job->name, NULL);
+	}
+
 	if (! job->path)
 		goto error;
 

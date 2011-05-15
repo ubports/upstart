@@ -89,12 +89,17 @@ static const char *argv0 = NULL;
 static int restart = FALSE;
 
 
+extern int disable_sessions;
+
 /**
  * options:
  *
  * Command-line options we accept.
  **/
 static NihOption options[] = {
+
+	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+		NULL, NULL, &disable_sessions, NULL },
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
 
 	/* Ignore invalid options */
