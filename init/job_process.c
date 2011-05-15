@@ -2,7 +2,8 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Google Inc.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,6 +39,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <utmp.h>
+#include <utmpx.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -114,7 +117,7 @@ static void job_process_trace_exec      (Job *job, ProcessType process);
  * characters within the command member, in which case it is executed
  * directly using exec after splitting on whitespace.
  *
- * When exectued with the shell, if the command (which may be an entire
+ * When executed with the shell, if the command (which may be an entire
  * script) is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
  * to read commands from one of the special /proc/self/fd/NN devices and NihIo
@@ -142,7 +145,8 @@ job_process_run (Job         *job,
 	nih_local char  *script = NULL;
 	char           **e;
 	size_t           argc, envc;
-	int              error = FALSE, fds[2], trace = FALSE, shell = FALSE;
+	int              fds[2] = { -1, -1 };
+	int              error = FALSE, trace = FALSE, shell = FALSE;
 
 	nih_assert (job != NULL);
 
@@ -205,12 +209,9 @@ job_process_run (Job         *job,
 
 			shell = TRUE;
 
-			/* FIXME actually always want it to be /proc/self/fd/3 and
-			 * dup2() in the child to make it that way ... no way
-			 * of passing that yet
-			 */
 			cmd = NIH_MUST (nih_sprintf (argv, "%s/%d",
-						     "/proc/self/fd", fds[0]));
+						     "/proc/self/fd",
+						     JOB_PROCESS_SCRIPT_FD));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}
@@ -256,7 +257,7 @@ job_process_run (Job         *job,
 
 	/* Spawn the process, repeat until fork() works */
 	while ((job->pid[process] = job_process_spawn (job->class, argv,
-						       env, trace)) < 0) {
+						       env, trace, fds[0])) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -313,6 +314,14 @@ job_process_run (Job         *job,
 			nih_free (err);
 		}
 
+		/* We're feeding using a pipe, which has a file descriptor
+		 * on the child end even though it open()s it again using
+		 * a path. Instruct the shell to close this extra fd and
+		 * not to leak it.
+		 */
+		NIH_ZERO (nih_io_printf (io, "exec %d<&-\n",
+					 JOB_PROCESS_SCRIPT_FD));
+
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
 	}
@@ -326,7 +335,8 @@ job_process_run (Job         *job,
  * @class: job class of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
- * @trace: whether to trace this process.
+ * @trace: whether to trace this process,
+ * @script_fd: script file descriptor.
  *
  * This function spawns a new process using the @class details to set up the
  * environment for it; the process is always a session and process group
@@ -341,6 +351,9 @@ job_process_run (Job         *job,
  * cause the process to be stopped when the exec() call is made.  You must
  * wait for this and then may use it to set options before continuing the
  * process.
+ *
+ * If @script_fd is not -1, this file descriptor is dup()d to the special fd 9
+ * (moving any other out of the way if necessary).
  *
  * This function only spawns the process, it is up to the caller to ensure
  * that the information is saved into the job and that the process is watched,
@@ -357,7 +370,8 @@ pid_t
 job_process_spawn (JobClass     *class,
 		   char * const  argv[],
 		   char * const *env,
-		   int           trace)
+		   int           trace,
+		   int           script_fd)
 {
 	sigset_t  child_set, orig_set;
 	pid_t     pid;
@@ -385,6 +399,11 @@ job_process_spawn (JobClass     *class,
 	 */
 	pid = fork ();
 	if (pid > 0) {
+		if (class->debug) {
+			nih_info (_("Pausing %s (%d) [pre-exec] for debug"),
+			  class->name, pid);
+		}
+
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
@@ -418,7 +437,23 @@ job_process_spawn (JobClass     *class,
 	 * far because read() returned zero.
 	 */
 	close (fds[0]);
+	if (fds[1] == JOB_PROCESS_SCRIPT_FD) {
+		int tmp = dup2 (fds[1], fds[0]);
+		close (fds[1]);
+		fds[1] = tmp;
+	}
 	nih_io_set_cloexec (fds[1]);
+
+	/* Move the script fd to special fd 9; the only gotcha is if that
+	 * would be our error descriptor, but that's handled above.
+	 */
+	if (script_fd != -1) {
+		int tmp = dup2 (script_fd, JOB_PROCESS_SCRIPT_FD);
+		if (tmp < 0)
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		close (script_fd);
+		script_fd = tmp;
+	}
 
 	/* Become the leader of a new session and process group, shedding
 	 * any controlling tty (which we shouldn't have had anyway).
@@ -478,16 +513,24 @@ job_process_spawn (JobClass     *class,
 
 	/* Adjust the process OOM killer priority.
 	 */
-	if (class->oom_adj) {
+	if (class->oom_score_adj) {
+		int oom_value;
 		snprintf (filename, sizeof (filename),
-			  "/proc/%d/oom_adj", getpid ());
-
+			  "/proc/%d/oom_score_adj", getpid ());
+		oom_value = class->oom_score_adj;
 		fd = fopen (filename, "w");
+		if ((! fd) && (errno == EACCES)) {
+			snprintf (filename, sizeof (filename),
+				  "/proc/%d/oom_adj", getpid ());
+			oom_value = (class->oom_score_adj
+				     * ((class->oom_score_adj < 0) ? 17 : 15)) / 1000;
+			fd = fopen (filename, "w");
+		}
 		if (! fd) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
 		} else {
-			fprintf (fd, "%d\n", class->oom_adj);
+			fprintf (fd, "%d\n", oom_value);
 
 			if (fclose (fd)) {
 				nih_error_raise_system ();
@@ -524,6 +567,23 @@ job_process_spawn (JobClass     *class,
 	 */
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
+
+	/* Notes:
+	 *
+	 * - we can't use pause() here since there would then be no way to
+	 *   resume the process without killing it.
+	 *
+	 * - we have to close the pipe back to the parent since if we don't,
+	 *   the parent hangs until the STOP is cleared. Although this may be
+	 *   acceptable for normal operation, this causes the test suite to
+	 *   fail. Note that closing the pipe means from this point onwards,
+	 *   the parent cannot know the true outcome of the spawn: that
+	 *   responsibility lies with the debugger.
+	 */
+	if (class->debug) {
+		close (fds[1]);
+		raise (SIGSTOP);
+	}
 
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {
@@ -632,6 +692,11 @@ job_process_error_read (int fd)
 	err->error.number = JOB_PROCESS_ERROR;
 
 	switch (err->type) {
+	case JOB_PROCESS_ERROR_DUP:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to move script fd: %s"),
+				  strerror (err->errnum)));
+		break;
 	case JOB_PROCESS_ERROR_CONSOLE:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to open console: %s"),
@@ -737,9 +802,9 @@ job_process_error_read (int fd)
  * @process: process to be killed.
  *
  * This function forces a @job to leave its current state by sending
- * @process the TERM signal, and maybe later the KILL signal.  The actual
- * state changes are performed by job_child_reaper when the process
- * has actually terminated.
+ * @process the "kill signal" defined signal (TERM by default), and maybe
+ * later the KILL signal.  The actual state changes are performed by
+ * job_child_reaper when the process has actually terminated.
  **/
 void
 job_process_kill (Job         *job,
@@ -750,15 +815,17 @@ job_process_kill (Job         *job,
 	nih_assert (job->kill_timer == NULL);
 	nih_assert (job->kill_process = -1);
 
-	nih_info (_("Sending TERM signal to %s %s process (%d)"),
+	nih_info (_("Sending %s signal to %s %s process (%d)"),
+		  nih_signal_to_name (job->class->kill_signal),
 		  job_name (job), process_name (process), job->pid[process]);
 
-	if (system_kill (job->pid[process], FALSE) < 0) {
+	if (system_kill (job->pid[process], job->class->kill_signal) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
+			nih_warn (_("Failed to send %s signal to %s %s process (%d): %s"),
+				  nih_signal_to_name (job->class->kill_signal),
 				  job_name (job), process_name (process),
 				  job->pid[process], err->message);
 		nih_free (err);
@@ -798,15 +865,17 @@ job_process_kill_timer (Job      *job,
 	job->kill_timer = NULL;
 	job->kill_process = -1;
 
-	nih_info (_("Sending KILL signal to %s %s process (%d)"),
+	nih_info (_("Sending %s signal to %s %s process (%d)"),
+		  "KILL",
 		  job_name (job), process_name (process), job->pid[process]);
 
-	if (system_kill (job->pid[process], TRUE) < 0) {
+	if (system_kill (job->pid[process], SIGKILL) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
+			nih_warn (_("Failed to send %s signal to %s %s process (%d): %s"),
+				  "KILL",
 				  job_name (job), process_name (process),
 				  job->pid[process], err->message);
 		nih_free (err);
@@ -836,6 +905,7 @@ job_process_handler (void           *data,
 {
 	Job         *job;
 	ProcessType  process;
+	NihLogLevel  priority;
 	const char  *sig;
 
 	nih_assert (pid > 0);
@@ -844,10 +914,20 @@ job_process_handler (void           *data,
 	 * job's process it was.  If we don't know about it, then we simply
 	 * ignore the event.
 	 */
-	nih_debug ("Ignored event %x (%d) for process %d", event, status, pid);
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
+
+	/* Check the job's normal exit clauses to see whether this is a failure
+	 * worth warning about.
+	 */
+	priority = NIH_LOG_WARN;
+	for (size_t i = 0; i < job->class->normalexit_len; i++) {
+		if (job->class->normalexit[i] == status) {
+			priority = NIH_LOG_INFO;
+			break;
+		}
+	}
 
 	switch (event) {
 	case NIH_CHILD_EXITED:
@@ -855,10 +935,10 @@ job_process_handler (void           *data,
 		 * normally (zero) or with a non-zero status.
 		 */
 		if (status) {
-			nih_warn (_("%s %s process (%d) "
-				    "terminated with status %d"),
-				  job_name (job), process_name (process),
-				  pid, status);
+			nih_log_message (priority, _("%s %s process (%d) "
+						     "terminated with status %d"),
+					 job_name (job), process_name (process),
+					 pid, status);
 		} else {
 			nih_info (_("%s %s process (%d) exited normally"),
 				  job_name (job), process_name (process), pid);
@@ -875,9 +955,9 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) killed by %s signal"),
-				  job_name (job), process_name (process),
-				  pid, sig);
+			nih_log_message (priority, _("%s %s process (%d) killed by %s signal"),
+					 job_name (job), process_name (process),
+					 pid, sig);
 		} else {
 			nih_warn (_("%s %s process (%d) killed by signal %d"),
 				  job_name (job), process_name (process),
@@ -977,6 +1057,8 @@ job_process_terminated (Job         *job,
 			int          status)
 {
 	int failed = FALSE, stop = FALSE, state = TRUE;
+	struct utmpx *utmptr;
+	struct timeval tv;
 
 	nih_assert (job != NULL);
 
@@ -1138,6 +1220,32 @@ job_process_terminated (Job         *job,
 		job->kill_timer = NULL;
 		job->kill_process = -1;
 	}
+
+	/* Find existing utmp entry for the process pid */
+	setutxent();
+	while ((utmptr = getutxent()) != NULL) {
+		if (utmptr->ut_pid == job->pid[process]) {
+			/* set type and clean ut_user, ut_host,
+			 * ut_time as described in utmp(5)
+			 */
+			utmptr->ut_type = DEAD_PROCESS;
+			memset(utmptr->ut_user, 0, UT_NAMESIZE);
+			memset(utmptr->ut_host, 0, UT_HOSTSIZE);
+			utmptr->ut_time = 0;
+			/* Update existing utmp file. */
+			pututxline(utmptr);
+
+			/* set ut_time for log */
+			gettimeofday(&tv, NULL);
+			utmptr->ut_tv.tv_sec = tv.tv_sec;
+			utmptr->ut_tv.tv_usec = tv.tv_usec;
+			/* Write wtmp entry */
+			updwtmpx (_PATH_WTMP, utmptr);
+
+			break;
+		}
+	}
+	endutxent();
 
 	/* Clear the process pid field */
 	job->pid[process] = 0;

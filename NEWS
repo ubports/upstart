@@ -1,9 +1,67 @@
-0.6.7  xxxx-xx-xx
+1.3  xxxx-xx-xx
+
+1.2  2011-03-22  "This sort of thing is my bag, baby"
+
+	* Fixed incorrect shell redirection syntax that broke at least
+	  pdksh.  (Bug: #739984)
+
+1.1  2011-03-16  "It's probably 'cause you think you're cooler than me"
+
+	* When /sbin/halt is called (without -p), this now results in the
+	  system being halted and not powered down. If you meant it to be
+	  powered down, use /sbin/poweroff.  (Bug: #532366)
+
+	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
+	  executed by Upstart.  (Bug: #619269)
+
+	* Fixed bug where console was closed too early, causing loss of error
+	  messages and non-functioning keyboard-request event,
+	  (Bug: #707151)
+
+	* Fixed bug where environment variables containing unusual characters
+	  were not accepted due to a mis-reading of POSIX.  (Bug: #567068).
+
+	* Fixed non-removal of symlinks on "make uninstall".  (Bug: #604227)
+
+	* Reduced priority of job termination messages from warn to info
+	  if the exit status or signal is listed in "normal exit".
+	  (Bug: #522197)
+
+1.0  2011-03-01  "This is a fertile land, and we will thrive"
+
+	* Fixed an assertion when a file named /etc/init/.conf is created.
+	  Discovered by Коренберг Марк (Bug: #720573)
+
+	* utmp entries will be replaced with DEAD_PROCESS ones when a
+	  pid supervised by Upstart terminates.  (Bug: #183729)
+
+	* shutdown now correctly returns error code if it fails to shutdown
+	  the system.
+
+	* Included bash completion script in contrib directory.
+          (Bug: #672067)
+
+0.6.7  2010-12-14  "Return of the Mole"
+
+	* A new "manual" stanza has been added to the configuration, this
+	  removes any previously defined "start on" stanza for job so that
+	  the job can only be started with initctl "start".  This allows
+	  quick disabling of a job with:
+
+		echo "manual" >> /etc/init/jobname.conf
 
 	* Upstart now emits a "GoalChanged" D-Bus signal immediately after
 	  changing the "goal" property of an instance, a "StateChanged"
 	  signal after changing the "state" property, and a "Failed" signal
 	  after marking an instance as failed.
+
+	* Job objects now include "start_on", "stop_on" and "emits"
+	  properties containing the appropriate information from the
+	  configuration.
+
+	* For developers, a "debug" stanza has been added; if present in a
+	  job, the job will wait before the exec call and can be attached
+	  to by gdb to examine Upstart's state.
 
 	* Manpage fixes.  (Bugs: #677392, #686734)
 

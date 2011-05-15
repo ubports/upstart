@@ -1,5 +1,6 @@
 /* upstart
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -61,6 +62,7 @@
 
 /* Prototypes for static functions */
 #ifndef DEBUG
+static int  logger_kmsg     (NihLogLevel priority, const char *message);
 static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
@@ -173,8 +175,6 @@ main (int   argc,
 	 */
 	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 		nih_free (nih_error_get ());
-	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
-		nih_free (nih_error_get ());
 
 	/* Set the PATH environment variable */
 	setenv ("PATH", PATH, TRUE);
@@ -210,6 +210,8 @@ main (int   argc,
 	}
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
+	nih_debug ("Running as PID %d (PPID %d)",
+		(int)getpid (), (int)getppid ());
 #endif /* DEBUG */
 
 
@@ -312,10 +314,12 @@ main (int   argc,
 
 #ifndef DEBUG
 	/* Now that the startup is complete, send all further logging output
-	 * to syslog instead of to the console.
+	 * to kmsg instead of to the console.
 	 */
-	openlog (program_name, LOG_CONS, LOG_DAEMON);
-	nih_log_set_logger (nih_logger_syslog);
+	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+		nih_free (nih_error_get ());
+
+	nih_log_set_logger (logger_kmsg);
 #endif /* DEBUG */
 
 
@@ -344,6 +348,67 @@ main (int   argc,
 
 
 #ifndef DEBUG
+/**
+ * logger_kmsg:
+ * @priority: priority of message being logged,
+ * @message: message to log.
+ *
+ * Outputs the @message to the kernel log message socket prefixed with an
+ * appropriate tag based on @priority, the program name and terminated with
+ * a new line.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+logger_kmsg (NihLogLevel priority,
+	     const char *message)
+{
+	int   tag;
+	FILE *kmsg;
+
+	nih_assert (message != NULL);
+
+	switch (priority) {
+	case NIH_LOG_DEBUG:
+		tag = '7';
+		break;
+	case NIH_LOG_INFO:
+		tag = '6';
+		break;
+	case NIH_LOG_MESSAGE:
+		tag = '5';
+		break;
+	case NIH_LOG_WARN:
+		tag = '4';
+		break;
+	case NIH_LOG_ERROR:
+		tag = '3';
+		break;
+	case NIH_LOG_FATAL:
+		tag = '2';
+		break;
+	default:
+		tag = 'd';
+	}
+
+	kmsg = fopen ("/dev/kmsg", "w");
+	if (! kmsg)
+		return -1;
+
+	if (fprintf (kmsg, "<%c>%s: %s\n", tag, program_name, message) < 0) {
+		int saved_errno = errno;
+		fclose (kmsg);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (fclose (kmsg) < 0)
+		return -1;
+
+	return 0;
+}
+
+
 /**
  * crash_handler:
  * @signum: signal number received.

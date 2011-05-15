@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -199,6 +200,7 @@ job_class_new (const void *parent,
 	class->task = FALSE;
 
 	class->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
+	class->kill_signal = SIGTERM;
 
 	class->respawn = FALSE;
 	class->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
@@ -211,7 +213,7 @@ job_class_new (const void *parent,
 
 	class->umask = JOB_DEFAULT_UMASK;
 	class->nice = 0;
-	class->oom_adj = 0;
+	class->oom_score_adj = 0;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		class->limits[i] = NULL;
@@ -220,6 +222,7 @@ job_class_new (const void *parent,
 	class->chdir = NULL;
 
 	class->deleted = FALSE;
+	class->debug   = FALSE;
 
 	return class;
 
@@ -1163,6 +1166,25 @@ job_class_get_version (JobClass        *class,
 }
 
 
+/**
+ * job_class_get_start_on:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @start_on: pointer for reply array.
+ *
+ * Implements the get method for the start_on property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the set of events that will start jobs of the given
+ * @class, this is returned as an array of the event tree flattened into
+ * reverse polish form.
+ *
+ * Each array element is an array of strings representing the events,
+ * or a single element containing "/OR" or "/AND" to represent the
+ * operators.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
 int
 job_class_get_start_on (JobClass *      class,
 			NihDBusMessage *message,
@@ -1223,6 +1245,25 @@ job_class_get_start_on (JobClass *      class,
 	return 0;
 }
 
+/**
+ * job_class_get_stop_on:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @stop_on: pointer for reply array.
+ *
+ * Implements the get method for the stop_on property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the set of events that will stop jobs of the given
+ * @class, this is returned as an array of the event tree flattened into
+ * reverse polish form.
+ *
+ * Each array element is an array of strings representing the events,
+ * or a single element containing "/OR" or "/AND" to represent the
+ * operators.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
 int
 job_class_get_stop_on (JobClass *      class,
 		       NihDBusMessage *message,
@@ -1283,6 +1324,20 @@ job_class_get_stop_on (JobClass *      class,
 	return 0;
 }
 
+/**
+ * job_class_get_emits:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @emits: pointer for reply array.
+ *
+ * Implements the get method for the emits property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the list of additional events of the given @class
+ * which will be stored as an array in @emits.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
 int
 job_class_get_emits (JobClass *      class,
 		     NihDBusMessage *message,

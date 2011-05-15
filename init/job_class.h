@@ -85,6 +85,7 @@ typedef enum console_type {
  * @expect: what to expect before entering the next state after spawned,
  * @task: start requests are not unblocked until instances have finished,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
+ * @kill_signal: first signal to send (usually SIGTERM),
  * @respawn: instances should be restarted if main process fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -93,7 +94,7 @@ typedef enum console_type {
  * @console: how to arrange processes' stdin/out/err file descriptors,
  * @umask: file mode creation mask,
  * @nice: process priority,
- * @oom_adj: OOM killer adjustment,
+ * @oom_score_adj: OOM killer score adjustment,
  * @limits: resource limits indexed by resource,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
@@ -129,6 +130,7 @@ typedef struct job_class {
 	int             task;
 
 	time_t          kill_timeout;
+	int		kill_signal;
 
 	int             respawn;
 	int             respawn_limit;
@@ -141,12 +143,13 @@ typedef struct job_class {
 
 	mode_t          umask;
 	int             nice;
-	int             oom_adj;
+	int             oom_score_adj;
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char           *chroot;
 	char           *chdir;
 
 	int             deleted;
+	int             debug;
 } JobClass;
 
 

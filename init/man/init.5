@@ -1,4 +1,4 @@
-.TH init 5 2010-02-04 "Upstart"
+.TH init 5 2011-05-12 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -56,7 +56,7 @@ or
 .B script
 stanzas, only one of which is permitted.  These specify the executable
 or shell script that will be run when the job is considered to be running.
-Once this process terminates, the job stop.
+Once this process terminates, the job stops.
 
 All processes are run with the full job environment available as
 environment variables in their process.
@@ -242,10 +242,10 @@ start on device-added SUBSYSTEM=tty DEVPATH=ttyS*
 
 start on net-device-added INTERFACE!=lo
 .fi
-.\"
 .TP
 .B stop on \fIEVENT \fR[[\fIKEY=\fR]\fIVALUE\fR]... [\fBand\fR|\fBor\fR...]
 The
+.\"
 .B stop on
 stanza defines the set of events that will cause the job to be automatically
 stopped.  It has the same syntax as
@@ -260,7 +260,18 @@ stop on stopping gdm or stopping kdm
 
 stop on device-removed DEVPATH=$DEVPATH
 .fi
-.\"
+
+.TP
+.B manual
+This stanza will disregard any
+.I previously seen
+.B start on
+definition.  By adding this stanza on any line below the
+.B start on
+definition, it provides the ability to stop a job from being
+automatically started.  When specified, the only way to start such a job
+is via \fBstart\fP (8).
+
 .SS Job environment
 Each job is run with the environment from the events or commands that
 started it.  In addition, you may define defaults in the job which may
@@ -489,15 +500,15 @@ see
 for more details.
 .\"
 .TP
-.B oom \fIADJUSTMENT\fR|\fBnever
+.B oom score \fIADJUSTMENT\fR|\fBnever
 Normally the OOM killer regards all processes equally, this stanza
 advises the kernel to treat this job differently.
 
 .I ADJUSTMENT
 may be an integer value from
-.I -16
+.I -999
 (very unlikely to be killed by the OOM killer) up to
-.I 14
+.I 1000
 (very likely to be killed by the OOM killer).  It may also be the special
 value
 .B never
@@ -552,10 +563,20 @@ may be specified for either.
 .\"
 .SS Miscellaneous
 .TP
+.B kill signal \fISIGNAL
+Specifies the stopping signal, 
+.I SIGTERM
+by default, a job's main process will receive when stopping the
+running job.
+
+.nf
+kill signal INT
+.fi
+.\"
+.TP
 .B kill timeout \fIINTERVAL
 Specifies the interval between sending the job's main process the
-.I SIGTERM
-and
+"stopping" (see above) and
 .I SIGKILL
 signals when stopping the running job.
 .\"

@@ -2,6 +2,7 @@
  *
  * conf.c - configuration management
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -253,7 +254,7 @@ conf_reload (void)
  * out for editors that rename over the top, etc.
  *
  * We then parse the current state of the source.  The flag member is
- * toggled first, and this is propogated to all new and modified files and
+ * toggled first, and this is propagated to all new and modified files and
  * items that we find as a result of parsing.  Once done, we scan for
  * anything with the wrong flag, and delete them.
  *
@@ -396,7 +397,7 @@ conf_source_reload_file (ConfSource *source)
  * tree.
  *
  * Otherwise we walk the tree ourselves and parse all files that we find,
- * propogating the value of the flag member to all files so that deletion
+ * propagating the value of the flag member to all files so that deletion
  * can be detected by the calling function.
  *
  * Returns: zero on success, negative value on raised error.
@@ -523,7 +524,7 @@ conf_dir_filter (ConfSource *source,
 		return nih_file_ignore (NULL, path);
 
 	ptr = strrchr (path, '.');
-	if (ptr && (! strcmp (ptr, ".conf")))
+	if (ptr && (ptr > path) && (ptr[-1] != '/') && (! strcmp (ptr, ".conf")))
 		return FALSE;
 
 	return TRUE;

@@ -1,5 +1,6 @@
 /* upstart
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2009 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -43,7 +44,6 @@ const char *  environ_get       (char * const *env, const char *key);
 const char *  environ_getn      (char * const *env, const char *key,
 				 size_t len);
 
-int           environ_valid     (const char *key, size_t len);
 int           environ_all_valid (char * const *env);
 
 char *        environ_expand    (const void *parent, const char *string,

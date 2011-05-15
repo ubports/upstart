@@ -2,7 +2,8 @@
  *
  * test_job_process.c - test suite for init/job_process.c
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Google Inc.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,6 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <utmp.h>
+#include <utmpx.h>
 
 #include <nih/macros.h>
 #include <nih/string.h>
@@ -800,6 +803,7 @@ test_spawn (void)
 	siginfo_t         info;
 	NihError         *err;
 	JobProcessError  *perr;
+	int               status;
 
 	TEST_FUNCTION ("job_process_spawn");
 	TEST_FILENAME (filename);
@@ -818,7 +822,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test");
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -856,7 +860,7 @@ test_spawn (void)
 	class = job_class_new (NULL, "test");
 	class->console = CONSOLE_NONE;
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -882,7 +886,7 @@ test_spawn (void)
 	class = job_class_new (NULL, "test");
 	class->chdir = "/tmp";
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -910,7 +914,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test");
 
-	pid = job_process_spawn (class, args, env, FALSE);
+	pid = job_process_spawn (class, args, env, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -935,7 +939,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test");
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -955,7 +959,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test");
 
-	pid = job_process_spawn (class, args, NULL, TRUE);
+	pid = job_process_spawn (class, args, NULL, TRUE, -1);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -984,7 +988,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test");
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_LT (pid, 0);
 
 	err = nih_error_get ();
@@ -996,6 +1000,38 @@ test_spawn (void)
 	TEST_EQ (perr->arg, 0);
 	TEST_EQ (perr->errnum, ENOENT);
 	nih_free (perr);
+
+	/* Check that we can spawn a job and pause it
+	 */
+	TEST_FEATURE ("with debug enabled");
+
+	class = job_class_new (NULL, "test");
+	class->debug = TRUE;
+
+	sprintf (function, "%s", "/bin/true");
+	args[0] = function;
+	args[1] = function;
+	args[2] = NULL;
+
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	/* Ensure process is still running after some period of time.
+	 *
+	 * If it hasn't stopped as we expect it will certainly have finished by now,
+	 * thanks to the sleep.
+	 */
+	sleep (1);
+	assert0 (kill(pid, 0));
+
+	TEST_GE (waitid (P_PID, pid, &info, WNOHANG | WUNTRACED), 0);
+	TEST_EQ (info.si_code, CLD_STOPPED);
+	TEST_EQ (info.si_status, SIGSTOP);
+
+	assert0 (kill(pid, SIGCONT));
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
 	nih_free (class);
 }
@@ -1917,10 +1953,7 @@ test_handler (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		TEST_DIVERT_STDERR (output) {
-			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
-		}
-		rewind (output);
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -1950,11 +1983,6 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}
@@ -2263,10 +2291,7 @@ test_handler (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		TEST_DIVERT_STDERR (output) {
-			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
-		}
-		rewind (output);
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -2296,11 +2321,6 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}
@@ -4468,6 +4488,242 @@ test_find (void)
 }
 
 
+void
+test_utmp (void)
+{
+	JobClass *      class;
+	Job *           job = NULL;
+	Blocked *       blocked = NULL;
+	Event *         event;
+	FILE *          output;
+	char            utmpname[PATH_MAX];
+	struct utmpx    utmp, *utmptr;
+	struct timeval  tv;
+
+	TEST_FUNCTION ("job_process_handler");
+	program_name = "test";
+
+	class = job_class_new (NULL, "test");
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = "echo";
+
+	class->start_on = event_operator_new (class, EVENT_MATCH,
+					       "foo", NULL);
+	class->stop_on = event_operator_new (class, EVENT_MATCH,
+					      "foo", NULL);
+	nih_hash_add (job_classes, &class->entry);
+
+	event = event_new (NULL, "foo", NULL);
+
+	TEST_FILENAME(utmpname);
+
+	/* Check that utmp record for the running task of the job terminating
+	 * is properly changed to DEAD_PROCESS
+	 */
+	TEST_FEATURE ("with LOGIN_PROCESS utmp entry");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		output = fopen (utmpname, "w");
+		fclose (output);
+
+		/* set utmp file */
+		utmpxname(utmpname);
+
+		/* set up utmp entries */
+		memset (&utmp, 0, sizeof utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = LOGIN_PROCESS;
+		utmp.ut_pid = 2;
+
+		gettimeofday(&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		setutxent();
+		pututxline(&utmp);
+
+		strcpy(utmp.ut_id, "1");
+		utmp.ut_pid = 1;
+		pututxline(&utmp);
+
+		endutxent();
+
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+
+		setutxent();
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 2);
+		TEST_EQ(utmptr->ut_type, LOGIN_PROCESS);
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 1);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		nih_free (job);
+	}
+	TEST_FEATURE ("with USER_PROCESS utmp entry");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 1;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		output = fopen (utmpname, "w");
+		fclose (output);
+
+		/* set utmp file */
+		utmpxname(utmpname);
+
+		/* set up utmp entries */
+		memset (&utmp, 0, sizeof utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = USER_PROCESS;
+		utmp.ut_pid = 2;
+
+		gettimeofday(&tv, NULL);
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+
+		setutxent();
+		pututxline(&utmp);
+
+		strcpy(utmp.ut_id, "1");
+		utmp.ut_pid = 1;
+		pututxline(&utmp);
+
+		endutxent();
+
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+
+		setutxent();
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 2);
+		TEST_EQ(utmptr->ut_type, USER_PROCESS);
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 1);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		nih_free (job);
+	}
+
+	/* new mingetty doesn't use entries with DEAD_PROCESS until it's last entry so
+	 * we need to check if upstart sets DEAD_PROCESS for correct entry */
+	TEST_FEATURE ("with multiple entries with same ut_id");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		job->pid[PROCESS_MAIN] = 2;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		output = fopen (utmpname, "w");
+		fclose (output);
+
+		/* set utmp file */
+		utmpxname(utmpname);
+
+		/* set up utmp entries */
+		memset (&utmp, 0, sizeof utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = DEAD_PROCESS;
+		utmp.ut_pid = 1;
+
+		gettimeofday(&tv, NULL);
+		utmp.ut_time = 0;
+
+		setutxent();
+		pututxline(&utmp);
+
+		strcpy(utmp.ut_id, "2");
+		utmp.ut_type = USER_PROCESS;
+		utmp.ut_pid = 2;
+		utmp.ut_tv.tv_sec = tv.tv_sec;
+		utmp.ut_tv.tv_usec = tv.tv_usec;
+		pututxline(&utmp);
+
+		endutxent();
+
+		job_process_handler (NULL, 2, NIH_CHILD_EXITED, 0);
+
+		setutxent();
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 1);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+
+		utmptr = getutxent();
+		TEST_NE_P(utmptr, NULL);
+		TEST_EQ(utmptr->ut_pid, 2);
+		TEST_EQ(utmptr->ut_type, DEAD_PROCESS);
+		TEST_EQ(utmptr->ut_time, 0);
+
+		nih_free (job);
+	}
+}
+
+
 int
 main (int   argc,
       char *argv[])
@@ -4499,6 +4755,7 @@ main (int   argc,
 	test_spawn ();
 	test_kill ();
 	test_handler ();
+	test_utmp ();
 
 	test_find ();
 
