@@ -4799,6 +4799,39 @@ test_stanza_kill (void)
 	}
 
 
+	/* Check that a kill stanza with the signal argument and signal,
+	 * sets the right signal on the jobs class.
+	 */
+	TEST_FEATURE ("with signal and single argument");
+	strcpy (buf, "kill signal INT\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->kill_signal, SIGINT);
+
+		nih_free (job);
+	}
+
+
 	/* Check that the last of multiple kill stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple timeout and single argument stanzas");
@@ -4827,6 +4860,37 @@ test_stanza_kill (void)
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
 		TEST_EQ (job->kill_timeout, 10);
+
+		nih_free (job);
+	}
+
+
+	TEST_FEATURE ("with multiple signal and single argument stanzas");
+	strcpy (buf, "kill signal INT\n");
+	strcat (buf, "kill signal TERM\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->kill_signal, SIGTERM);
 
 		nih_free (job);
 	}
@@ -4885,6 +4949,25 @@ test_stanza_kill (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill stanza with the timeout argument but no timeout
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with signal and missing argument");
+	strcpy (buf, "kill signal\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 11);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -4965,6 +5048,25 @@ test_stanza_kill (void)
 	nih_free (err);
 
 
+	/* Check that a kill signal stanza with an unknown signal argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with signal and unknown signal argument");
+	strcpy (buf, "kill signal foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_SIGNAL);
+	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
 	/* Check that a kill stanza with the timeout argument and timeout,
 	 * but with an extra argument afterwards results in a syntax
 	 * error.
@@ -4975,6 +5077,26 @@ test_stanza_kill (void)
 	pos = 0;
 	lineno = 1;
 	job = parse_job (NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill stanza with the signal argument and signal,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with signal and extra argument");
+	strcpy (buf, "kill signal INT foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6161,6 +6283,8 @@ test_stanza_nice (void)
 	nih_free (err);
 }
 
+#define ADJ_TO_SCORE(x) ((x * 1000) / ((x < 0) ? 17 : 15))
+
 void
 test_stanza_oom (void)
 {
@@ -6198,11 +6322,39 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, 10);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(10));
 
 		nih_free (job);
 	}
 
+	TEST_FEATURE ("with positive score argument");
+	strcpy (buf, "oom score 100\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, 100);
+
+		nih_free (job);
+	}
 
 	/* Check that an oom stanza with a negative timeout results
 	 * in it being stored in the job.
@@ -6231,7 +6383,36 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, -10);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(-10));
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with negative score argument");
+	strcpy (buf, "oom score -100\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, -100);
 
 		nih_free (job);
 	}
@@ -6264,7 +6445,40 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, -17);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(-17));
+
+		nih_free (job);
+	}
+
+
+	/* Check that an oom score stanza may have the special never
+	 *  argument which stores -1000 in the job.
+	 */
+	TEST_FEATURE ("with never score argument");
+	strcpy (buf, "oom score never\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, -1000);
 
 		nih_free (job);
 	}
@@ -6297,7 +6511,100 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, 10);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(10));
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with multiple score stanzas");
+	strcpy (buf, "oom score -500\n");
+	strcat (buf, "oom score 500\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, 500);
+
+		nih_free (job);
+	}
+
+	/* Check that the last of multiple distinct oom stanzas is
+	 * used.
+	 */
+	TEST_FEATURE ("with an oom overriding an oom score stanza");
+	strcpy (buf, "oom score -10\n");
+	strcat (buf, "oom 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(10));
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with an oom score overriding an oom stanza");
+	strcpy (buf, "oom -10\n");
+	strcat (buf, "oom score 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, 10);
 
 		nih_free (job);
 	}
@@ -6322,6 +6629,25 @@ test_stanza_oom (void)
 	nih_free (err);
 
 
+	/* Check that an oom score stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing score argument");
+	strcpy (buf, "oom score\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
 	/* Check that an oom stanza with an overly large argument results
 	 * in a syntax error.
 	 */
@@ -6337,6 +6663,21 @@ test_stanza_oom (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
 	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with overly large score argument");
+	strcpy (buf, "oom score 1200\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6359,6 +6700,21 @@ test_stanza_oom (void)
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
+	TEST_FEATURE ("with overly small score argument");
+	strcpy (buf, "oom score -1200\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
 
 	/* Check that an oom stanza with a non-integer argument results
 	 * in a syntax error.
@@ -6375,6 +6731,21 @@ test_stanza_oom (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
 	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with non-integer score argument");
+	strcpy (buf, "oom score foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6397,6 +6768,21 @@ test_stanza_oom (void)
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
+	TEST_FEATURE ("with alphanumeric score argument");
+	strcpy (buf, "oom score 12foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
 
 	/* Check that an oom stanza with a priority but with an extra
 	 * argument afterwards results in a syntax error.
@@ -6413,6 +6799,21 @@ test_stanza_oom (void)
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with extra score argument");
+	strcpy (buf, "oom score 500 foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 14);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }

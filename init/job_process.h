@@ -1,5 +1,6 @@
 /* upstart
  *
+ * Copyright © 2011 Google Inc.
  * Copyright © 2009,2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
@@ -32,12 +33,23 @@
 
 
 /**
+ * JOB_PROCESS_SCRIPT_FD:
+ *
+ * The special fd used to pass the script to the shell process, this can be
+ * anything from 3-9 (0-2 are stdin/out/err, 10 and above aren't guaranteed
+ * by POSIX).
+ **/
+#define JOB_PROCESS_SCRIPT_FD 9
+
+
+/**
  * JobProcessErrorType:
  *
  * These constants represent the different steps of process spawning that
  * can produce an error.
  **/
 typedef enum job_process_error_type {
+	JOB_PROCESS_ERROR_DUP,
 	JOB_PROCESS_ERROR_CONSOLE,
 	JOB_PROCESS_ERROR_RLIMIT,
 	JOB_PROCESS_ERROR_PRIORITY,
@@ -82,7 +94,7 @@ NIH_BEGIN_EXTERN
 int    job_process_run     (Job *job, ProcessType process);
 
 pid_t  job_process_spawn   (JobClass *class, char * const argv[],
-			    char * const *env, int trace)
+			    char * const *env, int trace, int script_fd)
 	__attribute__ ((warn_unused_result));
 
 void   job_process_kill    (Job *job, ProcessType process);
