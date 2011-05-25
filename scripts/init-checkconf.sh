@@ -37,8 +37,13 @@ check_scripts=y
 
 cleanup()
 {
-  kill -0 "$upstart_pid" >/dev/null 2>&1 && \
-  kill -9 "$upstart_pid" >/dev/null 2>&1
+  if [ ! -z "$upstart_pid" ]
+  then
+    debug "stopping secondary Upstart (running with PID $upstart_pid)"
+    kill -0 "$upstart_pid" >/dev/null 2>&1 && \
+    kill -9 "$upstart_pid" >/dev/null 2>&1
+  fi
+
   [ -d "$confdir" ] && rm -rf "$confdir"
   [ $file_valid = y ] && exit 0
   exit 1
@@ -84,6 +89,15 @@ die()
 {
   error "$*"
   exit 1
+}
+
+# Return 0 if Upstart is running on the D-Bus session bus, else 1.
+upstart_running()
+{
+  dbus-send --session --print-reply \
+    --dest='com.ubuntu.Upstart' /com/ubuntu/Upstart \
+    org.freedesktop.DBus.Properties.GetAll \
+    string:'com.ubuntu.Upstart0_6' >/dev/null 2>&1
 }
 
 trap cleanup EXIT INT TERM
@@ -171,6 +185,10 @@ job="${filename%.conf}"
 cp "$file" "$confdir"
 debug "job=$job"
 
+upstart_running
+[ $? -eq 0 ] && die "Another instance of this program is already running"
+debug "ok - no other running instances detected"
+
 upstart_out="$(mktemp --tmpdir "${script_name}-upstart-output.XXXXXXXXXX")"
 debug "upstart_out=$upstart_out"
 
@@ -191,10 +209,7 @@ disown
 for i in $(seq 1 5)
 do
   debug "Waiting for Upstart to reply over D-Bus (attempt $i)"
-  dbus-send --session --print-reply \
-    --dest='com.ubuntu.Upstart' /com/ubuntu/Upstart \
-    org.freedesktop.DBus.Properties.GetAll \
-    string:'com.ubuntu.Upstart0_6' >/dev/null 2>&1
+  upstart_running
   if [ $? -eq 0 ]
   then
     running=y
@@ -221,7 +236,8 @@ then
   done
 fi
 
-if "$initctl_path" --session status "$job" >/dev/null 2>&1
+"$initctl_path" --session list|grep -q "^${job}"
+if [ $? -eq 0 ]
 then
   file_valid=y
   echo "File $file: syntax ok"
